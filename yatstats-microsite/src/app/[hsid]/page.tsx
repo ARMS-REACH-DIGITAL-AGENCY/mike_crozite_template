@@ -22,7 +22,6 @@ async function getSchool(hsid: string): Promise<School | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/schools/${hsid}`, {
-      cache: 'revalidate',
       next: { revalidate: 3600 }, // Cache for 1 hour
     });
     if (!res.ok) return null;
@@ -37,7 +36,6 @@ async function getPlayers(hsid: string): Promise<Player[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/players/${hsid}`, {
-      cache: 'revalidate',
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];
