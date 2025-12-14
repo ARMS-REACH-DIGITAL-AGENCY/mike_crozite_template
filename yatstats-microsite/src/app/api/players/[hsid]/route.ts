@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 
-type Params = {
-  hsid: string;
-};
-
 export async function GET(
   request: Request,
-  { params }: { params: Params }
+  context: { params: Promise<{ hsid: string }> }
 ) {
-  const { hsid } = params;
+  const { hsid } = await context.params;
 
   return NextResponse.json({ hsid });
 }
