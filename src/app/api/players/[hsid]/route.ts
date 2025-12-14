@@ -1,10 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  _request: Request,
-  { params }: { params: { hsid: string } }
+  request: NextRequest,
+  context: { params: Promise<{ hsid: string }> }
 ) {
-  return NextResponse.json({ hsid: params.hsid });
+  const { hsid } = await context.params;
+
+  return NextResponse.json({ hsid });
 }
+
 
 
