@@ -1,39 +1,49 @@
-// src/app/api/schools/[hsid]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { NextResponse } from "next/server";
+import { Pool } from "pg";
 
-// Create a Postgres connection pool using DATABASE_URL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+export const runtime = "nodejs";
 
 export async function GET(
-  request: NextRequest,
+  _req: Request,
   { params }: { params: { hsid: string } }
 ) {
-  const { hsid } = params;
+  const hsid = params.hsid;
+
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    return NextResponse.json(
+      { error: "DATABASE_URL is missing in Vercel environment variables." },
+      { status: 500 }
+    );
+  }
+
+  const pool = new Pool({ connectionString });
 
   try {
-    // Query the tbc_schools_raw table for the matching HSID
-    const { rows } = await pool.query(
-      'SELECT * FROM tbc_schools_raw WHERE hsid = $1',
-      [hsid],
+    // This does NOT change your database.
+    // It only asks the database: "what columns exist in these tables?"
+    const cols = await pool.query(
+      `
+      select table_name, column_name
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name in ('tbc_players_raw', 'tbc_schools_raw')
+      order by table_name, ordinal_position;
+      `
     );
 
-    if (rows.length === 0) {
-      return NextResponse.json(
-        { error: `School with HSID ${hsid} not found` },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json(rows[0]);
-  } catch (error) {
-    console.error('Error fetching school:', error);
+    return NextResponse.json({
+      hsid,
+      message: "DB connection works. Here are the columns in your key tables.",
+      columns: cols.rows,
+    });
+  } catch (err: any) {
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
+      { error: err?.message ?? String(err) },
+      { status: 500 }
     );
+  } finally {
+    await pool.end();
   }
 }
