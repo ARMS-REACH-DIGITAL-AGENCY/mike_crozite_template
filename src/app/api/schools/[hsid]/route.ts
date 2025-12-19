@@ -34,10 +34,9 @@ export async function GET(
     );
 
     return NextResponse.json({
-      hsid,
-      message: "DB connection works. Here are the columns in your key tables.",
-      columns: cols.rows,
-    });
+  stamp: "ST-5004-TEST-1",
+  hsid,
+});
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message ?? String(err) },
