@@ -1,24 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server';
-import type { RouteContext } from 'next';
+import type { NextRequest } from 'next/server';
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+type PitchingParams = { hsid: string };
+
+// Reuse the pool across hot reloads / serverless invocations where possible.
+declare global {
+  // eslint-disable-next-line no-var
+  var __pgPool: Pool | undefined;
+}
+
+function getPool() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set');
+  }
+
+  if (!globalThis.__pgPool) {
+    globalThis.__pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      // optional hardening defaults:
+      max: 5,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
+    });
+  }
+
+  return globalThis.__pgPool;
+}
 
 /**
- * GET handler for pitching statistics by high-school ID (hsid).
- *
- * NOTE: Update join keys/columns if your schema differs.
+ * Next.js 16 route handlers type `context.params` as a Promise.
+ * This signature matches that exactly (no RouteContext import needed).
  */
 export async function GET(
   _request: NextRequest,
-  ctx: RouteContext<'/api/pitching/[hsid]'>,
-) {
-  const { hsid } = await ctx.params;
+  context: { params: Promise<PitchingParams> }
+): Promise<Response> {
+  const { hsid } = await context.params;
+
+  if (!hsid || typeof hsid !== 'string') {
+    return Response.json({ error: 'Missing or invalid hsid' }, { status: 400 });
+  }
 
   try {
+    const pool = getPool();
+
+    // NOTE: If your join keys differ, update ONLY the ON clause.
     const query = `
       SELECT p.*
       FROM tbc_pitching_raw p
@@ -26,10 +53,16 @@ export async function GET(
       WHERE pl.hsid = $1
     `;
 
-    const { rows } = await pool.query(query, [hsid]);
-    return NextResponse.json(rows);
-  } catch (error) {
-    console.error('Error fetching pitching stats by hsid:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const result = await pool.query(query, [hsid]);
+    return Response.json(result.rows, {
+      status: 200,
+      headers: {
+        // helpful defaults
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch (err) {
+    console.error('[pitching/[hsid]] GET failed:', err);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
