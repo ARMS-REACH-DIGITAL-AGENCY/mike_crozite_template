@@ -1,51 +1,25 @@
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
-type PitchingParams = { hsid: string };
+export const runtime = 'nodejs'; // pg requires node runtime
 
-// Reuse the pool across hot reloads / serverless invocations where possible.
-declare global {
-  // eslint-disable-next-line no-var
-  var __pgPool: Pool | undefined;
-}
+type Params = { hsid: string };
+type RouteCtx = { params: Params | Promise<Params> };
 
-function getPool() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is not set');
-  }
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-  if (!globalThis.__pgPool) {
-    globalThis.__pgPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      // optional hardening defaults:
-      max: 5,
-      idleTimeoutMillis: 10_000,
-      connectionTimeoutMillis: 10_000,
-    });
-  }
+export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
+  // Works whether ctx.params is an object OR a Promise (Next 15/16 typing differences)
+  const { hsid } = await Promise.resolve(ctx.params);
 
-  return globalThis.__pgPool;
-}
-
-/**
- * Next.js 16 route handlers type `context.params` as a Promise.
- * This signature matches that exactly (no RouteContext import needed).
- */
-export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<PitchingParams> }
-): Promise<Response> {
-  const { hsid } = await context.params;
-
-  if (!hsid || typeof hsid !== 'string') {
-    return Response.json({ error: 'Missing or invalid hsid' }, { status: 400 });
+  if (!hsid) {
+    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
   }
 
   try {
-    const pool = getPool();
-
-    // NOTE: If your join keys differ, update ONLY the ON clause.
     const query = `
       SELECT p.*
       FROM tbc_pitching_raw p
@@ -53,16 +27,11 @@ export async function GET(
       WHERE pl.hsid = $1
     `;
 
-    const result = await pool.query(query, [hsid]);
-    return Response.json(result.rows, {
-      status: 200,
-      headers: {
-        // helpful defaults
-        'Cache-Control': 'no-store',
-      },
-    });
+    const { rows } = await pool.query(query, [hsid]);
+    return NextResponse.json(rows, { status: 200 });
   } catch (err) {
-    console.error('[pitching/[hsid]] GET failed:', err);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error fetching pitching stats by hsid:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
