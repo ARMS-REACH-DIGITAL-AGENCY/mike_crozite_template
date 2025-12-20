@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
-export const runtime = 'nodejs'; // pg requires node runtime
-
-type Params = { hsid: string };
-type RouteCtx = { params: Params | Promise<Params> };
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -16,9 +11,6 @@ export async function GET(
   context: { params: Promise<{ hsid: string }> },
 ): Promise<Response> {
   const { hsid } = await context.params;
-  // ...existing logic...
-}
-
 
   try {
     const query = `
@@ -35,4 +27,3 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
