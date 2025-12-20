@@ -1,46 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { RouteContext } from 'next';
 import { Pool } from 'pg';
 
-// Connection pool to the PostgreSQL database.  The DATABASE_URL
-// environment variable should already be configured for your Neon
-// project.  SSL is enabled to allow secure connections.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
 /**
- * GET handler for pitching statistics by high‑school ID (hsid).
+ * GET handler for pitching statistics by high-school ID (hsid).
  *
- * The tbc_pitching_raw table does not include an hsid column, so we
- * join against tbc_players_raw on the player identifier.  This join
- * allows us to return all pitching rows for players whose high‑school
- * ID matches the requested hsid.
- *
- * NOTE: Replace `playerid` with the actual column names used to join
- * your pitching and players tables.  For example, if pitching uses
- * `pid` and players uses `player_id`, update the ON clause
- * accordingly.
+ * NOTE: Update join keys/columns if your schema differs.
  */
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { hsid: string } }
+  _request: NextRequest,
+  ctx: RouteContext<'/api/pitching/[hsid]'>,
 ) {
-  const { hsid } = params;
+  const { hsid } = await ctx.params;
+
   try {
     const query = `
-      SELECT s.*
-      FROM tbc_pitching_raw s
-      JOIN tbc_players_raw p ON s.playerid = p.playerid
-      WHERE p.hsid = $1
+      SELECT p.*
+      FROM tbc_pitching_raw p
+      JOIN tbc_players_raw pl ON p.playerid = pl.playerid
+      WHERE pl.hsid = $1
     `;
+
     const { rows } = await pool.query(query, [hsid]);
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Error fetching pitching stats by hsid:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
