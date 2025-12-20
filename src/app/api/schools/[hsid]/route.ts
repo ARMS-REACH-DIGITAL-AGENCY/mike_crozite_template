@@ -4,9 +4,11 @@ import { Pool } from "pg";
 export const runtime = "nodejs";
 
 export async function GET(
-  request: Request,
-  context: { params: { hsid: string } }
-) {
+  _req: NextRequest,
+  context: { params: Promise<{ hsid: string }> },
+): Promise<Response> {
+  const { hsid } = await context.params;
+
   const hsid = context.params.hsid;
 
   return NextResponse.json({
