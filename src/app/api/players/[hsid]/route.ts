@@ -8,9 +8,12 @@ const pool = new Pool({
 });
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { hsid: string } }
-) {
+  _req: NextRequest,
+  context: { params: Promise<{ hsid: string }> },
+): Promise<Response> {
+  const { hsid } = await context.params;
+
+
   const { hsid } = params;
 
   try {
