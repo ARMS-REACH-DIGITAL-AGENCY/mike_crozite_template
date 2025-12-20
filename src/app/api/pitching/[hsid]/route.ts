@@ -11,13 +11,14 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
-  // Works whether ctx.params is an object OR a Promise (Next 15/16 typing differences)
-  const { hsid } = await Promise.resolve(ctx.params);
+export async function GET(
+  _req: NextRequest,
+  context: { params: Promise<{ hsid: string }> },
+): Promise<Response> {
+  const { hsid } = await context.params;
+  // ...existing logic...
+}
 
-  if (!hsid) {
-    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
-  }
 
   try {
     const query = `
