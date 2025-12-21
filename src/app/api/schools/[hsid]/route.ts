@@ -1,18 +1,14 @@
-import { NextResponse } from "next/server";
-import { Pool } from "pg";
-
-export const runtime = "nodejs";
+// /src/app/api/schools/[hsid]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
-  _req: NextRequest,
-  context: { params: Promise<{ hsid: string }> },
-): Promise<Response> {
-  const { hsid } = await context.params;
-
-  const hsid = context.params.hsid;
+  request: NextRequest,
+  { params }: { params: { hsid: string } }
+) {
+  const { hsid } = params;
 
   return NextResponse.json({
-    stamp: "ST-5004-TEST-1",
-    hsid,
+    stamp: 'ST-5004-TEST-1',
+    hsid,  // Echoes back the dynamic hsid value for testing
   });
 }
