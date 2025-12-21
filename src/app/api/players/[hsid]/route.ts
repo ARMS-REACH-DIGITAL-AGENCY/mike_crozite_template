@@ -9,16 +9,15 @@ const pool = new Pool({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hsid: string } }
+  { params }: { params: Promise<{ hsid: string }> }
 ) {
-  const { hsid } = params;
+  const { hsid } = await params;
 
   try {
     const { rows } = await pool.query(
       'SELECT * FROM tbc_players_raw WHERE hsid = $1 ORDER BY lastname, firstname',
       [hsid]
     );
-
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Error fetching players:', error);
