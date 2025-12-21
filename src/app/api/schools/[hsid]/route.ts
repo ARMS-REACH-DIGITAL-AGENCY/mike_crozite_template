@@ -1,4 +1,4 @@
-// /src/app/api/players/[hsid]/route.ts
+// /src/app/api/schools/[hsid]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
@@ -11,19 +11,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ hsid: string }> }
 ) {
-  const { hsid } = await params;
+  const resolvedParams = await params;
+  const { hsid } = resolvedParams;
 
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM tbc_players_raw WHERE hsid = $1 ORDER BY lastname, firstname',
+      'SELECT * FROM public.tbc_schools_raw WHERE hsid = $1',
       [hsid]
     );
     return NextResponse.json(rows);
   } catch (error) {
-    console.error('Error fetching players:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error fetching school:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
