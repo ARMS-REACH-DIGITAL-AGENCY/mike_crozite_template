@@ -13,9 +13,6 @@ export async function GET(
 ): Promise<Response> {
   const { hsid } = await context.params;
 
-
-  const { hsid } = params;
-
   try {
     const { rows } = await pool.query(
       'SELECT * FROM tbc_players_raw WHERE hsid = $1 ORDER BY lastname, firstname',
