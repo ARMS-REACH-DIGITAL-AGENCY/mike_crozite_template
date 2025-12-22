@@ -16,7 +16,6 @@ function getPool() {
 
     global.__yatstatsPool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      // Keep this as you had it; adjust later if you switch to a managed Postgres that needs different SSL behavior.
       ssl: { rejectUnauthorized: false },
       max: 5,
       idleTimeoutMillis: 30_000,
@@ -32,48 +31,12 @@ function safeText(value: unknown) {
   return String(value);
 }
 
-function getHostFromHeaders() {
-  const h = headers();
-  // Prefer forwarded host when behind proxies (Vercel, Cloudflare, etc.)
-  return (
-    h.get('x-forwarded-host') ||
-    h.get('host') ||
-    // very last fallback
-    'yatstats.com'
-  );
-}
-
-function getHsidFromHost(rawHost: string) {
-  const host = rawHost.split(':')[0].trim().toLowerCase();
-
-  // Treat these as "main domain" / no HSID
-  if (
-    host === 'yatstats.com' ||
-    host === 'www.yatstats.com' ||
-    host === 'localhost' ||
-    host.endsWith('.localhost')
-  ) {
-    const parts = host.split('.').filter(Boolean);
-    // If using something like 5004.localhost, parts = ["5004","localhost"]
-    if (parts.length >= 2 && parts[0] !== 'www' && parts[0] !== 'yatstats' && parts[0] !== 'localhost') {
-      return parts[0];
-    }
-    return 'yatstats';
-  }
-
-  const parts = host.split('.').filter(Boolean);
-  const sub = parts[0] || 'yatstats';
-  if (sub === 'www') return 'yatstats';
-  return sub;
-}
-
-type AnyRow = Record<string, any>;
-
 export default async function Home() {
-  const host = getHostFromHeaders();
-  const hsid = getHsidFromHost(host);
+  const headerList = headers();
+  const host = headerList.get('host') || 'yatstats.com';
+  const hsid = host.split('.')[0] || 'yatstats';
 
-  // Main domain (no HSID subdomain)
+  // Root domain
   if (hsid === 'yatstats') {
     return (
       <main
@@ -82,12 +45,13 @@ export default async function Home() {
           textAlign: 'center',
           background: '#0c0c0c',
           color: '#f2f2f2',
-          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
+          fontFamily:
+            'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
         }}
       >
         <h1 style={{ marginBottom: 12 }}>Welcome to YATSTATS</h1>
         <p style={{ margin: 0 }}>
-          Visit a school microsite by adding the HSID as subdomain, e.g.,{' '}
+          Visit a school microsite using a subdomain, e.g.{' '}
           <strong>5004.yatstats.com</strong>
         </p>
       </main>
@@ -97,9 +61,12 @@ export default async function Home() {
   try {
     const pool = getPool();
 
-    // 1) School lookup by HSID
-    const schoolQuery = await pool.query('SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1', [hsid]);
-    const school: AnyRow | undefined = schoolQuery.rows?.[0];
+    // School
+    const schoolQuery = await pool.query(
+      'SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1',
+      [hsid]
+    );
+    const school = schoolQuery.rows?.[0];
 
     if (!school) {
       return (
@@ -113,40 +80,40 @@ export default async function Home() {
     if (!hs_lookup_key) {
       return (
         <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
-          <h1>School is missing hs_lookup_key for HSID {hsid}</h1>
+          <h1>School missing lookup key</h1>
         </main>
       );
     }
 
-    // 2) Players by high_school lookup key
-    const playersQuery = await pool.query('SELECT * FROM public.tbc_players_raw WHERE high_school = $1', [
-      hs_lookup_key,
-    ]);
-    const players: AnyRow[] = playersQuery.rows || [];
+    // Players
+    const playersQuery = await pool.query(
+      'SELECT * FROM public.tbc_players_raw WHERE high_school = $1',
+      [hs_lookup_key]
+    );
+    const players = playersQuery.rows || [];
 
-    // 3) Stats per player (batting + pitching) — batch (no N+1)
-    const playerIds = players.map((p) => p.playerid).filter(Boolean);
-    let battingById = new Map<string, AnyRow>();
-    let pitchingById = new Map<string, AnyRow>();
+    const playerData = await Promise.all(
+      players.map(async (player) => {
+        const playerid = player.playerid;
 
-    if (playerIds.length) {
-      const [battingQuery, pitchingQuery] = await Promise.all([
-        pool.query('SELECT * FROM public.tbc_batting_raw WHERE playerid = ANY($1::text[])', [playerIds]),
-        pool.query('SELECT * FROM public.tbc_pitching_raw WHERE playerid = ANY($1::text[])', [playerIds]),
-      ]);
+        const [battingQuery, pitchingQuery] = await Promise.all([
+          pool.query(
+            'SELECT * FROM public.tbc_batting_raw WHERE playerid = $1 LIMIT 1',
+            [playerid]
+          ),
+          pool.query(
+            'SELECT * FROM public.tbc_pitching_raw WHERE playerid = $1 LIMIT 1',
+            [playerid]
+          ),
+        ]);
 
-      battingById = new Map(battingQuery.rows.map((r: AnyRow) => [String(r.playerid), r]));
-      pitchingById = new Map(pitchingQuery.rows.map((r: AnyRow) => [String(r.playerid), r]));
-    }
-
-    const playerData = players.map((player) => {
-      const id = String(player.playerid);
-      return {
-        ...player,
-        batting: battingById.get(id) || null,
-        pitching: pitchingById.get(id) || null,
-      };
-    });
+        return {
+          ...player,
+          batting: battingQuery.rows?.[0] || null,
+          pitching: pitchingQuery.rows?.[0] || null,
+        };
+      })
+    );
 
     const schoolName = safeText(school.hsname) || 'School';
     const city = safeText(school.cityname);
@@ -158,11 +125,14 @@ export default async function Home() {
           background: '#0c0c0c',
           color: '#f2f2f2',
           padding: 20,
-          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
+          fontFamily:
+            'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
         }}
       >
         <header style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: '2.25rem', margin: 0 }}>{schoolName} ACTIVE BASEBALL ALUMNI</h1>
+          <h1 style={{ fontSize: '2.25rem', margin: 0 }}>
+            {schoolName} ACTIVE BASEBALL ALUMNI
+          </h1>
           <p style={{ marginTop: 8, opacity: 0.85 }}>
             {city}
             {city && region ? ', ' : ''}
@@ -171,7 +141,7 @@ export default async function Home() {
         </header>
 
         {playerData.length === 0 ? (
-          <p style={{ opacity: 0.85 }}>No players found for this school.</p>
+          <p>No players found.</p>
         ) : (
           <div className="grid">
             {playerData.map((player) => {
@@ -183,52 +153,55 @@ export default async function Home() {
               const team = safeText(player.team);
               const photo = safeText(player.photo_url) || '/placeholder.jpg';
 
-              const lastgame = safeText(batting.lastgame) || safeText(pitching.lastgame) || 'N/A';
+              const lastgame =
+                safeText(batting.lastgame) ||
+                safeText(pitching.lastgame) ||
+                'N/A';
 
-              const avg = batting.avg ?? batting.bavg ?? null;
-              const hr = batting.hr ?? null;
-
-              const era = pitching.era ?? null;
-              const k = pitching.k ?? pitching.so ?? null;
+              const avg = batting.avg ?? batting.bavg ?? 'N/A';
+              const hr = batting.hr ?? 'N/A';
+              const era = pitching.era ?? 'N/A';
+              const k = pitching.k ?? pitching.so ?? 'N/A';
 
               return (
-                <div key={player.playerid} className="card" title={`${first} ${last}`}>
+                <div key={player.playerid} className="card">
                   <div className="inner">
                     <div className="front">
                       <img
                         src={photo}
-                        alt={`${first} ${last}`.trim() || 'Player'}
+                        alt={`${first} ${last}`}
                         style={{
                           width: '100%',
                           height: 200,
                           objectFit: 'cover',
-                          borderTopLeftRadius: 12,
-                          borderTopRightRadius: 12,
                         }}
                       />
                       <div style={{ padding: 12 }}>
-                        <h2 style={{ margin: '6px 0 4px 0', fontSize: '1.25rem' }}>
+                        <h2 style={{ margin: 0 }}>
                           {first} {last}
                         </h2>
-                        <p style={{ margin: '0 0 6px 0', opacity: 0.9 }}>{team || '—'}</p>
-                        <p style={{ margin: 0, opacity: 0.8 }}>Last Game: {lastgame}</p>
-                        <p style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>Hover to flip</p>
+                        <p style={{ opacity: 0.9 }}>{team || '—'}</p>
+                        <p style={{ opacity: 0.8 }}>
+                          Last Game: {lastgame}
+                        </p>
+                        <p style={{ fontSize: 12, opacity: 0.7 }}>
+                          Hover to flip
+                        </p>
                       </div>
                     </div>
 
                     <div className="back">
                       <div style={{ padding: 12 }}>
-                        <h2 style={{ margin: '6px 0 10px 0', fontSize: '1.25rem' }}>Stats</h2>
-
-                        <p style={{ margin: '0 0 8px 0', opacity: 0.9 }}>
-                          Batting: AVG {safeText(avg ?? 'N/A')}, HR {safeText(hr ?? 'N/A')}
+                        <h2>Stats</h2>
+                        <p>
+                          Batting: AVG {avg}, HR {hr}
                         </p>
-
-                        <p style={{ margin: 0, opacity: 0.9 }}>
-                          Pitching: ERA {safeText(era ?? 'N/A')}, K {safeText(k ?? 'N/A')}
+                        <p>
+                          Pitching: ERA {era}, K {k}
                         </p>
-
-                        <p style={{ marginTop: 14, opacity: 0.7, fontSize: 12 }}>Hover off to flip back</p>
+                        <p style={{ fontSize: 12, opacity: 0.7 }}>
+                          Hover off to flip back
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -290,7 +263,7 @@ export default async function Home() {
     return (
       <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
         <h1>Error loading microsite</h1>
-        <p style={{ opacity: 0.85, marginTop: 12 }}>{message}</p>
+        <p>{message}</p>
       </main>
     );
   }
