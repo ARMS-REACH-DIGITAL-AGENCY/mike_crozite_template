@@ -32,16 +32,46 @@ function safeText(value: unknown) {
   return String(value);
 }
 
-function safeNum(value: unknown) {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function getHostFromHeaders() {
+  const h = headers();
+  // Prefer forwarded host when behind proxies (Vercel, Cloudflare, etc.)
+  return (
+    h.get('x-forwarded-host') ||
+    h.get('host') ||
+    // very last fallback
+    'yatstats.com'
+  );
 }
 
+function getHsidFromHost(rawHost: string) {
+  const host = rawHost.split(':')[0].trim().toLowerCase();
+
+  // Treat these as "main domain" / no HSID
+  if (
+    host === 'yatstats.com' ||
+    host === 'www.yatstats.com' ||
+    host === 'localhost' ||
+    host.endsWith('.localhost')
+  ) {
+    const parts = host.split('.').filter(Boolean);
+    // If using something like 5004.localhost, parts = ["5004","localhost"]
+    if (parts.length >= 2 && parts[0] !== 'www' && parts[0] !== 'yatstats' && parts[0] !== 'localhost') {
+      return parts[0];
+    }
+    return 'yatstats';
+  }
+
+  const parts = host.split('.').filter(Boolean);
+  const sub = parts[0] || 'yatstats';
+  if (sub === 'www') return 'yatstats';
+  return sub;
+}
+
+type AnyRow = Record<string, any>;
+
 export default async function Home() {
-  const headerList = headers();
-  const host = headerList.get('host') || 'yatstats.com';
-  const hsid = host.split('.')[0] || 'yatstats';
+  const host = getHostFromHeaders();
+  const hsid = getHsidFromHost(host);
 
   // Main domain (no HSID subdomain)
   if (hsid === 'yatstats') {
@@ -68,11 +98,8 @@ export default async function Home() {
     const pool = getPool();
 
     // 1) School lookup by HSID
-    const schoolQuery = await pool.query(
-      'SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1',
-      [hsid]
-    );
-    const school = schoolQuery.rows?.[0];
+    const schoolQuery = await pool.query('SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1', [hsid]);
+    const school: AnyRow | undefined = schoolQuery.rows?.[0];
 
     if (!school) {
       return (
@@ -92,30 +119,34 @@ export default async function Home() {
     }
 
     // 2) Players by high_school lookup key
-    const playersQuery = await pool.query(
-      'SELECT * FROM public.tbc_players_raw WHERE high_school = $1',
-      [hs_lookup_key]
-    );
-    const players = playersQuery.rows || [];
+    const playersQuery = await pool.query('SELECT * FROM public.tbc_players_raw WHERE high_school = $1', [
+      hs_lookup_key,
+    ]);
+    const players: AnyRow[] = playersQuery.rows || [];
 
-    // 3) Stats per player (batting + pitching)
-    // NOTE: This is N+1 queries. Fine for a prototype; optimize later by batching.
-    const playerData = await Promise.all(
-      players.map(async (player) => {
-        const playerid = player.playerid;
+    // 3) Stats per player (batting + pitching) — batch (no N+1)
+    const playerIds = players.map((p) => p.playerid).filter(Boolean);
+    let battingById = new Map<string, AnyRow>();
+    let pitchingById = new Map<string, AnyRow>();
 
-        const [battingQuery, pitchingQuery] = await Promise.all([
-          pool.query('SELECT * FROM public.tbc_batting_raw WHERE playerid = $1 LIMIT 1', [playerid]),
-          pool.query('SELECT * FROM public.tbc_pitching_raw WHERE playerid = $1 LIMIT 1', [playerid]),
-        ]);
+    if (playerIds.length) {
+      const [battingQuery, pitchingQuery] = await Promise.all([
+        pool.query('SELECT * FROM public.tbc_batting_raw WHERE playerid = ANY($1::text[])', [playerIds]),
+        pool.query('SELECT * FROM public.tbc_pitching_raw WHERE playerid = ANY($1::text[])', [playerIds]),
+      ]);
 
-        return {
-          ...player,
-          batting: battingQuery.rows?.[0] || null,
-          pitching: pitchingQuery.rows?.[0] || null,
-        };
-      })
-    );
+      battingById = new Map(battingQuery.rows.map((r: AnyRow) => [String(r.playerid), r]));
+      pitchingById = new Map(pitchingQuery.rows.map((r: AnyRow) => [String(r.playerid), r]));
+    }
+
+    const playerData = players.map((player) => {
+      const id = String(player.playerid);
+      return {
+        ...player,
+        batting: battingById.get(id) || null,
+        pitching: pitchingById.get(id) || null,
+      };
+    });
 
     const schoolName = safeText(school.hsname) || 'School';
     const city = safeText(school.cityname);
@@ -131,9 +162,7 @@ export default async function Home() {
         }}
       >
         <header style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: '2.25rem', margin: 0 }}>
-            {schoolName} ACTIVE BASEBALL ALUMNI
-          </h1>
+          <h1 style={{ fontSize: '2.25rem', margin: 0 }}>{schoolName} ACTIVE BASEBALL ALUMNI</h1>
           <p style={{ marginTop: 8, opacity: 0.85 }}>
             {city}
             {city && region ? ', ' : ''}
@@ -183,9 +212,7 @@ export default async function Home() {
                         </h2>
                         <p style={{ margin: '0 0 6px 0', opacity: 0.9 }}>{team || '—'}</p>
                         <p style={{ margin: 0, opacity: 0.8 }}>Last Game: {lastgame}</p>
-                        <p style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>
-                          Hover to flip
-                        </p>
+                        <p style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>Hover to flip</p>
                       </div>
                     </div>
 
@@ -201,9 +228,7 @@ export default async function Home() {
                           Pitching: ERA {safeText(era ?? 'N/A')}, K {safeText(k ?? 'N/A')}
                         </p>
 
-                        <p style={{ marginTop: 14, opacity: 0.7, fontSize: 12 }}>
-                          Hover off to flip back
-                        </p>
+                        <p style={{ marginTop: 14, opacity: 0.7, fontSize: 12 }}>Hover off to flip back</p>
                       </div>
                     </div>
                   </div>
@@ -216,14 +241,17 @@ export default async function Home() {
         <style jsx>{`
           .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 20px;
+            align-items: start;
           }
 
           .card {
-            width: 300px;
+            width: 100%;
+            max-width: 320px;
             height: 400px;
             perspective: 1000px;
+            justify-self: center;
           }
 
           .inner {
