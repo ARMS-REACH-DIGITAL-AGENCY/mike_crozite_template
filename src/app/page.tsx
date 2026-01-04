@@ -2,31 +2,7 @@
 export const runtime = 'nodejs';
 
 import { headers } from 'next/headers';
-import { Pool } from 'pg';
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __yatstatsPool: Pool | undefined;
-}
-
-function getPool() {
-  if (!global.__yatstatsPool) {
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL is not set');
-    }
-
-    global.__yatstatsPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // Adjust later if your managed Postgres requires different SSL behavior
-      ssl: { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 10_000,
-    });
-  }
-
-  return global.__yatstatsPool;
-}
+import { pool } from '../lib/db';
 
 function safeText(value: unknown) {
   if (value === null || value === undefined) return '';
@@ -60,20 +36,24 @@ export default async function Home() {
       >
         <h1 style={{ marginBottom: 12 }}>Welcome to YATSTATS</h1>
         <p style={{ margin: 0 }}>
-          Visit a school microsite by adding the HSID as subdomain, e.g.,{' '}
-          <strong>5004.yatstats.com</strong>
+          Visit a school microsite by adding the HSID as subdomain, e.g., <strong>5004.yatstats.com</strong>
         </p>
       </main>
     );
   }
 
   try {
-    const pool = getPool();
+    // use the shared pool exported from src/lib/db.ts
+    // (this avoids creating multiple Pool instances in serverless)
+    if (!pool) {
+      throw new Error('Database pool is not available');
+    }
 
     // 1) School lookup by HSID
-    const schoolQuery = await pool.query('SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1', [
-      hsid,
-    ]);
+    const schoolQuery = await pool.query(
+      'SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1',
+      [hsid]
+    );
     const school: AnyRow | undefined = schoolQuery.rows?.[0];
 
     if (!school) {
@@ -94,9 +74,10 @@ export default async function Home() {
     }
 
     // 2) Players by high_school lookup key
-    const playersQuery = await pool.query('SELECT * FROM public.tbc_players_raw WHERE high_school = $1', [
-      hs_lookup_key,
-    ]);
+    const playersQuery = await pool.query(
+      'SELECT * FROM public.tbc_players_raw WHERE high_school = $1',
+      [hs_lookup_key]
+    );
     const players: AnyRow[] = playersQuery.rows || [];
 
     // 3) Stats per player (batting + pitching) — batched (no N+1)
@@ -186,94 +167,3 @@ export default async function Home() {
                           objectFit: 'cover',
                           borderTopLeftRadius: 12,
                           borderTopRightRadius: 12,
-                        }}
-                      />
-                      <div style={{ padding: 12 }}>
-                        <h2 style={{ margin: '6px 0 4px 0', fontSize: '1.25rem' }}>
-                          {first} {last}
-                        </h2>
-                        <p style={{ margin: '0 0 6px 0', opacity: 0.9 }}>{team || '—'}</p>
-                        <p style={{ margin: 0, opacity: 0.8 }}>Last Game: {lastgame}</p>
-                        <p style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>Hover to flip</p>
-                      </div>
-                    </div>
-
-                    <div className="back">
-                      <div style={{ padding: 12 }}>
-                        <h2 style={{ margin: '6px 0 10px 0', fontSize: '1.25rem' }}>Stats</h2>
-
-                        <p style={{ margin: '0 0 8px 0', opacity: 0.9 }}>
-                          Batting: AVG {safeText(avg ?? 'N/A')}, HR {safeText(hr ?? 'N/A')}
-                        </p>
-
-                        <p style={{ margin: 0, opacity: 0.9 }}>
-                          Pitching: ERA {safeText(era ?? 'N/A')}, K {safeText(k ?? 'N/A')}
-                        </p>
-
-                        <p style={{ marginTop: 14, opacity: 0.7, fontSize: 12 }}>Hover off to flip back</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <style jsx>{`
-          .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 20px;
-            align-items: start;
-          }
-
-          .card {
-            width: 100%;
-            max-width: 320px;
-            height: 400px;
-            perspective: 1000px;
-            justify-self: center;
-          }
-
-          .inner {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            transform-style: preserve-3d;
-            transition: transform 0.6s;
-          }
-
-          .card:hover .inner {
-            transform: rotateY(180deg);
-          }
-
-          .front,
-          .back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            backface-visibility: hidden;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-            background: #111;
-          }
-
-          .back {
-            transform: rotateY(180deg);
-            background: #1a1a1a;
-          }
-        `}</style>
-      </main>
-    );
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return (
-      <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
-        <h1>Error loading microsite</h1>
-        <p style={{ opacity: 0.85, marginTop: 12 }}>{message}</p>
-      </main>
-    );
-  }
-}
