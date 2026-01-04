@@ -15,17 +15,25 @@ if (!connectionString) {
 function createPool(): Pool {
   return new Pool({
     connectionString,
-    max: parseInt(process.env.PG_MAX_POOL || '10', 10),
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    // keep using PG_MAX_POOL (matches your existing env var); fallback to 10
+    max: parseInt(process.env.PG_MAX_POOL ?? '10', 10),
+    idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS) || 30000,
+    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS) || 2000,
   });
 }
 
-const pool: Pool = global.__pgPool ?? createPool();
+// prefer globalThis to avoid TS complaints about `global`
+const globalAny: any = globalThis as any;
+const pool: Pool = globalAny.__pgPool ?? createPool();
+
 if (process.env.NODE_ENV !== 'production') {
-  global.__pgPool = pool;
+  globalAny.__pgPool = pool;
 }
 
+// Export the pool itself so files that import `pool` work.
+export { pool };
+
+/** Basic query helper kept for existing code paths */
 export async function query<T = any>(text: string, params: any[] = []): Promise<QueryResult<T>> {
   return pool.query<T>(text, params);
 }
