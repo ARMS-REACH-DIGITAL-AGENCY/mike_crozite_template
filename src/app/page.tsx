@@ -159,11 +159,14 @@ export default async function Home() {
                   <div className="inner">
                     <div className="front">
                       <img
-                        src={photo}
-                        alt={`${first} ${last}`.trim() || 'Player'}
-                        style={{
-                          width: '100%',
-                          height: 200,
-                          objectFit: 'cover',
-                          borderTopLeftRadius: 12,
-                          borderTopRightRadius: 12,
+  src={photo}
+  alt={`${first} ${last}`.trim() || 'Player'}
+  style={{
+    width: '100%',
+    height: 200,
+    objectFit: 'cover',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  }}
+/>
+
