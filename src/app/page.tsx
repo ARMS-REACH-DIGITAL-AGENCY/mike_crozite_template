@@ -2,7 +2,12 @@
 export const runtime = 'nodejs';
 
 import { headers } from 'next/headers';
-import { pool } from '../lib/db';
+import React from 'react';
+import {
+  getSchoolByHsid,
+  getRosterByHsid,
+  getStatsForPlayers,
+} from '../lib/db';
 
 function safeText(value: unknown) {
   if (value === null || value === undefined) return '';
@@ -36,26 +41,16 @@ export default async function Home() {
       >
         <h1 style={{ marginBottom: 12 }}>Welcome to YATSTATS</h1>
         <p style={{ margin: 0 }}>
-          Visit a school microsite by adding the HSID as subdomain, e.g., <strong>5004.yatstats.com</strong>
+          Visit a school microsite by adding the HSID as subdomain, e.g.,{' '}
+          <strong>5004.yatstats.com</strong>
         </p>
       </main>
     );
   }
 
   try {
-    // use the shared pool exported from src/lib/db.ts
-    // (this avoids creating multiple Pool instances in serverless)
-    if (!pool) {
-      throw new Error('Database pool is not available');
-    }
-
     // 1) School lookup by HSID
-    const schoolQuery = await pool.query(
-      'SELECT * FROM public.tbc_schools_raw WHERE hsid = $1 LIMIT 1',
-      [hsid]
-    );
-    const school: AnyRow | undefined = schoolQuery.rows?.[0];
-
+    const school: AnyRow | null = await getSchoolByHsid(hsid);
     if (!school) {
       return (
         <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
@@ -73,100 +68,101 @@ export default async function Home() {
       );
     }
 
-    // 2) Players by high_school lookup key
-    const playersQuery = await pool.query(
-      'SELECT * FROM public.tbc_players_raw WHERE high_school = $1',
-      [hs_lookup_key]
-    );
-    const players: AnyRow[] = playersQuery.rows || [];
+    // 2) Roster for the HSID
+    const rosterRows: AnyRow[] = await getRosterByHsid(hsid);
 
-    // 3) Stats per player (batting + pitching) — batched (no N+1)
-    const playerIds = players.map((p) => p.playerid).filter(Boolean);
+    // Collect player ids and fetch stats
+    const playerIds = rosterRows.map((r) => String(r.playerid)).filter(Boolean);
+    const statsMap = await getStatsForPlayers(playerIds);
 
-    const [battingRows, pitchingRows] = await Promise.all([
-      playerIds.length
-        ? pool
-            .query('SELECT * FROM public.tbc_batting_raw WHERE playerid = ANY($1::text[])', [playerIds])
-            .then((r) => r.rows || [])
-        : Promise.resolve([] as AnyRow[]),
-      playerIds.length
-        ? pool
-            .query('SELECT * FROM public.tbc_pitching_raw WHERE playerid = ANY($1::text[])', [playerIds])
-            .then((r) => r.rows || [])
-        : Promise.resolve([] as AnyRow[]),
-    ]);
-
-    const battingById = new Map<string, AnyRow>();
-    for (const row of battingRows) battingById.set(String(row.playerid), row);
-
-    const pitchingById = new Map<string, AnyRow>();
-    for (const row of pitchingRows) pitchingById.set(String(row.playerid), row);
-
-    const playerData = players.map((player) => {
-      const id = String(player.playerid);
-      return {
-        ...player,
-        batting: battingById.get(id) || null,
-        pitching: pitchingById.get(id) || null,
-      };
-    });
-
-    const schoolName = safeText(school.hsname) || 'School';
-    const city = safeText(school.cityname);
-    const region = safeText(school.regionname);
-
+    // Simple render
     return (
-      <main
-        style={{
-          background: '#0c0c0c',
-          color: '#f2f2f2',
-          padding: 20,
-          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
-        }}
-      >
-        <header style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: '2.25rem', margin: 0 }}>{schoolName} ACTIVE BASEBALL ALUMNI</h1>
-          <p style={{ marginTop: 8, opacity: 0.85 }}>
-            {city}
-            {city && region ? ', ' : ''}
-            {region}
+      <main style={{ padding: 24, background: '#0c0c0c', color: '#f2f2f2' }}>
+        <header style={{ marginBottom: 18 }}>
+          <h1 style={{ margin: 0 }}>{safeText(school.school_name || school.school || school.name || hs_lookup_key)}</h1>
+          <p style={{ margin: '6px 0 0', color: '#bfbfbf' }}>
+            {safeText(school.city)} {safeText(school.state)}
           </p>
         </header>
 
-        {playerData.length === 0 ? (
-          <p style={{ opacity: 0.85 }}>No players found for this school.</p>
-        ) : (
-          <div className="grid">
-            {playerData.map((player) => {
-              const batting = player.batting || {};
-              const pitching = player.pitching || {};
+        <section style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+          {rosterRows.length === 0 && (
+            <div style={{ padding: 24, background: '#111', borderRadius: 8 }}>
+              No roster found for this school.
+            </div>
+          )}
 
-              const first = safeText(player.firstname);
-              const last = safeText(player.lastname);
-              const team = safeText(player.team);
-              const photo = safeText(player.photo_url) || '/placeholder.jpg';
+          {rosterRows.map((player) => {
+            const playerid = String(player.playerid ?? '');
+            const first = safeText(player.firstname);
+            const last = safeText(player.lastname);
+            // Prefer common photo fields if present, otherwise fallback to placeholder
+            const photo = safeText(player.photo || player.photo_url || player.image_url) || '/images/placeholder-player.png';
+            const position = safeText(player.position || player.pos);
+            const number = safeText(player.number);
+            const team = safeText(player.team);
+            const highlevel = safeText(player.highlevel);
 
-              const lastgame = safeText(batting.lastgame) || safeText(pitching.lastgame) || 'N/A';
+            const playerStats = statsMap[playerid] ?? { batting: [], pitching: [] };
 
-              const avg = batting.avg ?? batting.bavg ?? null;
-              const hr = batting.hr ?? null;
+            return (
+              <article
+                key={playerid || `${first}-${last}`}
+                style={{
+                  background: '#121212',
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  color: '#fff',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
+                }}
+              >
+                <div className="inner">
+                  <div className="front">
+                    {/* === INSERTED IMAGE BLOCK === */}
+                    <img
+                      src={photo ?? '/images/placeholder-player.png'}
+                      alt={`${first ?? ''} ${last ?? ''}`.trim() || 'Player'}
+                      style={{
+                        width: '100%',
+                        height: 200,
+                        objectFit: 'cover',
+                        borderTopLeftRadius: 12,
+                        borderTopRightRadius: 12,
+                      }}
+                    />
+                    {/* === end image block === */}
+                  </div>
 
-              const era = pitching.era ?? null;
-              const k = pitching.k ?? pitching.so ?? null;
+                  <div style={{ padding: 12 }}>
+                    <h3 style={{ margin: 0, fontSize: 18 }}>{`${first} ${last}`.trim() || 'Player'}</h3>
+                    <div style={{ marginTop: 6, color: '#cfcfcf', fontSize: 13 }}>
+                      <div>{position ? `${position}` : null} {number ? `#${number}` : null}</div>
+                      <div style={{ marginTop: 4 }}>{team ? team : null} {highlevel ? ` • ${highlevel}` : null}</div>
+                    </div>
 
-              return (
-                <div key={player.playerid} className="card" title={`${first} ${last}`.trim()}>
-                  <div className="inner">
-                    <div className="front">
-                      <img
-  src={photo}
-  alt={`${first} ${last}`.trim() || 'Player'}
-  style={{
-    width: '100%',
-    height: 200,
-    objectFit: 'cover',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  }}
-/>
-
+                    {/* Example: show most recent batting season if available */}
+                    {Array.isArray(playerStats.batting) && playerStats.batting.length > 0 && (
+                      <div style={{ marginTop: 10, fontSize: 13, color: '#ddd' }}>
+                        <strong>Recent batting:</strong>{' '}
+                        {playerStats.batting[0].season ? `${playerStats.batting[0].season}` : ''}
+                        {playerStats.batting[0].avg ? ` — AVG ${playerStats.batting[0].avg}` : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      </main>
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return (
+      <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
+        <h1>Unexpected error</h1>
+        <pre style={{ whiteSpace: 'pre-wrap', color: '#f88' }}>{msg}</pre>
+      </main>
+    );
+  }
+}
