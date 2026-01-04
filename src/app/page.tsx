@@ -1,168 +1,189 @@
-// src/app/page.tsx
-export const runtime = 'nodejs';
+/*
+ * Dynamic high school page for microsites
+ *
+ * This server component renders data for a specific high school based
+ * on its HSID, extracted from the subdomain by middleware.ts. It pulls from
+ * authoritative Neon tables (school_success for school metadata, hs_rosters_simple for roster)
+ * via lib/db.ts helpers, and displays in simple HTML layout. Replace with charts/tables later
+ * for more elaborate pages. This confirms routing and data loading from the correct sources.
+ */
+import Head from 'next/head';
+import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-import { headers } from 'next/headers';
-import React from 'react';
-import {
-  getSchoolByHsid,
-  getRosterByHsid,
-  getStatsForPlayers,
-} from '../lib/db';
-
-function safeText(value: unknown) {
-  if (value === null || value === undefined) return '';
-  return String(value);
+interface PageProps {
+  params: { hsid: string };
 }
 
-function safeNum(value: unknown) {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
+export default async function HsidPage({ params }: PageProps) {
+  const { hsid } = params;
 
-type AnyRow = Record<string, any>;
+  // Pull school metadata from school_success
+  const school = await getSchoolByHsid(hsid);
 
-export default async function Home() {
-  const headerList = headers();
-  const host = headerList.get('host') || 'yatstats.com';
-  const hsid = host.split('.')[0] || 'yatstats';
-
-  // Root domain (no HSID subdomain)
-  if (hsid === 'yatstats') {
-    return (
-      <main
-        style={{
-          padding: 40,
-          textAlign: 'center',
-          background: '#0c0c0c',
-          color: '#f2f2f2',
-          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',
-        }}
-      >
-        <h1 style={{ marginBottom: 12 }}>Welcome to YATSTATS</h1>
-        <p style={{ margin: 0 }}>
-          Visit a school microsite by adding the HSID as subdomain, e.g.,{' '}
-          <strong>5004.yatstats.com</strong>
-        </p>
-      </main>
-    );
+  // Redirect if no school found (invalid HSID or root domain)
+  if (!school) {
+    redirect('https://yatstats.com');
   }
 
-  try {
-    // 1) School lookup by HSID
-    const school: AnyRow | null = await getSchoolByHsid(hsid);
-    if (!school) {
-      return (
-        <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
-          <h1>No school found for HSID {hsid}</h1>
-        </main>
-      );
-    }
+  // Pull roster from hs_rosters_simple
+  const roster = await getRosterByHsid(hsid);
+  const playerIds = roster.map((p) => p.playerid).filter(Boolean);
+  const statsMap = await getStatsForPlayers(playerIds);
 
-    const hs_lookup_key = safeText(school.hs_lookup_key);
-    if (!hs_lookup_key) {
-      return (
-        <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
-          <h1>School is missing hs_lookup_key for HSID {hsid}</h1>
-        </main>
-      );
-    }
-
-    // 2) Roster for the HSID
-    const rosterRows: AnyRow[] = await getRosterByHsid(hsid);
-
-    // Collect player ids and fetch stats
-    const playerIds = rosterRows.map((r) => String(r.playerid)).filter(Boolean);
-    const statsMap = await getStatsForPlayers(playerIds);
-
-    // Simple render
-    return (
-      <main style={{ padding: 24, background: '#0c0c0c', color: '#f2f2f2' }}>
-        <header style={{ marginBottom: 18 }}>
-          <h1 style={{ margin: 0 }}>{safeText(school.school_name || school.school || school.name || hs_lookup_key)}</h1>
-          <p style={{ margin: '6px 0 0', color: '#bfbfbf' }}>
-            {safeText(school.city)} {safeText(school.state)}
-          </p>
-        </header>
-
-        <section style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-          {rosterRows.length === 0 && (
-            <div style={{ padding: 24, background: '#111', borderRadius: 8 }}>
-              No roster found for this school.
-            </div>
-          )}
-
-          {rosterRows.map((player) => {
-            const playerid = String(player.playerid ?? '');
-            const first = safeText(player.firstname);
-            const last = safeText(player.lastname);
-            // Prefer common photo fields if present, otherwise fallback to placeholder
-            const photo = safeText(player.photo || player.photo_url || player.image_url) || '/images/placeholder-player.png';
-            const position = safeText(player.position || player.pos);
-            const number = safeText(player.number);
-            const team = safeText(player.team);
-            const highlevel = safeText(player.highlevel);
-
-            const playerStats = statsMap[playerid] ?? { batting: [], pitching: [] };
-
-            return (
-              <article
-                key={playerid || `${first}-${last}`}
-                style={{
-                  background: '#121212',
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  color: '#fff',
-                  boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
-                }}
-              >
-                <div className="inner">
-                  <div className="front">
-                    {/* === INSERTED IMAGE BLOCK === */}
-                    <img
-                      src={photo ?? '/images/placeholder-player.png'}
-                      alt={`${first ?? ''} ${last ?? ''}`.trim() || 'Player'}
-                      style={{
-                        width: '100%',
-                        height: 200,
-                        objectFit: 'cover',
-                        borderTopLeftRadius: 12,
-                        borderTopRightRadius: 12,
-                      }}
-                    />
-                    {/* === end image block === */}
-                  </div>
-
-                  <div style={{ padding: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 18 }}>{`${first} ${last}`.trim() || 'Player'}</h3>
-                    <div style={{ marginTop: 6, color: '#cfcfcf', fontSize: 13 }}>
-                      <div>{position ? `${position}` : null} {number ? `#${number}` : null}</div>
-                      <div style={{ marginTop: 4 }}>{team ? team : null} {highlevel ? ` • ${highlevel}` : null}</div>
-                    </div>
-
-                    {/* Example: show most recent batting season if available */}
-                    {Array.isArray(playerStats.batting) && playerStats.batting.length > 0 && (
-                      <div style={{ marginTop: 10, fontSize: 13, color: '#ddd' }}>
-                        <strong>Recent batting:</strong>{' '}
-                        {playerStats.batting[0].season ? `${playerStats.batting[0].season}` : ''}
-                        {playerStats.batting[0].avg ? ` — AVG ${playerStats.batting[0].avg}` : ''}
+  return (
+    <>
+      <Head>
+        {/* Import prototype fonts and icons */}
+        <link
+          href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400&family=Bebas+Neue&display=swap"
+          rel="stylesheet"
+        />
+        {/* Basic dark/light theme variables and card styles based off the prototype */}
+        <style>{`
+          :root {
+            --bg: #0c0c0c;
+            --fg: #f2f2f2;
+            --card-bg: #171717;
+            --line: rgba(255,255,255,0.08);
+            --shade-end: rgba(0,0,0,0.95);
+          }
+          body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: Oswald, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+          }
+          .hs-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+          }
+          .grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          }
+          .card {
+            position: relative;
+            background: var(--card-bg);
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+          }
+          .card::before {
+            content: "";
+            display: block;
+            padding-top: 140%;
+          }
+          .card-content {
+            position: absolute;
+            inset: 0;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+          }
+          .card-content h3 {
+            margin: 0 0 0.5rem;
+            font-family: "Bebas Neue", sans-serif;
+            letter-spacing: .02em;
+            font-size: 1.5rem;
+          }
+          .card-content .meta {
+            font-size: 0.8rem;
+            opacity: 0.85;
+          }
+        `}</style>
+      </Head>
+      <main>
+        <div className="hs-container">
+          {/* Heading from school_success */}
+          <header style={{ padding: '1.5rem 0', borderBottom: '1px solid var(--line)' }}>
+            <h1 style={{ fontFamily: '"Bebas Neue", sans-serif', fontSize: '2rem', letterSpacing: '.05em' }}>
+              {school.school_name ?? `High School ${hsid}`}
+            </h1>
+          </header>
+          {/* Players grid from hs_rosters_simple */}
+          {roster.length ? (
+            <section style={{ padding: '1.5rem 0' }}>
+              <h2 style={{ fontFamily: '"Bebas Neue", sans-serif', fontSize: '1.6rem', marginBottom: '1rem' }}>
+                Players
+              </h2>
+              <div className="grid">
+                {roster.map((player: any) => {
+                  const nameParts = (player.player_name || '').split(' ');
+                  const firstName = nameParts[0] ?? '';
+                  const lastName = nameParts.slice(1).join(' ') ?? '';
+                  const photo = player.photo || player.photo_url || player.image_url || '/images/placeholder-player.png';
+                  const playerStats = statsMap[player.playerid] ?? { batting: [], pitching: [] };
+                  return (
+                    <article className="card" key={player.playerid}>
+                      <div
+                        className="card-content"
+                        style={{
+                          backgroundImage: `linear-gradient(to bottom, transparent, var(--shade-end))`,
+                          backgroundSize: 'cover',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'center',
+                          backgroundColor: '#222'
+                        }}
+                      >
+                        <h3>
+                          {firstName && lastName ? (
+                            <>
+                              <span style={{ display: 'block' }}>{firstName}</span>
+                              <span style={{ display: 'block' }}>{lastName}</span>
+                            </>
+                          ) : (
+                            player.player_name ?? 'Unnamed Player'
+                          )}
+                        </h3>
+                        <div className="meta">
+                          <div>{player.team ?? ''}</div>
+                          <div>{player.level ?? ''}</div>
+                          <div>{player.grad_class ? `Class of ${player.grad_class}` : ''}</div>
+                        </div>
+                        {/* Basic stats if available */}
+                        {playerStats.batting.length > 0 && (
+                          <div style={{ marginTop: 8, fontSize: '0.8rem' }}>
+                            Batting: AVG {playerStats.batting[0].avg || 'N/A'}
+                          </div>
+                        )}
+                        {playerStats.pitching.length > 0 && (
+                          <div style={{ fontSize: '0.8rem' }}>
+                            Pitching: ERA {playerStats.pitching[0].era || 'N/A'}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </section>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : (
+            <p style={{ padding: '1.5rem 0' }}>No players found for this school.</p>
+          )}
+        </div>
       </main>
-    );
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return (
-      <main style={{ padding: 40, background: '#0c0c0c', color: '#f2f2f2' }}>
-        <h1>Unexpected error</h1>
-        <pre style={{ whiteSpace: 'pre-wrap', color: '#f88' }}>{msg}</pre>
-      </main>
-    );
-  }
+    </>
+  );
+}
+
+/**
+ * Optionally provide metadata for the dynamic page. This can
+ * improve SEO and provide better sharing previews. Here we set
+ * the title using the HSID; you could fetch more detailed
+ * metadata from the school API or database.
+ */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { hsid } = params;
+  return {
+    title: `High School ${hsid} Stats`,
+    description: `Statistics and player information for high school ${hsid}.`,
+  };
 }
