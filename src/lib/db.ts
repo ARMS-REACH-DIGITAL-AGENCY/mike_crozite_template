@@ -27,7 +27,7 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 
 // Example implementations - replace SQL with your actual queries/tables
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query<{ id: number; name: string; /* add your fields */ }>(
+  const { rows } = await query<{ id: number; school_name: string; /* add your fields */ }>(
     'SELECT * FROM schools WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
