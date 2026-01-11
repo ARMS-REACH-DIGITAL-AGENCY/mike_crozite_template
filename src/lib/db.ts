@@ -1,4 +1,4 @@
-// src/lib/db.ts (cleaned types)
+// src/lib/db.ts (ultra-minimal, no extras)
 'use server'; // Optional but recommended for App Router server files
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
@@ -25,7 +25,7 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   }
 }
 
-// Implementations - replace SQL with your actual queries/tables
+// Implementations - minimal SQL and types
 export async function getSchoolByHsid(hsid: string) {
   const { rows } = await query<{ id: number; school_name: string }>(
     'SELECT * FROM schools WHERE hsid = $1 LIMIT 1',
@@ -35,17 +35,9 @@ export async function getSchoolByHsid(hsid: string) {
 }
 
 export async function getRosterByHsid(hsid: string) {
-  const { rows } = await query<{ player_id: number; name: string; class_year?: number; team?: string; level?: string }>(
+  const { rows } = await query<{ player_id: number; name: string }>(
     'SELECT * FROM roster WHERE hsid = $1',
     [hsid]
-  );
-  return rows;
-}
-
-export async function getStatsForPlayers(playerIds: string[]) {
-  const { rows } = await query<{ player_id: number; stats: { batting: { avg: number; hr: number; rbi: number; hits: number; runs: number; k: number; sb: number }[] } }>(
-    'SELECT * FROM player_stats WHERE player_id = ANY($1)',
-    [playerIds]
   );
   return rows;
 }
