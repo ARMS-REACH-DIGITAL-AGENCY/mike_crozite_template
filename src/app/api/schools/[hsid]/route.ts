@@ -1,5 +1,4 @@
-// src/app/api/schools/[hsid]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 export const runtime = 'nodejs';
@@ -10,14 +9,12 @@ const pool = new Pool({
 });
 
 export async function GET(
-  _request: NextRequest,
-  { params }: { params: { hsid: string } }
+  _request: Request,
+  context: { params: Promise<{ hsid: string }> }
 ) {
-  const { hsid } = params;
+  const { hsid } = await context.params;
 
-  if (!hsid) {
-    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
-  }
+  if (!hsid) return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
 
   try {
     const { rows } = await pool.query(
