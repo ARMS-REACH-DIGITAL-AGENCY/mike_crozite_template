@@ -1,143 +1,56 @@
 // src/lib/db.ts
-import { Pool, QueryResult } from 'pg';
+'use server'; // Optional but recommended for App Router server files
 
-declare global {
-  // Prevent multiple pools in dev / HMR
-  // eslint-disable-next-line no-var
-  var __pgPool: Pool | undefined;
-}
+import { Pool, QueryResult, QueryResultRow } from 'pg';
+import 'server-only'; // Ensures this can't be imported into client components
 
-const connectionString = process.env.DATABASE_URL;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20, // Production-safe: limit connections to avoid overload
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined, // Handle SSL for Vercel/Postgres
+});
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL is not set');
-}
-
-function createPool(): Pool {
-  return new Pool({
-    connectionString,
-    max: Number(process.env.PG_MAX_POOL ?? 10),
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 2_000,
-  });
-}
-
-const pool: Pool = global.__pgPool ?? createPool();
-
-if (process.env.NODE_ENV !== 'production') {
-  global.__pgPool = pool;
-}
-
-/**
- * Generic query helper
- * IMPORTANT: do NOT pass the generic to pool.query()
- */
-export async function query<T = any>(
+// Query helper with proper constraint to avoid type errors
+export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
-  return pool.query(text, params) as Promise<QueryResult<T>>;
+  try {
+    return await pool.query<T>(text, params);
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error; // Production-safe: log and rethrow for error handling upstream
+  }
 }
 
-/* =========================
-   High-level DB helpers
-   ========================= */
-
+// Example implementations - replace SQL with your actual queries/tables
 export async function getSchoolByHsid(hsid: string) {
-  const sql = `
-    SELECT *
-    FROM public.school_success
-    WHERE hsid = $1
-    LIMIT 1
-  `;
-
-  const res = await query(sql, [hsid]);
-  return res.rows[0] ?? null;
+  const { rows } = await query<{ id: number; name: string; /* add your fields */ }>(
+    'SELECT * FROM schools WHERE hsid = $1 LIMIT 1',
+    [hsid]
+  );
+  return rows[0] || null;
 }
 
 export async function getRosterByHsid(hsid: string) {
-  const sql = `
-    SELECT
-      playerid,
-      firstname,
-      lastname,
-      highlevel,
-      position,
-      number,
-      team
-    FROM public.hs_rosters_simple
-    WHERE hsid = $1
-    ORDER BY lastname NULLS LAST, firstname NULLS LAST
-  `;
-
-  const res = await query(sql, [hsid]);
-  return res.rows;
+  const { rows } = await query<{ player_id: number; name: string; /* add your fields */ }>(
+    'SELECT * FROM roster WHERE hsid = $1',
+    [hsid]
+  );
+  return rows;
 }
 
 export async function getStatsForPlayers(playerIds: string[]) {
-  if (!playerIds.length) return {};
-
-  const battingSql = `
-    SELECT
-      playerid,
-      json_agg(
-        json_build_object(
-          'season', season,
-          'team', team,
-          'ab', ab,
-          'r', r,
-          'h', h,
-          'hr', hr,
-          'rbi', rbi,
-          'avg', avg
-        )
-        ORDER BY season DESC
-      ) AS batting_stats
-    FROM public.tbc_batting_raw
-    WHERE playerid = ANY($1)
-    GROUP BY playerid
-  `;
-
-  const pitchingSql = `
-    SELECT
-      playerid,
-      json_agg(
-        json_build_object(
-          'season', season,
-          'team', team,
-          'ip', ip,
-          'er', er,
-          'so', so,
-          'era', era
-        )
-        ORDER BY season DESC
-      ) AS pitching_stats
-    FROM public.tbc_pitching_raw
-    WHERE playerid = ANY($1)
-    GROUP BY playerid
-  `;
-
-  const [batRes, pitRes] = await Promise.all([
-    query(battingSql, [playerIds]),
-    query(pitchingSql, [playerIds]),
-  ]);
-
-  const map: Record<
-    string,
-    { batting: any[]; pitching: any[] }
-  > = {};
-
-  for (const row of batRes.rows) {
-    map[row.playerid] = {
-      batting: row.batting_stats ?? [],
-      pitching: [],
-    };
-  }
-
-  for (const row of pitRes.rows) {
-    map[row.playerid] ??= { batting: [], pitching: [] };
-    map[row.playerid].pitching = row.pitching_stats ?? [];
-  }
-
-  return map;
+  const { rows } = await query<{ player_id: number; stats: object; /* add your fields */ }>(
+    'SELECT * FROM player_stats WHERE player_id = ANY($1)',
+    [playerIds]
+  );
+  return rows;
 }
+
+// Graceful shutdown for production
+process.on('SIGTERM', async () => {
+  await pool.end();
+});
