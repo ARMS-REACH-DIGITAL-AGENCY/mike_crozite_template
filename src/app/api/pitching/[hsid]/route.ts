@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
+export const runtime = 'nodejs';
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -8,15 +10,19 @@ const pool = new Pool({
 
 export async function GET(
   _req: NextRequest,
-  context: { params: Promise<{ hsid: string }> },
+  { params }: { params: { hsid: string } }
 ): Promise<Response> {
-  const { hsid } = await context.params;
+  const { hsid } = params;
+
+  if (!hsid) {
+    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
+  }
 
   try {
     const query = `
       SELECT p.*
-      FROM tbc_pitching_raw p
-      JOIN tbc_players_raw pl ON p.playerid = pl.playerid
+      FROM public.tbc_pitching_raw p
+      JOIN public.tbc_players_raw pl ON p.playerid = pl.playerid
       WHERE pl.hsid = $1
     `;
 
