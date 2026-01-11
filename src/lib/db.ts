@@ -32,13 +32,10 @@ if (process.env.NODE_ENV !== 'production') {
 
 /**
  * Generic query helper
- * Note: we intentionally do NOT pass <T> into pool.query<T>()
- * because some pg/@types combos cause TS constraint errors.
+ * Note: do NOT pass <T> into pool.query<T>() because some pg/@types combos
+ * cause TS constraint errors in certain environments.
  */
-export async function query<T = any>(
-  text: string,
-  params: any[] = []
-): Promise<QueryResult<T>> {
+export async function query<T = any>(text: string, params: any[] = []): Promise<QueryResult<T>> {
   return pool.query(text, params) as Promise<QueryResult<T>>;
 }
 
