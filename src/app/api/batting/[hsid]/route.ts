@@ -1,6 +1,4 @@
-// src/app/api/batting/[hsid]/route.ts
-
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 export const runtime = 'nodejs';
@@ -11,23 +9,21 @@ const pool = new Pool({
 });
 
 export async function GET(
-  _request: NextRequest,
-  context: { params: { hsid: string } }
+  _request: Request,
+  context: { params: Promise<{ hsid: string }> }
 ) {
-  const { hsid } = context.params;
+  const { hsid } = await context.params;
 
-  if (!hsid) {
-    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
-  }
+  if (!hsid) return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
+
+  const query = `
+    SELECT b.*
+    FROM public.tbc_batting_raw b
+    JOIN public.tbc_players_raw p ON b.playerid = p.playerid
+    WHERE p.hsid = $1
+  `;
 
   try {
-    const query = `
-      SELECT b.*
-      FROM public.tbc_batting_raw b
-      JOIN public.tbc_players_raw p ON b.playerid = p.playerid
-      WHERE p.hsid = $1
-    `;
-
     const { rows } = await pool.query(query, [hsid]);
     return NextResponse.json(rows, { status: 200 });
   } catch (error) {
