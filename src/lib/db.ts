@@ -1,4 +1,4 @@
-// src/lib/db.ts
+// src/lib/db.ts (updated for type fix)
 'use server'; // Optional but recommended for App Router server files
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
@@ -35,7 +35,7 @@ export async function getSchoolByHsid(hsid: string) {
 }
 
 export async function getRosterByHsid(hsid: string) {
-  const { rows } = await query<{ player_id: number; name: string; /* add your fields */ }>(
+  const { rows } = await query<{ player_id: number; name: string; /* add your fields like class_year, team, level */ }>(
     'SELECT * FROM roster WHERE hsid = $1',
     [hsid]
   );
@@ -43,7 +43,7 @@ export async function getRosterByHsid(hsid: string) {
 }
 
 export async function getStatsForPlayers(playerIds: string[]) {
-  const { rows } = await query<{ player_id: number; stats: object; /* add your fields */ }>(
+  const { rows } = await query<{ player_id: number; stats: { batting: { avg: number; hr: number; rbi: number; /* add other fields like hits, runs based on prototype */ }[] /* batting is an array of game/season objects */; /* add pitching if needed */ } }>(
     'SELECT * FROM player_stats WHERE player_id = ANY($1)',
     [playerIds]
   );
