@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 // Connection pool to the PostgreSQL database. DATABASE_URL must be set in Vercel env vars.
-// SSL enabled for Neon.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -10,9 +9,13 @@ const pool = new Pool({
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { hsid: string } },
+  { params }: { params: { hsid: string } }
 ) {
   const { hsid } = params;
+
+  if (!hsid) {
+    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
+  }
 
   try {
     const query = `
