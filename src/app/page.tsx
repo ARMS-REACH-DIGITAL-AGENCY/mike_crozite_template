@@ -1,12 +1,10 @@
 // src/app/page.tsx
+
 /*
  * Dynamic high school page for microsites
  *
- * This server component renders data for a specific high school based
- * on its HSID, extracted from the subdomain by middleware.ts. It pulls from
- * authoritative Neon tables (school_success for school metadata, hs_rosters_simple for roster)
- * via lib/db.ts helpers, and displays in simple HTML layout. Replace with charts/tables later
- * for more elaborate pages. This confirms routing and data loading from the correct sources.
+ * Server component that renders a high school page based on HSID,
+ * pulling data from Neon via lib/db.ts helpers.
  */
 
 import type { Metadata } from 'next';
@@ -20,22 +18,18 @@ interface PageProps {
 export default async function HsidPage({ params }: PageProps) {
   const { hsid } = params;
 
-  // Pull school metadata from school_success
   const school = await getSchoolByHsid(hsid);
 
-  // Redirect if no school found (invalid HSID or root domain)
   if (!school) {
     redirect('https://yatstats.com');
   }
 
-  // Pull roster from hs_rosters_simple
   const roster = await getRosterByHsid(hsid);
   const playerIds = roster.map((p: any) => p.playerid).filter(Boolean);
   const statsMap = await getStatsForPlayers(playerIds);
 
   return (
     <main>
-      {/* External CSS (safe in App Router) */}
       <link
         href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css"
         rel="stylesheet"
@@ -45,7 +39,6 @@ export default async function HsidPage({ params }: PageProps) {
         rel="stylesheet"
       />
 
-      {/* Page-scoped styles */}
       <style>{`
         :root {
           --bg: #0c0c0c;
@@ -73,7 +66,6 @@ export default async function HsidPage({ params }: PageProps) {
         .card {
           position: relative;
           background: var(--card-bg);
-          border-radius: 0;
           overflow: hidden;
           box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
@@ -90,9 +82,6 @@ export default async function HsidPage({ params }: PageProps) {
           flex-direction: column;
           justify-content: flex-end;
           background-image: linear-gradient(to bottom, transparent, var(--shade-end));
-          background-size: cover;
-          background-repeat: no-repeat;
-          background-position: center;
           background-color: #222;
         }
         .card-content h3 {
@@ -117,11 +106,11 @@ export default async function HsidPage({ params }: PageProps) {
               margin: 0,
             }}
           >
-            {school?.school_name ?? `High School ${hsid}`}
+            {school.school_name}
           </h1>
         </header>
 
-        {roster?.length ? (
+        {roster.length ? (
           <section style={{ padding: '1.5rem 0' }}>
             <h2
               style={{
@@ -138,7 +127,7 @@ export default async function HsidPage({ params }: PageProps) {
                 const nameParts = (player.player_name || '').split(' ');
                 const firstName = nameParts[0] ?? '';
                 const lastName = nameParts.slice(1).join(' ') ?? '';
-                const playerStats = statsMap?.[player.playerid] ?? { batting: [], pitching: [] };
+                const playerStats = statsMap[player.playerid] ?? { batting: [], pitching: [] };
 
                 return (
                   <article className="card" key={player.playerid}>
@@ -160,13 +149,13 @@ export default async function HsidPage({ params }: PageProps) {
                         <div>{player.grad_class ? `Class of ${player.grad_class}` : ''}</div>
                       </div>
 
-                      {playerStats.batting?.length > 0 && (
+                      {playerStats.batting.length > 0 && (
                         <div style={{ marginTop: 8, fontSize: '0.8rem' }}>
                           Batting: AVG {playerStats.batting[0]?.avg ?? 'N/A'}
                         </div>
                       )}
 
-                      {playerStats.pitching?.length > 0 && (
+                      {playerStats.pitching.length > 0 && (
                         <div style={{ fontSize: '0.8rem' }}>
                           Pitching: ERA {playerStats.pitching[0]?.era ?? 'N/A'}
                         </div>
@@ -186,9 +175,8 @@ export default async function HsidPage({ params }: PageProps) {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { hsid } = params;
   return {
-    title: `High School ${hsid} Stats`,
-    description: `Statistics and player information for high school ${hsid}.`,
+    title: `High School ${params.hsid} Stats`,
+    description: `Statistics and player information for high school ${params.hsid}.`,
   };
 }
