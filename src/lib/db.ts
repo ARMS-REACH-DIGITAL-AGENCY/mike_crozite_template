@@ -9,7 +9,9 @@ const pool = new Pool({
   max: 20, // Production-safe: limit connections to avoid overload
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined, // Handle SSL for Vercel/Postgres
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require')
+    ? { rejectUnauthorized: false }
+    : undefined, // Handle SSL for Vercel/Postgres
 });
 
 // Query helper with proper constraint to avoid type errors
@@ -21,22 +23,22 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     return await pool.query<T>(text, params);
   } catch (error) {
     console.error('Database query error:', error);
-    throw error; // Production-safe: log and rethrow for error handling upstream
+    throw error;
   }
 }
 
 // Implementations - minimal SQL and types
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query<{ id: number; school_name: string }>(
-    'SELECT * FROM schools WHERE hsid = $1 LIMIT 1',
+  const { rows } = await query(
+    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
   return rows[0] || null;
 }
 
 export async function getRosterByHsid(hsid: string) {
-  const { rows } = await query<{ player_id: number; name: string }>(
-    'SELECT * FROM roster WHERE hsid = $1',
+  const { rows } = await query(
+    'SELECT * FROM hs_rosters_simple WHERE hsid = $1',
     [hsid]
   );
   return rows;
