@@ -5,7 +5,8 @@ import { getSchoolByHsid, getRosterByHsid, getSchoolByUrl, getRosterByHighSchool
 
 export default async function SchoolPage({ params }: { params: { hsid: string } }) {
   // Get host from request headers
-  const host = headers().get('host') || '';
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
 
   // Try to find school by staging or microsite URL
   let school = await getSchoolByUrl(host);
@@ -35,11 +36,6 @@ export default async function SchoolPage({ params }: { params: { hsid: string } 
             <div className="flip-card-inner">
               <div className="flip-card-front bg-gray-900 rounded-xl shadow-lg flex flex-col items-center justify-center p-6">
                 <h2 className="text-2xl font-semibold mb-2">{player.name}</h2>
-                <p className="text-sm mt-2">Flip for more!</p>
-              </div>
-              <div className="flip-card-back bg-gray-800 rounded-xl shadow-lg flex flex-col items-center justify-center p-6">
-                <h2 className="text-2xl font-semibold mb-2">{player.name}</h2>
-                <p>Details coming soon!</p>
               </div>
             </div>
           </div>
