@@ -26,10 +26,57 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     throw error;
   }
 }
-
 // Implementations - minimal SQL and types
 export async function getSchoolByHsid(hsid: string) {
   const { rows } = await query(
+    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
+    [hsid]
+  );
+  return rows[0] || null;
+}
+
+export async function getRosterByHsid(hsid: string) {
+  const { rows } = await query(
+    'SELECT * FROM hs_rosters_simple WHERE hsid = $1',
+    [hsid]
+  );
+  return rows;
+}
+
+export async function getSchoolByUrl(host: string) {
+  const { rows } = await query(
+    'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
+    [`https://${host}`]
+  );
+  return rows[0] || null;
+}
+
+export async function getRosterByHighSchool(highSchool: string) {
+  const { rows } = await query(
+    'SELECT * FROM hs_rosters_simple WHERE high_school = $1',
+    [highSchool]
+  );
+  return rows;
+}
+// Implementations - minimal SQL and types
+export async function getSchoolByHsid(hsid: string) {
+  const { rows } = await query(
+
+export async function getSchoolByUrl(host: string) {
+  const { rows } = await query(
+    'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
+    [`https://${host}`]
+  );
+  return rows[0] || null;
+}
+
+export async function getRosterByHighSchool(highSchool: string) {
+  const { rows } = await query(
+    'SELECT * FROM hs_rosters_simple WHERE high_school = $1',
+    [highSchool]
+  );
+  return rows;
+}
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
