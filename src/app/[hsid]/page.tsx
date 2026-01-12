@@ -1,18 +1,19 @@
 // src/app/[hsid]/page.tsx (minimal flip card grid, names only)
-import { getSchoolByHsid, getRosterByHsid } from '@/lib/db'; // Adjust path if needed
+import { redirect } from 'next/navigation';
+import { getSchoolByHsid, getRosterByHsid } from '@/lib/db';
 
 export default async function SchoolPage({ params }: { params: { hsid: string } }) {
   const hsid = params.hsid;
   const school = await getSchoolByHsid(hsid);
-  const roster = await getRosterByHsid(hsid);
-
   if (!school) {
-    return <div>School not found</div>;
+    redirect('https://yatstats.com');
   }
-
+  const roster = await getRosterByHsid(hsid);
   return (
     <div className="container mx-auto p-4 bg-black text-white">
-      <h1 className="text-4xl font-bold mb-6 text-center">{school.school_name} Active Baseball Alumni</h1>
+      <h1 className="text-4xl font-bold mb-6 text-center">
+        {school.school_name} Active Baseball Alumni
+      </h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {roster.map((player) => (
           <div key={player.player_id} className="flip-card">
