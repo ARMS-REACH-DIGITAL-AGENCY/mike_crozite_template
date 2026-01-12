@@ -14,11 +14,14 @@ export async function GET(
 ) {
   const { hsid } = await context.params;
 
-  if (!hsid) return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
+  if (!hsid) {
+    return NextResponse.json({ error: 'Missing hsid' }, { status: 400 });
+  }
 
   try {
+    // Use the correct table that actually exists in your DB
     const { rows } = await pool.query(
-      'SELECT * FROM public.tbc_schools_raw WHERE hsid = $1',
+      'SELECT * FROM school_success WHERE hsid = $1',
       [hsid]
     );
     return NextResponse.json(rows, { status: 200 });
