@@ -1,17 +1,15 @@
 // src/lib/db.ts (ultra-minimal, no extras)
-'use server'; // Optional but recommended for App Router server files
+'use server';
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
-import 'server-only'; // Ensures this can't be imported into client components
+import 'server-only';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20, // Production-safe: limit connections to avoid overload
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require')
-    ? { rejectUnauthorized: false }
-    : undefined, // Handle SSL for Vercel/Postgres
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
 });
 
 // Query helper with proper constraint to avoid type errors
@@ -26,23 +24,20 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     throw error;
   }
 }
-// Implementations - minimal SQL and types
+
+// Lookup a school by HSID
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query(
-    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
-    [hsid]
-  );
+  const { rows } = await query('SELECT * FROM school_success WHERE hsid = $1 LIMIT 1', [hsid]);
   return rows[0] || null;
 }
 
+// Lookup a roster by HSID
 export async function getRosterByHsid(hsid: string) {
-  const { rows } = await query(
-    'SELECT * FROM hs_rosters_simple WHERE hsid = $1',
-    [hsid]
-  );
+  const { rows } = await query('SELECT * FROM hs_rosters_simple WHERE hsid = $1', [hsid]);
   return rows;
 }
 
+// Lookup a school by its staging or microsite URL (full host)
 export async function getSchoolByUrl(host: string) {
   const { rows } = await query(
     'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
@@ -51,43 +46,9 @@ export async function getSchoolByUrl(host: string) {
   return rows[0] || null;
 }
 
+// Lookup a roster by the high_school name
 export async function getRosterByHighSchool(highSchool: string) {
-  const { rows } = await query(
-    'SELECT * FROM hs_rosters_simple WHERE high_school = $1',
-    [highSchool]
-  );
-  return rows;
-}
-// Implementations - minimal SQL and types
-export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query(
-
-export async function getSchoolByUrl(host: string) {
-  const { rows } = await query(
-    'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
-    [`https://${host}`]
-  );
-  return rows[0] || null;
-}
-
-export async function getRosterByHighSchool(highSchool: string) {
-  const { rows } = await query(
-    'SELECT * FROM hs_rosters_simple WHERE high_school = $1',
-    [highSchool]
-  );
-  return rows;
-}
-    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
-    [hsid]
-  );
-  return rows[0] || null;
-}
-
-export async function getRosterByHsid(hsid: string) {
-  const { rows } = await query(
-    'SELECT * FROM hs_rosters_simple WHERE hsid = $1',
-    [hsid]
-  );
+  const { rows } = await query('SELECT * FROM hs_rosters_simple WHERE high_school = $1', [highSchool]);
   return rows;
 }
 
