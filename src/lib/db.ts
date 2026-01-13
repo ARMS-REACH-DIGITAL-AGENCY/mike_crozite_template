@@ -1,98 +1,142 @@
-// src/lib/db.ts (ultra-minimal, no extras)
-'use server';
+// src/lib/db.ts
+import { Pool, type PoolConfig, type QueryResult } from "pg";
 
-import { Pool, QueryResult, QueryResultRow } from 'pg';
-import 'server-only';
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  throw new Error("Missing DATABASE_URL environment variable");
+}
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-});
+const PG_MAX_POOL = Number(process.env.PG_MAX_POOL ?? 10);
+const PG_IDLE_TIMEOUT_MS = Number(process.env.PG_IDLE_TIMEOUT_MS ?? 30_000);
+const PG_CONNECTION_TIMEOUT_MS = Number(process.env.PG_CONNECTION_TIMEOUT_MS ?? 2_000);
 
-// Query helper with proper constraint to avoid type errors
-export async function query<T extends QueryResultRow = QueryResultRow>(
+// Neon typically requires TLS. We'll enable SSL automatically unless explicitly disabled.
+const ssl =
+  process.env.PGSSLMODE === "disable" || process.env.DATABASE_SSL === "false"
+    ? undefined
+    : { rejectUnauthorized: false };
+
+// Reuse a single pool across hot reloads / lambda invocations.
+declare global {
+  // eslint-disable-next-line no-var
+  var __pgPool: Pool | undefined;
+}
+
+function getPool() {
+  if (!global.__pgPool) {
+    const config: PoolConfig = {
+      connectionString: DATABASE_URL,
+      max: PG_MAX_POOL,
+      idleTimeoutMillis: PG_IDLE_TIMEOUT_MS,
+      connectionTimeoutMillis: PG_CONNECTION_TIMEOUT_MS,
+      ssl,
+    };
+    global.__pgPool = new Pool(config);
+  }
+  return global.__pgPool;
+}
+
+export async function query<T = any>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
-  try {
-    return await pool.query<T>(text, params);
-  } catch (error) {
-    console.error('Database query error:', error);
-    throw error;
+  const pool = getPool();
+  return pool.query<T>(text, params);
+}
+
+export async function shutdownPool() {
+  if (global.__pgPool) {
+    await global.__pgPool.end();
+    global.__pgPool = undefined;
   }
 }
 
-// Lookup a school by HSID
-export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query('SELECT * FROM school_success WHERE hsid = $1 LIMIT 1', [hsid]);
-  return rows[0] || null;
-}
-
-// Lookup a school by its staging or microsite URL (full host)
-export async function getSchoolByUrl(host: string) {
-  const { rows } = await query(
-    'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
-    [`https://${host}`]
-  );
-  return rows[0] || null;
-}
-
-// Canonical roster lookup by HSID (returns roster rows, with a canonical `name` column)
-export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
+/**
+ * Lookup a roster by HSID (safe: compute name rather than referencing a 'name' column)
+ */
+export async function getRosterByHsid(hsid: string) {
   const sql = `
     SELECT
-      *,
-      COALESCE(
-        NULLIF(name, ''),
-        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
-      ) AS name
-    FROM hs_rosters_simple
-    WHERE hsid = $1
+      hs_rosters_simple.*,
+      TRIM(CONCAT_WS(' ', firstname, lastname)) AS name
+    FROM public.hs_rosters_simple
+    WHERE hsid::text = $1
+    ORDER BY
+      COALESCE(NULLIF(lastname,''), TRIM(CONCAT_WS(' ', firstname, lastname))) NULLS LAST,
+      firstname NULLS LAST
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
 }
 
-// Lookup a roster by the high_school name
-export async function getRosterByHighSchool(highSchool: string): Promise<QueryResultRow[]> {
+export async function getRosterByHighSchool(highSchool: string) {
   const sql = `
     SELECT
-      *,
-      COALESCE(
-        NULLIF(name, ''),
-        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
-      ) AS name
-    FROM hs_rosters_simple
+      hs_rosters_simple.*,
+      TRIM(CONCAT_WS(' ', firstname, lastname)) AS name
+    FROM public.hs_rosters_simple
     WHERE high_school = $1
+    ORDER BY
+      COALESCE(NULLIF(lastname,''), TRIM(CONCAT_WS(' ', firstname, lastname))) NULLS LAST,
+      firstname NULLS LAST
   `;
   const { rows } = await query(sql, [highSchool]);
   return rows;
 }
 
-// Graceful shutdown for production (guarded so multiple imports don't register multiple handlers)
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  var __pgPoolShutdownRegistered: any;
+/**
+ * Optional helpers (these match the columns I saw in your `public` schema)
+ * Table: player_high_school_info_for_2025_season
+ */
+export async function getSchoolByHsid(hsid: string) {
+  const sql = `
+    SELECT *
+    FROM public.player_high_school_info_for_2025_season
+    WHERE hsid::text = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [hsid]);
+  return rows[0] ?? null;
 }
 
-if (!global.__pgPoolShutdownRegistered) {
-  global.__pgPoolShutdownRegistered = true;
+export async function getSchoolByStagingUrl(stagingUrl: string) {
+  const sql = `
+    SELECT *
+    FROM public.player_high_school_info_for_2025_season
+    WHERE staging_url = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [stagingUrl]);
+  return rows[0] ?? null;
+}
 
-  const shutdown = async () => {
-    try {
-      await pool.end();
-    } catch (e) {
-      // ignore errors during shutdown
-    }
-  };
+export async function getSchoolByMicrositeUrl(micrositeUrl: string) {
+  const sql = `
+    SELECT *
+    FROM public.player_high_school_info_for_2025_season
+    WHERE microsite_url = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [micrositeUrl]);
+  return rows[0] ?? null;
+}
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', async () => {
-    await shutdown();
-    // keep default behavior for Ctrl+C
-    process.exit(0);
-  });
+/**
+ * Host-based lookup.
+ * Supports:
+ * - subdomain.yatstats.com  -> uses "staging_url" (common pattern)
+ * - full host match         -> tries both staging_url and microsite_url
+ */
+export async function getSchoolByHost(host: string) {
+  const normalized = (host || "").toLowerCase().split(":")[0];
+
+  const sql = `
+    SELECT *
+    FROM public.player_high_school_info_for_2025_season
+    WHERE LOWER(staging_url) = $1
+       OR LOWER(microsite_url) = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [normalized]);
+  return rows[0] ?? null;
 }
