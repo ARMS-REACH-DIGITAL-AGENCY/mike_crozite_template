@@ -47,8 +47,31 @@ export async function getSchoolByUrl(host: string) {
 }
 
 // Lookup a roster by the high_school name
+export async function getRosterByHsid(hsid: string) {
+  const sql = `
+    SELECT
+      *,
+      COALESCE(NULLIF(name,''), 
+        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
+      ) AS name
+    FROM hs_rosters_simple
+    WHERE hsid = $1
+  `;
+  const { rows } = await query(sql, [hsid]);
+  return rows;
+}
+
 export async function getRosterByHighSchool(highSchool: string) {
-  const { rows } = await query('SELECT * FROM hs_rosters_simple WHERE high_school = $1', [highSchool]);
+  const sql = `
+    SELECT
+      *,
+      COALESCE(NULLIF(name,''), 
+        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
+      ) AS name
+    FROM hs_rosters_simple
+    WHERE high_school = $1
+  `;
+  const { rows } = await query(sql, [highSchool]);
   return rows;
 }
 
