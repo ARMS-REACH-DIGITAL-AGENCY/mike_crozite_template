@@ -31,12 +31,6 @@ export async function getSchoolByHsid(hsid: string) {
   return rows[0] || null;
 }
 
-// Lookup a roster by HSID
-export async function getRosterByHsid(hsid: string) {
-  const { rows } = await query('SELECT * FROM hs_rosters_simple WHERE hsid = $1', [hsid]);
-  return rows;
-}
-
 // Lookup a school by its staging or microsite URL (full host)
 export async function getSchoolByUrl(host: string) {
   const { rows } = await query(
@@ -46,12 +40,13 @@ export async function getSchoolByUrl(host: string) {
   return rows[0] || null;
 }
 
-// Lookup a roster by the high_school name
-export async function getRosterByHsid(hsid: string) {
+// Canonical roster lookup by HSID (returns roster rows, with a canonical `name` column)
+export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
   const sql = `
     SELECT
       *,
-      COALESCE(NULLIF(name,''), 
+      COALESCE(
+        NULLIF(name, ''),
         NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
       ) AS name
     FROM hs_rosters_simple
@@ -61,11 +56,13 @@ export async function getRosterByHsid(hsid: string) {
   return rows;
 }
 
-export async function getRosterByHighSchool(highSchool: string) {
+// Lookup a roster by the high_school name
+export async function getRosterByHighSchool(highSchool: string): Promise<QueryResultRow[]> {
   const sql = `
     SELECT
       *,
-      COALESCE(NULLIF(name,''), 
+      COALESCE(
+        NULLIF(name, ''),
         NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
       ) AS name
     FROM hs_rosters_simple
@@ -75,7 +72,27 @@ export async function getRosterByHighSchool(highSchool: string) {
   return rows;
 }
 
-// Graceful shutdown for production
-process.on('SIGTERM', async () => {
-  await pool.end();
-});
+// Graceful shutdown for production (guarded so multiple imports don't register multiple handlers)
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  var __pgPoolShutdownRegistered: any;
+}
+
+if (!global.__pgPoolShutdownRegistered) {
+  global.__pgPoolShutdownRegistered = true;
+
+  const shutdown = async () => {
+    try {
+      await pool.end();
+    } catch (e) {
+      // ignore errors during shutdown
+    }
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', async () => {
+    await shutdown();
+    // keep default behavior for Ctrl+C
+    process.exit(0);
+  });
+}
