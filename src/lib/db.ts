@@ -69,6 +69,12 @@ export async function getRosterByHsid(hsid: string) {
   return rows;
 }
 
+/**
+ * If your codebase previously had another getRosterByHsid variant,
+ * use this renamed export instead of reintroducing a duplicate name.
+ */
+export const getRosterByHsidLegacy = getRosterByHsid;
+
 export async function getRosterByHighSchool(highSchool: string) {
   const sql = `
     SELECT
@@ -85,7 +91,7 @@ export async function getRosterByHighSchool(highSchool: string) {
 }
 
 /**
- * Optional helpers (these match the columns I saw in your `public` schema)
+ * Optional helpers
  * Table: player_high_school_info_for_2025_season
  */
 export async function getSchoolByHsid(hsid: string) {
@@ -124,8 +130,7 @@ export async function getSchoolByMicrositeUrl(micrositeUrl: string) {
 /**
  * Host-based lookup.
  * Supports:
- * - subdomain.yatstats.com  -> uses "staging_url" (common pattern)
- * - full host match         -> tries both staging_url and microsite_url
+ * - full host match -> tries both staging_url and microsite_url
  */
 export async function getSchoolByHost(host: string) {
   const normalized = (host || "").toLowerCase().split(":")[0];
