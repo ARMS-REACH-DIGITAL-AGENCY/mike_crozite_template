@@ -1,79 +1,98 @@
-// src/lib/db.ts
+// src/lib/db.ts (ultra-minimal, no extras)
+'use server';
 
-type UrlField = "microsite_url" | "staging_url";
+import { Pool, QueryResult, QueryResultRow } from 'pg';
+import 'server-only';
 
-// If you want an explicit “go live” switch, set this in Vercel env:
-// YATSTATS_GO_LIVE=true (Production only)
-function isGoLiveEnabled() {
-  return String(process.env.YATSTATS_GO_LIVE || "").toLowerCase() === "true";
-}
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
+});
 
-function normalizeUrl(input: string) {
-  // Normalize into a consistent https URL without trailing slash
-  // and without query/hash for matching
-  const s = input.trim();
-  const withProto = s.startsWith("http://") || s.startsWith("https://") ? s : `https://${s}`;
-  const u = new URL(withProto);
-
-  u.protocol = "https:";      // treat http/https the same
-  u.hash = "";
-  u.search = "";
-
-  // remove trailing slash (except root)
-  const path = u.pathname.replace(/\/+$/, "") || "/";
-  u.pathname = path;
-
-  return u.toString();
-}
-
-function pickPreferredField(host: string): UrlField {
-  const h = host.toLowerCase();
-
-  // Anything clearly “sandbox/preview” should prefer staging_url
-  if (
-    h.endsWith(".vercel.app") ||
-    h.includes("git-") || // many preview patterns
-    h === "localhost" ||
-    h.startsWith("5004.") // your sandbox domain
-  ) {
-    return "staging_url";
+// Query helper with proper constraint to avoid type errors
+export async function query<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params: any[] = []
+): Promise<QueryResult<T>> {
+  try {
+    return await pool.query<T>(text, params);
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error;
   }
-
-  // Once production is approved, prefer microsite_url for real domains
-  if (isGoLiveEnabled()) return "microsite_url";
-
-  // Before approval, still allow matching live domains if they exist,
-  // but keep staging as the preference until the flag flips.
-  return "staging_url";
 }
 
-// Example signature — adjust to how you currently call it.
-// Pass in fullUrl OR host+pathname; just make sure you build a full URL string.
-export async function getSchoolByUrl(fullUrl: string, host?: string) {
-  const url = normalizeUrl(fullUrl);
-  const inferredHost = host ?? new URL(url).host;
+// Lookup a school by HSID
+export async function getSchoolByHsid(hsid: string) {
+  const { rows } = await query('SELECT * FROM school_success WHERE hsid = $1 LIMIT 1', [hsid]);
+  return rows[0] || null;
+}
 
-  const preferred = pickPreferredField(inferredHost);
-  const fallback: UrlField = preferred === "staging_url" ? "microsite_url" : "staging_url";
+// Lookup a school by its staging or microsite URL (full host)
+export async function getSchoolByUrl(host: string) {
+  const { rows } = await query(
+    'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
+    [`https://${host}`]
+  );
+  return rows[0] || null;
+}
 
-  // IMPORTANT: prefer one field, then fallback so code works in both phases.
-  // Also normalize stored URLs similarly if needed (best: store normalized).
+// Canonical roster lookup by HSID (returns roster rows, with a canonical `name` column)
+export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
   const sql = `
-    SELECT *
-    FROM school_success
-    WHERE ${preferred} = $1
-    LIMIT 1;
+    SELECT
+      *,
+      COALESCE(
+        NULLIF(name, ''),
+        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
+      ) AS name
+    FROM hs_rosters_simple
+    WHERE hsid = $1
   `;
+  const { rows } = await query(sql, [hsid]);
+  return rows;
+}
 
-  const primary = await queryOne(sql, [url]); // <- your existing helper
-  if (primary) return primary;
-
-  const sqlFallback = `
-    SELECT *
-    FROM school_success
-    WHERE ${fallback} = $1
-    LIMIT 1;
+// Lookup a roster by the high_school name
+export async function getRosterByHighSchool(highSchool: string): Promise<QueryResultRow[]> {
+  const sql = `
+    SELECT
+      *,
+      COALESCE(
+        NULLIF(name, ''),
+        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
+      ) AS name
+    FROM hs_rosters_simple
+    WHERE high_school = $1
   `;
+  const { rows } = await query(sql, [highSchool]);
+  return rows;
+}
 
-  return await queryOne(sqlFallback, [url]);
+// Graceful shutdown for production (guarded so multiple imports don't register multiple handlers)
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  var __pgPoolShutdownRegistered: any;
+}
+
+if (!global.__pgPoolShutdownRegistered) {
+  global.__pgPoolShutdownRegistered = true;
+
+  const shutdown = async () => {
+    try {
+      await pool.end();
+    } catch (e) {
+      // ignore errors during shutdown
+    }
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', async () => {
+    await shutdown();
+    // keep default behavior for Ctrl+C
+    process.exit(0);
+  });
 }
