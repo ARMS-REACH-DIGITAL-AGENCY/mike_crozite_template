@@ -111,10 +111,8 @@ export default async function SchoolPage({ params }: { params: { hsid: string } 
 
   // Prefer host-based lookup (staging_url / microsite_url)
   // db.ts normalizes, but it expects a URL-like string. Give it one.
-  const hostUrl = host ? `https://${host}` : "";
+ let school: SchoolLike | null = hostUrl ? await getSchoolByUrl(hostUrl) : null;
 
-  let school: SchoolLike | null = hostUrl ? await getSchoolByUrl(hostUrl, host) : null;
-  let roster: any[] = [];
 
   if (school) {
     // If found via URL, fetch roster by high_school (matches your earlier logic)
