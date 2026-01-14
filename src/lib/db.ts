@@ -1,147 +1,79 @@
 // src/lib/db.ts
-import { Pool, type PoolConfig, type QueryResult } from "pg";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  throw new Error("Missing DATABASE_URL environment variable");
+type UrlField = "microsite_url" | "staging_url";
+
+// If you want an explicit “go live” switch, set this in Vercel env:
+// YATSTATS_GO_LIVE=true (Production only)
+function isGoLiveEnabled() {
+  return String(process.env.YATSTATS_GO_LIVE || "").toLowerCase() === "true";
 }
 
-const PG_MAX_POOL = Number(process.env.PG_MAX_POOL ?? 10);
-const PG_IDLE_TIMEOUT_MS = Number(process.env.PG_IDLE_TIMEOUT_MS ?? 30_000);
-const PG_CONNECTION_TIMEOUT_MS = Number(process.env.PG_CONNECTION_TIMEOUT_MS ?? 2_000);
+function normalizeUrl(input: string) {
+  // Normalize into a consistent https URL without trailing slash
+  // and without query/hash for matching
+  const s = input.trim();
+  const withProto = s.startsWith("http://") || s.startsWith("https://") ? s : `https://${s}`;
+  const u = new URL(withProto);
 
-// Neon typically requires TLS. We'll enable SSL automatically unless explicitly disabled.
-const ssl =
-  process.env.PGSSLMODE === "disable" || process.env.DATABASE_SSL === "false"
-    ? undefined
-    : { rejectUnauthorized: false };
+  u.protocol = "https:";      // treat http/https the same
+  u.hash = "";
+  u.search = "";
 
-// Reuse a single pool across hot reloads / lambda invocations.
-declare global {
-  // eslint-disable-next-line no-var
-  var __pgPool: Pool | undefined;
+  // remove trailing slash (except root)
+  const path = u.pathname.replace(/\/+$/, "") || "/";
+  u.pathname = path;
+
+  return u.toString();
 }
 
-function getPool() {
-  if (!global.__pgPool) {
-    const config: PoolConfig = {
-      connectionString: DATABASE_URL,
-      max: PG_MAX_POOL,
-      idleTimeoutMillis: PG_IDLE_TIMEOUT_MS,
-      connectionTimeoutMillis: PG_CONNECTION_TIMEOUT_MS,
-      ssl,
-    };
-    global.__pgPool = new Pool(config);
+function pickPreferredField(host: string): UrlField {
+  const h = host.toLowerCase();
+
+  // Anything clearly “sandbox/preview” should prefer staging_url
+  if (
+    h.endsWith(".vercel.app") ||
+    h.includes("git-") || // many preview patterns
+    h === "localhost" ||
+    h.startsWith("5004.") // your sandbox domain
+  ) {
+    return "staging_url";
   }
-  return global.__pgPool;
+
+  // Once production is approved, prefer microsite_url for real domains
+  if (isGoLiveEnabled()) return "microsite_url";
+
+  // Before approval, still allow matching live domains if they exist,
+  // but keep staging as the preference until the flag flips.
+  return "staging_url";
 }
 
-export async function query<T = any>(
-  text: string,
-  params: any[] = []
-): Promise<QueryResult<T>> {
-  const pool = getPool();
-  return pool.query<T>(text, params);
-}
+// Example signature — adjust to how you currently call it.
+// Pass in fullUrl OR host+pathname; just make sure you build a full URL string.
+export async function getSchoolByUrl(fullUrl: string, host?: string) {
+  const url = normalizeUrl(fullUrl);
+  const inferredHost = host ?? new URL(url).host;
 
-export async function shutdownPool() {
-  if (global.__pgPool) {
-    await global.__pgPool.end();
-    global.__pgPool = undefined;
-  }
-}
+  const preferred = pickPreferredField(inferredHost);
+  const fallback: UrlField = preferred === "staging_url" ? "microsite_url" : "staging_url";
 
-/**
- * Lookup a roster by HSID (safe: compute name rather than referencing a 'name' column)
- */
-export async function getRosterByHsid(hsid: string) {
-  const sql = `
-    SELECT
-      hs_rosters_simple.*,
-      TRIM(CONCAT_WS(' ', firstname, lastname)) AS name
-    FROM public.hs_rosters_simple
-    WHERE hsid::text = $1
-    ORDER BY
-      COALESCE(NULLIF(lastname,''), TRIM(CONCAT_WS(' ', firstname, lastname))) NULLS LAST,
-      firstname NULLS LAST
-  `;
-  const { rows } = await query(sql, [hsid]);
-  return rows;
-}
-
-/**
- * If your codebase previously had another getRosterByHsid variant,
- * use this renamed export instead of reintroducing a duplicate name.
- */
-export const getRosterByHsidLegacy = getRosterByHsid;
-
-export async function getRosterByHighSchool(highSchool: string) {
-  const sql = `
-    SELECT
-      hs_rosters_simple.*,
-      TRIM(CONCAT_WS(' ', firstname, lastname)) AS name
-    FROM public.hs_rosters_simple
-    WHERE high_school = $1
-    ORDER BY
-      COALESCE(NULLIF(lastname,''), TRIM(CONCAT_WS(' ', firstname, lastname))) NULLS LAST,
-      firstname NULLS LAST
-  `;
-  const { rows } = await query(sql, [highSchool]);
-  return rows;
-}
-
-/**
- * Optional helpers
- * Table: player_high_school_info_for_2025_season
- */
-export async function getSchoolByHsid(hsid: string) {
+  // IMPORTANT: prefer one field, then fallback so code works in both phases.
+  // Also normalize stored URLs similarly if needed (best: store normalized).
   const sql = `
     SELECT *
-    FROM public.player_high_school_info_for_2025_season
-    WHERE hsid::text = $1
-    LIMIT 1
+    FROM school_success
+    WHERE ${preferred} = $1
+    LIMIT 1;
   `;
-  const { rows } = await query(sql, [hsid]);
-  return rows[0] ?? null;
-}
 
-export async function getSchoolByStagingUrl(stagingUrl: string) {
-  const sql = `
+  const primary = await queryOne(sql, [url]); // <- your existing helper
+  if (primary) return primary;
+
+  const sqlFallback = `
     SELECT *
-    FROM public.player_high_school_info_for_2025_season
-    WHERE staging_url = $1
-    LIMIT 1
+    FROM school_success
+    WHERE ${fallback} = $1
+    LIMIT 1;
   `;
-  const { rows } = await query(sql, [stagingUrl]);
-  return rows[0] ?? null;
-}
 
-export async function getSchoolByMicrositeUrl(micrositeUrl: string) {
-  const sql = `
-    SELECT *
-    FROM public.player_high_school_info_for_2025_season
-    WHERE microsite_url = $1
-    LIMIT 1
-  `;
-  const { rows } = await query(sql, [micrositeUrl]);
-  return rows[0] ?? null;
-}
-
-/**
- * Host-based lookup.
- * Supports:
- * - full host match -> tries both staging_url and microsite_url
- */
-export async function getSchoolByHost(host: string) {
-  const normalized = (host || "").toLowerCase().split(":")[0];
-
-  const sql = `
-    SELECT *
-    FROM public.player_high_school_info_for_2025_season
-    WHERE LOWER(staging_url) = $1
-       OR LOWER(microsite_url) = $1
-    LIMIT 1
-  `;
-  const { rows } = await query(sql, [normalized]);
-  return rows[0] ?? null;
+  return await queryOne(sqlFallback, [url]);
 }
