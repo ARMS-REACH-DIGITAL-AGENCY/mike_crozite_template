@@ -70,7 +70,9 @@ function PlayerCard({ player }: { player: any }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold">{player?.name ?? "Player"}</h2>
+            <h2 className="truncate text-lg font-semibold">
+              {player?.name ?? "Player"}
+            </h2>
             <p className="mt-1 text-sm text-[color:var(--foreground)]/70">
               {player?.position ? String(player.position) : "—"}
             </p>
@@ -96,7 +98,9 @@ function PlayerCard({ player }: { player: any }) {
       </div>
 
       <div className="flex items-center justify-between border-t border-[var(--border)] px-5 py-3 text-xs text-[color:var(--foreground)]/70">
-        <span className="truncate">{player?.player_id ? `ID: ${player.player_id}` : ""}</span>
+        <span className="truncate">
+          {player?.player_id ? `ID: ${player.player_id}` : ""}
+        </span>
         <span className="opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           View →
         </span>
@@ -105,17 +109,26 @@ function PlayerCard({ player }: { player: any }) {
   );
 }
 
-export default async function SchoolPage({ params }: { params: { hsid: string } }) {
+export default async function SchoolPage({
+  params,
+}: {
+  params: { hsid: string };
+}) {
   const h = await headers();
   const host = h.get("host") || "";
 
-  // Prefer host-based lookup (staging_url / microsite_url)
-  // db.ts normalizes, but it expects a URL-like string. Give it one.
- let school: SchoolLike | null = hostUrl ? await getSchoolByUrl(hostUrl) : null;
+  // Make host URL-like so db.ts can normalize consistently
+  const hostUrl = host ? `https://${host}` : "";
 
+  // IMPORTANT: define roster before using it
+  let roster: any[] = [];
+
+  // Prefer host-based lookup (staging_url / microsite_url)
+  // If your getSchoolByUrl expects a URL-like string, pass hostUrl
+  let school: SchoolLike | null = hostUrl ? await getSchoolByUrl(hostUrl) : null;
 
   if (school) {
-    // If found via URL, fetch roster by high_school (matches your earlier logic)
+    // If found via URL, fetch roster by high_school
     roster = await getRosterByHighSchool((school as any).high_school);
   } else {
     // Fallback: use numeric hsid from route
@@ -146,7 +159,9 @@ export default async function SchoolPage({ params }: { params: { hsid: string } 
               </div>
               <div className="hidden sm:block leading-tight">
                 <div className="text-sm font-semibold">YAT?STATS</div>
-                <div className="text-xs text-[color:var(--foreground)]/60">Microsites</div>
+                <div className="text-xs text-[color:var(--foreground)]/60">
+                  Microsites
+                </div>
               </div>
             </a>
 
@@ -154,9 +169,16 @@ export default async function SchoolPage({ params }: { params: { hsid: string } 
             <div className="min-w-0 flex-1 text-center">
               <div className="truncate text-sm font-semibold sm:text-base">
                 {name}
-                {nickname ? <span className="text-[color:var(--foreground)]/60"> · {nickname}</span> : null}
+                {nickname ? (
+                  <span className="text-[color:var(--foreground)]/60">
+                    {" "}
+                    · {nickname}
+                  </span>
+                ) : null}
               </div>
-              <div className="truncate text-xs text-[color:var(--foreground)]/60">{location || " "}</div>
+              <div className="truncate text-xs text-[color:var(--foreground)]/60">
+                {location || " "}
+              </div>
             </div>
 
             {/* Right stats + CTA */}
@@ -192,14 +214,17 @@ export default async function SchoolPage({ params }: { params: { hsid: string } 
                 Active Baseball Alumni
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-[color:var(--foreground)]/70">
-                Current players connected to <span className="font-medium">{name}</span>.
+                Current players connected to{" "}
+                <span className="font-medium">{name}</span>.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="rounded-full border border-[var(--border)] bg-[color:var(--surface)] px-3 py-1 text-sm">
                 <span className="text-[color:var(--foreground)]/70">Players</span>{" "}
-                <span className="font-semibold tabular-nums">{roster?.length ?? 0}</span>
+                <span className="font-semibold tabular-nums">
+                  {roster?.length ?? 0}
+                </span>
               </div>
               <div className="rounded-full border border-[var(--border)] bg-[color:var(--surface)] px-3 py-1 text-sm">
                 <span className="text-[color:var(--foreground)]/70">HSID</span>{" "}
@@ -215,7 +240,10 @@ export default async function SchoolPage({ params }: { params: { hsid: string } 
         {roster && roster.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {roster.map((player: any) => (
-              <PlayerCard key={player?.player_id ?? player?.id ?? player?.name} player={player} />
+              <PlayerCard
+                key={player?.player_id ?? player?.id ?? player?.name}
+                player={player}
+              />
             ))}
           </div>
         ) : (
