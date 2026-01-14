@@ -1,4 +1,4 @@
-// src/lib/db.ts (ultra-minimal, no extras)
+// src/lib/db.ts (ultra-minimal, explicit columns, no guessing)
 'use server';
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
@@ -9,7 +9,9 @@ const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require')
+    ? { rejectUnauthorized: false }
+    : undefined,
 });
 
 // Query helper with proper constraint to avoid type errors
@@ -40,33 +42,53 @@ export async function getSchoolByUrl(host: string) {
   return rows[0] || null;
 }
 
-// Canonical roster lookup by HSID (returns roster rows, with a canonical `name` column)
+/**
+ * Canonical roster lookup by HSID
+ * - hsname = high school name (Hamilton, Bullard, etc.)
+ * - player_name = display name derived from firstname/lastname (no "name" column assumed)
+ */
 export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
   const sql = `
     SELECT
-      *,
+      hsid,
+      hsname,
+      hslocation,
+      playerid,
+      firstname,
+      lastname,
+      highlevel,
+      high_school,
       COALESCE(
-        NULLIF(name, ''),
-        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
-      ) AS name
+        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), ''),
+        NULLIF(playerid::text, '')
+      ) AS player_name
     FROM hs_rosters_simple
     WHERE hsid = $1
+    ORDER BY lastname NULLS LAST, firstname NULLS LAST, playerid
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
 }
 
-// Lookup a roster by the high_school name
+// Lookup a roster by the high_school field (exact match)
 export async function getRosterByHighSchool(highSchool: string): Promise<QueryResultRow[]> {
   const sql = `
     SELECT
-      *,
+      hsid,
+      hsname,
+      hslocation,
+      playerid,
+      firstname,
+      lastname,
+      highlevel,
+      high_school,
       COALESCE(
-        NULLIF(name, ''),
-        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), '')
-      ) AS name
+        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), ''),
+        NULLIF(playerid::text, '')
+      ) AS player_name
     FROM hs_rosters_simple
     WHERE high_school = $1
+    ORDER BY lastname NULLS LAST, firstname NULLS LAST, playerid
   `;
   const { rows } = await query(sql, [highSchool]);
   return rows;
@@ -84,7 +106,7 @@ if (!global.__pgPoolShutdownRegistered) {
   const shutdown = async () => {
     try {
       await pool.end();
-    } catch (e) {
+    } catch {
       // ignore errors during shutdown
     }
   };
@@ -92,7 +114,6 @@ if (!global.__pgPoolShutdownRegistered) {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', async () => {
     await shutdown();
-    // keep default behavior for Ctrl+C
     process.exit(0);
   });
 }
