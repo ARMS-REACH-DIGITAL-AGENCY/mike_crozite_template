@@ -1,4 +1,4 @@
-// src/lib/db.ts (ultra-minimal, explicit columns, no guessing)
+// src/lib/db.ts (normalized URL matching, explicit columns, no guessing)
 'use server';
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
@@ -27,25 +27,78 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   }
 }
 
+/**
+ * Normalize an incoming host/url into:
+ * - hostOnly: "5004.yatstats.com" (no protocol, no path, no port)
+ * - httpsUrl: "https://5004.yatstats.com"
+ *
+ * Accepts inputs like:
+ * - "5004.yatstats.com"
+ * - "https://5004.yatstats.com"
+ * - "5004.yatstats.com:3000"
+ * - "https://5004.yatstats.com/anything?x=y"
+ */
+function normalizeHostOrUrl(input: string) {
+  const raw = (input || '').trim();
+  if (!raw) return { hostOnly: '', httpsUrl: '' };
+
+  // Ensure URL parsing works even if protocol missing
+  const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  let host = '';
+  try {
+    const u = new URL(withProto);
+    host = (u.hostname || '').toLowerCase();
+  } catch {
+    // Fallback: strip protocol/path manually
+    host = raw
+      .replace(/^https?:\/\//i, '')
+      .split('/')[0]
+      .split('?')[0]
+      .split('#')[0]
+      .split(':')[0]
+      .toLowerCase();
+  }
+
+  const hostOnly = host;
+  const httpsUrl = hostOnly ? `https://${hostOnly}` : '';
+  return { hostOnly, httpsUrl };
+}
+
 // Lookup a school by HSID
 export async function getSchoolByHsid(hsid: string) {
   const { rows } = await query('SELECT * FROM school_success WHERE hsid = $1 LIMIT 1', [hsid]);
   return rows[0] || null;
 }
 
-// Lookup a school by its staging or microsite URL (full host)
-export async function getSchoolByUrl(host: string) {
-  const { rows } = await query(
-    'SELECT * FROM school_success WHERE staging_url = $1 OR microsite_url = $1 LIMIT 1',
-    [`https://${host}`]
-  );
+/**
+ * Lookup a school by its staging or microsite URL.
+ * Works whether caller passes:
+ * - host only: "5004.yatstats.com"
+ * - full url: "https://5004.yatstats.com"
+ */
+export async function getSchoolByUrl(hostOrUrl: string) {
+  const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
+
+  if (!hostOnly || !httpsUrl) return null;
+
+  // Some callers may store/compare without protocol; include both candidates.
+  const candidates = Array.from(new Set([httpsUrl, hostOnly]));
+
+  const sql = `
+    SELECT *
+    FROM school_success
+    WHERE staging_url = ANY($1::text[])
+       OR microsite_url = ANY($1::text[])
+    LIMIT 1
+  `;
+
+  const { rows } = await query(sql, [candidates]);
   return rows[0] || null;
 }
 
 /**
  * Canonical roster lookup by HSID
- * - hsname = high school name (Hamilton, Bullard, etc.)
- * - player_name = display name derived from firstname/lastname (no "name" column assumed)
  */
 export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
   const sql = `
