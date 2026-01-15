@@ -14,18 +14,24 @@ export default async function SchoolPage({
 }: {
   params: { hsid: string };
 }) {
-  // Read host (staging_url or microsite_url)
+  // Read request headers
   const headersList = await headers();
   const host = headersList.get('host') || '';
 
-  // Try URL-based lookup first (staging + microsite)
-  let school = await getSchoolByUrl(host);
-  let roster;
+  // Normalize host into URL form so db.ts can match consistently
+  const hostUrl = host ? `https://${host}` : '';
+
+  // Always initialize roster
+  let roster: any[] = [];
+
+  // Try URL-based lookup first (staging_url / microsite_url)
+  let school: any = hostUrl ? await getSchoolByUrl(hostUrl) : null;
 
   if (school) {
+    // If resolved by URL, load roster by high_school name
     roster = await getRosterByHighSchool(school.high_school);
   } else {
-    // Fallback to numeric hsid route
+    // Fallback to numeric HSID route
     const hsid = params.hsid;
     school = await getSchoolByHsid(hsid);
 
@@ -51,17 +57,23 @@ export default async function SchoolPage({
 
       {/* PLAYER CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {roster.map((player: any) => (
-          <div key={player.player_id} className="flip-card">
-            <div className="flip-card-inner">
-              <div className="flip-card-front bg-gray-900 rounded-xl shadow-lg flex flex-col items-center justify-center p-6">
-                <h2 className="text-xl font-semibold">
-                  {player.name}
-                </h2>
+        {roster.length > 0 ? (
+          roster.map((player: any) => (
+            <div key={player.player_id} className="flip-card">
+              <div className="flip-card-inner">
+                <div className="flip-card-front bg-gray-900 rounded-xl shadow-lg flex flex-col items-center justify-center p-6">
+                  <h2 className="text-xl font-semibold">
+                    {player.name}
+                  </h2>
+                </div>
               </div>
             </div>
+          ))
+        ) : (
+          <div className="col-span-full text-center opacity-70">
+            No active players found.
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
