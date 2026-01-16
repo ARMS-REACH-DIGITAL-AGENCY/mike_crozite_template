@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
     const COL_HSLOCATION = pick(cols, "hslocation");
     const COL_CITYNAME = pick(cols, "cityname");
     const COL_REGIONNAME = pick(cols, "regionname");
-    const COL_REGIONABBR = pick(cols, "regionabbr"); // if exists
+    const COL_REGIONID = pick(cols, "regionID"); // if exists
     const COL_REGION = pick(cols, "region"); // if exists
     const COL_STATE = pick(cols, "state"); // if exists
 
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
       COL_HSLOCATION ? `${COL_HSLOCATION} AS hslocation` : null,
       COL_CITYNAME ? `${COL_CITYNAME} AS cityname` : null,
       COL_REGIONNAME ? `${COL_REGIONNAME} AS regionname` : null,
-      COL_REGIONABBR ? `${COL_REGIONABBR} AS regionabbr` : null,
+      COL_REGIONABBR ? `${COL_REGIONID} AS regionid` : null,
       COL_REGION ? `${COL_REGION} AS region` : null,
       COL_STATE ? `${COL_STATE} AS state` : null,
       COL_STAGING_URL ? `${COL_STAGING_URL} AS staging_url` : null,
@@ -227,7 +227,7 @@ export async function GET(req: NextRequest) {
         "";
 
       const state =
-        (r.regionabbr && String(r.regionabbr)) ||
+        (r.regionid && String(r.regionid)) ||
         (r.state && String(r.state)) ||
         parsed.state ||
         "";
