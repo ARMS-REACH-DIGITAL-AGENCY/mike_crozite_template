@@ -1,29 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db'; // Assume your DB helper is here; adjust path
+// middleware.ts
+import { NextRequest, NextResponse } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  const url = request.nextUrl;
-  const host = request.headers.get('host') || '';
-  const subdomain = host.split('.')[0]; // e.g., '5004' from 5004.yatstats.com
+const ROOT_DOMAIN = (process.env.ROOT_DOMAIN || "yatstats.com").toLowerCase();
 
-  if (subdomain && !isNaN(Number(subdomain))) {
-    // Check if subdomain matches a staging_url in school_success
-    const { rows } = await query<{ hsid: number }>(
-      'SELECT hsid FROM school_success WHERE staging_url LIKE $1',
-      [`%${subdomain}%`] // Fuzzy match; tighten if needed
-    );
+function getHost(request: NextRequest) {
+  // Vercel/proxies commonly set x-forwarded-host
+  const forwarded = request.headers.get("x-forwarded-host");
+  const host = (forwarded || request.headers.get("host") || "").toLowerCase();
 
-    if (rows.length > 0) {
-      // Rewrite to dynamic route with hsid
-      url.pathname = `/${rows[0].hsid}${url.pathname}`;
-      return NextResponse.rewrite(url);
-    }
-  }
+  // Strip port if present (localhost:3000, etc.)
+  return host.split(",")[0].trim().split(":")[0];
+}
 
-  // Non-matching: Redirect to main site or default page
-  return NextResponse.redirect(new URL('https://yatstats.com', request.url));
+export function middleware(request: NextRequest) {
+  const host = getHost(request);
+  const url = request.nextUrl.clone();
+
+  // Only apply subdomain logic on the root domain and its subdomains
+  const isOnRootDomain = host === ROOT_DOMAIN || host.endsWith(`.${ROOT_DOMAIN}`);
+  if (!isOnRootDomain) return NextResponse.next();
+
+  // Extract subdomain (everything before .ROOT_DOMAIN)
+  // Examples:
+  // 5004.yatstats.com -> "5004"
+  // www.yatstats.com -> "www"
+  // yatstats.com -> ""
+  const subdomainPart =
+    host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1)); // remove ".ROOT_DOMAIN"
+  const subdomain = subdomainPart.split(".")[0] || "";
+
+  // Ignore apex + www
+  if (!subdomain || subdomain === "www") return NextResponse.next();
+
+  // Prevent double-prefixing if someone manually visits /{subdomain}/...
+  const path = url.pathname;
+  const alreadyPrefixed = path === `/${subdomain}` || path.startsWith(`/${subdomain}/`);
+  if (alreadyPrefixed) return NextResponse.next();
+
+  // Rewrite: SUBDOMAIN.yatstats.com/anything -> /SUBDOMAIN/anything
+  url.pathname = `/${subdomain}${path}`;
+  return NextResponse.rewrite(url);
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    // Don't run middleware on Next internals, API, or common static/metadata files
+    "/((?!api|_next|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)",
+  ],
 };
