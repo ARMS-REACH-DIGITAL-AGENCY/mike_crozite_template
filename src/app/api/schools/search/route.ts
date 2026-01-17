@@ -19,45 +19,23 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: buildCorsHeaders(req) });
 }
 
-function parseLookupKey(lookupKey: string) {
-  const raw = (lookupKey || "").trim();
-  const nameMatch = raw.match(/^(.+?)\s*\(/);
-  const locMatch = raw.match(/\((.*)\)$/);
-
-  const hsname = (nameMatch?.[1] || raw).trim();
-
-  let city = "";
-  let state = "";
-
-  if (locMatch?.[1]) {
-    const parts = locMatch[1].split(",");
-    city = (parts[0] || "").trim();
-    state = (parts[1] || "").trim();
-  }
-
-  return { hsname, city, state };
-}
-
-/**
- * Discover table columns safely
- * IMPORTANT: this must match your actual table name
- */
-async function getSchoolSuccessColumns(): Promise<Set<string>> {
+async function getSchoolSuccessColumns(): Promise<string[]> {
   const { rows } = await query(
     `
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
       AND table_name = 'school_success'
+    ORDER BY ordinal_position
     `,
     []
   );
 
-  return new Set(rows.map((r: any) => String(r.column_name)));
+  return rows.map((r: any) => String(r.column_name));
 }
 
-function pick(cols: Set<string>, name: string) {
-  return cols.has(name) ? name : null;
+function has(cols: Set<string>, name: string) {
+  return cols.has(name);
 }
 
 export async function GET(req: NextRequest) {
@@ -69,73 +47,44 @@ export async function GET(req: NextRequest) {
     const qRaw = (searchParams.get("q") || "").trim();
     const stateRaw = (searchParams.get("state") || "").trim().toUpperCase();
     const cityRaw = (searchParams.get("city") || "").trim();
+
     const limit = Math.min(
       Math.max(parseInt(searchParams.get("limit") || "25", 10), 1),
       50
     );
 
-    const cols = await getSchoolSuccessColumns();
+    // 1) Discover all columns in school_success
+    const allCols = await getSchoolSuccessColumns();
+    const colSet = new Set(allCols);
 
-    // Core columns (match your schema)
-    const COL_HSID = pick(cols, "hsid") || "hsid";
-    const COL_LOOKUP = pick(cols, "hs_lookup_key");
-    const COL_HIGH_SCHOOL = pick(cols, "high_school");
-    const COL_HSNAME = pick(cols, "hsname");
-    const COL_CITYNAME = pick(cols, "cityname");
-    const COL_REGIONNAME = pick(cols, "regionname");
-    const COL_REGIONID = pick(cols, "regionid");
-    const COL_HSLOCATION = pick(cols, "hslocation");
+    // 2) Exclude only staging_url (per your requirement)
+    const colsToReturn = allCols.filter((c) => c !== "staging_url");
 
-    // URLs
-    const COL_STAGING_URL = pick(cols, "staging_url");
-    const COL_MICROSITE_URL = pick(cols, "microsite_url");
+    // 3) Build SELECT list safely (simple identifier quoting)
+    const selectSql = colsToReturn.map((c) => `"${c}"`).join(", ");
 
-    // Metrics (match your schema)
-    const COL_ACTIVE = pick(cols, "current_aa"); // <- REAL COLUMN
-    const COL_MLB = pick(cols, "mlb");           // <- REAL COLUMN
-    const COL_NAT_RANK = pick(cols, "yatstats_national_rank");
-    const COL_STATE_RANK = pick(cols, "yatstats_state_rank");
-
-    const selectCols = [
-      `${COL_HSID} AS hsid`,
-      COL_LOOKUP && `${COL_LOOKUP} AS hs_lookup_key`,
-      COL_HIGH_SCHOOL && `${COL_HIGH_SCHOOL} AS high_school`,
-      COL_HSNAME && `${COL_HSNAME} AS hsname`,
-      COL_CITYNAME && `${COL_CITYNAME} AS cityname`,
-      COL_REGIONNAME && `${COL_REGIONNAME} AS regionname`,
-      COL_REGIONID && `${COL_REGIONID} AS regionid`,
-      COL_HSLOCATION && `${COL_HSLOCATION} AS hslocation`,
-      COL_STAGING_URL && `${COL_STAGING_URL} AS staging_url`,
-      COL_MICROSITE_URL && `${COL_MICROSITE_URL} AS microsite_url`,
-
-      // Alias DB columns to the API keys you want
-      COL_ACTIVE && `${COL_ACTIVE} AS current_active_alumni`,
-      COL_MLB && `${COL_MLB} AS mlb_players_produced`,
-
-      COL_NAT_RANK && `${COL_NAT_RANK} AS yatstats_national_rank`,
-      COL_STATE_RANK && `${COL_STATE_RANK} AS yatstats_state_rank`,
-    ].filter(Boolean);
-
+    // 4) Filters (only add conditions if the columns exist)
     const where: string[] = [];
     const params: any[] = [];
     let idx = 1;
 
     if (qRaw) {
       const parts: string[] = [];
-      if (COL_LOOKUP) parts.push(`hs_lookup_key ILIKE $${idx}`);
-      if (COL_HSNAME) parts.push(`hsname ILIKE $${idx}`);
-      if (COL_HIGH_SCHOOL) parts.push(`high_school ILIKE $${idx}`);
+      if (has(colSet, "hs_lookup_key")) parts.push(`hs_lookup_key ILIKE $${idx}`);
+      if (has(colSet, "hsname")) parts.push(`hsname ILIKE $${idx}`);
+      if (has(colSet, "high_school")) parts.push(`high_school ILIKE $${idx}`);
+      if (has(colSet, "nickname")) parts.push(`nickname ILIKE $${idx}`);
       where.push(`(${parts.join(" OR ")})`);
       params.push(`%${qRaw}%`);
       idx++;
     }
 
     if (stateRaw) {
-      if (COL_REGIONID) {
+      if (has(colSet, "regionid")) {
         where.push(`regionid = $${idx}`);
         params.push(stateRaw);
         idx++;
-      } else if (COL_LOOKUP) {
+      } else if (has(colSet, "hs_lookup_key")) {
         where.push(`hs_lookup_key ILIKE $${idx}`);
         params.push(`%,${stateRaw})%`);
         idx++;
@@ -143,11 +92,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (cityRaw) {
-      if (COL_CITYNAME) {
+      if (has(colSet, "cityname")) {
         where.push(`cityname ILIKE $${idx}`);
         params.push(`%${cityRaw}%`);
         idx++;
-      } else if (COL_LOOKUP) {
+      } else if (has(colSet, "hs_lookup_key")) {
         where.push(`hs_lookup_key ILIKE $${idx}`);
         params.push(`%(${cityRaw},%`);
         idx++;
@@ -155,13 +104,20 @@ export async function GET(req: NextRequest) {
     }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const orderSql = COL_NAT_RANK
-      ? `ORDER BY yatstats_national_rank ASC NULLS LAST`
-      : `ORDER BY hs_lookup_key ASC NULLS LAST`;
 
+    // Prefer your sort column if present, else national rank, else hsid
+    const orderSql = has(colSet, "yatstats_master_sort")
+      ? `ORDER BY yatstats_master_sort ASC NULLS LAST`
+      : has(colSet, "yatstats_national_rank")
+        ? `ORDER BY yatstats_national_rank ASC NULLS LAST`
+        : has(colSet, "hsid")
+          ? `ORDER BY hsid ASC`
+          : "";
+
+    // IMPORTANT: table name is school_success (not public_school_success)
     const sql = `
-      SELECT ${selectCols.join(", ")}
-      FROM public_school_success
+      SELECT ${selectSql}
+      FROM school_success
       ${whereSql}
       ${orderSql}
       LIMIT ${limit}
@@ -169,29 +125,9 @@ export async function GET(req: NextRequest) {
 
     const { rows } = await query(sql, params);
 
-    const programs = rows.map((r: any) => {
-      const parsed = parseLookupKey(r.hs_lookup_key || "");
-
-      return {
-        hsid: r.hsid,
-        hsname: r.hsname || r.high_school || parsed.hsname,
-        city: r.cityname || parsed.city,
-        state: r.regionid || parsed.state,
-        hslocation:
-          r.hslocation ||
-          (parsed.city && parsed.state ? `${parsed.city}, ${parsed.state}` : null),
-        staging_url: r.staging_url ?? null,
-        microsite_url: r.microsite_url ?? null,
-        current_active_alumni: r.current_active_alumni ?? null,
-        mlb_players_produced: r.mlb_players_produced ?? null,
-        yatstats_national_rank: r.yatstats_national_rank ?? null,
-        yatstats_state_rank: r.yatstats_state_rank ?? null,
-        players_endpoint: `/api/players/${r.hsid}`,
-      };
-    });
-
+    // Return everything (minus staging_url), exactly as table columns
     return NextResponse.json(
-      { programs },
+      { programs: rows },
       { status: 200, headers: { ...cors, "Cache-Control": "no-store" } }
     );
   } catch (err: any) {
