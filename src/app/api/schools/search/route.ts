@@ -48,7 +48,7 @@ async function getSchoolSuccessColumns(): Promise<Set<string>> {
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = 'public_school_success'
+      AND table_name = 'school_success'
     `,
     []
   );
