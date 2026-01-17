@@ -4,9 +4,6 @@ import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-/**
- * CORS for embedding on GHL pages or other domains.
- */
 function buildCorsHeaders(req: NextRequest) {
   const origin = req.headers.get("origin") || "*";
   return {
@@ -22,10 +19,6 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: buildCorsHeaders(req) });
 }
 
-/**
- * Fallback parser for strings like:
- * "Hamilton (Chandler,AZ)"
- */
 function parseLookupKey(lookupKey: string) {
   const raw = (lookupKey || "").trim();
   const nameMatch = raw.match(/^(.+?)\s*\(/);
@@ -47,6 +40,7 @@ function parseLookupKey(lookupKey: string) {
 
 /**
  * Discover table columns safely
+ * IMPORTANT: this must match your actual table name
  */
 async function getSchoolSuccessColumns(): Promise<Set<string>> {
   const { rows } = await query(
@@ -54,7 +48,7 @@ async function getSchoolSuccessColumns(): Promise<Set<string>> {
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = 'school_success'
+      AND table_name = 'public_school_success'
     `,
     []
   );
@@ -73,7 +67,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const qRaw = (searchParams.get("q") || "").trim();
-    const stateRaw = (searchParams.get("state") || "").trim().toUpperCase(); // "CA"
+    const stateRaw = (searchParams.get("state") || "").trim().toUpperCase();
     const cityRaw = (searchParams.get("city") || "").trim();
     const limit = Math.min(
       Math.max(parseInt(searchParams.get("limit") || "25", 10), 1),
@@ -82,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     const cols = await getSchoolSuccessColumns();
 
-    // Core columns
+    // Core columns (match your schema)
     const COL_HSID = pick(cols, "hsid") || "hsid";
     const COL_LOOKUP = pick(cols, "hs_lookup_key");
     const COL_HIGH_SCHOOL = pick(cols, "high_school");
@@ -96,9 +90,9 @@ export async function GET(req: NextRequest) {
     const COL_STAGING_URL = pick(cols, "staging_url");
     const COL_MICROSITE_URL = pick(cols, "microsite_url");
 
-    // Metrics
-    const COL_ACTIVE = pick(cols, "current_active_alumni");
-    const COL_MLB = pick(cols, "mlb_players_produced");
+    // Metrics (match your schema)
+    const COL_ACTIVE = pick(cols, "current_aa"); // <- REAL COLUMN
+    const COL_MLB = pick(cols, "mlb");           // <- REAL COLUMN
     const COL_NAT_RANK = pick(cols, "yatstats_national_rank");
     const COL_STATE_RANK = pick(cols, "yatstats_state_rank");
 
@@ -113,8 +107,11 @@ export async function GET(req: NextRequest) {
       COL_HSLOCATION && `${COL_HSLOCATION} AS hslocation`,
       COL_STAGING_URL && `${COL_STAGING_URL} AS staging_url`,
       COL_MICROSITE_URL && `${COL_MICROSITE_URL} AS microsite_url`,
+
+      // Alias DB columns to the API keys you want
       COL_ACTIVE && `${COL_ACTIVE} AS current_active_alumni`,
       COL_MLB && `${COL_MLB} AS mlb_players_produced`,
+
       COL_NAT_RANK && `${COL_NAT_RANK} AS yatstats_national_rank`,
       COL_STATE_RANK && `${COL_STATE_RANK} AS yatstats_state_rank`,
     ].filter(Boolean);
@@ -164,7 +161,7 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT ${selectCols.join(", ")}
-      FROM school_success
+      FROM public_school_success
       ${whereSql}
       ${orderSql}
       LIMIT ${limit}
@@ -182,9 +179,7 @@ export async function GET(req: NextRequest) {
         state: r.regionid || parsed.state,
         hslocation:
           r.hslocation ||
-          (parsed.city && parsed.state
-            ? `${parsed.city}, ${parsed.state}`
-            : null),
+          (parsed.city && parsed.state ? `${parsed.city}, ${parsed.state}` : null),
         staging_url: r.staging_url ?? null,
         microsite_url: r.microsite_url ?? null,
         current_active_alumni: r.current_active_alumni ?? null,
