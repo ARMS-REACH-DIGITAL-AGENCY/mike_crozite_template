@@ -99,7 +99,7 @@ export function aggregateTeamTotals(lines: BatLine[], hsid: number, day: number 
   return {
     hsid: n(hsid),
     day,
-    playerid: "__TEAM__" as any, // not used; kept for shape compatibility if needed
+    // Removed playerid as it doesn't exist in TeamTotals type
     ab, h, dbl, tpl, hr, bb, hbp, sf,
     single,
     tb,
