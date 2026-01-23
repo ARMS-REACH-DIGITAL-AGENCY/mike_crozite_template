@@ -1,9 +1,7 @@
 // src/lib/db.ts (normalized URL matching, explicit columns, no guessing)
 'use server';
-
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
@@ -13,7 +11,6 @@ const pool = new Pool({
     ? { rejectUnauthorized: false }
     : undefined,
 });
-
 // Query helper with proper constraint to avoid type errors
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
@@ -26,7 +23,6 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     throw error;
   }
 }
-
 /**
  * Normalize an incoming host/url into:
  * - hostOnly: "5004.yatstats.com" (no protocol, no path, no port)
@@ -41,10 +37,8 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 function normalizeHostOrUrl(input: string) {
   const raw = (input || '').trim();
   if (!raw) return { hostOnly: '', httpsUrl: '' };
-
   // Ensure URL parsing works even if protocol missing
   const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-
   let host = '';
   try {
     const u = new URL(withProto);
@@ -59,18 +53,18 @@ function normalizeHostOrUrl(input: string) {
       .split(':')[0]
       .toLowerCase();
   }
-
   const hostOnly = host;
   const httpsUrl = hostOnly ? `https://${hostOnly}` : '';
   return { hostOnly, httpsUrl };
 }
-
 // Lookup a school by HSID
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query('SELECT * FROM school_success WHERE hsid = $1 LIMIT 1', [hsid]);
+  const { rows } = await query<{ id: number; school_name: string; /* add your fields like city: string; state: string; */ }>(
+    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
+    [hsid]
+  );
   return rows[0] || null;
 }
-
 /**
  * Lookup a school by its staging or microsite URL.
  * Works whether caller passes:
@@ -79,12 +73,9 @@ export async function getSchoolByHsid(hsid: string) {
  */
 export async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
-
   if (!hostOnly || !httpsUrl) return null;
-
   // Some callers may store/compare without protocol; include both candidates.
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
-
   const sql = `
     SELECT *
     FROM school_success
@@ -92,11 +83,9 @@ export async function getSchoolByUrl(hostOrUrl: string) {
        OR microsite_url = ANY($1::text[])
     LIMIT 1
   `;
-
   const { rows } = await query(sql, [candidates]);
   return rows[0] || null;
 }
-
 /**
  * Canonical roster lookup by HSID
  */
@@ -122,7 +111,6 @@ export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
   const { rows } = await query(sql, [hsid]);
   return rows;
 }
-
 // Lookup a roster by the high_school field (exact match)
 export async function getRosterByHighSchool(highSchool: string): Promise<QueryResultRow[]> {
   const sql = `
@@ -146,16 +134,13 @@ export async function getRosterByHighSchool(highSchool: string): Promise<QueryRe
   const { rows } = await query(sql, [highSchool]);
   return rows;
 }
-
 // Graceful shutdown for production (guarded so multiple imports don't register multiple handlers)
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   var __pgPoolShutdownRegistered: any;
 }
-
 if (!global.__pgPoolShutdownRegistered) {
   global.__pgPoolShutdownRegistered = true;
-
   const shutdown = async () => {
     try {
       await pool.end();
@@ -163,7 +148,6 @@ if (!global.__pgPoolShutdownRegistered) {
       // ignore errors during shutdown
     }
   };
-
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', async () => {
     await shutdown();
