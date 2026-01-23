@@ -57,9 +57,9 @@ function normalizeHostOrUrl(input: string) {
   const httpsUrl = hostOnly ? `https://${hostOnly}` : '';
   return { hostOnly, httpsUrl };
 }
-// Lookup a school by HSID
+// Lookup a school by HSID (added hsid to type)
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query<{ id: number; school_name: string; /* add your fields like city: string; state: string; */ }>(
+  const { rows } = await query<{ id: number; hsid: string; school_name: string; /* add your fields like city: string; state: string; */ }>(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
@@ -83,7 +83,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
        OR microsite_url = ANY($1::text[])
     LIMIT 1
   `;
-  const { rows } = await query(sql, [candidates]);
+  const { rows } = await query<{ id: number; hsid: string; school_name: string; /* add your fields like city: string; state: string; */ }>(sql, [candidates]);
   return rows[0] || null;
 }
 /**
