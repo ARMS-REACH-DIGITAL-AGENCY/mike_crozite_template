@@ -1,17 +1,33 @@
-// src/lib/db.ts (normalized URL matching, explicit columns, no guessing)
+// src/lib/db.ts
+// YAT?STATS — Database helpers
+// Connects to Neon Postgres via DATABASE_URL env var.
+// All player data is sourced from TheBaseballCube tables.
+//
+// Key tables:
+//   tbc_players_raw   — player identity, position, bats/throws, height/weight, highlevel (historical peak)
+//   tbc_batting_raw   — season batting stats per player per year (highlevel = level that season)
+//   tbc_pitching_raw  — season pitching stats per player per year
+//   player_hsids      — links playerid -> hsid (high school)
+//   tbc_schools_raw   — high school info (hsid, hsname, colors, nickname) — NOT pro/college teams
+//   school_success    — per-school metadata (rank, counts, staging/microsite URLs, colors)
+//   teams             — currently empty; team names not yet populated
+//
+// "Active" = player has batting or pitching stats from 2025 (proxy for 2026 activity)
+// "All-time" = all players ever tagged to a school in player_hsids
+
 'use server';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require')
-    ? { rejectUnauthorized: false }
-    : undefined,
+  connectionTimeoutMillis: 5000,
+  ssl: { rejectUnauthorized: false },
 });
-// Query helper with proper constraint to avoid type errors
+
+// Generic query helper
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: any[] = []
@@ -23,58 +39,43 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     throw error;
   }
 }
-/**
- * Normalize an incoming host/url into:
- * - hostOnly: "5004.yatstats.com" (no protocol, no path, no port)
- * - httpsUrl: "https://5004.yatstats.com"
- *
- * Accepts inputs like:
- * - "5004.yatstats.com"
- * - "https://5004.yatstats.com"
- * - "5004.yatstats.com:3000"
- * - "https://5004.yatstats.com/anything?x=y"
- */
+
+// ---------------------------------------------------------------------------
+// Normalize host/URL input -> { hostOnly, httpsUrl }
+// ---------------------------------------------------------------------------
 function normalizeHostOrUrl(input: string) {
   const raw = (input || '').trim();
   if (!raw) return { hostOnly: '', httpsUrl: '' };
-  // Ensure URL parsing works even if protocol missing
   const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
   let host = '';
   try {
     const u = new URL(withProto);
     host = (u.hostname || '').toLowerCase();
   } catch {
-    // Fallback: strip protocol/path manually
     host = raw
       .replace(/^https?:\/\//i, '')
-      .split('/')[0]
-      .split('?')[0]
-      .split('#')[0]
-      .split(':')[0]
+      .split('/')[0].split('?')[0].split('#')[0].split(':')[0]
       .toLowerCase();
   }
   const hostOnly = host;
   const httpsUrl = hostOnly ? `https://${hostOnly}` : '';
   return { hostOnly, httpsUrl };
 }
-// Lookup a school by HSID (added hsid to type)
+
+// ---------------------------------------------------------------------------
+// School lookups (from school_success table)
+// ---------------------------------------------------------------------------
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query<{ id: number; hsid: string; school_name: string; /* add your fields like city: string; state: string; */ }>(
+  const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
   return rows[0] || null;
 }
-/**
- * Lookup a school by its staging or microsite URL.
- * Works whether caller passes:
- * - host only: "5004.yatstats.com"
- * - full url: "https://5004.yatstats.com"
- */
+
 export async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
-  // Some callers may store/compare without protocol; include both candidates.
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
   const sql = `
     SELECT *
@@ -83,74 +84,314 @@ export async function getSchoolByUrl(hostOrUrl: string) {
        OR microsite_url = ANY($1::text[])
     LIMIT 1
   `;
-  const { rows } = await query<{ id: number; hsid: string; school_name: string; /* add your fields like city: string; state: string; */ }>(sql, [candidates]);
+  const { rows } = await query(sql, [candidates]);
   return rows[0] || null;
 }
-/**
- * Canonical roster lookup by HSID
- */
-export async function getRosterByHsid(hsid: string): Promise<QueryResultRow[]> {
+
+// ---------------------------------------------------------------------------
+// ACTIVE ROSTER — players with 2025 stats (homepage)
+//
+// Returns one row per player with their most recent season stats.
+// "Active" = has batting OR pitching stats in year 2025.
+// Level shown is from the most recent stat row (not historical peak).
+// Team name is not available (teams table is empty) — level chip used instead.
+// ---------------------------------------------------------------------------
+export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
+    WITH school_players AS (
+      SELECT
+        ph.playerid,
+        tp.firstname,
+        tp.lastname,
+        tp.highlevel    AS career_highlevel,
+        tp.ht           AS height,
+        tp.wt           AS weight,
+        tp.bats,
+        tp.throws,
+        tp.posit        AS position
+      FROM player_hsids ph
+      JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
+      WHERE ph.hsid = $1
+    ),
+
+    -- Most recent batting season for each player
+    latest_batting AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text  AS playerid,
+        year            AS stat_year,
+        teamid,
+        highlevel       AS bat_level,
+        g, ab, r, h,
+        dbl             AS "2b",
+        tpl             AS "3b",
+        hr, rbi, sb, bb, so,
+        bavg            AS avg,
+        obp, slg, ops,
+        draft_info,
+        playyears
+      FROM tbc_batting_raw
+      ORDER BY playerid, year DESC
+    ),
+
+    -- Most recent pitching season for each player
+    latest_pitching AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text  AS playerid,
+        year            AS pitch_year,
+        teamid          AS pit_teamid,
+        highlevel       AS pit_level,
+        g               AS pg,
+        gs, w, l,
+        sv              AS saves,
+        ip,
+        bb              AS pbb,
+        so              AS ko,
+        era, whip,
+        h9, bb9,
+        so9             AS k9,
+        so_bb           AS kbb,
+        draft_info      AS pit_draft_info,
+        playyears       AS pit_playyears
+      FROM tbc_pitching_raw
+      ORDER BY playerid, year DESC
+    ),
+
+    -- Active players: those with 2025 batting OR pitching stats
+    active_playerids AS (
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_batting_raw
+      WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+      UNION
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_pitching_raw
+      WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+    )
+
     SELECT
-      hsid,
-      hsname,
-      hslocation,
-      playerid,
-      firstname,
-      lastname,
-      highlevel,
-      high_school,
+      sp.playerid,
+      sp.firstname,
+      sp.lastname,
+      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      -- Use level from most recent stat row (current level), fall back to career peak
       COALESCE(
-        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), ''),
-        NULLIF(playerid::text, '')
-      ) AS player_name
-    FROM hs_rosters_simple
-    WHERE hsid = $1
-    ORDER BY lastname NULLS LAST, firstname NULLS LAST, playerid
+        CASE
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          THEN lp.pit_level
+          ELSE lb.bat_level
+        END,
+        sp.career_highlevel
+      )                                     AS level,
+      sp.height,
+      sp.weight,
+      sp.bats,
+      sp.throws,
+      sp.position,
+      -- Batting stats
+      lb.stat_year,
+      lb.g, lb.ab, lb.r, lb.h,
+      lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb, lb.bb, lb.so,
+      lb.avg, lb.obp, lb.slg, lb.ops,
+      COALESCE(lb.draft_info, lp.pit_draft_info)  AS draft_info,
+      COALESCE(lb.playyears, lp.pit_playyears)     AS playyears,
+      -- Pitching stats
+      lp.pitch_year,
+      lp.pg, lp.gs, lp.w, lp.l, lp.saves,
+      lp.ip, lp.pbb, lp.ko,
+      lp.era, lp.whip, lp.h9, lp.bb9, lp.k9, lp.kbb,
+      -- Pitcher flag: has pitching stats AND (no batting stats OR pitching year >= batting year)
+      CASE
+        WHEN lp.pitch_year IS NOT NULL AND (
+          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+        ) THEN true
+        ELSE false
+      END AS is_pitcher
+    FROM school_players sp
+    JOIN active_playerids ap ON sp.playerid::text = ap.playerid
+    LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
+    LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    ORDER BY
+      CASE COALESCE(
+        CASE
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          THEN lp.pit_level ELSE lb.bat_level
+        END, sp.career_highlevel)
+        WHEN 'MLB'        THEN 1
+        WHEN 'TRIPLE-A'   THEN 2
+        WHEN 'AAA'        THEN 2
+        WHEN 'DOUBLE-A'   THEN 3
+        WHEN 'AA'         THEN 3
+        WHEN 'HIGH-A'     THEN 4
+        WHEN 'A+'         THEN 4
+        WHEN 'LOW-A'      THEN 5
+        WHEN 'A'          THEN 5
+        WHEN 'Indy'       THEN 6
+        WHEN 'NCAA'       THEN 7
+        WHEN 'JrCollege'  THEN 8
+        WHEN 'NAIA'       THEN 9
+        ELSE 10
+      END,
+      sp.lastname,
+      sp.firstname
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
 }
-// Lookup a roster by the high_school field (exact match)
-export async function getRosterByHighSchool(highSchool: string): Promise<QueryResultRow[]> {
+
+// ---------------------------------------------------------------------------
+// ALL-TIME ROSTER — every alumni ever tagged to a school (all-time page)
+//
+// Returns all players regardless of activity, with their career best stats.
+// Used for the "All-Time Next Level List" page.
+// ---------------------------------------------------------------------------
+export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
+    WITH school_players AS (
+      SELECT
+        ph.playerid,
+        tp.firstname,
+        tp.lastname,
+        tp.highlevel    AS career_highlevel,
+        tp.ht           AS height,
+        tp.wt           AS weight,
+        tp.bats,
+        tp.throws,
+        tp.posit        AS position
+      FROM player_hsids ph
+      JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
+      WHERE ph.hsid = $1
+    ),
+
+    -- Career batting totals (all years combined via most recent year for display)
+    latest_batting AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text  AS playerid,
+        year            AS stat_year,
+        highlevel       AS bat_level,
+        g, ab, r, h,
+        dbl             AS "2b",
+        hr, rbi, sb, bb,
+        bavg            AS avg,
+        obp, slg, ops,
+        draft_info,
+        playyears
+      FROM tbc_batting_raw
+      ORDER BY playerid, year DESC
+    ),
+
+    latest_pitching AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text  AS playerid,
+        year            AS pitch_year,
+        highlevel       AS pit_level,
+        g               AS pg,
+        w, l,
+        sv              AS saves,
+        ip,
+        so              AS ko,
+        era, whip,
+        draft_info      AS pit_draft_info,
+        playyears       AS pit_playyears
+      FROM tbc_pitching_raw
+      ORDER BY playerid, year DESC
+    ),
+
+    -- Was player active in 2025?
+    active_2025 AS (
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_batting_raw WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+      UNION
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_pitching_raw WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+    )
+
     SELECT
-      hsid,
-      hsname,
-      hslocation,
-      playerid,
-      firstname,
-      lastname,
-      highlevel,
-      high_school,
-      COALESCE(
-        NULLIF(TRIM(CONCAT_WS(' ', firstname, lastname)), ''),
-        NULLIF(playerid::text, '')
-      ) AS player_name
-    FROM hs_rosters_simple
-    WHERE high_school = $1
-    ORDER BY lastname NULLS LAST, firstname NULLS LAST, playerid
+      sp.playerid,
+      sp.firstname,
+      sp.lastname,
+      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      sp.career_highlevel                   AS level,
+      sp.height,
+      sp.weight,
+      sp.bats,
+      sp.throws,
+      sp.position,
+      lb.stat_year,
+      lb.bat_level                          AS current_level,
+      lb.g, lb.ab, lb.r, lb.h,
+      lb."2b", lb.hr, lb.rbi, lb.sb, lb.bb,
+      lb.avg, lb.obp, lb.slg, lb.ops,
+      COALESCE(lb.draft_info, lp.pit_draft_info) AS draft_info,
+      COALESCE(lb.playyears, lp.pit_playyears)   AS playyears,
+      lp.pitch_year,
+      lp.pg, lp.w, lp.l, lp.saves,
+      lp.ip, lp.ko, lp.era, lp.whip,
+      CASE WHEN a25.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
+      CASE
+        WHEN lp.pitch_year IS NOT NULL AND (
+          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+        ) THEN true
+        ELSE false
+      END AS is_pitcher
+    FROM school_players sp
+    LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
+    LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
+    ORDER BY
+      CASE sp.career_highlevel
+        WHEN 'MLB'        THEN 1
+        WHEN 'TRIPLE-A'   THEN 2
+        WHEN 'AAA'        THEN 2
+        WHEN 'DOUBLE-A'   THEN 3
+        WHEN 'AA'         THEN 3
+        WHEN 'HIGH-A'     THEN 4
+        WHEN 'A+'         THEN 4
+        WHEN 'LOW-A'      THEN 5
+        WHEN 'A'          THEN 5
+        WHEN 'Indy'       THEN 6
+        WHEN 'NCAA'       THEN 7
+        WHEN 'JrCollege'  THEN 8
+        WHEN 'NAIA'       THEN 9
+        ELSE 10
+      END,
+      sp.lastname,
+      sp.firstname
   `;
-  const { rows } = await query(sql, [highSchool]);
+  const { rows } = await query(sql, [hsid]);
   return rows;
 }
-// Graceful shutdown for production (guarded so multiple imports don't register multiple handlers)
+
+// ---------------------------------------------------------------------------
+// NEWS ARTICLES — from news_articles table (populated by Webz.io cron job)
+// Returns null if table doesn't exist yet (graceful degradation)
+// ---------------------------------------------------------------------------
+export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM news_articles WHERE hsid = $1 ORDER BY published_at DESC LIMIT $2`,
+      [hsid, limit]
+    );
+    return rows;
+  } catch {
+    // Table doesn't exist yet — return empty array gracefully
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Graceful shutdown
+// ---------------------------------------------------------------------------
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   var __pgPoolShutdownRegistered: any;
 }
 if (!global.__pgPoolShutdownRegistered) {
   global.__pgPoolShutdownRegistered = true;
   const shutdown = async () => {
-    try {
-      await pool.end();
-    } catch {
-      // ignore errors during shutdown
-    }
+    try { await pool.end(); } catch { /* ignore */ }
   };
   process.on('SIGTERM', shutdown);
-  process.on('SIGINT', async () => {
-    await shutdown();
-    process.exit(0);
-  });
+  process.on('SIGINT', async () => { await shutdown(); process.exit(0); });
 }

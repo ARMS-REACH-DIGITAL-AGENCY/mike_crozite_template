@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getRosterByHsid } from '@/lib/db';
+import { getActiveRosterByHsid } from '@/lib/db';
 
 export async function GET(
   _request: NextRequest,
@@ -8,7 +8,7 @@ export async function GET(
   const { hsid } = await context.params;
 
   try {
-    const roster = await getRosterByHsid(hsid);
+    const roster = await getActiveRosterByHsid(hsid);
     return NextResponse.json(roster);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch players' }, { status: 500 });

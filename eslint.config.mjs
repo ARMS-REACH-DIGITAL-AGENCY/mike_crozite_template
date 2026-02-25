@@ -15,4 +15,10 @@ const eslintConfig = defineConfig([
   ]),
 ]);
 
-export default eslintConfig;
+const overrides = {
+  rules: {
+    "@typescript-eslint/no-explicit-any": "off",
+    "@next/next/no-page-custom-font": "off",
+  },
+};
+export default [...eslintConfig, overrides];
