@@ -21,7 +21,6 @@ import {
   getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getSchoolByUrl,
-  getNextGamesByHsid,
 } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -101,10 +100,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school.hsid ?? hsid);
-  const [activeRoster, allTimeRoster, nextGamesMap] = await Promise.all([
+  const [activeRoster, allTimeRoster] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid),
     getAllTimeRosterByHsid(resolvedHsid),
-    getNextGamesByHsid(resolvedHsid),
   ]);
 
   const schoolName = (String(school.hsname || "")).toUpperCase();
@@ -449,7 +447,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 {k:"H/9",v:p.h9},{k:"BB/9",v:p.bb9},{k:"SV",v:p.saves},{k:"G",v:p.pg},
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
-              const nextGame = (nextGamesMap as Record<string,any>)[String(p.playerid)] || null;
               return (
                 <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-level={lvl} data-gradclass={gc}>
                   <div className="yat-card-inner">
@@ -488,20 +485,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                             <div className="yat-game-block">
                               <div className="yat-pill">NEXT GAME</div>
                               <div className="yat-game-text">
-                                {nextGame ? (
-                                  <>
-                                    <span style={{fontSize:"11px",fontWeight:700,letterSpacing:".04em"}}>
-                                      {new Date(nextGame.gameDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}
-                                      {" "}{nextGame.homeAway === "HOME" ? "vs" : "@"}{" "}
-                                      {nextGame.homeAway === "HOME" ? nextGame.awayTeam : nextGame.homeTeam}
-                                    </span>
-                                    <span style={{fontSize:"10px",opacity:.75,letterSpacing:".03em"}}>
-                                      {nextGame.venueName}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span>TBD</span>
-                                )}
+                                <span>TBD</span>
                                 <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener" style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
                                   WHERE YAT THESE DAYS?
                                 </a>
@@ -561,12 +545,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               <thead>
                 <tr>
                   <th>#</th><th>Player</th><th>Level</th><th>Pos</th><th>Years</th><th>Draft</th>
-                  <th className="num" colSpan={4} style={{textAlign:"center",borderBottom:"1px solid rgba(255,255,255,.15)",fontSize:"9px",letterSpacing:".1em",color:"var(--muted)",paddingBottom:"2px"}}>CAREER BATTING</th>
-                  <th className="num" colSpan={4} style={{textAlign:"center",borderBottom:"1px solid rgba(255,255,255,.15)",fontSize:"9px",letterSpacing:".1em",color:"var(--muted)",paddingBottom:"2px"}}>CAREER PITCHING</th>
-                </tr>
-                <tr>
-                  <th></th><th></th><th></th><th></th><th></th><th></th>
-                  <th className="num">AVG</th><th className="num">OPS</th><th className="num">HR</th><th className="num">RBI</th>
+                  <th className="num">AVG</th><th className="num">OBP</th><th className="num">SLG</th><th className="num">OPS</th>
+                  <th className="num">HR</th><th className="num">RBI</th>
                   <th className="num">ERA</th><th className="num">WHIP</th><th className="num">IP</th><th className="num">K</th>
                 </tr>
               </thead>
@@ -584,6 +564,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                       <td className="num">{String(p.playyears||"--")}</td>
                       <td className="num" style={{fontSize:"9px",maxWidth:"120px",overflow:"hidden",textOverflow:"ellipsis"}}>{draft||"--"}</td>
                       <td className={`num${p.avg?" hi":""}`}>{fmt("AVG",p.avg)}</td>
+                      <td className="num">{fmt("OBP",p.obp)}</td>
+                      <td className="num">{fmt("SLG",p.slg)}</td>
                       <td className="num">{fmt("OPS",p.ops)}</td>
                       <td className="num">{p.hr!=null?String(p.hr):"--"}</td>
                       <td className="num">{p.rbi!=null?String(p.rbi):"--"}</td>
