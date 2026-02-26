@@ -263,38 +263,75 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       WHERE ph.hsid = $1
     ),
 
-    -- Career batting totals (all years combined via most recent year for display)
+    -- Career batting totals (summed across all seasons)
     latest_batting AS (
-      SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS stat_year,
-        highlevel       AS bat_level,
-        g, ab, r, h,
-        dbl             AS "2b",
-        hr, rbi, sb, bb,
-        bavg            AS avg,
-        obp, slg, ops,
-        draft_info,
-        playyears
+      SELECT
+        playerid::text                                    AS playerid,
+        MAX(year)                                         AS stat_year,
+        MAX(highlevel)                                    AS bat_level,
+        SUM(NULLIF(g,'')::int)                            AS g,
+        SUM(NULLIF(ab,'')::int)                           AS ab,
+        SUM(NULLIF(r,'')::int)                            AS r,
+        SUM(NULLIF(h,'')::int)                            AS h,
+        SUM(NULLIF(dbl,'')::int)                          AS "2b",
+        SUM(NULLIF(hr,'')::int)                           AS hr,
+        SUM(NULLIF(rbi,'')::int)                          AS rbi,
+        SUM(NULLIF(sb,'')::int)                           AS sb,
+        SUM(NULLIF(bb,'')::int)                           AS bb,
+        -- Career AVG = total H / total AB
+        CASE WHEN SUM(NULLIF(ab,'')::int) > 0
+          THEN ROUND(SUM(NULLIF(h,'')::numeric) / SUM(NULLIF(ab,'')::numeric), 3)
+          ELSE NULL END                                   AS avg,
+        -- Career OBP = (H+BB+HBP) / (AB+BB+HBP+SF)
+        CASE WHEN (SUM(NULLIF(ab,'')::int) + SUM(NULLIF(bb,'')::int) +
+                   SUM(NULLIF(hbp,'')::int) + SUM(NULLIF(sf,'')::int)) > 0
+          THEN ROUND(
+            (SUM(NULLIF(h,'')::numeric) + SUM(NULLIF(bb,'')::numeric) + SUM(NULLIF(hbp,'')::numeric)) /
+            (SUM(NULLIF(ab,'')::numeric) + SUM(NULLIF(bb,'')::numeric) + SUM(NULLIF(hbp,'')::numeric) + SUM(NULLIF(sf,'')::numeric))
+          , 3) ELSE NULL END                              AS obp,
+        -- Career SLG = total TB / total AB
+        CASE WHEN SUM(NULLIF(ab,'')::int) > 0
+          THEN ROUND(SUM(NULLIF(tb,'')::numeric) / SUM(NULLIF(ab,'')::numeric), 3)
+          ELSE NULL END                                   AS slg,
+        -- Career OPS = OBP + SLG (computed inline)
+        CASE WHEN SUM(NULLIF(ab,'')::int) > 0
+          THEN ROUND(
+            COALESCE(
+              (SUM(NULLIF(h,'')::numeric) + SUM(NULLIF(bb,'')::numeric) + SUM(NULLIF(hbp,'')::numeric)) /
+              NULLIF(SUM(NULLIF(ab,'')::numeric) + SUM(NULLIF(bb,'')::numeric) + SUM(NULLIF(hbp,'')::numeric) + SUM(NULLIF(sf,'')::numeric), 0)
+            , 0) +
+            COALESCE(SUM(NULLIF(tb,'')::numeric) / NULLIF(SUM(NULLIF(ab,'')::numeric), 0), 0)
+          , 3) ELSE NULL END                              AS ops,
+        MAX(draft_info)                                   AS draft_info,
+        MAX(playyears)                                    AS playyears
       FROM tbc_batting_raw
-      ORDER BY playerid, year DESC
+      GROUP BY playerid::text
     ),
 
+    -- Career pitching totals (summed across all seasons)
     latest_pitching AS (
-      SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS pitch_year,
-        highlevel       AS pit_level,
-        g               AS pg,
-        w, l,
-        sv              AS saves,
-        ip,
-        so              AS ko,
-        era, whip,
-        draft_info      AS pit_draft_info,
-        playyears       AS pit_playyears
+      SELECT
+        playerid::text                                    AS playerid,
+        MAX(year)                                         AS pitch_year,
+        MAX(highlevel)                                    AS pit_level,
+        SUM(NULLIF(g,'')::int)                            AS pg,
+        SUM(NULLIF(w,'')::int)                            AS w,
+        SUM(NULLIF(l,'')::int)                            AS l,
+        SUM(NULLIF(sv,'')::int)                           AS saves,
+        ROUND(SUM(NULLIF(ip,'')::numeric), 1)             AS ip,
+        SUM(NULLIF(so,'')::int)                           AS ko,
+        -- Career ERA = (ER * 9) / IP
+        CASE WHEN SUM(NULLIF(ip,'')::numeric) > 0
+          THEN ROUND((SUM(NULLIF(er,'')::numeric) * 9) / SUM(NULLIF(ip,'')::numeric), 2)
+          ELSE NULL END                                   AS era,
+        -- Career WHIP = (BB + H) / IP
+        CASE WHEN SUM(NULLIF(ip,'')::numeric) > 0
+          THEN ROUND((SUM(NULLIF(bb,'')::numeric) + SUM(NULLIF(h,'')::numeric)) / SUM(NULLIF(ip,'')::numeric), 2)
+          ELSE NULL END                                   AS whip,
+        MAX(draft_info)                                   AS pit_draft_info,
+        MAX(playyears)                                    AS pit_playyears
       FROM tbc_pitching_raw
-      ORDER BY playerid, year DESC
+      GROUP BY playerid::text
     ),
 
     -- Was player active in 2025?
