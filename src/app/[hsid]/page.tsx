@@ -110,7 +110,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = `https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.png`;
-  const fallbackCrestUrl = 'https://hamilton.yatstats.com/assets/img/yatstats-logo.png';
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -137,12 +136,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.drawer-open{overflow:hidden}
         a{color:inherit;text-decoration:none}
         .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
-        .yat-header{position:relative;z-index:1;background:var(--header-bg);transition:background-color .3s}
-        .yat-topbar-wrap{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
-        .yat-topbar-school{display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s;pointer-events:none;position:absolute;left:50%;transform:translateX(-50%) translateY(-4px)}
-        .yat-topbar-school.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
-        .yat-topbar-school img{height:26px;width:auto;object-fit:contain}
-        .yat-topbar-school-name{font:400 15px "Bebas Neue",sans-serif;letter-spacing:.06em;white-space:nowrap;color:var(--fg)}
+        .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
         .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
         .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
         .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
@@ -293,18 +287,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       {/* HEADER */}
       <header className="yat-header" id="site-header">
-        <div className="yat-topbar-wrap">
         <div className="yat-container yat-topbar">
           <div className="yat-left-icons">
             <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
             <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
             <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
-          </div>
-          {/* Compact school identity — fades in when school row scrolls out of view */}
-          <div className="yat-topbar-school" id="topbar-school">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={crestUrl} alt={schoolName} onError={(e)=>{(e.target as HTMLImageElement).src=fallbackCrestUrl;}} />
-            <span className="yat-topbar-school-name">{schoolName}</span>
           </div>
           <nav className="yat-topnav" aria-label="Top Navigation">
             {navItems.map((item) => (
@@ -319,10 +306,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </div>
         <div className="yat-hr" />
-        </div>{/* end topbar-wrap */}
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} onError={(e)=>{(e.target as HTMLImageElement).src=fallbackCrestUrl;}} />
+          <img className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
@@ -657,17 +643,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
-  // Compact school identity in topbar — show when school row scrolls out of view
-  var schoolRow=document.querySelector('.yat-schoolrow');
-  var topbarSchool=document.getElementById('topbar-school');
-  if(schoolRow&&topbarSchool){
-    var obs=new IntersectionObserver(function(entries){
-      entries.forEach(function(entry){
-        if(entry.isIntersecting){topbarSchool.classList.remove('visible');}else{topbarSchool.classList.add('visible');}
-      });
-    },{threshold:0,rootMargin:'0px 0px 0px 0px'});
-    obs.observe(schoolRow);
-  }
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
   var btn=document.getElementById('theme-toggle');
