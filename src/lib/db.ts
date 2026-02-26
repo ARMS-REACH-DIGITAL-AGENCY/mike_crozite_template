@@ -66,26 +66,36 @@ function normalizeHostOrUrl(input: string) {
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
 export async function getSchoolByHsid(hsid: string) {
-  const { rows } = await query(
-    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
-    [hsid]
-  );
-  return rows[0] || null;
+  try {
+    const { rows } = await query(
+      'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
+      [hsid]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    console.error('getSchoolByHsid error:', err);
+    return null;
+  }
 }
 
 export async function getSchoolByUrl(hostOrUrl: string) {
-  const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
-  if (!hostOnly || !httpsUrl) return null;
-  const candidates = Array.from(new Set([httpsUrl, hostOnly]));
-  const sql = `
-    SELECT *
-    FROM school_success
-    WHERE staging_url = ANY($1::text[])
-       OR microsite_url = ANY($1::text[])
-    LIMIT 1
-  `;
-  const { rows } = await query(sql, [candidates]);
-  return rows[0] || null;
+  try {
+    const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
+    if (!hostOnly || !httpsUrl) return null;
+    const candidates = Array.from(new Set([httpsUrl, hostOnly]));
+    const sql = `
+      SELECT *
+      FROM school_success
+      WHERE staging_url = ANY($1::text[])
+         OR microsite_url = ANY($1::text[])
+      LIMIT 1
+    `;
+    const { rows } = await query(sql, [candidates]);
+    return rows[0] || null;
+  } catch (err) {
+    console.error('getSchoolByUrl error:', err);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -235,8 +245,13 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       sp.lastname,
       sp.firstname
   `;
-  const { rows } = await query(sql, [hsid]);
-  return rows;
+  try {
+    const { rows } = await query(sql, [hsid]);
+    return rows;
+  } catch (err) {
+    console.error('getActiveRosterByHsid error:', err);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -360,8 +375,13 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       sp.lastname,
       sp.firstname
   `;
-  const { rows } = await query(sql, [hsid]);
-  return rows;
+  try {
+    const { rows } = await query(sql, [hsid]);
+    return rows;
+  } catch (err) {
+    console.error('getAllTimeRosterByHsid error:', err);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------

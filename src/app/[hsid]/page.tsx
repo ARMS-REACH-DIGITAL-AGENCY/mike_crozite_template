@@ -83,7 +83,8 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const school = host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid);
+  let school = host ? await getSchoolByUrl(`https://${host}`) : null;
+  if (!school) school = await getSchoolByHsid(hsid);
   const name = (school as Record<string,unknown>)?.hsname as string || "Your School";
   const loc = (school as Record<string,unknown>)?.hslocation as string || "";
   return {
@@ -96,18 +97,21 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const school = (host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid)) as Record<string,unknown> | null;
-  if (!school) redirect("https://yatstats.com");
+  // Try URL-based lookup first (production subdomains), fall back to hsid param
+  let school = host ? await getSchoolByUrl(`https://${host}`) : null;
+  if (!school) school = await getSchoolByHsid(hsid);
+  const schoolRecord = school as Record<string,unknown> | null;
+  if (!schoolRecord) redirect("https://yatstats.com");
 
-  const resolvedHsid = String(school.hsid ?? hsid);
+  const resolvedHsid = String(schoolRecord!.hsid ?? hsid);
   const [activeRoster, allTimeRoster] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid),
     getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
-  const schoolName = (String(school.hsname || "")).toUpperCase();
-  const location = (String(school.hslocation || "")).toUpperCase();
-  const nickname = (String(school.nickname || "")).toUpperCase();
+  const schoolName = (String(schoolRecord!.hsname || "")).toUpperCase();
+  const location = (String(schoolRecord!.hslocation || "")).toUpperCase();
+  const nickname = (String(schoolRecord!.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = `https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.png`;
   const fallbackCrestUrl = 'https://hamilton.yatstats.com/assets/img/yatstats-logo.png';
