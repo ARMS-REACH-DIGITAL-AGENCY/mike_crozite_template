@@ -21,6 +21,7 @@ import {
   getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getSchoolByUrl,
+  getNextGamesByHsid,
 } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -100,9 +101,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school.hsid ?? hsid);
-  const [activeRoster, allTimeRoster] = await Promise.all([
+  const [activeRoster, allTimeRoster, nextGamesMap] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid),
     getAllTimeRosterByHsid(resolvedHsid),
+    getNextGamesByHsid(resolvedHsid),
   ]);
 
   const schoolName = (String(school.hsname || "")).toUpperCase();
@@ -447,6 +449,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 {k:"H/9",v:p.h9},{k:"BB/9",v:p.bb9},{k:"SV",v:p.saves},{k:"G",v:p.pg},
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
+              const nextGame = (nextGamesMap as Record<string,any>)[String(p.playerid)] || null;
               return (
                 <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-level={lvl} data-gradclass={gc}>
                   <div className="yat-card-inner">
@@ -485,7 +488,20 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                             <div className="yat-game-block">
                               <div className="yat-pill">NEXT GAME</div>
                               <div className="yat-game-text">
-                                <span>TBD</span>
+                                {nextGame ? (
+                                  <>
+                                    <span style={{fontSize:"11px",fontWeight:700,letterSpacing:".04em"}}>
+                                      {new Date(nextGame.gameDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+                                      {" "}{nextGame.homeAway === "HOME" ? "vs" : "@"}{" "}
+                                      {nextGame.homeAway === "HOME" ? nextGame.awayTeam : nextGame.homeTeam}
+                                    </span>
+                                    <span style={{fontSize:"10px",opacity:.75,letterSpacing:".03em"}}>
+                                      {nextGame.venueName}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span>TBD</span>
+                                )}
                                 <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener" style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
                                   WHERE YAT THESE DAYS?
                                 </a>
