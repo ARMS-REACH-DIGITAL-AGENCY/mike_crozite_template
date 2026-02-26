@@ -110,6 +110,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = `https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.png`;
+  const fallbackCrestUrl = 'https://hamilton.yatstats.com/assets/img/yatstats-logo.png';
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -302,7 +303,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           {/* Compact school identity — fades in when school row scrolls out of view */}
           <div className="yat-topbar-school" id="topbar-school">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={crestUrl} alt={schoolName} />
+            <img src={crestUrl} alt={schoolName} onError={(e)=>{(e.target as HTMLImageElement).src=fallbackCrestUrl;}} />
             <span className="yat-topbar-school-name">{schoolName}</span>
           </div>
           <nav className="yat-topnav" aria-label="Top Navigation">
@@ -321,7 +322,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>{/* end topbar-wrap */}
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
+          <img className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} onError={(e)=>{(e.target as HTMLImageElement).src=fallbackCrestUrl;}} />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
