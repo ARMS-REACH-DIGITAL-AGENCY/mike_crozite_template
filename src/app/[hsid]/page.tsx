@@ -136,7 +136,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.drawer-open{overflow:hidden}
         a{color:inherit;text-decoration:none}
         .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
-        .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
+        .yat-header{position:relative;z-index:1;background:var(--header-bg);transition:background-color .3s}
+        .yat-topbar-wrap{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
         .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
         .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
         .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
@@ -287,6 +288,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       {/* HEADER */}
       <header className="yat-header" id="site-header">
+        <div className="yat-topbar-wrap">
         <div className="yat-container yat-topbar">
           <div className="yat-left-icons">
             <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
@@ -306,6 +308,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </div>
         <div className="yat-hr" />
+        </div>{/* end topbar-wrap */}
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
