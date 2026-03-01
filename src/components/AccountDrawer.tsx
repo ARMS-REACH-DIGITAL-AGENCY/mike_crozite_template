@@ -19,11 +19,19 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin');
+  const [displayName, setDisplayName] = useState('');
 
   // Listen to Firebase auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // Try to get display name from Firebase profile or localStorage
+        const storedName = localStorage.getItem(`yat_firstName_${currentUser.uid}`);
+        setDisplayName(currentUser.displayName || storedName || '');
+      } else {
+        setDisplayName('');
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -67,6 +75,12 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       // Create user in Firebase
       await createUserWithEmailAndPassword(auth, email, password);
 
+      // Store first name in localStorage for greeting
+      if (auth.currentUser) {
+        localStorage.setItem(`yat_firstName_${auth.currentUser.uid}`, firstName);
+        setDisplayName(firstName);
+      }
+
       // Sync to GoHighLevel
       const registerResponse = await fetch('/api/auth/register', {
         method: 'POST',
@@ -108,8 +122,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         // Logged in state
         <div style={{ padding: '20px' }}>
           <div style={{ marginBottom: '20px' }}>
-            <p style={{ fontSize: '14px', marginBottom: '10px' }}>
-              <strong>Logged in as:</strong>
+            <p style={{ fontSize: '18px', marginBottom: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em' }}>
+              Hi {displayName || 'Fan'}!
             </p>
             <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</p>
           </div>
