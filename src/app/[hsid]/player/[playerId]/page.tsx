@@ -324,7 +324,7 @@ export default async function PlayerProfilePage({
           </div>
           <div className="yat-hr" />
           <div className="yat-schoolrow">
-            <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/school-placeholder.png" />
+            <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/yatstats-logo-circle.png" />
             <div className="yat-schooltext">
               <div className="small">{location}</div>
               <div className="big1">{schoolName}</div>
@@ -385,8 +385,8 @@ export default async function PlayerProfilePage({
                 className="crest-badge"
                 src={crestUrl}
                 alt=""
-                fallbackSrc="/img/school-placeholder.png"
-                placeholderSrc="/img/school-placeholder.png"
+                fallbackSrc="/img/yatstats-logo-circle.png"
+                placeholderSrc="/img/yatstats-logo-circle.png"
               />
             </div>
             <div className="profile-info">
