@@ -39,13 +39,27 @@ export default function SafeImage({
     return '/img/player-silhouette.png';
   }, [placeholderSrc, alt]);
 
+  const normalizedPlaceholder = useMemo(() => absolutize(computedPlaceholder), [computedPlaceholder]);
+
+  const computedFallback = useMemo(() => {
+    const fallback = normalizeCandidate(fallbackSrc);
+    if (fallback) return absolutize(fallback);
+
+    const primary = normalizeCandidate(src);
+    // If caller passed a bare filename like "237.png" or "yatstats-logo.png",
+    // also try "/img/<filename>" as a second fallback.
+    if (primary && !primary.startsWith('http') && !primary.startsWith('/') && !primary.startsWith('img/')) {
+      return `/img/${primary}`;
+    }
+    return '';
+  }, [fallbackSrc, src]);
+
   const initialSrc = useMemo(() => {
     const primary = normalizeCandidate(src);
     if (primary) return absolutize(primary);
-    const fallback = normalizeCandidate(fallbackSrc);
-    if (fallback) return absolutize(fallback);
-    return absolutize(computedPlaceholder);
-  }, [src, fallbackSrc, computedPlaceholder]);
+    if (computedFallback) return computedFallback;
+    return normalizedPlaceholder;
+  }, [src, computedFallback, normalizedPlaceholder]);
 
   const [currentSrc, setCurrentSrc] = useState(initialSrc);
   const [failCount, setFailCount] = useState(0);
@@ -57,17 +71,14 @@ export default function SafeImage({
 
   const handleError = useCallback(() => {
     setFailCount((prev) => {
-      if (prev === 0) {
-        const fallback = normalizeCandidate(fallbackSrc);
-        if (fallback) {
-          setCurrentSrc(absolutize(fallback));
-          return 1;
-        }
+      if (prev === 0 && computedFallback) {
+        setCurrentSrc(computedFallback);
+        return 1;
       }
-      setCurrentSrc(absolutize(computedPlaceholder));
+      setCurrentSrc(normalizedPlaceholder);
       return 2;
     });
-  }, [fallbackSrc, computedPlaceholder]);
+  }, [computedFallback, normalizedPlaceholder]);
 
   return (
     <img
