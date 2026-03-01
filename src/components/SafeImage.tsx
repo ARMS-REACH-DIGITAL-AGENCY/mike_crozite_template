@@ -8,6 +8,7 @@ interface SafeImageProps {
   className: string;
   fallbackSrc?: string;
   placeholderSrc?: string;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -22,6 +23,7 @@ export default function SafeImage({
   className,
   fallbackSrc,
   placeholderSrc = "/img/player-silhouette.png",
+  style,
 }: SafeImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [failCount, setFailCount] = useState(0);
@@ -43,6 +45,7 @@ export default function SafeImage({
       src={currentSrc}
       alt={alt}
       className={className}
+      style={style}
       onError={handleError}
     />
   );
