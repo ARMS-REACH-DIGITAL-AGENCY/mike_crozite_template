@@ -88,9 +88,22 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const school = host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid);
   const name = (school as Record<string,unknown>)?.hsname as string || "Your School";
   const loc = (school as Record<string,unknown>)?.hslocation as string || "";
+  // Extract state abbreviation from location (e.g., "Chandler, AZ" -> "AZ")
+  const locParts = loc.split(",").map((s: string) => s.trim());
+  const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
+  const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
+  const hsid = (school as Record<string,unknown>)?.hsid as string || "";
+  const crestUrl = hsid ? `https://hamilton.yatstats.com/assets/img/schools/${hsid}.png` : "/img/yatstats-logo-circle.png";
   return {
-    title: `WHERE THEY YAT? – ${name.toUpperCase()} | YAT?STATS`,
+    title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
+    icons: {
+      icon: [
+        { url: crestUrl, type: "image/png" },
+        { url: "/favicon.ico", type: "image/x-icon" },
+      ],
+      apple: crestUrl,
+    },
   };
 }
 
@@ -734,6 +747,17 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
+  var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
+  if(favLink){
+    var favImg=new Image();
+    favImg.onerror=function(){
+      favLink.href='/img/yatstats-logo-circle.png';
+      var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
+      if(appleLink)appleLink.href='/img/yatstats-logo-circle.png';
+    };
+    favImg.src=favLink.href;
+  }
   /* Background image fallback for player cards */
   document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
     var src=el.getAttribute('data-src');
