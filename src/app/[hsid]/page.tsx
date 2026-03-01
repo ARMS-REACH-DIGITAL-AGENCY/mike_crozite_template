@@ -335,7 +335,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <div className="yat-hr" />
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/school-placeholder.png" />
+          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/yatstats-logo-circle.png" />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
