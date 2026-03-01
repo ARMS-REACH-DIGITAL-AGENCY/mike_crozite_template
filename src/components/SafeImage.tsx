@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react';
 interface SafeImageProps {
   src: string;
   alt: string;
-  className: string;
+  className?: string;
   fallbackSrc?: string;
   placeholderSrc?: string;
   style?: React.CSSProperties;

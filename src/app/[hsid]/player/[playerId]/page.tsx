@@ -369,11 +369,12 @@ export default async function PlayerProfilePage({
           <div className="profile-header">
             <div className="profile-photo">
               <SafeImage
+                className="profile-img"
                 src={`${playerImgBase}.jpg`}
                 alt={displayName}
                 fallbackSrc={`${playerImgBase}.png`}
                 placeholderSrc="/img/player-silhouette.png"
-                style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'6px'}}
+                style={{width:'100%',height:'100%',objectFit:'cover' as const,borderRadius:'6px'}}
               />
               <SafeImage
                 className="crest-badge"
