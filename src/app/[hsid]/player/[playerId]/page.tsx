@@ -24,7 +24,7 @@ import {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ playerId: string }>;
+  params: Promise<{ hsid: string; playerId: string }>;
 }): Promise<Metadata> {
   const { playerId } = await params;
   const player = await getPlayerById(String(playerId));
@@ -61,7 +61,7 @@ function fmtAvg(v: any): string {
 export default async function PlayerProfilePage({
   params,
 }: {
-  params: Promise<{ playerId: string }>;
+  params: Promise<{ hsid: string; playerId: string }>;
 }) {
   const { playerId } = await params;
 
