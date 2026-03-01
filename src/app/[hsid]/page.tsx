@@ -120,7 +120,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
-  const schoolName = (String(school.hsname || "")).toUpperCase();
+  const schoolNameRaw = (String(school.hsname || "")).toUpperCase();
+  const schoolName = schoolNameRaw.includes('HIGH SCHOOL') ? schoolNameRaw : `${schoolNameRaw} HIGH SCHOOL`;
   const location = (String(school.hslocation || "")).toUpperCase();
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
@@ -169,6 +170,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-nav-pair .thin{color:var(--muted)}
         .yat-nav-pair .bold{font:400 var(--hamSmall) "Bebas Neue",sans-serif}
         .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
+        .yat-wordmark-img{filter:var(--logo-filter)}
         .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
         body.light-theme .yat-wordmark{color:#000}
         @media(max-width:1200px){.yat-topnav{display:none!important}}
@@ -326,7 +328,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-wordmark-wrap">
             <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/img/yatstats-logo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto'}} />
+              <img src="/img/yatstats-logo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
             </a>
           </div>
         </div>
@@ -861,7 +863,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
             var dn=nameEl?nameEl.textContent:name;
-            results+='<a href="/'+window.__YAT_HSID+'/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px \'Bebas Neue\',sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+            results+='<a href="/'+window.__YAT_HSID+'/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
       }
