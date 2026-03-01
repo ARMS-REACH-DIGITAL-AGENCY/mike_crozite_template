@@ -135,8 +135,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   return (
     <>
       <style>{`
-        :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800}
-        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85)}
+        :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1)}
+        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
         body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
@@ -309,13 +309,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             ))}
           </nav>
           <div className="yat-wordmark-wrap">
-            <span className="yat-wordmark">YAT?STATS</span>
+            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/img/yatstats-wordmark.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter, invert(1))'}} />
+            </a>
           </div>
         </div>
         <div className="yat-hr" />
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
+          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/school-placeholder.png" />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
@@ -440,6 +443,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const fn = String(p.firstname || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
               const ln = String(p.lastname  || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
               const photoUrl = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.jpg`;
+              const photoFallback = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.png`;
+              const silhouetteUrl = `/img/player-silhouette.png`;
               const batterStats = [
                 {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
                 {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
@@ -458,7 +463,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                       <div className="yat-face yat-front">
-                        <div className="yat-bg" style={{backgroundImage:`url('${photoUrl}')`}} />
+                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}')`}} />
                         <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -648,6 +653,26 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  /* Background image fallback for player cards */
+  document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
+    var src=el.getAttribute('data-src');
+    var fallback=el.getAttribute('data-fallback');
+    var placeholder=el.getAttribute('data-placeholder');
+    var img=new Image();
+    img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
+    img.onerror=function(){
+      if(fallback){
+        var img2=new Image();
+        img2.onload=function(){el.style.backgroundImage="url('"+fallback+"')";};
+        img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
+        img2.src=fallback;
+      } else if(placeholder){
+        el.style.backgroundImage="url('"+placeholder+"')";
+        el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
+      }
+    };
+    img.src=src;
+  });
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
   var btn=document.getElementById('theme-toggle');
