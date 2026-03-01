@@ -92,8 +92,8 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const locParts = loc.split(",").map((s: string) => s.trim());
   const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
-  const hsid = (school as Record<string,unknown>)?.hsid as string || "";
-  const crestUrl = hsid ? `https://hamilton.yatstats.com/assets/img/schools/${hsid}.png` : "/img/yatstats-logo-circle.png";
+  const schoolHsid = (school as Record<string,unknown>)?.hsid as string || hsid;
+  const crestUrl = schoolHsid ? `https://hamilton.yatstats.com/assets/img/schools/${schoolHsid}.png` : "/img/yatstats-logo-circle.png";
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -157,6 +157,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         a{color:inherit;text-decoration:none}
         .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
         .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
+        .yat-compact-id{display:none;align-items:center;gap:8px;margin-left:12px;opacity:0;transition:opacity .25s}
+        .yat-header.scrolled .yat-compact-id{display:flex;opacity:1}
+        .yat-compact-id .compact-crest{height:24px;width:24px;object-fit:contain;border-radius:4px}
+        .yat-compact-id .compact-name{font:700 14px/1 "Bebas Neue",sans-serif;letter-spacing:.04em;white-space:nowrap}
+        .yat-schoolrow{transition:max-height .3s,opacity .25s,padding .3s;overflow:hidden;max-height:100px}
+        .yat-header.scrolled .yat-schoolrow{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
+        .yat-header.scrolled .yat-schoolrow+.yat-hr{opacity:0;max-height:0}
         .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
         .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
         .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
@@ -312,6 +319,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
             <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
             <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
+            <div className="yat-compact-id" id="compactId">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="compact-crest" id="compactCrest" src={crestUrl} alt="" />
+              <span className="compact-name">{schoolName}</span>
+            </div>
           </div>
           <nav className="yat-topnav" aria-label="Top Navigation">
             {navItems.map((item) => (
@@ -778,6 +790,20 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     };
     img.src=src;
   });
+  /* Compact scroll header — add 'scrolled' class when user scrolls past the school row */
+  var hdr=document.getElementById('site-header');
+  var schoolRow=document.querySelector('.yat-schoolrow');
+  if(hdr&&schoolRow){
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(!entry.isIntersecting){hdr.classList.add('scrolled');}
+        else{hdr.classList.remove('scrolled');}
+      });
+    },{root:null,threshold:0,rootMargin:'-60px 0px 0px 0px'});
+    observer.observe(schoolRow);
+  }
+  var compactCrest=document.getElementById('compactCrest');
+  if(compactCrest){compactCrest.onerror=function(){compactCrest.src='/img/school-placeholder.png';compactCrest.onerror=null;};}
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
   var btn=document.getElementById('theme-toggle');
