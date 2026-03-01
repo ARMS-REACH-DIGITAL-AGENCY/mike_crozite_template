@@ -365,6 +365,131 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
+// SINGLE PLAYER — full player data for profile page
+// ---------------------------------------------------------------------------
+export async function getPlayerById(playerId: string): Promise<any | null> {
+  const sql = `
+    SELECT
+      tp.playerid,
+      tp.firstname,
+      tp.lastname,
+      tp.highlevel    AS career_highlevel,
+      tp.ht           AS height,
+      tp.wt           AS weight,
+      tp.bats,
+      tp.throws,
+      tp.posit        AS position,
+      tp.college,
+      tp.draft_info,
+      tp.playyears
+    FROM tbc_players_raw tp
+    WHERE tp.playerid::text = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER SCHOOL — which school(s) a player is linked to
+// ---------------------------------------------------------------------------
+export async function getPlayerSchool(playerId: string): Promise<any | null> {
+  const sql = `
+    SELECT ph.hsid, ss.hsname, ss.hslocation, ss.nickname
+    FROM player_hsids ph
+    JOIN school_success ss ON ph.hsid::text = ss.hsid::text
+    WHERE ph.playerid::text = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// SEASON-BY-SEASON BATTING STATS — all years for a player
+// ---------------------------------------------------------------------------
+export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
+  const sql = `
+    SELECT
+      year, teamid, highlevel AS level,
+      g, ab, r, h,
+      dbl AS "2b", tpl AS "3b",
+      hr, rbi, sb, bb, so,
+      bavg AS avg, obp, slg, ops,
+      draft_info
+    FROM tbc_batting_raw
+    WHERE playerid::text = $1
+    ORDER BY year ASC
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// SEASON-BY-SEASON PITCHING STATS — all years for a player
+// ---------------------------------------------------------------------------
+export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
+  const sql = `
+    SELECT
+      year, teamid, highlevel AS level,
+      g, gs, w, l,
+      sv AS saves, ip,
+      h AS hits_allowed, er,
+      bb, so AS ko,
+      era, whip, h9, bb9,
+      so9 AS k9, so_bb AS kbb,
+      fip,
+      draft_info
+    FROM tbc_pitching_raw
+    WHERE playerid::text = $1
+    ORDER BY year ASC
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// CAREER AGGREGATE STATS — totals across all seasons
+// ---------------------------------------------------------------------------
+export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
+  const sql = `
+    SELECT
+      COUNT(DISTINCT year) AS seasons,
+      SUM(g::int) AS g, SUM(ab::int) AS ab, SUM(r::int) AS r, SUM(h::int) AS h,
+      SUM(dbl::int) AS "2b", SUM(tpl::int) AS "3b",
+      SUM(hr::int) AS hr, SUM(rbi::int) AS rbi, SUM(sb::int) AS sb,
+      SUM(bb::int) AS bb, SUM(so::int) AS so,
+      CASE WHEN SUM(ab::int) > 0 THEN ROUND(SUM(h::int)::numeric / SUM(ab::int), 3) ELSE NULL END AS avg,
+      CASE WHEN SUM(ab::int) + SUM(bb::int) > 0 THEN ROUND((SUM(h::int) + SUM(bb::int))::numeric / (SUM(ab::int) + SUM(bb::int)), 3) ELSE NULL END AS obp
+    FROM tbc_batting_raw
+    WHERE playerid::text = $1
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+}
+
+export async function getPlayerCareerPitching(playerId: string): Promise<any | null> {
+  const sql = `
+    SELECT
+      COUNT(DISTINCT year) AS seasons,
+      SUM(g::int) AS g, SUM(gs::int) AS gs,
+      SUM(w::int) AS w, SUM(l::int) AS l,
+      SUM(sv::int) AS saves,
+      SUM(ip::numeric) AS ip,
+      SUM(er::int) AS er,
+      SUM(so::int) AS ko, SUM(bb::int) AS bb,
+      CASE WHEN SUM(ip::numeric) > 0 THEN ROUND(SUM(er::int)::numeric * 9 / SUM(ip::numeric), 2) ELSE NULL END AS era,
+      CASE WHEN SUM(ip::numeric) > 0 THEN ROUND((SUM(bb::int) + SUM(h::int))::numeric / SUM(ip::numeric), 2) ELSE NULL END AS whip,
+      CASE WHEN SUM(ip::numeric) > 0 THEN ROUND(SUM(so::int)::numeric * 9 / SUM(ip::numeric), 2) ELSE NULL END AS k9,
+      CASE WHEN SUM(bb::int) > 0 THEN ROUND(SUM(so::int)::numeric / SUM(bb::int), 2) ELSE NULL END AS kbb
+    FROM tbc_pitching_raw
+    WHERE playerid::text = $1
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
 // NEWS ARTICLES — from news_articles table (populated by Webz.io cron job)
 // Returns null if table doesn't exist yet (graceful degradation)
 // ---------------------------------------------------------------------------

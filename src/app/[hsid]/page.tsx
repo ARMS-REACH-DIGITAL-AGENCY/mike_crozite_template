@@ -473,7 +473,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
               return (
-                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-level={lvl} data-gradclass={gc}>
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc}>
                   <div className="yat-card-inner">
                     <div className="yat-flip">
                       {/* FRONT */}
@@ -605,7 +605,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
               return (
-                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-level={lvl} data-gradclass={gc}>
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc}>
                   <div className="yat-card-inner">
                     <div className="yat-flip">
                       {/* FRONT */}
@@ -749,6 +749,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  window.__YAT_HSID='${resolvedHsid}';
   /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
   if(favLink){
@@ -851,13 +852,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     searchInput.addEventListener('input',function(){
       var q=this.value.toLowerCase().trim();
       var results='';
+      var seen={};
       if(q.length>=2){
         document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
           var name=card.getAttribute('data-name')||'';
-          if(name.includes(q)){
+          var pid=card.getAttribute('data-playerid')||'';
+          if(name.includes(q)&&pid&&!seen[pid]){
+            seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
             var dn=nameEl?nameEl.textContent:name;
-            results+='<div class="yat-live-hit"><span style="font:400 14px \\'Bebas Neue\\',sans-serif">'+dn+'</span></div>';
+            results+='<a href="/'+window.__YAT_HSID+'/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px \'Bebas Neue\',sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
       }
