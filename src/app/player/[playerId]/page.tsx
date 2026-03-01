@@ -132,7 +132,7 @@ export default async function PlayerProfilePage({
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
-  const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || hsid;
+  const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || resolvedHsid;
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
