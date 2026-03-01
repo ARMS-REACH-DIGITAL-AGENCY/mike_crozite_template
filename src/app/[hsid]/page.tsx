@@ -862,8 +862,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           if(name.includes(q)&&pid&&!seen[pid]){
             seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
-            var dn=nameEl?nameEl.textContent:name;
-            results+='<a href="/'+window.__YAT_HSID+'/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+            var dn=name;
+            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=spans[0].textContent.trim()+' '+spans[1].textContent.trim();}else{dn=nameEl.textContent.trim();}}
+            results+='<a href="/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
       }

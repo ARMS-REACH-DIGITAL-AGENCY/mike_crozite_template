@@ -24,10 +24,10 @@ import {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ hsid: string; playerId: string }>;
+  params: Promise<{ playerId: string }>;
 }): Promise<Metadata> {
   const { playerId } = await params;
-  const player = await getPlayerById(playerId);
+  const player = await getPlayerById(String(playerId));
   const playerName = player
     ? `${player.firstname || ""} ${player.lastname || ""}`.trim()
     : "Player";
@@ -61,21 +61,26 @@ function fmtAvg(v: any): string {
 export default async function PlayerProfilePage({
   params,
 }: {
-  params: Promise<{ hsid: string; playerId: string }>;
+  params: Promise<{ playerId: string }>;
 }) {
-  const { hsid, playerId } = await params;
+  const { playerId } = await params;
 
-  // Resolve school
+  // Resolve school from subdomain host header
   const headersList = await headers();
   const host = headersList.get("host") || "";
+  // Get school from player's hsid linkage as primary, host as fallback
+  const playerSchoolLink = await getPlayerSchool(String(playerId));
+  const playerHsid = playerSchoolLink?.hsid ? String(playerSchoolLink.hsid) : null;
   const school = (
-    host
-      ? await getSchoolByUrl(`https://${host}`)
-      : await getSchoolByHsid(hsid)
+    playerHsid
+      ? await getSchoolByHsid(playerHsid)
+      : host
+        ? await getSchoolByUrl(`https://${host}`)
+        : null
   ) as Record<string, unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
-  const resolvedHsid = String(school.hsid ?? hsid);
+  const resolvedHsid = String(school.hsid ?? "");
   const schoolName = String(school.hsname || "").toUpperCase();
   const location = String(school.hslocation || "").toUpperCase();
 
@@ -83,7 +88,7 @@ export default async function PlayerProfilePage({
   const player = await getPlayerById(playerId);
   if (!player) notFound();
 
-  const playerSchool = await getPlayerSchool(playerId);
+  const playerSchool = playerSchoolLink;
   const [battingSeasons, pitchingSeasons, careerBatting, careerPitching] =
     await Promise.all([
       getPlayerBattingStats(playerId),
