@@ -14,6 +14,52 @@ interface AccountDrawerProps {
   subdomain: string;
 }
 
+function PasswordInput({ name, required = true }: { name: string; required?: boolean }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        type={visible ? 'text' : 'password'}
+        name={name}
+        required={required}
+        style={{
+          width: '100%',
+          padding: '10px',
+          paddingRight: '40px',
+          borderRadius: '8px',
+          border: '1px solid var(--line)',
+          background: 'rgba(255, 255, 255, .06)',
+          color: 'var(--ink)',
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(!visible)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        style={{
+          position: 'absolute',
+          right: '8px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'none',
+          border: 'none',
+          color: 'var(--muted)',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '18px',
+          lineHeight: 1,
+        }}
+      >
+        <i className={visible ? 'ri-eye-off-line' : 'ri-eye-line'} />
+      </button>
+    </div>
+  );
+}
+
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -230,19 +276,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
                   Password
                 </label>
-                <input
-                  type="password"
-                  name="signInPassword"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--line)',
-                    background: 'rgba(255, 255, 255, .06)',
-                    color: 'var(--ink)',
-                  }}
-                />
+                <PasswordInput name="signInPassword" />
               </div>
               <button
                 type="submit"
@@ -326,19 +360,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
                   Password
                 </label>
-                <input
-                  type="password"
-                  name="registerPassword"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--line)',
-                    background: 'rgba(255, 255, 255, .06)',
-                    color: 'var(--ink)',
-                  }}
-                />
+                <PasswordInput name="registerPassword" />
               </div>
               <button
                 type="submit"
