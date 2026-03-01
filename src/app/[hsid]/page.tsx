@@ -93,7 +93,7 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
   const schoolHsid = (school as Record<string,unknown>)?.hsid as string || hsid;
-  const crestUrl = schoolHsid ? `https://hamilton.yatstats.com/assets/img/schools/${schoolHsid}.png` : "/img/yatstats-logo-circle.png";
+  const crestUrl = schoolHsid ? `https://hamilton.yatstats.com/assets/img/schools/${schoolHsid}.png` : "/img//img/school-placeholder.png.png";
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -335,7 +335,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <div className="yat-hr" />
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/yatstats-logo-circle.png" />
+          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img//img/school-placeholder.png.png" />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
@@ -757,9 +757,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   if(favLink){
     var favImg=new Image();
     favImg.onerror=function(){
-      favLink.href='/img/yatstats-logo-circle.png';
+      favLink.href='/img//img/school-placeholder.png.png';
       var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
-      if(appleLink)appleLink.href='/img/yatstats-logo-circle.png';
+      if(appleLink)appleLink.href='/img//img/school-placeholder.png.png';
     };
     favImg.src=favLink.href;
   }
