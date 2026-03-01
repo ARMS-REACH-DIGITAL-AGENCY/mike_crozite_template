@@ -55,8 +55,14 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     try {
       const email = (e.currentTarget.elements.namedItem('registerEmail') as HTMLInputElement).value;
       const password = (e.currentTarget.elements.namedItem('registerPassword') as HTMLInputElement).value;
-      const firstName = (e.currentTarget.elements.namedItem('registerFirstName') as HTMLInputElement)?.value || '';
-      const lastName = (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value || '';
+      const firstName = (e.currentTarget.elements.namedItem('registerFirstName') as HTMLInputElement)?.value?.trim() || '';
+      const lastName = (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value?.trim() || '';
+
+      if (!firstName || !lastName) {
+        setMessage('First name and last name are required.');
+        setIsLoading(false);
+        return;
+      }
 
       // Create user in Firebase
       await createUserWithEmailAndPassword(auth, email, password);
@@ -250,11 +256,12 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
             <form onSubmit={handleRegister} style={{ padding: '15px' }}>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  First Name (optional)
+                  First Name
                 </label>
                 <input
                   type="text"
                   name="registerFirstName"
+                  required
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -267,11 +274,12 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  Last Name (optional)
+                  Last Name
                 </label>
                 <input
                   type="text"
                   name="registerLastName"
+                  required
                   style={{
                     width: '100%',
                     padding: '10px',
