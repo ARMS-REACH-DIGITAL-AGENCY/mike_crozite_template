@@ -1,37 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-interface AuthUser {
-  email: string;
-  uid: string;
-}
+import {
+  auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from '@/lib/firebase';
+import type { User } from 'firebase/auth';
 
 interface AccountDrawerProps {
   subdomain: string;
 }
 
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin');
 
-  // Initialize Firebase auth listener
+  // Listen to Firebase auth state
   useEffect(() => {
-    const initAuth = async () => {
-      // Wait for Firebase to be loaded
-      if (typeof window !== 'undefined' && (window as any).auth) {
-        const { onAuthStateChanged } = (window as any).firebaseAuth;
-        const auth = (window as any).auth;
-
-        onAuthStateChanged(auth, (currentUser: AuthUser | null) => {
-          setUser(currentUser);
-        });
-      }
-    };
-
-    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -43,17 +37,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const email = (e.currentTarget.elements.namedItem('signInEmail') as HTMLInputElement).value;
       const password = (e.currentTarget.elements.namedItem('signInPassword') as HTMLInputElement).value;
 
-      if (typeof window !== 'undefined' && (window as any).firebaseAuth) {
-        const { signInWithEmailAndPassword } = (window as any).firebaseAuth;
-        const auth = (window as any).auth;
-
-        await signInWithEmailAndPassword(auth, email, password);
-        setMessage('Sign in successful!');
-        setTimeout(() => {
-          setMessage('');
-          // Close drawer if needed
-        }, 1500);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      setMessage('Sign in successful!');
+      setTimeout(() => setMessage(''), 1500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed');
     } finally {
@@ -72,36 +58,28 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const firstName = (e.currentTarget.elements.namedItem('registerFirstName') as HTMLInputElement)?.value || '';
       const lastName = (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value || '';
 
-      if (typeof window !== 'undefined' && (window as any).firebaseAuth) {
-        const { createUserWithEmailAndPassword } = (window as any).firebaseAuth;
-        const auth = (window as any).auth;
+      // Create user in Firebase
+      await createUserWithEmailAndPassword(auth, email, password);
 
-        // Create user in Firebase
-        await createUserWithEmailAndPassword(auth, email, password);
+      // Sync to GoHighLevel
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          subdomain,
+        }),
+      });
 
-        // Sync to GoHighLevel
-        const registerResponse = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            firstName,
-            lastName,
-            subdomain,
-          }),
-        });
-
-        if (!registerResponse.ok) {
-          const errorData = await registerResponse.json();
-          throw new Error(errorData.error || 'Failed to register');
-        }
-
-        setMessage('Registration successful! Welcome to YAT?STATS.');
-        setTimeout(() => {
-          setMessage('');
-          // Close drawer if needed
-        }, 1500);
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        throw new Error(errorData.error || 'Failed to sync to CRM');
       }
+
+      setMessage('Registration successful! Welcome to YAT?STATS.');
+      setTimeout(() => setMessage(''), 1500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Registration failed');
     } finally {
@@ -111,12 +89,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
   const handleSignOut = async () => {
     try {
-      if (typeof window !== 'undefined' && (window as any).firebaseAuth) {
-        const { signOut } = (window as any).firebaseAuth;
-        const auth = (window as any).auth;
-        await signOut(auth);
-        setMessage('Signed out successfully');
-      }
+      await signOut(auth);
+      setMessage('Signed out successfully');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign out failed');
     }
@@ -124,7 +98,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
   return (
     <div className="yat-drawer-content">
-      {user && !user.email?.includes('anonymous') ? (
+      {user && !user.isAnonymous ? (
         // Logged in state
         <div style={{ padding: '20px' }}>
           <div style={{ marginBottom: '20px' }}>

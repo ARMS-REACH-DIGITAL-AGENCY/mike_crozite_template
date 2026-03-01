@@ -24,7 +24,7 @@ import {
 } from "@/lib/db";
 import AccountDrawer from "@/components/AccountDrawer";
 import SafeImage from "@/components/SafeImage";
-import { getFirebaseConfigJSON } from "@/lib/firebase";
+import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 
 export const runtime = "nodejs";
 
