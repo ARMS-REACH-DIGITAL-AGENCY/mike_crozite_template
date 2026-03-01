@@ -159,12 +159,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-wordmark{color:#000}
         @media(max-width:1200px){.yat-topnav{display:none!important}}
         .yat-hr{border-top:1px solid var(--line)}
-        .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px}
+        .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
         .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
         .yat-schooltext{line-height:1}
-        .yat-schooltext .small{font:300 var(--hamSmall)/1 Oswald;letter-spacing:.12em;color:var(--muted)}
-        .yat-schooltext .big1{font:400 var(--hamBig)/1 "Bebas Neue",sans-serif;letter-spacing:.04em}
-        .yat-schooltext .big2{font:400 var(--hamBigger)/1 "Bebas Neue",sans-serif;letter-spacing:.04em;margin-top:-2px}
+        .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+        .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+        .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
         .yat-hero{padding:2px 0}
         .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
         .yat-hero-left{display:flex;flex-direction:column;gap:4px}
@@ -311,7 +311,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-wordmark-wrap">
             <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/img/yatstats-wordmark.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter, invert(1))'}} />
+              <img src="/img/yatstats-logo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto'}} />
             </a>
           </div>
         </div>
@@ -322,7 +322,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
-            <div className="big2">{tagline}</div>
+            <div className="big2">ACTIVE BASEBALL ALUMNI</div>
           </div>
         </div>
         <div className="yat-hr" />
@@ -546,48 +546,129 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <section id="sec-alltime" className="yat-section">
           <div className="yat-sec-header">
             <div>
-              <div className="yat-sec-title">{(allTimeRoster as unknown[]).length} All-Time Alumni · {schoolName}</div>
-              <div className="yat-sec-sub">Every player ever tagged to this school</div>
+              <div className="yat-sec-title">{(allTimeRoster as unknown[]).length} Next-Level All-Time Alumni · {schoolName}</div>
+              <div className="yat-sec-sub">Every player ever tagged to this school · Sorted by career peak level</div>
+            </div>
+            <div className="yat-legend">
+              {(["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO"] as const).map((lbl) => (
+                <span key={lbl} className={`yat-chip chip-sm ${levelClass(lbl)}`}>{lbl}</span>
+              ))}
             </div>
           </div>
-          <div className="yat-table-wrap">
-            <table className="yat-table">
-              <thead>
-                <tr>
-                  <th>#</th><th>Player</th><th>Level</th><th>Pos</th><th>Years</th><th>Draft</th>
-                  <th className="num">AVG</th><th className="num">OBP</th><th className="num">SLG</th><th className="num">OPS</th>
-                  <th className="num">HR</th><th className="num">RBI</th>
-                  <th className="num">ERA</th><th className="num">WHIP</th><th className="num">IP</th><th className="num">K</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(allTimeRoster as Record<string,unknown>[]).map((p, i) => {
-                  const lvl = levelLabel(String(p.level || ""));
-                  const lvlCls = levelClass(lvl);
-                  const draft = p.draft_info ? parseDraft(p.draft_info as string) : "";
-                  return (
-                    <tr key={String(p.playerid)}>
-                      <td style={{color:"var(--muted)",fontSize:"10px"}}>{i+1}</td>
-                      <td>{!!p.is_active_2025 && <span className="yat-active-dot" title="Active 2025" />}<strong>{String(p.display_name || `${p.firstname} ${p.lastname}`)}</strong></td>
-                      <td><span className={`yat-chip chip-sm ${lvlCls}`}>{lvl}</span></td>
-                      <td style={{color:"var(--muted)",fontSize:"11px"}}>{String(p.position||"--")}</td>
-                      <td className="num">{String(p.playyears||"--")}</td>
-                      <td className="num" style={{fontSize:"9px",maxWidth:"120px",overflow:"hidden",textOverflow:"ellipsis"}}>{draft||"--"}</td>
-                      <td className={`num${p.avg?" hi":""}`}>{fmt("AVG",p.avg)}</td>
-                      <td className="num">{fmt("OBP",p.obp)}</td>
-                      <td className="num">{fmt("SLG",p.slg)}</td>
-                      <td className="num">{fmt("OPS",p.ops)}</td>
-                      <td className="num">{p.hr!=null?String(p.hr):"--"}</td>
-                      <td className="num">{p.rbi!=null?String(p.rbi):"--"}</td>
-                      <td className={`num${p.era?" hi":""}`}>{fmt("ERA",p.era)}</td>
-                      <td className="num">{fmt("WHIP",p.whip)}</td>
-                      <td className="num">{fmt("IP",p.ip)}</td>
-                      <td className="num">{p.ko!=null?String(p.ko):"--"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="yat-grid" id="alltime-grid">
+            {(allTimeRoster as Record<string,unknown>[]).length === 0 ? (
+              <div className="yat-empty">
+                <div className="yat-empty-icon">⚾</div>
+                <div className="yat-empty-title">No alumni found</div>
+                <div className="yat-empty-sub">Check back as we continue building the database</div>
+              </div>
+            ) : (allTimeRoster as Record<string,unknown>[]).map((p) => {
+              const lvl = levelLabel(String(p.level || ""));
+              const lvlCls = levelClass(lvl);
+              const isPitcher = p.is_pitcher === true;
+              const gc = gradClass(p);
+              const dots = varsityDots(p);
+              const draft = parseDraft(p.draft_info as string | null);
+              const statYear = isPitcher ? p.pitch_year : p.stat_year;
+              const fn = String(p.firstname || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
+              const ln = String(p.lastname  || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
+              const photoUrl = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.jpg`;
+              const photoFallback = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.png`;
+              const silhouetteUrl = `/img/player-silhouette.png`;
+              const isActive = !!p.is_active_2025;
+              const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");
+              const batterStats = [
+                {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
+                {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
+                {k:"R",v:p.r},{k:"SB",v:p.sb},{k:"2B",v:p["2b"]},{k:"BB",v:p.bb},
+              ];
+              const pitcherStats = [
+                {k:"ERA",v:p.era},{k:"WHIP",v:p.whip},{k:"IP",v:p.ip},
+                {k:"W-L",v:(p.w!==null&&p.l!==null)?`${p.w}-${p.l}`:"--"},
+                {k:"K",v:p.ko},{k:"BB",v:p.pbb||p.bb},{k:"K/9",v:p.k9},{k:"K/BB",v:p.kbb},
+                {k:"SV",v:p.saves},{k:"G",v:p.pg},
+              ];
+              const stats = isPitcher ? pitcherStats : batterStats;
+              return (
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-level={lvl} data-gradclass={gc}>
+                  <div className="yat-card-inner">
+                    <div className="yat-flip">
+                      {/* FRONT */}
+                      <div className="yat-face yat-front">
+                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}')`}} />
+                        <div className="yat-shade" />
+                        <div className="yat-front-content">
+                          <div className="yat-chips-col">
+                            {gc && <span className="front-chip">CLASS OF {gc}</span>}
+                            <span className="front-chip">{statusLabel}</span>
+                            {lvl && <span className={`front-chip ${lvlCls}`}>{lvl}</span>}
+                          </div>
+                          <div className="yat-info-block">
+                            <div className="yat-name">
+                              <span>{String(p.firstname || "")}</span>
+                              <span>{String(p.lastname || "")}</span>
+                            </div>
+                            <div className="yat-meta">
+                              <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
+                            </div>
+                            {dots.length > 0 && (
+                              <div className="yat-dots">
+                                {dots.map((y, i) => <div key={i} className="yat-dot">{y}</div>)}
+                              </div>
+                            )}
+                            <div className="yat-game-block">
+                              <div className="yat-pill">NEXT GAME</div>
+                              <div className="yat-game-text">
+                                <span>{isActive ? "TBD" : "--"}</span>
+                                <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener" style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
+                                  WHERE ARE YOU NOW?
+                                </a>
+                              </div>
+                            </div>
+                            <div className="yat-game-block">
+                              <div className="yat-pill">LAST 3 GAMES</div>
+                              <div className="yat-game-text">
+                                <span className="yat-log">--</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* BACK */}
+                      <div className="yat-face yat-back">
+                        <div className="yat-back-top">
+                          <div>
+                            <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                            <div className="yat-back-details">
+                              {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="yat-back-nav">
+                          <button className="yat-back-nav-btn active" data-content="stats">SEASON &amp; CAREER STATISTICS</button>
+                          <button className="yat-back-nav-btn" data-content="news">NEWS &amp; VIDEO CLIPS</button>
+                          <button className="yat-back-nav-btn" data-content="social">SOCIAL MEDIA</button>
+                          <button className="yat-back-nav-btn" data-content="mentor">MENTORSHIP MARKETPLACE</button>
+                          <button className="yat-back-nav-btn" data-content="gallery">TIMELINE GALLERY</button>
+                        </div>
+                        <div className="yat-fun-zone">
+                          <div className="yat-stats-bar">CAREER STATS</div>
+                          <div className="yat-stats-grid">
+                            {stats.map(({k,v}) => (
+                              <div key={k} className="yat-stat">
+                                <div className="yat-stat-label">{k}</div>
+                                <div className="yat-stat-val">{fmt(k,v)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
 
