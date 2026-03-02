@@ -119,7 +119,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       }
 
       // Create user in Firebase
-      await createUserWithEmailAndPassword(auth, email, password);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+const uid = cred.user?.uid;
 
       // Store first name in localStorage for greeting
       if (auth.currentUser) {
@@ -132,6 +133,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          uid,
           email,
           firstName,
           lastName,
