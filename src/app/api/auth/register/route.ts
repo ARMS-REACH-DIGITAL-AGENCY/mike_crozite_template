@@ -10,6 +10,7 @@ import { createGHLContact } from "@/lib/gohighlevel";
 export const runtime = "nodejs";
 
 interface RegisterRequestBody {
+  uid: string;
   email: string;
   firstName?: string;
   lastName?: string;
