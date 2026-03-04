@@ -6,6 +6,7 @@ import { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
+import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import AccountDrawer from "@/components/AccountDrawer";
 import {
   getSchoolByHsid,
@@ -127,7 +128,7 @@ export default async function PlayerProfilePage({
   const gcMatch = playYears.match(/\d{4}/);
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
-  const crestUrl = `https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.png`;
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const playerImgBase = `https://hamilton.yatstats.com/assets/img/players/${playerId}`;
 
   // Extract subdomain for GHL tagging
@@ -324,7 +325,7 @@ export default async function PlayerProfilePage({
           </div>
           <div className="yat-hr" />
           <div className="yat-schoolrow">
-            <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img/yatstats-logo-circle.png" />
+          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
             <div className="yat-schooltext">
               <div className="small">{location}</div>
               <div className="big1">{schoolName}</div>

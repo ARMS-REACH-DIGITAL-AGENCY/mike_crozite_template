@@ -2,12 +2,17 @@
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
-// use the S3 placeholder you showed
+// Default placeholder for school crests
 const S3_SCHOOL_PLACEHOLDER = `${S3_BASE}/yatstats/ys_crest.svg`;
 
-export function getSchoolCrestUrl(schoolId?: number | string) {
-  if (!schoolId) return S3_SCHOOL_PLACEHOLDER;
-
-  // if your school crests are PNGs by id, keep this:
-  return `${S3_BASE}/schools/${schoolId}.png`;
+/**
+ * Returns the dynamic S3 URL for a school's crest based on its hsid.
+ * @param hsid The high school ID
+ * @returns The S3 URL for the school's crest
+ */
+export function getSchoolCrestUrl(hsid?: string | number | null) {
+  if (!hsid) return S3_SCHOOL_PLACEHOLDER;
+  
+  // School crests are stored in the 'schools/' prefix as {hsid}.png
+  return `${S3_BASE}/schools/${hsid}.png`;
 }

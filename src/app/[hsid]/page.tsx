@@ -24,6 +24,7 @@ import {
 } from "@/lib/db";
 import AccountDrawer from "@/components/AccountDrawer";
 import SafeImage from "@/components/SafeImage";
+import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 
 export const runtime = "nodejs";
 
@@ -93,7 +94,7 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
   const schoolHsid = (school as Record<string,unknown>)?.hsid as string || hsid;
-  const crestUrl = schoolHsid ? `https://hamilton.yatstats.com/assets/img/schools/${schoolHsid}.png` : "/img//img/school-placeholder.png.png";
+  const crestUrl = getSchoolCrestUrl(schoolHsid);
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -125,7 +126,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const location = (String(school.hslocation || "")).toUpperCase();
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
-  const crestUrl = `https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.png`;
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -335,7 +336,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <div className="yat-hr" />
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} fallbackSrc={`https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.jpg`} placeholderSrc="/img//img/school-placeholder.png.png" />
+          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
@@ -757,9 +758,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   if(favLink){
     var favImg=new Image();
     favImg.onerror=function(){
-      favLink.href='/img//img/school-placeholder.png.png';
+      var placeholder = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/ys_crest.svg';
+      favLink.href=placeholder;
       var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
-      if(appleLink)appleLink.href='/img//img/school-placeholder.png.png';
+      if(appleLink)appleLink.href=placeholder;
     };
     favImg.src=favLink.href;
   }
