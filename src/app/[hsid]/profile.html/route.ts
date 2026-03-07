@@ -1,20 +1,13 @@
 import { NextResponse, NextRequest } from "next/server";
 import { notFound } from "next/navigation";
 import { findPlayersBySlug } from "@/lib/db";
-import { toPlayerSlug } from "@/lib/slug";
-
-function slugify(input: string): string {
-  return (input || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "player";
-}
+import { toPlayerSlug, toSlugFromDisplay } from "@/lib/slug";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ hsid: string }> }) {
   const { hsid } = await params;
   const url = new URL(req.url);
   const playerParam = url.searchParams.get("player") || "";
-  const lookupSlug = slugify(playerParam);
+  const lookupSlug = toSlugFromDisplay(playerParam);
   if (!lookupSlug) return NextResponse.redirect(`/${hsid}`, 308);
 
   const matches = await findPlayersBySlug(lookupSlug, hsid);

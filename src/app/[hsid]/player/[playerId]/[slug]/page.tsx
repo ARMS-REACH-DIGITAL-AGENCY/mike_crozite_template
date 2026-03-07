@@ -89,7 +89,7 @@ export default async function PlayerProfilePage({
   // Resolve player
   const player = await getPlayerById(playerId);
   if (!player) notFound();
-  const canonicalSlug = toPlayerSlug(player.firstname as string, player.lastname as string);
+  const canonicalSlug = toPlayerSlug(player.firstname, player.lastname);
   if (slug !== canonicalSlug) redirect(`/${hsid}/player/${playerId}/${canonicalSlug}`);
 
   const playerSchool = playerSchoolLink;

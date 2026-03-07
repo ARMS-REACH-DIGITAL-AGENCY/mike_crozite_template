@@ -25,6 +25,6 @@ export default async function PlayerProfileRedirect({
   const { hsid, playerId } = await params;
   const player = await getPlayerById(String(playerId));
   if (!player) notFound();
-  const slug = toPlayerSlug(player.firstname as string, player.lastname as string);
+  const slug = toPlayerSlug(player.firstname, player.lastname);
   redirect(`/${hsid}/player/${playerId}/${slug}`);
 }

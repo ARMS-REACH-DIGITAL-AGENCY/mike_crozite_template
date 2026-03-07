@@ -399,7 +399,7 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<{ 
       ph.hsid::text AS hsid
     FROM tbc_players_raw tp
     LEFT JOIN player_hsids ph ON ph.playerid::text = tp.playerid::text
-    WHERE lower(regexp_replace(tp.firstname || '-' || tp.lastname, '[^a-z0-9]+', '-', 'g')) = $1
+    WHERE lower(regexp_replace(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,'')), '[^a-z0-9]+', '-', 'g')) = $1
       ${hsid ? "AND (ph.hsid::text = $2 OR $2 IS NULL)" : ""}
     LIMIT 10
   `;
