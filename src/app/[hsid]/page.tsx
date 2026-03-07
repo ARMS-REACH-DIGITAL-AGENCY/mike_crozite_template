@@ -252,9 +252,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-game-text{font-family:Oswald;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px;line-height:1.2}
         .yat-game-text span{display:block}
         .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
-        .yat-face.yat-back{transform:rotateY(180deg);background:var(--bg);color:var(--fg);display:flex;flex-direction:column}
+        .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg)}
+        .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1}
         .yat-back-top{display:flex;padding:12px;gap:12px;border-bottom:1px solid var(--line)}
-        .yat-back-photo{width:74px;height:92px;border-radius:6px;flex-shrink:0;background-size:cover;background-position:center;background-repeat:no-repeat;border:1px solid var(--line)}
         .yat-back-name{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:4px}
         .yat-back-details{font-size:12px;opacity:.8;line-height:1.4}
         .yat-back-nav{display:flex;justify-content:space-around;border-bottom:1px solid var(--line)}
@@ -541,35 +541,37 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                       </div>
                       {/* BACK */}
                        <div className="yat-face yat-back">
-                         <div className="yat-back-top">
-                           <div className="yat-back-photo" style={{backgroundImage:`url('${photoFallback}')`}} />
-                           <div>
-                             <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                            <div className="yat-back-details">
-                              {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="yat-back-nav">
-                          <button className="yat-back-nav-btn active" data-content="stats">STATS</button>
-                          <button className="yat-back-nav-btn" data-content="news">NEWS</button>
-                          <button className="yat-back-nav-btn" data-content="social">SOCIAL</button>
-                          <button className="yat-back-nav-btn" data-content="mentor">MENTOR</button>
-                          <button className="yat-back-nav-btn" data-content="gallery">GALLERY</button>
-                        </div>
-                        <div className="yat-fun-zone">
-                          <div className="yat-stats-bar">{statYear ? `${statYear} ` : ""}{isPitcher ? "PITCHING" : "BATTING"}</div>
-                          <div className="yat-stats-grid">
-                            {stats.map(({k,v}) => (
-                              <div key={k} className="yat-stat">
-                                <div className="yat-stat-label">{k}</div>
-                                <div className="yat-stat-val">{fmt(k,v)}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
-                      </div>
+                         <div className="yat-bg" style={{backgroundImage:`url('${photoFallback}')`}} />
+                         <div className="yat-back-content">
+                           <div className="yat-back-top">
+                             <div>
+                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                               <div className="yat-back-details">
+                                 {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                               </div>
+                             </div>
+                           </div>
+                           <div className="yat-back-nav">
+                             <button className="yat-back-nav-btn active" data-content="stats">STATS</button>
+                             <button className="yat-back-nav-btn" data-content="news">NEWS</button>
+                             <button className="yat-back-nav-btn" data-content="social">SOCIAL</button>
+                             <button className="yat-back-nav-btn" data-content="mentor">MENTOR</button>
+                             <button className="yat-back-nav-btn" data-content="gallery">GALLERY</button>
+                           </div>
+                           <div className="yat-fun-zone">
+                             <div className="yat-stats-bar">{statYear ? `${statYear} ` : ""}{isPitcher ? "PITCHING" : "BATTING"}</div>
+                             <div className="yat-stats-grid">
+                               {stats.map(({k,v}) => (
+                                 <div key={k} className="yat-stat">
+                                   <div className="yat-stat-label">{k}</div>
+                                   <div className="yat-stat-val">{fmt(k,v)}</div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                           {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                         </div>
+                       </div>
                     </div>
                   </div>
                 </article>
@@ -659,35 +661,37 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                       </div>
                       {/* BACK */}
                        <div className="yat-face yat-back">
-                         <div className="yat-back-top">
-                           <div className="yat-back-photo" style={{backgroundImage:`url('${photoFallback}')`}} />
-                           <div>
-                             <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                            <div className="yat-back-details">
-                              {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="yat-back-nav">
-                          <button className="yat-back-nav-btn active" data-content="stats">SEASON &amp; CAREER STATISTICS</button>
-                          <button className="yat-back-nav-btn" data-content="news">NEWS &amp; VIDEO CLIPS</button>
-                          <button className="yat-back-nav-btn" data-content="social">SOCIAL MEDIA</button>
-                          <button className="yat-back-nav-btn" data-content="mentor">MENTORSHIP MARKETPLACE</button>
-                          <button className="yat-back-nav-btn" data-content="gallery">TIMELINE GALLERY</button>
-                        </div>
-                        <div className="yat-fun-zone">
-                          <div className="yat-stats-bar">CAREER STATS</div>
-                          <div className="yat-stats-grid">
-                            {stats.map(({k,v}) => (
-                              <div key={k} className="yat-stat">
-                                <div className="yat-stat-label">{k}</div>
-                                <div className="yat-stat-val">{fmt(k,v)}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
-                      </div>
+                         <div className="yat-bg" style={{backgroundImage:`url('${photoFallback}')`}} />
+                         <div className="yat-back-content">
+                           <div className="yat-back-top">
+                             <div>
+                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                               <div className="yat-back-details">
+                                 {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                               </div>
+                             </div>
+                           </div>
+                           <div className="yat-back-nav">
+                             <button className="yat-back-nav-btn active" data-content="stats">SEASON &amp; CAREER STATISTICS</button>
+                             <button className="yat-back-nav-btn" data-content="news">NEWS &amp; VIDEO CLIPS</button>
+                             <button className="yat-back-nav-btn" data-content="social">SOCIAL MEDIA</button>
+                             <button className="yat-back-nav-btn" data-content="mentor">MENTORSHIP MARKETPLACE</button>
+                             <button className="yat-back-nav-btn" data-content="gallery">TIMELINE GALLERY</button>
+                           </div>
+                           <div className="yat-fun-zone">
+                             <div className="yat-stats-bar">CAREER STATS</div>
+                             <div className="yat-stats-grid">
+                               {stats.map(({k,v}) => (
+                                 <div key={k} className="yat-stat">
+                                   <div className="yat-stat-label">{k}</div>
+                                   <div className="yat-stat-val">{fmt(k,v)}</div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                           {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                         </div>
+                       </div>
                     </div>
                   </div>
                 </article>
