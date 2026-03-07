@@ -268,6 +268,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-stat-val{font-size:18px;font-weight:700;line-height:1;margin-top:4px}
         .yat-back-draft{font:300 8px/1.5 Oswald,sans-serif;color:var(--muted);padding:5px 12px 8px;border-top:1px solid var(--line);margin-top:auto;flex-shrink:0}
         .yat-back-draft strong{color:var(--fg);font-weight:500}
+        .yat-profile-link{display:block;text-align:center;padding:8px 12px;background:rgba(0,230,118,.15);color:#00e676;font:700 11px "Bebas Neue",sans-serif;letter-spacing:.1em;border-top:1px solid var(--line);text-transform:uppercase;flex-shrink:0;text-decoration:none}
         .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
         .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
         .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
@@ -529,7 +530,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <div className="yat-pill">NEXT GAME</div>
                               <div className="yat-game-text">
                                 <span>TBD</span>
-                                <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener" style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
+                                <a href={`/${resolvedHsid}/player/${pid}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
                                   WHERE YAT THESE DAYS?
                                 </a>
                               </div>
@@ -568,6 +569,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                              </div>
                            </div>
                            {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                           <a href={`/${resolvedHsid}/player/${pid}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
                          </div>
                        </div>
                     </div>
@@ -644,7 +646,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <div className="yat-pill">NEXT GAME</div>
                               <div className="yat-game-text">
                                 <span>{isActive ? "TBD" : "--"}</span>
-                                <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener" style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
+                                <a href={`/${resolvedHsid}/player/${pid}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
+                                  WHERE YAT THESE DAYS?
                                 </a>
                               </div>
                             </div>
@@ -688,6 +691,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                              </div>
                            </div>
                            {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                           <a href={`/${resolvedHsid}/player/${pid}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
                          </div>
                        </div>
                     </div>
@@ -760,6 +764,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
   window.__YAT_HSID='${resolvedHsid}';
   /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
@@ -899,7 +904,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               seen[pid]=true;
               var nameEl=card.querySelector('.yat-name');
               var dn=name;
-              if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=spans[0].textContent.trim()+' '+spans[1].textContent.trim();}else{dn=nameEl.textContent.trim();}}
+              if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml(spans[0].textContent.trim()+' '+spans[1].textContent.trim());}else{dn=escHtml(nameEl.textContent.trim());}}
             results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
             }
           });
