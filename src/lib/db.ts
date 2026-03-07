@@ -430,6 +430,14 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON BATTING STATS — all years for a player
+//
+// Team name lookup uses a LEFT JOIN against the `teams` table so that:
+//   • Every stat row is always returned — a missing team_name never drops a row.
+//   • COALESCE falls back to the raw teamid string when no matching team_name
+//     exists, so the column is always non-null and the UI never errors.
+//
+// If the `teams` table doesn't exist yet in this environment the query falls
+// back to returning the raw teamid as team_name (same as getNewsByHsid pattern).
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -448,12 +456,42 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC
   `;
-  const { rows } = await query(sql, [playerId]);
-  return rows;
+  try {
+    const { rows } = await query(sql, [playerId]);
+    return rows;
+  } catch (err: unknown) {
+    // `teams` table doesn't exist yet — fall back to raw teamid as team_name
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '42P01') {
+      const fallbackSql = `
+        SELECT
+          b.year,
+          b.teamid,
+          b.teamid AS team_name,
+          b.highlevel AS level,
+          b.g, b.ab, b.r, b.h,
+          b.dbl AS "2b", b.tpl AS "3b",
+          b.hr, b.rbi, b.sb, b.bb, b.so,
+          b.bavg AS avg, b.obp, b.slg, b.ops,
+          b.draft_info
+        FROM tbc_batting_raw b
+        WHERE b.playerid::text = $1
+        ORDER BY b.year ASC
+      `;
+      const { rows } = await query(fallbackSql, [playerId]);
+      return rows;
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON PITCHING STATS — all years for a player
+//
+// Same LEFT JOIN + COALESCE pattern as batting above: a teamid with no
+// matching team_name never causes an error or a missing row.
+//
+// If the `teams` table doesn't exist yet in this environment the query falls
+// back to returning the raw teamid as team_name (same as getNewsByHsid pattern).
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -474,8 +512,34 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC
   `;
-  const { rows } = await query(sql, [playerId]);
-  return rows;
+  try {
+    const { rows } = await query(sql, [playerId]);
+    return rows;
+  } catch (err: unknown) {
+    // `teams` table doesn't exist yet — fall back to raw teamid as team_name
+    if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '42P01') {
+      const fallbackSql = `
+        SELECT
+          p.year,
+          p.teamid,
+          p.teamid AS team_name,
+          p.highlevel AS level,
+          p.g, p.gs, p.w, p.l,
+          p.sv AS saves, p.ip,
+          p.h AS hits_allowed, p.er,
+          p.bb, p.so AS ko,
+          p.era, p.whip, p.h9, p.bb9,
+          p.so9 AS k9, p.so_bb AS kbb,
+          p.draft_info
+        FROM tbc_pitching_raw p
+        WHERE p.playerid::text = $1
+        ORDER BY p.year ASC
+      `;
+      const { rows } = await query(fallbackSql, [playerId]);
+      return rows;
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -534,6 +598,32 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
     // Table doesn't exist yet — return empty array gracefully
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Schema bootstrap — ensure auxiliary tables exist so JOINs never crash.
+// The teams table is populated externally (scripts/import-teams.ts); if it
+// hasn't been loaded yet the LEFT JOIN simply falls back to showing teamid
+// via COALESCE, which is acceptable.
+// ---------------------------------------------------------------------------
+declare global {
+  var __pgSchemaBootstrapped: boolean | undefined;
+}
+if (!global.__pgSchemaBootstrapped) {
+  global.__pgSchemaBootstrapped = true;
+  void (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS teams (
+          team_id   TEXT PRIMARY KEY,
+          team_name TEXT NOT NULL
+        )
+      `);
+    } catch (err) {
+      // Non-fatal — queries will still run; team names will fall back to teamid.
+      console.error('Failed to bootstrap teams table:', err);
+    }
+  })();
 }
 
 // ---------------------------------------------------------------------------
