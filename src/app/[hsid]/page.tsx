@@ -793,8 +793,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
     img.onerror=function(){
       if(fallback){
+        var fallbackBg="url('"+fallback+"')";
         var img2=new Image();
-        img2.onload=function(){el.style.backgroundImage="url('"+fallback+"')";};
+        img2.onload=function(){el.style.backgroundImage=fallbackBg;};
         img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
         img2.src=fallback;
       } else if(placeholder){
