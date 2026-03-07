@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ hsid
   const url = new URL(req.url);
   const playerParam = url.searchParams.get("player") || "";
   const lookupSlug = toSlugFromDisplay(playerParam);
-  if (!lookupSlug) return NextResponse.redirect(`/${hsid}`, 308);
+  if (!lookupSlug) return NextResponse.redirect(`/${hsid}`, 302);
 
   const matches = await findPlayersBySlug(lookupSlug, hsid);
   if (matches.length === 0) {
@@ -18,14 +18,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ hsid
   if (matches.length === 1) {
     const only = matches[0];
     const canonicalSlug = toPlayerSlug(only.firstname, only.lastname);
-    return NextResponse.redirect(`/${hsid}/player/${only.playerid}/${canonicalSlug}`, 307);
+    return NextResponse.redirect(`/${hsid}/player/${only.playerid}/${canonicalSlug}`, 301);
   }
 
   const sameSchool = matches.filter((m) => m.hsid === hsid);
   if (sameSchool.length === 1) {
     const pick = sameSchool[0];
     const canonicalSlug = toPlayerSlug(pick.firstname, pick.lastname);
-    return NextResponse.redirect(`/${hsid}/player/${pick.playerid}/${canonicalSlug}`, 307);
+    return NextResponse.redirect(`/${hsid}/player/${pick.playerid}/${canonicalSlug}`, 301);
   }
 
   const options = matches

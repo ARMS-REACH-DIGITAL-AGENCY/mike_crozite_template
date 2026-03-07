@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getPlayerById } from "@/lib/db";
 import { toPlayerSlug } from "@/lib/slug";
@@ -26,5 +26,5 @@ export default async function PlayerProfileRedirect({
   const player = await getPlayerById(String(playerId));
   if (!player) notFound();
   const slug = toPlayerSlug(player.firstname, player.lastname);
-  redirect(`/${hsid}/player/${playerId}/${slug}`);
+  permanentRedirect(`/${hsid}/player/${playerId}/${slug}`);
 }

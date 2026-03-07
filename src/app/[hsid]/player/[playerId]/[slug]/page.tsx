@@ -4,7 +4,7 @@
 
 import { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect, notFound } from "next/navigation";
+import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import AccountDrawer from "@/components/AccountDrawer";
@@ -90,7 +90,7 @@ export default async function PlayerProfilePage({
   const player = await getPlayerById(playerId);
   if (!player) notFound();
   const canonicalSlug = toPlayerSlug(player.firstname, player.lastname);
-  if (slug !== canonicalSlug) redirect(`/${hsid}/player/${playerId}/${canonicalSlug}`);
+  if (slug !== canonicalSlug) permanentRedirect(`/${hsid}/player/${playerId}/${canonicalSlug}`);
 
   const playerSchool = playerSchoolLink;
   const [battingSeasons, pitchingSeasons, careerBatting, careerPitching] =
