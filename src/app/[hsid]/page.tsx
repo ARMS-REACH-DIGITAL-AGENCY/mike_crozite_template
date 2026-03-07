@@ -127,6 +127,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
+  const defaultSectionLabel = "WHERE THEY YAT?";
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -184,7 +185,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-hero{padding:2px 0}
         .yat-hero-grid{
   display:flex;
-  align-items:flex-start;   /* align to top so icons line up with breadcrumbs */
+  align-items:flex-start;
   justify-content:space-between;
   gap:16px;
   padding:4px 0
@@ -193,7 +194,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-hero-right{
   display:flex;
   gap:10px;
-  padding-top:2px; /* small nudge to visually align with breadcrumb text */
+  padding-top:2px;
 }
         .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
         .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
@@ -203,7 +204,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-tag-grey{color:var(--muted)}
         .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
         @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
-        .yat-crumbs{font:300 calc(var(--hamSmall)*.85)/1 Oswald;letter-spacing:.02em;color:var(--muted);text-transform:uppercase;margin-top:3px}
         .yat-chip{display:inline-block;font:700 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff}
         body.light-theme .yat-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.08);color:#222}
         .chip-mlb{background:rgba(0,230,118,.15);border-color:#00e676;color:#00e676}
@@ -355,7 +355,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
-            <div className="big2">ACTIVE BASEBALL ALUMNI</div>
+            <div className="big2" id="yatSectionLabel">{defaultSectionLabel}</div>
           </div>
         </div>
         <div className="yat-hr" />
@@ -365,8 +365,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
 
             <div className="yat-hero-left">
-  <div className="yat-crumbs" id="yatCrumbs">{schoolName} ▸ WHERE THEY YAT?</div>
-
   <div className="yat-tag-duo">
     <div className="yat-tag-swap">
       <span className="yat-tag-grey">FLIP FOR </span>
@@ -839,9 +837,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   var sec=document.getElementById('sec-'+tabId);
   if(sec)sec.classList.add('visible');
 
-  /* update breadcrumbs */
-  var crumbs=document.getElementById('yatCrumbs');
-  if(crumbs){
+  /* update section label in school row (serves as breadcrumb) */
+  var sectionLabel=document.getElementById('yatSectionLabel');
+  if(sectionLabel){
     var labels={
       active:'WHERE THEY YAT?',
       news:'ACTIVE ALUMNI NEWS',
@@ -852,7 +850,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       faq:"FAQ'S"
     };
     var label=labels[tabId]||tabId.toUpperCase();
-    crumbs.textContent='${schoolName} ▸ '+label;
+    sectionLabel.textContent=label;
   }
 }
 
