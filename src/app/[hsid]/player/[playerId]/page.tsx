@@ -8,13 +8,20 @@ export async function generateMetadata({
 }: {
   params: Promise<{ hsid: string; playerId: string }>;
 }): Promise<Metadata> {
-  const { playerId } = await params;
-  const player = await getPlayerById(String(playerId));
-  const playerName = player ? `${player.firstname || ""} ${player.lastname || ""}`.trim() : "Player";
-  return {
-    title: `${playerName.toUpperCase()} | YAT?STATS - Player Profile`,
-    description: `Full career stats and profile for ${playerName}.`,
-  };
+  try {
+    const { playerId } = await params;
+    const player = await getPlayerById(String(playerId));
+    const playerName = player ? `${player.firstname || ""} ${player.lastname || ""}`.trim() : "Player";
+    return {
+      title: `${playerName.toUpperCase()} | YAT?STATS - Player Profile`,
+      description: `Full career stats and profile for ${playerName}.`,
+    };
+  } catch {
+    return {
+      title: "Player Profile | YAT?STATS",
+      description: "Player profile on YAT?STATS.",
+    };
+  }
 }
 
 export default async function PlayerProfileRedirect({
