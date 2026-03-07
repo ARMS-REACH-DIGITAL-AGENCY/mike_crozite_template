@@ -129,8 +129,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.png`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.png`;
+  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`;
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
