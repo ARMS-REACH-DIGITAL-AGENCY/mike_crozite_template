@@ -34,5 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Security & Audit
+
+See [docs/audit-agent-activity.md](docs/audit-agent-activity.md) for:
+
+- A summary of the last-24-hours activity audit (2026-03-07)
+- Background on the Manus debacle and its confirmed rollback
+- Step-by-step instructions for auditing bot/agent activity going forward
+- Recommended branch-protection and access-control safeguards
 # Build 1772083018
 # Build v2 1772083186
