@@ -25,6 +25,7 @@ import {
 import AccountDrawer from "@/components/AccountDrawer";
 import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
+import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 
 export const runtime = "nodejs";
 
@@ -497,7 +498,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                        <div className="yat-face yat-front">
-                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}')`}} />
+                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('https://hamilton.yatstats.com/assets/img/now_players/default.jpg')`}} />
                          <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -621,7 +622,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                       <div className="yat-face yat-front">
-                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}')`}} />
+                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('https://hamilton.yatstats.com/assets/img/now_players/default.jpg')`}} />
                         <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -763,8 +764,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
+        window.__firebase_config = ${getFirebaseConfigJSON()};
 (function(){
-  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   window.__YAT_HSID='${resolvedHsid}';
   /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
@@ -899,16 +901,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       if(q.length>=2){
         document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
             var name=card.getAttribute('data-name')||'';
-            var pid=card.getAttribute('data-playerid')||'';
-            if(name.includes(q)&&pid&&!seen[pid]){
-              seen[pid]=true;
-              var nameEl=card.querySelector('.yat-name');
-              var dn=name;
-              if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml(spans[0].textContent.trim()+' '+spans[1].textContent.trim());}else{dn=escHtml(nameEl.textContent.trim());}}
-            results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
-            }
-          });
-        }
+          var pid=card.getAttribute('data-playerid')||'';
+          if(name.includes(q)&&pid&&!seen[pid]){
+            seen[pid]=true;
+            var nameEl=card.querySelector('.yat-name');
+            var dn=escHtml(nameEl?(nameEl.textContent||name):name);
+            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}
+        results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+          }
+        });
+      }
       liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
     });
   }
