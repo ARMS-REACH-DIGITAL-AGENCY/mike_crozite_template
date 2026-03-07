@@ -753,7 +753,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       {/* SPONSOR FOOTER */}
       <footer className="yat-footer">
-        <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener">
+        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
           <span className="sponsor-text">Presented by</span>
           <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
         </a>

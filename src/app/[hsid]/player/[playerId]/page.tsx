@@ -552,8 +552,10 @@ export default async function PlayerProfilePage({
 
         {/* FOOTER */}
         <footer className="yat-footer">
-          <div className="sponsor-label">PRESENTED BY</div>
-          <div className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</div>
+          <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
+            <div className="sponsor-label">PRESENTED BY</div>
+            <div className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</div>
+          </a>
         </footer>
 
         {/* CLIENT INTERACTIVITY */}
