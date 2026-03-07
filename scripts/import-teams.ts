@@ -41,7 +41,7 @@ if (!fs.existsSync(resolvedPath)) {
 // ---------------------------------------------------------------------------
 // Parse CSV
 // ---------------------------------------------------------------------------
-function parseCSV(raw: string): Array<{ teamid: string; team_name: string }> {
+function parseCSV(raw: string): Array<{ team_id: string; team_name: string }> {
   const lines = raw
     .replace(/\r\n/g, "\n")
     .split("\n")
@@ -54,20 +54,20 @@ function parseCSV(raw: string): Array<{ teamid: string; team_name: string }> {
 
   // Determine column indices from header
   const header = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
-  const teamidIdx = header.findIndex((h) => h === "teamid");
+  const teamidIdx = header.findIndex((h) => h === "team_id" || h === "teamid");
   const teamNameIdx = header.findIndex((h) => h === "team_name" || h === "teamname" || h === "name");
 
-  if (teamidIdx === -1) throw new Error("CSV header must include a 'teamid' column.");
+  if (teamidIdx === -1) throw new Error("CSV header must include a 'team_id' (or 'teamid') column.");
   if (teamNameIdx === -1) throw new Error("CSV header must include a 'team_name' (or 'name') column.");
 
-  const rows: Array<{ teamid: string; team_name: string }> = [];
+  const rows: Array<{ team_id: string; team_name: string }> = [];
   for (let i = 1; i < lines.length; i++) {
     // Simple CSV split — handles quoted fields
     const cols = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g) || [];
-    const teamid = (cols[teamidIdx] || "").replace(/^"|"$/g, "").trim();
+    const team_id = (cols[teamidIdx] || "").replace(/^"|"$/g, "").trim();
     const team_name = (cols[teamNameIdx] || "").replace(/^"|"$/g, "").trim();
-    if (teamid && team_name) {
-      rows.push({ teamid, team_name });
+    if (team_id && team_name) {
+      rows.push({ team_id, team_name });
     }
   }
   return rows;
@@ -90,7 +90,7 @@ async function main() {
     // Ensure the table exists
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teams (
-        teamid    TEXT PRIMARY KEY,
+        team_id   TEXT PRIMARY KEY,
         team_name TEXT NOT NULL
       )
     `);
@@ -103,11 +103,11 @@ async function main() {
       const values = batch
         .map((_, j) => `($${j * 2 + 1}, $${j * 2 + 2})`)
         .join(", ");
-      const params = batch.flatMap((r) => [r.teamid, r.team_name]);
+      const params = batch.flatMap((r) => [r.team_id, r.team_name]);
       await pool.query(
-        `INSERT INTO teams (teamid, team_name)
+        `INSERT INTO teams (team_id, team_name)
          VALUES ${values}
-         ON CONFLICT (teamid) DO UPDATE SET team_name = EXCLUDED.team_name`,
+         ON CONFLICT (team_id) DO UPDATE SET team_name = EXCLUDED.team_name`,
         params
       );
       inserted += batch.length;

@@ -10,7 +10,7 @@
 //   player_hsids      — links playerid -> hsid (high school)
 //   tbc_schools_raw   — high school info (hsid, hsname, colors, nickname) — NOT pro/college teams
 //   school_success    — per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams             — teamid → team_name lookup; populated via scripts/import-teams.ts
+//   teams             — team_id → team_name lookup; populated via scripts/import-teams.ts
 //
 // "Active" = player has batting or pitching stats from 2025 (proxy for 2026 activity)
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -94,7 +94,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 // Returns one row per player with their most recent season stats.
 // "Active" = has batting OR pitching stats in year 2025.
 // Level shown is from the most recent stat row (not historical peak).
-// Team name is looked up from the teams table via LEFT JOIN on teamid.
+// Team name is looked up from the teams table via LEFT JOIN on team_id.
 // ---------------------------------------------------------------------------
 export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
@@ -444,7 +444,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
       b.bavg AS avg, b.obp, b.slg, b.ops,
       b.draft_info
     FROM tbc_batting_raw b
-    LEFT JOIN teams t ON t.teamid = b.teamid
+    LEFT JOIN teams t ON t.team_id = b.teamid
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC
   `;
@@ -470,7 +470,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.so9 AS k9, p.so_bb AS kbb,
       p.draft_info
     FROM tbc_pitching_raw p
-    LEFT JOIN teams t ON t.teamid = p.teamid
+    LEFT JOIN teams t ON t.team_id = p.teamid
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC
   `;
