@@ -537,6 +537,32 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Schema bootstrap — ensure auxiliary tables exist so JOINs never crash.
+// The teams table is populated externally (scripts/import-teams.ts); if it
+// hasn't been loaded yet the LEFT JOIN simply falls back to showing teamid
+// via COALESCE, which is acceptable.
+// ---------------------------------------------------------------------------
+declare global {
+  var __pgSchemaBootstrapped: boolean | undefined;
+}
+if (!global.__pgSchemaBootstrapped) {
+  global.__pgSchemaBootstrapped = true;
+  void (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS teams (
+          team_id   TEXT PRIMARY KEY,
+          team_name TEXT NOT NULL
+        )
+      `);
+    } catch (err) {
+      // Non-fatal — queries will still run; team names will fall back to teamid.
+      console.error('Failed to bootstrap teams table:', err);
+    }
+  })();
+}
+
+// ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 declare global {
