@@ -254,6 +254,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
         .yat-face.yat-back{transform:rotateY(180deg);background:var(--bg);color:var(--fg);display:flex;flex-direction:column}
         .yat-back-top{display:flex;padding:12px;gap:12px;border-bottom:1px solid var(--line)}
+        .yat-back-photo{width:74px;height:92px;border-radius:6px;flex-shrink:0;background-size:cover;background-position:center;background-repeat:no-repeat;border:1px solid var(--line)}
         .yat-back-name{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:4px}
         .yat-back-details{font-size:12px;opacity:.8;line-height:1.4}
         .yat-back-nav{display:flex;justify-content:space-around;border-bottom:1px solid var(--line)}
@@ -475,10 +476,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const dots = varsityDots(p);
               const draft = parseDraft(p.draft_info as string | null);
               const statYear = isPitcher ? p.pitch_year : p.stat_year;
-              const fn = String(p.firstname || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-              const ln = String(p.lastname  || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-              const photoUrl = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.jpg`;
-              const photoFallback = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.png`;
+              const pid = String(p.playerid || "");
+              const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.png`;
+              const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.png`;
               const silhouetteUrl = `/img/player-silhouette.png`;
               const batterStats = [
                 {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
@@ -497,9 +497,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                   <div className="yat-card-inner">
                     <div className="yat-flip">
                       {/* FRONT */}
-                      <div className="yat-face yat-front">
-                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}')`}} />
-                        <div className="yat-shade" />
+                       <div className="yat-face yat-front">
+                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}')`}} />
+                         <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
                             {gc && <span className="front-chip">CLASS OF {gc}</span>}
@@ -540,10 +540,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                         </div>
                       </div>
                       {/* BACK */}
-                      <div className="yat-face yat-back">
-                        <div className="yat-back-top">
-                          <div>
-                            <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                       <div className="yat-face yat-back">
+                         <div className="yat-back-top">
+                           <div className="yat-back-photo" style={{backgroundImage:`url('${photoFallback}')`}} />
+                           <div>
+                             <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
                             <div className="yat-back-details">
                               {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
                             </div>
@@ -594,10 +595,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const dots = varsityDots(p);
               const draft = parseDraft(p.draft_info as string | null);
               const statYear = isPitcher ? p.pitch_year : p.stat_year;
-              const fn = String(p.firstname || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-              const ln = String(p.lastname  || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-              const photoUrl = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.jpg`;
-              const photoFallback = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.png`;
+              const pid = String(p.playerid || "");
+              const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.png`;
+              const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.png`;
               const silhouetteUrl = `/img/player-silhouette.png`;
               const isActive = !!p.is_active_2025;
               const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");
@@ -658,10 +658,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                         </div>
                       </div>
                       {/* BACK */}
-                      <div className="yat-face yat-back">
-                        <div className="yat-back-top">
-                          <div>
-                            <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                       <div className="yat-face yat-back">
+                         <div className="yat-back-top">
+                           <div className="yat-back-photo" style={{backgroundImage:`url('${photoFallback}')`}} />
+                           <div>
+                             <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
                             <div className="yat-back-details">
                               {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
                             </div>
@@ -890,17 +891,17 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       var seen={};
       if(q.length>=2){
         document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-          var name=card.getAttribute('data-name')||'';
-          var pid=card.getAttribute('data-playerid')||'';
-          if(name.includes(q)&&pid&&!seen[pid]){
-            seen[pid]=true;
-            var nameEl=card.querySelector('.yat-name');
-            var dn=name;
-            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=spans[0].textContent.trim()+' '+spans[1].textContent.trim();}else{dn=nameEl.textContent.trim();}}
-            results+='<a href="/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
-          }
-        });
-      }
+            var name=card.getAttribute('data-name')||'';
+            var pid=card.getAttribute('data-playerid')||'';
+            if(name.includes(q)&&pid&&!seen[pid]){
+              seen[pid]=true;
+              var nameEl=card.querySelector('.yat-name');
+              var dn=name;
+              if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=spans[0].textContent.trim()+' '+spans[1].textContent.trim();}else{dn=nameEl.textContent.trim();}}
+            results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+            }
+          });
+        }
       liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
     });
   }

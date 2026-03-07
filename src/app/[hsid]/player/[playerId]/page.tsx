@@ -129,7 +129,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerImgBase = `https://hamilton.yatstats.com/assets/img/players/${playerId}`;
+  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.png`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.png`;
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
@@ -376,9 +377,9 @@ export default async function PlayerProfilePage({
             <div className="profile-photo">
               <SafeImage
                 className="profile-img"
-                src={`${playerImgBase}.jpg`}
+                src={playerNowImg}
                 alt={displayName}
-                fallbackSrc={`${playerImgBase}.png`}
+                fallbackSrc={playerThenImg}
                 placeholderSrc="/img/player-silhouette.png"
                 style={{width:'100%',height:'100%',objectFit:'cover' as const,borderRadius:'6px'}}
               />
