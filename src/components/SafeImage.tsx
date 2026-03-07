@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { S3_SCHOOL_PLACEHOLDER } from '@/lib/schoolAssets';
 
 interface SafeImageProps {
@@ -70,27 +70,35 @@ export default function SafeImage({
     return normalizedPlaceholder;
   }, [src, computedFallback, normalizedPlaceholder]);
 
-  const [currentSrc, setCurrentSrc] = useState(initialSrc);
-  const [failCount, setFailCount] = useState(0);
+  const [failState, setFailState] = useState({ baseSrc: initialSrc, count: 0 });
+  const effectiveFailCount = failState.baseSrc === initialSrc ? failState.count : 0;
 
-  useEffect(() => {
-    setCurrentSrc(initialSrc);
-    setFailCount(0);
-  }, [initialSrc]);
+  const currentSrc = useMemo(() => {
+    if (effectiveFailCount === 0) return initialSrc;
+    if (effectiveFailCount === 1 && computedFallback && computedFallback !== initialSrc) {
+      return computedFallback;
+    }
+    return normalizedPlaceholder;
+  }, [effectiveFailCount, initialSrc, computedFallback, normalizedPlaceholder]);
 
   const handleError = useCallback(() => {
-    setFailCount((prev) => {
-      if (prev === 0 && computedFallback && computedFallback !== currentSrc) {
-        setCurrentSrc(computedFallback);
-        return 1;
+    setFailState((prev) => {
+      const baseSrc = initialSrc;
+      const prevCount = prev.baseSrc === baseSrc ? prev.count : 0;
+      if (
+        prevCount === 0 &&
+        computedFallback &&
+        computedFallback !== baseSrc &&
+        computedFallback !== normalizedPlaceholder
+      ) {
+        return { baseSrc, count: 1 };
       }
-      if (currentSrc !== normalizedPlaceholder) {
-        setCurrentSrc(normalizedPlaceholder);
-        return 2;
+      if (prevCount < 2 && normalizedPlaceholder && normalizedPlaceholder !== baseSrc) {
+        return { baseSrc, count: 2 };
       }
-      return prev;
+      return prev.baseSrc === baseSrc ? prev : { baseSrc, count: prevCount };
     });
-  }, [computedFallback, normalizedPlaceholder, currentSrc]);
+  }, [computedFallback, initialSrc, normalizedPlaceholder]);
 
   return (
     <img
