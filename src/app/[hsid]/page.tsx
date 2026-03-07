@@ -255,7 +255,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-game-text{font-family:Oswald;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px;line-height:1.2}
         .yat-game-text span{display:block}
         .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
-        .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg)}
+        .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg);--fg:#f2f2f2;--muted:#9e9e9e;--line:rgba(255,255,255,.1);--card-bg:#1a1a1a}
         .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1}
         .yat-back-top{display:flex;padding:12px;gap:12px;border-bottom:1px solid var(--line)}
         .yat-back-name{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:4px}
@@ -530,15 +530,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                 <span className="yat-log">--</span>
                               </div>
                             </div>
-                            <div className="yat-game-block">
-                              <div className="yat-pill">NEXT GAME</div>
-                              <div className="yat-game-text">
-                                <span>TBD</span>
-                                <a href={`/${resolvedHsid}/player/${pid}/${slug}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
-                                  WHERE YAT THESE DAYS?
-                                </a>
-                              </div>
-                            </div>
+
                           </div>
                         </div>
                       </div>
@@ -647,15 +639,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                 {dots.map((y, i) => <div key={i} className="yat-dot">{y}</div>)}
                               </div>
                             )}
-                            <div className="yat-game-block">
-                              <div className="yat-pill">NEXT GAME</div>
-                              <div className="yat-game-text">
-                                <span>{isActive ? "TBD" : "--"}</span>
-                                <a href={`/${resolvedHsid}/player/${pid}/${slug}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
-                                  WHERE YAT THESE DAYS?
-                                </a>
-                              </div>
-                            </div>
+
                             <div className="yat-game-block">
                               <div className="yat-pill">LAST 3 GAMES</div>
                               <div className="yat-game-text">
