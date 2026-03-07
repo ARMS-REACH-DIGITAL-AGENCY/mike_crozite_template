@@ -595,8 +595,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                const statYear = isPitcher ? p.pitch_year : p.stat_year;
                const pid = String(p.playerid || "");
                const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
-               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.png`;
-               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.png`;
+               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
                const silhouetteUrl = `/img/player-silhouette.png`;
               const isActive = !!p.is_active_2025;
               const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");

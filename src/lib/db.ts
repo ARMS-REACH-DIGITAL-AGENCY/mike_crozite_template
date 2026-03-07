@@ -10,7 +10,7 @@
 //   player_hsids      — links playerid -> hsid (high school)
 //   tbc_schools_raw   — high school info (hsid, hsname, colors, nickname) — NOT pro/college teams
 //   school_success    — per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams             — currently empty; team names not yet populated
+//   teams             — teamid → team_name lookup; populated via scripts/import-teams.ts
 //
 // "Active" = player has batting or pitching stats from 2025 (proxy for 2026 activity)
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -94,7 +94,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 // Returns one row per player with their most recent season stats.
 // "Active" = has batting OR pitching stats in year 2025.
 // Level shown is from the most recent stat row (not historical peak).
-// Team name is not available (teams table is empty) — level chip used instead.
+// Team name is looked up from the teams table via LEFT JOIN on teamid.
 // ---------------------------------------------------------------------------
 export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
@@ -434,15 +434,19 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
     SELECT
-      year, teamid, highlevel AS level,
-      g, ab, r, h,
-      dbl AS "2b", tpl AS "3b",
-      hr, rbi, sb, bb, so,
-      bavg AS avg, obp, slg, ops,
-      draft_info
-    FROM tbc_batting_raw
-    WHERE playerid::text = $1
-    ORDER BY year ASC
+      b.year,
+      b.teamid,
+      COALESCE(t.team_name, b.teamid) AS team_name,
+      b.highlevel AS level,
+      b.g, b.ab, b.r, b.h,
+      b.dbl AS "2b", b.tpl AS "3b",
+      b.hr, b.rbi, b.sb, b.bb, b.so,
+      b.bavg AS avg, b.obp, b.slg, b.ops,
+      b.draft_info
+    FROM tbc_batting_raw b
+    LEFT JOIN teams t ON t.teamid = b.teamid
+    WHERE b.playerid::text = $1
+    ORDER BY b.year ASC
   `;
   const { rows } = await query(sql, [playerId]);
   return rows;
@@ -454,17 +458,21 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
     SELECT
-      year, teamid, highlevel AS level,
-      g, gs, w, l,
-      sv AS saves, ip,
-      h AS hits_allowed, er,
-      bb, so AS ko,
-      era, whip, h9, bb9,
-      so9 AS k9, so_bb AS kbb,
-      draft_info
-    FROM tbc_pitching_raw
-    WHERE playerid::text = $1
-    ORDER BY year ASC
+      p.year,
+      p.teamid,
+      COALESCE(t.team_name, p.teamid) AS team_name,
+      p.highlevel AS level,
+      p.g, p.gs, p.w, p.l,
+      p.sv AS saves, p.ip,
+      p.h AS hits_allowed, p.er,
+      p.bb, p.so AS ko,
+      p.era, p.whip, p.h9, p.bb9,
+      p.so9 AS k9, p.so_bb AS kbb,
+      p.draft_info
+    FROM tbc_pitching_raw p
+    LEFT JOIN teams t ON t.teamid = p.teamid
+    WHERE p.playerid::text = $1
+    ORDER BY p.year ASC
   `;
   const { rows } = await query(sql, [playerId]);
   return rows;
