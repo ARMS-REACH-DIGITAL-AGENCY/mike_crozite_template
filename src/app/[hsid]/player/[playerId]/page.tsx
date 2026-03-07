@@ -319,7 +319,7 @@ export default async function PlayerProfilePage({
             <div className="yat-wordmark-wrap">
               <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/img/yatstats-logo.png" alt="YAT?STATS" style={{height:'28px',width:'auto',filter:'invert(1)'}} />
+                <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" style={{height:'28px',width:'auto',filter:'invert(1)'}} />
               </a>
             </div>
           </div>

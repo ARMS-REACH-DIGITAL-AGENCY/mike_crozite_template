@@ -3,7 +3,7 @@
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
 // Default placeholder for school crests
-const S3_SCHOOL_PLACEHOLDER = `${S3_BASE}/yatstats/ys_crest.svg`;
+export const S3_SCHOOL_PLACEHOLDER = `${S3_BASE}/yatstats/yscrest.png`;
 
 /**
  * Returns the dynamic S3 URL for a school's crest based on its hsid.

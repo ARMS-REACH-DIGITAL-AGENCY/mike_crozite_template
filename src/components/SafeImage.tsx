@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { S3_SCHOOL_PLACEHOLDER } from '@/lib/schoolAssets';
 
 interface SafeImageProps {
   src?: string | null;
@@ -35,7 +36,10 @@ export default function SafeImage({
   // Default placeholder: silhouettes for players; crest fallback for schools/logos.
   const computedPlaceholder = useMemo(() => {
     if (placeholderSrc) return placeholderSrc;
-    if (/\b(crest|school|logo|yat|wordmark)\b/i.test(alt)) return '/img/yatstats-circle.png';
+    // If it's a crest, school, or logo, use the YatStats square crest from S3
+    if (/\b(crest|school|logo|yat|wordmark)\b/i.test(alt)) {
+      return S3_SCHOOL_PLACEHOLDER;
+    }
     return '/img/player-silhouette.png';
   }, [placeholderSrc, alt]);
 
@@ -46,13 +50,18 @@ export default function SafeImage({
     if (fallback) return absolutize(fallback);
 
     const primary = normalizeCandidate(src);
+    // If it's a school crest and we have a primary src, the first fallback should be the placeholder
+    if (/\b(crest|school)\b/i.test(alt)) {
+      return S3_SCHOOL_PLACEHOLDER;
+    }
+
     // If caller passed a bare filename like "237.png" or "yatstats-logo.png",
     // also try "/img/<filename>" as a second fallback.
     if (primary && !primary.startsWith('http') && !primary.startsWith('/') && !primary.startsWith('img/')) {
       return `/img/${primary}`;
     }
     return '';
-  }, [fallbackSrc, src]);
+  }, [fallbackSrc, src, alt]);
 
   const initialSrc = useMemo(() => {
     const primary = normalizeCandidate(src);
@@ -71,14 +80,17 @@ export default function SafeImage({
 
   const handleError = useCallback(() => {
     setFailCount((prev) => {
-      if (prev === 0 && computedFallback) {
+      if (prev === 0 && computedFallback && computedFallback !== currentSrc) {
         setCurrentSrc(computedFallback);
         return 1;
       }
-      setCurrentSrc(normalizedPlaceholder);
-      return 2;
+      if (currentSrc !== normalizedPlaceholder) {
+        setCurrentSrc(normalizedPlaceholder);
+        return 2;
+      }
+      return prev;
     });
-  }, [computedFallback, normalizedPlaceholder]);
+  }, [computedFallback, normalizedPlaceholder, currentSrc]);
 
   return (
     <img
