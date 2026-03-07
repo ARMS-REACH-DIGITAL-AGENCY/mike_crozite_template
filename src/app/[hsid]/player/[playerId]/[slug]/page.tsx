@@ -82,7 +82,7 @@ export default async function PlayerProfilePage({
   ) as Record<string, unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
-  const resolvedHsid = String(school.hsid ?? "");
+  const resolvedHsid = String(school?.hsid ?? hsid);
   const schoolName = String(school.hsname || "").toUpperCase();
   const location = String(school.hslocation || "").toUpperCase();
 

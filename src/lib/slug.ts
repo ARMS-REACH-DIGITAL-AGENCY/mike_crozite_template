@@ -3,6 +3,7 @@ export function toPlayerSlug(firstname: string | null | undefined, lastname: str
   return base
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "") || "player";
 }
 

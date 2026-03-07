@@ -37,6 +37,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ hsid
 
   return new NextResponse(
     `<html><body style="font-family:sans-serif;padding:20px;color:#111"><h1>Select player</h1><ul>${options}</ul></body></html>`,
-    { status: 300, headers: { "content-type": "text/html" } }
+    { status: 200, headers: { "content-type": "text/html" } }
   );
 }

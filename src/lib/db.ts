@@ -407,7 +407,7 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<Pl
     FROM tbc_players_raw tp
     LEFT JOIN player_hsids ph ON ph.playerid::text = tp.playerid::text
     -- Keep slugging logic in sync with toPlayerSlug (src/lib/slug.ts)
-    WHERE lower(regexp_replace(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,'')), '[^a-z0-9]+', '-', 'g')) = $1
+    WHERE trim(both '-' from regexp_replace(lower(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,''))), '-+', '-', 'g')) = $1
       ${hsid ? "AND (ph.hsid::text = $2 OR $2 IS NULL)" : ""}
     LIMIT 10
   `;
