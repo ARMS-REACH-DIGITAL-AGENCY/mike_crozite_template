@@ -66,6 +66,7 @@ function fmtAvg(v: any): string {
 
 type BattingSeason = {
   year: string | number;
+  team_name?: string;
   level?: string;
   g?: any;
   ab?: any;
@@ -87,6 +88,7 @@ type BattingSeason = {
 
 type PitchingSeason = {
   year: string | number;
+  team_name?: string;
   level?: string;
   g?: any;
   gs?: any;
@@ -178,8 +180,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.png`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.png`;
+  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`;
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
@@ -416,6 +418,7 @@ export default async function PlayerProfilePage({
         .career-log-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:8px}
         body.light-theme .career-log-title{background:rgba(0,0,0,.03)}
         .career-log .year-cell{font:700 12px/1 Oswald,sans-serif;color:var(--fg)}
+        .career-log .team-cell{font:400 11px/1.3 Oswald,sans-serif;color:var(--muted);text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .career-log tbody tr.level-row{border-left:3px solid transparent}
         .career-log tbody tr.level-mlb{border-left-color:#1d6fa4}
         .career-log tbody tr.level-aaa{border-left-color:#c8102e}
@@ -700,13 +703,14 @@ export default async function PlayerProfilePage({
                 <table className="season-table career-log">
                   <thead>
                     <tr>
-                      <th>YEAR</th><th>LVL</th><th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+                      <th>YEAR</th><th>TEAM</th><th>LVL</th><th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {battingSeasons.map((b: BattingSeason, i: number) => (
                       <tr key={i} className={`level-row ${levelClass(b.level||'')}`}>
                         <td className="year-cell">{b.year}</td>
+                        <td className="team-cell">{b.team_name || '--'}</td>
                         <td>{(b.level||'--').toUpperCase()}</td>
                         <td>{fmt(b.g)}</td><td>{fmt(b.ab)}</td><td>{fmt(b.h)}</td>
                         <td>{fmt(b["2b"])}</td><td>{fmt(b["3b"])}</td><td>{fmt(b.hr)}</td>
@@ -719,6 +723,7 @@ export default async function PlayerProfilePage({
                     {careerBatting && (
                       <tr className="career-totals-row">
                         <td className="year-cell">CAREER</td>
+                        <td>—</td>
                         <td>—</td>
                         <td>{fmt(careerBatting.g)}</td><td>{fmt(careerBatting.ab)}</td><td>{fmt(careerBatting.h)}</td>
                         <td>{fmt(careerBatting["2b"])}</td><td>{fmt(careerBatting["3b"])}</td><td>{fmt(careerBatting.hr)}</td>
@@ -741,13 +746,14 @@ export default async function PlayerProfilePage({
                 <table className="season-table career-log">
                   <thead>
                     <tr>
-                      <th>YEAR</th><th>LVL</th><th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
+                      <th>YEAR</th><th>TEAM</th><th>LVL</th><th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pitchingSeasons.map((p: PitchingSeason, i: number) => (
                       <tr key={i} className={`level-row ${levelClass(p.level||'')}`}>
                         <td className="year-cell">{p.year}</td>
+                        <td className="team-cell">{p.team_name || '--'}</td>
                         <td>{(p.level||'--').toUpperCase()}</td>
                         <td>{fmt(p.g)}</td><td>{fmt(p.gs)}</td><td>{fmt(p.w)}</td><td>{fmt(p.l)}</td>
                         <td>{fmt(p.saves)}</td><td>{fmt(p.ip, 1)}</td><td>{fmt(p.er)}</td>
@@ -759,6 +765,7 @@ export default async function PlayerProfilePage({
                     {careerPitching && (
                       <tr className="career-totals-row">
                         <td className="year-cell">CAREER</td>
+                        <td>—</td>
                         <td>—</td>
                         <td>{fmt(careerPitching.g)}</td><td>{fmt(careerPitching.gs)}</td>
                         <td>{fmt(careerPitching.w)}</td><td>{fmt(careerPitching.l)}</td>
