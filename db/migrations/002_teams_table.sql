@@ -3,6 +3,6 @@
 -- Populated via scripts/import-teams.ts (CSV from the team-names spreadsheet).
 
 CREATE TABLE IF NOT EXISTS teams (
-  teamid    TEXT PRIMARY KEY,
+  team_id   TEXT PRIMARY KEY,
   team_name TEXT NOT NULL
 );
