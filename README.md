@@ -36,3 +36,13 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 # Build 1772083018
 # Build v2 1772083186
+
+## Agent Activity & Security Audits
+
+This repository uses the GitHub Copilot coding agent for iterative development.  
+See [docs/audit-agent-activity.md](docs/audit-agent-activity.md) for:
+
+- A full timeline of agent sessions on 2026-03-07 (rollback event + post-rollback features)
+- Step-by-step instructions for auditing automated agent changes
+- Recommended safeguards (branch protection, CODEOWNERS, scoped tokens)
+- Safe recovery procedures if unauthorized changes land on `main`
