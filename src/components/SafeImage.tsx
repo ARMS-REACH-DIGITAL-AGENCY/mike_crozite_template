@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { S3_SCHOOL_PLACEHOLDER } from '@/lib/schoolAssets';
 
 interface SafeImageProps {
@@ -10,6 +10,14 @@ interface SafeImageProps {
   fallbackSrc?: string | null;
   placeholderSrc?: string;
   style?: React.CSSProperties;
+}
+
+/** Tracks which base source a fail count applies to (0=initial, 1=fallback when available, 2=placeholder). */
+type FailState = { baseSrc: string; count: 0 | 1 | 2 };
+
+/** Return fail count for the current source, resetting to zero when the source changes. */
+function computeEffectiveFailCount(state: FailState, source: string) {
+  return state.baseSrc === source ? state.count : 0;
 }
 
 function normalizeCandidate(s?: string | null) {
@@ -23,6 +31,74 @@ function absolutize(s: string) {
   if (!s) return s;
   if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/')) return s;
   return `/${s}`;
+}
+
+function StatefulSafeImage({
+  initialSrc,
+  computedFallback,
+  normalizedPlaceholder,
+  alt,
+  className,
+  style,
+}: {
+  initialSrc: string;
+  computedFallback: string;
+  normalizedPlaceholder: string;
+  alt: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const [failState, setFailState] = useState<FailState>({ baseSrc: initialSrc, count: 0 });
+  const effectiveFailCount = computeEffectiveFailCount(failState, initialSrc);
+  const hasFallback = !!computedFallback && computedFallback !== initialSrc;
+  const hasDistinctPlaceholder =
+    !!normalizedPlaceholder &&
+    normalizedPlaceholder !== initialSrc &&
+    normalizedPlaceholder !== computedFallback;
+
+  const currentSrc = useMemo(() => {
+    if (effectiveFailCount === 0) return initialSrc;
+    if (effectiveFailCount === 1 && hasFallback) {
+      return computedFallback;
+    }
+    return hasDistinctPlaceholder ? normalizedPlaceholder : initialSrc;
+  }, [effectiveFailCount, initialSrc, computedFallback, hasFallback, normalizedPlaceholder, hasDistinctPlaceholder]);
+
+  // Derive the next fail stage for the current source when the browser reports an error.
+  const handleError = useCallback(() => {
+    setFailState((prev) => {
+      const prevCount = computeEffectiveFailCount(prev, initialSrc);
+      if (prevCount >= 2) {
+        return prev.baseSrc === initialSrc ? prev : { baseSrc: initialSrc, count: 2 };
+      }
+
+      let nextCount: FailState['count'] = prevCount;
+
+      if (prevCount === 0) {
+        if (hasFallback) {
+          nextCount = 1;
+        } else if (hasDistinctPlaceholder) {
+          nextCount = 2;
+        }
+      } else if (prevCount === 1 && hasDistinctPlaceholder) {
+        nextCount = 2;
+      }
+
+      // Skip state updates when both the base source and fail stage are unchanged.
+      if (prev.baseSrc === initialSrc && prevCount === nextCount) return prev;
+      return { baseSrc: initialSrc, count: nextCount };
+    });
+  }, [hasFallback, initialSrc, hasDistinctPlaceholder]);
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      style={style}
+      onError={handleError}
+    />
+  );
 }
 
 export default function SafeImage({
@@ -70,35 +146,15 @@ export default function SafeImage({
     return normalizedPlaceholder;
   }, [src, computedFallback, normalizedPlaceholder]);
 
-  const [currentSrc, setCurrentSrc] = useState(initialSrc);
-  const [failCount, setFailCount] = useState(0);
-
-  useEffect(() => {
-    setCurrentSrc(initialSrc);
-    setFailCount(0);
-  }, [initialSrc]);
-
-  const handleError = useCallback(() => {
-    setFailCount((prev) => {
-      if (prev === 0 && computedFallback && computedFallback !== currentSrc) {
-        setCurrentSrc(computedFallback);
-        return 1;
-      }
-      if (currentSrc !== normalizedPlaceholder) {
-        setCurrentSrc(normalizedPlaceholder);
-        return 2;
-      }
-      return prev;
-    });
-  }, [computedFallback, normalizedPlaceholder, currentSrc]);
-
   return (
-    <img
-      src={currentSrc}
+    <StatefulSafeImage
+      key={initialSrc}
+      initialSrc={initialSrc}
+      computedFallback={computedFallback}
+      normalizedPlaceholder={normalizedPlaceholder}
       alt={alt}
       className={className}
       style={style}
-      onError={handleError}
     />
   );
 }
