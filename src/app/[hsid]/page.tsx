@@ -157,9 +157,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
         body.drawer-open{overflow:hidden}
         a{color:inherit;text-decoration:none}
-        .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
+        .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
         .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
-
         .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
         .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
         .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
@@ -183,9 +182,19 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
         .yat-hero{padding:2px 0}
-        .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
+        .yat-hero-grid{
+  display:flex;
+  align-items:flex-start;   /* align to top so icons line up with breadcrumbs */
+  justify-content:space-between;
+  gap:16px;
+  padding:4px 0
+}
         .yat-hero-left{display:flex;flex-direction:column;gap:4px}
-        .yat-hero-right{display:flex;gap:10px}
+        .yat-hero-right{
+  display:flex;
+  gap:10px;
+  padding-top:2px; /* small nudge to visually align with breadcrumb text */
+}
         .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
         .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
         .yat-tag-swap:nth-child(1){animation-delay:0s}
@@ -295,7 +304,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-placeholder-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.06em;margin-bottom:8px}
         .yat-placeholder-body{font:300 13px/1.6 Oswald,sans-serif;color:var(--muted);max-width:480px;margin:0 auto}
         .yat-sec-header{max-width:1400px;margin:0 auto;padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-        .yat-sec-title{font:700 clamp(13px,2vw,16px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;color:#00e676;text-transform:uppercase}
+        .yat-sec-title{
+  font:700 clamp(13px,2vw,16px)/1 "Bebas Neue",Oswald,sans-serif;
+  letter-spacing:.1em;
+  color:var(--fg);
+  text-transform:uppercase
+}
         .yat-sec-sub{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);margin-top:4px;letter-spacing:.06em}
         .yat-legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
         .yat-empty{grid-column:1/-1;text-align:center;padding:60px 0;opacity:.4}
@@ -329,7 +343,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-wordmark-wrap">
             <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/img/yatstats-logo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
+              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
             </a>
           </div>
         </div>
@@ -346,13 +360,27 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <div className="yat-hr" />
         <div className="yat-hero">
           <div className="yat-container yat-hero-grid">
+
+
+
             <div className="yat-hero-left">
-              <div className="yat-tag-duo">
-                <div className="yat-tag-swap"><span className="yat-tag-grey">FLIP FOR </span><span className="yat-tag-bold">STATS!</span></div>
-                <div className="yat-tag-swap"><span className="yat-tag-grey">WHERE THEY </span><span className="yat-tag-bold">YAT?</span></div>
-              </div>
-              <div className="yat-crumbs">{schoolName} ▸ WHERE THEY YAT?</div>
-            </div>
+  <div className="yat-crumbs" id="yatCrumbs">{schoolName} ▸ WHERE THEY YAT?</div>
+
+  <div className="yat-tag-duo">
+    <div className="yat-tag-swap">
+      <span className="yat-tag-grey">FLIP FOR </span>
+      <span className="yat-tag-bold">STATS!</span>
+    </div>
+
+    <div className="yat-tag-swap">
+      <span className="yat-tag-grey">WHERE THEY </span>
+      <span className="yat-tag-bold">YAT?</span>
+    </div>
+  </div>
+</div>
+
+
+
             <div className="yat-hero-right">
               <button id="openSearch" className="yat-icon-btn" aria-label="Open search"><i className="ri-search-line" /></button>
               <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
@@ -432,17 +460,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
         {/* ACTIVE ALUMNI */}
         <section id="sec-active" className="yat-section visible">
-          <div className="yat-sec-header">
-            <div>
-              <div className="yat-sec-title">{(activeRoster as unknown[]).length} Active Alumni · {schoolName}</div>
-              <div className="yat-sec-sub">Players with 2025 stats · Sorted by career peak level</div>
-            </div>
-            <div className="yat-legend">
-              {(["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO"] as const).map((lbl) => (
-                <span key={lbl} className={`yat-chip chip-sm ${levelClass(lbl)}`}>{lbl}</span>
-              ))}
-            </div>
-          </div>
           <div className="yat-grid" id="active-grid">
             {(activeRoster as Record<string,unknown>[]).length === 0 ? (
               <div className="yat-empty">
@@ -562,17 +579,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
         {/* ALL-TIME LIST */}
         <section id="sec-alltime" className="yat-section">
-          <div className="yat-sec-header">
-            <div>
-              <div className="yat-sec-title">{(allTimeRoster as unknown[]).length} Next-Level All-Time Alumni · {schoolName}</div>
-              <div className="yat-sec-sub">Every player ever tagged to this school · Sorted by career peak level</div>
-            </div>
-            <div className="yat-legend">
-              {(["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO"] as const).map((lbl) => (
-                <span key={lbl} className={`yat-chip chip-sm ${levelClass(lbl)}`}>{lbl}</span>
-              ))}
-            </div>
-          </div>
           <div className="yat-grid" id="alltime-grid">
             {(allTimeRoster as Record<string,unknown>[]).length === 0 ? (
               <div className="yat-empty">
@@ -639,7 +645,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <div className="yat-game-text">
                                 <span>{isActive ? "TBD" : "--"}</span>
                                 <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener" style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
-                                  WHERE ARE YOU NOW?
                                 </a>
                               </div>
                             </div>
@@ -818,11 +823,37 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     if(content==='stats'){fz.innerHTML=fz.getAttribute('data-stats-html')||fz.innerHTML;}
     else{var labels={news:'ALUMNI NEWS',social:'SOCIAL MEDIA',mentor:'MENTORSHIP MARKETPLACE',gallery:'TIMELINE GALLERY'};fz.innerHTML='<div class="yat-stats-bar">'+(labels[content]||content.toUpperCase())+'</div><div style="padding:20px;text-align:center;opacity:.5;font:300 12px Oswald,sans-serif">Coming soon</div>';}
   });
+  
+  
+  
   function showSection(tabId){
-    document.querySelectorAll('.yat-section').forEach(function(s){s.classList.remove('visible');});
-    var sec=document.getElementById('sec-'+tabId);
-    if(sec)sec.classList.add('visible');
+  document.querySelectorAll('.yat-section').forEach(function(s){
+    s.classList.remove('visible');
+  });
+
+  var sec=document.getElementById('sec-'+tabId);
+  if(sec)sec.classList.add('visible');
+
+  /* update breadcrumbs */
+  var crumbs=document.getElementById('yatCrumbs');
+  if(crumbs){
+    var labels={
+      active:'WHERE THEY YAT?',
+      news:'ACTIVE ALUMNI NEWS',
+      alltime:'NEXT-LEVEL ALL-TIME LIST',
+      team:'CURRENT TEAM',
+      mentor:'MENTORSHIP MARKETPLACE',
+      partner:'PCD ACTION PARTNER PROGRAM',
+      faq:"FAQ'S"
+    };
+    var label=labels[tabId]||tabId.toUpperCase();
+    crumbs.textContent='${schoolName} ▸ '+label;
   }
+}
+
+
+
+  
   document.addEventListener('click',function(e){
     var pair=e.target.closest('[data-tab]');
     if(!pair)return;
