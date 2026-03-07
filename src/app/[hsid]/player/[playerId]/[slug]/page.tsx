@@ -82,6 +82,7 @@ type BattingSeason = {
   obp?: any;
   slg?: any;
   ops?: any;
+  draft_info?: string;
 };
 
 type PitchingSeason = {
@@ -100,6 +101,7 @@ type PitchingSeason = {
   whip?: any;
   k9?: any;
   kbb?: any;
+  draft_info?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -152,8 +154,10 @@ export default async function PlayerProfilePage({
   const bt = `${player.bats || "-"}/${player.throws || "-"}`;
   const level = (player.career_highlevel || "--").toUpperCase();
   const college = player.college || "N/A";
-  const draftInfo = player.draft_info || "N/A";
-  const playYears = player.playyears || "";
+  // draft_info and playyears don't exist in tbc_players_raw; derive from season stats
+  const draftInfo =
+    ([...battingSeasons, ...pitchingSeasons]).find((s) => s.draft_info)?.draft_info || "N/A";
+  const playYears = "";
 
   // Determine if primarily a pitcher
   const isPitcher =

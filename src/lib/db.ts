@@ -378,9 +378,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
       tp.wt           AS weight,
       tp.bats,
       tp.throws,
-      tp.posit        AS position,
-      tp.draft_info,
-      tp.playyears
+      tp.posit        AS position
     FROM tbc_players_raw tp
     WHERE tp.playerid::text = $1
     LIMIT 1
