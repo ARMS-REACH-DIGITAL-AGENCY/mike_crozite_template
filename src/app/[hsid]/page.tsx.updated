@@ -23,7 +23,7 @@ import {
   getSchoolByUrl,
 } from "@/lib/db";
 import AccountDrawer from "@/components/AccountDrawer";
-import { getFirebaseConfigJSON } from "@/lib/firebase";
+import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 
 export const runtime = "nodejs";
 
@@ -446,7 +446,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 <article key={String(p.playerid)} className="yat-card" data-name={String(p.display_name || `${p.firstname} ${p.lastname}`).toLowerCase()} data-level={lvl} data-gradclass={gc}>
                   <div className="yat-card-inner">
                     <div className="yat-card-front">
-                      <div className="yat-photo-bg" style={{backgroundImage:`url(${photoUrl}), url(https://hamilton.yatstats.com/assets/img/now_players/default.jpg)`}} />
+                      <div className="yat-photo-bg" style={{backgroundImage:`url(${photoUrl}), url('https://hamilton.yatstats.com/assets/img/now_players/default.jpg')`}} />
                       <div className="yat-shade" />
                       <div className="yat-card-top">
                         <span className={`yat-chip ${lvlCls}`}>{lvl}</span>
@@ -649,6 +649,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       `}} />
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
   var btn=document.getElementById('theme-toggle');
@@ -724,7 +725,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           var name=card.getAttribute('data-name')||'';
           if(name.includes(q)){
             var nameEl=card.querySelector('.yat-name');
-            var dn=nameEl?nameEl.textContent:name;
+            var dn=escHtml(nameEl?nameEl.textContent:name);
             results+='<div class="yat-live-hit"><span style="font:400 14px \\'Bebas Neue\\',sans-serif">'+dn+'</span></div>';
           }
         });

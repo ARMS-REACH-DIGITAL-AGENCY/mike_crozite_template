@@ -764,6 +764,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
   window.__YAT_HSID='${resolvedHsid}';
   /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
@@ -903,7 +904,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               seen[pid]=true;
               var nameEl=card.querySelector('.yat-name');
               var dn=name;
-              if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=spans[0].textContent.trim()+' '+spans[1].textContent.trim();}else{dn=nameEl.textContent.trim();}}
+              if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml(spans[0].textContent.trim()+' '+spans[1].textContent.trim());}else{dn=escHtml(nameEl.textContent.trim());}}
             results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
             }
           });
