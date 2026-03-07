@@ -18,14 +18,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ hsid
   if (matches.length === 1) {
     const only = matches[0];
     const canonicalSlug = toPlayerSlug(only.firstname, only.lastname);
-    return NextResponse.redirect(`/${hsid}/player/${only.playerid}/${canonicalSlug}`, 308);
+    return NextResponse.redirect(`/${hsid}/player/${only.playerid}/${canonicalSlug}`, 307);
   }
 
   const sameSchool = matches.filter((m) => m.hsid === hsid);
   if (sameSchool.length === 1) {
     const pick = sameSchool[0];
     const canonicalSlug = toPlayerSlug(pick.firstname, pick.lastname);
-    return NextResponse.redirect(`/${hsid}/player/${pick.playerid}/${canonicalSlug}`, 308);
+    return NextResponse.redirect(`/${hsid}/player/${pick.playerid}/${canonicalSlug}`, 307);
   }
 
   const options = matches

@@ -390,7 +390,14 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
   return rows[0] || null;
 }
 
-export async function findPlayersBySlug(slug: string, hsid?: string): Promise<{ playerid: string; firstname: string; lastname: string; hsid: string | null }[]> {
+export interface PlayerSlugMatch {
+  playerid: string;
+  firstname: string;
+  lastname: string;
+  hsid: string | null;
+}
+
+export async function findPlayersBySlug(slug: string, hsid?: string): Promise<PlayerSlugMatch[]> {
   const sql = `
     SELECT
       tp.playerid::text AS playerid,
@@ -399,13 +406,14 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<{ 
       ph.hsid::text AS hsid
     FROM tbc_players_raw tp
     LEFT JOIN player_hsids ph ON ph.playerid::text = tp.playerid::text
+    -- Keep slugging logic in sync with toPlayerSlug (src/lib/slug.ts)
     WHERE lower(regexp_replace(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,'')), '[^a-z0-9]+', '-', 'g')) = $1
       ${hsid ? "AND (ph.hsid::text = $2 OR $2 IS NULL)" : ""}
     LIMIT 10
   `;
   const params = hsid ? [slug.toLowerCase(), hsid] : [slug.toLowerCase()];
   const { rows } = await query(sql, params);
-  return rows as any[];
+  return rows as PlayerSlugMatch[];
 }
 
 // ---------------------------------------------------------------------------
