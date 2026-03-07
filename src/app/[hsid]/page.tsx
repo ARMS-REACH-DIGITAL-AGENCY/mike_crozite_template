@@ -129,6 +129,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const defaultSectionLabel = "WHERE THEY YAT?";
+  const photoDefaultUrl = "https://hamilton.yatstats.com/assets/img/now_players/default.jpg";
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -498,7 +499,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                        <div className="yat-face yat-front">
-                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('https://hamilton.yatstats.com/assets/img/now_players/default.jpg')`}} />
+                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
                          <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -622,7 +623,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                       <div className="yat-face yat-front">
-                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('https://hamilton.yatstats.com/assets/img/now_players/default.jpg')`}} />
+                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
                         <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -905,8 +906,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           if(name.includes(q)&&pid&&!seen[pid]){
             seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
-            var dn=escHtml(nameEl?(nameEl.textContent||name):name);
-            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}
+            var dn;
+            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
         results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
