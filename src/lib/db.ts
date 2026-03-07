@@ -379,7 +379,6 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
       tp.bats,
       tp.throws,
       tp.posit        AS position,
-      tp.college,
       tp.draft_info,
       tp.playyears
     FROM tbc_players_raw tp

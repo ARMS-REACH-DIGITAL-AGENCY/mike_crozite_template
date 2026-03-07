@@ -28,15 +28,22 @@ export async function generateMetadata({
 }: {
   params: Promise<{ hsid: string; playerId: string; slug: string }>;
 }): Promise<Metadata> {
-  const { playerId } = await params;
-  const player = await getPlayerById(String(playerId));
-  const playerName = player
-    ? `${player.firstname || ""} ${player.lastname || ""}`.trim()
-    : "Player";
-  return {
-    title: `${playerName.toUpperCase()} | YAT?STATS - Player Profile`,
-    description: `Full career stats and profile for ${playerName}.`,
-  };
+  try {
+    const { playerId } = await params;
+    const player = await getPlayerById(String(playerId));
+    const playerName = player
+      ? `${player.firstname || ""} ${player.lastname || ""}`.trim()
+      : "Player";
+    return {
+      title: `${playerName.toUpperCase()} | YAT?STATS - Player Profile`,
+      description: `Full career stats and profile for ${playerName}.`,
+    };
+  } catch {
+    return {
+      title: "Player Profile | YAT?STATS",
+      description: "Player profile on YAT?STATS.",
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -108,16 +115,13 @@ export default async function PlayerProfilePage({
   // Resolve school from subdomain host header
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  // Get school from player's hsid linkage as primary, host as fallback
+  // Get school from player's hsid linkage as primary, host and URL params as fallback
   const playerSchoolLink = await getPlayerSchool(String(playerId));
   const playerHsid = playerSchoolLink?.hsid ? String(playerSchoolLink.hsid) : null;
-  const school = (
-    playerHsid
-      ? await getSchoolByHsid(playerHsid)
-      : host
-        ? await getSchoolByUrl(`https://${host}`)
-        : await getSchoolByHsid(hsid)
-  ) as Record<string, unknown> | null;
+  let school: Record<string, unknown> | null = null;
+  if (playerHsid) school = (await getSchoolByHsid(playerHsid)) as Record<string, unknown> | null;
+  if (!school && host) school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
+  if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school?.hsid ?? hsid);
