@@ -330,7 +330,7 @@ export default async function PlayerProfilePage({
             <div className="yat-schooltext">
               <div className="small">{location}</div>
               <div className="big1">{schoolName}</div>
-              <div className="big2">ACTIVE BASEBALL ALUMNI</div>
+              <div className="big2">{displayName}</div>
             </div>
           </div>
           <div className="yat-hr" />
