@@ -430,6 +430,11 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON BATTING STATS — all years for a player
+//
+// Team name lookup uses a LEFT JOIN against the `teams` table so that:
+//   • Every stat row is always returned — a missing team_name never drops a row.
+//   • COALESCE falls back to the raw teamid string when no matching team_name
+//     exists, so the column is always non-null and the UI never errors.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -454,6 +459,9 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON PITCHING STATS — all years for a player
+//
+// Same LEFT JOIN + COALESCE pattern as batting above: a teamid with no
+// matching team_name never causes an error or a missing row.
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
