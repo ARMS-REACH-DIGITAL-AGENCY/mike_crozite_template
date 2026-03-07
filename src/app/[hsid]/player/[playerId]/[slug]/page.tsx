@@ -57,6 +57,44 @@ function fmtAvg(v: any): string {
   return n.toFixed(3).replace(/^0/, "");
 }
 
+type BattingSeason = {
+  year: string | number;
+  level?: string;
+  g?: any;
+  ab?: any;
+  r?: any;
+  h?: any;
+  "2b"?: any;
+  "3b"?: any;
+  hr?: any;
+  rbi?: any;
+  sb?: any;
+  bb?: any;
+  so?: any;
+  avg?: any;
+  obp?: any;
+  slg?: any;
+  ops?: any;
+};
+
+type PitchingSeason = {
+  year: string | number;
+  level?: string;
+  g?: any;
+  gs?: any;
+  w?: any;
+  l?: any;
+  saves?: any;
+  ip?: any;
+  er?: any;
+  ko?: any;
+  bb?: any;
+  era?: any;
+  whip?: any;
+  k9?: any;
+  kbb?: any;
+};
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -94,12 +132,12 @@ export default async function PlayerProfilePage({
 
   const playerSchool = playerSchoolLink;
   const [battingSeasons, pitchingSeasons, careerBatting, careerPitching] =
-    await Promise.all([
+    (await Promise.all([
       getPlayerBattingStats(playerId),
       getPlayerPitchingStats(playerId),
       getPlayerCareerBatting(playerId),
       getPlayerCareerPitching(playerId),
-    ]);
+    ])) as [BattingSeason[], PitchingSeason[], any, any];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -132,8 +170,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`;
+  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.png`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.png`;
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
@@ -185,6 +223,11 @@ export default async function PlayerProfilePage({
     : [];
 
   const careerGrid = isPitcher ? careerPitchingGrid : careerBattingGrid;
+
+  const battingYears = battingSeasons.map((s: BattingSeason) => String(s.year)).filter(Boolean);
+  const pitchingYears = pitchingSeasons.map((s: PitchingSeason) => String(s.year)).filter(Boolean);
+  const seasonYears = Array.from(new Set([...battingYears, ...pitchingYears])).sort();
+  const defaultSeason = seasonYears.length > 0 ? seasonYears[seasonYears.length - 1] : "career";
 
   return (
     <html lang="en">
@@ -263,6 +306,22 @@ export default async function PlayerProfilePage({
         .stats-grid .stat-cell:nth-child(4n){border-right:none}
         .stat-cell .stat-label{font:300 10px/1 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
         .stat-cell .stat-value{font:700 20px/1 "Bebas Neue",sans-serif;margin-top:4px}
+        .season-tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0;padding:0 16px}
+        .season-tab{padding:8px 12px;border:1px solid var(--line);border-radius:999px;font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:rgba(255,255,255,.03);color:var(--muted);transition:all .15s}
+        .season-tab.active{background:#fff;color:#000;border-color:#fff}
+        .season-content{display:none}
+        .season-content.active{display:block}
+        .season-heading{font:700 13px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin:10px 0;text-align:center}
+        .season-note{text-align:center;font:300 12px/1.3 Oswald,sans-serif;color:var(--muted);margin-top:6px}
+        .fav-btn.active i{color:#ffd166}
+        .fav-modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:60}
+        .fav-modal{background:#111;border:1px solid var(--line);border-radius:12px;padding:18px;max-width:360px;width:90%;color:var(--fg);box-shadow:0 12px 30px rgba(0,0,0,.35);position:relative}
+        .fav-modal h3{font:700 18px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:8px}
+        .fav-modal p{font:300 13px/1.4 Oswald,sans-serif;color:var(--muted);margin-bottom:12px}
+        .fav-modal-actions{display:flex;flex-direction:column;gap:8px}
+        .fav-modal-actions button{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#1b1b1b;color:var(--fg);font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;cursor:pointer}
+        .fav-modal-actions button.cta{background:#fff;color:#000;border-color:#fff}
+        .fav-modal-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px}
 
         /* SEASON TABLE */
         .season-table{width:100%;border-collapse:collapse;margin-top:16px;font:300 12px/1.4 Oswald,sans-serif}
@@ -343,9 +402,9 @@ export default async function PlayerProfilePage({
         <div className="fav-hero">
           <h2>FOLLOW YOUR <span className="bold">FAVORITES</span> <span style={{color:'gold',fontSize:'1.2em'}}>&#9733;</span></h2>
           <div className="fav-actions">
-            <a id="btnFanFav"><span className="star">&#9733;</span> ADD FAN FAVORITE</a>
+            <a id="btnFanFav" className="fav-btn" data-type="fan"><span className="star">&#9733;</span> ADD FAN FAVORITE</a>
             <span style={{opacity:.3}}>|</span>
-            <a id="btnSuperFav"><span className="star">&#9733;</span> ADD TO SUPERFAN DASHBOARD</a>
+            <a id="btnSuperFav" className="fav-btn" data-type="superfan"><span className="star">&#9733;</span> ADD TO SUPERFAN DASHBOARD</a>
           </div>
         </div>
         <div className="yat-hr" style={{maxWidth:'1400px',margin:'0 auto'}} />
@@ -431,97 +490,160 @@ export default async function PlayerProfilePage({
         {/* TAB: STATS */}
         <div className="tab-content active" id="tab-stats">
           <div className="stats-section">
-            <div className="stats-title">CAREER STATS</div>
-            <div className="stats-grid">
-              {careerGrid.map((s, i) => (
-                <div key={i} className="stat-cell">
-                  <div className="stat-label">{s.k}</div>
-                  <div className="stat-value">{s.v}</div>
-                </div>
+            <div className="stats-title">SEASON &amp; CAREER STATS</div>
+            <div className="season-tabs">
+              {seasonYears.map((yr) => (
+                <button key={yr} className={`season-tab ${defaultSeason===yr?'active':''}`} data-season={yr}>{yr}</button>
               ))}
+              <button className={`season-tab ${defaultSeason==='career'?'active':''}`} data-season="career">CAREER</button>
             </div>
 
-            {/* Season-by-season batting */}
-            {battingSeasons.length > 0 && (
-              <>
-                <h3 style={{font:'700 14px "Bebas Neue",sans-serif',letterSpacing:'.08em',marginTop:'24px',textAlign:'center'}}>SEASON-BY-SEASON BATTING</h3>
-                <div style={{overflowX:'auto'}}>
-                  <table className="season-table">
-                    <thead>
-                      <tr>
-                        <th>YEAR</th><th>LVL</th><th>G</th><th>AB</th><th>R</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {battingSeasons.map((s: any, i: number) => (
-                        <tr key={i}>
-                          <td>{s.year}</td>
-                          <td>{(s.level || "--").toUpperCase()}</td>
-                          <td>{fmt(s.g)}</td>
-                          <td>{fmt(s.ab)}</td>
-                          <td>{fmt(s.r)}</td>
-                          <td>{fmt(s.h)}</td>
-                          <td>{fmt(s["2b"])}</td>
-                          <td>{fmt(s["3b"])}</td>
-                          <td>{fmt(s.hr)}</td>
-                          <td>{fmt(s.rbi)}</td>
-                          <td>{fmt(s.sb)}</td>
-                          <td>{fmt(s.bb)}</td>
-                          <td>{fmt(s.so)}</td>
-                          <td>{fmtAvg(s.avg)}</td>
-                          <td>{fmtAvg(s.obp)}</td>
-                          <td>{fmtAvg(s.slg)}</td>
-                          <td>{fmtAvg(s.ops)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
+            {seasonYears.map((yr) => {
+              const b = battingSeasons.find((s: any) => String(s.year) === yr);
+              const p = pitchingSeasons.find((s: any) => String(s.year) === yr);
+              return (
+                <div key={yr} className={`season-content ${defaultSeason===yr?'active':''}`} data-season={yr}>
+                  <div className="season-heading">{yr} SEASON</div>
+                  {b ? (
+                    <div style={{overflowX:'auto',marginTop:'8px'}}>
+                      <table className="season-table">
+                        <thead>
+                          <tr>
+                            <th>LVL</th><th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>{(b.level || "--").toUpperCase()}</td>
+                            <td>{fmt(b.g)}</td>
+                            <td>{fmt(b.ab)}</td>
+                            <td>{fmt(b.h)}</td>
+                            <td>{fmt(b["2b"])}</td>
+                            <td>{fmt(b["3b"])}</td>
+                            <td>{fmt(b.hr)}</td>
+                            <td>{fmt(b.rbi)}</td>
+                            <td>{fmt(b.r)}</td>
+                            <td>{fmt(b.sb)}</td>
+                            <td>{fmt(b.bb)}</td>
+                            <td>{fmt(b.so)}</td>
+                            <td>{fmtAvg(b.avg)}</td>
+                            <td>{fmtAvg(b.obp)}</td>
+                            <td>{fmtAvg(b.slg)}</td>
+                            <td>{fmtAvg(b.ops)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="season-note">No batting stats for {yr}</div>
+                  )}
 
-            {/* Season-by-season pitching */}
-            {pitchingSeasons.length > 0 && (
-              <>
-                <h3 style={{font:'700 14px "Bebas Neue",sans-serif',letterSpacing:'.08em',marginTop:'24px',textAlign:'center'}}>SEASON-BY-SEASON PITCHING</h3>
-                <div style={{overflowX:'auto'}}>
-                  <table className="season-table">
-                    <thead>
-                      <tr>
-                        <th>YEAR</th><th>LVL</th><th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pitchingSeasons.map((s: any, i: number) => (
-                        <tr key={i}>
-                          <td>{s.year}</td>
-                          <td>{(s.level || "--").toUpperCase()}</td>
-                          <td>{fmt(s.g)}</td>
-                          <td>{fmt(s.gs)}</td>
-                          <td>{fmt(s.w)}</td>
-                          <td>{fmt(s.l)}</td>
-                          <td>{fmt(s.saves)}</td>
-                          <td>{fmt(s.ip, 1)}</td>
-                          <td>{fmt(s.er)}</td>
-                          <td>{fmt(s.ko)}</td>
-                          <td>{fmt(s.bb)}</td>
-                          <td>{fmt(s.era, 2)}</td>
-                          <td>{fmt(s.whip, 2)}</td>
-                          <td>{fmt(s.k9, 2)}</td>
-                          <td>{fmt(s.kbb, 2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {p ? (
+                    <div style={{overflowX:'auto',marginTop:'14px'}}>
+                      <table className="season-table">
+                        <thead>
+                          <tr>
+                            <th>LVL</th><th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>{(p.level || "--").toUpperCase()}</td>
+                            <td>{fmt(p.g)}</td>
+                            <td>{fmt(p.gs)}</td>
+                            <td>{fmt(p.w)}</td>
+                            <td>{fmt(p.l)}</td>
+                            <td>{fmt(p.saves)}</td>
+                            <td>{fmt(p.ip, 1)}</td>
+                            <td>{fmt(p.er)}</td>
+                            <td>{fmt(p.ko)}</td>
+                            <td>{fmt(p.bb)}</td>
+                            <td>{fmt(p.era, 2)}</td>
+                            <td>{fmt(p.whip, 2)}</td>
+                            <td>{fmt(p.k9, 2)}</td>
+                            <td>{fmt(p.kbb, 2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="season-note">No pitching stats for {yr}</div>
+                  )}
                 </div>
-              </>
-            )}
+              );
+            })}
 
-            {draftInfo !== "N/A" && (
-              <div style={{textAlign:'center',marginTop:'16px',font:'300 12px Oswald,sans-serif',color:'var(--muted)'}}>
-                Draft: {draftInfo}
+            <div className={`season-content ${defaultSeason==='career'?'active':''}`} data-season="career">
+              <div className="season-heading">CAREER</div>
+              <div className="stats-grid">
+                {careerGrid.map((s, i) => (
+                  <div key={i} className="stat-cell">
+                    <div className="stat-label">{s.k}</div>
+                    <div className="stat-value">{s.v}</div>
+                  </div>
+                ))}
               </div>
-            )}
+              {careerBatting && (
+                <div style={{overflowX:'auto',marginTop:'14px'}}>
+                  <table className="season-table">
+                    <thead>
+                      <tr>
+                        <th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{fmt(careerBatting.g)}</td>
+                        <td>{fmt(careerBatting.ab)}</td>
+                        <td>{fmt(careerBatting.h)}</td>
+                        <td>{fmt(careerBatting["2b"])}</td>
+                        <td>{fmt(careerBatting["3b"])}</td>
+                        <td>{fmt(careerBatting.hr)}</td>
+                        <td>{fmt(careerBatting.rbi)}</td>
+                        <td>{fmt(careerBatting.r)}</td>
+                        <td>{fmt(careerBatting.sb)}</td>
+                        <td>{fmt(careerBatting.bb)}</td>
+                        <td>{fmt(careerBatting.so)}</td>
+                        <td>{fmtAvg(careerBatting.avg)}</td>
+                        <td>{fmtAvg(careerBatting.obp)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {careerPitching && (
+                <div style={{overflowX:'auto',marginTop:'14px'}}>
+                  <table className="season-table">
+                    <thead>
+                      <tr>
+                        <th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{fmt(careerPitching.g)}</td>
+                        <td>{fmt(careerPitching.gs)}</td>
+                        <td>{fmt(careerPitching.w)}</td>
+                        <td>{fmt(careerPitching.l)}</td>
+                        <td>{fmt(careerPitching.saves)}</td>
+                        <td>{fmt(careerPitching.ip, 1)}</td>
+                        <td>{fmt(careerPitching.er)}</td>
+                        <td>{fmt(careerPitching.ko)}</td>
+                        <td>{fmt(careerPitching.bb)}</td>
+                        <td>{fmt(careerPitching.era, 2)}</td>
+                        <td>{fmt(careerPitching.whip, 2)}</td>
+                        <td>{fmt(careerPitching.k9, 2)}</td>
+                        <td>{fmt(careerPitching.kbb, 2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {!careerGrid.length && <div className="season-note">No career stats available.</div>}
+              {draftInfo !== "N/A" && (
+                <div className="season-note" style={{marginTop:'12px'}}>Draft: {draftInfo}</div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -550,6 +672,20 @@ export default async function PlayerProfilePage({
         <div className="tab-content" id="tab-gallery">
           <div className="stats-section">
             <div className="coming-soon">PHOTO GALLERY — Coming soon</div>
+          </div>
+        </div>
+
+        {/* FAVORITES MODAL */}
+        <div className="fav-modal-mask" id="favModalMask" role="dialog" aria-modal="true">
+          <div className="fav-modal">
+            <button className="fav-modal-close" id="favModalClose" aria-label="Close modal">&times;</button>
+            <h3>Pick your experience</h3>
+            <p>FREE users can browse. Register as a FAN to save favorites. Upgrade to SUPERFAN for the full dashboard.</p>
+            <div className="fav-modal-actions">
+              <button id="favContinue">Continue Free</button>
+              <button id="favRegister" className="cta">Register as Fan</button>
+              <button id="favUpgrade">Upgrade to SuperFan</button>
+            </div>
           </div>
         </div>
 
@@ -587,6 +723,18 @@ export default async function PlayerProfilePage({
       if(content)content.classList.add('active');
     });
   });
+  /* Season subtabs */
+  var seasonTabs=document.querySelectorAll('.season-tab');
+  var seasonContents=document.querySelectorAll('.season-content');
+  seasonTabs.forEach(function(stab){
+    stab.addEventListener('click',function(){
+      var season=stab.getAttribute('data-season');
+      seasonTabs.forEach(function(t){t.classList.remove('active');});
+      seasonContents.forEach(function(c){c.classList.remove('active');});
+      stab.classList.add('active');
+      document.querySelectorAll('.season-content[data-season="'+season+'"]').forEach(function(c){c.classList.add('active');});
+    });
+  });
   /* Drawer toggles */
   var btnMenu=document.getElementById('btnMenu');
   var closeLeft=document.getElementById('closeLeft');
@@ -601,15 +749,25 @@ export default async function PlayerProfilePage({
   /* Favorites buttons */
   var playerId='${playerId}';
   var playerName='${displayName.replace(/'/g, "\\'")}';
+  var favMask=document.getElementById('favModalMask');
+  function openFavModal(){ if(favMask){favMask.style.display='flex';} }
+  function closeFavModal(){ if(favMask){favMask.style.display='none';} }
+  var btnFanFav=document.getElementById('btnFanFav');
+  var btnSuperFav=document.getElementById('btnSuperFav');
+  function setFavState(btn, active){
+    if(!btn)return;
+    if(active){btn.classList.add('active');}
+    else{btn.classList.remove('active');}
+  }
   function addFavorite(type){
-    var user=JSON.parse(localStorage.getItem('yat-user')||'null');
+    var user=null;
+    try{user=JSON.parse(localStorage.getItem('yat-user')||'null');}catch(e){console.warn('Invalid stored user profile',e); localStorage.removeItem('yat-user');}
     if(!user||!user.contactId){
-      alert('Please sign in first to add favorites. Click the account icon in the top bar.');
-      document.body.classList.add('drawer-account-open','drawer-open');
+      openFavModal();
       return;
     }
     if(type==='superfan'&&!user.isSuperFan){
-      alert('SuperFan access is required to add players to your SuperFan Dashboard. Upgrade your account to unlock global player tracking!');
+      openFavModal();
       return;
     }
     fetch('/api/favorites',{
@@ -617,17 +775,26 @@ export default async function PlayerProfilePage({
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({contactId:user.contactId,playerId:playerId,playerName:playerName,type:type})
     }).then(function(r){return r.json();}).then(function(data){
-      if(data.success){
-        alert(playerName+' has been added to your '+(type==='superfan'?'SuperFan Dashboard':'Fan Favorites')+'!');
+      if(data?.success){
+        if(type==='superfan')setFavState(btnSuperFav,true);
+        if(type==='fan')setFavState(btnFanFav,true);
+        alert(playerName+' added to your '+(type==='superfan'?'SuperFan Dashboard':'Fan Favorites')+'.');
       } else {
-        alert('Error: '+(data.error||'Could not add favorite'));
+        alert('Error: '+(data && data.error ? data.error : 'Could not add favorite'));
       }
     }).catch(function(){alert('Network error. Please try again.');});
   }
-  var btnFanFav=document.getElementById('btnFanFav');
-  var btnSuperFav=document.getElementById('btnSuperFav');
   if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
   if(btnSuperFav)btnSuperFav.addEventListener('click',function(){addFavorite('superfan');});
+  var favClose=document.getElementById('favModalClose');
+  var favContinue=document.getElementById('favContinue');
+  var favRegister=document.getElementById('favRegister');
+  var favUpgrade=document.getElementById('favUpgrade');
+  if(favClose)favClose.addEventListener('click',closeFavModal);
+  if(favMask)favMask.addEventListener('click',function(e){if(e.target===favMask)closeFavModal();});
+  if(favContinue)favContinue.addEventListener('click',closeFavModal);
+  if(favRegister)favRegister.addEventListener('click',function(){window.location.href='/api/auth/register';});
+  if(favUpgrade)favUpgrade.addEventListener('click',function(){window.location.href='/api/auth/register?plan=superfan';});
   /* Favicon fallback */
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
   if(favLink){
