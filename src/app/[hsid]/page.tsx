@@ -26,6 +26,7 @@ import AccountDrawer from "@/components/AccountDrawer";
 import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
+import { toPlayerSlug } from "@/lib/slug";
 
 export const runtime = "nodejs";
 
@@ -477,10 +478,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const dots = varsityDots(p);
               const draft = parseDraft(p.draft_info as string | null);
               const statYear = isPitcher ? p.pitch_year : p.stat_year;
-              const pid = String(p.playerid || "");
-              const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-              const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-              const silhouetteUrl = `/img/player-silhouette.png`;
+               const pid = String(p.playerid || "");
+               const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
+               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
+               const silhouetteUrl = `/img/player-silhouette.png`;
               const batterStats = [
                 {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
                 {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
@@ -494,7 +496,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
               return (
-                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc}>
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc} data-slug={slug}>
                   <div className="yat-card-inner">
                     <div className="yat-flip">
                       {/* FRONT */}
@@ -532,7 +534,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <div className="yat-pill">NEXT GAME</div>
                               <div className="yat-game-text">
                                 <span>TBD</span>
-                                <a href={`/${resolvedHsid}/player/${pid}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
+                                <a href={`/${resolvedHsid}/player/${pid}/${slug}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
                                   WHERE YAT THESE DAYS?
                                 </a>
                               </div>
@@ -571,7 +573,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                              </div>
                            </div>
                            {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
-                           <a href={`/${resolvedHsid}/player/${pid}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
+                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
                          </div>
                        </div>
                     </div>
@@ -597,12 +599,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const isPitcher = p.is_pitcher === true;
               const gc = gradClass(p);
               const dots = varsityDots(p);
-              const draft = parseDraft(p.draft_info as string | null);
-              const statYear = isPitcher ? p.pitch_year : p.stat_year;
-              const pid = String(p.playerid || "");
-              const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-              const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-              const silhouetteUrl = `/img/player-silhouette.png`;
+               const draft = parseDraft(p.draft_info as string | null);
+               const statYear = isPitcher ? p.pitch_year : p.stat_year;
+               const pid = String(p.playerid || "");
+               const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
+               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
+               const silhouetteUrl = `/img/player-silhouette.png`;
               const isActive = !!p.is_active_2025;
               const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");
               const batterStats = [
@@ -618,7 +621,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
               return (
-                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc}>
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc} data-slug={slug}>
                   <div className="yat-card-inner">
                     <div className="yat-flip">
                       {/* FRONT */}
@@ -648,7 +651,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <div className="yat-pill">NEXT GAME</div>
                               <div className="yat-game-text">
                                 <span>{isActive ? "TBD" : "--"}</span>
-                                <a href={`/${resolvedHsid}/player/${pid}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
+                                <a href={`/${resolvedHsid}/player/${pid}/${slug}`} style={{color:"#fff",textDecoration:"underline",fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",marginTop:"2px",display:"block"}}>
                                   WHERE YAT THESE DAYS?
                                 </a>
                               </div>
@@ -693,7 +696,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                              </div>
                            </div>
                            {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
-                           <a href={`/${resolvedHsid}/player/${pid}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
+                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
                          </div>
                        </div>
                     </div>
@@ -903,12 +906,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
             var name=card.getAttribute('data-name')||'';
           var pid=card.getAttribute('data-playerid')||'';
+          var slug=card.getAttribute('data-slug')||'';
           if(name.includes(q)&&pid&&!seen[pid]){
             seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
             var dn;
             if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
-        results+='<a href="/${resolvedHsid}/player/'+pid+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+        results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
       }
