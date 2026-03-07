@@ -34,7 +34,12 @@ export function middleware(request: NextRequest) {
 
   // Prevent double-prefixing if someone manually visits /{subdomain}/...
   const path = url.pathname;
-  const alreadyPrefixed = path === `/${subdomain}` || path.startsWith(`/${subdomain}/`);
+  const firstSegment = path.split("/").filter(Boolean)[0] || "";
+  const hasNumericPrefix = /^\d+$/.test(firstSegment);
+  const alreadyPrefixed =
+    path === `/${subdomain}` ||
+    path.startsWith(`/${subdomain}/`) ||
+    hasNumericPrefix;
   if (alreadyPrefixed) return NextResponse.next();
 
   // Rewrite: SUBDOMAIN.yatstats.com/anything -> /SUBDOMAIN/anything
