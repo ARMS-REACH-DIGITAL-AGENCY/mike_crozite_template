@@ -232,10 +232,24 @@ export default async function PlayerProfilePage({
 
   const careerGrid = isPitcher ? careerPitchingGrid : careerBattingGrid;
 
-  const battingYears = battingSeasons.map((s: BattingSeason) => String(s.year)).filter(Boolean);
-  const pitchingYears = pitchingSeasons.map((s: PitchingSeason) => String(s.year)).filter(Boolean);
-  const seasonYears = Array.from(new Set([...battingYears, ...pitchingYears])).sort();
-  const defaultSeason = seasonYears.length > 0 ? seasonYears[seasonYears.length - 1] : "career";
+  // Career level ladder — ordered progression for the timeline
+  const LEVEL_ORDER = ["HS", "COLL", "ROK", "SS", "A", "A+", "AA", "AAA", "MLB", "IND"];
+  const allSeasonLevels = new Set(
+    [...battingSeasons, ...pitchingSeasons]
+      .map((s: any) => (s.level || "").toUpperCase().trim())
+      .filter(Boolean)
+  );
+  const levelLadder = [
+    ...LEVEL_ORDER.filter((l) => allSeasonLevels.has(l)),
+    ...[...allSeasonLevels].filter((l) => !LEVEL_ORDER.includes(l)).sort(),
+  ];
+  // Peak level comes from career_highlevel; mark that stop as gold in the timeline
+  const peakLevel = level.replace(/[^A-Z0-9+]/g, "").toUpperCase() || (levelLadder[levelLadder.length - 1] ?? "");
+
+  // Helper: CSS class suffix for a career level string
+  function levelClass(lv: string): string {
+    return `level-${(lv || "").toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+  }
 
   return (
     <>
@@ -322,12 +336,6 @@ export default async function PlayerProfilePage({
         @media(max-width:660px){.stats-grid .stat-cell:nth-child(6n){border-right:1px solid var(--line)}.stats-grid .stat-cell:nth-child(3n){border-right:none}}
         .stat-label{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
         .stat-value{font:700 22px/1 "Bebas Neue",sans-serif;margin-top:6px}
-        .season-tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0}
-        .season-tab{padding:6px 14px;border:1px solid var(--line);border-radius:999px;font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--muted);transition:all .15s}
-        .season-tab.active{background:gold;color:#000;border-color:gold}
-        .season-content{display:none}
-        .season-content.active{display:block}
-        .season-heading{font:700 13px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;margin:12px 0 8px;color:var(--muted);text-transform:uppercase;text-align:center}
         .season-note{text-align:center;font:300 12px/1.3 Oswald,sans-serif;color:var(--muted);margin:8px 0}
         /* TABLES */
         .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:0 0 6px 6px;margin-top:4px}
@@ -375,6 +383,52 @@ export default async function PlayerProfilePage({
           .hero-vitals,.hero-badges,.hero-actions{justify-content:center}
           .hero-photo{width:140px;height:175px}
         }
+        /* OVERVIEW TAB */
+        .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
+        .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
+        .ov-card-title{font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+        .overview-grid{display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:16px}
+        @media(max-width:700px){.overview-grid{grid-template-columns:1fr}}
+        .ov-bio-list{display:flex;flex-direction:column;gap:0}
+        .ov-bio-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+        .ov-bio-row:last-child{border-bottom:none}
+        .ov-bio-key{font:300 11px/1 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;flex-shrink:0;margin-right:8px}
+        .ov-bio-val{font:500 13px/1 Oswald,sans-serif;text-align:right}
+        /* LEVEL LADDER */
+        .level-ladder-wrap{margin-bottom:16px}
+        .level-ladder{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+        .level-ladder::-webkit-scrollbar{display:none}
+        .level-stop{display:flex;flex-direction:column;align-items:center;position:relative;min-width:56px}
+        .level-line-wrap{display:flex;align-items:center;width:100%;position:relative;height:20px}
+        .level-dot{width:12px;height:12px;border-radius:50%;background:var(--line);border:2px solid var(--muted);flex-shrink:0;transition:background .2s}
+        .level-stop.peak .level-dot{background:gold;border-color:gold;width:16px;height:16px}
+        .level-connector{flex:1;height:2px;background:var(--line)}
+        .level-stop:last-child .level-connector{display:none}
+        .level-name{font:700 9px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;margin-top:6px;color:var(--muted);white-space:nowrap}
+        .level-stop.peak .level-name{color:gold}
+        /* THEN & NOW PHOTOS */
+        .then-now-wrap{margin-bottom:16px}
+        .then-now-photos{display:flex;gap:16px;margin-top:4px}
+        .then-now-photo-item{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;max-width:200px}
+        .then-now-img{width:100%;max-width:180px;height:auto;aspect-ratio:4/5;object-fit:cover;object-position:top;border-radius:6px;border:1px solid var(--line);display:block}
+        .then-now-label{font:700 10px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+        /* CAREER LOG TABLE */
+        .career-log-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:8px}
+        body.light-theme .career-log-title{background:rgba(0,0,0,.03)}
+        .career-log .year-cell{font:700 12px/1 Oswald,sans-serif;color:var(--fg)}
+        .career-log tbody tr.level-row{border-left:3px solid transparent}
+        .career-log tbody tr.level-mlb{border-left-color:#1d6fa4}
+        .career-log tbody tr.level-aaa{border-left-color:#c8102e}
+        .career-log tbody tr.level-aa{border-left-color:#e07b39}
+        .career-log tbody tr[class*="level-a"]{border-left-color:#f5a623}
+        .career-log tbody tr.level-ind{border-left-color:#6a0dad}
+        .career-log tbody tr.level-coll{border-left-color:#2ecc71}
+        .career-log tbody tr.level-rok{border-left-color:#27ae60}
+        .career-log tbody .career-totals-row{background:rgba(255,209,102,.08);font-weight:700}
+        body.light-theme .career-log tbody .career-totals-row{background:rgba(255,209,102,.12)}
+        .career-log tbody .career-totals-row td{font:700 12px/1.4 Oswald,sans-serif;border-top:2px solid rgba(255,209,102,.3)}
+        .career-log tbody .career-totals-row .year-cell{color:gold}
+        .log-section{margin-bottom:20px}
       `}</style>
 
       {/* HEADER */}
@@ -537,144 +591,197 @@ export default async function PlayerProfilePage({
 
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
-        <div role="tab" className="profile-tab active" data-profile-tab="stats" tabIndex={0}>SEASON &amp; CAREER STATS</div>
+        <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>OVERVIEW</div>
+        <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>CAREER STATS</div>
         <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
         <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
         <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>MENTORSHIP MARKETPLACE</div>
         <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>PHOTO GALLERY</div>
       </div>
 
-      {/* TAB: STATS */}
-      <div className="tab-content active" id="tab-stats" role="tabpanel">
-        <div className="stats-section">
-          <div className="stats-title">SEASON &amp; CAREER STATS</div>
-          <div className="season-tabs">
-            {seasonYears.map((yr) => (
-              <button key={yr} className={`season-tab${defaultSeason===yr?' active':''}`} data-season={yr}>{yr}</button>
-            ))}
-            <button className={`season-tab${defaultSeason==='career'?' active':''}`} data-season="career">CAREER</button>
+      {/* TAB: OVERVIEW */}
+      <div className="tab-content active" id="tab-overview" role="tabpanel">
+        <div className="overview-section">
+
+          {/* Two-column: Bio + Career Highlights */}
+          <div className="overview-grid">
+            {/* Bio Card */}
+            <div className="ov-card">
+              <div className="ov-card-title">BIO</div>
+              <div className="ov-bio-list">
+                {pos !== "--" && <div className="ov-bio-row"><span className="ov-bio-key">Position</span><span className="ov-bio-val">{pos}</span></div>}
+                {ht !== "--" && <div className="ov-bio-row"><span className="ov-bio-key">Height</span><span className="ov-bio-val">{ht}</span></div>}
+                {wt !== "--" && <div className="ov-bio-row"><span className="ov-bio-key">Weight</span><span className="ov-bio-val">{wt} lbs</span></div>}
+                {bt !== "-/-" && <div className="ov-bio-row"><span className="ov-bio-key">Bats / Throws</span><span className="ov-bio-val">{bt}</span></div>}
+                <div className="ov-bio-row"><span className="ov-bio-key">High School</span><span className="ov-bio-val">{playerSchool ? String(playerSchool.hsname || schoolName) : schoolName}</span></div>
+                {college !== "N/A" && <div className="ov-bio-row"><span className="ov-bio-key">College</span><span className="ov-bio-val">{college}</span></div>}
+                {draftInfo !== "N/A" && <div className="ov-bio-row"><span className="ov-bio-key">Draft</span><span className="ov-bio-val">{draftInfo}</span></div>}
+                <div className="ov-bio-row"><span className="ov-bio-key">Career High</span><span className="ov-bio-val">{level}</span></div>
+                <div className="ov-bio-row"><span className="ov-bio-key">Status</span><span className="ov-bio-val">{statusLabel}</span></div>
+              </div>
+            </div>
+
+            {/* Career Highlights */}
+            <div className="ov-card">
+              <div className="ov-card-title">CAREER HIGHLIGHTS</div>
+              {careerGrid.length > 0 ? (
+                <div className="stats-grid" style={{border:'none',marginBottom:0}}>
+                  {careerGrid.map((s, i) => (
+                    <div key={i} className="stat-cell" style={{border:'1px solid var(--line)',borderRadius:'4px'}}>
+                      <div className="stat-label">{s.k}</div>
+                      <div className="stat-value">{s.v}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="season-note">No career statistics available.</div>
+              )}
+            </div>
           </div>
 
-          {seasonYears.map((yr) => {
-            const b = battingSeasons.find((s: any) => String(s.year) === yr);
-            const p = pitchingSeasons.find((s: any) => String(s.year) === yr);
-            return (
-              <div key={yr} className={`season-content${defaultSeason===yr?' active':''}`} data-season={yr}>
-                <div className="season-heading">{yr} SEASON</div>
-                {b ? (
-                  <div className="table-wrap">
-                    <table className="season-table">
-                      <thead>
-                        <tr>
-                          <th>LVL</th><th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>{(b.level || "--").toUpperCase()}</td>
-                          <td>{fmt(b.g)}</td><td>{fmt(b.ab)}</td><td>{fmt(b.h)}</td>
-                          <td>{fmt(b["2b"])}</td><td>{fmt(b["3b"])}</td><td>{fmt(b.hr)}</td>
-                          <td>{fmt(b.rbi)}</td><td>{fmt(b.r)}</td><td>{fmt(b.sb)}</td>
-                          <td>{fmt(b.bb)}</td><td>{fmt(b.so)}</td>
-                          <td>{fmtAvg(b.avg)}</td><td>{fmtAvg(b.obp)}</td>
-                          <td>{fmtAvg(b.slg)}</td><td>{fmtAvg(b.ops)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="season-note">No batting stats for {yr}</div>
-                )}
-                {p ? (
-                  <div className="table-wrap" style={{marginTop:'10px'}}>
-                    <table className="season-table">
-                      <thead>
-                        <tr>
-                          <th>LVL</th><th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>{(p.level || "--").toUpperCase()}</td>
-                          <td>{fmt(p.g)}</td><td>{fmt(p.gs)}</td><td>{fmt(p.w)}</td><td>{fmt(p.l)}</td>
-                          <td>{fmt(p.saves)}</td><td>{fmt(p.ip, 1)}</td><td>{fmt(p.er)}</td>
-                          <td>{fmt(p.ko)}</td><td>{fmt(p.bb)}</td>
-                          <td>{fmt(p.era, 2)}</td><td>{fmt(p.whip, 2)}</td>
-                          <td>{fmt(p.k9, 2)}</td><td>{fmt(p.kbb, 2)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="season-note" style={{marginTop:'10px'}}>No pitching stats for {yr}</div>
-                )}
-              </div>
-            );
-          })}
-
-          <div className={`season-content${defaultSeason==='career'?' active':''}`} data-season="career">
-            <div className="season-heading">CAREER</div>
-            {careerGrid.length > 0 && (
-              <div className="stats-grid">
-                {careerGrid.map((s, i) => (
-                  <div key={i} className="stat-cell">
-                    <div className="stat-label">{s.k}</div>
-                    <div className="stat-value">{s.v}</div>
+          {/* Career Path — level progression timeline */}
+          {levelLadder.length > 0 && (
+            <div className="ov-card level-ladder-wrap">
+              <div className="ov-card-title">CAREER PATH</div>
+              <div className="level-ladder">
+                {levelLadder.map((lvl, i) => (
+                  <div key={lvl} className={`level-stop${lvl === peakLevel ? ' peak' : ''}`}>
+                    <div className="level-line-wrap">
+                      <div className="level-dot" />
+                      {i < levelLadder.length - 1 && <div className="level-connector" />}
+                    </div>
+                    <div className="level-name">{lvl}</div>
                   </div>
                 ))}
               </div>
-            )}
-            {careerBatting && (
-              <div className="table-wrap">
-                <table className="season-table">
-                  <thead>
-                    <tr>
-                      <th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>{fmt(careerBatting.g)}</td><td>{fmt(careerBatting.ab)}</td>
-                      <td>{fmt(careerBatting.h)}</td><td>{fmt(careerBatting["2b"])}</td>
-                      <td>{fmt(careerBatting["3b"])}</td><td>{fmt(careerBatting.hr)}</td>
-                      <td>{fmt(careerBatting.rbi)}</td><td>{fmt(careerBatting.r)}</td>
-                      <td>{fmt(careerBatting.sb)}</td><td>{fmt(careerBatting.bb)}</td>
-                      <td>{fmt(careerBatting.so)}</td><td>{fmtAvg(careerBatting.avg)}</td>
-                      <td>{fmtAvg(careerBatting.obp)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            </div>
+          )}
+
+          {/* THEN & NOW */}
+          <div className="ov-card then-now-wrap">
+            <div className="ov-card-title">THEN &amp; NOW</div>
+            <div className="then-now-photos">
+              <div className="then-now-photo-item">
+                <SafeImage
+                  className="then-now-img"
+                  src={playerThenImg}
+                  alt={`${displayName} — THEN`}
+                  fallbackSrc="/img/player-silhouette.png"
+                  placeholderSrc="/img/player-silhouette.png"
+                  style={{width:'100%',maxWidth:'180px',aspectRatio:'4/5',objectFit:'cover' as const,objectPosition:'top',borderRadius:'6px',display:'block'}}
+                />
+                <div className="then-now-label">THEN</div>
               </div>
-            )}
-            {careerPitching && (
-              <div className="table-wrap" style={{marginTop:'10px'}}>
-                <table className="season-table">
-                  <thead>
-                    <tr>
-                      <th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>{fmt(careerPitching.g)}</td><td>{fmt(careerPitching.gs)}</td>
-                      <td>{fmt(careerPitching.w)}</td><td>{fmt(careerPitching.l)}</td>
-                      <td>{fmt(careerPitching.saves)}</td><td>{fmt(careerPitching.ip, 1)}</td>
-                      <td>{fmt(careerPitching.er)}</td><td>{fmt(careerPitching.ko)}</td>
-                      <td>{fmt(careerPitching.bb)}</td><td>{fmt(careerPitching.era, 2)}</td>
-                      <td>{fmt(careerPitching.whip, 2)}</td><td>{fmt(careerPitching.k9, 2)}</td>
-                      <td>{fmt(careerPitching.kbb, 2)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="then-now-photo-item">
+                <SafeImage
+                  className="then-now-img"
+                  src={playerNowImg}
+                  alt={`${displayName} — NOW`}
+                  fallbackSrc={playerThenImg}
+                  placeholderSrc="/img/player-silhouette.png"
+                  style={{width:'100%',maxWidth:'180px',aspectRatio:'4/5',objectFit:'cover' as const,objectPosition:'top',borderRadius:'6px',display:'block'}}
+                />
+                <div className="then-now-label">NOW</div>
               </div>
-            )}
-            {!careerGrid.length && !careerBatting && !careerPitching && (
-              <div className="season-note">No career stats available.</div>
-            )}
-            {draftInfo !== "N/A" && (
-              <div className="season-note" style={{marginTop:'10px'}}>Draft: {draftInfo}</div>
-            )}
+            </div>
           </div>
+
+        </div>
+      </div>
+
+      {/* TAB: CAREER STATS (Baseball Reference–style career log) */}
+      <div className="tab-content" id="tab-stats" role="tabpanel">
+        <div className="overview-section">
+
+          {battingSeasons.length > 0 && (
+            <div className="log-section">
+              <div className="career-log-title"><i className="ri-bar-chart-2-line" /> BATTING</div>
+              <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
+                <table className="season-table career-log">
+                  <thead>
+                    <tr>
+                      <th>YEAR</th><th>LVL</th><th>G</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>R</th><th>SB</th><th>BB</th><th>SO</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {battingSeasons.map((b: BattingSeason, i: number) => (
+                      <tr key={i} className={`level-row ${levelClass(b.level||'')}`}>
+                        <td className="year-cell">{b.year}</td>
+                        <td>{(b.level||'--').toUpperCase()}</td>
+                        <td>{fmt(b.g)}</td><td>{fmt(b.ab)}</td><td>{fmt(b.h)}</td>
+                        <td>{fmt(b["2b"])}</td><td>{fmt(b["3b"])}</td><td>{fmt(b.hr)}</td>
+                        <td>{fmt(b.rbi)}</td><td>{fmt(b.r)}</td><td>{fmt(b.sb)}</td>
+                        <td>{fmt(b.bb)}</td><td>{fmt(b.so)}</td>
+                        <td>{fmtAvg(b.avg)}</td><td>{fmtAvg(b.obp)}</td>
+                        <td>{fmtAvg(b.slg)}</td><td>{fmtAvg(b.ops)}</td>
+                      </tr>
+                    ))}
+                    {careerBatting && (
+                      <tr className="career-totals-row">
+                        <td className="year-cell">CAREER</td>
+                        <td>—</td>
+                        <td>{fmt(careerBatting.g)}</td><td>{fmt(careerBatting.ab)}</td><td>{fmt(careerBatting.h)}</td>
+                        <td>{fmt(careerBatting["2b"])}</td><td>{fmt(careerBatting["3b"])}</td><td>{fmt(careerBatting.hr)}</td>
+                        <td>{fmt(careerBatting.rbi)}</td><td>{fmt(careerBatting.r)}</td><td>{fmt(careerBatting.sb)}</td>
+                        <td>{fmt(careerBatting.bb)}</td><td>{fmt(careerBatting.so)}</td>
+                        <td>{fmtAvg(careerBatting.avg)}</td><td>{fmtAvg(careerBatting.obp)}</td>
+                        <td>{fmtAvg(careerBatting.slg)}</td><td>{fmtAvg(careerBatting.ops)}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {pitchingSeasons.length > 0 && (
+            <div className="log-section">
+              <div className="career-log-title"><i className="ri-baseball-line" /> PITCHING</div>
+              <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
+                <table className="season-table career-log">
+                  <thead>
+                    <tr>
+                      <th>YEAR</th><th>LVL</th><th>G</th><th>GS</th><th>W</th><th>L</th><th>SV</th><th>IP</th><th>ER</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th><th>K/9</th><th>K/BB</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pitchingSeasons.map((p: PitchingSeason, i: number) => (
+                      <tr key={i} className={`level-row ${levelClass(p.level||'')}`}>
+                        <td className="year-cell">{p.year}</td>
+                        <td>{(p.level||'--').toUpperCase()}</td>
+                        <td>{fmt(p.g)}</td><td>{fmt(p.gs)}</td><td>{fmt(p.w)}</td><td>{fmt(p.l)}</td>
+                        <td>{fmt(p.saves)}</td><td>{fmt(p.ip, 1)}</td><td>{fmt(p.er)}</td>
+                        <td>{fmt(p.ko)}</td><td>{fmt(p.bb)}</td>
+                        <td>{fmt(p.era, 2)}</td><td>{fmt(p.whip, 2)}</td>
+                        <td>{fmt(p.k9, 2)}</td><td>{fmt(p.kbb, 2)}</td>
+                      </tr>
+                    ))}
+                    {careerPitching && (
+                      <tr className="career-totals-row">
+                        <td className="year-cell">CAREER</td>
+                        <td>—</td>
+                        <td>{fmt(careerPitching.g)}</td><td>{fmt(careerPitching.gs)}</td>
+                        <td>{fmt(careerPitching.w)}</td><td>{fmt(careerPitching.l)}</td>
+                        <td>{fmt(careerPitching.saves)}</td><td>{fmt(careerPitching.ip, 1)}</td>
+                        <td>{fmt(careerPitching.er)}</td><td>{fmt(careerPitching.ko)}</td>
+                        <td>{fmt(careerPitching.bb)}</td>
+                        <td>{fmt(careerPitching.era, 2)}</td><td>{fmt(careerPitching.whip, 2)}</td>
+                        <td>{fmt(careerPitching.k9, 2)}</td><td>{fmt(careerPitching.kbb, 2)}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {battingSeasons.length === 0 && pitchingSeasons.length === 0 && (
+            <div className="season-note" style={{padding:'40px 0'}}>No career statistics available.</div>
+          )}
+
+          {draftInfo !== "N/A" && (
+            <div className="season-note">Draft: {draftInfo}</div>
+          )}
         </div>
       </div>
 
@@ -765,18 +872,6 @@ export default async function PlayerProfilePage({
       var target=tab.getAttribute('data-profile-tab');
       var content=document.getElementById('tab-'+target);
       if(content)content.classList.add('active');
-    });
-  });
-  /* Season subtabs */
-  var seasonTabs=document.querySelectorAll('.season-tab');
-  var seasonContents=document.querySelectorAll('.season-content');
-  seasonTabs.forEach(function(stab){
-    stab.addEventListener('click',function(){
-      var season=stab.getAttribute('data-season');
-      seasonTabs.forEach(function(t){t.classList.remove('active');});
-      seasonContents.forEach(function(c){c.classList.remove('active');});
-      stab.classList.add('active');
-      document.querySelectorAll('.season-content[data-season="'+season+'"]').forEach(function(c){c.classList.add('active');});
     });
   });
   /* Drawer toggles */
