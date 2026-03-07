@@ -461,7 +461,6 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       bb, so AS ko,
       era, whip, h9, bb9,
       so9 AS k9, so_bb AS kbb,
-      fip,
       draft_info
     FROM tbc_pitching_raw
     WHERE playerid::text = $1
