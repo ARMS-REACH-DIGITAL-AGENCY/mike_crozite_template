@@ -181,7 +181,10 @@ window.__firebase_config = ${firebaseConfigJSON};
         if(locParts[1])sp.set('state',locParts[1].trim());
       }
       sp.set('reason',status);
-      dest='/school-not-live?'+sp.toString();
+      /* Use absolute URL so subdomain rewrites (e.g. school.yatstats.com → /hsid/...)
+         don't intercept this path and cause a 404 */
+      var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
+      dest=notLiveBase+'/school-not-live?'+sp.toString();
     }
     var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_PLACEHOLDER;
     var region=p.regionid||'';
