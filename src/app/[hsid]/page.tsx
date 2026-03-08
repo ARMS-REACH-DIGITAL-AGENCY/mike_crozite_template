@@ -1,17 +1,6 @@
 // src/app/[hsid]/page.tsx
 // YAT?STATS — Dynamic school microsite
-// Design: Matches hamilton.yatstats.com prototype exactly
-//   - Global header: hamburger + user + theme-toggle | nav-pairs | YAT?STATS wordmark
-//   - School row: crest | city/state | school name | tagline (Bebas Neue)
-//   - Hero strip: rotating taglines + search/filter icons
-//   - Card grid: player photo bg, gradient shade, chips, name in Bebas Neue, varsity dots,
-//     LAST 3 GAMES pill, NEXT GAME pill, "WHERE YAT THESE DAYS?" link
-//   - Card back: THEN image + clickable hero (name/image routes to profile), draft info above stats, 3×4 stats grid (no horizontal scroll)
-//   - Left drawer: search + nav links
-//   - Right drawer: filters (name, level, grad class)
-//   - Account drawer
-//   - Theme toggle: dark/light (localStorage)
-//   - Sponsor footer: fixed at bottom
+// Minimal orchestration: fetch school + players, pass props to components.
 
 import type { Metadata } from "next";
 import { redirect, permanentRedirect } from "next/navigation";
@@ -22,91 +11,39 @@ import {
   getAllTimeRosterByHsid,
   getSchoolByUrl,
 } from "@/lib/db";
-import AccountDrawer from "@/components/AccountDrawer";
-import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
-import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
+import { gradClass, type NavItem } from "@/lib/playerUtils";
+
+import YatStyles from "@/components/yatstats/YatStyles";
+import HeroHeader from "@/components/yatstats/HeroHeader";
+import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
+import AccountDrawer from "@/components/yatstats/AccountDrawer";
+import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
+import PlayerCard from "@/components/yatstats/PlayerCard";
+import YatInteractivity from "@/components/yatstats/YatInteractivity";
 
 export const runtime = "nodejs";
-
-function fmt(key: string, value: unknown): string {
-  if (value === null || value === undefined || value === "" || value === "--") return "--";
-  const DECIMAL = ["AVG","OBP","SLG","OPS","ERA","WHIP","H9","BB9","K9","KBB","K/9","K/BB"];
-  const k = key.toUpperCase();
-  if (DECIMAL.includes(k)) {
-    const num = parseFloat(String(value));
-    if (isNaN(num)) return String(value);
-    const decimals = k === "ERA" || k === "WHIP" ? 2 : 3;
-    const str = num.toFixed(decimals);
-    if (["AVG","OBP","SLG","OPS"].includes(k) && num < 1 && num >= 0) return str.substring(1);
-    return str;
-  }
-  if (k === "IP") { const n = parseFloat(String(value)); return isNaN(n) ? String(value) : n.toFixed(1); }
-  return String(value);
-}
-
-function parseDraft(raw: string | null): string {
-  if (!raw) return "";
-  const parts = raw.split("-");
-  if (parts.length >= 3) return `${parts[0]} · Rd ${parts[1]} · #${parts[2]}${parts[3] ? " · " + parts[3] : ""}`;
-  return raw;
-}
-
-function levelLabel(level: string): string {
-  const map: Record<string,string> = {
-    "MLB":"MLB","TRIPLE-A":"AAA","AAA":"AAA","DOUBLE-A":"AA","AA":"AA",
-    "HIGH-A":"A+","A+":"A+","LOW-A":"A","A":"A","A-":"A-","Indy":"INDY",
-    "NCAA":"NCAA","JrCollege":"JUCO","NAIA":"NAIA","Rk":"RK",
-  };
-  return map[level] || (level ? level.toUpperCase() : "");
-}
-
-function levelClass(lvl: string): string {
-  if (lvl === "MLB") return "chip-mlb";
-  if (lvl === "AAA") return "chip-aaa";
-  if (lvl === "AA") return "chip-aa";
-  if (lvl === "A+") return "chip-aplus";
-  if (["A","A-","RK"].includes(lvl)) return "chip-a";
-  if (lvl === "INDY") return "chip-indy";
-  if (lvl === "NCAA") return "chip-ncaa";
-  return "chip-other";
-}
-
-function gradClass(p: Record<string,unknown>): string {
-  if (p.draft_info) { const yr = String(p.draft_info).split("-")[0]; if (yr && /^\d{4}$/.test(yr)) return yr; }
-  if (p.playyears) { const years = String(p.playyears).split(",").map((y: string) => y.trim()).filter(Boolean); if (years.length) return years[0]; }
-  return "";
-}
-
-function varsityDots(p: Record<string,unknown>): string[] {
-  if (!p.playyears) return [];
-  return String(p.playyears).split(",").map((y: string) => y.trim().slice(-2)).filter(Boolean).slice(0, 6);
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
   const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
-  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
   const school = hostSchool || await getSchoolByHsid(hsid);
-  const name = (school as Record<string,unknown>)?.hsname as string || "Your School";
-  const loc = (school as Record<string,unknown>)?.hslocation as string || "";
-  // Extract state abbreviation from location (e.g., "Chandler, AZ" -> "AZ")
+  const name = (school as Record<string, unknown>)?.hsname as string || "Your School";
+  const loc = (school as Record<string, unknown>)?.hslocation as string || "";
   const locParts = loc.split(",").map((s: string) => s.trim());
   const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
-  const schoolHsid = (school as Record<string,unknown>)?.hsid as string || hsid;
+  const schoolHsid = (school as Record<string, unknown>)?.hsid as string || hsid;
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school as Record<string, unknown> | null, schoolHsid);
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
-    alternates: {
-      canonical: canonicalUrl,
-    },
+    alternates: { canonical: canonicalUrl },
     icons: {
       icon: [
         { url: crestUrl, type: "image/png" },
@@ -121,13 +58,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  let school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string,unknown> | null;
-  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
-  if (!school) school = await getSchoolByHsid(hsid) as Record<string,unknown> | null;
+  let school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
+  if (!school) school = await getSchoolByHsid(hsid) as Record<string, unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
-  // Redirect numeric hsid paths (/5004, /5004/...) to the school's custom domain
-  // when one exists. Skip on Vercel preview deployments so previews remain accessible.
+  // Redirect numeric hsid paths to the school's custom domain (skip on preview deployments)
   const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
@@ -142,16 +77,14 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   ]);
 
   const schoolNameRaw = (String(school.hsname || "")).toUpperCase();
-  const schoolName = schoolNameRaw.includes('HIGH SCHOOL') ? schoolNameRaw : `${schoolNameRaw} HIGH SCHOOL`;
+  const schoolName = schoolNameRaw.includes("HIGH SCHOOL") ? schoolNameRaw : `${schoolNameRaw} HIGH SCHOOL`;
   const location = (String(school.hslocation || "")).toUpperCase();
-  const nickname = (String(school.nickname || "")).toUpperCase();
-  const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
   const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
   const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
     { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
     { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
@@ -167,309 +100,32 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
 
   const gradClasses = Array.from(new Set(
-    [...(activeRoster as Record<string,unknown>[]), ...(allTimeRoster as Record<string,unknown>[])].map((p) => gradClass(p)).filter(Boolean)
+    [...(activeRoster as Record<string, unknown>[]), ...(allTimeRoster as Record<string, unknown>[])].map((p) => gradClass(p)).filter(Boolean)
   )).sort().reverse();
 
   return (
     <>
-      <style>{`
-        :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1)}
-        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
-        body.drawer-open{overflow:hidden}
-        a{color:inherit;text-decoration:none}
-        .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
-        .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
-        .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
-        .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
-        .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
-        .yat-icon-btn i{font-size:20px}
-        .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
-        .yat-topnav{display:flex;gap:18px;align-items:center}
-        .yat-nav-pair{white-space:nowrap;cursor:pointer}
-        .yat-nav-pair .thin{font:300 var(--hamSmall) Oswald,sans-serif;letter-spacing:.02em;color:#cfd2d6;margin-right:2px}
-        body.light-theme .yat-nav-pair .thin{color:var(--muted)}
-        .yat-nav-pair .bold{font:400 var(--hamSmall) "Bebas Neue",sans-serif}
-        .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
-        .yat-wordmark-img{filter:var(--logo-filter)}
-        .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
-        body.light-theme .yat-wordmark{color:#000}
-        @media(max-width:1200px){.yat-topnav{display:none!important}}
-        .yat-hr{border-top:1px solid var(--line)}
-        .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
-        .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
-        .yat-schooltext{line-height:1}
-        .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-        .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
-        .yat-hero{padding:2px 0;position:relative}
-        .yat-hero-grid{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:16px;
-  padding:4px 0
-}
-        .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}
-        .yat-hero-right{
-  display:flex;
-  gap:10px;
-  padding-top:2px;
-}
-        .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
-        .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
-        .yat-tag-swap:nth-child(1){animation-delay:0s}
-        .yat-tag-swap:nth-child(2){animation-delay:3s}
-        .yat-tag-grey{font:300 1em Oswald,sans-serif;letter-spacing:.02em;color:var(--tagGrey)}
-        body.light-theme .yat-tag-grey{color:var(--muted)}
-        .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
-        @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
-        .yat-chip{display:inline-block;font:700 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff}
-        body.light-theme .yat-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.08);color:#222}
-        .chip-mlb{background:rgba(0,230,118,.15);border-color:#00e676;color:#00e676}
-        .chip-aaa{background:rgba(255,193,7,.12);border-color:#ffc107;color:#ffc107}
-        .chip-aa{background:rgba(66,165,245,.12);border-color:#42a5f5;color:#42a5f5}
-        .chip-aplus{background:rgba(206,147,216,.12);border-color:#ce93d8;color:#ce93d8}
-        .chip-a{background:rgba(255,152,0,.1);border-color:#ff9800;color:#ff9800}
-        .chip-indy{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.25);color:#ccc}
-        .chip-ncaa{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.15);color:#aaa}
-        .chip-other{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:#888}
-        .chip-sm{font-size:8px;padding:2px 5px}
-        .front-chip{background:rgba(0,0,0,.55);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.2);text-transform:uppercase;font-size:10px}
-        .yat-section{display:none}
-        .yat-section.visible{display:block}
-        .yat-grid{max-width:1400px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-        @media(max-width:1400px){.yat-grid{grid-template-columns:repeat(4,1fr)}}
-        @media(max-width:1100px){.yat-grid{grid-template-columns:repeat(3,1fr)}}
-        @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
-        @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
-        .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
-        .yat-card::before{content:"";display:block;padding-top:140%}
-        .yat-card-inner{position:absolute;inset:0;perspective:1200px}
-        .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
-        .yat-card.is-flipped .yat-flip{transform:rotateY(180deg)}
-        .yat-face{position:absolute;inset:0;backface-visibility:hidden}
-        .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
-        .yat-card.is-flipped .yat-front{pointer-events:none}
-        .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
-        .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
-        .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
-        .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
-        .yat-front-content{position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between}
-        .yat-chips-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-        .yat-info-block{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
-        .yat-name{font-family:"Bebas Neue",sans-serif;letter-spacing:.02em;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);text-transform:uppercase;font-size:28px}
-        .yat-name span{display:block;line-height:.9}
-        @media(max-width:1400px){.yat-name{font-size:26px}}
-        @media(max-width:1100px){.yat-name{font-size:24px}}
-        @media(max-width:768px){.yat-name{font-size:22px}}
-        .yat-meta{font-family:Oswald,sans-serif;opacity:.9;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px}
-        .yat-meta span{display:block;line-height:1.1}
-        .yat-dots{display:flex;gap:4px}
-        .yat-dot{width:22px;height:22px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font-weight:700;font-size:10px;border:1px solid rgba(0,0,0,.2)}
-        .yat-game-block{margin-top:4px}
-        .yat-pill{background:rgba(0,0,0,.5);color:#fff;border-radius:20px;padding:3px 10px;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.15);text-transform:uppercase;font-weight:700;display:inline-block;font-size:10px}
-        .yat-game-text{font-family:Oswald;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px;line-height:1.2}
-        .yat-game-text span{display:block}
-        .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
-        .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg);--fg:#f2f2f2;--muted:#9e9e9e;--line:rgba(255,255,255,.1);--card-bg:#1a1a1a}
-        .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1;overflow:hidden}
-        .yat-back-hero{display:flex;flex-direction:column;flex-shrink:0;text-decoration:none;color:inherit}
-        .yat-back-hero:hover .yat-back-name{opacity:.75}
-        .yat-back-img-wrap{width:100%;padding-bottom:40%;position:relative;overflow:hidden;background:#111;flex-shrink:0}
-        .yat-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
-        .yat-back-info{padding:7px 10px;background:rgba(17,17,17,.9);border-bottom:1px solid var(--line)}
-        .yat-back-name{font:700 18px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:2px}
-        .yat-back-details{font-size:10px;opacity:.8;line-height:1.3}
-        .yat-back-draft{font:300 9px/1.3 Oswald,sans-serif;color:var(--muted);margin-top:2px}
-        .yat-back-stats{flex:1 1 0;padding:7px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
-        .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:4px;font:700 10px "Bebas Neue",sans-serif;margin:0 0 5px;border-radius:4px;flex-shrink:0}
-        .yat-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;text-align:center}
-        .yat-stat{background:var(--line);border-radius:6px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
-        .yat-stat-label{font-size:8px;text-transform:uppercase;opacity:.7}
-        .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
-        .yat-fun-zone{border-top:1px solid var(--line);padding:4px 8px;flex-shrink:0;background:rgba(0,0,0,.3)}
-        .yat-fun-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.1em;opacity:.5;text-align:center;text-transform:uppercase}
-        .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
-        .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
-        .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
-        .yat-table th.num{text-align:right}
-        .yat-table td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-        .yat-table td.num{text-align:right;color:var(--muted);font-size:11px}
-        .yat-table td.hi{color:#00e676;font-weight:600}
-        .yat-table tr:hover td{background:rgba(255,255,255,.025)}
-        .yat-active-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e676;margin-right:5px;vertical-align:middle}
-        .yat-drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
-        body.drawer-left-open .yat-drawer-mask,body.drawer-right-open .yat-drawer-mask,body.drawer-account-open .yat-drawer-mask{opacity:1;pointer-events:auto}
-        .yat-drawer{position:fixed;top:0;bottom:0;width:min(360px,82vw);background:var(--drawer-bg);backdrop-filter:blur(4px);color:var(--ink);transform:translateX(-110%);transition:transform .25s,background-color .3s;z-index:70;display:flex;flex-direction:column}
-        .yat-drawer-right{right:0;left:auto;transform:translateX(110%)}
-        body.drawer-left-open #drawerLeft{transform:translateX(0)}
-        body.drawer-right-open #drawerFilters{transform:translateX(0)}
-        body.drawer-account-open #drawerAccount{transform:translateX(0)}
-        .yat-drawer h3{margin:18px 16px 8px;padding-right:30px;font:700 16px "Bebas Neue",sans-serif;letter-spacing:.06em}
-        .yat-drawer .yat-close-btn{position:absolute;top:12px;right:12px}
-        .yat-drawer-content{flex-grow:1;overflow-y:auto;padding:10px 16px}
-        .yat-drawer-footer{flex-shrink:0;padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
-        .yat-drawer input[type="text"],.yat-drawer input[type="search"]{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px}
-        body.light-theme .yat-drawer input{background:rgba(0,0,0,.06)}
-        .yat-filter-group{border-bottom:1px solid var(--line);padding:8px 0}
-        .yat-filter-group summary{font:600 12px Oswald,sans-serif;letter-spacing:.06em;cursor:pointer;padding:4px 0;text-transform:uppercase;color:var(--muted)}
-        .yat-filter-options{padding:8px 0;display:flex;flex-direction:column;gap:6px}
-        .yat-filter-options label{display:flex;align-items:center;gap:8px;font:400 12px Oswald,sans-serif;cursor:pointer}
-        .yat-drawer-nav{display:flex;flex-direction:column;gap:12px}
-        .yat-drawer-nav-item{font:400 14px Oswald,sans-serif;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink)}
-        .yat-drawer-nav-item:hover{color:var(--fg)}
-        #liveResults{margin:10px 4px 18px;max-height:55vh;overflow:auto}
-        .yat-live-hit{padding:10px 12px;display:flex;align-items:center;gap:10px;border-radius:10px;cursor:pointer}
-        .yat-live-hit:hover{background:var(--line)}
-        .yat-placeholder{max-width:1400px;margin:0 auto;padding:60px 16px;text-align:center}
-        .yat-placeholder-icon{font-size:48px;margin-bottom:16px;opacity:.3}
-        .yat-placeholder-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.06em;margin-bottom:8px}
-        .yat-placeholder-body{font:300 13px/1.6 Oswald,sans-serif;color:var(--muted);max-width:480px;margin:0 auto}
-        .yat-sec-header{max-width:1400px;margin:0 auto;padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-        .yat-sec-title{
-  font:700 clamp(13px,2vw,16px)/1 "Bebas Neue",Oswald,sans-serif;
-  letter-spacing:.1em;
-  color:var(--fg);
-  text-transform:uppercase
-}
-        .yat-sec-sub{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);margin-top:4px;letter-spacing:.06em}
-        .yat-legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-        .yat-empty{grid-column:1/-1;text-align:center;padding:60px 0;opacity:.4}
-        .yat-empty-icon{font-size:32px;margin-bottom:12px}
-        .yat-empty-title{font:700 18px "Bebas Neue",Oswald,sans-serif;letter-spacing:.06em}
-        .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
-        .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:24px;padding:0 16px}
-        .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-        .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
-        .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
-        .yat-footer a:hover{opacity:.8}
-        /* ── Global Search Modal ─────────────────────────────────────────── */
-        .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
-        .yat-gs-modal.open{display:flex}
-        .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
-        .yat-gs-panel{position:relative;width:100%;max-width:600px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:80vh}
-        body.light-theme .yat-gs-panel{background:#fff;border-color:rgba(0,0,0,.12)}
-        .yat-gs-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 0}
-        .yat-gs-title{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase}
-        .yat-gs-sub{font:300 12px Oswald,sans-serif;color:var(--muted);margin-top:3px;letter-spacing:.04em}
-        .yat-gs-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;min-height:0}
-        .yat-gs-input-wrap{position:relative;display:flex;align-items:center}
-        .yat-gs-input-wrap .ri-search-line{position:absolute;left:14px;font-size:16px;color:var(--muted);pointer-events:none}
-        .yat-gs-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:var(--fg);font:400 14px Oswald,sans-serif;padding:10px 14px 10px 40px;outline:none;transition:border-color .2s}
-        body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
-        .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
-        body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
-        .yat-gs-results{overflow-y:auto;max-height:calc(80vh - 180px);display:flex;flex-direction:column;gap:4px;padding-bottom:4px}
-        /* Region group header */
-        .yat-gs-region{font:700 10px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 4px 4px;border-top:1px solid var(--line);margin-top:4px}
-        .yat-gs-region:first-child{border-top:none;margin-top:0;padding-top:2px}
-        /* Premium school result card */
-        .yat-gs-result{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.04);transition:background .15s,border-color .15s}
-        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);outline:none}
-        body.light-theme .yat-gs-result{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08)}
-        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.15)}
-        .yat-gs-result[data-status="inactive"]{opacity:.65}
-        /* Card top row: crest + identity + badge */
-        .yat-gs-result-top{display:flex;align-items:center;gap:10px}
-        .yat-gs-result-crest{width:42px;height:42px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0;border:1px solid rgba(255,255,255,.08)}
-        body.light-theme .yat-gs-result-crest{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1)}
-        .yat-gs-result-info{flex:1;min-width:0}
-        .yat-gs-result-name{font:700 15px "Bebas Neue",sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
-        .yat-gs-result-loc{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        /* Status badge */
-        .yat-gs-status{font:700 9px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0;display:inline-block;line-height:1.4}
-        .yat-gs-status-live{background:rgba(0,230,118,.12);border:1px solid #00e676;color:#00e676}
-        .yat-gs-status-potential{background:rgba(255,193,7,.1);border:1px solid #ffc107;color:#ffc107}
-        .yat-gs-status-inactive{background:rgba(158,158,158,.08);border:1px solid rgba(158,158,158,.3);color:#9e9e9e}
-        /* Stat chips row */
-        .yat-gs-stats{display:flex;flex-wrap:wrap;gap:4px}
-        .yat-gs-chip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;background:rgba(255,255,255,.06);border-radius:6px;padding:4px 8px;min-width:48px}
-        body.light-theme .yat-gs-chip{background:rgba(0,0,0,.06)}
-        .yat-gs-chip-val{font:700 13px Oswald,sans-serif;color:var(--fg);line-height:1.1}
-        .yat-gs-chip-val.hi{color:#00e676}
-        .yat-gs-chip-lbl{font:300 8px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);line-height:1;white-space:nowrap}
-        /* State messages */
-        .yat-gs-msg{padding:24px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
-        /* "Player search coming soon" footer note */
-        .yat-gs-coming{font:300 10px/1 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center;padding:6px 0 2px;border-top:1px solid var(--line);opacity:.7}
-      `}</style>
+      <YatStyles />
 
-      {/* HEADER */}
-      <header className="yat-header" id="site-header">
-        <div className="yat-container yat-topbar">
-          <div className="yat-left-icons">
-            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
-            <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
-            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
-
-          </div>
-          <nav className="yat-topnav" aria-label="Top Navigation">
-            {navItems.map((item) => (
-              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-nav-pair" data-tab={item.tab}>
-                {item.thin && <span className="thin">{item.thin} </span>}
-                <span className="bold">{item.bold}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="yat-wordmark-wrap">
-            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
-            </a>
-          </div>
-        </div>
-        <div className="yat-hr" />
-        <div className="yat-schoolrow">
-          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
-          <div className="yat-schooltext">
-            <div className="small">{location}</div>
-            <div className="big1">{schoolName}</div>
-            <div className="big2" id="yatSectionLabel">{defaultSectionLabel}</div>
-          </div>
-        </div>
-        <div className="yat-hr" />
-        <div className="yat-hero">
-          <div className="yat-container yat-hero-grid">
-
-
-
-            <div className="yat-hero-left">
-  <div className="yat-tag-duo">
-    <div className="yat-tag-swap">
-      <span className="yat-tag-grey">FLIP FOR </span>
-      <span className="yat-tag-bold">STATS!</span>
-    </div>
-
-    <div className="yat-tag-swap">
-      <span className="yat-tag-grey">WHERE THEY </span>
-      <span className="yat-tag-bold">YAT?</span>
-    </div>
-  </div>
-</div>
-
-
-
-            <div className="yat-hero-right">
-              <button id="openSearch" className="yat-icon-btn" aria-label="Open global search"><i className="ri-search-line" /></button>
-              <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
-              <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters"><i className="ri-restart-line" /></button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <HeroHeader
+        schoolName={schoolName}
+        location={location}
+        crestUrl={crestUrl}
+        defaultSectionLabel={defaultSectionLabel}
+        navItems={navItems}
+      />
 
       {/* DRAWER MASK */}
       <div className="yat-drawer-mask" id="drawerMask" />
 
-      {/* LEFT DRAWER */}
+      {/* LEFT DRAWER — Player search + navigation */}
       <aside className="yat-drawer" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
+        <button className="yat-icon-btn yat-close-btn" id="closeLeft">
+          <i className="ri-close-line" />
+        </button>
         <div className="yat-drawer-content">
           <h3>PLAYER SEARCH</h3>
-          <div style={{padding:"0 0 10px"}}>
+          <div style={{ padding: "0 0 10px" }}>
             <input id="playerSearch" type="search" placeholder="Type a name…" />
             <div id="liveResults" />
           </div>
@@ -484,329 +140,53 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>
       </aside>
 
-      {/* RIGHT DRAWER — Filters */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
-        <button className="yat-icon-btn yat-close-btn" id="closeFilters"><i className="ri-close-line" /></button>
-        <h3>FILTERS</h3>
-        <div className="yat-drawer-content" id="filters">
-          <details className="yat-filter-group" open>
-            <summary>By Name</summary>
-            <div className="yat-filter-options">
-              <input id="filterName" type="text" placeholder="Type a name…" />
-            </div>
-          </details>
-          <details className="yat-filter-group">
-            <summary>By Level</summary>
-            <div className="yat-filter-options" id="filterLevels">
-              {["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO","NAIA"].map((l) => (
-                <label key={l}><input type="checkbox" value={l} /> {l}</label>
-              ))}
-            </div>
-          </details>
-          <details className="yat-filter-group">
-            <summary>By Graduating Class</summary>
-            <div className="yat-filter-options" id="filterGradClass">
-              {gradClasses.map((yr) => (
-                <label key={yr}><input type="checkbox" value={yr} /> CLASS OF {yr}</label>
-              ))}
-            </div>
-          </details>
-        </div>
-        <div className="yat-drawer-footer">
-          <button id="filtersReset" className="yat-icon-btn" style={{padding:"10px 14px",border:"1px solid var(--line)",borderRadius:"12px"}}>
-            <i className="ri-restart-line" /> Reset Filters
-          </button>
-        </div>
-      </aside>
+      <FiltersDrawer gradClasses={gradClasses} />
+      <AccountDrawer subdomain={subdomain} />
 
-      {/* ACCOUNT DRAWER */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-        <button className="yat-icon-btn yat-close-btn" id="closeAccount"><i className="ri-close-line" /></button>
-        <h3>ACCOUNT</h3>
-        <AccountDrawer subdomain={subdomain} />
-      </aside>
+      {/* GLOBAL SEARCH MODAL */}
+      <GlobalSearchModal />
 
-      {/* ── GLOBAL SEARCH MODAL ─────────────────────────────────────────────
-          Phase 1: School search only.
-          To add Player Search later: add a tab row here (All / Schools / Players)
-          and add a runPlayerSearch() function that fetches from a player search API.
-          The normalized result shape should include: type, name, school, position,
-          level, status, profileUrl — then render via a separate renderPlayerResult().
-      ─────────────────────────────────────────────────────────────────────── */}
-      <div id="gsModal" className="yat-gs-modal" role="dialog" aria-modal="true" aria-labelledby="gsTitle">
-        <div className="yat-gs-overlay" id="gsOverlay" />
-        <div className="yat-gs-panel">
-          <div className="yat-gs-header">
-            <div>
-              <div className="yat-gs-title" id="gsTitle">Find a School</div>
-              <div className="yat-gs-sub">Browse schools by region across the YAT?STATS network</div>
-            </div>
-            <button id="gsClose" className="yat-icon-btn" aria-label="Close search" style={{flexShrink:0,marginLeft:"12px"}}>
-              <i className="ri-close-line" />
-            </button>
-          </div>
-          <div className="yat-gs-body">
-            <div className="yat-gs-input-wrap">
-              <i className="ri-search-line" aria-hidden="true" />
-              <input
-                id="gsInput"
-                type="search"
-                className="yat-gs-input"
-                placeholder="Search by school or region…"
-                autoComplete="off"
-                aria-label="Search schools by region"
-                aria-controls="gsResults"
-                aria-autocomplete="list"
-              />
-            </div>
-            <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
-            {/* Player search will appear here in a future phase */}
-            <div className="yat-gs-coming">Player search coming soon</div>
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
       <main id="main-content">
 
         {/* ACTIVE ALUMNI */}
         <section id="sec-active" className="yat-section visible">
           <div className="yat-grid" id="active-grid">
-            {(activeRoster as Record<string,unknown>[]).length === 0 ? (
+            {(activeRoster as Record<string, unknown>[]).length === 0 ? (
               <div className="yat-empty">
                 <div className="yat-empty-icon">⚾</div>
                 <div className="yat-empty-title">No active players found</div>
                 <div className="yat-empty-sub">Check back once the 2026 season begins</div>
               </div>
-            ) : (activeRoster as Record<string,unknown>[]).map((p) => {
-              const lvl = levelLabel(String(p.level || ""));
-              const lvlCls = levelClass(lvl);
-              const isPitcher = p.is_pitcher === true;
-              const gc = gradClass(p);
-              const dots = varsityDots(p);
-              const draft = parseDraft(p.draft_info as string | null);
-              const statYear = isPitcher ? p.pitch_year : p.stat_year;
-               const pid = String(p.playerid || "");
-               const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
-               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-               const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
-               const thenSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
-              const batterStats = [
-                {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
-                {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
-                {k:"R",v:p.r},{k:"SB",v:p.sb},{k:"2B",v:p["2b"]},{k:"BB",v:p.bb},
-              ];
-              const pitcherStats = [
-                {k:"ERA",v:p.era},{k:"WHIP",v:p.whip},{k:"IP",v:p.ip},
-                {k:"W-L",v:(p.w!==null&&p.l!==null)?`${p.w}-${p.l}`:"--"},
-                {k:"K",v:p.ko},{k:"BB",v:p.pbb},{k:"K/9",v:p.k9},{k:"K/BB",v:p.kbb},
-                {k:"H/9",v:p.h9},{k:"BB/9",v:p.bb9},{k:"SV",v:p.saves},{k:"G",v:p.pg},
-              ];
-              const stats = isPitcher ? pitcherStats : batterStats;
-              return (
-                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc} data-slug={slug}>
-                  <div className="yat-card-inner">
-                    <div className="yat-flip">
-                      {/* FRONT */}
-                       <div className="yat-face yat-front">
-                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={nowSilhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
-                         <div className="yat-shade" />
-                        <div className="yat-front-content">
-                          <div className="yat-chips-col">
-                            {gc && <span className="front-chip">CLASS OF {gc}</span>}
-                            <span className="front-chip">ACTIVE 2025</span>
-                            {lvl && <span className={`front-chip ${lvlCls}`}>{lvl}</span>}
-                          </div>
-                          <div className="yat-info-block">
-                            <div className="yat-name">
-                              <span>{String(p.firstname || "")}</span>
-                              <span>{String(p.lastname || "")}</span>
-                            </div>
-                            <div className="yat-meta">
-                              <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
-                            </div>
-                            {dots.length > 0 && (
-                              <div className="yat-dots">
-                                {dots.map((y, i) => <div key={i} className="yat-dot">{y}</div>)}
-                              </div>
-                            )}
-                            <div className="yat-game-block">
-                              <div className="yat-pill">LAST 3 GAMES</div>
-                              <div className="yat-game-text">
-                                <span className="yat-log">--</span>
-                                <span className="yat-log">--</span>
-                                <span className="yat-log">--</span>
-                              </div>
-                            </div>
-
-                          </div>
-                        </div>
-                      </div>
-                      {/* BACK */}
-                       <div className="yat-face yat-back">
-                         <div className="yat-back-content">
-                           {/* Hero: THEN image + name/position/draft — entire section links to profile */}
-                           <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
-                             <div className="yat-back-img-wrap">
-                               {/* photoFallback is the THEN (high school era) image */}
-                               <SafeImage
-                                 src={photoFallback}
-                                 alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
-                                 className="yat-back-img"
-                                 placeholderSrc={thenSilhouetteUrl}
-                               />
-                             </div>
-                             <div className="yat-back-info">
-                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                               {/* Spec: show Position and B/T only — height/weight omitted intentionally */}
-                               <div className="yat-back-details">
-                                 {[p.position,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
-                               </div>
-                               {draft && <div className="yat-back-draft">{draft}</div>}
-                             </div>
-                           </a>
-                           <div className="yat-back-stats">
-                             <div className="yat-stats-bar">{statYear ? `${statYear} ` : ""}{isPitcher ? "PITCHING" : "BATTING"}</div>
-                             <div className="yat-stats-grid">
-                               {stats.map(({k,v}) => (
-                                 <div key={k} className="yat-stat">
-                                   <div className="yat-stat-label">{k}</div>
-                                   <div className="yat-stat-val">{fmt(k,v)}</div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                           <div className="yat-fun-zone">
-                             <div className="yat-fun-label">FUN ZONE</div>
-                           </div>
-                         </div>
-                       </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            ) : (activeRoster as Record<string, unknown>[]).map((p) => (
+              <PlayerCard
+                key={String(p.playerid)}
+                player={p}
+                resolvedHsid={resolvedHsid}
+                photoDefaultUrl={photoDefaultUrl}
+              />
+            ))}
           </div>
         </section>
 
         {/* ALL-TIME LIST */}
         <section id="sec-alltime" className="yat-section">
           <div className="yat-grid" id="alltime-grid">
-            {(allTimeRoster as Record<string,unknown>[]).length === 0 ? (
+            {(allTimeRoster as Record<string, unknown>[]).length === 0 ? (
               <div className="yat-empty">
                 <div className="yat-empty-icon">⚾</div>
                 <div className="yat-empty-title">No alumni found</div>
                 <div className="yat-empty-sub">Check back as we continue building the database</div>
               </div>
-            ) : (allTimeRoster as Record<string,unknown>[]).map((p) => {
-              const lvl = levelLabel(String(p.level || ""));
-              const lvlCls = levelClass(lvl);
-              const isPitcher = p.is_pitcher === true;
-              const gc = gradClass(p);
-              const dots = varsityDots(p);
-               const draft = parseDraft(p.draft_info as string | null);
-               const pid = String(p.playerid || "");
-               const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
-               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-               const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
-               const thenSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
-              const isActive = !!p.is_active_2025;
-              const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");
-              const batterStats = [
-                {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
-                {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
-                {k:"R",v:p.r},{k:"SB",v:p.sb},{k:"2B",v:p["2b"]},{k:"BB",v:p.bb},
-              ];
-              const pitcherStats = [
-                {k:"ERA",v:p.era},{k:"WHIP",v:p.whip},{k:"IP",v:p.ip},
-                {k:"W-L",v:(p.w!==null&&p.l!==null)?`${p.w}-${p.l}`:"--"},
-                {k:"K",v:p.ko},{k:"BB",v:p.pbb||p.bb},{k:"K/9",v:p.k9},{k:"K/BB",v:p.kbb},
-                {k:"H/9",v:p.h9},{k:"BB/9",v:p.bb9},{k:"SV",v:p.saves},{k:"G",v:p.pg},
-              ];
-              const stats = isPitcher ? pitcherStats : batterStats;
-              return (
-                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc} data-slug={slug}>
-                  <div className="yat-card-inner">
-                    <div className="yat-flip">
-                      {/* FRONT */}
-                      <div className="yat-face yat-front">
-                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={nowSilhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
-                        <div className="yat-shade" />
-                        <div className="yat-front-content">
-                          <div className="yat-chips-col">
-                            {gc && <span className="front-chip">CLASS OF {gc}</span>}
-                            <span className="front-chip">{statusLabel}</span>
-                            {lvl && <span className={`front-chip ${lvlCls}`}>{lvl}</span>}
-                          </div>
-                          <div className="yat-info-block">
-                            <div className="yat-name">
-                              <span>{String(p.firstname || "")}</span>
-                              <span>{String(p.lastname || "")}</span>
-                            </div>
-                            <div className="yat-meta">
-                              <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
-                            </div>
-                            {dots.length > 0 && (
-                              <div className="yat-dots">
-                                {dots.map((y, i) => <div key={i} className="yat-dot">{y}</div>)}
-                              </div>
-                            )}
-
-                            <div className="yat-game-block">
-                              <div className="yat-pill">LAST 3 GAMES</div>
-                              <div className="yat-game-text">
-                                <span className="yat-log">--</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* BACK */}
-                       <div className="yat-face yat-back">
-                         <div className="yat-back-content">
-                           {/* Hero: THEN image + name/position/draft — entire section links to profile */}
-                           <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
-                             <div className="yat-back-img-wrap">
-                               {/* photoFallback is the THEN (high school era) image */}
-                               <SafeImage
-                                 src={photoFallback}
-                                 alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
-                                 className="yat-back-img"
-                                 placeholderSrc={thenSilhouetteUrl}
-                               />
-                             </div>
-                             <div className="yat-back-info">
-                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                               {/* Spec: show Position and B/T only — height/weight omitted intentionally */}
-                               <div className="yat-back-details">
-                                 {[p.position,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
-                               </div>
-                               {draft && <div className="yat-back-draft">{draft}</div>}
-                             </div>
-                           </a>
-                           <div className="yat-back-stats">
-                             <div className="yat-stats-bar">CAREER STATS</div>
-                             <div className="yat-stats-grid">
-                               {stats.map(({k,v}) => (
-                                 <div key={k} className="yat-stat">
-                                   <div className="yat-stat-label">{k}</div>
-                                   <div className="yat-stat-val">{fmt(k,v)}</div>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                           <div className="yat-fun-zone">
-                             <div className="yat-fun-label">FUN ZONE</div>
-                           </div>
-                         </div>
-                       </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            ) : (allTimeRoster as Record<string, unknown>[]).map((p) => (
+              <PlayerCard
+                key={String(p.playerid)}
+                player={p}
+                resolvedHsid={resolvedHsid}
+                photoDefaultUrl={photoDefaultUrl}
+                isAllTime
+              />
+            ))}
           </div>
         </section>
 
@@ -815,7 +195,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">📰</div>
             <div className="yat-placeholder-title">Alumni News Coming Soon</div>
-            <div className="yat-placeholder-body">Integrating with <strong style={{color:"var(--fg)"}}>Webz.io</strong> to automatically surface news for every active alumni.</div>
+            <div className="yat-placeholder-body">
+              Integrating with <strong style={{ color: "var(--fg)" }}>Webz.io</strong> to automatically surface news for every active alumni.
+            </div>
           </div>
         </section>
 
@@ -824,7 +206,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">🏟️</div>
             <div className="yat-placeholder-title">Current Team Roster</div>
-            <div className="yat-placeholder-body">The current {schoolName} varsity roster will appear here once the season begins.</div>
+            <div className="yat-placeholder-body">
+              The current {schoolName} varsity roster will appear here once the season begins.
+            </div>
           </div>
         </section>
 
@@ -833,7 +217,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">🤝</div>
             <div className="yat-placeholder-title">Mentorship Marketplace</div>
-            <div className="yat-placeholder-body">Connect with {schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.</div>
+            <div className="yat-placeholder-body">
+              Connect with {schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.
+            </div>
           </div>
         </section>
 
@@ -845,7 +231,21 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             <div className="yat-placeholder-body">
               Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
               <br /><br />
-              <a href="mailto:sponsor@yatstats.com" style={{display:"inline-block",background:"#00e676",color:"#000",fontFamily:'"Bebas Neue",Oswald,sans-serif',fontSize:"14px",letterSpacing:".1em",padding:"10px 24px",borderRadius:"4px"}}>Get In Touch</a>
+              <a
+                href="mailto:sponsor@yatstats.com"
+                style={{
+                  display: "inline-block",
+                  background: "#00e676",
+                  color: "#000",
+                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
+                  fontSize: "14px",
+                  letterSpacing: ".1em",
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                }}
+              >
+                Get In Touch
+              </a>
             </div>
           </div>
         </section>
@@ -855,7 +255,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">❓</div>
             <div className="yat-placeholder-title">FAQ&apos;s</div>
-            <div className="yat-placeholder-body">Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon.</div>
+            <div className="yat-placeholder-body">
+              Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon.
+            </div>
           </div>
         </section>
 
@@ -869,396 +271,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </a>
       </footer>
 
-      {/* CLIENT INTERACTIVITY */}
-      <script dangerouslySetInnerHTML={{__html:`
-        window.__firebase_config = ${getFirebaseConfigJSON()};
-(function(){
-  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-  window.__YAT_HSID='${resolvedHsid}';
-  /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
-  var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
-  if(favLink){
-    var favImg=new Image();
-    favImg.onerror=function(){
-      var placeholder = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/ys_crest.svg';
-      favLink.href=placeholder;
-      var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
-      if(appleLink)appleLink.href=placeholder;
-    };
-    favImg.src=favLink.href;
-  }
-  /* Background image fallback for player cards */
-  document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
-    var src=el.getAttribute('data-src');
-    var fallback=el.getAttribute('data-fallback');
-    var placeholder=el.getAttribute('data-placeholder');
-    var img=new Image();
-    img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
-    img.onerror=function(){
-      if(fallback){
-        var fallbackBg="url('"+fallback+"')";
-        var img2=new Image();
-        img2.onload=function(){el.style.backgroundImage=fallbackBg;};
-        img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
-        img2.src=fallback;
-      } else if(placeholder){
-        el.style.backgroundImage="url('"+placeholder+"')";
-        el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
-      }
-    };
-    img.src=src;
-  });
-
-  var saved=localStorage.getItem('yat-theme');
-  if(saved==='light')document.body.classList.add('light-theme');
-  var btn=document.getElementById('theme-toggle');
-  if(btn){
-    btn.addEventListener('click',function(){
-      var isLight=document.body.classList.toggle('light-theme');
-      localStorage.setItem('yat-theme',isLight?'light':'dark');
-      var ic=btn.querySelector('i');
-      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
-    });
-    if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
-  }
-  document.addEventListener('click',function(e){
-    var card=e.target.closest('.yat-card');
-    if(!card)return;
-    if(e.target.closest('a')||e.target.closest('button'))return;
-    card.classList.toggle('is-flipped');
-  });
-  
-  
-  
-  function showSection(tabId){
-  document.querySelectorAll('.yat-section').forEach(function(s){
-    s.classList.remove('visible');
-  });
-
-  var sec=document.getElementById('sec-'+tabId);
-  if(sec)sec.classList.add('visible');
-
-  /* update section label in school row (serves as breadcrumb) */
-  var sectionLabel=document.getElementById('yatSectionLabel');
-  if(sectionLabel){
-    var labels={
-      active:'ACTIVE BASEBALL ALUMNI',
-      news:'ACTIVE ALUMNI NEWS',
-      alltime:'NEXT-LEVEL ALL-TIME LIST',
-      team:'CURRENT TEAM',
-      mentor:'MENTORSHIP MARKETPLACE',
-      partner:'PCD ACTION PARTNER PROGRAM',
-      faq:"FAQ'S"
-    };
-    var label=labels[tabId]||tabId.toUpperCase();
-    sectionLabel.textContent=label;
-  }
-}
-
-
-
-  
-  document.addEventListener('click',function(e){
-    var pair=e.target.closest('[data-tab]');
-    if(!pair)return;
-    var tab=pair.dataset.tab;
-    if(!tab)return;
-    e.preventDefault();
-    showSection(tab);
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
-  });
-  var btnMenu=document.getElementById('btnMenu');
-  var closeLeft=document.getElementById('closeLeft');
-  if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');});
-  if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
-  var openFilters=document.getElementById('openFilters');
-  var closeFilters=document.getElementById('closeFilters');
-  var filtersReset=document.getElementById('filtersReset');
-  var filtersReset2=document.getElementById('filtersReset2');
-  if(openFilters)openFilters.addEventListener('click',function(){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');});
-  if(closeFilters)closeFilters.addEventListener('click',function(){document.body.classList.remove('drawer-right-open','drawer-open');});
-  var btnAccount=document.getElementById('btnAccount');
-  var closeAccount=document.getElementById('closeAccount');
-  if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
-  if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
-  var mask=document.getElementById('drawerMask');
-  if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
-  /* ====================================================================
-     GLOBAL SEARCH MODAL
-     Phase 1: School search only via /api/schools/search.
-     To add Player Search later:
-       1. Add a tab row inside #gsModal (All / Schools / Players).
-       2. Add runPlayerSearch(q) that fetches /api/players/search.
-       3. Each player result should be normalized to:
-          { type:'player', name, school, position, level, status, profileUrl }
-       4. Render via a separate renderPlayerResult(p) helper below.
-     ==================================================================== */
-  var gsModal=document.getElementById('gsModal');
-  var gsOverlay=document.getElementById('gsOverlay');
-  var gsClose=document.getElementById('gsClose');
-  var gsInput=document.getElementById('gsInput');
-  var gsResults=document.getElementById('gsResults');
-  var gsTimer=null;
-  var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
-  var CREST_PLACEHOLDER=S3_BASE+'/yatstats/yscrest.png';
-
-  function openGsModal(){
-    if(!gsModal)return;
-    gsModal.classList.add('open');
-    document.body.classList.add('drawer-open');
-    if(gsInput)setTimeout(function(){gsInput.focus();},60);
-  }
-  function closeGsModal(){
-    if(!gsModal)return;
-    gsModal.classList.remove('open');
-    document.body.classList.remove('drawer-open');
-    if(gsInput)gsInput.value='';
-    if(gsResults)gsResults.innerHTML='';
-  }
-
-  var openSearch=document.getElementById('openSearch');
-  if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
-  if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
-  if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
-  document.addEventListener('keydown',function(e){
-    if(!gsModal||!gsModal.classList.contains('open'))return;
-    if(e.key==='Escape'){closeGsModal();}
-    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
-      e.preventDefault();
-      var items=Array.from(gsResults.querySelectorAll('.yat-gs-result'));
-      if(!items.length)return;
-      var cur=document.activeElement;
-      var idx=items.indexOf(cur);
-      if(e.key==='ArrowDown'){idx=idx<items.length-1?idx+1:0;}
-      else{idx=idx>0?idx-1:items.length-1;}
-      items[idx].focus();
-    }
-  });
-
-  /* Normalize a raw API program record into a typed result object */
-  function normalizeSchoolResult(p){
-    var hasAlumni=p.current_aa&&p.current_aa>0;
-    /* Status: live (has microsite_url) → potential (alumni, no url) → inactive */
-    var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
-    /* Navigate to /[hsid] within this app; fall back with context if hsid is missing */
-    var dest;
-    if(p.hsid){
-      dest='/'+p.hsid;
-    } else {
-      var sp=new URLSearchParams();
-      if(p.hsname)sp.set('school',p.hsname);
-      if(p.hslocation){
-        var locParts=p.hslocation.split(',');
-        if(locParts[0])sp.set('city',locParts[0].trim());
-        if(locParts[1])sp.set('state',locParts[1].trim());
-      }
-      sp.set('reason',status);
-      dest='/school-not-live?'+sp.toString();
-    }
-    /* Crest URL from hsid if available */
-    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_PLACEHOLDER;
-    /* Region label: use regionid (e.g. "OH") or parse from hslocation */
-    var region=p.regionid||'';
-    if(!region&&p.hslocation){
-      var hlParts=p.hslocation.split(',');
-      if(hlParts.length>=2)region=hlParts[hlParts.length-1].trim();
-    }
-    /* Draft label: e.g. "12/67" */
-    var draftedRatio=null;
-    if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){
-      draftedRatio=p.drafted_hs+'/'+p.drafted;
-    }
-    return {
-      type:'school',
-      schoolName:p.hsname||'',
-      location:p.hslocation||'',
-      region:region,
-      crestUrl:crestUrl,
-      status:status,
-      dest:dest,
-      /* YAT?STATS metrics */
-      activeAlumni:p.current_aa||null,
-      mlb:p.mlb||null,
-      natRank:p.yatstats_national_rank||null,
-      stateRank:p.yatstats_state_rank||null,
-      atnla:p.atnla||null,
-      draftedRatio:draftedRatio
-    };
-  }
-
-  var STAT_EMPTY='\u2014';
-
-  /* Build a single stat chip element */
-  function makeChip(val,lbl,highlight){
-    var chip=document.createElement('div');
-    chip.className='yat-gs-chip';
-    var valEl=document.createElement('span');
-    valEl.className='yat-gs-chip-val'+(highlight?' hi':'');
-    valEl.textContent=val!=null?String(val):STAT_EMPTY;
-    var lblEl=document.createElement('span');
-    lblEl.className='yat-gs-chip-lbl';
-    lblEl.textContent=lbl;
-    chip.appendChild(valEl);
-    chip.appendChild(lblEl);
-    return chip;
-  }
-
-  /* Render a premium school result card */
-  function renderSchoolResult(r){
-    var statusLabel=r.status==='live'?'Live Microsite':(r.status==='potential'?'Future Candidate':'Not Currently Active');
-    var statusCls='yat-gs-status yat-gs-status-'+r.status;
-
-    var el=document.createElement('a');
-    el.className='yat-gs-result';
-    el.setAttribute('data-status',r.status);
-    el.setAttribute('href',r.dest);
-    el.setAttribute('role','option');
-    el.setAttribute('tabindex','0');
-
-    /* ── Top row: crest | identity | status badge ── */
-    var topDiv=document.createElement('div');
-    topDiv.className='yat-gs-result-top';
-
-    var crestImg=document.createElement('img');
-    crestImg.className='yat-gs-result-crest';
-    crestImg.alt='';
-    crestImg.loading='lazy';
-    crestImg.src=r.crestUrl;
-    crestImg.onerror=function(){crestImg.src=CREST_PLACEHOLDER;};
-
-    var infoDiv=document.createElement('div');
-    infoDiv.className='yat-gs-result-info';
-    var nameDiv=document.createElement('div');
-    nameDiv.className='yat-gs-result-name';
-    nameDiv.textContent=r.schoolName;
-    var locDiv=document.createElement('div');
-    locDiv.className='yat-gs-result-loc';
-    locDiv.textContent=r.location;
-    infoDiv.appendChild(nameDiv);
-    if(r.location)infoDiv.appendChild(locDiv);
-
-    var badge=document.createElement('span');
-    badge.className=statusCls;
-    badge.textContent=statusLabel;
-
-    topDiv.appendChild(crestImg);
-    topDiv.appendChild(infoDiv);
-    topDiv.appendChild(badge);
-    el.appendChild(topDiv);
-
-    /* ── Stat chips row (only if at least one metric is non-null) ── */
-    var hasStats=r.activeAlumni!=null||r.mlb!=null||r.natRank!=null||r.stateRank!=null||r.atnla!=null||r.draftedRatio!=null;
-    if(hasStats){
-      var statsDiv=document.createElement('div');
-      statsDiv.className='yat-gs-stats';
-      if(r.activeAlumni!=null)statsDiv.appendChild(makeChip(r.activeAlumni,'Active',true));
-      if(r.mlb!=null)statsDiv.appendChild(makeChip(r.mlb,'MLB',false));
-      if(r.natRank!=null)statsDiv.appendChild(makeChip('#'+r.natRank,"Nat'l",false));
-      if(r.stateRank!=null)statsDiv.appendChild(makeChip('#'+r.stateRank,'State',false));
-      if(r.atnla!=null)statsDiv.appendChild(makeChip(r.atnla,'All-Time',false));
-      if(r.draftedRatio)statsDiv.appendChild(makeChip(r.draftedRatio,'Drafted',false));
-      el.appendChild(statsDiv);
-    }
-
-    return el;
-  }
-
-  function runSchoolSearch(q){
-    if(!gsResults)return;
-    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
-    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=50')
-      .then(function(r){return r.json();})
-      .then(function(d){
-        var items=(d.programs||[]).map(normalizeSchoolResult);
-        gsResults.innerHTML='';
-        if(!items.length){
-          gsResults.innerHTML='<div class="yat-gs-msg">No schools found matching &ldquo;'+escHtml(q)+'&rdquo;</div>';
-          return;
-        }
-        /* Group results by region */
-        var groups={};
-        var order=[];
-        items.forEach(function(r){
-          var key=r.region||'Unknown Region';
-          if(!groups[key]){groups[key]=[];order.push(key);}
-          groups[key].push(r);
-        });
-        var frag=document.createDocumentFragment();
-        order.forEach(function(region){
-          /* Region header */
-          var hdr=document.createElement('div');
-          hdr.className='yat-gs-region';
-          hdr.textContent=region;
-          frag.appendChild(hdr);
-          groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
-        });
-        gsResults.appendChild(frag);
-      })
-      .catch(function(){
-        gsResults.innerHTML='<div class="yat-gs-msg">Search unavailable. Please try again.</div>';
-      });
-  }
-
-  if(gsInput&&gsResults){
-    gsInput.addEventListener('input',function(){
-      var q=this.value.trim();
-      clearTimeout(gsTimer);
-      if(q.length<2){gsResults.innerHTML='';return;}
-      gsTimer=setTimeout(function(){runSchoolSearch(q);},220);
-    });
-    gsInput.addEventListener('keydown',function(e){
-      if(e.key==='Enter'){
-        var q=gsInput.value.trim();
-        if(q.length>=2){clearTimeout(gsTimer);runSchoolSearch(q);}
-      }
-    });
-  }
-  var searchInput=document.getElementById('playerSearch');
-  var liveResults=document.getElementById('liveResults');
-  if(searchInput&&liveResults){
-    searchInput.addEventListener('input',function(){
-      var q=this.value.toLowerCase().trim();
-      var results='';
-      var seen={};
-      if(q.length>=2){
-        document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-            var name=card.getAttribute('data-name')||'';
-          var pid=card.getAttribute('data-playerid')||'';
-          var slug=card.getAttribute('data-slug')||'';
-          if(name.includes(q)&&pid&&!seen[pid]){
-            seen[pid]=true;
-            var nameEl=card.querySelector('.yat-name');
-            var dn;
-            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
-        results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
-          }
-        });
-      }
-      liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
-    });
-  }
-  function applyFilters(){
-    var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
-    var lc=Array.from(document.querySelectorAll('#filterLevels input:checked')).map(function(i){return i.value;});
-    var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked')).map(function(i){return i.value;});
-    document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-      var name=card.getAttribute('data-name')||'';
-      var level=card.getAttribute('data-level')||'';
-      var g=card.getAttribute('data-gradclass')||'';
-      var show=true;
-      if(nf&&!name.includes(nf))show=false;
-      if(lc.length&&!lc.includes(level))show=false;
-      if(gc.length&&!gc.includes(g))show=false;
-      card.style.display=show?'':'none';
-    });
-  }
-  document.addEventListener('change',function(e){if(e.target.closest('#filters'))applyFilters();});
-  document.addEventListener('input',function(e){if(e.target.id==='filterName')applyFilters();});
-  if(filtersReset)filtersReset.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
-  if(filtersReset2)filtersReset2.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
-  document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
-})();
-      `}} />
+      <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
     </>
   );
 }
