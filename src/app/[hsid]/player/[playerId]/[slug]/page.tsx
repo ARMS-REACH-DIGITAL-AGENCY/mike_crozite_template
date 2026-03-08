@@ -453,6 +453,14 @@ export default async function PlayerProfilePage({
         .career-log tbody .career-totals-row td{font:700 12px/1.4 Oswald,sans-serif;border-top:2px solid rgba(255,209,102,.3)}
         .career-log tbody .career-totals-row .year-cell{color:gold}
         .log-section{margin-bottom:20px}
+        /* RECENT GAME LOG (overview) */
+        .recent-log-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;overflow:hidden}
+        .recent-log-grid{display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--line)}
+        @media(max-width:700px){.recent-log-grid{grid-template-columns:repeat(4,1fr)}}
+        .recent-log-cell{text-align:center;padding:12px 6px;border-right:1px solid var(--line)}
+        .recent-log-cell:last-child{border-right:none}
+        .recent-log-label{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+        .recent-log-val{font:700 18px/1 "Bebas Neue",sans-serif;margin-top:4px}
         /* GLOBAL SEARCH MODAL */
         .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
         .yat-gs-modal.open{display:flex}
@@ -499,11 +507,32 @@ export default async function PlayerProfilePage({
         .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
         /* MOBILE */
         @media(max-width:640px){
-          .player-meta-inner{flex-direction:column;align-items:stretch;gap:20px}
-          .player-meta-media{width:min(180px,60vw);margin:0 auto}
+          /* Shrink sticky header crest/text */
+          :root{--crestH:44px}
+          .yat-schoolrow{padding:4px 12px;gap:8px}
+          .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
+          .yat-schooltext .big1{font-size:14px}
+          .yat-schooltext .big2{font-size:16px}
+          .yat-hero{padding:2px 0}
+          .fav-btn-hero{padding:5px 10px;font-size:10px}
+          /* Hero/meta: side-by-side compact: image on right, bio on left */
+          .player-hero-meta{padding:16px 0}
+          .player-meta-inner{flex-direction:row;align-items:flex-start;gap:14px}
+          /* Hide large player name on mobile — already shown in sticky header */
+          .player-bio-name{display:none}
+          .player-meta-bio{gap:6px}
+          .player-bio-badges{gap:4px}
+          .chip{padding:3px 7px;font-size:9px}
+          .player-bio-table{gap:0}
+          .player-bio-row{padding:4px 0}
+          .player-bio-key{font-size:9px;min-width:72px;letter-spacing:.06em}
+          .player-bio-val{font-size:11px}
+          /* Compact THEN image on mobile */
+          .player-meta-media{flex-shrink:0;width:min(100px,28vw)}
           .player-then-img{border-radius:4px}
-          .player-bio-name{font-size:clamp(26px,8vw,40px)}
           .yat-hero-left{padding-left:6px}
+          /* Recent game log grid on mobile */
+          .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
       `}</style>
 
@@ -624,6 +653,7 @@ export default async function PlayerProfilePage({
               className="player-then-img"
               src={playerThenImg}
               alt={`${displayName} — THEN`}
+              fallbackSrc="/img/player-silhouette.png"
               placeholderSrc="/img/player-silhouette.png"
             />
           </div>
@@ -644,41 +674,65 @@ export default async function PlayerProfilePage({
       <div className="tab-content active" id="tab-overview" role="tabpanel">
         <div className="overview-section">
 
-          {/* Two-column: Bio + Career Highlights */}
-          <div className="overview-grid">
-            {/* Bio Card */}
-            <div className="ov-card">
-              <div className="ov-card-title">BIO</div>
-              <div className="ov-bio-list">
-                {pos !== "--" && <div className="ov-bio-row"><span className="ov-bio-key">Position</span><span className="ov-bio-val">{pos}</span></div>}
-                {ht !== "--" && <div className="ov-bio-row"><span className="ov-bio-key">Height</span><span className="ov-bio-val">{ht}</span></div>}
-                {wt !== "--" && <div className="ov-bio-row"><span className="ov-bio-key">Weight</span><span className="ov-bio-val">{wt} lbs</span></div>}
-                {bt !== "-/-" && <div className="ov-bio-row"><span className="ov-bio-key">Bats / Throws</span><span className="ov-bio-val">{bt}</span></div>}
-                <div className="ov-bio-row"><span className="ov-bio-key">High School</span><span className="ov-bio-val">{playerSchool ? String(playerSchool.hsname || schoolName) : schoolName}</span></div>
-                {college !== "N/A" && <div className="ov-bio-row"><span className="ov-bio-key">College</span><span className="ov-bio-val">{college}</span></div>}
-                {draftInfo !== "N/A" && <div className="ov-bio-row"><span className="ov-bio-key">Draft</span><span className="ov-bio-val">{draftInfo}</span></div>}
-                <div className="ov-bio-row"><span className="ov-bio-key">Career High</span><span className="ov-bio-val">{level}</span></div>
-                <div className="ov-bio-row"><span className="ov-bio-key">Status</span><span className="ov-bio-val">{statusLabel}</span></div>
+          {/* Most Recent Season — replaces the redundant BIO card */}
+          {(function(){
+            const recentBat = battingSeasons.length > 0 ? battingSeasons[battingSeasons.length - 1] as BattingSeason : null;
+            const recentPit = pitchingSeasons.length > 0 ? pitchingSeasons[pitchingSeasons.length - 1] as PitchingSeason : null;
+            const recent = isPitcher ? recentPit : (recentBat || recentPit);
+            if (!recent) return null;
+            const year = recent.year;
+            const teamName = recent.team_name || '--';
+            const lvl = (recent.level || '--').toUpperCase();
+            const cells = isPitcher && recentPit
+              ? [
+                  {k:'ERA', v:fmt(recentPit.era,2)}, {k:'W', v:fmt(recentPit.w)}, {k:'L', v:fmt(recentPit.l)},
+                  {k:'IP', v:fmt(recentPit.ip,1)}, {k:'K', v:fmt(recentPit.ko)}, {k:'BB', v:fmt(recentPit.bb)},
+                  {k:'WHIP', v:fmt(recentPit.whip,2)}, {k:'SV', v:fmt(recentPit.saves)}, {k:'G', v:fmt(recentPit.g)},
+                ]
+              : recentBat
+              ? [
+                  {k:'AVG', v:fmtAvg(recentBat.avg)}, {k:'HR', v:fmt(recentBat.hr)}, {k:'RBI', v:fmt(recentBat.rbi)},
+                  {k:'R', v:fmt(recentBat.r)}, {k:'SB', v:fmt(recentBat.sb)}, {k:'OPS', v:fmtAvg(recentBat.ops)},
+                  {k:'H', v:fmt(recentBat.h)}, {k:'BB', v:fmt(recentBat.bb)}, {k:'SO', v:fmt(recentBat.so)},
+                ]
+              : [];
+            return (
+              <div className="recent-log-card">
+                <div className="ov-card-title" style={{padding:'10px 14px',background:'none',border:'none',borderBottom:'1px solid var(--line)'}}>
+                  MOST RECENT SEASON
+                  <span style={{marginLeft:'8px',color:'var(--fg)',opacity:.7}}>{year} — {teamName}</span>
+                  <span style={{marginLeft:'8px'}} className={`chip chip-level chip-${lvl.toLowerCase().replace(/[^a-z0-9]/g,'-')}`}>{lvl}</span>
+                </div>
+                {cells.length > 0 ? (
+                  <div className="recent-log-grid">
+                    {cells.map((c, i) => (
+                      <div key={i} className="recent-log-cell">
+                        <div className="recent-log-label">{c.k}</div>
+                        <div className="recent-log-val">{c.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="season-note" style={{padding:'16px'}}>No recent stats available.</div>
+                )}
               </div>
-            </div>
+            );
+          })()}
 
-            {/* Career Highlights */}
+          {/* Career Highlights */}
+          {careerGrid.length > 0 && (
             <div className="ov-card">
               <div className="ov-card-title">CAREER HIGHLIGHTS</div>
-              {careerGrid.length > 0 ? (
-                <div className="stats-grid" style={{border:'none',marginBottom:0}}>
-                  {careerGrid.map((s, i) => (
-                    <div key={i} className="stat-cell" style={{border:'1px solid var(--line)',borderRadius:'4px'}}>
-                      <div className="stat-label">{s.k}</div>
-                      <div className="stat-value">{s.v}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="season-note">No career statistics available.</div>
-              )}
+              <div className="stats-grid" style={{border:'none',marginBottom:0}}>
+                {careerGrid.map((s, i) => (
+                  <div key={i} className="stat-cell" style={{border:'1px solid var(--line)',borderRadius:'4px'}}>
+                    <div className="stat-label">{s.k}</div>
+                    <div className="stat-value">{s.v}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Career Path — level progression timeline */}
           {levelLadder.length > 0 && (
