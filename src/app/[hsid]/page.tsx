@@ -3,7 +3,7 @@
 // Minimal orchestration: fetch school + players, pass props to components.
 
 import type { Metadata } from "next";
-import { redirect, permanentRedirect } from "next/navigation";
+import { permanentRedirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import {
   getSchoolByHsid,
@@ -58,9 +58,14 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  let school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
-  if (!school) school = await getSchoolByHsid(hsid) as Record<string, unknown> | null;
-  if (!school) redirect("https://yatstats.com");
+  let school: Record<string, unknown> | null = null;
+  try {
+    school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
+    if (!school) school = await getSchoolByHsid(hsid) as Record<string, unknown> | null;
+  } catch {
+    notFound();
+  }
+  if (!school) notFound();
 
   // Redirect numeric hsid paths to the school's custom domain (skip on preview deployments)
   const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
