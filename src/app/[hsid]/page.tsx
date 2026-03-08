@@ -75,9 +75,8 @@ function levelClass(lvl: string): string {
 }
 
 function gradClass(p: Record<string,unknown>): string {
-  // class_year must come from the HS record (player_hsids.class_year).
-  // Never infer from draft_info or playyears — leave empty if not set.
-  if (p.class_year) return String(p.class_year);
+  if (p.draft_info) { const yr = String(p.draft_info).split("-")[0]; if (yr && /^\d{4}$/.test(yr)) return yr; }
+  if (p.playyears) { const years = String(p.playyears).split(",").map((y: string) => y.trim()).filter(Boolean); if (years.length) return years[0]; }
   return "";
 }
 
@@ -268,7 +267,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         @media(max-width:768px){.yat-name{font-size:22px}}
         .yat-meta{font-family:Oswald,sans-serif;opacity:.9;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px}
         .yat-meta span{display:block;line-height:1.1}
-        .yat-team{font-family:Oswald,sans-serif;opacity:.85;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:11px;letter-spacing:.04em;text-transform:uppercase;line-height:1.2}
         .yat-dots{display:flex;gap:4px}
         .yat-dot{width:22px;height:22px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font-weight:700;font-size:10px;border:1px solid rgba(0,0,0,.2)}
         .yat-game-block{margin-top:4px}
@@ -521,7 +519,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const statYear = isPitcher ? p.pitch_year : p.stat_year;
                const pid = String(p.playerid || "");
                const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
-               const currentTeam = p.current_team_name ? String(p.current_team_name) : "";
                const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
                const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
                const silhouetteUrl = `/img/player-silhouette.png`;
@@ -556,9 +553,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <span>{String(p.firstname || "")}</span>
                               <span>{String(p.lastname || "")}</span>
                             </div>
-                            {currentTeam && (
-                              <div className="yat-team">{currentTeam} – {lvl}</div>
-                            )}
                             <div className="yat-meta">
                               <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
                             </div>
@@ -575,12 +569,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                 <span className="yat-log">--</span>
                               </div>
                             </div>
-                            <div className="yat-game-block" style={{marginTop:'6px'}}>
-                              <div className="yat-pill">NEXT GAME</div>
-                              <div className="yat-game-text">
-                                <span className="yat-log">{String(p.next_game || '--')}</span>
-                              </div>
-                            </div>
+
                           </div>
                         </div>
                       </div>
@@ -646,7 +635,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                const draft = parseDraft(p.draft_info as string | null);
                const pid = String(p.playerid || "");
                const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
-               const currentTeam = p.current_team_name ? String(p.current_team_name) : "";
                const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
                const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
                const silhouetteUrl = `/img/player-silhouette.png`;
@@ -683,9 +671,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                               <span>{String(p.firstname || "")}</span>
                               <span>{String(p.lastname || "")}</span>
                             </div>
-                            {currentTeam && (
-                              <div className="yat-team">{currentTeam} – {lvl}</div>
-                            )}
                             <div className="yat-meta">
                               <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
                             </div>
@@ -701,14 +686,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                 <span className="yat-log">--</span>
                               </div>
                             </div>
-                            {isActive && (
-                              <div className="yat-game-block" style={{marginTop:'6px'}}>
-                                <div className="yat-pill">NEXT GAME</div>
-                                <div className="yat-game-text">
-                                  <span className="yat-log">{String(p.next_game || '--')}</span>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
