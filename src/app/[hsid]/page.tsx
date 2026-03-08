@@ -147,7 +147,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const defaultSectionLabel = "WHERE THEY YAT?";
+  const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
   const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
   const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
@@ -212,7 +212,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   gap:16px;
   padding:4px 0
 }
-        .yat-hero-left{display:flex;flex-direction:column;gap:4px}
+        .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}
         .yat-hero-right{
   display:flex;
   gap:10px;
@@ -856,7 +856,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   var sectionLabel=document.getElementById('yatSectionLabel');
   if(sectionLabel){
     var labels={
-      active:'WHERE THEY YAT?',
+      active:'ACTIVE BASEBALL ALUMNI',
       news:'ACTIVE ALUMNI NEWS',
       alltime:'NEXT-LEVEL ALL-TIME LIST',
       team:'CURRENT TEAM',
