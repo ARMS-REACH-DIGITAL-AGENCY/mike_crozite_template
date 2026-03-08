@@ -27,6 +27,7 @@ import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { toPlayerSlug } from "@/lib/slug";
+import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 
 export const runtime = "nodejs";
 
@@ -99,9 +100,13 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
   const schoolHsid = (school as Record<string,unknown>)?.hsid as string || hsid;
   const crestUrl = getSchoolCrestUrl(schoolHsid);
+  const canonicalUrl = getCanonicalBaseUrl(school as Record<string, unknown> | null, schoolHsid);
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     icons: {
       icon: [
         { url: crestUrl, type: "image/png" },
@@ -134,7 +139,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const defaultSectionLabel = "WHERE THEY YAT?";
-  const photoDefaultUrl = "https://hamilton.yatstats.com/assets/img/now_players/default.jpg";
+  const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
+  const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
