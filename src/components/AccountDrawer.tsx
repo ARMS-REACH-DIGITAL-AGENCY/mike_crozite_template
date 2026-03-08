@@ -5,6 +5,7 @@ import {
   auth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
 } from '@/lib/firebase';
@@ -61,11 +62,22 @@ function PasswordInput({ name, required = true }: { name: string; required?: boo
 }
 
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
+  // Color constants for auth feedback messages
+  const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
+    error: '#dc2626',   // red-600 — visible on both light and dark backgrounds
+    success: '#16a34a', // green-600 — readable on both themes
+    info: 'var(--muted)',
+  };
+
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin');
+  const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('info');
+  // Default to Register tab so new visitors land on the registration form
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('register');
   const [displayName, setDisplayName] = useState('');
+  // Track sign-in email so it can be reused for forgot-password flow
+  const [signInEmail, setSignInEmail] = useState('');
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -93,9 +105,11 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
       await signInWithEmailAndPassword(auth, email, password);
       setMessage('Sign in successful!');
+      setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed');
+      setMessageType('error');
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +128,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
       if (!firstName || !lastName) {
         setMessage('First name and last name are required.');
+        setMessageType('error');
         setIsLoading(false);
         return;
       }
@@ -147,9 +162,11 @@ const uid = cred.user?.uid;
       }
 
       setMessage('Registration successful! Welcome to YAT?STATS.');
+      setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Registration failed');
+      setMessageType('error');
     } finally {
       setIsLoading(false);
     }
@@ -159,8 +176,38 @@ const uid = cred.user?.uid;
     try {
       await signOut(auth);
       setMessage('Signed out successfully');
+      setMessageType('success');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign out failed');
+      setMessageType('error');
+    }
+  };
+
+  // Send a Firebase password reset email using the address in the sign-in field
+  const handleForgotPassword = async () => {
+    const email = signInEmail.trim();
+    if (!email) {
+      setMessage('Please enter your email address first.');
+      setMessageType('error');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setMessage('Please enter a valid email address.');
+      setMessageType('error');
+      return;
+    }
+    setIsLoading(true);
+    setMessage('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setMessage('Password reset email sent. Check your inbox.');
+      setMessageType('success');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to send password reset email.');
+      setMessageType('error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -199,7 +246,7 @@ const uid = cred.user?.uid;
                 marginTop: '15px',
                 textAlign: 'center',
                 fontSize: '12px',
-                color: message.includes('failed') ? '#fca5a5' : '#86efac',
+                color: MSG_COLOR[messageType],
               }}
             >
               {message}
@@ -264,6 +311,8 @@ const uid = cred.user?.uid;
                   type="email"
                   name="signInEmail"
                   required
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -274,11 +323,30 @@ const uid = cred.user?.uid;
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '15px' }}>
+              <div style={{ marginBottom: '8px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
                   Password
                 </label>
                 <PasswordInput name="signInPassword" />
+              </div>
+              {/* Forgot password link — reuses the email already entered above */}
+              <div style={{ textAlign: 'right', marginBottom: '15px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={isLoading}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '4px 0',
+                    fontSize: '12px',
+                    color: 'var(--muted)',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Forgot password?
+                </button>
               </div>
               <button
                 type="submit"
@@ -392,7 +460,7 @@ const uid = cred.user?.uid;
                 marginTop: '15px',
                 textAlign: 'center',
                 fontSize: '12px',
-                color: message.includes('failed') ? '#fca5a5' : '#86efac',
+                color: MSG_COLOR[messageType],
                 padding: '0 15px',
               }}
             >
