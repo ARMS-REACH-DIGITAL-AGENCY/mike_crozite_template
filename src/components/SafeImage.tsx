@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { S3_SCHOOL_PLACEHOLDER } from '@/lib/schoolAssets';
+import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 
 interface SafeImageProps {
   src?: string | null;
@@ -114,7 +114,7 @@ export default function SafeImage({
     if (placeholderSrc) return placeholderSrc;
     // If it's a crest, school, or logo, use the YatStats square crest from S3
     if (/\b(crest|school|logo|yat|wordmark)\b/i.test(alt)) {
-      return S3_SCHOOL_PLACEHOLDER;
+      return CREST_FALLBACK_PATH;
     }
     return '/img/player-silhouette.png';
   }, [placeholderSrc, alt]);
@@ -128,7 +128,7 @@ export default function SafeImage({
     const primary = normalizeCandidate(src);
     // If it's a school crest and we have a primary src, the first fallback should be the placeholder
     if (/\b(crest|school)\b/i.test(alt)) {
-      return S3_SCHOOL_PLACEHOLDER;
+      return CREST_FALLBACK_PATH;
     }
 
     // If caller passed a bare filename like "237.png" or "yatstats-logo.png",
