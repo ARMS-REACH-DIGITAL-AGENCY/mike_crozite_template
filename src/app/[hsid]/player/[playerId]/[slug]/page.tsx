@@ -161,7 +161,7 @@ export default async function PlayerProfilePage({
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
   if (micrositeUrl && isNumericHsid && !isPreview) {
     const base = micrositeUrl.replace(/\/$/, "");
-    redirect(`${base}/player/${safePlayerId}/${slug}`);
+    permanentRedirect(`${base}/player/${safePlayerId}/${slug}`);
   }
 
   const schoolName = String(school.hsname || "").toUpperCase();

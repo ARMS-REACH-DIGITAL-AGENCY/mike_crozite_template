@@ -14,7 +14,7 @@
 //   - Sponsor footer: fixed at bottom
 
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, permanentRedirect } from "next/navigation";
 import { headers } from "next/headers";
 import {
   getSchoolByHsid,
@@ -132,7 +132,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
   if (micrositeUrl && isNumericHsid && !isPreview) {
-    redirect(micrositeUrl.replace(/\/$/, ""));
+    permanentRedirect(micrositeUrl.replace(/\/$/, ""));
   }
 
   const resolvedHsid = String(school.hsid ?? hsid);
