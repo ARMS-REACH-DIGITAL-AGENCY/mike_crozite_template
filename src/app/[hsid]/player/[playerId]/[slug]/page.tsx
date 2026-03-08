@@ -25,6 +25,7 @@ import {
   getPlayerPitchingGameLog,
   getTeamContext,
 } from "@/lib/db";
+import { formatSchoolName } from "@/lib/playerUtils";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -178,7 +179,7 @@ export default async function PlayerProfilePage({
     permanentRedirect(`${base}/player/${safePlayerId}/${slug}`);
   }
 
-  const schoolName = String(school.hsname || "").toUpperCase();
+  const schoolName = formatSchoolName(String(school.hsname || ""));
   const location = String(school.hslocation || "").toUpperCase();
 
   // Resolve player
@@ -462,16 +463,17 @@ export default async function PlayerProfilePage({
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        /* Player context lines in sticky header */
+        /* Player context lines in hero utility row */
+        .yat-hero-ctx{display:flex;flex-direction:column;gap:2px;justify-content:center;margin-left:8px;min-width:0}
         .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .yat-player-ctx.dim{color:var(--muted)}
-        @media(max-width:640px){.yat-player-ctx{font-size:9px;letter-spacing:.04em}}
+        @media(max-width:640px){.yat-player-ctx{font-size:9px;letter-spacing:.04em}.yat-hero-ctx{display:none}}
         /* Image captions below NOW/THEN */
         .player-img-caption{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-align:center;text-transform:uppercase;color:var(--muted);margin-top:4px;padding:2px 0}
         /* HERO ACTION ROW */
         .yat-hero{padding:2px 0}
         .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
-        .yat-hero-left{display:flex;align-items:center;gap:4px;padding-left:10px}
+        .yat-hero-left{display:flex;align-items:center;gap:6px;padding-left:10px}
         .yat-hero-right{display:flex;gap:10px;align-items:center;padding-right:4px}
         .fav-btn-hero{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--fg);transition:all .2s;white-space:nowrap}
         body.light-theme .fav-btn-hero{border-color:rgba(0,0,0,.18)}
@@ -755,7 +757,7 @@ export default async function PlayerProfilePage({
 
         <div className="yat-hr" />
 
-        {/* Unified school identity block: crest + city/state + school + player name + team context */}
+        {/* Unified school identity block: crest + city/state + school name + player name */}
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -769,38 +771,38 @@ export default async function PlayerProfilePage({
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
-            <div className="big2" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
-              <span>{displayName}</span>
-              <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite" style={{flexShrink:0}}>
-                <i className="ri-star-line" /> ADD FAVORITE
-              </button>
-            </div>
-            {/* Team context line — compact, below player name */}
-            {(ctxTeam || ctxSecondary || ctxLevel) && (
-              <div className="yat-player-ctx">
-                {[ctxTeam, ctxSecondary, ctxLevel].filter(Boolean).join(' | ')}
-              </div>
-            )}
-            {/* Physical / position line */}
-            {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
-              <div className="yat-player-ctx dim">
-                {[
-                  pos !== "--" ? pos : null,
-                  bt !== "-/-" ? `B/T - ${bt}` : null,
-                  ht !== "--" ? ht : null,
-                  wt !== "--" ? `${wt} LBS` : null,
-                ].filter(Boolean).join(' | ')}
-              </div>
-            )}
+            <div className="big2">{displayName}</div>
           </div>
         </div>
 
         <div className="yat-hr" />
 
-        {/* Action row: search/filter only — ADD FAVORITE moved to player name row */}
+        {/* Hero utility row: ADD FAVORITE + player metadata + search */}
         <div className="yat-hero">
           <div className="yat-container yat-hero-grid">
-            <div className="yat-hero-left" />
+            <div className="yat-hero-left">
+              <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite">
+                <i className="ri-star-line" /> ADD FAVORITE
+              </button>
+              {/* Player identity lines: TEAM|ORG|LEVEL and POS|B/T|HT|WT */}
+              {(ctxTeam || ctxSecondary || ctxLevel) && (
+                <div className="yat-hero-ctx">
+                  <div className="yat-player-ctx">
+                    {[ctxTeam, ctxSecondary, ctxLevel].filter(Boolean).join(' | ')}
+                  </div>
+                  {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
+                    <div className="yat-player-ctx dim">
+                      {[
+                        pos !== "--" ? pos : null,
+                        bt !== "-/-" ? `B/T - ${bt}` : null,
+                        ht !== "--" ? ht : null,
+                        wt !== "--" ? `${wt} LBS` : null,
+                      ].filter(Boolean).join(' | ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <GlobalSearchModal />
           </div>
         </div>

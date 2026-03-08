@@ -56,3 +56,17 @@ export function varsityDots(p: Record<string, unknown>): string[] {
 }
 
 export type NavItem = { thin: string; bold: string; tab: string };
+
+/**
+ * Format a school name for display.
+ * Appends "HIGH SCHOOL" unless the name already contains it,
+ * or the name ends with "PREP" or "ACADEMY" (whole-word match at end).
+ */
+export function formatSchoolName(raw: string): string {
+  const u = raw.toUpperCase().trim();
+  if (u.includes("HIGH SCHOOL")) return u;
+  // "PREP" or "ACADEMY" as standalone suffix — e.g. "BROPHY COLLEGE PREP"
+  if (/\bPREP$/.test(u)) return u;
+  if (/\bACADEMY$/.test(u)) return u;
+  return `${u} HIGH SCHOOL`;
+}
