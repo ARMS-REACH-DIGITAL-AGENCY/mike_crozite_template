@@ -6,7 +6,7 @@
 //   - Hero strip: rotating taglines + search/filter icons
 //   - Card grid: player photo bg, gradient shade, chips, name in Bebas Neue, varsity dots,
 //     LAST 3 GAMES pill, NEXT GAME pill, "WHERE YAT THESE DAYS?" link
-//   - Card back: back-nav tabs (STATS/NEWS/SOCIAL/MENTOR/GALLERY), stats grid
+//   - Card back: THEN image + clickable hero (name/image routes to profile), draft info above stats, 3×4 stats grid (no horizontal scroll)
 //   - Left drawer: search + nav links
 //   - Right drawer: filters (name, level, grad class)
 //   - Account drawer
@@ -275,22 +275,21 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-game-text span{display:block}
         .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
         .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg);--fg:#f2f2f2;--muted:#9e9e9e;--line:rgba(255,255,255,.1);--card-bg:#1a1a1a}
-        .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1}
-        .yat-back-top{display:flex;padding:12px;gap:12px;border-bottom:1px solid var(--line)}
-        .yat-back-name{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:4px}
-        .yat-back-details{font-size:12px;opacity:.8;line-height:1.4}
-        .yat-back-nav{display:flex;justify-content:space-around;border-bottom:1px solid var(--line)}
-        .yat-back-nav-btn{background:none;border:none;color:var(--muted);font:700 11px "Bebas Neue",sans-serif;letter-spacing:.05em;cursor:pointer;padding:8px 6px;border-bottom:2px solid transparent}
-        .yat-back-nav-btn.active{color:var(--fg);border-bottom-color:var(--fg)}
-        .yat-fun-zone{padding:12px;background:var(--card-bg);flex-grow:1;overflow-y:auto}
-        .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:6px;font:700 12px "Bebas Neue",sans-serif;margin:0 0 12px;border-radius:6px}
-        .yat-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
-        .yat-stat{background:var(--line);border-radius:8px;padding:8px 5px;display:flex;flex-direction:column;justify-content:center}
-        .yat-stat-label{font-size:11px;text-transform:uppercase;opacity:.7}
-        .yat-stat-val{font-size:18px;font-weight:700;line-height:1;margin-top:4px}
-        .yat-back-draft{font:300 8px/1.5 Oswald,sans-serif;color:var(--muted);padding:5px 12px 8px;border-top:1px solid var(--line);margin-top:auto;flex-shrink:0}
-        .yat-back-draft strong{color:var(--fg);font-weight:500}
-        .yat-profile-link{display:block;text-align:center;padding:8px 12px;background:rgba(0,230,118,.15);color:#00e676;font:700 11px "Bebas Neue",sans-serif;letter-spacing:.1em;border-top:1px solid var(--line);text-transform:uppercase;flex-shrink:0;text-decoration:none}
+        .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1;overflow:hidden}
+        .yat-back-hero{display:flex;flex-direction:column;flex-shrink:0;text-decoration:none;color:inherit}
+        .yat-back-hero:hover .yat-back-name{opacity:.75}
+        .yat-back-img-wrap{width:100%;padding-bottom:60%;position:relative;overflow:hidden;background:#111;flex-shrink:0}
+        .yat-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+        .yat-back-info{padding:7px 10px;background:rgba(17,17,17,.9);border-bottom:1px solid var(--line)}
+        .yat-back-name{font:700 18px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:2px}
+        .yat-back-details{font-size:10px;opacity:.8;line-height:1.3}
+        .yat-back-draft{font:300 9px/1.3 Oswald,sans-serif;color:var(--muted);margin-top:2px}
+        .yat-back-stats{flex:1 1 0;padding:7px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+        .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:4px;font:700 10px "Bebas Neue",sans-serif;margin:0 0 5px;border-radius:4px;flex-shrink:0}
+        .yat-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;text-align:center}
+        .yat-stat{background:var(--line);border-radius:6px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
+        .yat-stat-label{font-size:8px;text-transform:uppercase;opacity:.7}
+        .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
         .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
         .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
         .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
@@ -555,24 +554,28 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                       </div>
                       {/* BACK */}
                        <div className="yat-face yat-back">
-                         <div className="yat-bg" style={{backgroundImage:`url('${photoFallback}')`}} />
                          <div className="yat-back-content">
-                           <div className="yat-back-top">
-                             <div>
-                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                               <div className="yat-back-details">
-                                 {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
-                               </div>
+                           {/* Hero: THEN image + name/position/draft — entire section links to profile */}
+                           <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
+                             <div className="yat-back-img-wrap">
+                               {/* photoFallback is the THEN (high school era) image; also used as front-card fallback */}
+                               <SafeImage
+                                 src={photoFallback}
+                                 alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
+                                 className="yat-back-img"
+                                 placeholderSrc={silhouetteUrl}
+                               />
                              </div>
-                           </div>
-                           <div className="yat-back-nav">
-                             <button className="yat-back-nav-btn active" data-content="stats">STATS</button>
-                             <button className="yat-back-nav-btn" data-content="news">NEWS</button>
-                             <button className="yat-back-nav-btn" data-content="social">SOCIAL</button>
-                             <button className="yat-back-nav-btn" data-content="mentor">MENTOR</button>
-                             <button className="yat-back-nav-btn" data-content="gallery">GALLERY</button>
-                           </div>
-                           <div className="yat-fun-zone">
+                             <div className="yat-back-info">
+                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                               {/* Spec: show Position and B/T only — height/weight omitted intentionally */}
+                               <div className="yat-back-details">
+                                 {[p.position,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                               </div>
+                               {draft && <div className="yat-back-draft">{draft}</div>}
+                             </div>
+                           </a>
+                           <div className="yat-back-stats">
                              <div className="yat-stats-bar">{statYear ? `${statYear} ` : ""}{isPitcher ? "PITCHING" : "BATTING"}</div>
                              <div className="yat-stats-grid">
                                {stats.map(({k,v}) => (
@@ -583,8 +586,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                ))}
                              </div>
                            </div>
-                           {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
-                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
                          </div>
                        </div>
                     </div>
@@ -611,7 +612,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const gc = gradClass(p);
               const dots = varsityDots(p);
                const draft = parseDraft(p.draft_info as string | null);
-               const statYear = isPitcher ? p.pitch_year : p.stat_year;
                const pid = String(p.playerid || "");
                const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
                const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
@@ -628,7 +628,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 {k:"ERA",v:p.era},{k:"WHIP",v:p.whip},{k:"IP",v:p.ip},
                 {k:"W-L",v:(p.w!==null&&p.l!==null)?`${p.w}-${p.l}`:"--"},
                 {k:"K",v:p.ko},{k:"BB",v:p.pbb||p.bb},{k:"K/9",v:p.k9},{k:"K/BB",v:p.kbb},
-                {k:"SV",v:p.saves},{k:"G",v:p.pg},
+                {k:"H/9",v:p.h9},{k:"BB/9",v:p.bb9},{k:"SV",v:p.saves},{k:"G",v:p.pg},
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
               return (
@@ -670,24 +670,28 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                       </div>
                       {/* BACK */}
                        <div className="yat-face yat-back">
-                         <div className="yat-bg" style={{backgroundImage:`url('${photoFallback}')`}} />
                          <div className="yat-back-content">
-                           <div className="yat-back-top">
-                             <div>
-                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                               <div className="yat-back-details">
-                                 {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
-                               </div>
+                           {/* Hero: THEN image + name/position/draft — entire section links to profile */}
+                           <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
+                             <div className="yat-back-img-wrap">
+                               {/* photoFallback is the THEN (high school era) image; also used as front-card fallback */}
+                               <SafeImage
+                                 src={photoFallback}
+                                 alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
+                                 className="yat-back-img"
+                                 placeholderSrc={silhouetteUrl}
+                               />
                              </div>
-                           </div>
-                           <div className="yat-back-nav">
-                             <button className="yat-back-nav-btn active" data-content="stats">SEASON &amp; CAREER STATISTICS</button>
-                             <button className="yat-back-nav-btn" data-content="news">NEWS &amp; VIDEO CLIPS</button>
-                             <button className="yat-back-nav-btn" data-content="social">SOCIAL MEDIA</button>
-                             <button className="yat-back-nav-btn" data-content="mentor">MENTORSHIP MARKETPLACE</button>
-                             <button className="yat-back-nav-btn" data-content="gallery">TIMELINE GALLERY</button>
-                           </div>
-                           <div className="yat-fun-zone">
+                             <div className="yat-back-info">
+                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                               {/* Spec: show Position and B/T only — height/weight omitted intentionally */}
+                               <div className="yat-back-details">
+                                 {[p.position,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                               </div>
+                               {draft && <div className="yat-back-draft">{draft}</div>}
+                             </div>
+                           </a>
+                           <div className="yat-back-stats">
                              <div className="yat-stats-bar">CAREER STATS</div>
                              <div className="yat-stats-grid">
                                {stats.map(({k,v}) => (
@@ -698,8 +702,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                ))}
                              </div>
                            </div>
-                           {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
-                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
                          </div>
                        </div>
                     </div>
@@ -826,20 +828,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     if(!card)return;
     if(e.target.closest('a')||e.target.closest('button'))return;
     card.classList.toggle('is-flipped');
-  });
-  document.addEventListener('click',function(e){
-    var link=e.target.closest('.yat-back-nav-btn');
-    if(!link)return;
-    e.stopPropagation();
-    var card=link.closest('.yat-card');
-    if(!card)return;
-    card.querySelectorAll('.yat-back-nav-btn').forEach(function(l){l.classList.remove('active');});
-    link.classList.add('active');
-    var content=link.dataset.content;
-    var fz=card.querySelector('.yat-fun-zone');
-    if(!fz)return;
-    if(content==='stats'){fz.innerHTML=fz.getAttribute('data-stats-html')||fz.innerHTML;}
-    else{var labels={news:'ALUMNI NEWS',social:'SOCIAL MEDIA',mentor:'MENTORSHIP MARKETPLACE',gallery:'TIMELINE GALLERY'};fz.innerHTML='<div class="yat-stats-bar">'+(labels[content]||content.toUpperCase())+'</div><div style="padding:20px;text-align:center;opacity:.5;font:300 12px Oswald,sans-serif">Coming soon</div>';}
   });
   
   
