@@ -20,7 +20,6 @@ import YatStyles from "@/components/yatstats/YatStyles";
 import HeroHeader from "@/components/yatstats/HeroHeader";
 import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
 import AccountDrawer from "@/components/yatstats/AccountDrawer";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import YatInteractivity from "@/components/yatstats/YatInteractivity";
 
@@ -147,9 +146,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       <FiltersDrawer gradClasses={gradClasses} />
       <AccountDrawer subdomain={subdomain} />
-
-      {/* GLOBAL SEARCH MODAL */}
-      <GlobalSearchModal />
 
       {/* MAIN CONTENT */}
       <main id="main-content">
