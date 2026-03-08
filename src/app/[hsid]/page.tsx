@@ -278,7 +278,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1;overflow:hidden}
         .yat-back-hero{display:flex;flex-direction:column;flex-shrink:0;text-decoration:none;color:inherit}
         .yat-back-hero:hover .yat-back-name{opacity:.75}
-        .yat-back-img-wrap{width:100%;padding-bottom:60%;position:relative;overflow:hidden;background:#111;flex-shrink:0}
+        .yat-back-img-wrap{width:100%;padding-bottom:40%;position:relative;overflow:hidden;background:#111;flex-shrink:0}
         .yat-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
         .yat-back-info{padding:7px 10px;background:rgba(17,17,17,.9);border-bottom:1px solid var(--line)}
         .yat-back-name{font:700 18px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:2px}
@@ -290,6 +290,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-stat{background:var(--line);border-radius:6px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
         .yat-stat-label{font-size:8px;text-transform:uppercase;opacity:.7}
         .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
+        .yat-fun-zone{border-top:1px solid var(--line);padding:4px 8px;flex-shrink:0;background:rgba(0,0,0,.3)}
+        .yat-fun-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.1em;opacity:.5;text-align:center;text-transform:uppercase}
         .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
         .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
         .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
@@ -521,7 +523,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
                const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
                const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-               const silhouetteUrl = `/img/player-silhouette.png`;
+               const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
+               const thenSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
               const batterStats = [
                 {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
                 {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
@@ -540,7 +543,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                        <div className="yat-face yat-front">
-                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
+                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={nowSilhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
                          <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -579,12 +582,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                            {/* Hero: THEN image + name/position/draft — entire section links to profile */}
                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
                              <div className="yat-back-img-wrap">
-                               {/* photoFallback is the THEN (high school era) image; also used as front-card fallback */}
+                               {/* photoFallback is the THEN (high school era) image */}
                                <SafeImage
                                  src={photoFallback}
                                  alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
                                  className="yat-back-img"
-                                 placeholderSrc={silhouetteUrl}
+                                 placeholderSrc={thenSilhouetteUrl}
                                />
                              </div>
                              <div className="yat-back-info">
@@ -606,6 +609,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                  </div>
                                ))}
                              </div>
+                           </div>
+                           <div className="yat-fun-zone">
+                             <div className="yat-fun-label">FUN ZONE</div>
                            </div>
                          </div>
                        </div>
@@ -637,7 +643,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
                const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
                const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-               const silhouetteUrl = `/img/player-silhouette.png`;
+               const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
+               const thenSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
               const isActive = !!p.is_active_2025;
               const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");
               const batterStats = [
@@ -658,7 +665,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     <div className="yat-flip">
                       {/* FRONT */}
                       <div className="yat-face yat-front">
-                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
+                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={nowSilhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
                         <div className="yat-shade" />
                         <div className="yat-front-content">
                           <div className="yat-chips-col">
@@ -695,12 +702,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                            {/* Hero: THEN image + name/position/draft — entire section links to profile */}
                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
                              <div className="yat-back-img-wrap">
-                               {/* photoFallback is the THEN (high school era) image; also used as front-card fallback */}
+                               {/* photoFallback is the THEN (high school era) image */}
                                <SafeImage
                                  src={photoFallback}
                                  alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
                                  className="yat-back-img"
-                                 placeholderSrc={silhouetteUrl}
+                                 placeholderSrc={thenSilhouetteUrl}
                                />
                              </div>
                              <div className="yat-back-info">
@@ -722,6 +729,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                                  </div>
                                ))}
                              </div>
+                           </div>
+                           <div className="yat-fun-zone">
+                             <div className="yat-fun-label">FUN ZONE</div>
                            </div>
                          </div>
                        </div>
