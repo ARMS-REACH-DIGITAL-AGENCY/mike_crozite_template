@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         hsid,
         hsname,
         hslocation,
+        regionid,
         yatstats_national_rank,
         yatstats_state_rank,
         current_aa,
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
         AND ($3::text = '' OR regionid = $3)
         AND ($4::text = '' OR cityname ILIKE $5)
       ORDER BY
+        regionid ASC NULLS LAST,
         yatstats_national_rank ASC NULLS LAST,
         hsname ASC NULLS LAST
       LIMIT ${limit};
@@ -66,6 +68,7 @@ export async function GET(req: NextRequest) {
       hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,
       hslocation: r.hslocation ?? null,
+      regionid: r.regionid ?? null,
       yatstats_national_rank: r.yatstats_national_rank ?? null,
       yatstats_state_rank: r.yatstats_state_rank ?? null,
       current_aa: r.current_aa ?? null,

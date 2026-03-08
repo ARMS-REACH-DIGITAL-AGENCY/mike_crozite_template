@@ -362,7 +362,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
         .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
         body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
-        .yat-gs-results{overflow-y:auto;max-height:calc(80vh - 180px);display:flex;flex-direction:column;gap:4px}
+        .yat-gs-results{overflow-y:auto;max-height:calc(80vh - 180px);display:flex;flex-direction:column;gap:2px}
+        /* Region group header */
+        .yat-gs-region{font:700 10px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 4px 4px;border-top:1px solid var(--line);margin-top:4px}
+        .yat-gs-region:first-child{border-top:none;margin-top:0;padding-top:2px}
         /* School result card */
         .yat-gs-result{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.04);transition:background .15s,border-color .15s}
         .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);outline:none}
@@ -528,8 +531,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <div className="yat-gs-panel">
           <div className="yat-gs-header">
             <div>
-              <div className="yat-gs-title" id="gsTitle">Global Search</div>
-              <div className="yat-gs-sub">Search schools across the YAT?STATS network</div>
+              <div className="yat-gs-title" id="gsTitle">Find a School</div>
+              <div className="yat-gs-sub">Browse schools by region across the YAT?STATS network</div>
             </div>
             <button id="gsClose" className="yat-icon-btn" aria-label="Close search" style={{flexShrink:0,marginLeft:"12px"}}>
               <i className="ri-close-line" />
@@ -542,9 +545,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 id="gsInput"
                 type="search"
                 className="yat-gs-input"
-                placeholder="Search schools"
+                placeholder="Search by school or region…"
                 autoComplete="off"
-                aria-label="Search schools"
+                aria-label="Search schools by region"
                 aria-controls="gsResults"
                 aria-autocomplete="list"
               />
@@ -1027,30 +1030,37 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
   /* Normalize a raw API program record into a typed result object */
   function normalizeSchoolResult(p){
-    var hasUrl=p.microsite_url&&p.microsite_url.length>0;
     var hasAlumni=p.current_aa&&p.current_aa>0;
-    /* Status: live → potential → inactive */
-    var status=hasUrl?'live':(hasAlumni?'potential':'inactive');
-    /* Build destination URL */
+    /* Status: live (has microsite_url) → potential (alumni, no url) → inactive */
+    var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
+    /* Navigate to /[hsid] within this app; fall back with context if hsid is missing */
     var dest;
-    if(status==='live'){
-      dest=p.microsite_url;
+    if(p.hsid){
+      dest='/'+p.hsid;
     } else {
       var sp=new URLSearchParams();
       if(p.hsname)sp.set('school',p.hsname);
-      var loc=p.hslocation||'';
-      var parts=loc.split(',');
-      if(parts[0])sp.set('city',parts[0].trim());
-      if(parts[1])sp.set('state',parts[1].trim());
+      if(p.hslocation){
+        var locParts=p.hslocation.split(',');
+        if(locParts[0])sp.set('city',locParts[0].trim());
+        if(locParts[1])sp.set('state',locParts[1].trim());
+      }
       sp.set('reason',status);
       dest='/school-not-live?'+sp.toString();
     }
     /* Crest URL from hsid if available */
     var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_PLACEHOLDER;
+    /* Region label: use regionid (e.g. "OH") or parse from hslocation */
+    var region=p.regionid||'';
+    if(!region&&p.hslocation){
+      var hlParts=p.hslocation.split(',');
+      if(hlParts.length>=2)region=hlParts[hlParts.length-1].trim();
+    }
     return {
       type:'school',
       schoolName:p.hsname||'',
       location:p.hslocation||'',
+      region:region,
       crestUrl:crestUrl,
       activeAlumniCount:p.current_aa||0,
       rank:p.yatstats_national_rank||null,
@@ -1096,7 +1106,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   function runSchoolSearch(q){
     if(!gsResults)return;
     gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
-    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=12')
+    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=50')
       .then(function(r){return r.json();})
       .then(function(d){
         var items=(d.programs||[]).map(normalizeSchoolResult);
@@ -1105,8 +1115,23 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           gsResults.innerHTML='<div class="yat-gs-msg">No schools found matching &ldquo;'+escHtml(q)+'&rdquo;</div>';
           return;
         }
+        /* Group results by region */
+        var groups={};
+        var order=[];
+        items.forEach(function(r){
+          var key=r.region||'Unknown Region';
+          if(!groups[key]){groups[key]=[];order.push(key);}
+          groups[key].push(r);
+        });
         var frag=document.createDocumentFragment();
-        items.forEach(function(r){frag.appendChild(renderSchoolResult(r));});
+        order.forEach(function(region){
+          /* Region header */
+          var hdr=document.createElement('div');
+          hdr.className='yat-gs-region';
+          hdr.textContent=region;
+          frag.appendChild(hdr);
+          groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
+        });
         gsResults.appendChild(frag);
       })
       .catch(function(){
