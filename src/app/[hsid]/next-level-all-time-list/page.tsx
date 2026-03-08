@@ -7,7 +7,6 @@ import { getAllTimeRosterByHsid } from "@/lib/db";
 import SchoolShell from "@/components/SchoolShell";
 import PlayerCard from "@/components/PlayerCard";
 import { getSchoolPageData } from "@/lib/schoolPageData";
-import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { gradClass } from "@/lib/playerUtils";
 
 export const runtime = "nodejs";
@@ -20,8 +19,7 @@ export async function generateMetadata({
   const { hsid } = await params;
   const data = await getSchoolPageData(hsid);
   if (!data) return { title: "Next-Level All-Time List | YAT?STATS" };
-  const { schoolName, school, resolvedHsid } = data;
-  const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
+  const { schoolName, canonicalBase } = data;
   return {
     title: `NEXT-LEVEL ALL-TIME LIST | ${schoolName} | YAT?STATS`,
     description: `All-time baseball alumni from ${schoolName}.`,
