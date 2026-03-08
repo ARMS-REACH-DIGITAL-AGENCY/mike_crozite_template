@@ -226,7 +226,7 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   /* Render a premium school result card */
   function renderSchoolResult(r){
-    var statusLabel=r.status==='live'?'Live Microsite':(r.status==='potential'?'Future Candidate':'Not Currently Active');
+    var statusLabel=r.status==='live'?'Live':(r.status==='potential'?'Candidate':'Not Active');
     var statusCls='yat-gs-status yat-gs-status-'+r.status;
     var el=document.createElement('a');
     el.className='yat-gs-result';
