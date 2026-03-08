@@ -1,0 +1,183 @@
+// src/components/yatstats/YatStyles.tsx
+// All page-level CSS for the YAT?STATS school microsite
+
+export default function YatStyles() {
+  return (
+    <style>{`
+      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1)}
+      body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      html{scroll-behavior:smooth}
+      body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
+      body.drawer-open{overflow:hidden}
+      a{color:inherit;text-decoration:none}
+      .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
+      .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
+      .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+      .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
+      .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
+      .yat-icon-btn i{font-size:20px}
+      .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
+      .yat-topnav{display:flex;gap:18px;align-items:center}
+      .yat-nav-pair{white-space:nowrap;cursor:pointer}
+      .yat-nav-pair .thin{font:300 var(--hamSmall) Oswald,sans-serif;letter-spacing:.02em;color:#cfd2d6;margin-right:2px}
+      body.light-theme .yat-nav-pair .thin{color:var(--muted)}
+      .yat-nav-pair .bold{font:400 var(--hamSmall) "Bebas Neue",sans-serif}
+      .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
+      .yat-wordmark-img{filter:var(--logo-filter)}
+      .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
+      body.light-theme .yat-wordmark{color:#000}
+      @media(max-width:1200px){.yat-topnav{display:none!important}}
+      .yat-hr{border-top:1px solid var(--line)}
+      .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
+      .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
+      .yat-schooltext{line-height:1}
+      .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+      .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+      .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
+      .yat-hero{padding:2px 0;position:relative}
+      .yat-hero-grid{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:4px 0}
+      .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}
+      .yat-hero-right{display:flex;gap:10px;padding-top:2px;}
+      .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
+      .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
+      .yat-tag-swap:nth-child(1){animation-delay:0s}
+      .yat-tag-swap:nth-child(2){animation-delay:3s}
+      .yat-tag-grey{font:300 1em Oswald,sans-serif;letter-spacing:.02em;color:var(--tagGrey)}
+      body.light-theme .yat-tag-grey{color:var(--muted)}
+      .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
+      @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
+      .yat-chip{display:inline-block;font:700 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff}
+      body.light-theme .yat-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.08);color:#222}
+      .chip-mlb{background:rgba(0,230,118,.15);border-color:#00e676;color:#00e676}
+      .chip-aaa{background:rgba(255,193,7,.12);border-color:#ffc107;color:#ffc107}
+      .chip-aa{background:rgba(66,165,245,.12);border-color:#42a5f5;color:#42a5f5}
+      .chip-aplus{background:rgba(206,147,216,.12);border-color:#ce93d8;color:#ce93d8}
+      .chip-a{background:rgba(255,152,0,.1);border-color:#ff9800;color:#ff9800}
+      .chip-indy{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.25);color:#ccc}
+      .chip-ncaa{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.15);color:#aaa}
+      .chip-other{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:#888}
+      .chip-sm{font-size:8px;padding:2px 5px}
+      .front-chip{background:rgba(0,0,0,.55);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.2);text-transform:uppercase;font-size:10px}
+      .yat-section{display:none}
+      .yat-section.visible{display:block}
+      .yat-grid{max-width:1400px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+      @media(max-width:1400px){.yat-grid{grid-template-columns:repeat(4,1fr)}}
+      @media(max-width:1100px){.yat-grid{grid-template-columns:repeat(3,1fr)}}
+      @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
+      @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
+      .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
+      .yat-card::before{content:"";display:block;padding-top:140%}
+      .yat-card-inner{position:absolute;inset:0;perspective:1200px}
+      .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+      .yat-card.is-flipped .yat-flip{transform:rotateY(180deg)}
+      .yat-face{position:absolute;inset:0;backface-visibility:hidden}
+      .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
+      .yat-card.is-flipped .yat-front{pointer-events:none}
+      .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
+      .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
+      .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
+      .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
+      .yat-front-content{position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between}
+      .yat-chips-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+      .yat-info-block{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+      .yat-name{font-family:"Bebas Neue",sans-serif;letter-spacing:.02em;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);text-transform:uppercase;font-size:28px}
+      .yat-name span{display:block;line-height:.9}
+      @media(max-width:1400px){.yat-name{font-size:26px}}
+      @media(max-width:1100px){.yat-name{font-size:24px}}
+      @media(max-width:768px){.yat-name{font-size:22px}}
+      .yat-meta{font-family:Oswald,sans-serif;opacity:.9;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px}
+      .yat-meta span{display:block;line-height:1.1}
+      .yat-dots{display:flex;gap:4px}
+      .yat-dot{width:22px;height:22px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font-weight:700;font-size:10px;border:1px solid rgba(0,0,0,.2)}
+      .yat-game-block{margin-top:4px}
+      .yat-pill{background:rgba(0,0,0,.5);color:#fff;border-radius:20px;padding:3px 10px;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.15);text-transform:uppercase;font-weight:700;display:inline-block;font-size:10px}
+      .yat-game-text{font-family:Oswald;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px;line-height:1.2}
+      .yat-game-text span{display:block}
+      .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
+      .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg);--fg:#f2f2f2;--muted:#9e9e9e;--line:rgba(255,255,255,.1);--card-bg:#1a1a1a}
+      .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1;overflow:hidden}
+      .yat-back-hero{display:flex;flex-direction:column;flex-shrink:0;text-decoration:none;color:inherit}
+      .yat-back-hero:hover .yat-back-name{opacity:.75}
+      .yat-back-img-wrap{width:100%;padding-bottom:40%;position:relative;overflow:hidden;background:#111;flex-shrink:0}
+      .yat-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+      .yat-back-info{padding:7px 10px;background:rgba(17,17,17,.9);border-bottom:1px solid var(--line)}
+      .yat-back-name{font:700 18px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:2px}
+      .yat-back-details{font-size:10px;opacity:.8;line-height:1.3}
+      .yat-back-draft{font:300 9px/1.3 Oswald,sans-serif;color:var(--muted);margin-top:2px}
+      .yat-back-stats{flex:1 1 0;padding:7px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+      .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:4px;font:700 10px "Bebas Neue",sans-serif;margin:0 0 5px;border-radius:4px;flex-shrink:0}
+      .yat-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;text-align:center}
+      .yat-stat{background:var(--line);border-radius:6px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
+      .yat-stat-label{font-size:8px;text-transform:uppercase;opacity:.7}
+      .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
+      .yat-fun-zone{border-top:1px solid var(--line);padding:4px 8px;flex-shrink:0;background:rgba(0,0,0,.3)}
+      .yat-fun-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.1em;opacity:.5;text-align:center;text-transform:uppercase}
+      .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
+      .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
+      .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
+      .yat-table th.num{text-align:right}
+      .yat-table td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+      .yat-table td.num{text-align:right;color:var(--muted);font-size:11px}
+      .yat-table td.hi{color:#00e676;font-weight:600}
+      .yat-table tr:hover td{background:rgba(255,255,255,.025)}
+      .yat-active-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e676;margin-right:5px;vertical-align:middle}
+      .yat-drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+      body.drawer-left-open .yat-drawer-mask,body.drawer-right-open .yat-drawer-mask,body.drawer-account-open .yat-drawer-mask{opacity:1;pointer-events:auto}
+      .yat-drawer{position:fixed;top:0;bottom:0;width:min(360px,82vw);background:var(--drawer-bg);backdrop-filter:blur(4px);color:var(--ink);transform:translateX(-110%);transition:transform .25s,background-color .3s;z-index:70;display:flex;flex-direction:column}
+      .yat-drawer-right{right:0;left:auto;transform:translateX(110%)}
+      body.drawer-left-open #drawerLeft{transform:translateX(0)}
+      body.drawer-right-open #drawerFilters{transform:translateX(0)}
+      body.drawer-account-open #drawerAccount{transform:translateX(0)}
+      .yat-drawer h3{margin:18px 16px 8px;padding-right:30px;font:700 16px "Bebas Neue",sans-serif;letter-spacing:.06em}
+      .yat-drawer .yat-close-btn{position:absolute;top:12px;right:12px}
+      .yat-drawer-content{flex-grow:1;overflow-y:auto;padding:10px 16px}
+      .yat-drawer-footer{flex-shrink:0;padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+      .yat-drawer input[type="text"],.yat-drawer input[type="search"]{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px}
+      body.light-theme .yat-drawer input{background:rgba(0,0,0,.06)}
+      .yat-filter-group{border-bottom:1px solid var(--line);padding:8px 0}
+      .yat-filter-group summary{font:600 12px Oswald,sans-serif;letter-spacing:.06em;cursor:pointer;padding:4px 0;text-transform:uppercase;color:var(--muted)}
+      .yat-filter-options{padding:8px 0;display:flex;flex-direction:column;gap:6px}
+      .yat-filter-options label{display:flex;align-items:center;gap:8px;font:400 12px Oswald,sans-serif;cursor:pointer}
+      .yat-drawer-nav{display:flex;flex-direction:column;gap:12px}
+      .yat-drawer-nav-item{font:400 14px Oswald,sans-serif;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink)}
+      .yat-drawer-nav-item:hover{color:var(--fg)}
+      #liveResults{margin:10px 4px 18px;max-height:55vh;overflow:auto}
+      .yat-live-hit{padding:10px 12px;display:flex;align-items:center;gap:10px;border-radius:10px;cursor:pointer}
+      .yat-live-hit:hover{background:var(--line)}
+      .yat-placeholder{max-width:1400px;margin:0 auto;padding:60px 16px;text-align:center}
+      .yat-placeholder-icon{font-size:48px;margin-bottom:16px;opacity:.3}
+      .yat-placeholder-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.06em;margin-bottom:8px}
+      .yat-placeholder-body{font:300 13px/1.6 Oswald,sans-serif;color:var(--muted);max-width:480px;margin:0 auto}
+      .yat-sec-header{max-width:1400px;margin:0 auto;padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+      .yat-sec-title{font:700 clamp(13px,2vw,16px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;color:var(--fg);text-transform:uppercase}
+      .yat-sec-sub{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);margin-top:4px;letter-spacing:.06em}
+      .yat-legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+      .yat-empty{grid-column:1/-1;text-align:center;padding:60px 0;opacity:.4}
+      .yat-empty-icon{font-size:32px;margin-bottom:12px}
+      .yat-empty-title{font:700 18px "Bebas Neue",Oswald,sans-serif;letter-spacing:.06em}
+      .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
+      .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:24px;padding:0 16px}
+      .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+      .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
+      .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
+      .yat-footer a:hover{opacity:.8}
+      .yat-inline-search{display:none;align-items:center;gap:6px;flex:1;min-width:0}
+      body.hero-search-open .yat-inline-search{display:flex}
+      body.hero-search-open .yat-hero-left{display:none}
+      body.hero-search-open .yat-hero-right{flex:1}
+      @media(min-width:540px){body.hero-search-open .yat-hero-left{display:flex;min-width:0;flex-shrink:1;opacity:.5}}
+      .yat-hero-search-input{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:20px;color:var(--fg);font:400 13px Oswald,sans-serif;padding:6px 14px;outline:none;transition:border-color .2s}
+      body.light-theme .yat-hero-search-input{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.15)}
+      .yat-hero-search-input:focus{border-color:rgba(255,255,255,.4)}
+      body.light-theme .yat-hero-search-input:focus{border-color:rgba(0,0,0,.3)}
+      .yat-hero-search-drop{position:absolute;left:0;right:0;top:100%;z-index:55;background:var(--drawer-bg);backdrop-filter:blur(4px);border-bottom:1px solid var(--line);max-height:55vh;overflow-y:auto;display:none}
+      .yat-hero-search-drop.visible{display:block}
+      .yat-hero-result{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+      .yat-hero-result:hover{background:var(--line)}
+      .yat-hero-result-name{font:400 14px "Bebas Neue",sans-serif;letter-spacing:.04em}
+      .yat-hero-result-sub{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:1px}
+      .yat-hero-result-rank{font:700 11px Oswald,sans-serif;color:var(--muted);white-space:nowrap;margin-left:8px;flex-shrink:0}
+    `}</style>
+  );
+}
