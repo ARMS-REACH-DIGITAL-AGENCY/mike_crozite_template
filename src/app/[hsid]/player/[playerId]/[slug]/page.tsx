@@ -246,7 +246,7 @@ export default async function PlayerProfilePage({
   const ncaaSeasonsList = [...battingSeasons, ...pitchingSeasons]
     .filter((s: any) => {
       const lv = String(s.level || '').toUpperCase();
-      return lv.includes('NCAA') || lv === 'JUCO' || lv.includes('COLLEGE');
+      return lv.includes('NCAA') || lv === 'JUCO' || lv.includes('COLLEGE') || lv === 'NAIA';
     })
     .sort((a: any, b: any) => (Number(a.year) || 0) - (Number(b.year) || 0));
   const uniqueColleges: string[] = [];
@@ -254,6 +254,8 @@ export default async function PlayerProfilePage({
     const tn = ((s as any).team_name || '').trim();
     if (tn && !uniqueColleges.includes(tn)) uniqueColleges.push(tn);
   }
+  // Only show prior colleges not already shown in the current playing context line
+  const collegesToShow = uniqueColleges.filter(col => col !== ctxTeam);
 
   // Current season stats (latest year) — used in top grid for active players
   const currentBatSeason = (isActive
@@ -464,7 +466,7 @@ export default async function PlayerProfilePage({
         .player-bio-key{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;min-width:80px;flex-shrink:0}
         .player-bio-val{font:500 11px/1 Oswald,sans-serif}
         .player-meta-media{flex-shrink:0;width:min(80px,18vw)}
-        .player-now-img,.player-then-img{width:100%;aspect-ratio:2/3;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
+        .player-now-img,.player-then-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
         /* TABS — sticky under header */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:var(--stickyHeaderH,120px);z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
@@ -486,7 +488,7 @@ export default async function PlayerProfilePage({
         /* TABLES */
         .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:0 0 6px 6px;margin-top:4px}
         .season-table{width:100%;border-collapse:collapse;font:300 12px/1.4 Oswald,sans-serif}
-        .season-table thead{position:sticky;top:var(--stickyHeaderH,0);z-index:2;background:var(--card-bg)}
+        .season-table thead{position:sticky;top:calc(var(--stickyHeaderH,0px) + var(--tabBarH,42px));z-index:2;background:var(--card-bg)}
         .season-table th{font:700 10px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:8px 6px;text-align:center;border-bottom:2px solid var(--line);color:var(--muted);text-transform:uppercase;white-space:nowrap;background:rgba(255,255,255,.02)}
         body.light-theme .season-table th{background:rgba(0,0,0,.03)}
         .season-table td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -520,6 +522,7 @@ export default async function PlayerProfilePage({
         .player-context-line .ctx-team{color:var(--fg);font-weight:500}
         /* COMPACT PLAYER IDENTITY BLOCK */
         .player-id-block{display:flex;flex-direction:column;gap:4px}
+        .player-id-name-lg{font:700 clamp(18px,3vw,32px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase;margin-bottom:2px}
         .player-id-line{font:400 11px/1.5 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);text-transform:uppercase;white-space:normal}
         .player-id-line .dim{color:var(--muted);font-weight:300}
         .player-id-line .sep{color:var(--muted);margin:0 5px}
@@ -673,6 +676,7 @@ export default async function PlayerProfilePage({
           .player-meta-inner{grid-template-columns:1fr auto auto;gap:8px;align-items:start}
           /* Hide large player name on mobile — already shown in sticky header */
           .player-bio-name{display:none}
+          .player-id-name-lg{display:none}
           .player-meta-bio{gap:3px}
           .player-bio-badges{gap:3px}
           .chip{padding:2px 6px;font-size:9px}
@@ -778,8 +782,8 @@ export default async function PlayerProfilePage({
           {/* Col 1: Compact identity block */}
           <div className="player-meta-bio">
             <div className="player-id-block">
-              {/* Name line (hidden on mobile, shown on desktop) */}
-              <div className="player-id-line" style={{font:'700 clamp(18px,3vw,32px)/1 "Bebas Neue",sans-serif',letterSpacing:'.02em',marginBottom:'2px'}}>{displayName}</div>
+              {/* Name — hidden on mobile (already in sticky header), visible on desktop */}
+              <div className="player-id-name-lg">{displayName}</div>
               {/* Team / Level */}
               {(ctxTeam || ctxLevel) && (
                 <div className="player-id-line">
@@ -793,13 +797,13 @@ export default async function PlayerProfilePage({
                 <div className="player-id-line dim">
                   {pos !== "--" && <span>{pos}</span>}
                   {pos !== "--" && bt !== "-/-" && <span className="sep">|</span>}
-                  {bt !== "-/-" && <span>B/T {bt}</span>}
+                  {bt !== "-/-" && <span>B/T - {bt}</span>}
                   {(pos !== "--" || bt !== "-/-") && ht !== "--" && <span className="sep">|</span>}
                   {ht !== "--" && <span>{ht}{wt !== "--" ? ` | ${wt} LBS` : ""}</span>}
                 </div>
               )}
-              {/* College history */}
-              {uniqueColleges.map((col, i) => (
+              {/* College history — prior schools not already shown in the context line */}
+              {collegesToShow.map((col, i) => (
                 <div key={i} className="player-id-line dim">{col}</div>
               ))}
               {/* Draft info */}
@@ -1028,8 +1032,7 @@ export default async function PlayerProfilePage({
 
           {battingSeasons.length > 0 && (
             <div className="log-section">
-              <div className="career-log-title"><i className="ri-bar-chart-2-line" /> BATTING</div>
-              <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
+              <div className="table-wrap" style={{borderRadius:'6px'}}>
                 <table className="season-table career-log">
                   <thead>
                     <tr>
@@ -1071,8 +1074,7 @@ export default async function PlayerProfilePage({
 
           {pitchingSeasons.length > 0 && (
             <div className="log-section">
-              <div className="career-log-title"><i className="ri-baseball-line" /> PITCHING</div>
-              <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
+              <div className="table-wrap" style={{borderRadius:'6px'}}>
                 <table className="season-table career-log">
                   <thead>
                     <tr>
