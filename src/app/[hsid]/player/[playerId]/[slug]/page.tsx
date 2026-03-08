@@ -8,6 +8,7 @@ import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import AccountDrawer from "@/components/AccountDrawer";
+import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import {
@@ -215,7 +216,6 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
   const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.jpg`;
 
   // Extract subdomain for GHL tagging
@@ -312,27 +312,32 @@ export default async function PlayerProfilePage({
         @media(max-width:1200px){.yat-topnav{display:none!important}}
         .yat-hr{border-top:1px solid var(--line)}
         .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1100px;margin:0 auto}
-        .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
+        .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
+        .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
         .yat-schooltext{line-height:1}
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        /* HERO */
-        .player-hero{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:28px 0 0;position:relative;overflow:hidden}
-        body.light-theme .player-hero{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .player-hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ffd166,#ff9800,#ffd166);opacity:.75}
-        .hero-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:24px;align-items:flex-end}
-        .hero-photo-col{flex-shrink:0;position:relative;align-self:flex-end}
-        .hero-photo{width:160px;height:200px;object-fit:cover;object-position:top;border-radius:8px 8px 0 0;display:block;border:2px solid rgba(255,255,255,.12);border-bottom:none}
-        body.light-theme .hero-photo{border-color:rgba(0,0,0,.1)}
-        .hero-crest-badge{position:absolute;top:-8px;right:-8px;width:34px;height:34px;border-radius:50%;background:var(--bg);padding:3px;border:1px solid var(--line);object-fit:contain;display:block}
-        .hero-info-col{flex:1;padding-bottom:16px;min-width:0}
-        .hero-school-link{font:300 11px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;display:inline-flex;align-items:center;gap:3px;transition:color .2s}
-        .hero-school-link:hover{color:var(--fg)}
-        .hero-name{font:700 clamp(30px,5vw,56px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase;word-break:break-word}
-        .hero-vitals{font:300 13px/1 Oswald,sans-serif;color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;align-items:center}
-        .hero-vitals .sep{margin:0 8px;opacity:.3;user-select:none}
-        .hero-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+        /* HERO ACTION ROW */
+        .yat-hero{padding:2px 0}
+        .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
+        .yat-hero-left{display:flex;align-items:center;gap:4px;padding-left:10px}
+        .yat-hero-right{display:flex;gap:10px;align-items:center;padding-right:4px}
+        .fav-btn-hero{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--fg);transition:all .2s;white-space:nowrap}
+        body.light-theme .fav-btn-hero{border-color:rgba(0,0,0,.18)}
+        .fav-btn-hero i{font-size:13px;transition:color .2s;color:gold}
+        .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
+        .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
+        .fav-btn-hero.active i{color:#000}
+        /* PLAYER HERO / META SECTION (scrollable, not sticky) */
+        .player-hero-meta{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:28px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
+        body.light-theme .player-hero-meta{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
+        .player-meta-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:32px;align-items:flex-start}
+        .player-meta-bio{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+        .player-bio-name{font:700 clamp(28px,5vw,52px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
+        .player-bio-school{font:300 11px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;display:inline-flex;align-items:center;gap:3px;transition:color .2s}
+        .player-bio-school:hover{color:var(--fg)}
+        .player-bio-badges{display:flex;gap:6px;flex-wrap:wrap}
         .chip{font:700 10px/1 "Bebas Neue",sans-serif;padding:4px 10px;border-radius:4px;letter-spacing:.06em;display:inline-block}
         .chip-level{background:#1a6b3c;color:#fff}
         .chip-mlb{background:#002D72;color:#fff}
@@ -342,20 +347,13 @@ export default async function PlayerProfilePage({
         .chip-ind{background:#6a0dad;color:#fff}
         .chip-status{background:rgba(255,255,255,.1);color:var(--fg);border:1px solid var(--line)}
         body.light-theme .chip-status{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.12)}
-        .hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-        .fav-btn-hero{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--fg);transition:all .2s;white-space:nowrap}
-        body.light-theme .fav-btn-hero{border-color:rgba(0,0,0,.18)}
-        .fav-btn-hero i{font-size:14px;transition:color .2s;color:gold}
-        .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
-        .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
-        .fav-btn-hero.active i{color:#000}
-        /* BIO STRIP */
-        .bio-strip{background:var(--card-bg);border-bottom:1px solid var(--line)}
-        .bio-inner{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;flex-wrap:wrap;gap:6px 20px;align-items:center}
-        .bio-item{display:flex;flex-direction:column;gap:2px}
-        .bio-label{font:300 9px/1 Oswald,sans-serif;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-        .bio-value{font:500 13px/1 Oswald,sans-serif}
-        .bio-sep{width:1px;height:28px;background:var(--line);flex-shrink:0}
+        .player-bio-table{display:flex;flex-direction:column}
+        .player-bio-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);align-items:baseline}
+        .player-bio-row:last-child{border-bottom:none}
+        .player-bio-key{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;min-width:96px;flex-shrink:0}
+        .player-bio-val{font:500 13px/1 Oswald,sans-serif}
+        .player-meta-media{flex-shrink:0;width:min(200px,35vw)}
+        .player-then-img{width:100%;aspect-ratio:5/7;object-fit:cover;object-position:top center;border-radius:6px;border:1px solid var(--line);display:block}
         /* TABS */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:24px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .profile-tabs::-webkit-scrollbar{display:none}
@@ -387,7 +385,7 @@ export default async function PlayerProfilePage({
         .tab-content.active{display:block}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
-        /* MODAL */
+        /* FAVORITES MODAL */
         .fav-modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
         .fav-modal{background:var(--card-bg);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:380px;width:90%;color:var(--fg);box-shadow:0 20px 40px rgba(0,0,0,.4);position:relative}
         .fav-modal h3{font:700 20px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:8px}
@@ -414,12 +412,6 @@ export default async function PlayerProfilePage({
         body.drawer-left-open .drawer-mask,body.drawer-account-open .drawer-mask{display:block}
         .drawer-nav-link{display:block;font:300 14px/1 Oswald,sans-serif;padding:10px 0;border-bottom:1px solid var(--line);transition:color .2s}
         .drawer-nav-link:hover{color:gold}
-        @media(max-width:640px){
-          .hero-inner{flex-direction:column;align-items:center;text-align:center}
-          .hero-info-col{padding-bottom:12px}
-          .hero-vitals,.hero-badges,.hero-actions{justify-content:center}
-          .hero-photo{width:140px;height:175px}
-        }
         /* OVERVIEW TAB */
         .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
@@ -443,12 +435,6 @@ export default async function PlayerProfilePage({
         .level-stop:last-child .level-connector{display:none}
         .level-name{font:700 9px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;margin-top:6px;color:var(--muted);white-space:nowrap}
         .level-stop.peak .level-name{color:gold}
-        /* THEN & NOW PHOTOS */
-        .then-now-wrap{margin-bottom:16px}
-        .then-now-photos{display:flex;gap:16px;margin-top:4px}
-        .then-now-photo-item{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;max-width:200px}
-        .then-now-img{width:100%;max-width:180px;height:auto;aspect-ratio:4/5;object-fit:cover;object-position:top;border-radius:6px;border:1px solid var(--line);display:block}
-        .then-now-label{font:700 10px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         /* CAREER LOG TABLE */
         .career-log-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:8px}
         body.light-theme .career-log-title{background:rgba(0,0,0,.03)}
@@ -467,10 +453,63 @@ export default async function PlayerProfilePage({
         .career-log tbody .career-totals-row td{font:700 12px/1.4 Oswald,sans-serif;border-top:2px solid rgba(255,209,102,.3)}
         .career-log tbody .career-totals-row .year-cell{color:gold}
         .log-section{margin-bottom:20px}
+        /* GLOBAL SEARCH MODAL */
+        .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
+        .yat-gs-modal.open{display:flex}
+        .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
+        .yat-gs-panel{position:relative;width:100%;max-width:620px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:82vh}
+        body.light-theme .yat-gs-panel{background:#fff;border-color:rgba(0,0,0,.12)}
+        .yat-gs-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 0}
+        .yat-gs-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.08em;color:var(--fg);text-transform:uppercase}
+        .yat-gs-sub{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
+        .yat-gs-body{padding:14px 16px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+        .yat-gs-input-wrap{position:relative;display:flex;align-items:center}
+        .yat-gs-input-wrap .ri-search-line{position:absolute;left:14px;font-size:16px;color:var(--muted);pointer-events:none}
+        .yat-gs-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:var(--fg);font:400 14px Oswald,sans-serif;padding:10px 14px 10px 40px;outline:none;transition:border-color .2s}
+        body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
+        .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
+        body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
+        .yat-gs-results{overflow-y:auto;max-height:calc(82vh - 180px);display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
+        .yat-gs-region{font:700 9px Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:14px 2px 6px;border-top:1px solid var(--line);margin-top:2px;flex-shrink:0}
+        .yat-gs-region:first-child{border-top:none;margin-top:0;padding-top:4px}
+        .yat-gs-result{display:flex;flex-direction:column;gap:0;padding:0;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);transition:background .15s,border-color .15s;overflow:hidden;flex-shrink:0}
+        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2);outline:none}
+        body.light-theme .yat-gs-result{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08)}
+        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.14)}
+        .yat-gs-result[data-status="inactive"]{opacity:.6}
+        .yat-gs-result-top{display:flex;align-items:center;gap:12px;padding:12px 14px 10px}
+        .yat-gs-result-crest{width:44px;height:44px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0;border:1px solid rgba(255,255,255,.1);padding:2px}
+        body.light-theme .yat-gs-result-crest{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1)}
+        .yat-gs-result-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+        .yat-gs-result-name{font:700 16px "Bebas Neue",sans-serif;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg);line-height:1.15}
+        .yat-gs-result-loc{font:300 10px Oswald,sans-serif;letter-spacing:.06em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
+        .yat-gs-status{font:700 8px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:5px;white-space:nowrap;flex-shrink:0;display:inline-block;line-height:1.5;align-self:flex-start}
+        .yat-gs-status-live{background:rgba(0,230,118,.14);border:1px solid rgba(0,230,118,.6);color:#00e676}
+        .yat-gs-status-potential{background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.5);color:#ffc107}
+        .yat-gs-status-inactive{background:rgba(158,158,158,.07);border:1px solid rgba(158,158,158,.25);color:#888}
+        .yat-gs-stats{display:flex;flex-wrap:nowrap;gap:0;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.25);overflow-x:auto}
+        body.light-theme .yat-gs-stats{border-top-color:rgba(0,0,0,.08);background:rgba(0,0,0,.04)}
+        .yat-gs-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 12px;min-width:52px;flex:1;border-right:1px solid rgba(255,255,255,.06)}
+        .yat-gs-chip:last-child{border-right:none}
+        body.light-theme .yat-gs-chip{border-right-color:rgba(0,0,0,.07)}
+        .yat-gs-chip-val{font:700 16px "Bebas Neue",sans-serif;letter-spacing:.04em;color:var(--fg);line-height:1;white-space:nowrap}
+        .yat-gs-chip-val.hi{color:#00e676}
+        .yat-gs-chip-lbl{font:300 8px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);line-height:1;white-space:nowrap}
+        .yat-gs-msg{padding:28px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
+        .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
+        /* MOBILE */
+        @media(max-width:640px){
+          .player-meta-inner{flex-direction:column;align-items:stretch;gap:20px}
+          .player-meta-media{width:min(180px,60vw);margin:0 auto}
+          .player-then-img{border-radius:4px}
+          .player-bio-name{font-size:clamp(26px,8vw,40px)}
+          .yat-hero-left{padding-left:6px}
+        }
       `}</style>
 
-      {/* HEADER */}
+      {/* HEADER — sticky global shell */}
       <header className="yat-header" id="site-header">
+        {/* Row 1: Global controls */}
         <div className="yat-container yat-topbar">
           <div className="yat-left-icons">
             <a href={`/${resolvedHsid}`} className="yat-icon-btn" aria-label="Back to school"><i className="ri-arrow-left-line" /></a>
@@ -493,16 +532,40 @@ export default async function PlayerProfilePage({
             </a>
           </div>
         </div>
+
         <div className="yat-hr" />
+
+        {/* Unified school identity block: crest + city/state + school + player name */}
         <div className="yat-schoolrow">
-          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            id="stickyIdentityImg"
+            className="yat-crest"
+            src={crestUrl}
+            alt={`${schoolName} crest`}
+            data-crest={crestUrl}
+            data-headshot={playerThenImg}
+          />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
             <div className="big2">{displayName}</div>
           </div>
         </div>
+
         <div className="yat-hr" />
+
+        {/* Action row: ADD FAN FAVORITE (left) + search/filter/reset (right) */}
+        <div className="yat-hero">
+          <div className="yat-container yat-hero-grid">
+            <div className="yat-hero-left">
+              <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Fan Favorite">
+                <i className="ri-star-line" /> ADD FAN FAVORITE
+              </button>
+            </div>
+            <GlobalSearchModal />
+          </div>
+        </div>
       </header>
 
       {/* DRAWER MASK */}
@@ -529,103 +592,43 @@ export default async function PlayerProfilePage({
         <AccountDrawer subdomain={subdomain} />
       </aside>
 
-      {/* HERO */}
-      <section className="player-hero">
-        <div className="hero-inner">
-          <div className="hero-photo-col">
-            <SafeImage
-              className="hero-photo"
-              src={playerNowImg}
-              alt={displayName}
-              fallbackSrc={playerThenImg}
-              placeholderSrc="/img/player-silhouette.png"
-              style={{width:'160px',height:'200px',objectFit:'cover' as const,objectPosition:'top',borderRadius:'8px 8px 0 0',display:'block'}}
-            />
-            <SafeImage
-              className="hero-crest-badge"
-              src={crestUrl}
-              alt={schoolName}
-              fallbackSrc="/img/yatstats-logo-circle.png"
-              placeholderSrc="/img/yatstats-logo-circle.png"
-            />
-          </div>
-          <div className="hero-info-col">
-            <a href={`/${resolvedHsid}`} className="hero-school-link">
+      {/* PLAYER HERO / META — scrollable, not sticky */}
+      <section id="playerHeroMeta" className="player-hero-meta">
+        <div className="player-meta-inner">
+          {/* Left: Bio/meta block */}
+          <div className="player-meta-bio">
+            <a href={`/${resolvedHsid}`} className="player-bio-school">
               <i className="ri-arrow-left-s-line" />
               {playerSchool ? String(playerSchool.hsname || schoolName) : schoolName}
             </a>
-            <div className="hero-name">{displayName}</div>
-            <div className="hero-vitals">
-              {pos !== "--" && <span>{pos}</span>}
-              {pos !== "--" && <span className="sep">|</span>}
-              <span>B/T: {bt}</span>
-              {ht !== "--" && <><span className="sep">|</span><span>H: {ht}</span></>}
-              {wt !== "--" && <><span className="sep">|</span><span>W: {wt}</span></>}
-              {college !== "N/A" && <><span className="sep">|</span><span>{college}</span></>}
-            </div>
-            <div className="hero-badges">
+            <div className="player-bio-name">{displayName}</div>
+            <div className="player-bio-badges">
               <span className={`chip chip-level chip-${level.toLowerCase().replace(/[^a-z0-9]/g,'-')}`}>{level}</span>
               <span className="chip chip-status">{statusLabel}</span>
               {gradClass !== "--" && <span className="chip chip-status">CLASS OF {gradClass}</span>}
             </div>
-            <div className="hero-actions">
-              <button id="btnFanFav" className="fav-btn-hero" data-type="fan">
-                <i className="ri-star-line" /> ADD FAN FAVORITE
-              </button>
-              <button id="btnSuperFav" className="fav-btn-hero" data-type="superfan">
-                <i className="ri-star-fill" /> SUPERFAN DASHBOARD
-              </button>
+            <div className="player-bio-table">
+              {pos !== "--" && <div className="player-bio-row"><span className="player-bio-key">Position</span><span className="player-bio-val">{pos}</span></div>}
+              {bt !== "-/-" && <div className="player-bio-row"><span className="player-bio-key">Bats / Throws</span><span className="player-bio-val">{bt}</span></div>}
+              {ht !== "--" && <div className="player-bio-row"><span className="player-bio-key">Height</span><span className="player-bio-val">{ht}</span></div>}
+              {wt !== "--" && <div className="player-bio-row"><span className="player-bio-key">Weight</span><span className="player-bio-val">{wt} lbs</span></div>}
+              {draftInfo !== "N/A" && <div className="player-bio-row"><span className="player-bio-key">Draft</span><span className="player-bio-val">{draftInfo}</span></div>}
+              {college !== "N/A" && <div className="player-bio-row"><span className="player-bio-key">College</span><span className="player-bio-val">{college}</span></div>}
+              <div className="player-bio-row"><span className="player-bio-key">Career High</span><span className="player-bio-val">{level}</span></div>
+              <div className="player-bio-row"><span className="player-bio-key">Status</span><span className="player-bio-val">{statusLabel}</span></div>
             </div>
+          </div>
+          {/* Right: THEN image at 5:7 (baseball card proportion) */}
+          <div className="player-meta-media">
+            <SafeImage
+              className="player-then-img"
+              src={playerThenImg}
+              alt={`${displayName} — THEN`}
+              placeholderSrc="/img/player-silhouette.png"
+            />
           </div>
         </div>
       </section>
-
-      {/* BIO STRIP */}
-      <div className="bio-strip">
-        <div className="bio-inner">
-          {pos !== "--" && <>
-            <div className="bio-item">
-              <span className="bio-label">Position</span>
-              <span className="bio-value">{pos}</span>
-            </div>
-            <div className="bio-sep" />
-          </>}
-          {ht !== "--" && <>
-            <div className="bio-item">
-              <span className="bio-label">Height</span>
-              <span className="bio-value">{ht}</span>
-            </div>
-            <div className="bio-sep" />
-          </>}
-          {wt !== "--" && <>
-            <div className="bio-item">
-              <span className="bio-label">Weight</span>
-              <span className="bio-value">{wt} lbs</span>
-            </div>
-            <div className="bio-sep" />
-          </>}
-          {bt !== "-/-" && <>
-            <div className="bio-item">
-              <span className="bio-label">Bats / Throws</span>
-              <span className="bio-value">{bt}</span>
-            </div>
-            <div className="bio-sep" />
-          </>}
-          {draftInfo !== "N/A" && <>
-            <div className="bio-item">
-              <span className="bio-label">Draft</span>
-              <span className="bio-value">{draftInfo}</span>
-            </div>
-            <div className="bio-sep" />
-          </>}
-          {college !== "N/A" && (
-            <div className="bio-item">
-              <span className="bio-label">College</span>
-              <span className="bio-value">{college}</span>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
@@ -694,35 +697,6 @@ export default async function PlayerProfilePage({
               </div>
             </div>
           )}
-
-          {/* THEN & NOW */}
-          <div className="ov-card then-now-wrap">
-            <div className="ov-card-title">THEN &amp; NOW</div>
-            <div className="then-now-photos">
-              <div className="then-now-photo-item">
-                <SafeImage
-                  className="then-now-img"
-                  src={playerThenImg}
-                  alt={`${displayName} — THEN`}
-                  fallbackSrc="/img/player-silhouette.png"
-                  placeholderSrc="/img/player-silhouette.png"
-                  style={{width:'100%',maxWidth:'180px',aspectRatio:'4/5',objectFit:'cover' as const,objectPosition:'top',borderRadius:'6px',display:'block'}}
-                />
-                <div className="then-now-label">THEN</div>
-              </div>
-              <div className="then-now-photo-item">
-                <SafeImage
-                  className="then-now-img"
-                  src={playerNowImg}
-                  alt={`${displayName} — NOW`}
-                  fallbackSrc={playerThenImg}
-                  placeholderSrc="/img/player-silhouette.png"
-                  style={{width:'100%',maxWidth:'180px',aspectRatio:'4/5',objectFit:'cover' as const,objectPosition:'top',borderRadius:'6px',display:'block'}}
-                />
-                <div className="then-now-label">NOW</div>
-              </div>
-            </div>
-          </div>
 
         </div>
       </div>
@@ -892,6 +866,7 @@ export default async function PlayerProfilePage({
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   /* Theme */
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
@@ -939,6 +914,91 @@ export default async function PlayerProfilePage({
   if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-account-open','drawer-open');});
+  /* Global Search Modal */
+  var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
+  var CREST_FALLBACK='/img/school-placeholder.png';
+  var STAT_EMPTY='\u2014';
+  var gsModal=document.getElementById('gsModal');
+  var gsOverlay=document.getElementById('gsOverlay');
+  var gsClose=document.getElementById('gsClose');
+  var gsInput=document.getElementById('gsInput');
+  var gsResults=document.getElementById('gsResults');
+  var gsTimer=null;
+  function openGsModal(){if(!gsModal)return;gsModal.classList.add('open');document.body.classList.add('drawer-open');if(gsInput)setTimeout(function(){gsInput.focus();},60);}
+  function closeGsModal(){if(!gsModal)return;gsModal.classList.remove('open');document.body.classList.remove('drawer-open');if(gsInput)gsInput.value='';if(gsResults)gsResults.innerHTML='';}
+  var openSearch=document.getElementById('openSearch');
+  if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
+  if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
+  if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&gsModal&&gsModal.classList.contains('open')){closeGsModal();return;}
+    if(!gsModal||!gsModal.classList.contains('open'))return;
+    if((e.key==='ArrowDown'||e.key==='ArrowUp')&&gsResults){
+      e.preventDefault();
+      var items=Array.from(gsResults.querySelectorAll('.yat-gs-result'));
+      if(!items.length)return;
+      var focused=document.activeElement;
+      var idx=items.indexOf(focused);
+      if(e.key==='ArrowDown')idx=idx<items.length-1?idx+1:0;
+      else idx=idx>0?idx-1:items.length-1;
+      items[idx].focus();
+    }
+  });
+  function normalizeSchoolResult(p){
+    var hasAlumni=p.current_aa&&p.current_aa>0;
+    var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
+    var dest;
+    if(status==='live'){dest=p.microsite_url;}
+    else if(p.hsid){dest='/'+p.hsid;}
+    else{
+      var sp=new URLSearchParams();
+      if(p.hsname)sp.set('school',p.hsname);
+      if(p.hslocation){var lp=p.hslocation.split(',');if(lp[0])sp.set('city',lp[0].trim());if(lp[1])sp.set('state',lp[1].trim());}
+      sp.set('reason',status);
+      var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
+      dest=notLiveBase+'/school-not-live?'+sp.toString();
+    }
+    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_FALLBACK;
+    var region=p.regionid||'';
+    if(!region&&p.hslocation){var hl=p.hslocation.split(',');if(hl.length>=2)region=hl[hl.length-1].trim();}
+    var draftedRatio=null;
+    if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){draftedRatio=p.drafted_hs+'/'+p.drafted;}
+    return{schoolName:p.hsname||'',location:p.hslocation||'',region:region,crestUrl:crestUrl,status:status,dest:dest,activeAlumni:p.current_aa!=null?p.current_aa:null,mlb:p.mlb!=null?p.mlb:null,natRank:p.yatstats_national_rank!=null?p.yatstats_national_rank:null,stateRank:p.yatstats_state_rank!=null?p.yatstats_state_rank:null,atnla:p.atnla!=null?p.atnla:null,draftedRatio:draftedRatio};
+  }
+  function makeChip(val,lbl,highlight){var chip=document.createElement('div');chip.className='yat-gs-chip';var valEl=document.createElement('span');valEl.className='yat-gs-chip-val'+(highlight?' hi':'');valEl.textContent=val!=null?String(val):STAT_EMPTY;var lblEl=document.createElement('span');lblEl.className='yat-gs-chip-lbl';lblEl.textContent=lbl;chip.appendChild(valEl);chip.appendChild(lblEl);return chip;}
+  function renderSchoolResult(r){
+    var statusLabel=r.status==='live'?'Live':(r.status==='potential'?'Candidate':'Not Active');
+    var el=document.createElement('a');el.className='yat-gs-result';el.setAttribute('data-status',r.status);el.setAttribute('href',r.dest);el.setAttribute('role','option');el.setAttribute('tabindex','0');
+    var topDiv=document.createElement('div');topDiv.className='yat-gs-result-top';
+    var crestImg=document.createElement('img');crestImg.className='yat-gs-result-crest';crestImg.alt='';crestImg.loading='lazy';crestImg.src=r.crestUrl;crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
+    var infoDiv=document.createElement('div');infoDiv.className='yat-gs-result-info';
+    var nameDiv=document.createElement('div');nameDiv.className='yat-gs-result-name';nameDiv.textContent=r.schoolName;
+    var locDiv=document.createElement('div');locDiv.className='yat-gs-result-loc';locDiv.textContent=r.location;
+    infoDiv.appendChild(nameDiv);if(r.location)infoDiv.appendChild(locDiv);
+    var badge=document.createElement('span');badge.className='yat-gs-status yat-gs-status-'+r.status;badge.textContent=statusLabel;
+    topDiv.appendChild(crestImg);topDiv.appendChild(infoDiv);topDiv.appendChild(badge);el.appendChild(topDiv);
+    var hasStats=r.activeAlumni!=null||r.mlb!=null||r.natRank!=null||r.stateRank!=null||r.atnla!=null||r.draftedRatio!=null;
+    if(hasStats){var statsDiv=document.createElement('div');statsDiv.className='yat-gs-stats';if(r.activeAlumni!=null)statsDiv.appendChild(makeChip(r.activeAlumni,'Active',true));if(r.mlb!=null)statsDiv.appendChild(makeChip(r.mlb,'MLB',false));if(r.natRank!=null)statsDiv.appendChild(makeChip('#'+r.natRank,"Nat'l",false));if(r.stateRank!=null)statsDiv.appendChild(makeChip('#'+r.stateRank,'State',false));if(r.atnla!=null)statsDiv.appendChild(makeChip(r.atnla,'All-Time',false));if(r.draftedRatio)statsDiv.appendChild(makeChip(r.draftedRatio,'Drafted',false));el.appendChild(statsDiv);}
+    return el;
+  }
+  function runSchoolSearch(q){
+    if(!gsResults)return;
+    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
+    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=50').then(function(r){return r.json();}).then(function(d){
+      var items=(d.programs||[]).map(normalizeSchoolResult);
+      gsResults.innerHTML='';
+      if(!items.length){gsResults.innerHTML='<div class="yat-gs-msg">No schools found matching \u201c'+escHtml(q)+'\u201d</div>';return;}
+      var groups={};var order=[];
+      items.forEach(function(r){var key=r.region||'Unknown Region';if(!groups[key]){groups[key]=[];order.push(key);}groups[key].push(r);});
+      var frag=document.createDocumentFragment();
+      order.forEach(function(region){var hdr=document.createElement('div');hdr.className='yat-gs-region';hdr.textContent=region;frag.appendChild(hdr);groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});});
+      gsResults.appendChild(frag);
+    }).catch(function(){gsResults.innerHTML='<div class="yat-gs-msg">Search unavailable. Please try again.</div>';});
+  }
+  if(gsInput&&gsResults){
+    gsInput.addEventListener('input',function(){var q=this.value.trim();clearTimeout(gsTimer);if(q.length<2){gsResults.innerHTML='';return;}gsTimer=setTimeout(function(){runSchoolSearch(q);},220);});
+    gsInput.addEventListener('keydown',function(e){if(e.key==='Enter'){var q=gsInput.value.trim();if(q.length>=2){clearTimeout(gsTimer);runSchoolSearch(q);}}});
+  }
   /* Favorites */
   var playerId='${safePlayerId}';
   var playerName='${displayName.replace(/'/g, "\\'")}';
@@ -946,29 +1006,18 @@ export default async function PlayerProfilePage({
   function openFavModal(){if(favMask){favMask.style.display='flex';}}
   function closeFavModal(){if(favMask){favMask.style.display='none';}}
   var btnFanFav=document.getElementById('btnFanFav');
-  var btnSuperFav=document.getElementById('btnSuperFav');
   function setFavState(btn,active){if(!btn)return;if(active){btn.classList.add('active');}else{btn.classList.remove('active');}}
   function addFavorite(type){
     var user=null;
     try{user=JSON.parse(localStorage.getItem('yat-user')||'null');}catch(e){console.warn('Invalid stored user',e);localStorage.removeItem('yat-user');}
     if(!user||!user.contactId){openFavModal();return;}
     if(type==='superfan'&&!user.isSuperFan){openFavModal();return;}
-    fetch('/api/favorites',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contactId:user.contactId,playerId:playerId,playerName:playerName,type:type})
-    }).then(function(r){return r.json();}).then(function(data){
-      if(data&&data.success){
-        if(type==='superfan')setFavState(btnSuperFav,true);
-        if(type==='fan')setFavState(btnFanFav,true);
-        alert(playerName+' added to your '+(type==='superfan'?'SuperFan Dashboard':'Fan Favorites')+'.');
-      }else{
-        alert('Error: '+(data&&data.error?data.error:'Could not add favorite'));
-      }
+    fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contactId:user.contactId,playerId:playerId,playerName:playerName,type:type})}).then(function(r){return r.json();}).then(function(data){
+      if(data&&data.success){if(type==='fan')setFavState(btnFanFav,true);alert(playerName+' added to your Fan Favorites.');}
+      else{alert('Error: '+(data&&data.error?data.error:'Could not add favorite'));}
     }).catch(function(){alert('Network error. Please try again.');});
   }
   if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
-  if(btnSuperFav)btnSuperFav.addEventListener('click',function(){addFavorite('superfan');});
   var favClose=document.getElementById('favModalClose');
   var favContinue=document.getElementById('favContinue');
   var favRegister=document.getElementById('favRegister');
@@ -978,6 +1027,31 @@ export default async function PlayerProfilePage({
   if(favContinue)favContinue.addEventListener('click',closeFavModal);
   if(favRegister)favRegister.addEventListener('click',function(){window.location.href='/api/auth/register';});
   if(favUpgrade)favUpgrade.addEventListener('click',function(){window.location.href='/api/auth/register?plan=superfan';});
+  /* Crest ↔ THEN headshot swap via IntersectionObserver */
+  (function(){
+    var heroMeta=document.getElementById('playerHeroMeta');
+    var stickyImg=document.getElementById('stickyIdentityImg');
+    if(!heroMeta||!stickyImg)return;
+    var crestSrc=stickyImg.getAttribute('data-crest')||stickyImg.src;
+    var headshotSrc=stickyImg.getAttribute('data-headshot')||'';
+    /* Fallback: if crest fails to load, show generic placeholder */
+    stickyImg.onerror=function(){this.onerror=null;this.src=CREST_FALLBACK;crestSrc=CREST_FALLBACK;};
+    if(!headshotSrc)return;
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(!entry.isIntersecting){
+          /* Hero scrolled away — show square THEN headshot */
+          stickyImg.src=headshotSrc;
+          stickyImg.classList.add('is-headshot');
+        }else{
+          /* Hero visible — restore school crest */
+          stickyImg.src=crestSrc;
+          stickyImg.classList.remove('is-headshot');
+        }
+      });
+    },{threshold:0,rootMargin:'0px 0px 0px 0px'});
+    observer.observe(heroMeta);
+  }());
 })();
       `}} />
     </>
