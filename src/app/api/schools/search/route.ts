@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     const TABLE = "school_success";
     const sql = `
       SELECT
+        hsid,
         hsname,
         hslocation,
         yatstats_national_rank,
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest) {
     ];
     const { rows } = await query(sql, params);
     const programs = rows.map((r: any) => ({
+      hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,
       hslocation: r.hslocation ?? null,
       yatstats_national_rank: r.yatstats_national_rank ?? null,

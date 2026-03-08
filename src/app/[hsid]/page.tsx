@@ -346,22 +346,45 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
         .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
         .yat-footer a:hover{opacity:.8}
-        .yat-inline-search{display:none;align-items:center;gap:6px;flex:1;min-width:0}
-        body.hero-search-open .yat-inline-search{display:flex}
-        body.hero-search-open .yat-hero-left{display:none}
-        body.hero-search-open .yat-hero-right{flex:1}
-        @media(min-width:540px){body.hero-search-open .yat-hero-left{display:flex;min-width:0;flex-shrink:1;opacity:.5}}
-        .yat-hero-search-input{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:20px;color:var(--fg);font:400 13px Oswald,sans-serif;padding:6px 14px;outline:none;transition:border-color .2s}
-        body.light-theme .yat-hero-search-input{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.15)}
-        .yat-hero-search-input:focus{border-color:rgba(255,255,255,.4)}
-        body.light-theme .yat-hero-search-input:focus{border-color:rgba(0,0,0,.3)}
-        .yat-hero-search-drop{position:absolute;left:0;right:0;top:100%;z-index:55;background:var(--drawer-bg);backdrop-filter:blur(4px);border-bottom:1px solid var(--line);max-height:55vh;overflow-y:auto;display:none}
-        .yat-hero-search-drop.visible{display:block}
-        .yat-hero-result{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
-        .yat-hero-result:hover{background:var(--line)}
-        .yat-hero-result-name{font:400 14px "Bebas Neue",sans-serif;letter-spacing:.04em}
-        .yat-hero-result-sub{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:1px}
-        .yat-hero-result-rank{font:700 11px Oswald,sans-serif;color:var(--muted);white-space:nowrap;margin-left:8px;flex-shrink:0}
+        /* ── Global Search Modal ─────────────────────────────────────────── */
+        .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
+        .yat-gs-modal.open{display:flex}
+        .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
+        .yat-gs-panel{position:relative;width:100%;max-width:560px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:80vh}
+        body.light-theme .yat-gs-panel{background:#fff;border-color:rgba(0,0,0,.12)}
+        .yat-gs-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 0}
+        .yat-gs-title{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase}
+        .yat-gs-sub{font:300 12px Oswald,sans-serif;color:var(--muted);margin-top:3px;letter-spacing:.04em}
+        .yat-gs-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+        .yat-gs-input-wrap{position:relative;display:flex;align-items:center}
+        .yat-gs-input-wrap .ri-search-line{position:absolute;left:14px;font-size:16px;color:var(--muted);pointer-events:none}
+        .yat-gs-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:var(--fg);font:400 14px Oswald,sans-serif;padding:10px 14px 10px 40px;outline:none;transition:border-color .2s}
+        body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
+        .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
+        body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
+        .yat-gs-results{overflow-y:auto;max-height:calc(80vh - 180px);display:flex;flex-direction:column;gap:4px}
+        /* School result card */
+        .yat-gs-result{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.04);transition:background .15s,border-color .15s}
+        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);outline:none}
+        body.light-theme .yat-gs-result{background:rgba(0,0,0,.04)}
+        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.08);border-color:rgba(0,0,0,.12)}
+        .yat-gs-result[data-status="inactive"]{opacity:.6}
+        .yat-gs-result-crest{width:36px;height:36px;border-radius:6px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0}
+        .yat-gs-result-body{flex:1;min-width:0}
+        .yat-gs-result-name{font:700 15px "Bebas Neue",sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .yat-gs-result-loc{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:1px}
+        .yat-gs-result-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px}
+        .yat-gs-result-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+        .yat-gs-status{font:700 9px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:6px;white-space:nowrap;display:inline-block}
+        .yat-gs-status-live{background:rgba(0,230,118,.15);border:1px solid #00e676;color:#00e676}
+        .yat-gs-status-potential{background:rgba(255,193,7,.12);border:1px solid #ffc107;color:#ffc107}
+        .yat-gs-status-inactive{background:rgba(158,158,158,.1);border:1px solid rgba(158,158,158,.35);color:#9e9e9e}
+        .yat-gs-rank{font:700 10px Oswald,sans-serif;color:var(--muted);white-space:nowrap}
+        .yat-gs-aa{font:300 10px Oswald,sans-serif;color:var(--muted);white-space:nowrap}
+        /* State messages */
+        .yat-gs-msg{padding:24px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
+        /* "Player search coming soon" footer note */
+        .yat-gs-coming{font:300 10px/1 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center;padding:6px 0 2px;border-top:1px solid var(--line);opacity:.7}
       `}</style>
 
       {/* HEADER */}
@@ -390,7 +413,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>
         <div className="yat-hr" />
         <div className="yat-schoolrow">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
@@ -421,16 +443,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
 
             <div className="yat-hero-right">
-              <div id="heroSearchWrap" className="yat-inline-search">
-                <input id="heroSearchInput" type="search" className="yat-hero-search-input" placeholder="Search players &amp; schools…" autoComplete="off" />
-                <button id="heroSearchClose" className="yat-icon-btn" aria-label="Close search"><i className="ri-close-line" /></button>
-              </div>
-              <button id="openSearch" className="yat-icon-btn" aria-label="Open search"><i className="ri-search-line" /></button>
+              <button id="openSearch" className="yat-icon-btn" aria-label="Open global search"><i className="ri-search-line" /></button>
               <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
               <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters"><i className="ri-restart-line" /></button>
             </div>
           </div>
-          <div id="heroSearchDrop" className="yat-hero-search-drop" />
         </div>
       </header>
 
@@ -498,6 +515,46 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <h3>ACCOUNT</h3>
         <AccountDrawer subdomain={subdomain} />
       </aside>
+
+      {/* ── GLOBAL SEARCH MODAL ─────────────────────────────────────────────
+          Phase 1: School search only.
+          To add Player Search later: add a tab row here (All / Schools / Players)
+          and add a runPlayerSearch() function that fetches from a player search API.
+          The normalized result shape should include: type, name, school, position,
+          level, status, profileUrl — then render via a separate renderPlayerResult().
+      ─────────────────────────────────────────────────────────────────────── */}
+      <div id="gsModal" className="yat-gs-modal" role="dialog" aria-modal="true" aria-labelledby="gsTitle">
+        <div className="yat-gs-overlay" id="gsOverlay" />
+        <div className="yat-gs-panel">
+          <div className="yat-gs-header">
+            <div>
+              <div className="yat-gs-title" id="gsTitle">Global Search</div>
+              <div className="yat-gs-sub">Search schools across the YAT?STATS network</div>
+            </div>
+            <button id="gsClose" className="yat-icon-btn" aria-label="Close search" style={{flexShrink:0,marginLeft:"12px"}}>
+              <i className="ri-close-line" />
+            </button>
+          </div>
+          <div className="yat-gs-body">
+            <div className="yat-gs-input-wrap">
+              <i className="ri-search-line" aria-hidden="true" />
+              <input
+                id="gsInput"
+                type="search"
+                className="yat-gs-input"
+                placeholder="Search schools"
+                autoComplete="off"
+                aria-label="Search schools"
+                aria-controls="gsResults"
+                aria-autocomplete="list"
+              />
+            </div>
+            <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
+            {/* Player search will appear here in a future phase */}
+            <div className="yat-gs-coming">Player search coming soon</div>
+          </div>
+        </div>
+      </div>
 
       {/* MAIN */}
       <main id="main-content">
@@ -917,70 +974,158 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
   /* ====================================================================
-     INLINE HERO SEARCH
-     HERO_SEARCH_SCOPE controls where the search is performed:
-       'global'    – searches all schools across the YAT?STATS platform
-                     via /api/schools/search (API, fast, minimal friction)
-       'subdomain' – searches only this school's current roster via DOM
-
-     BETA (current): HERO_SEARCH_SCOPE = 'global' for every visitor.
-     FUTURE: swap the line below for an entitlement check, e.g.:
-       var HERO_SEARCH_SCOPE = userIsSuperFan() ? 'global' : 'subdomain';
+     GLOBAL SEARCH MODAL
+     Phase 1: School search only via /api/schools/search.
+     To add Player Search later:
+       1. Add a tab row inside #gsModal (All / Schools / Players).
+       2. Add runPlayerSearch(q) that fetches /api/players/search.
+       3. Each player result should be normalized to:
+          { type:'player', name, school, position, level, status, profileUrl }
+       4. Render via a separate renderPlayerResult(p) helper below.
      ==================================================================== */
-  var HERO_SEARCH_SCOPE='global';
-  var openSearch=document.getElementById('openSearch');
-  var heroSearchInput=document.getElementById('heroSearchInput');
-  var heroSearchClose=document.getElementById('heroSearchClose');
-  var heroSearchDrop=document.getElementById('heroSearchDrop');
-  function openHeroSearch(){document.body.classList.add('hero-search-open');if(heroSearchInput)setTimeout(function(){heroSearchInput.focus();},50);}
-  function closeHeroSearch(){document.body.classList.remove('hero-search-open');if(heroSearchInput)heroSearchInput.value='';if(heroSearchDrop){heroSearchDrop.innerHTML='';heroSearchDrop.classList.remove('visible');}}
-  if(openSearch)openSearch.addEventListener('click',function(){openHeroSearch();});
-  if(heroSearchClose)heroSearchClose.addEventListener('click',function(){closeHeroSearch();});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('hero-search-open'))closeHeroSearch();});
-  document.addEventListener('click',function(e){
-    if(!document.body.classList.contains('hero-search-open'))return;
-    var t=e.target;
-    if(!t.closest('#heroSearchWrap')&&!t.closest('#heroSearchDrop')&&!t.closest('#openSearch'))closeHeroSearch();
-  });
-  function runSubdomainSearch(q){
-    var ql=q.toLowerCase();var html='';var seen={};
-    document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-      var name=card.getAttribute('data-name')||'';var pid=card.getAttribute('data-playerid')||'';var slug=card.getAttribute('data-slug')||'';
-      if(name.includes(ql)&&pid&&!seen[pid]){
-        seen[pid]=true;var nameEl=card.querySelector('.yat-name');var dn;
-        if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
-        html+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-hero-result"><div class="yat-hero-result-name">'+dn+'</div></a>';
-      }
-    });
-    if(!html)html='<div style="padding:12px 16px;opacity:.5;font-size:12px">No players found</div>';
-    heroSearchDrop.innerHTML=html;heroSearchDrop.classList.add('visible');
+  var gsModal=document.getElementById('gsModal');
+  var gsOverlay=document.getElementById('gsOverlay');
+  var gsClose=document.getElementById('gsClose');
+  var gsInput=document.getElementById('gsInput');
+  var gsResults=document.getElementById('gsResults');
+  var gsTimer=null;
+  var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
+  var CREST_PLACEHOLDER=S3_BASE+'/yatstats/yscrest.png';
+
+  function openGsModal(){
+    if(!gsModal)return;
+    gsModal.classList.add('open');
+    document.body.classList.add('drawer-open');
+    if(gsInput)setTimeout(function(){gsInput.focus();},60);
   }
-  function runGlobalSearch(q){
-    heroSearchDrop.innerHTML='<div style="padding:12px 16px;opacity:.5;font-size:12px">Searching\u2026</div>';
-    heroSearchDrop.classList.add('visible');
-    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=10')
+  function closeGsModal(){
+    if(!gsModal)return;
+    gsModal.classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    if(gsInput)gsInput.value='';
+    if(gsResults)gsResults.innerHTML='';
+  }
+
+  var openSearch=document.getElementById('openSearch');
+  if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
+  if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
+  if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
+  document.addEventListener('keydown',function(e){
+    if(!gsModal||!gsModal.classList.contains('open'))return;
+    if(e.key==='Escape'){closeGsModal();}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      var items=Array.from(gsResults.querySelectorAll('.yat-gs-result'));
+      if(!items.length)return;
+      var cur=document.activeElement;
+      var idx=items.indexOf(cur);
+      if(e.key==='ArrowDown'){idx=idx<items.length-1?idx+1:0;}
+      else{idx=idx>0?idx-1:items.length-1;}
+      items[idx].focus();
+    }
+  });
+
+  /* Normalize a raw API program record into a typed result object */
+  function normalizeSchoolResult(p){
+    var hasUrl=p.microsite_url&&p.microsite_url.length>0;
+    var hasAlumni=p.current_aa&&p.current_aa>0;
+    /* Status: live → potential → inactive */
+    var status=hasUrl?'live':(hasAlumni?'potential':'inactive');
+    /* Build destination URL */
+    var dest;
+    if(status==='live'){
+      dest=p.microsite_url;
+    } else {
+      var sp=new URLSearchParams();
+      if(p.hsname)sp.set('school',p.hsname);
+      var loc=p.hslocation||'';
+      var parts=loc.split(',');
+      if(parts[0])sp.set('city',parts[0].trim());
+      if(parts[1])sp.set('state',parts[1].trim());
+      sp.set('reason',status);
+      dest='/school-not-live?'+sp.toString();
+    }
+    /* Crest URL from hsid if available */
+    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_PLACEHOLDER;
+    return {
+      type:'school',
+      schoolName:p.hsname||'',
+      location:p.hslocation||'',
+      crestUrl:crestUrl,
+      activeAlumniCount:p.current_aa||0,
+      rank:p.yatstats_national_rank||null,
+      status:status,
+      dest:dest
+    };
+  }
+
+  /* Render a single normalized school result element */
+  function renderSchoolResult(r){
+    var statusLabel=r.status==='live'?'LIVE':(r.status==='potential'?'NOT LIVE YET':'NOT ACTIVE');
+    var statusCls='yat-gs-status yat-gs-status-'+r.status;
+    var rankHtml=r.rank?'<span class="yat-gs-rank">#'+r.rank+' National</span>':'';
+    var aaHtml=r.activeAlumniCount?'<span class="yat-gs-aa">'+r.activeAlumniCount+' Active Alumni</span>':'';
+    var el=document.createElement('a');
+    el.className='yat-gs-result';
+    el.setAttribute('data-status',r.status);
+    el.setAttribute('href',r.dest);
+    el.setAttribute('role','option');
+    el.setAttribute('tabindex','0');
+    /* Build crest img element programmatically to avoid inline onerror */
+    var crestImg=document.createElement('img');
+    crestImg.className='yat-gs-result-crest';
+    crestImg.alt='';
+    crestImg.loading='lazy';
+    crestImg.src=r.crestUrl;
+    crestImg.onerror=function(){crestImg.src=CREST_PLACEHOLDER;};
+    var bodyDiv=document.createElement('div');
+    bodyDiv.className='yat-gs-result-body';
+    bodyDiv.innerHTML=
+      '<div class="yat-gs-result-name">'+escHtml(r.schoolName)+'</div>'+
+      (r.location?'<div class="yat-gs-result-loc">'+escHtml(r.location)+'</div>':'')+
+      ((rankHtml||aaHtml)?'<div class="yat-gs-result-meta">'+rankHtml+aaHtml+'</div>':'');
+    var rightDiv=document.createElement('div');
+    rightDiv.className='yat-gs-result-right';
+    rightDiv.innerHTML='<span class="'+statusCls+'">'+statusLabel+'</span>';
+    el.appendChild(crestImg);
+    el.appendChild(bodyDiv);
+    el.appendChild(rightDiv);
+    return el;
+  }
+
+  function runSchoolSearch(q){
+    if(!gsResults)return;
+    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
+    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=12')
       .then(function(r){return r.json();})
       .then(function(d){
-        var items=d.programs||[];var html='';
-        items.forEach(function(p){
-          var url=escHtml(p.microsite_url||'#');var name=escHtml(p.hsname||'');
-          var loc=escHtml(p.hslocation||'');var rank=p.yatstats_national_rank?'#'+p.yatstats_national_rank:'';
-          html+='<a href="'+url+'" class="yat-hero-result"><div><div class="yat-hero-result-name">'+name+'</div>'+(loc?'<div class="yat-hero-result-sub">'+loc+'</div>':'')+'</div>'+(rank?'<div class="yat-hero-result-rank">'+rank+'</div>':'')+'</a>';
-        });
-        if(!html)html='<div style="padding:12px 16px;opacity:.5;font-size:12px">No schools found</div>';
-        heroSearchDrop.innerHTML=html;
+        var items=(d.programs||[]).map(normalizeSchoolResult);
+        gsResults.innerHTML='';
+        if(!items.length){
+          gsResults.innerHTML='<div class="yat-gs-msg">No schools found matching &ldquo;'+escHtml(q)+'&rdquo;</div>';
+          return;
+        }
+        var frag=document.createDocumentFragment();
+        items.forEach(function(r){frag.appendChild(renderSchoolResult(r));});
+        gsResults.appendChild(frag);
       })
-      .catch(function(){heroSearchDrop.innerHTML='<div style="padding:12px 16px;opacity:.5;font-size:12px">Search unavailable</div>';});
+      .catch(function(){
+        gsResults.innerHTML='<div class="yat-gs-msg">Search unavailable. Please try again.</div>';
+      });
   }
-  var heroTimer=null;
-  if(heroSearchInput&&heroSearchDrop){
-    heroSearchInput.addEventListener('input',function(){
-      var q=this.value.trim();clearTimeout(heroTimer);
-      if(q.length<2){heroSearchDrop.innerHTML='';heroSearchDrop.classList.remove('visible');return;}
-      heroTimer=setTimeout(function(){HERO_SEARCH_SCOPE==='global'?runGlobalSearch(q):runSubdomainSearch(q);},220);
+
+  if(gsInput&&gsResults){
+    gsInput.addEventListener('input',function(){
+      var q=this.value.trim();
+      clearTimeout(gsTimer);
+      if(q.length<2){gsResults.innerHTML='';return;}
+      gsTimer=setTimeout(function(){runSchoolSearch(q);},220);
     });
-    heroSearchInput.addEventListener('keydown',function(e){
-      if(e.key==='Enter'){var q=heroSearchInput.value.trim();if(q.length>=2){clearTimeout(heroTimer);HERO_SEARCH_SCOPE==='global'?runGlobalSearch(q):runSubdomainSearch(q);}}
+    gsInput.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){
+        var q=gsInput.value.trim();
+        if(q.length>=2){clearTimeout(gsTimer);runSchoolSearch(q);}
+      }
     });
   }
   var searchInput=document.getElementById('playerSearch');
