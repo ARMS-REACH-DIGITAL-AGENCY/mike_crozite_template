@@ -42,6 +42,12 @@ export function middleware(request: NextRequest) {
     hasNumericPrefix;
   if (alreadyPrefixed) return NextResponse.next();
 
+  // Don't rewrite requests for static assets — these must be served directly.
+  // This prevents /img/player-silhouette.png from being rewritten to
+  // /hamilton/img/player-silhouette.png (which doesn't exist) on custom domains.
+  const staticAssetExt = /\.(png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|otf|css|js|json|txt|xml|webmanifest)$/i;
+  if (staticAssetExt.test(path)) return NextResponse.next();
+
   // Rewrite: SUBDOMAIN.yatstats.com/anything -> /SUBDOMAIN/anything
   url.pathname = `/${subdomain}${path}`;
   return NextResponse.rewrite(url);
