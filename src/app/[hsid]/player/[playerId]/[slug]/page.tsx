@@ -82,6 +82,15 @@ function fmtAvg(v: any): string {
   return n.toFixed(3).replace(/^0/, "");
 }
 
+// ---------------------------------------------------------------------------
+// Sponsor banner resolver — returns a per-player banner or null for the default.
+// Future: replace this with a DB lookup keyed by playerId.
+// ---------------------------------------------------------------------------
+type SponsorBanner = { name: string; url: string; label?: string };
+function resolveSponsorBanner(_playerId: string): SponsorBanner | null {
+  return null;
+}
+
 type BattingSeason = {
   year: string | number;
   team_name?: string;
@@ -218,6 +227,19 @@ export default async function PlayerProfilePage({
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.jpg`;
 
+  // Player context line: TEAM · LEVEL from most recent season
+  const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
+    .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
+  const ctxTeam = mostRecentSeason?.team_name || "";
+  const ctxLevel = mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "";
+  const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
+
+  // Sponsor banner — null = default site sponsor.
+  // Future: query a sponsor_banners table by playerId to allow per-player sponsor overrides.
+  // Using `let` so TypeScript doesn't narrow to `never` in the JSX truthy branch.
+  // eslint-disable-next-line prefer-const
+  const sponsorBanner = resolveSponsorBanner(safePlayerId);
+
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
   const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || resolvedHsid;
@@ -291,11 +313,11 @@ export default async function PlayerProfilePage({
   return (
     <>
       <style>{`
-        :root{--bg:#0d0d0d;--fg:#f5f5f5;--muted:#999;--line:rgba(255,255,255,.08);--header-bg:rgba(13,13,13,.97);--crestH:60px;--logo-filter:invert(1);--card-bg:#1a1a1a}
+        :root{--bg:#0d0d0d;--fg:#f5f5f5;--muted:#999;--line:rgba(255,255,255,.08);--header-bg:rgba(13,13,13,.97);--crestH:60px;--logo-filter:invert(1);--card-bg:#1a1a1a;--footerH:clamp(56px,8vh,77px)}
         body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--line:rgba(0,0,0,.1);--header-bg:rgba(244,244,244,.97);--logo-filter:none;--card-bg:#fff}
         *{margin:0;padding:0;box-sizing:border-box}
         html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .3s,color .3s}
+        body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .3s,color .3s;padding-bottom:var(--footerH)}
         a{color:inherit;text-decoration:none}
         .yat-container{max-width:1100px;margin:0 auto;padding:0 16px}
         /* HEADER */
@@ -395,10 +417,17 @@ export default async function PlayerProfilePage({
         body.light-theme .fav-modal-actions button{background:rgba(0,0,0,.04)}
         .fav-modal-actions button.cta{background:gold;color:#000;border-color:gold}
         .fav-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1}
-        /* FOOTER */
-        .yat-footer{text-align:center;padding:24px 16px;margin-top:40px;border-top:1px solid var(--line)}
-        .yat-footer .sponsor-label{font:300 10px/1 Oswald,sans-serif;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-        .yat-footer .sponsor-name{font:700 15px/1.2 "Bebas Neue",sans-serif;letter-spacing:.04em;margin-top:4px}
+        /* FOOTER — fixed at bottom */
+        .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:20px;padding:0 16px}
+        .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+        .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
+        .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none}
+        .yat-footer a:hover{opacity:.8}
+        .yat-footer .sponsor-cta-link{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:4px 10px}
+        .yat-footer .sponsor-cta-link:hover{color:gold;border-color:rgba(255,209,102,.5)}
+        /* PLAYER CONTEXT LINE */
+        .player-context-line{font:300 11px/1.3 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+        .player-context-line .ctx-team{color:var(--fg);font-weight:500}
         /* DRAWERS */
         .yat-drawer{position:fixed;top:0;width:290px;height:100vh;background:var(--header-bg);z-index:100;padding:24px 20px;overflow-y:auto;transition:transform .3s cubic-bezier(.4,0,.2,1);border-right:1px solid var(--line)}
         .yat-drawer-left{left:0;transform:translateX(-100%)}
@@ -520,6 +549,8 @@ export default async function PlayerProfilePage({
           .player-meta-inner{flex-direction:row;align-items:flex-start;gap:14px}
           /* Hide large player name on mobile — already shown in sticky header */
           .player-bio-name{display:none}
+          /* Keep context line visible but compact */
+          .player-context-line{font-size:10px;letter-spacing:.05em}
           .player-meta-bio{gap:6px}
           .player-bio-badges{gap:4px}
           .chip{padding:3px 7px;font-size:9px}
@@ -626,11 +657,12 @@ export default async function PlayerProfilePage({
         <div className="player-meta-inner">
           {/* Left: Bio/meta block */}
           <div className="player-meta-bio">
-            <a href={`/${resolvedHsid}`} className="player-bio-school">
-              <i className="ri-arrow-left-s-line" />
-              {playerSchool ? String(playerSchool.hsname || schoolName) : schoolName}
-            </a>
             <div className="player-bio-name">{displayName}</div>
+            {playerContext && (
+              <div className="player-context-line">
+                <span className="ctx-team">{ctxTeam}</span>{ctxTeam && ctxLevel ? " · " : ""}{ctxLevel}
+              </div>
+            )}
             <div className="player-bio-badges">
               <span className={`chip chip-level chip-${level.toLowerCase().replace(/[^a-z0-9]/g,'-')}`}>{level}</span>
               <span className="chip chip-status">{statusLabel}</span>
@@ -643,7 +675,6 @@ export default async function PlayerProfilePage({
               {wt !== "--" && <div className="player-bio-row"><span className="player-bio-key">Weight</span><span className="player-bio-val">{wt} lbs</span></div>}
               {draftInfo !== "N/A" && <div className="player-bio-row"><span className="player-bio-key">Draft</span><span className="player-bio-val">{draftInfo}</span></div>}
               {college !== "N/A" && <div className="player-bio-row"><span className="player-bio-key">College</span><span className="player-bio-val">{college}</span></div>}
-              <div className="player-bio-row"><span className="player-bio-key">Career High</span><span className="player-bio-val">{level}</span></div>
               <div className="player-bio-row"><span className="player-bio-key">Status</span><span className="player-bio-val">{statusLabel}</span></div>
             </div>
           </div>
@@ -909,11 +940,21 @@ export default async function PlayerProfilePage({
         </div>
       </div>
 
-      {/* FOOTER */}
-      <footer className="yat-footer">
-        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-          <div className="sponsor-label">PRESENTED BY</div>
-          <div className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</div>
+      {/* FOOTER — fixed sticky bar matching school page */}
+      <footer className="yat-footer" data-player-id={safePlayerId}>
+        {sponsorBanner ? (
+          <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer">
+            <span className="sponsor-text">{sponsorBanner.label || "PRESENTED BY"}</span>
+            <span className="sponsor-name">{sponsorBanner.name}</span>
+          </a>
+        ) : (
+          <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
+            <span className="sponsor-text">Presented by</span>
+            <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
+          </a>
+        )}
+        <a href="mailto:sponsor@yatstats.com" className="sponsor-cta-link">
+          Sponsor This Page
         </a>
       </footer>
 
@@ -1072,6 +1113,17 @@ export default async function PlayerProfilePage({
     }).catch(function(){alert('Network error. Please try again.');});
   }
   if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
+  /* Rotate FAV button CTA text every 3s */
+  (function(){
+    var ctaVariants=[['ri-star-line','ADD FAN FAVORITE'],['ri-vip-crown-line','UPGRADE TO SUPERFAN']];
+    var idx=0;
+    var timer=setInterval(function(){
+      if(!document.contains(btnFanFav)){clearInterval(timer);return;}
+      if(!btnFanFav||btnFanFav.classList.contains('active'))return;
+      idx=(idx+1)%ctaVariants.length;
+      btnFanFav.innerHTML='<i class="'+ctaVariants[idx][0]+'"></i> '+ctaVariants[idx][1];
+    },3000);
+  }());
   var favClose=document.getElementById('favModalClose');
   var favContinue=document.getElementById('favContinue');
   var favRegister=document.getElementById('favRegister');
