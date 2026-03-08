@@ -86,9 +86,11 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const school = host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid);
-  const name = (school as Record<string,unknown>)?.hsname as string || "Your School";
-  const loc = (school as Record<string,unknown>)?.hslocation as string || "";
+  const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
+  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
+  const resolvedSchool = hostSchool || await getSchoolByHsid(hsid);
+  const name = (resolvedSchool as Record<string,unknown>)?.hsname as string || "Your School";
+  const loc = (resolvedSchool as Record<string,unknown>)?.hslocation as string || "";
   return {
     title: `WHERE THEY YAT? – ${name.toUpperCase()} | YAT?STATS`,
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -99,7 +101,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const school = (host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid)) as Record<string,unknown> | null;
+  let school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string,unknown> | null;
+  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
+  if (!school) school = await getSchoolByHsid(hsid) as Record<string,unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school.hsid ?? hsid);
