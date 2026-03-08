@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g fill="#5a4632">
+    <!-- Head -->
+    <circle cx="258" cy="80" r="34"/>
+    <!-- Baseball cap dome -->
+    <ellipse cx="258" cy="62" rx="38" ry="22"/>
+    <!-- Cap bill (pointing right — toward home plate) -->
+    <path d="M294,74 L296,91 L330,98 L332,81 Z"/>
+    <!-- Neck -->
+    <rect x="244" y="112" width="26" height="32" rx="4"/>
+    <!-- Torso (slight forward lean in delivery) -->
+    <path d="M198,144 C185,153 180,175 184,210 L186,286 C188,305 204,317 230,318 L292,318 C319,317 333,303 335,284 L337,210 C340,172 331,149 317,144 Z"/>
+    <!-- Pitching arm (right — cocked up and back) -->
+    <path d="M316,149 C331,143 356,153 369,176 L387,215 C393,234 384,254 367,257 L346,259 C329,259 318,246 314,227 L301,188 C296,163 301,154 316,149 Z"/>
+    <!-- Glove arm (left — extended forward toward batter) -->
+    <path d="M200,149 C185,150 167,165 161,187 L153,217 C149,237 160,254 177,254 L198,254 C216,254 224,240 226,222 L228,193 C230,167 217,148 200,149 Z"/>
+    <!-- Lead leg raised (left — high kick, thigh horizontal) -->
+    <!-- Thigh extending forward-left from hip -->
+    <path d="M220,315 C216,316 204,321 188,332 C171,344 152,349 132,342 L106,328 C91,318 90,301 104,292 C116,285 133,288 146,301 L178,317 Z"/>
+    <!-- Lower left leg hanging from bent knee -->
+    <path d="M108,326 C99,342 97,362 100,384 L107,418 C111,435 125,444 140,442 L163,437 C177,432 181,419 176,403 L165,371 C158,348 140,326 120,325 Z"/>
+    <!-- Left cleat (raised, slight rotation) -->
+    <ellipse cx="138" cy="441" rx="30" ry="12" transform="rotate(12,138,441)"/>
+    <!-- Pivot leg (right — planted on mound) -->
+    <path d="M297,316 C308,340 317,371 320,400 L322,443 C323,464 315,478 300,480 L281,482 C264,482 255,468 253,450 L251,416 C250,386 258,355 267,330 L272,316 Z"/>
+    <!-- Right cleat -->
+    <ellipse cx="287" cy="479" rx="36" ry="13"/>
+  </g>
+</svg>
