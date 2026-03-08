@@ -429,6 +429,9 @@ export default async function PlayerProfilePage({
     return `level-${(lv || "").toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
   }
 
+  // Caption shown under THEN image
+  const thenCaption = gradClass !== "--" ? `CLASS OF ${gradClass}` : (latestYear > 0 ? String(latestYear) : "THEN");
+
   return (
     <>
       <style>{`
@@ -455,10 +458,16 @@ export default async function PlayerProfilePage({
         .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1100px;margin:0 auto}
         .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
         .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
-        .yat-schooltext{line-height:1}
+        .yat-schooltext{line-height:1;min-width:0;flex:1}
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+        /* Player context lines in sticky header */
+        .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .yat-player-ctx.dim{color:var(--muted)}
+        @media(max-width:640px){.yat-player-ctx{font-size:9px;letter-spacing:.04em}}
+        /* Image captions below NOW/THEN */
+        .player-img-caption{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-align:center;text-transform:uppercase;color:var(--muted);margin-top:4px;padding:2px 0}
         /* HERO ACTION ROW */
         .yat-hero{padding:2px 0}
         .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
@@ -746,7 +755,7 @@ export default async function PlayerProfilePage({
 
         <div className="yat-hr" />
 
-        {/* Unified school identity block: crest + city/state + school + player name */}
+        {/* Unified school identity block: crest + city/state + school + player name + team context */}
         <div className="yat-schoolrow">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -760,20 +769,38 @@ export default async function PlayerProfilePage({
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
-            <div className="big2">{displayName}</div>
+            <div className="big2" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
+              <span>{displayName}</span>
+              <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite" style={{flexShrink:0}}>
+                <i className="ri-star-line" /> ADD FAVORITE
+              </button>
+            </div>
+            {/* Team context line — compact, below player name */}
+            {(ctxTeam || ctxSecondary || ctxLevel) && (
+              <div className="yat-player-ctx">
+                {[ctxTeam, ctxSecondary, ctxLevel].filter(Boolean).join(' | ')}
+              </div>
+            )}
+            {/* Physical / position line */}
+            {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
+              <div className="yat-player-ctx dim">
+                {[
+                  pos !== "--" ? pos : null,
+                  bt !== "-/-" ? `B/T - ${bt}` : null,
+                  ht !== "--" ? ht : null,
+                  wt !== "--" ? `${wt} LBS` : null,
+                ].filter(Boolean).join(' | ')}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="yat-hr" />
 
-        {/* Action row: ADD FAN FAVORITE (left) + search/filter/reset (right) */}
+        {/* Action row: search/filter only — ADD FAVORITE moved to player name row */}
         <div className="yat-hero">
           <div className="yat-container yat-hero-grid">
-            <div className="yat-hero-left">
-              <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Fan Favorite">
-                <i className="ri-star-line" /> ADD FAN FAVORITE
-              </button>
-            </div>
+            <div className="yat-hero-left" />
             <GlobalSearchModal />
           </div>
         </div>
@@ -806,34 +833,14 @@ export default async function PlayerProfilePage({
       {/* PLAYER HERO / META — scrollable, not sticky */}
       <section id="playerHeroMeta" className="player-hero-meta">
         <div className="player-meta-inner">
-          {/* Col 1: Compact identity block */}
+          {/* Col 1: supplemental history — prior colleges + draft only (core identity moved to sticky header) */}
           <div className="player-meta-bio">
             <div className="player-id-block">
-              {/* Line 1: TEAM | ORG | LEVEL (pro) or TEAM | CONFERENCE | LEVEL (college) */}
-              {(ctxTeam || ctxSecondary || ctxLevel) && (
-                <div className="player-id-line">
-                  {ctxTeam && <strong>{ctxTeam}</strong>}
-                  {ctxTeam && ctxSecondary && <span className="sep">|</span>}
-                  {ctxSecondary && <span>{ctxSecondary}</span>}
-                  {(ctxTeam || ctxSecondary) && ctxLevel && <span className="sep">|</span>}
-                  {ctxLevel && <span>{ctxLevel}</span>}
-                </div>
-              )}
-              {/* Line 2: Position / B·T - bats/throws / Ht / Wt */}
-              {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
-                <div className="player-id-line dim">
-                  {pos !== "--" && <span>{pos}</span>}
-                  {pos !== "--" && bt !== "-/-" && <span className="sep">|</span>}
-                  {bt !== "-/-" && <span>B/T - {bt}</span>}
-                  {(pos !== "--" || bt !== "-/-") && ht !== "--" && <span className="sep">|</span>}
-                  {ht !== "--" && <span>{ht}{wt !== "--" ? ` | ${wt} LBS` : ""}</span>}
-                </div>
-              )}
-              {/* College history — prior schools not already shown in the context line */}
-              {collegesToShow.map((col, i) => (
+              {/* Prior college history — schools not shown in the sticky header context line */}
+              {collegesToShow.length > 0 && collegesToShow.map((col, i) => (
                 <div key={i} className="player-id-line dim">{col}</div>
               ))}
-              {/* Draft info — theme-safe foreground color */}
+              {/* Draft info — theme-safe */}
               {draftInfo !== "N/A" && (
                 <div className="player-id-line">
                   <span className="player-id-label">DRAFTED</span>
@@ -841,13 +848,15 @@ export default async function PlayerProfilePage({
                   <span className="dim">{draftInfo}</span>
                 </div>
               )}
-              {/* Status */}
-              <div style={{marginTop:'4px'}}>
-                <span className="chip chip-status">{statusLabel}</span>
-              </div>
+              {/* Fallback: show level badge if no other content */}
+              {collegesToShow.length === 0 && draftInfo === "N/A" && (
+                <div style={{marginTop:'4px'}}>
+                  <span className="chip chip-level">{level}</span>
+                </div>
+              )}
             </div>
           </div>
-          {/* Col 2: NOW image */}
+          {/* Col 2: NOW image + status caption */}
           <div className="player-meta-media">
             <SafeImage
               className="player-now-img"
@@ -856,8 +865,9 @@ export default async function PlayerProfilePage({
               fallbackSrc="/img/player-silhouette.png"
               placeholderSrc="/img/player-silhouette.png"
             />
+            <div className="player-img-caption">{statusLabel}</div>
           </div>
-          {/* Col 3: THEN image */}
+          {/* Col 3: THEN image + grad year caption */}
           <div className="player-meta-media">
             <SafeImage
               className="player-then-img"
@@ -866,6 +876,7 @@ export default async function PlayerProfilePage({
               fallbackSrc="/img/player-silhouette.png"
               placeholderSrc="/img/player-silhouette.png"
             />
+            <div className="player-img-caption">{thenCaption}</div>
           </div>
         </div>
       </section>
@@ -1195,12 +1206,11 @@ export default async function PlayerProfilePage({
       <div className="fav-modal-mask" id="favModalMask" role="dialog" aria-modal="true">
         <div className="fav-modal">
           <button className="fav-modal-close" id="favModalClose" aria-label="Close modal">&times;</button>
-          <h3>Pick your experience</h3>
-          <p>FREE users can browse. Register as a FAN to save favorites. Upgrade to SUPERFAN for the full dashboard.</p>
+          <h3>Save this player</h3>
+          <p>Register free to follow favorites from this school, or become a Superfan for access across all schools.</p>
           <div className="fav-modal-actions">
-            <button id="favContinue">Continue Free</button>
-            <button id="favRegister" className="cta">Register as Fan</button>
-            <button id="favUpgrade">Upgrade to SuperFan</button>
+            <button id="favRegister">Register Free</button>
+            <button id="favUpgrade">Become a Superfan</button>
           </div>
         </div>
       </div>
