@@ -431,25 +431,30 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON BATTING STATS — all years for a player
 //
-// Does not join the teams table to avoid integer/text type mismatches when
-// tbc_batting_raw.teamid is an integer column.  The teamid is cast to text
-// so callers always get a value without requiring a teams table.
+// Reads from public.vw_player_batting_seasons which resolves team names and
+// level abbreviations via a join to public.teams.  This means the TEAM column
+// shows the human-readable team_display value and the LVL column shows the
+// per-season team_level (e.g. JUCO, NCAA-D1, Rookie, A, A+, AA, AAA, MLB)
+// instead of a raw numeric teamid or a player-level highlevel field.
+// Falls back to teamid::text when team_display is NULL (unresolved team).
+// Falls back to '--' at render time when team_level is NULL (unknown level).
+// Rows are sorted year ASC, then teamid ASC for stable ordering.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
     SELECT
-      b.year,
-      b.teamid,
-      b.teamid::text AS team_name,
-      b.highlevel AS level,
-      b.g, b.ab, b.r, b.h,
-      b.dbl AS "2b", b.tpl AS "3b",
-      b.hr, b.rbi, b.sb, b.bb, b.so,
-      b.bavg AS avg, b.obp, b.slg, b.ops,
-      b.draft_info
-    FROM tbc_batting_raw b
-    WHERE b.playerid::text = $1
-    ORDER BY b.year ASC
+      v.year,
+      v.teamid,
+      COALESCE(v.team_display, v.teamid::text) AS team_name,
+      v.team_level AS level,
+      v.g, v.ab, v.r, v.h,
+      v.dbl AS "2b", v.tpl AS "3b",
+      v.hr, v.rbi, v.sb, v.bb, v.so,
+      v.bavg AS avg, v.obp, v.slg, v.ops,
+      v.draft_info
+    FROM public.vw_player_batting_seasons v
+    WHERE v.playerid::text = $1
+    ORDER BY v.year ASC, v.teamid ASC
   `;
   const { rows } = await query(sql, [playerId]);
   return rows;
