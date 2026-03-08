@@ -536,6 +536,31 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 }
 
 // ---------------------------------------------------------------------------
+// TEAM CONTEXT — optional organization / conference metadata for a team.
+// Tries to read `organization` and `conference` columns from the teams table.
+// These columns are optional — if they don't exist, returns null gracefully.
+// When present: professional teams expose `organization` (e.g. "ATHLETICS"),
+// college teams expose `conference` (e.g. "PAC-12" / "BIG 12").
+// ---------------------------------------------------------------------------
+export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
+  try {
+    const { rows } = await query(
+      `SELECT
+         COALESCE(organization, mlb_org, org)      AS organization,
+         COALESCE(conference, league, association)  AS conference
+       FROM teams
+       WHERE team_id::text = $1
+       LIMIT 1`,
+      [teamId]
+    );
+    return rows[0] ?? null;
+  } catch {
+    // Columns may not exist yet — degrade gracefully
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // TEAM SCHEDULE — chronological game feed for a given team_id.
 // Reads from the `team_schedule` table which is populated externally.
 // Returns rows ordered by game_date ASC.
