@@ -1425,7 +1425,7 @@ export default async function PlayerProfilePage({
       else{alert('Error: '+(data&&data.error?data.error:'Could not add favorite'));}
     }).catch(function(){alert('Network error. Please try again.');});
   }
-  if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
+  if(btnFanFav)btnFanFav.addEventListener('click',function(){document.body.classList.add('drawer-left-open','drawer-open');document.body.classList.remove('drawer-account-open');addFavorite('fan');});
   /* Rotate FAV button CTA text every 3s */
   (function(){
     var ctaVariants=[['ri-star-line','ADD FAN FAVORITE'],['ri-vip-crown-line','UPGRADE TO SUPERFAN']];
