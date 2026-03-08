@@ -4,7 +4,7 @@
 
 ## Preview Validation Links
 
-> **Note:** This application uses dynamic routes. The root deployment URL (`/`) redirects to the marketing site, so alwa ys validate using a valid HSID path such as `/5004` (Hamilton High School).
+> **Note:** This application uses dynamic routes. The root deployment URL (`/`) redirects to the marketing site, so always validate using a valid HSID path such as `/5004` (Hamilton High School).
 
 | What to test | Link |
 |---|---|
