@@ -350,7 +350,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
         .yat-gs-modal.open{display:flex}
         .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
-        .yat-gs-panel{position:relative;width:100%;max-width:560px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:80vh}
+        .yat-gs-panel{position:relative;width:100%;max-width:600px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:80vh}
         body.light-theme .yat-gs-panel{background:#fff;border-color:rgba(0,0,0,.12)}
         .yat-gs-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 0}
         .yat-gs-title{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase}
@@ -362,28 +362,35 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
         .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
         body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
-        .yat-gs-results{overflow-y:auto;max-height:calc(80vh - 180px);display:flex;flex-direction:column;gap:2px}
+        .yat-gs-results{overflow-y:auto;max-height:calc(80vh - 180px);display:flex;flex-direction:column;gap:4px;padding-bottom:4px}
         /* Region group header */
         .yat-gs-region{font:700 10px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 4px 4px;border-top:1px solid var(--line);margin-top:4px}
         .yat-gs-region:first-child{border-top:none;margin-top:0;padding-top:2px}
-        /* School result card */
-        .yat-gs-result{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.04);transition:background .15s,border-color .15s}
-        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);outline:none}
-        body.light-theme .yat-gs-result{background:rgba(0,0,0,.04)}
-        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.08);border-color:rgba(0,0,0,.12)}
-        .yat-gs-result[data-status="inactive"]{opacity:.6}
-        .yat-gs-result-crest{width:36px;height:36px;border-radius:6px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0}
-        .yat-gs-result-body{flex:1;min-width:0}
-        .yat-gs-result-name{font:700 15px "Bebas Neue",sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .yat-gs-result-loc{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:1px}
-        .yat-gs-result-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px}
-        .yat-gs-result-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-        .yat-gs-status{font:700 9px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:6px;white-space:nowrap;display:inline-block}
-        .yat-gs-status-live{background:rgba(0,230,118,.15);border:1px solid #00e676;color:#00e676}
-        .yat-gs-status-potential{background:rgba(255,193,7,.12);border:1px solid #ffc107;color:#ffc107}
-        .yat-gs-status-inactive{background:rgba(158,158,158,.1);border:1px solid rgba(158,158,158,.35);color:#9e9e9e}
-        .yat-gs-rank{font:700 10px Oswald,sans-serif;color:var(--muted);white-space:nowrap}
-        .yat-gs-aa{font:300 10px Oswald,sans-serif;color:var(--muted);white-space:nowrap}
+        /* Premium school result card */
+        .yat-gs-result{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.04);transition:background .15s,border-color .15s}
+        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);outline:none}
+        body.light-theme .yat-gs-result{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08)}
+        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.15)}
+        .yat-gs-result[data-status="inactive"]{opacity:.65}
+        /* Card top row: crest + identity + badge */
+        .yat-gs-result-top{display:flex;align-items:center;gap:10px}
+        .yat-gs-result-crest{width:42px;height:42px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0;border:1px solid rgba(255,255,255,.08)}
+        body.light-theme .yat-gs-result-crest{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1)}
+        .yat-gs-result-info{flex:1;min-width:0}
+        .yat-gs-result-name{font:700 15px "Bebas Neue",sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+        .yat-gs-result-loc{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        /* Status badge */
+        .yat-gs-status{font:700 9px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0;display:inline-block;line-height:1.4}
+        .yat-gs-status-live{background:rgba(0,230,118,.12);border:1px solid #00e676;color:#00e676}
+        .yat-gs-status-potential{background:rgba(255,193,7,.1);border:1px solid #ffc107;color:#ffc107}
+        .yat-gs-status-inactive{background:rgba(158,158,158,.08);border:1px solid rgba(158,158,158,.3);color:#9e9e9e}
+        /* Stat chips row */
+        .yat-gs-stats{display:flex;flex-wrap:wrap;gap:4px}
+        .yat-gs-chip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;background:rgba(255,255,255,.06);border-radius:6px;padding:4px 8px;min-width:48px}
+        body.light-theme .yat-gs-chip{background:rgba(0,0,0,.06)}
+        .yat-gs-chip-val{font:700 13px Oswald,sans-serif;color:var(--fg);line-height:1.1}
+        .yat-gs-chip-val.hi{color:#00e676}
+        .yat-gs-chip-lbl{font:300 8px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);line-height:1;white-space:nowrap}
         /* State messages */
         .yat-gs-msg{padding:24px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
         /* "Player search coming soon" footer note */
@@ -1056,50 +1063,103 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       var hlParts=p.hslocation.split(',');
       if(hlParts.length>=2)region=hlParts[hlParts.length-1].trim();
     }
+    /* Draft label: e.g. "12/67" */
+    var draftedRatio=null;
+    if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){
+      draftedRatio=p.drafted_hs+'/'+p.drafted;
+    }
     return {
       type:'school',
       schoolName:p.hsname||'',
       location:p.hslocation||'',
       region:region,
       crestUrl:crestUrl,
-      activeAlumniCount:p.current_aa||0,
-      rank:p.yatstats_national_rank||null,
       status:status,
-      dest:dest
+      dest:dest,
+      /* YAT?STATS metrics */
+      activeAlumni:p.current_aa||null,
+      mlb:p.mlb||null,
+      natRank:p.yatstats_national_rank||null,
+      stateRank:p.yatstats_state_rank||null,
+      atnla:p.atnla||null,
+      draftedRatio:draftedRatio
     };
   }
 
-  /* Render a single normalized school result element */
+  var STAT_EMPTY='\u2014';
+
+  /* Build a single stat chip element */
+  function makeChip(val,lbl,highlight){
+    var chip=document.createElement('div');
+    chip.className='yat-gs-chip';
+    var valEl=document.createElement('span');
+    valEl.className='yat-gs-chip-val'+(highlight?' hi':'');
+    valEl.textContent=val!=null?String(val):STAT_EMPTY;
+    var lblEl=document.createElement('span');
+    lblEl.className='yat-gs-chip-lbl';
+    lblEl.textContent=lbl;
+    chip.appendChild(valEl);
+    chip.appendChild(lblEl);
+    return chip;
+  }
+
+  /* Render a premium school result card */
   function renderSchoolResult(r){
-    var statusLabel=r.status==='live'?'LIVE':(r.status==='potential'?'NOT LIVE YET':'NOT ACTIVE');
+    var statusLabel=r.status==='live'?'Live Microsite':(r.status==='potential'?'Future Candidate':'Not Currently Active');
     var statusCls='yat-gs-status yat-gs-status-'+r.status;
-    var rankHtml=r.rank?'<span class="yat-gs-rank">#'+r.rank+' National</span>':'';
-    var aaHtml=r.activeAlumniCount?'<span class="yat-gs-aa">'+r.activeAlumniCount+' Active Alumni</span>':'';
+
     var el=document.createElement('a');
     el.className='yat-gs-result';
     el.setAttribute('data-status',r.status);
     el.setAttribute('href',r.dest);
     el.setAttribute('role','option');
     el.setAttribute('tabindex','0');
-    /* Build crest img element programmatically to avoid inline onerror */
+
+    /* ── Top row: crest | identity | status badge ── */
+    var topDiv=document.createElement('div');
+    topDiv.className='yat-gs-result-top';
+
     var crestImg=document.createElement('img');
     crestImg.className='yat-gs-result-crest';
     crestImg.alt='';
     crestImg.loading='lazy';
     crestImg.src=r.crestUrl;
     crestImg.onerror=function(){crestImg.src=CREST_PLACEHOLDER;};
-    var bodyDiv=document.createElement('div');
-    bodyDiv.className='yat-gs-result-body';
-    bodyDiv.innerHTML=
-      '<div class="yat-gs-result-name">'+escHtml(r.schoolName)+'</div>'+
-      (r.location?'<div class="yat-gs-result-loc">'+escHtml(r.location)+'</div>':'')+
-      ((rankHtml||aaHtml)?'<div class="yat-gs-result-meta">'+rankHtml+aaHtml+'</div>':'');
-    var rightDiv=document.createElement('div');
-    rightDiv.className='yat-gs-result-right';
-    rightDiv.innerHTML='<span class="'+statusCls+'">'+statusLabel+'</span>';
-    el.appendChild(crestImg);
-    el.appendChild(bodyDiv);
-    el.appendChild(rightDiv);
+
+    var infoDiv=document.createElement('div');
+    infoDiv.className='yat-gs-result-info';
+    var nameDiv=document.createElement('div');
+    nameDiv.className='yat-gs-result-name';
+    nameDiv.textContent=r.schoolName;
+    var locDiv=document.createElement('div');
+    locDiv.className='yat-gs-result-loc';
+    locDiv.textContent=r.location;
+    infoDiv.appendChild(nameDiv);
+    if(r.location)infoDiv.appendChild(locDiv);
+
+    var badge=document.createElement('span');
+    badge.className=statusCls;
+    badge.textContent=statusLabel;
+
+    topDiv.appendChild(crestImg);
+    topDiv.appendChild(infoDiv);
+    topDiv.appendChild(badge);
+    el.appendChild(topDiv);
+
+    /* ── Stat chips row (only if at least one metric is non-null) ── */
+    var hasStats=r.activeAlumni!=null||r.mlb!=null||r.natRank!=null||r.stateRank!=null||r.atnla!=null||r.draftedRatio!=null;
+    if(hasStats){
+      var statsDiv=document.createElement('div');
+      statsDiv.className='yat-gs-stats';
+      if(r.activeAlumni!=null)statsDiv.appendChild(makeChip(r.activeAlumni,'Active',true));
+      if(r.mlb!=null)statsDiv.appendChild(makeChip(r.mlb,'MLB',false));
+      if(r.natRank!=null)statsDiv.appendChild(makeChip('#'+r.natRank,"Nat'l",false));
+      if(r.stateRank!=null)statsDiv.appendChild(makeChip('#'+r.stateRank,'State',false));
+      if(r.atnla!=null)statsDiv.appendChild(makeChip(r.atnla,'All-Time',false));
+      if(r.draftedRatio)statsDiv.appendChild(makeChip(r.draftedRatio,'Drafted',false));
+      el.appendChild(statsDiv);
+    }
+
     return el;
   }
 
