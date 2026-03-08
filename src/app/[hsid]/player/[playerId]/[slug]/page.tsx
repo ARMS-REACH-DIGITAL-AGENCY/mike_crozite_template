@@ -228,7 +228,9 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.jpg`;
+  // NOW image = .jpg, THEN image = .png
+  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
 
   // Player context line: TEAM · LEVEL from most recent season
   const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
@@ -239,6 +241,27 @@ export default async function PlayerProfilePage({
 
   // Current team_id for schedule lookup — most recent season's teamid
   const currentTeamId = (mostRecentSeason as any)?.teamid ? String((mostRecentSeason as any).teamid) : null;
+
+  // Derive unique colleges from NCAA/JUCO-level season entries (chronological)
+  const ncaaSeasonsList = [...battingSeasons, ...pitchingSeasons]
+    .filter((s: any) => {
+      const lv = String(s.level || '').toUpperCase();
+      return lv.includes('NCAA') || lv === 'JUCO' || lv.includes('COLLEGE');
+    })
+    .sort((a: any, b: any) => (Number(a.year) || 0) - (Number(b.year) || 0));
+  const uniqueColleges: string[] = [];
+  for (const s of ncaaSeasonsList) {
+    const tn = ((s as any).team_name || '').trim();
+    if (tn && !uniqueColleges.includes(tn)) uniqueColleges.push(tn);
+  }
+
+  // Current season stats (latest year) — used in top grid for active players
+  const currentBatSeason = (isActive
+    ? battingSeasons.filter((s: any) => Number(s.year) === latestYear).slice(-1)[0]
+    : null) as BattingSeason | null;
+  const currentPitSeason = (isActive
+    ? pitchingSeasons.filter((s: any) => Number(s.year) === latestYear).slice(-1)[0]
+    : null) as PitchingSeason | null;
 
   // Fetch team schedule + player game logs (all gracefully return [] if tables absent)
   const [teamSchedule, battingGameLog, pitchingGameLog] = currentTeamId
@@ -318,6 +341,45 @@ export default async function PlayerProfilePage({
 
   const careerGrid = isPitcher ? careerPitchingGrid : careerBattingGrid;
 
+  // Top stats grid: active → current season; inactive → career totals
+  const currentBattingGrid = currentBatSeason
+    ? [
+        { k: "AVG", v: fmtAvg(currentBatSeason.avg) },
+        { k: "HR", v: fmt(currentBatSeason.hr) },
+        { k: "RBI", v: fmt(currentBatSeason.rbi) },
+        { k: "R", v: fmt(currentBatSeason.r) },
+        { k: "SB", v: fmt(currentBatSeason.sb) },
+        { k: "OPS", v: fmtAvg(currentBatSeason.ops) },
+        { k: "H", v: fmt(currentBatSeason.h) },
+        { k: "BB", v: fmt(currentBatSeason.bb) },
+        { k: "AB", v: fmt(currentBatSeason.ab) },
+        { k: "2B", v: fmt(currentBatSeason["2b"]) },
+        { k: "3B", v: fmt(currentBatSeason["3b"]) },
+        { k: "G", v: fmt(currentBatSeason.g) },
+      ]
+    : [];
+  const currentPitchingGrid = currentPitSeason
+    ? [
+        { k: "ERA", v: fmt(currentPitSeason.era, 2) },
+        { k: "W", v: fmt(currentPitSeason.w) },
+        { k: "L", v: fmt(currentPitSeason.l) },
+        { k: "IP", v: fmt(currentPitSeason.ip, 1) },
+        { k: "K", v: fmt(currentPitSeason.ko) },
+        { k: "BB", v: fmt(currentPitSeason.bb) },
+        { k: "WHIP", v: fmt(currentPitSeason.whip, 2) },
+        { k: "SV", v: fmt(currentPitSeason.saves) },
+        { k: "G", v: fmt(currentPitSeason.g) },
+        { k: "GS", v: fmt(currentPitSeason.gs) },
+        { k: "ER", v: fmt(currentPitSeason.er) },
+        { k: "K/9", v: fmt(currentPitSeason.k9, 2) },
+      ]
+    : [];
+  // Top grid: active → current season, inactive/retired → career totals
+  const topStatsGrid = isActive
+    ? (isPitcher ? currentPitchingGrid : currentBattingGrid)
+    : careerGrid;
+  const topStatsLabel = isActive ? `${latestYear} SEASON STATS` : "CAREER TOTALS";
+
   // Career level ladder — ordered progression for the timeline
   const LEVEL_ORDER = ["HS", "COLL", "ROK", "SS", "A", "A+", "AA", "AAA", "MLB", "IND"];
   const allSeasonLevels = new Set(
@@ -381,8 +443,8 @@ export default async function PlayerProfilePage({
         /* PLAYER HERO / META SECTION — compact summary only */
         .player-hero-meta{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:12px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
         body.light-theme .player-hero-meta{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .player-meta-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:20px;align-items:flex-start}
-        .player-meta-bio{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+        .player-meta-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:start}
+        .player-meta-bio{min-width:0;display:flex;flex-direction:column;gap:6px}
         .player-bio-name{font:700 clamp(22px,4vw,40px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
         .player-bio-school{font:300 11px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;display:inline-flex;align-items:center;gap:3px;transition:color .2s}
         .player-bio-school:hover{color:var(--fg)}
@@ -401,10 +463,10 @@ export default async function PlayerProfilePage({
         .player-bio-row:last-child{border-bottom:none}
         .player-bio-key{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;min-width:80px;flex-shrink:0}
         .player-bio-val{font:500 11px/1 Oswald,sans-serif}
-        .player-meta-media{flex-shrink:0;width:min(100px,22vw)}
-        .player-then-img{width:100%;aspect-ratio:5/7;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
-        /* TABS */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .player-meta-media{flex-shrink:0;width:min(80px,18vw)}
+        .player-now-img,.player-then-img{width:100%;aspect-ratio:2/3;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
+        /* TABS — sticky under header */
+        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:var(--stickyHeaderH,120px);z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
@@ -424,14 +486,15 @@ export default async function PlayerProfilePage({
         /* TABLES */
         .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:0 0 6px 6px;margin-top:4px}
         .season-table{width:100%;border-collapse:collapse;font:300 12px/1.4 Oswald,sans-serif}
+        .season-table thead{position:sticky;top:var(--stickyHeaderH,0);z-index:2;background:var(--card-bg)}
         .season-table th{font:700 10px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:8px 6px;text-align:center;border-bottom:2px solid var(--line);color:var(--muted);text-transform:uppercase;white-space:nowrap;background:rgba(255,255,255,.02)}
         body.light-theme .season-table th{background:rgba(0,0,0,.03)}
         .season-table td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
         .season-table tr:last-child td{border-bottom:none}
         .season-table tbody tr:hover{background:rgba(255,209,102,.05)}
-        /* TAB CONTENT */
+        /* TAB CONTENT — ensure enough height for sparse tabs to allow full scroll collapse */
         .tab-content{display:none}
-        .tab-content.active{display:block}
+        .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
         /* FAVORITES MODAL */
@@ -455,6 +518,11 @@ export default async function PlayerProfilePage({
         /* PLAYER CONTEXT LINE */
         .player-context-line{font:300 11px/1.3 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
         .player-context-line .ctx-team{color:var(--fg);font-weight:500}
+        /* COMPACT PLAYER IDENTITY BLOCK */
+        .player-id-block{display:flex;flex-direction:column;gap:4px}
+        .player-id-line{font:400 11px/1.5 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);text-transform:uppercase;white-space:normal}
+        .player-id-line .dim{color:var(--muted);font-weight:300}
+        .player-id-line .sep{color:var(--muted);margin:0 5px}
         /* DRAWERS */
         .yat-drawer{position:fixed;top:0;width:290px;height:100vh;background:var(--header-bg);z-index:100;padding:24px 20px;overflow-y:auto;transition:transform .3s cubic-bezier(.4,0,.2,1);border-right:1px solid var(--line)}
         .yat-drawer-left{left:0;transform:translateX(-100%)}
@@ -600,21 +668,19 @@ export default async function PlayerProfilePage({
           .yat-schooltext .big2{font-size:16px}
           .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
-          /* Hero/meta: very compact side-by-side */
+          /* Hero/meta: compact 3-col */
           .player-hero-meta{padding:8px 0}
-          .player-meta-inner{flex-direction:row;align-items:flex-start;gap:10px}
+          .player-meta-inner{grid-template-columns:1fr auto auto;gap:8px;align-items:start}
           /* Hide large player name on mobile — already shown in sticky header */
           .player-bio-name{display:none}
-          /* Keep context line visible but compact */
-          .player-context-line{font-size:10px;letter-spacing:.05em}
-          .player-meta-bio{gap:4px}
+          .player-meta-bio{gap:3px}
           .player-bio-badges{gap:3px}
           .chip{padding:2px 6px;font-size:9px}
-          /* Hide bio table on mobile — context line + badges give enough info */
-          .player-bio-table{display:none}
-          /* Compact THEN image on mobile */
-          .player-meta-media{flex-shrink:0;width:min(80px,22vw)}
-          .player-then-img{border-radius:4px}
+          /* Keep compact identity visible but smaller on mobile */
+          .player-id-line{font-size:10px;letter-spacing:.03em}
+          /* Compact images on mobile */
+          .player-meta-media{width:min(64px,16vw)}
+          .player-now-img,.player-then-img{border-radius:4px}
           .yat-hero-left{padding-left:6px}
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
@@ -709,26 +775,54 @@ export default async function PlayerProfilePage({
       {/* PLAYER HERO / META — scrollable, not sticky */}
       <section id="playerHeroMeta" className="player-hero-meta">
         <div className="player-meta-inner">
-          {/* Left: Bio/meta block */}
+          {/* Col 1: Compact identity block */}
           <div className="player-meta-bio">
-            <div className="player-bio-name">{displayName}</div>
-            {playerContext && (
-              <div className="player-context-line">
-                <span className="ctx-team">{ctxTeam}</span>{ctxTeam && ctxLevel ? " · " : ""}{ctxLevel}
+            <div className="player-id-block">
+              {/* Name line (hidden on mobile, shown on desktop) */}
+              <div className="player-id-line" style={{font:'700 clamp(18px,3vw,32px)/1 "Bebas Neue",sans-serif',letterSpacing:'.02em',marginBottom:'2px'}}>{displayName}</div>
+              {/* Team / Level */}
+              {(ctxTeam || ctxLevel) && (
+                <div className="player-id-line">
+                  {ctxTeam && <strong>{ctxTeam}</strong>}
+                  {ctxTeam && ctxLevel && <span className="sep">|</span>}
+                  {ctxLevel && <span>{ctxLevel}</span>}
+                </div>
+              )}
+              {/* Position / B·T / Ht / Wt */}
+              {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
+                <div className="player-id-line dim">
+                  {pos !== "--" && <span>{pos}</span>}
+                  {pos !== "--" && bt !== "-/-" && <span className="sep">|</span>}
+                  {bt !== "-/-" && <span>B/T {bt}</span>}
+                  {(pos !== "--" || bt !== "-/-") && ht !== "--" && <span className="sep">|</span>}
+                  {ht !== "--" && <span>{ht}{wt !== "--" ? ` | ${wt} LBS` : ""}</span>}
+                </div>
+              )}
+              {/* College history */}
+              {uniqueColleges.map((col, i) => (
+                <div key={i} className="player-id-line dim">{col}</div>
+              ))}
+              {/* Draft info */}
+              {draftInfo !== "N/A" && (
+                <div className="player-id-line"><span style={{color:'gold'}}>DRAFTED</span><span className="sep">|</span><span className="dim">{draftInfo}</span></div>
+              )}
+              {/* Status badge */}
+              <div style={{marginTop:'4px'}}>
+                <span className="chip chip-status">{statusLabel}</span>
               </div>
-            )}
-            <div className="player-bio-badges">
-              <span className={`chip chip-level chip-${level.toLowerCase().replace(/[^a-z0-9]/g,'-')}`}>{level}</span>
-              <span className="chip chip-status">{statusLabel}</span>
-              {gradClass !== "--" && <span className="chip chip-status">CLASS OF {gradClass}</span>}
-            </div>
-            <div className="player-bio-table">
-              {pos !== "--" && <div className="player-bio-row"><span className="player-bio-key">POS</span><span className="player-bio-val">{pos}</span></div>}
-              {bt !== "-/-" && <div className="player-bio-row"><span className="player-bio-key">B/T</span><span className="player-bio-val">{bt}</span></div>}
-              {ht !== "--" && <div className="player-bio-row"><span className="player-bio-key">HT/WT</span><span className="player-bio-val">{ht}{wt !== "--" ? ` · ${wt}` : ""}</span></div>}
             </div>
           </div>
-          {/* Right: THEN image at 5:7 (baseball card proportion) */}
+          {/* Col 2: NOW image */}
+          <div className="player-meta-media">
+            <SafeImage
+              className="player-now-img"
+              src={playerNowImg}
+              alt={`${displayName} — NOW`}
+              fallbackSrc="/img/player-silhouette.png"
+              placeholderSrc="/img/player-silhouette.png"
+            />
+          </div>
+          {/* Col 3: THEN image */}
           <div className="player-meta-media">
             <SafeImage
               className="player-then-img"
@@ -744,7 +838,7 @@ export default async function PlayerProfilePage({
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
         <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>GAME LOG</div>
-        <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>CAREER STATS</div>
+        <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>STATS</div>
         <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
         <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
         <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>MENTORSHIP MARKETPLACE</div>
@@ -913,16 +1007,16 @@ export default async function PlayerProfilePage({
         </div>
       </div>
 
-      {/* TAB: CAREER STATS (Baseball Reference–style career log) */}
+      {/* TAB: STATS */}
       <div className="tab-content" id="tab-stats" role="tabpanel">
         <div className="overview-section">
 
-          {/* Career Highlights — totals grid */}
-          {careerGrid.length > 0 && (
+          {/* Top stats grid: current season (active) or career totals (inactive) */}
+          {topStatsGrid.length > 0 && (
             <div className="ov-card">
-              <div className="ov-card-title">CAREER HIGHLIGHTS</div>
+              <div className="ov-card-title">{topStatsLabel}</div>
               <div className="stats-grid" style={{border:'none',marginBottom:0}}>
-                {careerGrid.map((s, i) => (
+                {topStatsGrid.map((s, i) => (
                   <div key={i} className="stat-cell" style={{border:'1px solid var(--line)',borderRadius:'4px'}}>
                     <div className="stat-label">{s.k}</div>
                     <div className="stat-value">{s.v}</div>
@@ -1021,10 +1115,6 @@ export default async function PlayerProfilePage({
           {battingSeasons.length === 0 && pitchingSeasons.length === 0 && (
             <div className="season-note" style={{padding:'40px 0'}}>No career statistics available.</div>
           )}
-
-          {draftInfo !== "N/A" && (
-            <div className="season-note">Draft: {draftInfo}</div>
-          )}
         </div>
       </div>
 
@@ -1117,6 +1207,19 @@ export default async function PlayerProfilePage({
     });
     if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
   }
+  /* Measure sticky header height and set CSS variables used by sticky tabs and min-height */
+  (function setLayoutVars(){
+    var header=document.getElementById('site-header');
+    var tabBar=document.querySelector('.profile-tabs');
+    function update(){
+      var headerHeight=header?header.offsetHeight:0;
+      var tabBarHeight=tabBar?tabBar.offsetHeight:0;
+      document.documentElement.style.setProperty('--stickyHeaderH',headerHeight+'px');
+      document.documentElement.style.setProperty('--tabBarH',tabBarHeight+'px');
+    }
+    update();
+    window.addEventListener('resize',update,{passive:true});
+  }());
   /* Profile tab switching */
   var VALID_TABS=['overview','stats','news','social','mentor','gallery'];
   function activateTab(name){
