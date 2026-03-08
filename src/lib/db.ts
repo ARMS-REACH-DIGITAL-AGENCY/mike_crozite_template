@@ -101,6 +101,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
     WITH school_players AS (
       SELECT
         ph.playerid,
+        ph.class_year,
         tp.firstname,
         tp.lastname,
         tp.highlevel    AS career_highlevel,
@@ -174,6 +175,8 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      -- class_year comes directly from the HS record; never inferred from other data
+      sp.class_year,
       -- Use level from most recent stat row (current level), fall back to career peak
       COALESCE(
         CASE
@@ -188,6 +191,15 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       sp.bats,
       sp.throws,
       sp.position,
+      -- Current team name from most recent stat record (batting or pitching)
+      COALESCE(
+        CASE
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          THEN tpit.team_name
+          ELSE tbat.team_name
+        END,
+        NULL
+      )                                     AS current_team_name,
       -- Batting stats
       lb.stat_year,
       lb.g, lb.ab, lb.r, lb.h,
@@ -211,6 +223,8 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
     JOIN active_playerids ap ON sp.playerid::text = ap.playerid
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    LEFT JOIN teams tbat ON lb.teamid::text = tbat.team_id
+    LEFT JOIN teams tpit ON lp.pit_teamid::text = tpit.team_id
     ORDER BY
       CASE COALESCE(
         CASE
@@ -250,6 +264,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     WITH school_players AS (
       SELECT
         ph.playerid,
+        ph.class_year,
         tp.firstname,
         tp.lastname,
         tp.highlevel    AS career_highlevel,
@@ -268,6 +283,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
         year            AS stat_year,
+        teamid,
         highlevel       AS bat_level,
         g, ab, r, h,
         dbl             AS "2b",
@@ -284,6 +300,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
         year            AS pitch_year,
+        teamid          AS pit_teamid,
         highlevel       AS pit_level,
         g               AS pg,
         w, l,
@@ -313,12 +330,23 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      -- class_year comes directly from the HS record; never inferred from other data
+      sp.class_year,
       sp.career_highlevel                   AS level,
       sp.height,
       sp.weight,
       sp.bats,
       sp.throws,
       sp.position,
+      -- Current team name from most recent stat record (batting or pitching)
+      COALESCE(
+        CASE
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          THEN tpit.team_name
+          ELSE tbat.team_name
+        END,
+        NULL
+      )                                     AS current_team_name,
       lb.stat_year,
       lb.bat_level                          AS current_level,
       lb.g, lb.ab, lb.r, lb.h,
@@ -340,6 +368,8 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
     LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
+    LEFT JOIN teams tbat ON lb.teamid::text = tbat.team_id
+    LEFT JOIN teams tpit ON lp.pit_teamid::text = tpit.team_id
     ORDER BY
       CASE sp.career_highlevel
         WHEN 'MLB'        THEN 1
@@ -560,6 +590,12 @@ if (!global.__pgSchemaBootstrapped) {
           team_id   TEXT PRIMARY KEY,
           team_name TEXT NOT NULL
         )
+      `);
+      // Add class_year to player_hsids if it doesn't exist yet.
+      // This column stores the player's actual HS graduation year as a string
+      // (e.g. '2019').  It must be populated manually — never inferred.
+      await pool.query(`
+        ALTER TABLE player_hsids ADD COLUMN IF NOT EXISTS class_year TEXT
       `);
     } catch (err) {
       // Non-fatal — queries will still run; team names will fall back to teamid.
