@@ -23,6 +23,7 @@ import {
   getSchoolByUrl,
 } from "@/lib/db";
 import AccountDrawer from "@/components/AccountDrawer";
+import SafeImage from "@/components/SafeImage";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 
 export const runtime = "nodejs";
@@ -366,7 +367,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>
         <div className="yat-hr" />
         <div className="yat-schoolrow">
-          <img src={crestUrl} alt={schoolName} className="yat-crest" onError={(e) => { (e.target as HTMLImageElement).src = "https://hamilton.yatstats.com/assets/img/logo_circle.png"; }} />
+          <SafeImage src={crestUrl} alt={schoolName} className="yat-crest" />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
@@ -466,7 +467,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     </div>
                     <div className="yat-card-back">
                       <div className="yat-back-header">
-                        <img src={crestUrl} alt="" className="yat-back-crest" onError={(e) => { (e.target as HTMLImageElement).src = "https://hamilton.yatstats.com/assets/img/logo_circle.png"; }} />
+                        <SafeImage src={crestUrl} alt="" className="yat-back-crest" />
                         <div>
                           <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
                           <div className="yat-back-details">

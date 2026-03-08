@@ -30,7 +30,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   try {
     const { playerId } = await params;
-    const player = await getPlayerById(String(playerId));
+    const idNum = parseInt(playerId, 10);
+    if (!/^\d+$/.test(playerId) || idNum <= 0) {
+      return { title: "Player Profile | YAT?STATS", description: "Player profile on YAT?STATS." };
+    }
+    const player = await getPlayerById(String(idNum));
     const playerName = player
       ? `${player.firstname || ""} ${player.lastname || ""}`.trim()
       : "Player";
@@ -116,11 +120,18 @@ export default async function PlayerProfilePage({
 }) {
   const { hsid, playerId, slug } = await params;
 
+  // Validate that playerId is a positive integer — reject non-numeric params early.
+  const playerIdNum = parseInt(playerId, 10);
+  if (!/^\d+$/.test(playerId) || playerIdNum <= 0) {
+    notFound();
+  }
+  const safePlayerId = String(playerIdNum);
+
   // Resolve school from subdomain host header
   const headersList = await headers();
   const host = headersList.get("host") || "";
   // Get school from player's hsid linkage as primary, host and URL params as fallback
-  const playerSchoolLink = await getPlayerSchool(String(playerId));
+  const playerSchoolLink = await getPlayerSchool(safePlayerId);
   const playerHsid = playerSchoolLink?.hsid ? String(playerSchoolLink.hsid) : null;
   let school: Record<string, unknown> | null = null;
   if (playerHsid) school = (await getSchoolByHsid(playerHsid)) as Record<string, unknown> | null;
@@ -133,23 +144,23 @@ export default async function PlayerProfilePage({
   const location = String(school.hslocation || "").toUpperCase();
 
   // Resolve player
-  const player = await getPlayerById(playerId);
+  const player = await getPlayerById(safePlayerId);
   if (!player) notFound();
   const canonicalSlug = toPlayerSlug(player.firstname, player.lastname);
-  if (slug !== canonicalSlug) permanentRedirect(`/${hsid}/player/${playerId}/${canonicalSlug}`);
+  if (slug !== canonicalSlug) permanentRedirect(`/${hsid}/player/${safePlayerId}/${canonicalSlug}`);
 
   const playerSchool = playerSchoolLink;
   const [battingSeasons, pitchingSeasons, careerBatting, careerPitching] =
     (await Promise.all([
-      getPlayerBattingStats(playerId),
-      getPlayerPitchingStats(playerId),
-      getPlayerCareerBatting(playerId),
-      getPlayerCareerPitching(playerId),
+      getPlayerBattingStats(safePlayerId),
+      getPlayerPitchingStats(safePlayerId),
+      getPlayerCareerBatting(safePlayerId),
+      getPlayerCareerPitching(safePlayerId),
     ])) as [BattingSeason[], PitchingSeason[], any, any];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
-  const displayName = `${firstName} ${lastName}`.trim() || playerId;
+  const displayName = `${firstName} ${lastName}`.trim() || safePlayerId;
   const pos = player.position || "--";
   const ht = player.height || "--";
   const wt = player.weight || "--";
@@ -180,8 +191,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`;
+  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.jpg`;
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
@@ -893,7 +904,7 @@ export default async function PlayerProfilePage({
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-account-open','drawer-open');});
   /* Favorites */
-  var playerId='${playerId}';
+  var playerId='${safePlayerId}';
   var playerName='${displayName.replace(/'/g, "\\'")}';
   var favMask=document.getElementById('favModalMask');
   function openFavModal(){if(favMask){favMask.style.display='flex';}}
