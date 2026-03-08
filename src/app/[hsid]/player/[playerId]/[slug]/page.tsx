@@ -266,6 +266,8 @@ export default async function PlayerProfilePage({
   }
   // Only show prior colleges not already shown in the current playing context line
   const collegesToShow = uniqueColleges.filter(col => col !== ctxTeam);
+  // Most recent college for the metadata band (last entry = most recent)
+  const mostRecentCollege = uniqueColleges.length > 0 ? uniqueColleges[uniqueColleges.length - 1] : (college !== "N/A" ? college : "");
 
   // Format draft info for the compact metadata band: "DRAFTED: YEAR | RN | #PICK | TEAM"
   const draftMetaLine = (() => {
@@ -509,6 +511,14 @@ export default async function PlayerProfilePage({
         .career-slot-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
         .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
         .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        /* PLAYER METADATA BAND — below filmstrip, above tabs */
+        .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line)}
+        .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
+        .pmb-right{flex:0 0 40%;display:flex;flex-direction:column;gap:2px;text-align:right}
+        .pmb-line{font:300 11px/1.15 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .pmb-line.dim{color:var(--muted)}
+        .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
+        .pmb-line strong{font-weight:500}
         /* HERO ACTION ROW */
         .yat-hero{padding:2px 0}
         .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
@@ -863,6 +873,38 @@ export default async function PlayerProfilePage({
           ))}
         </div>
       </section>
+
+      {/* COMPACT METADATA BAND — left: class/team/status, right: B/T/college/draft */}
+      <div className="player-meta-band">
+        {/* LEFT: ~60% — class year / team line / status-level */}
+        <div className="pmb-left">
+          {gradClass !== '--' && (
+            <div className="pmb-line"><strong>Class of {gradClass}</strong></div>
+          )}
+          <div className="pmb-line">
+            {[ctxTeam, ctxSecondary, pos !== '--' ? pos : null].filter(Boolean).map((part, i, arr) => (
+              <span key={i}>{part}{i < arr.length - 1 ? <span className="sep">|</span> : null}</span>
+            ))}
+          </div>
+          <div className="pmb-line dim">{statusLabel}{ctxLevel ? ` — ${ctxLevel}` : ''}</div>
+        </div>
+        {/* RIGHT: ~40% — B/T height weight / college / draft */}
+        <div className="pmb-right">
+          <div className="pmb-line dim">
+            {[
+              bt !== '-/-' ? `B/T: ${bt}` : null,
+              ht !== '--' ? ht : null,
+              wt !== '--' ? `${wt} LB` : null,
+            ].filter(Boolean).join(' | ')}
+          </div>
+          {mostRecentCollege && (
+            <div className="pmb-line">{mostRecentCollege}</div>
+          )}
+          {draftMetaLine && (
+            <div className="pmb-line dim">{draftMetaLine}</div>
+          )}
+        </div>
+      </div>
 
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
