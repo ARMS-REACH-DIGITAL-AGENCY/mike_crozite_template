@@ -438,8 +438,31 @@ export default async function PlayerProfilePage({
     return `level-${(lv || "").toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
   }
 
-  // Caption shown under THEN image
+  // Caption shown under THEN image (kept for potential future use)
   const thenCaption = gradClass !== "--" ? `CLASS OF ${gradClass}` : (latestYear > 0 ? String(latestYear) : "THEN");
+
+  // Build 6-slot career progression strip data
+  // Slot 1: HS (THEN image), Slots 2-5: career milestones (silhouette placeholder), Slot 6: current (NOW image)
+  const SILHOUETTE_URL = '/img/player-silhouette.png';
+  const allSeasonsSorted = [...battingSeasons, ...pitchingSeasons]
+    .sort((a: any, b: any) => (Number(a.year) || 0) - (Number(b.year) || 0));
+  const careerTeamsOrdered: {name: string; level: string; year: string}[] = [];
+  for (const s of allSeasonsSorted) {
+    const name = ((s as any).team_name || '').trim();
+    const lv = ((s as any).level || '').toUpperCase().trim();
+    const yr = String((s as any).year || '');
+    if (name && name !== ctxTeam && !careerTeamsOrdered.find((t) => t.name === name)) {
+      careerTeamsOrdered.push({name, level: lv, year: yr});
+    }
+  }
+  const careerSlots = [
+    {img: playerThenImg, label: schoolName, sub: gradClass !== '--' ? `CLASS OF ${gradClass}` : 'HIGH SCHOOL'},
+    ...Array.from({length: 4}, (_, i) => {
+      const m = careerTeamsOrdered[i];
+      return m ? {img: SILHOUETTE_URL, label: m.name, sub: m.level || m.year} : {img: SILHOUETTE_URL, label: '—', sub: ''};
+    }),
+    {img: playerNowImg, label: ctxTeam || displayName, sub: isActive ? 'CURRENT' : statusLabel},
+  ];
 
   return (
     <>
@@ -477,8 +500,15 @@ export default async function PlayerProfilePage({
         .yat-player-meta{display:flex;flex-direction:column;gap:3px;text-align:right;padding-top:2px;min-width:0;flex-shrink:1}
         .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .yat-player-ctx.dim{color:var(--muted)}
-        /* Image captions below NOW/THEN */
-        .player-img-caption{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-align:center;text-transform:uppercase;color:var(--muted);margin-top:4px;padding:2px 0}
+        /* CAREER PROGRESSION STRIP — 6 slots left→right oldest→newest */
+        .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:10px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
+        body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
+        .career-strip-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:10px;align-items:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .career-strip-inner::-webkit-scrollbar{display:none}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:80px;max-width:140px}
+        .career-slot-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
+        .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
+        .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
         /* HERO ACTION ROW */
         .yat-hero{padding:2px 0}
         .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
@@ -490,31 +520,6 @@ export default async function PlayerProfilePage({
         .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
         .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
         .fav-btn-hero.active i{color:#000}
-        /* PLAYER HERO / META SECTION — compact summary only */
-        .player-hero-meta{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:12px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
-        body.light-theme .player-hero-meta{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .player-meta-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:start}
-        .player-meta-bio{min-width:0;display:flex;flex-direction:column;gap:6px}
-        .player-bio-name{font:700 clamp(22px,4vw,40px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
-        .player-bio-school{font:300 11px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;display:inline-flex;align-items:center;gap:3px;transition:color .2s}
-        .player-bio-school:hover{color:var(--fg)}
-        .player-bio-badges{display:flex;gap:5px;flex-wrap:wrap}
-        .chip{font:700 10px/1 "Bebas Neue",sans-serif;padding:3px 8px;border-radius:4px;letter-spacing:.06em;display:inline-block}
-        .chip-level{background:#1a6b3c;color:#fff}
-        .chip-mlb{background:#002D72;color:#fff}
-        .chip-aaa{background:#c8102e;color:#fff}
-        .chip-aa{background:#e31937;color:#fff}
-        .chip-a{background:#ff6900;color:#fff}
-        .chip-ind{background:#6a0dad;color:#fff}
-        .chip-status{background:rgba(255,255,255,.1);color:var(--fg);border:1px solid var(--line)}
-        body.light-theme .chip-status{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.12)}
-        .player-bio-table{display:flex;flex-direction:column}
-        .player-bio-row{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--line);align-items:baseline}
-        .player-bio-row:last-child{border-bottom:none}
-        .player-bio-key{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;min-width:80px;flex-shrink:0}
-        .player-bio-val{font:500 11px/1 Oswald,sans-serif}
-        .player-meta-media{flex-shrink:0;width:min(80px,18vw)}
-        .player-now-img,.player-then-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
         /* TABS — sticky under header */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:var(--stickyHeaderH,120px);z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
@@ -536,7 +541,7 @@ export default async function PlayerProfilePage({
         /* TABLES */
         .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;margin-top:4px}
         .season-table{width:100%;border-collapse:collapse;font:300 12px/1.4 Oswald,sans-serif}
-        .season-table thead{position:sticky;top:calc(var(--stickyHeaderH,0px) + var(--tabBarH,42px));z-index:2}
+        .season-table thead{position:sticky;top:0;z-index:2}
         .season-table th{font:700 10px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:8px 6px;text-align:center;color:var(--muted);text-transform:uppercase;white-space:nowrap;background:var(--card-bg);box-shadow:0 1px 0 var(--line),0 2px 0 var(--line)}
         body.light-theme .season-table th{background:#e8eaf0}
         .season-table td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -721,19 +726,9 @@ export default async function PlayerProfilePage({
           .yat-player-ctx{font-size:8px;letter-spacing:.03em;white-space:normal;overflow:visible;text-overflow:clip}
           .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
-          /* Hero/meta: compact 3-col */
-          .player-hero-meta{padding:8px 0}
-          .player-meta-inner{grid-template-columns:1fr auto auto;gap:8px;align-items:start}
-          /* Hide large player name on mobile — already shown in sticky header */
-          .player-bio-name{display:none}
-          .player-meta-bio{gap:3px}
-          .player-bio-badges{gap:3px}
-          .chip{padding:2px 6px;font-size:9px}
-          /* Keep compact identity visible but smaller on mobile */
-          .player-id-line{font-size:10px;letter-spacing:.03em}
-          /* Compact images on mobile */
-          .player-meta-media{width:min(64px,16vw)}
-          .player-now-img,.player-then-img{border-radius:4px}
+          /* Career strip: narrower slots on small screens */
+          .career-slot{min-width:64px;max-width:100px}
+          .career-slot-label,.career-slot-sub{font-size:7px}
           .yat-hero-left{padding-left:6px}
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
@@ -850,54 +845,22 @@ export default async function PlayerProfilePage({
         <AccountDrawer subdomain={subdomain} />
       </aside>
 
-      {/* PLAYER HERO / META — scrollable, not sticky */}
-      <section id="playerHeroMeta" className="player-hero-meta">
-        <div className="player-meta-inner">
-          {/* Col 1: supplemental history — prior colleges + draft only (core identity moved to sticky header) */}
-          <div className="player-meta-bio">
-            <div className="player-id-block">
-              {/* Prior college history — schools not shown in the sticky header context line */}
-              {collegesToShow.length > 0 && collegesToShow.map((col, i) => (
-                <div key={i} className="player-id-line dim">{col}</div>
-              ))}
-              {/* Draft info — theme-safe */}
-              {draftInfo !== "N/A" && (
-                <div className="player-id-line">
-                  <span className="player-id-label">DRAFTED</span>
-                  <span className="sep">|</span>
-                  <span className="dim">{draftInfo}</span>
-                </div>
-              )}
-              {/* Fallback: show level badge if no other content */}
-              {collegesToShow.length === 0 && draftInfo === "N/A" && (
-                <div style={{marginTop:'4px'}}>
-                  <span className="chip chip-level">{level}</span>
-                </div>
-              )}
+      {/* CAREER PROGRESSION STRIP — 6 slots, oldest (HS) left → current right */}
+      <section className="career-strip">
+        <div className="career-strip-inner">
+          {careerSlots.map((slot, i) => (
+            <div key={i} className="career-slot">
+              <SafeImage
+                className="career-slot-img"
+                src={slot.img}
+                alt={slot.label}
+                fallbackSrc={SILHOUETTE_URL}
+                placeholderSrc={SILHOUETTE_URL}
+              />
+              <div className="career-slot-label">{slot.label}</div>
+              {slot.sub && <div className="career-slot-sub">{slot.sub}</div>}
             </div>
-          </div>
-          {/* Col 2: NOW image + status caption */}
-          <div className="player-meta-media">
-            <SafeImage
-              className="player-now-img"
-              src={playerNowImg}
-              alt={`${displayName} — NOW`}
-              fallbackSrc="/img/player-silhouette.png"
-              placeholderSrc="/img/player-silhouette.png"
-            />
-            <div className="player-img-caption">{statusLabel}</div>
-          </div>
-          {/* Col 3: THEN image + grad year caption */}
-          <div className="player-meta-media">
-            <SafeImage
-              className="player-then-img"
-              src={playerThenImg}
-              alt={`${displayName} — THEN`}
-              fallbackSrc="/img/player-silhouette.png"
-              placeholderSrc="/img/player-silhouette.png"
-            />
-            <div className="player-img-caption">{thenCaption}</div>
-          </div>
+          ))}
         </div>
       </section>
 
