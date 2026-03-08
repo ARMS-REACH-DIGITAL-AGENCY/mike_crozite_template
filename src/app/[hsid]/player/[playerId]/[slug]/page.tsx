@@ -906,16 +906,28 @@ export default async function PlayerProfilePage({
     if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
   }
   /* Profile tab switching */
+  var VALID_TABS=['overview','stats','news','social','mentor','gallery'];
+  function activateTab(name){
+    if(VALID_TABS.indexOf(name)===-1)return;
+    document.querySelectorAll('.profile-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+    var tab=document.querySelector('.profile-tab[data-profile-tab="'+name+'"]');
+    var content=document.getElementById('tab-'+name);
+    if(tab)tab.classList.add('active');
+    if(content)content.classList.add('active');
+  }
   document.querySelectorAll('.profile-tab').forEach(function(tab){
     tab.addEventListener('click',function(){
-      document.querySelectorAll('.profile-tab').forEach(function(t){t.classList.remove('active');});
-      document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
-      tab.classList.add('active');
       var target=tab.getAttribute('data-profile-tab');
-      var content=document.getElementById('tab-'+target);
-      if(content)content.classList.add('active');
+      activateTab(target);
+      history.replaceState(null,'','#tab-'+target);
     });
   });
+  /* Activate tab from URL hash on load (e.g. #tab-stats) */
+  (function(){
+    var hash=window.location.hash.slice(1);
+    if(hash.slice(0,4)==='tab-'){activateTab(hash.slice(4));}
+  }());
   /* Drawer toggles */
   var btnMenu=document.getElementById('btnMenu');
   var closeLeft=document.getElementById('closeLeft');

@@ -458,27 +458,32 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON PITCHING STATS — all years for a player
 //
-// Does not join the teams table to avoid integer/text type mismatches when
-// tbc_pitching_raw.teamid is an integer column.  The teamid is cast to text
-// so callers always get a value without requiring a teams table.
+// Reads from public.vw_player_pitching_seasons which resolves team names and
+// level abbreviations via a join to public.teams.  This means the TEAM column
+// shows the human-readable team_display value and the LVL column shows the
+// per-season team_level (e.g. JUCO, NCAA-D1, Rookie, A, A+, AA, AAA, MLB)
+// instead of a raw numeric teamid or a player-level highlevel field.
+// Falls back to teamid::text when team_display is NULL (unresolved team).
+// Falls back to '--' at render time when team_level is NULL (unknown level).
+// Rows are sorted year ASC, then teamid ASC for stable ordering.
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
     SELECT
-      p.year,
-      p.teamid,
-      p.teamid::text AS team_name,
-      p.highlevel AS level,
-      p.g, p.gs, p.w, p.l,
-      p.sv AS saves, p.ip,
-      p.h AS hits_allowed, p.er,
-      p.bb, p.so AS ko,
-      p.era, p.whip, p.h9, p.bb9,
-      p.so9 AS k9, p.so_bb AS kbb,
-      p.draft_info
-    FROM tbc_pitching_raw p
-    WHERE p.playerid::text = $1
-    ORDER BY p.year ASC
+      v.year,
+      v.teamid,
+      COALESCE(v.team_display, v.teamid::text) AS team_name,
+      v.team_level AS level,
+      v.g, v.gs, v.w, v.l,
+      v.sv AS saves, v.ip,
+      v.h AS hits_allowed, v.er,
+      v.bb, v.so AS ko,
+      v.era, v.whip, v.h9, v.bb9,
+      v.so9 AS k9, v.so_bb AS kbb,
+      v.draft_info
+    FROM public.vw_player_pitching_seasons v
+    WHERE v.playerid::text = $1
+    ORDER BY v.year ASC, v.teamid ASC
   `;
   const { rows } = await query(sql, [playerId]);
   return rows;
