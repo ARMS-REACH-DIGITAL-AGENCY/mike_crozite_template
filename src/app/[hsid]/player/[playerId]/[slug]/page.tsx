@@ -9,6 +9,7 @@ import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import AccountDrawer from "@/components/AccountDrawer";
 import { toPlayerSlug } from "@/lib/slug";
+import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import {
   getSchoolByHsid,
   getSchoolByUrl,
@@ -29,18 +30,30 @@ export async function generateMetadata({
   params: Promise<{ hsid: string; playerId: string; slug: string }>;
 }): Promise<Metadata> {
   try {
-    const { playerId } = await params;
+    const { hsid, playerId, slug } = await params;
     const idNum = parseInt(playerId, 10);
     if (!/^\d+$/.test(playerId) || idNum <= 0) {
       return { title: "Player Profile | YAT?STATS", description: "Player profile on YAT?STATS." };
     }
-    const player = await getPlayerById(String(idNum));
+    const safePlayerId = String(idNum);
+    const player = await getPlayerById(safePlayerId);
     const playerName = player
       ? `${player.firstname || ""} ${player.lastname || ""}`.trim()
       : "Player";
+    // Resolve school for canonical URL
+    const playerSchoolLink = await getPlayerSchool(safePlayerId);
+    const playerHsid = playerSchoolLink?.hsid ? String(playerSchoolLink.hsid) : null;
+    let school: Record<string, unknown> | null = null;
+    if (playerHsid) school = (await getSchoolByHsid(playerHsid)) as Record<string, unknown> | null;
+    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    const resolvedHsid = String(school?.hsid ?? hsid);
+    const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
+    const canonicalSlug = player ? toPlayerSlug(player.firstname, player.lastname) : slug;
+    const canonical = `${canonicalBase}/player/${safePlayerId}/${canonicalSlug}`;
     return {
       title: `${playerName.toUpperCase()} | YAT?STATS - Player Profile`,
       description: `Full career stats and profile for ${playerName}.`,
+      alternates: { canonical },
     };
   } catch {
     return {
@@ -140,6 +153,17 @@ export default async function PlayerProfilePage({
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school?.hsid ?? hsid);
+
+  // Redirect numeric hsid player paths (/5004/player/...) to the school's custom domain
+  // when one exists. Skip on Vercel preview deployments so previews remain accessible.
+  const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
+  const isNumericHsid = /^\d+$/.test(hsid);
+  const isPreview = host.includes("vercel.app") || host.includes("localhost");
+  if (micrositeUrl && isNumericHsid && !isPreview) {
+    const base = micrositeUrl.replace(/\/$/, "");
+    permanentRedirect(`${base}/player/${safePlayerId}/${slug}`);
+  }
+
   const schoolName = String(school.hsname || "").toUpperCase();
   const location = String(school.hslocation || "").toUpperCase();
 

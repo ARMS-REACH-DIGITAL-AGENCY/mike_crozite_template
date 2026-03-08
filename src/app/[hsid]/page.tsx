@@ -14,7 +14,7 @@
 //   - Sponsor footer: fixed at bottom
 
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, permanentRedirect } from "next/navigation";
 import { headers } from "next/headers";
 import {
   getSchoolByHsid,
@@ -125,6 +125,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
   if (!school) school = await getSchoolByHsid(hsid) as Record<string,unknown> | null;
   if (!school) redirect("https://yatstats.com");
+
+  // Redirect numeric hsid paths (/5004, /5004/...) to the school's custom domain
+  // when one exists. Skip on Vercel preview deployments so previews remain accessible.
+  const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
+  const isNumericHsid = /^\d+$/.test(hsid);
+  const isPreview = host.includes("vercel.app") || host.includes("localhost");
+  if (micrositeUrl && isNumericHsid && !isPreview) {
+    permanentRedirect(micrositeUrl.replace(/\/$/, ""));
+  }
 
   const resolvedHsid = String(school.hsid ?? hsid);
   const [activeRoster, allTimeRoster] = await Promise.all([
