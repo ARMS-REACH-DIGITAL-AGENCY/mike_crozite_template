@@ -119,66 +119,211 @@ window.__firebase_config = ${firebaseConfigJSON};
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
 
   /* ====================================================================
-     INLINE HERO SEARCH
-     HERO_SEARCH_SCOPE controls where the search is performed:
-       'global'    – searches all schools across the YAT?STATS platform
-                     via /api/schools/search (API, fast, minimal friction)
-       'subdomain' – searches only this school's current roster via DOM
+     GLOBAL SEARCH MODAL
+     Opens #gsModal on #openSearch click.
+     Results are grouped by region with premium school cards showing
+     YAT?STATS metrics (rank, active alumni, MLB, etc.).
      ==================================================================== */
-  var HERO_SEARCH_SCOPE='global';
-  var openSearch=document.getElementById('openSearch');
-  var heroSearchInput=document.getElementById('heroSearchInput');
-  var heroSearchClose=document.getElementById('heroSearchClose');
-  var heroSearchDrop=document.getElementById('heroSearchDrop');
-  function openHeroSearch(){document.body.classList.add('hero-search-open');if(heroSearchInput)setTimeout(function(){heroSearchInput.focus();},50);}
-  function closeHeroSearch(){document.body.classList.remove('hero-search-open');if(heroSearchInput)heroSearchInput.value='';if(heroSearchDrop){heroSearchDrop.innerHTML='';heroSearchDrop.classList.remove('visible');}}
-  if(openSearch)openSearch.addEventListener('click',function(){openHeroSearch();});
-  if(heroSearchClose)heroSearchClose.addEventListener('click',function(){closeHeroSearch();});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('hero-search-open'))closeHeroSearch();});
-  document.addEventListener('click',function(e){
-    if(!document.body.classList.contains('hero-search-open'))return;
-    var t=e.target;
-    if(!t.closest('#heroSearchWrap')&&!t.closest('#heroSearchDrop')&&!t.closest('#openSearch'))closeHeroSearch();
-  });
-  function runSubdomainSearch(q){
-    var ql=q.toLowerCase();var html='';var seen={};
-    document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-      var name=card.getAttribute('data-name')||'';var pid=card.getAttribute('data-playerid')||'';var slug=card.getAttribute('data-slug')||'';
-      if(name.includes(ql)&&pid&&!seen[pid]){
-        seen[pid]=true;var nameEl=card.querySelector('.yat-name');var dn;
-        if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
-        html+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-hero-result"><div class="yat-hero-result-name">'+dn+'</div></a>';
-      }
-    });
-    if(!html)html='<div style="padding:12px 16px;opacity:.5;font-size:12px">No players found</div>';
-    heroSearchDrop.innerHTML=html;heroSearchDrop.classList.add('visible');
+  var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
+  var CREST_PLACEHOLDER=S3_BASE+'/yatstats/ys_crest.svg';
+  var STAT_EMPTY='\u2014';
+  var gsModal=document.getElementById('gsModal');
+  var gsOverlay=document.getElementById('gsOverlay');
+  var gsClose=document.getElementById('gsClose');
+  var gsInput=document.getElementById('gsInput');
+  var gsResults=document.getElementById('gsResults');
+  var gsTimer=null;
+  function openGsModal(){
+    if(!gsModal)return;
+    gsModal.classList.add('open');
+    document.body.classList.add('drawer-open');
+    if(gsInput)setTimeout(function(){gsInput.focus();},60);
   }
-  function runGlobalSearch(q){
-    heroSearchDrop.innerHTML='<div style="padding:12px 16px;opacity:.5;font-size:12px">Searching\u2026</div>';
-    heroSearchDrop.classList.add('visible');
-    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=10')
+  function closeGsModal(){
+    if(!gsModal)return;
+    gsModal.classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    if(gsInput)gsInput.value='';
+    if(gsResults)gsResults.innerHTML='';
+  }
+  var openSearch=document.getElementById('openSearch');
+  if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
+  if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
+  if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&gsModal&&gsModal.classList.contains('open')){closeGsModal();return;}
+    if(!gsModal||!gsModal.classList.contains('open'))return;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      var items=Array.from(gsResults.querySelectorAll('.yat-gs-result'));
+      if(!items.length)return;
+      var focused=document.activeElement;
+      var idx=items.indexOf(focused);
+      if(e.key==='ArrowDown')idx=idx<items.length-1?idx+1:0;
+      else idx=idx>0?idx-1:items.length-1;
+      items[idx].focus();
+    }
+  });
+
+  /* Normalize a raw API program record into a typed result object */
+  function normalizeSchoolResult(p){
+    var hasAlumni=p.current_aa&&p.current_aa>0;
+    var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
+    var dest;
+    if(p.hsid){
+      dest='/'+p.hsid;
+    } else {
+      var sp=new URLSearchParams();
+      if(p.hsname)sp.set('school',p.hsname);
+      if(p.hslocation){
+        var locParts=p.hslocation.split(',');
+        if(locParts[0])sp.set('city',locParts[0].trim());
+        if(locParts[1])sp.set('state',locParts[1].trim());
+      }
+      sp.set('reason',status);
+      /* Use absolute URL so subdomain rewrites (e.g. school.yatstats.com → /hsid/...)
+         don't intercept this path and cause a 404 */
+      var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
+      dest=notLiveBase+'/school-not-live?'+sp.toString();
+    }
+    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_PLACEHOLDER;
+    var region=p.regionid||'';
+    if(!region&&p.hslocation){
+      var hlParts=p.hslocation.split(',');
+      if(hlParts.length>=2)region=hlParts[hlParts.length-1].trim();
+    }
+    var draftedRatio=null;
+    if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){
+      draftedRatio=p.drafted_hs+'/'+p.drafted;
+    }
+    return {
+      schoolName:p.hsname||'',
+      location:p.hslocation||'',
+      region:region,
+      crestUrl:crestUrl,
+      status:status,
+      dest:dest,
+      activeAlumni:p.current_aa!=null?p.current_aa:null,
+      mlb:p.mlb!=null?p.mlb:null,
+      natRank:p.yatstats_national_rank!=null?p.yatstats_national_rank:null,
+      stateRank:p.yatstats_state_rank!=null?p.yatstats_state_rank:null,
+      atnla:p.atnla!=null?p.atnla:null,
+      draftedRatio:draftedRatio
+    };
+  }
+
+  /* Build a single stat chip element */
+  function makeChip(val,lbl,highlight){
+    var chip=document.createElement('div');
+    chip.className='yat-gs-chip';
+    var valEl=document.createElement('span');
+    valEl.className='yat-gs-chip-val'+(highlight?' hi':'');
+    valEl.textContent=val!=null?String(val):STAT_EMPTY;
+    var lblEl=document.createElement('span');
+    lblEl.className='yat-gs-chip-lbl';
+    lblEl.textContent=lbl;
+    chip.appendChild(valEl);
+    chip.appendChild(lblEl);
+    return chip;
+  }
+
+  /* Render a premium school result card */
+  function renderSchoolResult(r){
+    var statusLabel=r.status==='live'?'Live':(r.status==='potential'?'Candidate':'Not Active');
+    var statusCls='yat-gs-status yat-gs-status-'+r.status;
+    var el=document.createElement('a');
+    el.className='yat-gs-result';
+    el.setAttribute('data-status',r.status);
+    el.setAttribute('href',r.dest);
+    el.setAttribute('role','option');
+    el.setAttribute('tabindex','0');
+    /* Top row: crest | identity | status badge */
+    var topDiv=document.createElement('div');
+    topDiv.className='yat-gs-result-top';
+    var crestImg=document.createElement('img');
+    crestImg.className='yat-gs-result-crest';
+    crestImg.alt='';
+    crestImg.loading='lazy';
+    crestImg.src=r.crestUrl;
+    crestImg.onerror=function(){crestImg.src=CREST_PLACEHOLDER;};
+    var infoDiv=document.createElement('div');
+    infoDiv.className='yat-gs-result-info';
+    var nameDiv=document.createElement('div');
+    nameDiv.className='yat-gs-result-name';
+    nameDiv.textContent=r.schoolName;
+    var locDiv=document.createElement('div');
+    locDiv.className='yat-gs-result-loc';
+    locDiv.textContent=r.location;
+    infoDiv.appendChild(nameDiv);
+    if(r.location)infoDiv.appendChild(locDiv);
+    var badge=document.createElement('span');
+    badge.className=statusCls;
+    badge.textContent=statusLabel;
+    topDiv.appendChild(crestImg);
+    topDiv.appendChild(infoDiv);
+    topDiv.appendChild(badge);
+    el.appendChild(topDiv);
+    /* Stat chips row (only if at least one metric is non-null) */
+    var hasStats=r.activeAlumni!=null||r.mlb!=null||r.natRank!=null||r.stateRank!=null||r.atnla!=null||r.draftedRatio!=null;
+    if(hasStats){
+      var statsDiv=document.createElement('div');
+      statsDiv.className='yat-gs-stats';
+      if(r.activeAlumni!=null)statsDiv.appendChild(makeChip(r.activeAlumni,'Active',true));
+      if(r.mlb!=null)statsDiv.appendChild(makeChip(r.mlb,'MLB',false));
+      if(r.natRank!=null)statsDiv.appendChild(makeChip('#'+r.natRank,"Nat'l",false));
+      if(r.stateRank!=null)statsDiv.appendChild(makeChip('#'+r.stateRank,'State',false));
+      if(r.atnla!=null)statsDiv.appendChild(makeChip(r.atnla,'All-Time',false));
+      if(r.draftedRatio)statsDiv.appendChild(makeChip(r.draftedRatio,'Drafted',false));
+      el.appendChild(statsDiv);
+    }
+    return el;
+  }
+
+  function runSchoolSearch(q){
+    if(!gsResults)return;
+    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
+    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=50')
       .then(function(r){return r.json();})
       .then(function(d){
-        var items=d.programs||[];var html='';
-        items.forEach(function(p){
-          var url=escHtml(p.microsite_url||'#');var name=escHtml(p.hsname||'');
-          var loc=escHtml(p.hslocation||'');var rank=p.yatstats_national_rank?'#'+p.yatstats_national_rank:'';
-          html+='<a href="'+url+'" class="yat-hero-result"><div><div class="yat-hero-result-name">'+name+'</div>'+(loc?'<div class="yat-hero-result-sub">'+loc+'</div>':'')+'</div>'+(rank?'<div class="yat-hero-result-rank">'+rank+'</div>':'')+'</a>';
+        var items=(d.programs||[]).map(normalizeSchoolResult);
+        gsResults.innerHTML='';
+        if(!items.length){
+          gsResults.innerHTML='<div class="yat-gs-msg">No schools found matching \u201c'+escHtml(q)+'\u201d</div>';
+          return;
+        }
+        var groups={};var order=[];
+        items.forEach(function(r){
+          var key=r.region||'Unknown Region';
+          if(!groups[key]){groups[key]=[];order.push(key);}
+          groups[key].push(r);
         });
-        if(!html)html='<div style="padding:12px 16px;opacity:.5;font-size:12px">No schools found</div>';
-        heroSearchDrop.innerHTML=html;
+        var frag=document.createDocumentFragment();
+        order.forEach(function(region){
+          var hdr=document.createElement('div');
+          hdr.className='yat-gs-region';
+          hdr.textContent=region;
+          frag.appendChild(hdr);
+          groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
+        });
+        gsResults.appendChild(frag);
       })
-      .catch(function(){heroSearchDrop.innerHTML='<div style="padding:12px 16px;opacity:.5;font-size:12px">Search unavailable</div>';});
+      .catch(function(){
+        gsResults.innerHTML='<div class="yat-gs-msg">Search unavailable. Please try again.</div>';
+      });
   }
-  var heroTimer=null;
-  if(heroSearchInput&&heroSearchDrop){
-    heroSearchInput.addEventListener('input',function(){
-      var q=this.value.trim();clearTimeout(heroTimer);
-      if(q.length<2){heroSearchDrop.innerHTML='';heroSearchDrop.classList.remove('visible');return;}
-      heroTimer=setTimeout(function(){HERO_SEARCH_SCOPE==='global'?runGlobalSearch(q):runSubdomainSearch(q);},220);
+
+  if(gsInput&&gsResults){
+    gsInput.addEventListener('input',function(){
+      var q=this.value.trim();
+      clearTimeout(gsTimer);
+      if(q.length<2){gsResults.innerHTML='';return;}
+      gsTimer=setTimeout(function(){runSchoolSearch(q);},220);
     });
-    heroSearchInput.addEventListener('keydown',function(e){
-      if(e.key==='Enter'){var q=heroSearchInput.value.trim();if(q.length>=2){clearTimeout(heroTimer);HERO_SEARCH_SCOPE==='global'?runGlobalSearch(q):runSubdomainSearch(q);}}
+    gsInput.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){
+        var q=gsInput.value.trim();
+        if(q.length>=2){clearTimeout(gsTimer);runSchoolSearch(q);}
+      }
     });
   }
   var searchInput=document.getElementById('playerSearch');

@@ -82,8 +82,6 @@ export default function HeroHeader({
           </div>
           <GlobalSearchModal />
         </div>
-        {/* Dropdown must live outside yat-hero-grid so position:absolute tops out at yat-hero */}
-        <div id="heroSearchDrop" className="yat-hero-search-drop" />
       </div>
     </header>
   );

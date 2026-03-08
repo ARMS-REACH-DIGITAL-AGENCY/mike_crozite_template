@@ -1,32 +1,62 @@
 // src/components/yatstats/GlobalSearchModal.tsx
-// Hero inline search bar: input + close button + search/filter action buttons
-// Note: the #heroSearchDrop dropdown container is rendered by HeroHeader (outside the grid)
-// so it positions correctly via CSS position:absolute relative to .yat-hero.
+// Global school search modal overlay.
+// The #openSearch button that triggers this modal lives in HeroHeader via GlobalSearchModal.
+// This component renders both the header action buttons (right side of hero) and the
+// full-screen modal overlay. Both are included in a fragment so HeroHeader can place
+// the buttons inline while the fixed-position modal sits naturally anywhere in the tree.
 
 export default function GlobalSearchModal() {
   return (
-    <div className="yat-hero-right">
-      <div id="heroSearchWrap" className="yat-inline-search">
-        <input
-          id="heroSearchInput"
-          type="search"
-          className="yat-hero-search-input"
-          placeholder="Search players &amp; schools…"
-          autoComplete="off"
-        />
-        <button id="heroSearchClose" className="yat-icon-btn" aria-label="Close search">
-          <i className="ri-close-line" />
+    <>
+      {/* Right-side header action buttons */}
+      <div className="yat-hero-right">
+        <button id="openSearch" className="yat-icon-btn" aria-label="Open global school search">
+          <i className="ri-search-line" />
+        </button>
+        <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
+          <i className="ri-filter-3-line" />
+        </button>
+        <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters">
+          <i className="ri-restart-line" />
         </button>
       </div>
-      <button id="openSearch" className="yat-icon-btn" aria-label="Open search">
-        <i className="ri-search-line" />
-      </button>
-      <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
-        <i className="ri-filter-3-line" />
-      </button>
-      <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters">
-        <i className="ri-restart-line" />
-      </button>
-    </div>
+
+      {/* ── GLOBAL SEARCH MODAL ─────────────────────────────────────────────
+          Phase 1: School search only.
+          To add Player Search later: add a tab row here (All / Schools / Players)
+          and add a runPlayerSearch() function that fetches from a player search API.
+      ─────────────────────────────────────────────────────────────────────── */}
+      <div id="gsModal" className="yat-gs-modal" role="dialog" aria-modal="true" aria-labelledby="gsTitle">
+        <div className="yat-gs-overlay" id="gsOverlay" />
+        <div className="yat-gs-panel">
+          <div className="yat-gs-header">
+            <div>
+              <div className="yat-gs-title" id="gsTitle">Find a School</div>
+              <div className="yat-gs-sub">Browse schools by region across the YAT?STATS network</div>
+            </div>
+            <button id="gsClose" className="yat-icon-btn" aria-label="Close search" style={{ flexShrink: 0, marginLeft: "12px" }}>
+              <i className="ri-close-line" />
+            </button>
+          </div>
+          <div className="yat-gs-body">
+            <div className="yat-gs-input-wrap">
+              <i className="ri-search-line" aria-hidden="true" />
+              <input
+                id="gsInput"
+                type="search"
+                className="yat-gs-input"
+                placeholder="Search by school or region…"
+                autoComplete="off"
+                aria-label="Search schools by region"
+                aria-controls="gsResults"
+                aria-autocomplete="list"
+              />
+            </div>
+            <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
+            <div className="yat-gs-coming">Player search coming soon</div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
