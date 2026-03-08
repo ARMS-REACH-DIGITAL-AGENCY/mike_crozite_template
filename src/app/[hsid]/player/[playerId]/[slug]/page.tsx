@@ -267,6 +267,14 @@ export default async function PlayerProfilePage({
   // Only show prior colleges not already shown in the current playing context line
   const collegesToShow = uniqueColleges.filter(col => col !== ctxTeam);
 
+  // Format draft info for the compact metadata band: "DRAFTED: YEAR | RN | #PICK | TEAM"
+  const draftMetaLine = (() => {
+    if (!draftInfo || draftInfo === "N/A") return "";
+    const p = draftInfo.split('-');
+    if (p.length >= 3) return `DRAFTED: ${p[0]} | R${p[1]} | #${p[2]}${p[3] ? ` | ${p[3]}` : ''}`;
+    return `DRAFTED: ${draftInfo}`;
+  })();
+
   // Current season stats — always target the current calendar year for active players.
   // Show blanks ("--") if the season hasn't started yet so the "2026 SEASON STATS" header
   // still appears rather than silently omitting the grid.
@@ -456,18 +464,20 @@ export default async function PlayerProfilePage({
         .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
         @media(max-width:1200px){.yat-topnav{display:none!important}}
         .yat-hr{border-top:1px solid var(--line)}
-        .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1100px;margin:0 auto}
+        /* Sticky identity band: two-part layout */
+        .yat-schoolrow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1100px;margin:0 auto}
+        .yat-schoolrow-id{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
         .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
         .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
-        .yat-schooltext{line-height:1;min-width:0;flex:1}
+        .yat-schooltext{line-height:1}
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        /* Player context lines in hero utility row */
-        .yat-hero-ctx{display:flex;flex-direction:column;gap:2px;justify-content:center;margin-left:8px;min-width:0}
+        /* Right-side compact player metadata */
+        .yat-player-meta{display:flex;flex-direction:column;gap:3px;text-align:right;padding-top:2px;min-width:0;flex-shrink:1}
         .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .yat-player-ctx.dim{color:var(--muted)}
-        @media(max-width:640px){.yat-player-ctx{font-size:9px;letter-spacing:.04em}.yat-hero-ctx{display:none}}
+        @media(max-width:400px){.yat-player-meta{display:none}}
         /* Image captions below NOW/THEN */
         .player-img-caption{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-align:center;text-transform:uppercase;color:var(--muted);margin-top:4px;padding:2px 0}
         /* HERO ACTION ROW */
@@ -704,10 +714,12 @@ export default async function PlayerProfilePage({
         @media(max-width:640px){
           /* Shrink sticky header crest/text */
           :root{--crestH:44px}
-          .yat-schoolrow{padding:4px 12px;gap:8px}
+          .yat-schoolrow{padding:4px 10px;gap:6px}
+          .yat-schoolrow-id{gap:8px}
           .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
           .yat-schooltext .big1{font-size:14px}
           .yat-schooltext .big2{font-size:16px}
+          .yat-player-ctx{font-size:9px;letter-spacing:.04em}
           .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
           /* Hero/meta: compact 3-col */
@@ -757,51 +769,58 @@ export default async function PlayerProfilePage({
 
         <div className="yat-hr" />
 
-        {/* Unified school identity block: crest + city/state + school name + player name */}
+        {/* Unified school identity band: LEFT = crest+identity, RIGHT = compact player metadata */}
         <div className="yat-schoolrow">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            id="stickyIdentityImg"
-            className="yat-crest"
-            src={crestUrl}
-            alt={`${schoolName} crest`}
-            data-crest={crestUrl}
-            data-headshot={playerThenImg}
-          />
-          <div className="yat-schooltext">
-            <div className="small">{location}</div>
-            <div className="big1">{schoolName}</div>
-            <div className="big2">{displayName}</div>
+          {/* Left: crest anchored to the 3-line identity block */}
+          <div className="yat-schoolrow-id">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              id="stickyIdentityImg"
+              className="yat-crest"
+              src={crestUrl}
+              alt={`${schoolName} crest`}
+              data-crest={crestUrl}
+              data-headshot={playerThenImg}
+            />
+            <div className="yat-schooltext">
+              <div className="small">{location}</div>
+              <div className="big1">{schoolName}</div>
+              <div className="big2">{displayName}</div>
+            </div>
+          </div>
+          {/* Right: compact player metadata — never goes away since it's in the sticky band */}
+          <div className="yat-player-meta">
+            {(ctxTeam || ctxSecondary || ctxLevel) && (
+              <div className="yat-player-ctx">
+                {[ctxTeam, ctxSecondary, ctxLevel].filter(Boolean).join(' | ')}
+              </div>
+            )}
+            {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
+              <div className="yat-player-ctx dim">
+                {[
+                  pos !== "--" ? pos : null,
+                  bt !== "-/-" ? `B/T - ${bt}` : null,
+                  ht !== "--" ? ht : null,
+                  wt !== "--" ? `${wt} LBS` : null,
+                ].filter(Boolean).join(' | ')}
+              </div>
+            )}
+            {collegesToShow.map((col) => (
+              <div key={col} className="yat-player-ctx dim">{col}</div>
+            ))}
+            {draftMetaLine && <div className="yat-player-ctx dim">{draftMetaLine}</div>}
           </div>
         </div>
 
         <div className="yat-hr" />
 
-        {/* Hero utility row: ADD FAVORITE + player metadata + search */}
+        {/* Hero utility row: ADD FAVORITE + search */}
         <div className="yat-hero">
           <div className="yat-container yat-hero-grid">
             <div className="yat-hero-left">
               <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite">
                 <i className="ri-star-line" /> ADD FAVORITE
               </button>
-              {/* Player identity lines: TEAM|ORG|LEVEL and POS|B/T|HT|WT */}
-              {(ctxTeam || ctxSecondary || ctxLevel) && (
-                <div className="yat-hero-ctx">
-                  <div className="yat-player-ctx">
-                    {[ctxTeam, ctxSecondary, ctxLevel].filter(Boolean).join(' | ')}
-                  </div>
-                  {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
-                    <div className="yat-player-ctx dim">
-                      {[
-                        pos !== "--" ? pos : null,
-                        bt !== "-/-" ? `B/T - ${bt}` : null,
-                        ht !== "--" ? ht : null,
-                        wt !== "--" ? `${wt} LBS` : null,
-                      ].filter(Boolean).join(' | ')}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
             <GlobalSearchModal />
           </div>
