@@ -536,6 +536,71 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 }
 
 // ---------------------------------------------------------------------------
+// TEAM SCHEDULE — chronological game feed for a given team_id.
+// Reads from the `team_schedule` table which is populated externally.
+// Returns rows ordered by game_date ASC.
+// Degrades gracefully (returns []) if the table doesn't exist yet.
+//
+// Expected columns (flexible — only those present are used):
+//   team_id        TEXT / INT  — matches teamid from tbc_batting_raw / tbc_pitching_raw
+//   game_date      DATE        — date of game
+//   home_away      TEXT        — 'H' or 'A' (or 'home'/'away')
+//   opponent       TEXT        — opponent team name / abbreviation
+//   result         TEXT        — 'W', 'L', 'T', or NULL for upcoming
+//   home_score     INT / TEXT  — score for home team (optional)
+//   away_score     INT / TEXT  — score for away team (optional)
+//   status         TEXT        — 'SCHEDULED', 'FINAL', 'IN PROGRESS', etc.
+// ---------------------------------------------------------------------------
+export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM team_schedule WHERE team_id::text = $1 ORDER BY game_date ASC LIMIT $2`,
+      [teamId, limit]
+    );
+    return rows;
+  } catch {
+    // Table doesn't exist yet — return empty array gracefully
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER GAME LOG — per-game batting stats for a player on a given team.
+// Reads from `batting_game_log` / `pitching_game_log` tables if present.
+// Returns rows keyed by game_date so the schedule renderer can look them up.
+// Degrades gracefully (returns []) if the table doesn't exist yet.
+//
+// Expected batting_game_log columns:
+//   playerid, team_id, game_date, h, ab, dbl, tpl, hr, rbi, r, so, bb, sf, sb
+//
+// Expected pitching_game_log columns:
+//   playerid, team_id, game_date, ip, h, r, er, ko (or so), bb, decision
+// ---------------------------------------------------------------------------
+export async function getPlayerBattingGameLog(playerId: string, teamId: string): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM batting_game_log WHERE playerid::text = $1 AND team_id::text = $2 ORDER BY game_date ASC`,
+      [playerId, teamId]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+export async function getPlayerPitchingGameLog(playerId: string, teamId: string): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM pitching_game_log WHERE playerid::text = $1 AND team_id::text = $2 ORDER BY game_date ASC`,
+      [playerId, teamId]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // NEWS ARTICLES — from news_articles table (populated by Webz.io cron job)
 // Returns null if table doesn't exist yet (graceful degradation)
 // ---------------------------------------------------------------------------

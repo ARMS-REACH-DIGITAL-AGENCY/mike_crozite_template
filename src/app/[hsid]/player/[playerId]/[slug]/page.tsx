@@ -20,6 +20,9 @@ import {
   getPlayerPitchingStats,
   getPlayerCareerBatting,
   getPlayerCareerPitching,
+  getTeamSchedule,
+  getPlayerBattingGameLog,
+  getPlayerPitchingGameLog,
 } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
@@ -233,6 +236,30 @@ export default async function PlayerProfilePage({
   const ctxTeam = mostRecentSeason?.team_name || "";
   const ctxLevel = mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "";
   const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
+
+  // Current team_id for schedule lookup — most recent season's teamid
+  const currentTeamId = (mostRecentSeason as any)?.teamid ? String((mostRecentSeason as any).teamid) : null;
+
+  // Fetch team schedule + player game logs (all gracefully return [] if tables absent)
+  const [teamSchedule, battingGameLog, pitchingGameLog] = currentTeamId
+    ? await Promise.all([
+        getTeamSchedule(currentTeamId),
+        getPlayerBattingGameLog(safePlayerId, currentTeamId),
+        getPlayerPitchingGameLog(safePlayerId, currentTeamId),
+      ])
+    : [[], [], []];
+
+  // Build per-game stat lookup keyed by ISO date string
+  const batStatsByDate = new Map<string, any>();
+  for (const row of battingGameLog) {
+    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    if (d) batStatsByDate.set(d, row);
+  }
+  const pitStatsByDate = new Map<string, any>();
+  for (const row of pitchingGameLog) {
+    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    if (d) pitStatsByDate.set(d, row);
+  }
 
   // Sponsor banner — null = default site sponsor.
   // Future: query a sponsor_banners table by playerId to allow per-player sponsor overrides.
@@ -490,6 +517,35 @@ export default async function PlayerProfilePage({
         .recent-log-cell:last-child{border-right:none}
         .recent-log-label{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
         .recent-log-val{font:700 18px/1 "Bebas Neue",sans-serif;margin-top:4px}
+        /* GAME LOG FEED */
+        .gl-feed{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:16px}
+        .gl-feed-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.04)}
+        body.light-theme .gl-feed-header{background:rgba(0,0,0,.03)}
+        .gl-feed-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:6px}
+        .gl-feed-team{font:400 12px/1 Oswald,sans-serif;color:var(--fg);letter-spacing:.04em}
+        .gl-row{display:flex;align-items:baseline;gap:0;padding:8px 14px;border-bottom:1px solid var(--line);min-height:36px}
+        .gl-row:last-child{border-bottom:none}
+        .gl-row.gl-row-past{background:rgba(255,255,255,.01)}
+        .gl-row.gl-row-today{background:rgba(255,209,102,.07);border-left:3px solid gold}
+        body.light-theme .gl-row.gl-row-today{background:rgba(255,209,102,.1)}
+        .gl-date{font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.04em;min-width:38px;flex-shrink:0;color:var(--fg)}
+        .gl-row.gl-row-past .gl-date{color:var(--muted)}
+        .gl-matchup{font:400 11px/1 Oswald,sans-serif;min-width:120px;flex-shrink:0;color:var(--fg)}
+        .gl-row.gl-row-past .gl-matchup{color:var(--muted)}
+        .gl-result{font:700 11px/1 "Bebas Neue",sans-serif;min-width:28px;flex-shrink:0;margin-left:4px}
+        .gl-result.win{color:#00e676}
+        .gl-result.loss{color:#ff5252}
+        .gl-stat-line{font:400 11px/1 Oswald,sans-serif;color:var(--fg);flex:1;padding-left:8px;border-left:1px solid var(--line);margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .gl-status{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:3px 7px;border-radius:3px;background:rgba(255,209,102,.15);color:gold;border:1px solid rgba(255,209,102,.3);flex-shrink:0;margin-left:6px;white-space:nowrap;align-self:center}
+        .gl-status.live{background:rgba(0,230,118,.15);color:#00e676;border-color:rgba(0,230,118,.4)}
+        .gl-empty{padding:32px 16px;text-align:center;font:300 12px/1.4 Oswald,sans-serif;color:var(--muted)}
+        @media(max-width:640px){
+          .gl-row{padding:7px 10px;gap:0}
+          .gl-date{min-width:32px;font-size:10px}
+          .gl-matchup{min-width:90px;font-size:10px}
+          .gl-result{font-size:10px}
+          .gl-stat-line{font-size:10px}
+        }
         /* GLOBAL SEARCH MODAL */
         .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
         .yat-gs-modal.open{display:flex}
@@ -695,123 +751,148 @@ export default async function PlayerProfilePage({
         <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>PHOTO GALLERY</div>
       </div>
 
-      {/* TAB: OVERVIEW */}
+      {/* TAB: GAME LOG */}
       <div className="tab-content active" id="tab-overview" role="tabpanel">
         <div className="overview-section">
 
-          {/* Most Recent Season — replaces the redundant BIO card */}
-          {/* Most Recent Season — hero stat block for GAME LOG */}
+          {/* GAME LOG FEED — chronological schedule + stat lines */}
           {(function(){
-            const recentBat = battingSeasons.length > 0 ? battingSeasons[battingSeasons.length - 1] as BattingSeason : null;
-            const recentPit = pitchingSeasons.length > 0 ? pitchingSeasons[pitchingSeasons.length - 1] as PitchingSeason : null;
-            const recent = isPitcher ? recentPit : (recentBat || recentPit);
-            if (!recent) return null;
-            const year = recent.year;
-            const teamName = recent.team_name || '--';
-            const lvl = (recent.level || '--').toUpperCase();
-            const cells = isPitcher && recentPit
-              ? [
-                  {k:'ERA', v:fmt(recentPit.era,2)}, {k:'W', v:fmt(recentPit.w)}, {k:'L', v:fmt(recentPit.l)},
-                  {k:'IP', v:fmt(recentPit.ip,1)}, {k:'K', v:fmt(recentPit.ko)}, {k:'BB', v:fmt(recentPit.bb)},
-                  {k:'WHIP', v:fmt(recentPit.whip,2)}, {k:'SV', v:fmt(recentPit.saves)}, {k:'G', v:fmt(recentPit.g)},
-                ]
-              : recentBat
-              ? [
-                  {k:'AVG', v:fmtAvg(recentBat.avg)}, {k:'HR', v:fmt(recentBat.hr)}, {k:'RBI', v:fmt(recentBat.rbi)},
-                  {k:'R', v:fmt(recentBat.r)}, {k:'SB', v:fmt(recentBat.sb)}, {k:'OPS', v:fmtAvg(recentBat.ops)},
-                  {k:'H', v:fmt(recentBat.h)}, {k:'BB', v:fmt(recentBat.bb)}, {k:'SO', v:fmt(recentBat.so)},
-                ]
-              : [];
-            return (
-              <div className="recent-log-card">
-                <div className="ov-card-title" style={{padding:'10px 14px',background:'none',border:'none',borderBottom:'1px solid var(--line)'}}>
-                  <i className="ri-time-line" style={{marginRight:'6px',opacity:.5}} />
-                  MOST RECENT SEASON
-                  <span style={{marginLeft:'8px',color:'var(--fg)',opacity:.7}}>{year} — {teamName}</span>
-                  <span style={{marginLeft:'8px'}} className={`chip chip-level chip-${lvl.toLowerCase().replace(/[^a-z0-9]/g,'-')}`}>{lvl}</span>
-                </div>
-                {cells.length > 0 ? (
-                  <div className="recent-log-grid">
-                    {cells.map((c, i) => (
-                      <div key={i} className="recent-log-cell">
-                        <div className="recent-log-label">{c.k}</div>
-                        <div className="recent-log-val">{c.v}</div>
-                      </div>
-                    ))}
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Format date as M/D
+            function fmtDate(raw: any): string {
+              if (!raw) return '?';
+              const d = new Date(raw);
+              if (isNaN(d.getTime())) return String(raw);
+              return `${d.getMonth() + 1}/${d.getDate()}`;
+            }
+
+            // Normalize home_away to 'H' or 'A'
+            function homeAway(raw: any): 'H' | 'A' {
+              const v = String(raw || '').toLowerCase();
+              return (v === 'h' || v === 'home') ? 'H' : 'A';
+            }
+
+            // Build hitter stat line: "2-4 | HR, 2 RBI, R"
+            function hitterLine(row: any): string {
+              const parts: string[] = [];
+              const h = Number(row.h ?? row.hits ?? 0);
+              const ab = Number(row.ab ?? 0);
+              if (ab > 0) parts.push(`${h}-${ab}`);
+              const dbl = Number(row.dbl ?? row["2b"] ?? 0);
+              const tpl = Number(row.tpl ?? row["3b"] ?? 0);
+              const hr = Number(row.hr ?? 0);
+              const rbi = Number(row.rbi ?? 0);
+              const r = Number(row.r ?? row.runs ?? 0);
+              const so = Number(row.so ?? row.k ?? 0);
+              const bb = Number(row.bb ?? 0);
+              const sf = Number(row.sf ?? 0);
+              const sb = Number(row.sb ?? 0);
+              const hits: string[] = [];
+              if (dbl) hits.push(dbl > 1 ? `${dbl} 2B` : '2B');
+              if (tpl) hits.push(tpl > 1 ? `${tpl} 3B` : '3B');
+              if (hr) hits.push(hr > 1 ? `${hr} HR` : 'HR');
+              if (rbi) hits.push(rbi === 1 ? 'RBI' : `${rbi} RBI`);
+              if (r) hits.push(r === 1 ? 'R' : `${r} R`);
+              if (so) hits.push(so === 1 ? 'SO' : `${so} SO`);
+              if (bb) hits.push(bb === 1 ? 'BB' : `${bb} BB`);
+              if (sf) hits.push(sf === 1 ? 'SF' : `${sf} SF`);
+              if (sb) hits.push(sb === 1 ? 'SB' : `${sb} SB`);
+              if (hits.length) parts.push(hits.join(', '));
+              return parts.join(' | ');
+            }
+
+            // Build pitcher stat line: "2.0 IP, 3 H, 3 R, 3 ER, 2 K, 2 BB, L"
+            function pitcherLine(row: any): string {
+              const parts: string[] = [];
+              const ip = Number(row.ip ?? 0);
+              const h = Number(row.h ?? row.hits ?? 0);
+              const r = Number(row.r ?? row.runs ?? 0);
+              const er = Number(row.er ?? 0);
+              const k = Number(row.ko ?? row.so ?? row.k ?? 0);
+              const bb = Number(row.bb ?? 0);
+              if (ip) parts.push(`${ip.toFixed(1)} IP`);
+              if (h) parts.push(`${h} H`);
+              if (r) parts.push(`${r} R`);
+              if (er) parts.push(`${er} ER`);
+              if (k) parts.push(`${k} K`);
+              if (bb) parts.push(`${bb} BB`);
+              const dec = row.decision ? String(row.decision).toUpperCase() : '';
+              if (dec) parts.push(dec);
+              return parts.join(', ');
+            }
+
+            // Derive result display (W/L) and CSS class
+            function resultInfo(row: any): { label: string; cls: string } {
+              const res = String(row.result || '').toUpperCase().trim();
+              if (!res) return { label: '', cls: '' };
+              if (res.startsWith('W')) return { label: res, cls: 'win' };
+              if (res.startsWith('L')) return { label: res, cls: 'loss' };
+              return { label: res, cls: '' };
+            }
+
+            // Live status display
+            function statusBadge(row: any): string | null {
+              const s = String(row.status || '').toUpperCase().trim();
+              if (!s || s === 'SCHEDULED' || s === 'FINAL') return null;
+              return s;
+            }
+
+            if (teamSchedule.length === 0) {
+              return (
+                <div className="gl-feed">
+                  <div className="gl-feed-header">
+                    <span className="gl-feed-title"><i className="ri-calendar-line" />GAME LOG</span>
+                    {ctxTeam && <span className="gl-feed-team">{ctxTeam}</span>}
                   </div>
-                ) : (
-                  <div className="season-note" style={{padding:'16px'}}>No recent stats available.</div>
-                )}
+                  <div className="gl-empty">
+                    {currentTeamId
+                      ? 'Schedule not yet available for this team.'
+                      : 'No active team found. Check back once the season schedule is loaded.'}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="gl-feed">
+                <div className="gl-feed-header">
+                  <span className="gl-feed-title"><i className="ri-calendar-line" />GAME LOG</span>
+                  {ctxTeam && <span className="gl-feed-team">{ctxTeam}</span>}
+                </div>
+                {teamSchedule.map((game: any, i: number) => {
+                  const isoDate = game.game_date ? String(game.game_date).slice(0, 10) : null;
+                  const gameDate = isoDate ? new Date(isoDate + 'T12:00:00') : null;
+                  const isPast = gameDate ? gameDate < today : false;
+                  const isToday = gameDate ? gameDate.getTime() === today.getTime() : false;
+                  const ha = homeAway(game.home_away);
+                  const opp = game.opponent || game.opponent_name || game.opp || '?';
+                  const matchup = ha === 'A' ? `@ ${opp}` : `vs ${opp}`;
+                  const dateLabel = fmtDate(game.game_date);
+                  const batRow = isoDate ? batStatsByDate.get(isoDate) : null;
+                  const pitRow = isoDate ? pitStatsByDate.get(isoDate) : null;
+                  const statLine = isPast
+                    ? (isPitcher ? (pitRow ? pitcherLine(pitRow) : '') : (batRow ? hitterLine(batRow) : ''))
+                    : '';
+                  const res = resultInfo(game);
+                  const liveStatus = statusBadge(game);
+                  const rowClass = `gl-row${isToday ? ' gl-row-today' : isPast ? ' gl-row-past' : ''}`;
+                  return (
+                    <div key={i} className={rowClass}>
+                      <span className="gl-date">{dateLabel}</span>
+                      <span className="gl-matchup">{matchup}</span>
+                      {res.label && <span className={`gl-result ${res.cls}`}>{res.label}</span>}
+                      {statLine && <span className="gl-stat-line">{statLine}</span>}
+                      {liveStatus && <span className={`gl-status${liveStatus === 'IN PROGRESS' || liveStatus === 'LIVE' ? ' live' : ''}`}>{liveStatus}</span>}
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
 
-          {/* Recent Seasons — last 3 seasons in a compact log table */}
-          {(function(){
-            const bat = battingSeasons.slice(-3) as BattingSeason[];
-            const pit = pitchingSeasons.slice(-3) as PitchingSeason[];
-            const hasBat = bat.length > 0;
-            const hasPit = pit.length > 0;
-            if (!hasBat && !hasPit) return null;
-            return (
-              <>
-                {hasBat && (
-                  <div className="log-section">
-                    <div className="career-log-title"><i className="ri-bar-chart-2-line" /> RECENT BATTING</div>
-                    <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
-                      <table className="season-table career-log">
-                        <thead>
-                          <tr>
-                            <th>YEAR</th><th>TEAM</th><th>LVL</th><th>G</th><th>AB</th><th>H</th><th>HR</th><th>RBI</th><th>SB</th><th>AVG</th><th>OBP</th><th>OPS</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bat.map((b, i) => (
-                            <tr key={i} className={`level-row ${levelClass(b.level||'')}`}>
-                              <td className="year-cell">{b.year}</td>
-                              <td className="team-cell">{b.team_name || '--'}</td>
-                              <td>{(b.level||'--').toUpperCase()}</td>
-                              <td>{fmt(b.g)}</td><td>{fmt(b.ab)}</td><td>{fmt(b.h)}</td>
-                              <td>{fmt(b.hr)}</td><td>{fmt(b.rbi)}</td><td>{fmt(b.sb)}</td>
-                              <td>{fmtAvg(b.avg)}</td><td>{fmtAvg(b.obp)}</td><td>{fmtAvg(b.ops)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                {hasPit && (
-                  <div className="log-section">
-                    <div className="career-log-title"><i className="ri-baseball-line" /> RECENT PITCHING</div>
-                    <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
-                      <table className="season-table career-log">
-                        <thead>
-                          <tr>
-                            <th>YEAR</th><th>TEAM</th><th>LVL</th><th>G</th><th>W</th><th>L</th><th>IP</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pit.map((p, i) => (
-                            <tr key={i} className={`level-row ${levelClass(p.level||'')}`}>
-                              <td className="year-cell">{p.year}</td>
-                              <td className="team-cell">{p.team_name || '--'}</td>
-                              <td>{(p.level||'--').toUpperCase()}</td>
-                              <td>{fmt(p.g)}</td><td>{fmt(p.w)}</td><td>{fmt(p.l)}</td>
-                              <td>{fmt(p.ip,1)}</td><td>{fmt(p.ko)}</td><td>{fmt(p.bb)}</td>
-                              <td>{fmt(p.era,2)}</td><td>{fmt(p.whip,2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-
-          {/* Career Path — level progression timeline */}
+          {/* Career Path — level progression timeline (compact secondary) */}
           {levelLadder.length > 0 && (
             <div className="ov-card level-ladder-wrap">
               <div className="ov-card-title">CAREER PATH</div>
