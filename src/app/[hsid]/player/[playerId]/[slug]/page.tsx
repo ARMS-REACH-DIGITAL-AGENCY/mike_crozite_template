@@ -477,7 +477,6 @@ export default async function PlayerProfilePage({
         .yat-player-meta{display:flex;flex-direction:column;gap:3px;text-align:right;padding-top:2px;min-width:0;flex-shrink:1}
         .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .yat-player-ctx.dim{color:var(--muted)}
-        @media(max-width:400px){.yat-player-meta{display:none}}
         /* Image captions below NOW/THEN */
         .player-img-caption{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-align:center;text-transform:uppercase;color:var(--muted);margin-top:4px;padding:2px 0}
         /* HERO ACTION ROW */
@@ -719,7 +718,7 @@ export default async function PlayerProfilePage({
           .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
           .yat-schooltext .big1{font-size:14px}
           .yat-schooltext .big2{font-size:16px}
-          .yat-player-ctx{font-size:9px;letter-spacing:.04em}
+          .yat-player-ctx{font-size:8px;letter-spacing:.03em;white-space:normal;overflow:visible;text-overflow:clip}
           .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
           /* Hero/meta: compact 3-col */
