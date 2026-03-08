@@ -23,7 +23,6 @@ import {
   getSchoolByUrl,
 } from "@/lib/db";
 import AccountDrawer from "@/components/AccountDrawer";
-import SafeImage from "@/components/SafeImage";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 
 export const runtime = "nodejs";
@@ -86,11 +85,9 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
-  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
-  const resolvedSchool = hostSchool || await getSchoolByHsid(hsid);
-  const name = (resolvedSchool as Record<string,unknown>)?.hsname as string || "Your School";
-  const loc = (resolvedSchool as Record<string,unknown>)?.hslocation as string || "";
+  const school = host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid);
+  const name = (school as Record<string,unknown>)?.hsname as string || "Your School";
+  const loc = (school as Record<string,unknown>)?.hslocation as string || "";
   return {
     title: `WHERE THEY YAT? – ${name.toUpperCase()} | YAT?STATS`,
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -101,9 +98,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  let school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string,unknown> | null;
-  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
-  if (!school) school = await getSchoolByHsid(hsid) as Record<string,unknown> | null;
+  const school = (host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid)) as Record<string,unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school.hsid ?? hsid);
@@ -371,7 +366,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>
         <div className="yat-hr" />
         <div className="yat-schoolrow">
-          <SafeImage src={crestUrl} alt={schoolName} className="yat-crest" />
+          <img src={crestUrl} alt={schoolName} className="yat-crest" onError={(e) => { (e.target as HTMLImageElement).src = "https://hamilton.yatstats.com/assets/img/logo_circle.png"; }} />
           <div className="yat-schooltext">
             <div className="small">{location}</div>
             <div className="big1">{schoolName}</div>
@@ -471,7 +466,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                     </div>
                     <div className="yat-card-back">
                       <div className="yat-back-header">
-                        <SafeImage src={crestUrl} alt="" className="yat-back-crest" />
+                        <img src={crestUrl} alt="" className="yat-back-crest" onError={(e) => { (e.target as HTMLImageElement).src = "https://hamilton.yatstats.com/assets/img/logo_circle.png"; }} />
                         <div>
                           <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
                           <div className="yat-back-details">
