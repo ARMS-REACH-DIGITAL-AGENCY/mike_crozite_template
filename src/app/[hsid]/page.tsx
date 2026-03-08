@@ -23,7 +23,10 @@ import {
   getSchoolByUrl,
 } from "@/lib/db";
 import AccountDrawer from "@/components/AccountDrawer";
+import SafeImage from "@/components/SafeImage";
+import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
+import { toPlayerSlug } from "@/lib/slug";
 
 export const runtime = "nodejs";
 
@@ -85,12 +88,27 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const school = host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid);
+  const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
+  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
+  const school = hostSchool || await getSchoolByHsid(hsid);
   const name = (school as Record<string,unknown>)?.hsname as string || "Your School";
   const loc = (school as Record<string,unknown>)?.hslocation as string || "";
+  // Extract state abbreviation from location (e.g., "Chandler, AZ" -> "AZ")
+  const locParts = loc.split(",").map((s: string) => s.trim());
+  const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
+  const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
+  const schoolHsid = (school as Record<string,unknown>)?.hsid as string || hsid;
+  const crestUrl = getSchoolCrestUrl(schoolHsid);
   return {
-    title: `WHERE THEY YAT? – ${name.toUpperCase()} | YAT?STATS`,
+    title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
+    icons: {
+      icon: [
+        { url: crestUrl, type: "image/png" },
+        { url: "/favicon.ico", type: "image/x-icon" },
+      ],
+      apple: crestUrl,
+    },
   };
 }
 
@@ -98,7 +116,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const school = (host ? await getSchoolByUrl(`https://${host}`) : await getSchoolByHsid(hsid)) as Record<string,unknown> | null;
+  let school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string,unknown> | null;
+  // On preview domains (e.g. vercel.app) the host lookup returns null; fall back to hsid param.
+  if (!school) school = await getSchoolByHsid(hsid) as Record<string,unknown> | null;
   if (!school) redirect("https://yatstats.com");
 
   const resolvedHsid = String(school.hsid ?? hsid);
@@ -107,11 +127,14 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
-  const schoolName = (String(school.hsname || "")).toUpperCase();
+  const schoolNameRaw = (String(school.hsname || "")).toUpperCase();
+  const schoolName = schoolNameRaw.includes('HIGH SCHOOL') ? schoolNameRaw : `${schoolNameRaw} HIGH SCHOOL`;
   const location = (String(school.hslocation || "")).toUpperCase();
   const nickname = (String(school.nickname || "")).toUpperCase();
   const tagline = nickname || "ACTIVE BASEBALL ALUMNI";
-  const crestUrl = `https://hamilton.yatstats.com/assets/img/schools/${resolvedHsid}.png`;
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
+  const defaultSectionLabel = "WHERE THEY YAT?";
+  const photoDefaultUrl = "https://hamilton.yatstats.com/assets/img/now_players/default.jpg";
 
   const navItems = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -123,26 +146,26 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     { thin: "", bold: "FAQ'S", tab: "faq" },
   ];
 
-  const gradClasses = Array.from(new Set(
-    [...(activeRoster as Record<string,unknown>[]), ...(allTimeRoster as Record<string,unknown>[])].map((p) => gradClass(p)).filter(Boolean)
-  )).sort().reverse();
-
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
   const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
   const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
 
+  const gradClasses = Array.from(new Set(
+    [...(activeRoster as Record<string,unknown>[]), ...(allTimeRoster as Record<string,unknown>[])].map((p) => gradClass(p)).filter(Boolean)
+  )).sort().reverse();
+
   return (
     <>
       <style>{`
-        :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800}
-        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85)}
+        :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1)}
+        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
         body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
         body.drawer-open{overflow:hidden}
         a{color:inherit;text-decoration:none}
-        .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
+        .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
         .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
         .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
         .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
@@ -155,20 +178,31 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-nav-pair .thin{color:var(--muted)}
         .yat-nav-pair .bold{font:400 var(--hamSmall) "Bebas Neue",sans-serif}
         .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
+        .yat-wordmark-img{filter:var(--logo-filter)}
         .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
         body.light-theme .yat-wordmark{color:#000}
         @media(max-width:1200px){.yat-topnav{display:none!important}}
         .yat-hr{border-top:1px solid var(--line)}
-        .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px}
+        .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
         .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
         .yat-schooltext{line-height:1}
-        .yat-schooltext .small{font:300 var(--hamSmall)/1 Oswald;letter-spacing:.12em;color:var(--muted)}
-        .yat-schooltext .big1{font:400 var(--hamBig)/1 "Bebas Neue",sans-serif;letter-spacing:.04em}
-        .yat-schooltext .big2{font:400 var(--hamBigger)/1 "Bebas Neue",sans-serif;letter-spacing:.04em;margin-top:-2px}
+        .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+        .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+        .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
         .yat-hero{padding:2px 0}
-        .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
+        .yat-hero-grid{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding:4px 0
+}
         .yat-hero-left{display:flex;flex-direction:column;gap:4px}
-        .yat-hero-right{display:flex;gap:10px}
+        .yat-hero-right{
+  display:flex;
+  gap:10px;
+  padding-top:2px;
+}
         .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
         .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
         .yat-tag-swap:nth-child(1){animation-delay:0s}
@@ -177,7 +211,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         body.light-theme .yat-tag-grey{color:var(--muted)}
         .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
         @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
-        .yat-crumbs{font:300 calc(var(--hamSmall)*.85)/1 Oswald;letter-spacing:.02em;color:var(--muted);text-transform:uppercase;margin-top:3px}
         .yat-chip{display:inline-block;font:700 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff}
         body.light-theme .yat-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.08);color:#222}
         .chip-mlb{background:rgba(0,230,118,.15);border-color:#00e676;color:#00e676}
@@ -192,147 +225,233 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .front-chip{background:rgba(0,0,0,.55);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.2);text-transform:uppercase;font-size:10px}
         .yat-section{display:none}
         .yat-section.visible{display:block}
-        .yat-sec-header{display:flex;align-items:center;justify-content:space-between;padding:24px 16px 12px;border-bottom:1px solid var(--line)}
-        .yat-sec-title{font:400 22px "Bebas Neue",sans-serif;letter-spacing:.02em}
-        .yat-sec-sub{font:300 12px Oswald,sans-serif;color:var(--muted);margin-top:2px}
-        .yat-legend{display:flex;gap:6px;flex-wrap:wrap}
-        .yat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;padding:20px 16px}
-        .yat-card{position:relative;background:var(--card-bg);border:1px solid var(--line);overflow:hidden;transition:transform .3s cubic-bezier(.2,.7,.2,1);perspective:1000px;aspect-ratio:1/1.4}
-        .yat-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.2)}
-        .yat-card-inner{position:relative;width:100%;height:100%;transition:transform .6s;transform-style:preserve-3d}
-        .yat-card.is-flipped .yat-card-inner{transform:rotateY(180deg)}
-        .yat-card-front,.yat-card-back{position:absolute;width:100%;height:100%;backface-visibility:hidden;overflow:hidden}
-        .yat-card-back{transform:rotateY(180deg);background:#1a1a1a;display:flex;flex-direction:column}
-        .yat-photo-bg{position:absolute;inset:0;background-size:cover;background-position:center;transition:transform .5s}
-        .yat-card:hover .yat-photo-bg{transform:scale(1.05)}
-        .yat-shade{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--shade-end) 95%)}
-        .yat-card-content{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:16px;pointer-events:none}
-        .yat-card-content > *{pointer-events:auto}
-        .yat-card-top{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start}
-        .yat-name{font:400 28px "Bebas Neue",sans-serif;line-height:.9;letter-spacing:.02em;margin-bottom:4px}
-        .yat-dots{display:flex;gap:3px;margin-bottom:8px}
-        .yat-dot{width:6px;height:6px;border-radius:50%;background:var(--green);opacity:.8}
-        .yat-pills{display:flex;gap:6px;margin-bottom:10px}
-        .yat-pill{font:700 9px Oswald,sans-serif;padding:3px 8px;border-radius:12px;background:rgba(255,255,255,.1);color:var(--muted);text-transform:uppercase}
-        .yat-pill.active{background:rgba(0,230,118,.2);color:var(--green)}
-        .yat-where-link{font:400 11px "Bebas Neue",sans-serif;letter-spacing:.05em;color:var(--green);display:inline-flex;align-items:center;gap:4px}
-        .yat-back-header{padding:12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-        .yat-back-crest{width:32px;height:32px;object-fit:contain}
-        .yat-back-name{font:400 18px "Bebas Neue",sans-serif}
-        .yat-back-details{font:300 10px Oswald,sans-serif;color:var(--muted);margin-top:1px}
-        .yat-back-nav{display:flex;border-bottom:1px solid var(--line)}
-        .yat-back-nav-btn{flex:1;background:none;border:none;color:var(--muted);font:400 11px "Bebas Neue",sans-serif;padding:8px 0;cursor:pointer;transition:color .2s}
-        .yat-back-nav-btn.active{color:var(--fg);box-shadow:inset 0 -2px 0 var(--fg)}
-        .yat-fun-zone{flex:1;overflow-y:auto;padding:12px}
-        .yat-stats-bar{background:rgba(255,255,255,.05);padding:4px 8px;font:700 9px Oswald,sans-serif;letter-spacing:.05em;margin-bottom:8px}
-        .yat-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-        .yat-stat{text-align:center}
-        .yat-stat-label{font:300 9px Oswald,sans-serif;color:var(--muted);text-transform:uppercase}
-        .yat-stat-val{font:400 14px "Bebas Neue",sans-serif}
-        .yat-back-draft{padding:8px 12px;font:300 10px Oswald,sans-serif;border-top:1px solid var(--line);color:var(--muted)}
-        .yat-table-wrap{width:100%;overflow-x:auto;padding:0 16px 40px}
-        .yat-table{width:100%;border-collapse:collapse;font-family:Oswald,sans-serif;font-size:13px}
-        .yat-table th{text-align:left;padding:12px 8px;border-bottom:2px solid var(--line);font-weight:400;color:var(--muted);text-transform:uppercase;font-size:11px}
-        .yat-table td{padding:10px 8px;border-bottom:1px solid var(--line)}
-        .yat-table tr:hover{background:rgba(255,255,255,.02)}
-        .yat-table .num{text-align:right;font-family:"Bebas Neue",sans-serif;font-size:15px}
-        .yat-table .hi{color:var(--green)}
-        .yat-active-dot{display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:6px}
-        .yat-placeholder{padding:60px 20px;text-align:center;max-width:500px;margin:0 auto}
-        .yat-placeholder-icon{font-size:48px;margin-bottom:16px;opacity:.5}
-        .yat-placeholder-title{font:400 28px "Bebas Neue",sans-serif;margin-bottom:8px}
-        .yat-placeholder-body{font:300 14px Oswald,sans-serif;color:var(--muted);line-height:1.6}
-        .yat-footer{position:fixed;bottom:0;left:0;right:0;height:var(--footerH);background:var(--header-bg);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:center;z-index:40}
-        .yat-footer a{display:flex;flex-direction:column;align-items:center;line-height:1.1}
-        .yat-footer .sponsor-text{font:300 10px Oswald,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
-        .yat-footer .sponsor-name{font:400 18px "Bebas Neue",sans-serif;letter-spacing:.02em}
-        .yat-drawer{position:fixed;top:0;bottom:0;width:min(360px,85vw);background:var(--drawer-bg);backdrop-filter:blur(12px);z-index:100;transition:transform .3s cubic-bezier(.2,.7,.2,1);padding:20px 0}
-        .yat-drawer-left{left:0;transform:translateX(-100%);border-right:1px solid var(--line)}
-        .yat-drawer-right{right:0;transform:translateX(100%);border-left:1px solid var(--line)}
-        body.drawer-left-open .yat-drawer-left{transform:translateX(0)}
-        body.drawer-right-open .yat-drawer-right{transform:translateX(0)}
+        .yat-grid{max-width:1400px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+        @media(max-width:1400px){.yat-grid{grid-template-columns:repeat(4,1fr)}}
+        @media(max-width:1100px){.yat-grid{grid-template-columns:repeat(3,1fr)}}
+        @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
+        @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
+        .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
+        .yat-card::before{content:"";display:block;padding-top:140%}
+        .yat-card-inner{position:absolute;inset:0;perspective:1200px}
+        .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+        .yat-card.is-flipped .yat-flip{transform:rotateY(180deg)}
+        .yat-face{position:absolute;inset:0;backface-visibility:hidden}
+        .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
+        .yat-card.is-flipped .yat-front{pointer-events:none}
+        .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
+        .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
+        .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
+        .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
+        .yat-front-content{position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between}
+        .yat-chips-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+        .yat-info-block{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+        .yat-name{font-family:"Bebas Neue",sans-serif;letter-spacing:.02em;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);text-transform:uppercase;font-size:28px}
+        .yat-name span{display:block;line-height:.9}
+        @media(max-width:1400px){.yat-name{font-size:26px}}
+        @media(max-width:1100px){.yat-name{font-size:24px}}
+        @media(max-width:768px){.yat-name{font-size:22px}}
+        .yat-meta{font-family:Oswald,sans-serif;opacity:.9;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px}
+        .yat-meta span{display:block;line-height:1.1}
+        .yat-dots{display:flex;gap:4px}
+        .yat-dot{width:22px;height:22px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font-weight:700;font-size:10px;border:1px solid rgba(0,0,0,.2)}
+        .yat-game-block{margin-top:4px}
+        .yat-pill{background:rgba(0,0,0,.5);color:#fff;border-radius:20px;padding:3px 10px;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.15);text-transform:uppercase;font-weight:700;display:inline-block;font-size:10px}
+        .yat-game-text{font-family:Oswald;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);font-size:13px;line-height:1.2}
+        .yat-game-text span{display:block}
+        .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
+        .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg);--fg:#f2f2f2;--muted:#9e9e9e;--line:rgba(255,255,255,.1);--card-bg:#1a1a1a}
+        .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1}
+        .yat-back-top{display:flex;padding:12px;gap:12px;border-bottom:1px solid var(--line)}
+        .yat-back-name{font:700 22px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:4px}
+        .yat-back-details{font-size:12px;opacity:.8;line-height:1.4}
+        .yat-back-nav{display:flex;justify-content:space-around;border-bottom:1px solid var(--line)}
+        .yat-back-nav-btn{background:none;border:none;color:var(--muted);font:700 11px "Bebas Neue",sans-serif;letter-spacing:.05em;cursor:pointer;padding:8px 6px;border-bottom:2px solid transparent}
+        .yat-back-nav-btn.active{color:var(--fg);border-bottom-color:var(--fg)}
+        .yat-fun-zone{padding:12px;background:var(--card-bg);flex-grow:1;overflow-y:auto}
+        .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:6px;font:700 12px "Bebas Neue",sans-serif;margin:0 0 12px;border-radius:6px}
+        .yat-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+        .yat-stat{background:var(--line);border-radius:8px;padding:8px 5px;display:flex;flex-direction:column;justify-content:center}
+        .yat-stat-label{font-size:11px;text-transform:uppercase;opacity:.7}
+        .yat-stat-val{font-size:18px;font-weight:700;line-height:1;margin-top:4px}
+        .yat-back-draft{font:300 8px/1.5 Oswald,sans-serif;color:var(--muted);padding:5px 12px 8px;border-top:1px solid var(--line);margin-top:auto;flex-shrink:0}
+        .yat-back-draft strong{color:var(--fg);font-weight:500}
+        .yat-profile-link{display:block;text-align:center;padding:8px 12px;background:rgba(0,230,118,.15);color:#00e676;font:700 11px "Bebas Neue",sans-serif;letter-spacing:.1em;border-top:1px solid var(--line);text-transform:uppercase;flex-shrink:0;text-decoration:none}
+        .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
+        .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
+        .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
+        .yat-table th.num{text-align:right}
+        .yat-table td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+        .yat-table td.num{text-align:right;color:var(--muted);font-size:11px}
+        .yat-table td.hi{color:#00e676;font-weight:600}
+        .yat-table tr:hover td{background:rgba(255,255,255,.025)}
+        .yat-active-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e676;margin-right:5px;vertical-align:middle}
+        .yat-drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+        body.drawer-left-open .yat-drawer-mask,body.drawer-right-open .yat-drawer-mask,body.drawer-account-open .yat-drawer-mask{opacity:1;pointer-events:auto}
+        .yat-drawer{position:fixed;top:0;bottom:0;width:min(360px,82vw);background:var(--drawer-bg);backdrop-filter:blur(4px);color:var(--ink);transform:translateX(-110%);transition:transform .25s,background-color .3s;z-index:70;display:flex;flex-direction:column}
+        .yat-drawer-right{right:0;left:auto;transform:translateX(110%)}
+        body.drawer-left-open #drawerLeft{transform:translateX(0)}
+        body.drawer-right-open #drawerFilters{transform:translateX(0)}
         body.drawer-account-open #drawerAccount{transform:translateX(0)}
-        .yat-drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s;z-index:90}
-        body.drawer-open .yat-drawer-mask{opacity:1;pointer-events:auto}
-        .yat-close-btn{position:absolute;top:16px;right:16px}
-        .yat-drawer h3{font:400 24px "Bebas Neue",sans-serif;padding:0 20px;margin-bottom:20px}
-        .yat-drawer-content{padding:0 20px;overflow-y:auto;height:calc(100% - 60px)}
-        .yat-nav-list{list-style:none}
-        .yat-nav-item{margin-bottom:4px}
-        .yat-nav-link{display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;transition:background .2s}
-        .yat-nav-link:hover{background:rgba(255,255,255,.05)}
-        .yat-nav-link i{font-size:20px;color:var(--muted)}
-        .yat-search-box{position:relative;margin-bottom:20px}
-        .yat-search-box i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
-        .yat-search-input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:10px 10px 10px 40px;color:var(--fg);font:300 14px Oswald,sans-serif}
-        .yat-filter-group{margin-bottom:24px}
-        .yat-filter-label{font:400 14px "Bebas Neue",sans-serif;color:var(--muted);margin-bottom:12px;display:block;letter-spacing:.05em}
-        .yat-filter-options{display:flex;flex-direction:column;gap:8px}
-        .yat-filter-opt{display:flex;align-items:center;gap:10px;cursor:pointer;font:300 13px Oswald,sans-serif}
-        .yat-filter-opt input{accent-color:var(--green)}
-        .yat-empty{padding:40px 20px;text-align:center;opacity:.5}
+        .yat-drawer h3{margin:18px 16px 8px;padding-right:30px;font:700 16px "Bebas Neue",sans-serif;letter-spacing:.06em}
+        .yat-drawer .yat-close-btn{position:absolute;top:12px;right:12px}
+        .yat-drawer-content{flex-grow:1;overflow-y:auto;padding:10px 16px}
+        .yat-drawer-footer{flex-shrink:0;padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+        .yat-drawer input[type="text"],.yat-drawer input[type="search"]{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px}
+        body.light-theme .yat-drawer input{background:rgba(0,0,0,.06)}
+        .yat-filter-group{border-bottom:1px solid var(--line);padding:8px 0}
+        .yat-filter-group summary{font:600 12px Oswald,sans-serif;letter-spacing:.06em;cursor:pointer;padding:4px 0;text-transform:uppercase;color:var(--muted)}
+        .yat-filter-options{padding:8px 0;display:flex;flex-direction:column;gap:6px}
+        .yat-filter-options label{display:flex;align-items:center;gap:8px;font:400 12px Oswald,sans-serif;cursor:pointer}
+        .yat-drawer-nav{display:flex;flex-direction:column;gap:12px}
+        .yat-drawer-nav-item{font:400 14px Oswald,sans-serif;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink)}
+        .yat-drawer-nav-item:hover{color:var(--fg)}
+        #liveResults{margin:10px 4px 18px;max-height:55vh;overflow:auto}
+        .yat-live-hit{padding:10px 12px;display:flex;align-items:center;gap:10px;border-radius:10px;cursor:pointer}
+        .yat-live-hit:hover{background:var(--line)}
+        .yat-placeholder{max-width:1400px;margin:0 auto;padding:60px 16px;text-align:center}
+        .yat-placeholder-icon{font-size:48px;margin-bottom:16px;opacity:.3}
+        .yat-placeholder-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.06em;margin-bottom:8px}
+        .yat-placeholder-body{font:300 13px/1.6 Oswald,sans-serif;color:var(--muted);max-width:480px;margin:0 auto}
+        .yat-sec-header{max-width:1400px;margin:0 auto;padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+        .yat-sec-title{
+  font:700 clamp(13px,2vw,16px)/1 "Bebas Neue",Oswald,sans-serif;
+  letter-spacing:.1em;
+  color:var(--fg);
+  text-transform:uppercase
+}
+        .yat-sec-sub{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);margin-top:4px;letter-spacing:.06em}
+        .yat-legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+        .yat-empty{grid-column:1/-1;text-align:center;padding:60px 0;opacity:.4}
         .yat-empty-icon{font-size:32px;margin-bottom:12px}
-        .yat-empty-title{font:400 18px "Bebas Neue",sans-serif}
-        .yat-empty-sub{font:300 12px Oswald,sans-serif}
+        .yat-empty-title{font:700 18px "Bebas Neue",Oswald,sans-serif;letter-spacing:.06em}
+        .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
+        .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:24px;padding:0 16px}
+        .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+        .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
+        .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
+        .yat-footer a:hover{opacity:.8}
       `}</style>
 
+      {/* HEADER */}
+      <header className="yat-header" id="site-header">
+        <div className="yat-container yat-topbar">
+          <div className="yat-left-icons">
+            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
+            <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
+            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
+
+          </div>
+          <nav className="yat-topnav" aria-label="Top Navigation">
+            {navItems.map((item) => (
+              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-nav-pair" data-tab={item.tab}>
+                {item.thin && <span className="thin">{item.thin} </span>}
+                <span className="bold">{item.bold}</span>
+              </a>
+            ))}
+          </nav>
+          <div className="yat-wordmark-wrap">
+            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
+            </a>
+          </div>
+        </div>
+        <div className="yat-hr" />
+        <div className="yat-schoolrow">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <SafeImage className="yat-crest" src={crestUrl} alt={`${schoolName} crest`} />
+          <div className="yat-schooltext">
+            <div className="small">{location}</div>
+            <div className="big1">{schoolName}</div>
+            <div className="big2" id="yatSectionLabel">{defaultSectionLabel}</div>
+          </div>
+        </div>
+        <div className="yat-hr" />
+        <div className="yat-hero">
+          <div className="yat-container yat-hero-grid">
+
+
+
+            <div className="yat-hero-left">
+  <div className="yat-tag-duo">
+    <div className="yat-tag-swap">
+      <span className="yat-tag-grey">FLIP FOR </span>
+      <span className="yat-tag-bold">STATS!</span>
+    </div>
+
+    <div className="yat-tag-swap">
+      <span className="yat-tag-grey">WHERE THEY </span>
+      <span className="yat-tag-bold">YAT?</span>
+    </div>
+  </div>
+</div>
+
+
+
+            <div className="yat-hero-right">
+              <button id="openSearch" className="yat-icon-btn" aria-label="Open search"><i className="ri-search-line" /></button>
+              <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
+              <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters"><i className="ri-restart-line" /></button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* DRAWER MASK */}
       <div className="yat-drawer-mask" id="drawerMask" />
 
       {/* LEFT DRAWER */}
-      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
+      <aside className="yat-drawer" id="drawerLeft">
         <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
-        <h3>MENU</h3>
         <div className="yat-drawer-content">
-          <div className="yat-search-box">
-            <i className="ri-search-line" />
-            <input type="text" className="yat-search-input" id="playerSearch" placeholder="Search players..." />
+          <h3>PLAYER SEARCH</h3>
+          <div style={{padding:"0 0 10px"}}>
+            <input id="playerSearch" type="search" placeholder="Type a name…" />
+            <div id="liveResults" />
           </div>
-          <div id="liveResults" />
-          <nav className="yat-nav-list">
+          <h3>NAVIGATION</h3>
+          <div className="yat-drawer-nav">
             {navItems.map((item) => (
-              <li key={item.tab} className="yat-nav-item">
-                <a href="#" className="yat-nav-link" data-tab={item.tab}>
-                  <div className="yat-nav-pair">
-                    <span className="thin">{item.thin}</span>
-                    <span className="bold">{item.bold}</span>
-                  </div>
-                </a>
-              </li>
+              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-drawer-nav-item" data-tab={item.tab}>
+                {item.thin ? `${item.thin} ` : ""}{item.bold}
+              </a>
             ))}
-          </nav>
+          </div>
         </div>
       </aside>
 
-      {/* RIGHT DRAWER (FILTERS) */}
+      {/* RIGHT DRAWER — Filters */}
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <button className="yat-icon-btn yat-close-btn" id="closeFilters"><i className="ri-close-line" /></button>
         <h3>FILTERS</h3>
         <div className="yat-drawer-content" id="filters">
-          <div className="yat-filter-group">
-            <label className="yat-filter-label">SEARCH BY NAME</label>
-            <input type="text" className="yat-search-input" id="filterName" placeholder="Enter name..." style={{paddingLeft:"12px"}} />
-          </div>
-          <div className="yat-filter-group" id="filterLevels">
-            <label className="yat-filter-label">LEVEL</label>
+          <details className="yat-filter-group" open>
+            <summary>By Name</summary>
             <div className="yat-filter-options">
-              {["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO"].map((lvl) => (
-                <label key={lvl} className="yat-filter-opt">
-                  <input type="checkbox" value={lvl} defaultChecked /> {lvl}
-                </label>
+              <input id="filterName" type="text" placeholder="Type a name…" />
+            </div>
+          </details>
+          <details className="yat-filter-group">
+            <summary>By Level</summary>
+            <div className="yat-filter-options" id="filterLevels">
+              {["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO","NAIA"].map((l) => (
+                <label key={l}><input type="checkbox" value={l} /> {l}</label>
               ))}
             </div>
-          </div>
-          <div className="yat-filter-group" id="filterGradClass">
-            <label className="yat-filter-label">GRAD CLASS</label>
-            <div className="yat-filter-options">
-              {gradClasses.map((gc) => (
-                <label key={gc} className="yat-filter-opt">
-                  <input type="checkbox" value={gc} defaultChecked /> {gc}
-                </label>
+          </details>
+          <details className="yat-filter-group">
+            <summary>By Graduating Class</summary>
+            <div className="yat-filter-options" id="filterGradClass">
+              {gradClasses.map((yr) => (
+                <label key={yr}><input type="checkbox" value={yr} /> CLASS OF {yr}</label>
               ))}
             </div>
-          </div>
-          <button id="filtersReset" style={{width:"100%",padding:"12px",background:"rgba(255,255,255,.05)",border:"1px solid var(--line)",borderRadius:"8px",color: "var(--muted)",fontFamily:'"Bebas Neue",sans-serif',fontSize:"14px",letterSpacing:".1em",cursor:"pointer"}}>RESET FILTERS</button>
+          </details>
+        </div>
+        <div className="yat-drawer-footer">
+          <button id="filtersReset" className="yat-icon-btn" style={{padding:"10px 14px",border:"1px solid var(--line)",borderRadius:"12px"}}>
+            <i className="ri-restart-line" /> Reset Filters
+          </button>
         </div>
       </aside>
 
@@ -343,75 +462,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         <AccountDrawer subdomain={subdomain} />
       </aside>
 
-      <header className="yat-header">
-        <div className="yat-container">
-          <div className="yat-topbar">
-            <div className="yat-left-icons">
-              <button className="yat-icon-btn" id="btnMenu"><i className="ri-menu-line" /></button>
-              <button className="yat-icon-btn" id="btnAccount"><i className="ri-user-line" /></button>
-              <button className="yat-icon-btn" id="theme-toggle"><i className="ri-sun-line" /></button>
-            </div>
-            <nav className="yat-topnav">
-              {navItems.slice(0, 6).map((item) => (
-                <a key={item.tab} href="#" className="yat-nav-pair" data-tab={item.tab}>
-                  <span className="thin">{item.thin}</span>
-                  <span className="bold">{item.bold}</span>
-                </a>
-              ))}
-            </nav>
-            <div className="yat-wordmark-wrap">
-              <span className="yat-wordmark">YAT?STATS</span>
-            </div>
-          </div>
-        </div>
-        <div className="yat-hr" />
-        <div className="yat-schoolrow">
-          <img src={crestUrl} alt={schoolName} className="yat-crest" onError={(e) => { (e.target as HTMLImageElement).src = "https://hamilton.yatstats.com/assets/img/logo_circle.png"; }} />
-          <div className="yat-schooltext">
-            <div className="small">{location}</div>
-            <div className="big1">{schoolName}</div>
-            <div className="big2">{tagline}</div>
-          </div>
-        </div>
-        <div className="yat-hr" />
-        <div className="yat-hero">
-          <div className="yat-container">
-            <div className="yat-hero-grid">
-              <div className="yat-hero-left">
-                <div className="yat-tag-duo">
-                  <div className="yat-tag-swap">
-                    <span className="yat-tag-grey">WHERE THEY</span> <span className="yat-tag-bold">YAT?</span>
-                  </div>
-                  <div className="yat-tag-swap">
-                    <span className="yat-tag-grey">ACTIVE ALUMNI</span> <span className="yat-tag-bold">NEWS</span>
-                  </div>
-                </div>
-                <div className="yat-crumbs">HOME / {schoolName} / {tagline}</div>
-              </div>
-              <div className="yat-hero-right">
-                <button className="yat-icon-btn" id="openSearch"><i className="ri-search-line" /></button>
-                <button className="yat-icon-btn" id="openFilters"><i className="ri-filter-3-line" /></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
+      {/* MAIN */}
       <main id="main-content">
 
         {/* ACTIVE ALUMNI */}
         <section id="sec-active" className="yat-section visible">
-          <div className="yat-sec-header">
-            <div>
-              <div className="yat-sec-title">{(activeRoster as unknown[]).length} Active Alumni · {schoolName}</div>
-              <div className="yat-sec-sub">Players with 2025 stats · Sorted by career peak level</div>
-            </div>
-            <div className="yat-legend">
-              {(["MLB","AAA","AA","A+","A","INDY","NCAA","JUCO"] as const).map((lbl) => (
-                <span key={lbl} className={`yat-chip chip-sm ${levelClass(lbl)}`}>{lbl}</span>
-              ))}
-            </div>
-          </div>
           <div className="yat-grid" id="active-grid">
             {(activeRoster as Record<string,unknown>[]).length === 0 ? (
               <div className="yat-empty">
@@ -427,9 +482,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               const dots = varsityDots(p);
               const draft = parseDraft(p.draft_info as string | null);
               const statYear = isPitcher ? p.pitch_year : p.stat_year;
-              const fn = String(p.firstname || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-              const ln = String(p.lastname  || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-              const photoUrl = `https://hamilton.yatstats.com/assets/img/now_players/${fn}_${ln}.jpg`;
+               const pid = String(p.playerid || "");
+               const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
+               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
+               const silhouetteUrl = `/img/player-silhouette.png`;
               const batterStats = [
                 {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
                 {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
@@ -443,56 +500,78 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               ];
               const stats = isPitcher ? pitcherStats : batterStats;
               return (
-                <article key={String(p.playerid)} className="yat-card" data-name={String(p.display_name || `${p.firstname} ${p.lastname}`).toLowerCase()} data-level={lvl} data-gradclass={gc}>
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc} data-slug={slug}>
                   <div className="yat-card-inner">
-                    <div className="yat-card-front">
-                      <div className="yat-photo-bg" style={{backgroundImage:`url(${photoUrl}), url('https://hamilton.yatstats.com/assets/img/now_players/default.jpg')`}} />
-                      <div className="yat-shade" />
-                      <div className="yat-card-top">
-                        <span className={`yat-chip ${lvlCls}`}>{lvl}</span>
-                        {gc && <span className="yat-chip chip-other">{gc}</span>}
-                      </div>
-                      <div className="yat-card-content">
-                        <div className="yat-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                        <div className="yat-dots">
-                          {dots.map((d,idx)=><div key={idx} className="yat-dot" title={`'${d}`} />)}
-                        </div>
-                        <div className="yat-pills">
-                          <div className="yat-pill active">LAST 3 GAMES</div>
-                          <div className="yat-pill">NEXT GAME</div>
-                        </div>
-                        <a href="#" className="yat-where-link">WHERE YAT THESE DAYS? <i className="ri-arrow-right-line" /></a>
-                      </div>
-                    </div>
-                    <div className="yat-card-back">
-                      <div className="yat-back-header">
-                        <img src={crestUrl} alt="" className="yat-back-crest" onError={(e) => { (e.target as HTMLImageElement).src = "https://hamilton.yatstats.com/assets/img/logo_circle.png"; }} />
-                        <div>
-                          <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
-                          <div className="yat-back-details">
-                            {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                    <div className="yat-flip">
+                      {/* FRONT */}
+                       <div className="yat-face yat-front">
+                        <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
+                         <div className="yat-shade" />
+                        <div className="yat-front-content">
+                          <div className="yat-chips-col">
+                            {gc && <span className="front-chip">CLASS OF {gc}</span>}
+                            <span className="front-chip">ACTIVE 2025</span>
+                            {lvl && <span className={`front-chip ${lvlCls}`}>{lvl}</span>}
+                          </div>
+                          <div className="yat-info-block">
+                            <div className="yat-name">
+                              <span>{String(p.firstname || "")}</span>
+                              <span>{String(p.lastname || "")}</span>
+                            </div>
+                            <div className="yat-meta">
+                              <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
+                            </div>
+                            {dots.length > 0 && (
+                              <div className="yat-dots">
+                                {dots.map((y, i) => <div key={i} className="yat-dot">{y}</div>)}
+                              </div>
+                            )}
+                            <div className="yat-game-block">
+                              <div className="yat-pill">LAST 3 GAMES</div>
+                              <div className="yat-game-text">
+                                <span className="yat-log">--</span>
+                                <span className="yat-log">--</span>
+                                <span className="yat-log">--</span>
+                              </div>
+                            </div>
+
                           </div>
                         </div>
                       </div>
-                      <div className="yat-back-nav">
-                        <button className="yat-back-nav-btn active" data-content="stats">STATS</button>
-                        <button className="yat-back-nav-btn" data-content="news">NEWS</button>
-                        <button className="yat-back-nav-btn" data-content="social">SOCIAL</button>
-                        <button className="yat-back-nav-btn" data-content="mentor">MENTOR</button>
-                        <button className="yat-back-nav-btn" data-content="gallery">GALLERY</button>
-                      </div>
-                      <div className="yat-fun-zone">
-                        <div className="yat-stats-bar">{statYear ? `${statYear} ` : ""}{isPitcher ? "PITCHING" : "BATTING"}</div>
-                        <div className="yat-stats-grid">
-                          {stats.map(({k,v}) => (
-                            <div key={k} className="yat-stat">
-                              <div className="yat-stat-label">{k}</div>
-                              <div className="yat-stat-val">{fmt(k,v)}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                      {/* BACK */}
+                       <div className="yat-face yat-back">
+                         <div className="yat-bg" style={{backgroundImage:`url('${photoFallback}')`}} />
+                         <div className="yat-back-content">
+                           <div className="yat-back-top">
+                             <div>
+                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                               <div className="yat-back-details">
+                                 {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                               </div>
+                             </div>
+                           </div>
+                           <div className="yat-back-nav">
+                             <button className="yat-back-nav-btn active" data-content="stats">STATS</button>
+                             <button className="yat-back-nav-btn" data-content="news">NEWS</button>
+                             <button className="yat-back-nav-btn" data-content="social">SOCIAL</button>
+                             <button className="yat-back-nav-btn" data-content="mentor">MENTOR</button>
+                             <button className="yat-back-nav-btn" data-content="gallery">GALLERY</button>
+                           </div>
+                           <div className="yat-fun-zone">
+                             <div className="yat-stats-bar">{statYear ? `${statYear} ` : ""}{isPitcher ? "PITCHING" : "BATTING"}</div>
+                             <div className="yat-stats-grid">
+                               {stats.map(({k,v}) => (
+                                 <div key={k} className="yat-stat">
+                                   <div className="yat-stat-label">{k}</div>
+                                   <div className="yat-stat-val">{fmt(k,v)}</div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                           {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
+                         </div>
+                       </div>
                     </div>
                   </div>
                 </article>
@@ -503,50 +582,116 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
         {/* ALL-TIME LIST */}
         <section id="sec-alltime" className="yat-section">
-          <div className="yat-sec-header">
-            <div>
-              <div className="yat-sec-title">{(allTimeRoster as unknown[]).length} All-Time Alumni · {schoolName}</div>
-              <div className="yat-sec-sub">Every player ever tagged to this school</div>
-            </div>
-          </div>
-          <div className="yat-table-wrap">
-            <table className="yat-table">
-              <thead>
-                <tr>
-                  <th>#</th><th>Player</th><th>Level</th><th>Pos</th><th>Years</th><th>Draft</th>
-                  <th className="num">AVG</th><th className="num">OBP</th><th className="num">SLG</th><th className="num">OPS</th>
-                  <th className="num">HR</th><th className="num">RBI</th>
-                  <th className="num">ERA</th><th className="num">WHIP</th><th className="num">IP</th><th className="num">K</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(allTimeRoster as Record<string,unknown>[]).map((p, i) => {
-                  const lvl = levelLabel(String(p.level || ""));
-                  const lvlCls = levelClass(lvl);
-                  const draft = p.draft_info ? parseDraft(p.draft_info as string) : "";
-                  return (
-                    <tr key={String(p.playerid)}>
-                      <td style={{color:"var(--muted)",fontSize:"10px"}}>{i+1}</td>
-                      <td>{!!p.is_active_2025 && <span className="yat-active-dot" title="Active 2025" />}<strong>{String(p.display_name || `${p.firstname} ${p.lastname}`)}</strong></td>
-                      <td><span className={`yat-chip chip-sm ${lvlCls}`}>{lvl}</span></td>
-                      <td style={{color:"var(--muted)",fontSize:"11px"}}>{String(p.position||"--")}</td>
-                      <td className="num">{String(p.playyears||"--")}</td>
-                      <td className="num" style={{fontSize:"9px",maxWidth:"120px",overflow:"hidden",textOverflow:"ellipsis"}}>{draft||"--"}</td>
-                      <td className={`num${p.avg?" hi":""}`}>{fmt("AVG",p.avg)}</td>
-                      <td className="num">{fmt("OBP",p.obp)}</td>
-                      <td className="num">{fmt("SLG",p.slg)}</td>
-                      <td className="num">{fmt("OPS",p.ops)}</td>
-                      <td className="num">{p.hr!=null?String(p.hr):"--"}</td>
-                      <td className="num">{p.rbi!=null?String(p.rbi):"--"}</td>
-                      <td className={`num${p.era?" hi":""}`}>{fmt("ERA",p.era)}</td>
-                      <td className="num">{fmt("WHIP",p.whip)}</td>
-                      <td className="num">{fmt("IP",p.ip)}</td>
-                      <td className="num">{p.ko!=null?String(p.ko):"--"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="yat-grid" id="alltime-grid">
+            {(allTimeRoster as Record<string,unknown>[]).length === 0 ? (
+              <div className="yat-empty">
+                <div className="yat-empty-icon">⚾</div>
+                <div className="yat-empty-title">No alumni found</div>
+                <div className="yat-empty-sub">Check back as we continue building the database</div>
+              </div>
+            ) : (allTimeRoster as Record<string,unknown>[]).map((p) => {
+              const lvl = levelLabel(String(p.level || ""));
+              const lvlCls = levelClass(lvl);
+              const isPitcher = p.is_pitcher === true;
+              const gc = gradClass(p);
+              const dots = varsityDots(p);
+               const draft = parseDraft(p.draft_info as string | null);
+               const statYear = isPitcher ? p.pitch_year : p.stat_year;
+               const pid = String(p.playerid || "");
+               const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
+               const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+               const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
+               const silhouetteUrl = `/img/player-silhouette.png`;
+              const isActive = !!p.is_active_2025;
+              const statusLabel = isActive ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED");
+              const batterStats = [
+                {k:"AVG",v:p.avg},{k:"OBP",v:p.obp},{k:"SLG",v:p.slg},{k:"OPS",v:p.ops},
+                {k:"HR",v:p.hr},{k:"RBI",v:p.rbi},{k:"H",v:p.h},{k:"AB",v:p.ab},
+                {k:"R",v:p.r},{k:"SB",v:p.sb},{k:"2B",v:p["2b"]},{k:"BB",v:p.bb},
+              ];
+              const pitcherStats = [
+                {k:"ERA",v:p.era},{k:"WHIP",v:p.whip},{k:"IP",v:p.ip},
+                {k:"W-L",v:(p.w!==null&&p.l!==null)?`${p.w}-${p.l}`:"--"},
+                {k:"K",v:p.ko},{k:"BB",v:p.pbb||p.bb},{k:"K/9",v:p.k9},{k:"K/BB",v:p.kbb},
+                {k:"SV",v:p.saves},{k:"G",v:p.pg},
+              ];
+              const stats = isPitcher ? pitcherStats : batterStats;
+              return (
+                <article key={String(p.playerid)} className="yat-card" data-name={`${p.firstname} ${p.lastname}`.toLowerCase()} data-playerid={String(p.playerid)} data-level={lvl} data-gradclass={gc} data-slug={slug}>
+                  <div className="yat-card-inner">
+                    <div className="yat-flip">
+                      {/* FRONT */}
+                      <div className="yat-face yat-front">
+                         <div className="yat-bg" data-src={photoUrl} data-fallback={photoFallback} data-placeholder={silhouetteUrl} style={{backgroundImage:`url('${photoUrl}'), url('${photoDefaultUrl}')`}} />
+                        <div className="yat-shade" />
+                        <div className="yat-front-content">
+                          <div className="yat-chips-col">
+                            {gc && <span className="front-chip">CLASS OF {gc}</span>}
+                            <span className="front-chip">{statusLabel}</span>
+                            {lvl && <span className={`front-chip ${lvlCls}`}>{lvl}</span>}
+                          </div>
+                          <div className="yat-info-block">
+                            <div className="yat-name">
+                              <span>{String(p.firstname || "")}</span>
+                              <span>{String(p.lastname || "")}</span>
+                            </div>
+                            <div className="yat-meta">
+                              <span>{[p.position, p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}</span>
+                            </div>
+                            {dots.length > 0 && (
+                              <div className="yat-dots">
+                                {dots.map((y, i) => <div key={i} className="yat-dot">{y}</div>)}
+                              </div>
+                            )}
+
+                            <div className="yat-game-block">
+                              <div className="yat-pill">LAST 3 GAMES</div>
+                              <div className="yat-game-text">
+                                <span className="yat-log">--</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* BACK */}
+                       <div className="yat-face yat-back">
+                         <div className="yat-bg" style={{backgroundImage:`url('${photoFallback}')`}} />
+                         <div className="yat-back-content">
+                           <div className="yat-back-top">
+                             <div>
+                               <div className="yat-back-name">{String(p.display_name || `${p.firstname} ${p.lastname}`)}</div>
+                               <div className="yat-back-details">
+                                 {[p.position,p.height||null,p.weight?`${p.weight} lbs`:null,p.bats&&p.throws?`B/T ${p.bats}/${p.throws}`:null].filter(Boolean).join(" · ")}
+                               </div>
+                             </div>
+                           </div>
+                           <div className="yat-back-nav">
+                             <button className="yat-back-nav-btn active" data-content="stats">SEASON &amp; CAREER STATISTICS</button>
+                             <button className="yat-back-nav-btn" data-content="news">NEWS &amp; VIDEO CLIPS</button>
+                             <button className="yat-back-nav-btn" data-content="social">SOCIAL MEDIA</button>
+                             <button className="yat-back-nav-btn" data-content="mentor">MENTORSHIP MARKETPLACE</button>
+                             <button className="yat-back-nav-btn" data-content="gallery">TIMELINE GALLERY</button>
+                           </div>
+                           <div className="yat-fun-zone">
+                             <div className="yat-stats-bar">CAREER STATS</div>
+                             <div className="yat-stats-grid">
+                               {stats.map(({k,v}) => (
+                                 <div key={k} className="yat-stat">
+                                   <div className="yat-stat-label">{k}</div>
+                                   <div className="yat-stat-val">{fmt(k,v)}</div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                           {draft && <div className="yat-back-draft"><strong>Draft:</strong> {draft}</div>}
+                            <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-profile-link">VIEW FULL PROFILE →</a>
+                         </div>
+                       </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -603,7 +748,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       {/* SPONSOR FOOTER */}
       <footer className="yat-footer">
-        <a href="https://yatstats.com/sponsors" target="_blank" rel="noopener">
+        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
           <span className="sponsor-text">Presented by</span>
           <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
         </a>
@@ -612,44 +757,43 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
         window.__firebase_config = ${getFirebaseConfigJSON()};
-      `}} />
-      <script type="module" dangerouslySetInnerHTML={{__html:`
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import {
-          getAuth,
-          createUserWithEmailAndPassword,
-          signInWithEmailAndPassword,
-          signOut,
-          onAuthStateChanged,
-          signInAnonymously
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-        window.firebaseAuth = {
-          getAuth,
-          createUserWithEmailAndPassword,
-          signInWithEmailAndPassword,
-          signOut,
-          onAuthStateChanged,
-          signInAnonymously
-        };
-
-        try {
-          const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-          const app = initializeApp(firebaseConfig);
-          window.auth = getAuth(app);
-
-          onAuthStateChanged(window.auth, user => {
-            document.dispatchEvent(new CustomEvent('authStateChanged', { detail: { user } }));
-          });
-
-          await signInAnonymously(window.auth);
-        } catch (e) {
-          console.error("Firebase initialization error:", e);
-        }
-      `}} />
-      <script dangerouslySetInnerHTML={{__html:`
 (function(){
-  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');}
+  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  window.__YAT_HSID='${resolvedHsid}';
+  /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
+  var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
+  if(favLink){
+    var favImg=new Image();
+    favImg.onerror=function(){
+      var placeholder = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/ys_crest.svg';
+      favLink.href=placeholder;
+      var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
+      if(appleLink)appleLink.href=placeholder;
+    };
+    favImg.src=favLink.href;
+  }
+  /* Background image fallback for player cards */
+  document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
+    var src=el.getAttribute('data-src');
+    var fallback=el.getAttribute('data-fallback');
+    var placeholder=el.getAttribute('data-placeholder');
+    var img=new Image();
+    img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
+    img.onerror=function(){
+      if(fallback){
+        var fallbackBg="url('"+fallback+"')";
+        var img2=new Image();
+        img2.onload=function(){el.style.backgroundImage=fallbackBg;};
+        img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
+        img2.src=fallback;
+      } else if(placeholder){
+        el.style.backgroundImage="url('"+placeholder+"')";
+        el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
+      }
+    };
+    img.src=src;
+  });
+
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
   var btn=document.getElementById('theme-toggle');
@@ -682,11 +826,37 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     if(content==='stats'){fz.innerHTML=fz.getAttribute('data-stats-html')||fz.innerHTML;}
     else{var labels={news:'ALUMNI NEWS',social:'SOCIAL MEDIA',mentor:'MENTORSHIP MARKETPLACE',gallery:'TIMELINE GALLERY'};fz.innerHTML='<div class="yat-stats-bar">'+(labels[content]||content.toUpperCase())+'</div><div style="padding:20px;text-align:center;opacity:.5;font:300 12px Oswald,sans-serif">Coming soon</div>';}
   });
+  
+  
+  
   function showSection(tabId){
-    document.querySelectorAll('.yat-section').forEach(function(s){s.classList.remove('visible');});
-    var sec=document.getElementById('sec-'+tabId);
-    if(sec)sec.classList.add('visible');
+  document.querySelectorAll('.yat-section').forEach(function(s){
+    s.classList.remove('visible');
+  });
+
+  var sec=document.getElementById('sec-'+tabId);
+  if(sec)sec.classList.add('visible');
+
+  /* update section label in school row (serves as breadcrumb) */
+  var sectionLabel=document.getElementById('yatSectionLabel');
+  if(sectionLabel){
+    var labels={
+      active:'WHERE THEY YAT?',
+      news:'ACTIVE ALUMNI NEWS',
+      alltime:'NEXT-LEVEL ALL-TIME LIST',
+      team:'CURRENT TEAM',
+      mentor:'MENTORSHIP MARKETPLACE',
+      partner:'PCD ACTION PARTNER PROGRAM',
+      faq:"FAQ'S"
+    };
+    var label=labels[tabId]||tabId.toUpperCase();
+    sectionLabel.textContent=label;
   }
+}
+
+
+
+  
   document.addEventListener('click',function(e){
     var pair=e.target.closest('[data-tab]');
     if(!pair)return;
@@ -720,13 +890,18 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     searchInput.addEventListener('input',function(){
       var q=this.value.toLowerCase().trim();
       var results='';
+      var seen={};
       if(q.length>=2){
         document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-          var name=card.getAttribute('data-name')||'';
-          if(name.includes(q)){
+            var name=card.getAttribute('data-name')||'';
+          var pid=card.getAttribute('data-playerid')||'';
+          var slug=card.getAttribute('data-slug')||'';
+          if(name.includes(q)&&pid&&!seen[pid]){
+            seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
-            var dn=escHtml(nameEl?nameEl.textContent:name);
-            results+='<div class="yat-live-hit"><span style="font:400 14px \\'Bebas Neue\\',sans-serif">'+dn+'</span></div>';
+            var dn;
+            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
+        results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
       }
