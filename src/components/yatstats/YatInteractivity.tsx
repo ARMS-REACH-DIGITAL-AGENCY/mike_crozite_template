@@ -2,6 +2,8 @@
 // Inline client-side script: theme toggle, card flip, section navigation,
 // drawer open/close, hero inline search, player drawer search, filter logic
 
+import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
+
 interface YatInteractivityProps {
   resolvedHsid: string;
   firebaseConfigJSON: string;
@@ -21,7 +23,7 @@ window.__firebase_config = ${firebaseConfigJSON};
   if(favLink){
     var favImg=new Image();
     favImg.onerror=function(){
-      var placeholder = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/ys_crest.svg';
+      var placeholder = '/img/yatstats-logo-circle.png';
       favLink.href=placeholder;
       var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
       if(appleLink)appleLink.href=placeholder;
@@ -125,7 +127,8 @@ window.__firebase_config = ${firebaseConfigJSON};
      YAT?STATS metrics (rank, active alumni, MLB, etc.).
      ==================================================================== */
   var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
-  var CREST_PLACEHOLDER=S3_BASE+'/yatstats/ys_crest.svg';
+  /* Canonical same-origin fallback: avoids CORB on cross-origin SVG from S3 */
+  var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
   var STAT_EMPTY='\u2014';
   var gsModal=document.getElementById('gsModal');
   var gsOverlay=document.getElementById('gsOverlay');
@@ -186,7 +189,7 @@ window.__firebase_config = ${firebaseConfigJSON};
       var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
       dest=notLiveBase+'/school-not-live?'+sp.toString();
     }
-    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_PLACEHOLDER;
+    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_FALLBACK;
     var region=p.regionid||'';
     if(!region&&p.hslocation){
       var hlParts=p.hslocation.split(',');
@@ -245,7 +248,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     crestImg.alt='';
     crestImg.loading='lazy';
     crestImg.src=r.crestUrl;
-    crestImg.onerror=function(){crestImg.src=CREST_PLACEHOLDER;};
+    crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
     var infoDiv=document.createElement('div');
     infoDiv.className='yat-gs-result-info';
     var nameDiv=document.createElement('div');
