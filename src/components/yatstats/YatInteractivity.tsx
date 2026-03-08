@@ -173,7 +173,11 @@ window.__firebase_config = ${firebaseConfigJSON};
     var hasAlumni=p.current_aa&&p.current_aa>0;
     var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
     var dest;
-    if(p.hsid){
+    if(status==='live'){
+      /* Use the canonical microsite URL so cross-school navigation always lands on
+         the correct host instead of resolving a relative /{hsid} path on the current host */
+      dest=p.microsite_url;
+    } else if(p.hsid){
       dest='/'+p.hsid;
     } else {
       var sp=new URLSearchParams();
