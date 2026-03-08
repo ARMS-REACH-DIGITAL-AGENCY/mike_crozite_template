@@ -351,16 +351,16 @@ export default async function PlayerProfilePage({
         .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
         .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
         .fav-btn-hero.active i{color:#000}
-        /* PLAYER HERO / META SECTION (scrollable, not sticky) */
-        .player-hero-meta{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:28px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
+        /* PLAYER HERO / META SECTION — compact summary only */
+        .player-hero-meta{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:12px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
         body.light-theme .player-hero-meta{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .player-meta-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:32px;align-items:flex-start}
-        .player-meta-bio{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
-        .player-bio-name{font:700 clamp(28px,5vw,52px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
+        .player-meta-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:20px;align-items:flex-start}
+        .player-meta-bio{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+        .player-bio-name{font:700 clamp(22px,4vw,40px)/1 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
         .player-bio-school{font:300 11px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;display:inline-flex;align-items:center;gap:3px;transition:color .2s}
         .player-bio-school:hover{color:var(--fg)}
-        .player-bio-badges{display:flex;gap:6px;flex-wrap:wrap}
-        .chip{font:700 10px/1 "Bebas Neue",sans-serif;padding:4px 10px;border-radius:4px;letter-spacing:.06em;display:inline-block}
+        .player-bio-badges{display:flex;gap:5px;flex-wrap:wrap}
+        .chip{font:700 10px/1 "Bebas Neue",sans-serif;padding:3px 8px;border-radius:4px;letter-spacing:.06em;display:inline-block}
         .chip-level{background:#1a6b3c;color:#fff}
         .chip-mlb{background:#002D72;color:#fff}
         .chip-aaa{background:#c8102e;color:#fff}
@@ -370,14 +370,14 @@ export default async function PlayerProfilePage({
         .chip-status{background:rgba(255,255,255,.1);color:var(--fg);border:1px solid var(--line)}
         body.light-theme .chip-status{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.12)}
         .player-bio-table{display:flex;flex-direction:column}
-        .player-bio-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);align-items:baseline}
+        .player-bio-row{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--line);align-items:baseline}
         .player-bio-row:last-child{border-bottom:none}
-        .player-bio-key{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;min-width:96px;flex-shrink:0}
-        .player-bio-val{font:500 13px/1 Oswald,sans-serif}
-        .player-meta-media{flex-shrink:0;width:min(200px,35vw)}
-        .player-then-img{width:100%;aspect-ratio:5/7;object-fit:cover;object-position:top center;border-radius:6px;border:1px solid var(--line);display:block}
+        .player-bio-key{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;min-width:80px;flex-shrink:0}
+        .player-bio-val{font:500 11px/1 Oswald,sans-serif}
+        .player-meta-media{flex-shrink:0;width:min(100px,22vw)}
+        .player-then-img{width:100%;aspect-ratio:5/7;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
         /* TABS */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:24px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
@@ -544,22 +544,20 @@ export default async function PlayerProfilePage({
           .yat-schooltext .big2{font-size:16px}
           .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
-          /* Hero/meta: side-by-side compact: image on right, bio on left */
-          .player-hero-meta{padding:16px 0}
-          .player-meta-inner{flex-direction:row;align-items:flex-start;gap:14px}
+          /* Hero/meta: very compact side-by-side */
+          .player-hero-meta{padding:8px 0}
+          .player-meta-inner{flex-direction:row;align-items:flex-start;gap:10px}
           /* Hide large player name on mobile — already shown in sticky header */
           .player-bio-name{display:none}
           /* Keep context line visible but compact */
           .player-context-line{font-size:10px;letter-spacing:.05em}
-          .player-meta-bio{gap:6px}
-          .player-bio-badges{gap:4px}
-          .chip{padding:3px 7px;font-size:9px}
-          .player-bio-table{gap:0}
-          .player-bio-row{padding:4px 0}
-          .player-bio-key{font-size:9px;min-width:72px;letter-spacing:.06em}
-          .player-bio-val{font-size:11px}
+          .player-meta-bio{gap:4px}
+          .player-bio-badges{gap:3px}
+          .chip{padding:2px 6px;font-size:9px}
+          /* Hide bio table on mobile — context line + badges give enough info */
+          .player-bio-table{display:none}
           /* Compact THEN image on mobile */
-          .player-meta-media{flex-shrink:0;width:min(100px,28vw)}
+          .player-meta-media{flex-shrink:0;width:min(80px,22vw)}
           .player-then-img{border-radius:4px}
           .yat-hero-left{padding-left:6px}
           /* Recent game log grid on mobile */
@@ -669,13 +667,9 @@ export default async function PlayerProfilePage({
               {gradClass !== "--" && <span className="chip chip-status">CLASS OF {gradClass}</span>}
             </div>
             <div className="player-bio-table">
-              {pos !== "--" && <div className="player-bio-row"><span className="player-bio-key">Position</span><span className="player-bio-val">{pos}</span></div>}
-              {bt !== "-/-" && <div className="player-bio-row"><span className="player-bio-key">Bats / Throws</span><span className="player-bio-val">{bt}</span></div>}
-              {ht !== "--" && <div className="player-bio-row"><span className="player-bio-key">Height</span><span className="player-bio-val">{ht}</span></div>}
-              {wt !== "--" && <div className="player-bio-row"><span className="player-bio-key">Weight</span><span className="player-bio-val">{wt} lbs</span></div>}
-              {draftInfo !== "N/A" && <div className="player-bio-row"><span className="player-bio-key">Draft</span><span className="player-bio-val">{draftInfo}</span></div>}
-              {college !== "N/A" && <div className="player-bio-row"><span className="player-bio-key">College</span><span className="player-bio-val">{college}</span></div>}
-              <div className="player-bio-row"><span className="player-bio-key">Status</span><span className="player-bio-val">{statusLabel}</span></div>
+              {pos !== "--" && <div className="player-bio-row"><span className="player-bio-key">POS</span><span className="player-bio-val">{pos}</span></div>}
+              {bt !== "-/-" && <div className="player-bio-row"><span className="player-bio-key">B/T</span><span className="player-bio-val">{bt}</span></div>}
+              {ht !== "--" && <div className="player-bio-row"><span className="player-bio-key">HT/WT</span><span className="player-bio-val">{ht}{wt !== "--" ? ` · ${wt}` : ""}</span></div>}
             </div>
           </div>
           {/* Right: THEN image at 5:7 (baseball card proportion) */}
@@ -693,7 +687,7 @@ export default async function PlayerProfilePage({
 
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
-        <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>OVERVIEW</div>
+        <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>GAME LOG</div>
         <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>CAREER STATS</div>
         <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
         <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
@@ -706,6 +700,7 @@ export default async function PlayerProfilePage({
         <div className="overview-section">
 
           {/* Most Recent Season — replaces the redundant BIO card */}
+          {/* Most Recent Season — hero stat block for GAME LOG */}
           {(function(){
             const recentBat = battingSeasons.length > 0 ? battingSeasons[battingSeasons.length - 1] as BattingSeason : null;
             const recentPit = pitchingSeasons.length > 0 ? pitchingSeasons[pitchingSeasons.length - 1] as PitchingSeason : null;
@@ -730,6 +725,7 @@ export default async function PlayerProfilePage({
             return (
               <div className="recent-log-card">
                 <div className="ov-card-title" style={{padding:'10px 14px',background:'none',border:'none',borderBottom:'1px solid var(--line)'}}>
+                  <i className="ri-time-line" style={{marginRight:'6px',opacity:.5}} />
                   MOST RECENT SEASON
                   <span style={{marginLeft:'8px',color:'var(--fg)',opacity:.7}}>{year} — {teamName}</span>
                   <span style={{marginLeft:'8px'}} className={`chip chip-level chip-${lvl.toLowerCase().replace(/[^a-z0-9]/g,'-')}`}>{lvl}</span>
@@ -750,20 +746,70 @@ export default async function PlayerProfilePage({
             );
           })()}
 
-          {/* Career Highlights */}
-          {careerGrid.length > 0 && (
-            <div className="ov-card">
-              <div className="ov-card-title">CAREER HIGHLIGHTS</div>
-              <div className="stats-grid" style={{border:'none',marginBottom:0}}>
-                {careerGrid.map((s, i) => (
-                  <div key={i} className="stat-cell" style={{border:'1px solid var(--line)',borderRadius:'4px'}}>
-                    <div className="stat-label">{s.k}</div>
-                    <div className="stat-value">{s.v}</div>
+          {/* Recent Seasons — last 3 seasons in a compact log table */}
+          {(function(){
+            const bat = battingSeasons.slice(-3) as BattingSeason[];
+            const pit = pitchingSeasons.slice(-3) as PitchingSeason[];
+            const hasBat = bat.length > 0;
+            const hasPit = pit.length > 0;
+            if (!hasBat && !hasPit) return null;
+            return (
+              <>
+                {hasBat && (
+                  <div className="log-section">
+                    <div className="career-log-title"><i className="ri-bar-chart-2-line" /> RECENT BATTING</div>
+                    <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
+                      <table className="season-table career-log">
+                        <thead>
+                          <tr>
+                            <th>YEAR</th><th>TEAM</th><th>LVL</th><th>G</th><th>AB</th><th>H</th><th>HR</th><th>RBI</th><th>SB</th><th>AVG</th><th>OBP</th><th>OPS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bat.map((b, i) => (
+                            <tr key={i} className={`level-row ${levelClass(b.level||'')}`}>
+                              <td className="year-cell">{b.year}</td>
+                              <td className="team-cell">{b.team_name || '--'}</td>
+                              <td>{(b.level||'--').toUpperCase()}</td>
+                              <td>{fmt(b.g)}</td><td>{fmt(b.ab)}</td><td>{fmt(b.h)}</td>
+                              <td>{fmt(b.hr)}</td><td>{fmt(b.rbi)}</td><td>{fmt(b.sb)}</td>
+                              <td>{fmtAvg(b.avg)}</td><td>{fmtAvg(b.obp)}</td><td>{fmtAvg(b.ops)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
+                {hasPit && (
+                  <div className="log-section">
+                    <div className="career-log-title"><i className="ri-baseball-line" /> RECENT PITCHING</div>
+                    <div className="table-wrap" style={{borderRadius:'0 0 6px 6px',borderTop:'none'}}>
+                      <table className="season-table career-log">
+                        <thead>
+                          <tr>
+                            <th>YEAR</th><th>TEAM</th><th>LVL</th><th>G</th><th>W</th><th>L</th><th>IP</th><th>KO</th><th>BB</th><th>ERA</th><th>WHIP</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pit.map((p, i) => (
+                            <tr key={i} className={`level-row ${levelClass(p.level||'')}`}>
+                              <td className="year-cell">{p.year}</td>
+                              <td className="team-cell">{p.team_name || '--'}</td>
+                              <td>{(p.level||'--').toUpperCase()}</td>
+                              <td>{fmt(p.g)}</td><td>{fmt(p.w)}</td><td>{fmt(p.l)}</td>
+                              <td>{fmt(p.ip,1)}</td><td>{fmt(p.ko)}</td><td>{fmt(p.bb)}</td>
+                              <td>{fmt(p.era,2)}</td><td>{fmt(p.whip,2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Career Path — level progression timeline */}
           {levelLadder.length > 0 && (
@@ -789,6 +835,21 @@ export default async function PlayerProfilePage({
       {/* TAB: CAREER STATS (Baseball Reference–style career log) */}
       <div className="tab-content" id="tab-stats" role="tabpanel">
         <div className="overview-section">
+
+          {/* Career Highlights — totals grid */}
+          {careerGrid.length > 0 && (
+            <div className="ov-card">
+              <div className="ov-card-title">CAREER HIGHLIGHTS</div>
+              <div className="stats-grid" style={{border:'none',marginBottom:0}}>
+                {careerGrid.map((s, i) => (
+                  <div key={i} className="stat-cell" style={{border:'1px solid var(--line)',borderRadius:'4px'}}>
+                    <div className="stat-label">{s.k}</div>
+                    <div className="stat-value">{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {battingSeasons.length > 0 && (
             <div className="log-section">
