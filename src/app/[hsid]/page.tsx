@@ -204,7 +204,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
-        .yat-hero{padding:2px 0}
+        .yat-hero{padding:2px 0;position:relative}
         .yat-hero-grid{
   display:flex;
   align-items:flex-start;
@@ -345,6 +345,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
         .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
         .yat-footer a:hover{opacity:.8}
+        .yat-inline-search{display:none;align-items:center;gap:6px;flex:1;min-width:0}
+        body.hero-search-open .yat-inline-search{display:flex}
+        body.hero-search-open .yat-hero-left{display:none}
+        body.hero-search-open .yat-hero-right{flex:1}
+        @media(min-width:540px){body.hero-search-open .yat-hero-left{display:flex;min-width:0;flex-shrink:1;opacity:.5}}
+        .yat-hero-search-input{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:20px;color:var(--fg);font:400 13px Oswald,sans-serif;padding:6px 14px;outline:none;transition:border-color .2s}
+        body.light-theme .yat-hero-search-input{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.15)}
+        .yat-hero-search-input:focus{border-color:rgba(255,255,255,.4)}
+        body.light-theme .yat-hero-search-input:focus{border-color:rgba(0,0,0,.3)}
+        .yat-hero-search-drop{position:absolute;left:0;right:0;top:100%;z-index:55;background:var(--drawer-bg);backdrop-filter:blur(4px);border-bottom:1px solid var(--line);max-height:55vh;overflow-y:auto;display:none}
+        .yat-hero-search-drop.visible{display:block}
+        .yat-hero-result{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+        .yat-hero-result:hover{background:var(--line)}
+        .yat-hero-result-name{font:400 14px "Bebas Neue",sans-serif;letter-spacing:.04em}
+        .yat-hero-result-sub{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:1px}
+        .yat-hero-result-rank{font:700 11px Oswald,sans-serif;color:var(--muted);white-space:nowrap;margin-left:8px;flex-shrink:0}
       `}</style>
 
       {/* HEADER */}
@@ -404,11 +420,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
 
             <div className="yat-hero-right">
+              <div id="heroSearchWrap" className="yat-inline-search">
+                <input id="heroSearchInput" type="search" className="yat-hero-search-input" placeholder="Search players &amp; schools…" autoComplete="off" />
+                <button id="heroSearchClose" className="yat-icon-btn" aria-label="Close search"><i className="ri-close-line" /></button>
+              </div>
               <button id="openSearch" className="yat-icon-btn" aria-label="Open search"><i className="ri-search-line" /></button>
               <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
               <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters"><i className="ri-restart-line" /></button>
             </div>
           </div>
+          <div id="heroSearchDrop" className="yat-hero-search-drop" />
         </div>
       </header>
 
@@ -897,8 +918,73 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
+  /* ====================================================================
+     INLINE HERO SEARCH
+     HERO_SEARCH_SCOPE controls where the search is performed:
+       'global'    – searches all schools across the YAT?STATS platform
+                     via /api/schools/search (API, fast, minimal friction)
+       'subdomain' – searches only this school's current roster via DOM
+
+     BETA (current): HERO_SEARCH_SCOPE = 'global' for every visitor.
+     FUTURE: swap the line below for an entitlement check, e.g.:
+       var HERO_SEARCH_SCOPE = userIsSuperFan() ? 'global' : 'subdomain';
+     ==================================================================== */
+  var HERO_SEARCH_SCOPE='global';
   var openSearch=document.getElementById('openSearch');
-  if(openSearch)openSearch.addEventListener('click',function(){document.body.classList.add('drawer-left-open','drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');var inp=document.getElementById('playerSearch');if(inp)setTimeout(function(){inp.focus();},300);});
+  var heroSearchInput=document.getElementById('heroSearchInput');
+  var heroSearchClose=document.getElementById('heroSearchClose');
+  var heroSearchDrop=document.getElementById('heroSearchDrop');
+  function openHeroSearch(){document.body.classList.add('hero-search-open');if(heroSearchInput)setTimeout(function(){heroSearchInput.focus();},50);}
+  function closeHeroSearch(){document.body.classList.remove('hero-search-open');if(heroSearchInput)heroSearchInput.value='';if(heroSearchDrop){heroSearchDrop.innerHTML='';heroSearchDrop.classList.remove('visible');}}
+  if(openSearch)openSearch.addEventListener('click',function(){openHeroSearch();});
+  if(heroSearchClose)heroSearchClose.addEventListener('click',function(){closeHeroSearch();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('hero-search-open'))closeHeroSearch();});
+  document.addEventListener('click',function(e){
+    if(!document.body.classList.contains('hero-search-open'))return;
+    var t=e.target;
+    if(!t.closest('#heroSearchWrap')&&!t.closest('#heroSearchDrop')&&!t.closest('#openSearch'))closeHeroSearch();
+  });
+  function runSubdomainSearch(q){
+    var ql=q.toLowerCase();var html='';var seen={};
+    document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
+      var name=card.getAttribute('data-name')||'';var pid=card.getAttribute('data-playerid')||'';var slug=card.getAttribute('data-slug')||'';
+      if(name.includes(ql)&&pid&&!seen[pid]){
+        seen[pid]=true;var nameEl=card.querySelector('.yat-name');var dn;
+        if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
+        html+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-hero-result"><div class="yat-hero-result-name">'+dn+'</div></a>';
+      }
+    });
+    if(!html)html='<div style="padding:12px 16px;opacity:.5;font-size:12px">No players found</div>';
+    heroSearchDrop.innerHTML=html;heroSearchDrop.classList.add('visible');
+  }
+  function runGlobalSearch(q){
+    heroSearchDrop.innerHTML='<div style="padding:12px 16px;opacity:.5;font-size:12px">Searching\u2026</div>';
+    heroSearchDrop.classList.add('visible');
+    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=10')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        var items=d.programs||[];var html='';
+        items.forEach(function(p){
+          var url=escHtml(p.microsite_url||'#');var name=escHtml(p.hsname||'');
+          var loc=escHtml(p.hslocation||'');var rank=p.yatstats_national_rank?'#'+p.yatstats_national_rank:'';
+          html+='<a href="'+url+'" class="yat-hero-result"><div><div class="yat-hero-result-name">'+name+'</div>'+(loc?'<div class="yat-hero-result-sub">'+loc+'</div>':'')+'</div>'+(rank?'<div class="yat-hero-result-rank">'+rank+'</div>':'')+'</a>';
+        });
+        if(!html)html='<div style="padding:12px 16px;opacity:.5;font-size:12px">No schools found</div>';
+        heroSearchDrop.innerHTML=html;
+      })
+      .catch(function(){heroSearchDrop.innerHTML='<div style="padding:12px 16px;opacity:.5;font-size:12px">Search unavailable</div>';});
+  }
+  var heroTimer=null;
+  if(heroSearchInput&&heroSearchDrop){
+    heroSearchInput.addEventListener('input',function(){
+      var q=this.value.trim();clearTimeout(heroTimer);
+      if(q.length<2){heroSearchDrop.innerHTML='';heroSearchDrop.classList.remove('visible');return;}
+      heroTimer=setTimeout(function(){HERO_SEARCH_SCOPE==='global'?runGlobalSearch(q):runSubdomainSearch(q);},220);
+    });
+    heroSearchInput.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){var q=heroSearchInput.value.trim();if(q.length>=2){clearTimeout(heroTimer);HERO_SEARCH_SCOPE==='global'?runGlobalSearch(q):runSubdomainSearch(q);}}
+    });
+  }
   var searchInput=document.getElementById('playerSearch');
   var liveResults=document.getElementById('liveResults');
   if(searchInput&&liveResults){
