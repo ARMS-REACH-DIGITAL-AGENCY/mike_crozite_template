@@ -21,18 +21,14 @@ export default function GlobalSearchModal() {
         </button>
       </div>
 
-      {/* ── GLOBAL SEARCH MODAL ─────────────────────────────────────────────
-          Phase 1: School search only.
-          To add Player Search later: add a tab row here (All / Schools / Players)
-          and add a runPlayerSearch() function that fetches from a player search API.
-      ─────────────────────────────────────────────────────────────────────── */}
+      {/* ── GLOBAL SEARCH MODAL ───────────────────────────────────────────── */}
       <div id="gsModal" className="yat-gs-modal" role="dialog" aria-modal="true" aria-labelledby="gsTitle">
         <div className="yat-gs-overlay" id="gsOverlay" />
         <div className="yat-gs-panel">
           <div className="yat-gs-header">
             <div>
-              <div className="yat-gs-title" id="gsTitle">Find a School</div>
-              <div className="yat-gs-sub">Browse schools by region across the YAT?STATS network</div>
+              <div className="yat-gs-title" id="gsTitle">Find a School or Player</div>
+              <div className="yat-gs-sub">Browse schools and players across the YAT?STATS network</div>
             </div>
             <button id="gsClose" className="yat-icon-btn" aria-label="Close search" style={{ flexShrink: 0, marginLeft: "12px" }}>
               <i className="ri-close-line" />
@@ -45,15 +41,14 @@ export default function GlobalSearchModal() {
                 id="gsInput"
                 type="search"
                 className="yat-gs-input"
-                placeholder="Search by school or region…"
+                placeholder="Search by school or player…"
                 autoComplete="off"
-                aria-label="Search schools by region"
+                aria-label="Search schools or players"
                 aria-controls="gsResults"
                 aria-autocomplete="list"
               />
             </div>
             <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
-            <div className="yat-gs-coming">Player search coming soon</div>
           </div>
         </div>
       </div>
