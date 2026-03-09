@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     `;
     const { rows } = await query(sql, [pattern, limit]);
     const players = rows.map((r: any) => {
-      // hslocation is expected to be "City, ST" from school_success; fallback keeps everything after the first comma as state/region (e.g., "Washington, D.C."), hence slice(1).join(",")
+      // hslocation is expected to be "City, ST" from school_success; fallback keeps everything after the first comma as state/region (e.g., "Washington, D.C."), hence slice(1).join(","). Non-standard formats are passed through unchanged.
       const locParts = String(r.hslocation || "").split(",");
       const city = (locParts[0] || "").trim();
       const state = (locParts.slice(1).join(",") || "").trim();

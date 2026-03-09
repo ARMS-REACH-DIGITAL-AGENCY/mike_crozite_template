@@ -140,6 +140,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   var gsTimer=null;
   var gsQueryToken=0;
   var gsHadError=false;
+  var gsPlayerError=false;
+  var gsSchoolError=false;
   function openGsModal(){
     if(!gsModal)return;
     gsModal.classList.add('open');
@@ -373,14 +375,14 @@ window.__firebase_config = ${firebaseConfigJSON};
     return fetch(\`/api/schools/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
       .then(function(r){return r.json();})
       .then(function(d){return (d.programs||[]).map(normalizeSchoolResult);})
-      .catch(function(){gsHadError=true;return [];});
+      .catch(function(err){gsHadError=true;gsSchoolError=true;console.warn('School search failed',err);return [];});
   }
 
   function fetchPlayerResults(q){
     return fetch(\`/api/players/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
       .then(function(r){return r.json();})
       .then(function(d){return d.players||[];})
-      .catch(function(){gsHadError=true;return [];});
+      .catch(function(err){gsHadError=true;gsPlayerError=true;console.warn('Player search failed',err);return [];});
   }
 
   function renderCombinedResults(players,schools,q,hadError){
@@ -402,6 +404,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   function runGlobalSearch(q){
     if(!gsResults)return;
     gsHadError=false;
+    gsPlayerError=false;
+    gsSchoolError=false;
     var token=++gsQueryToken;
     gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
     Promise.all([fetchPlayerResults(q), fetchSchoolResults(q)]).then(function(res){
