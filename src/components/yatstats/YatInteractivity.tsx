@@ -3,6 +3,7 @@
 // drawer open/close, hero inline search, player drawer search, filter logic
 
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
+import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
 
 interface YatInteractivityProps {
   resolvedHsid: string;
@@ -123,19 +124,22 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* ====================================================================
      GLOBAL SEARCH MODAL
      Opens #gsModal on #openSearch click.
-     Results are grouped by region with premium school cards showing
-     YAT?STATS metrics (rank, active alumni, MLB, etc.).
+     Results show players first, then schools (grouped by region).
      ==================================================================== */
   var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
   /* Canonical same-origin fallback: avoids CORB on cross-origin SVG from S3 */
   var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
   var STAT_EMPTY='\u2014';
+  var GS_RESULT_LIMIT=${GLOBAL_SEARCH_LIMIT};
+  var GS_DEBOUNCE_MS=${GLOBAL_SEARCH_DEBOUNCE_MS};
   var gsModal=document.getElementById('gsModal');
   var gsOverlay=document.getElementById('gsOverlay');
   var gsClose=document.getElementById('gsClose');
   var gsInput=document.getElementById('gsInput');
   var gsResults=document.getElementById('gsResults');
   var gsTimer=null;
+  var gsQueryToken=0;
+  var gsHadError=false;
   function openGsModal(){
     if(!gsModal)return;
     gsModal.classList.add('open');
@@ -167,6 +171,13 @@ window.__firebase_config = ${firebaseConfigJSON};
       items[idx].focus();
     }
   });
+
+  function makeSectionLabel(text){
+    var lbl=document.createElement('div');
+    lbl.className='yat-gs-section';
+    lbl.textContent=text;
+    return lbl;
+  }
 
   /* Normalize a raw API program record into a typed result object */
   function normalizeSchoolResult(p){
@@ -286,37 +297,122 @@ window.__firebase_config = ${firebaseConfigJSON};
     return el;
   }
 
-  function runSchoolSearch(q){
-    if(!gsResults)return;
-    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
-    fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=50')
+  function renderPlayerResult(p){
+    var el=document.createElement('a');
+    el.className='yat-gs-result yat-gs-player';
+    el.setAttribute('role','option');
+    el.setAttribute('tabindex','0');
+    var schoolId=p.schoolId||'';
+    var playerId=p.playerId||'';
+    var slug=p.slug||'player';
+    var href=schoolId&&playerId?(\`/\${schoolId}/player/\${playerId}/\${slug}\`):'';
+    if(href){
+      el.setAttribute('href',href);
+    }
+    var topDiv=document.createElement('div');
+    topDiv.className='yat-gs-result-top';
+    var crestImg=document.createElement('img');
+    crestImg.className='yat-gs-result-crest';
+    crestImg.alt='';
+    crestImg.loading='lazy';
+    crestImg.src=p.crestUrl||CREST_FALLBACK;
+    crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
+    var infoDiv=document.createElement('div');
+    infoDiv.className='yat-gs-result-info';
+    var nameDiv=document.createElement('div');
+    nameDiv.className='yat-gs-result-name';
+    // fallback avoids empty label if data is incomplete while still showing partial names
+    var displayName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Unknown Player';
+    nameDiv.textContent=displayName;
+    var locDiv=document.createElement('div');
+    locDiv.className='yat-gs-result-loc';
+    var locParts=[];
+    if(p.city)locParts.push(p.city);
+    if(p.state)locParts.push(p.state);
+    var subtitle=p.schoolName||'';
+    var loc=locParts.join(', ');
+    if(loc)subtitle+= (subtitle?' — ':'')+loc;
+    locDiv.textContent=subtitle;
+    infoDiv.appendChild(nameDiv);
+    if(subtitle)infoDiv.appendChild(locDiv);
+    topDiv.appendChild(crestImg);
+    topDiv.appendChild(infoDiv);
+    el.appendChild(topDiv);
+    if(!href){
+      el.setAttribute('aria-disabled','true');
+      el.setAttribute('tabindex','-1');
+      el.addEventListener('click',function(e){e.preventDefault();});
+    }
+    return el;
+  }
+
+  function renderSchoolGroups(items,frag){
+    if(!items.length)return;
+    frag.appendChild(makeSectionLabel('Schools'));
+    var groups={};var order=[];
+    items.forEach(function(r){
+      var key=r.region||'Unknown Region';
+      if(!groups[key]){groups[key]=[];order.push(key);}
+      groups[key].push(r);
+    });
+    order.forEach(function(region){
+      var hdr=document.createElement('div');
+      hdr.className='yat-gs-region';
+      hdr.textContent=region;
+      frag.appendChild(hdr);
+      groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
+    });
+  }
+
+  function renderPlayerSection(players,frag){
+    if(!players.length)return;
+    frag.appendChild(makeSectionLabel('Players'));
+    players.forEach(function(p){frag.appendChild(renderPlayerResult(p));});
+  }
+
+  function fetchSchoolResults(q){
+    return fetch(\`/api/schools/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
       .then(function(r){return r.json();})
-      .then(function(d){
-        var items=(d.programs||[]).map(normalizeSchoolResult);
-        gsResults.innerHTML='';
-        if(!items.length){
-          gsResults.innerHTML='<div class="yat-gs-msg">No schools found matching \u201c'+escHtml(q)+'\u201d</div>';
-          return;
-        }
-        var groups={};var order=[];
-        items.forEach(function(r){
-          var key=r.region||'Unknown Region';
-          if(!groups[key]){groups[key]=[];order.push(key);}
-          groups[key].push(r);
-        });
-        var frag=document.createDocumentFragment();
-        order.forEach(function(region){
-          var hdr=document.createElement('div');
-          hdr.className='yat-gs-region';
-          hdr.textContent=region;
-          frag.appendChild(hdr);
-          groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
-        });
-        gsResults.appendChild(frag);
-      })
-      .catch(function(){
-        gsResults.innerHTML='<div class="yat-gs-msg">Search unavailable. Please try again.</div>';
-      });
+      .then(function(d){return (d.programs||[]).map(normalizeSchoolResult);})
+      .catch(function(err){gsHadError=true;console.warn('School search failed',err);return [];});
+  }
+
+  function fetchPlayerResults(q){
+    return fetch(\`/api/players/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
+      .then(function(r){return r.json();})
+      .then(function(d){return d.players||[];})
+      .catch(function(err){gsHadError=true;console.warn('Player search failed',err);return [];});
+  }
+
+  function renderCombinedResults(players,schools,q,hadError){
+    if(!gsResults)return;
+    gsResults.innerHTML='';
+    var frag=document.createDocumentFragment();
+    var hasPlayers=players&&players.length>0;
+    var hasSchools=schools&&schools.length>0;
+    if(hasPlayers)renderPlayerSection(players,frag);
+    if(hasSchools)renderSchoolGroups(schools,frag);
+    if(!hasPlayers&&!hasSchools){
+      var msg=hadError?'Search unavailable. Please try again.':'No results found matching \u201c'+escHtml(q)+'\u201d';
+      gsResults.innerHTML='<div class="yat-gs-msg">'+msg+'</div>';
+      return;
+    }
+    gsResults.appendChild(frag);
+  }
+
+  function runGlobalSearch(q){
+    if(!gsResults)return;
+    gsHadError=false;
+    var token=++gsQueryToken;
+    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
+    Promise.all([fetchPlayerResults(q), fetchSchoolResults(q)]).then(function(res){
+      if(token!==gsQueryToken)return;
+      var players=res[0],schools=res[1];
+      renderCombinedResults(players||[],schools||[],q,gsHadError);
+    }).catch(function(){
+      if(token!==gsQueryToken)return;
+      renderCombinedResults([],[],q,true);
+    });
   }
 
   if(gsInput&&gsResults){
@@ -324,12 +420,12 @@ window.__firebase_config = ${firebaseConfigJSON};
       var q=this.value.trim();
       clearTimeout(gsTimer);
       if(q.length<2){gsResults.innerHTML='';return;}
-      gsTimer=setTimeout(function(){runSchoolSearch(q);},220);
+      gsTimer=setTimeout(function(){runGlobalSearch(q);},GS_DEBOUNCE_MS);
     });
     gsInput.addEventListener('keydown',function(e){
       if(e.key==='Enter'){
         var q=gsInput.value.trim();
-        if(q.length>=2){clearTimeout(gsTimer);runSchoolSearch(q);}
+        if(q.length>=2){clearTimeout(gsTimer);runGlobalSearch(q);}
       }
     });
   }
