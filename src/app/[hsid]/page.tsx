@@ -192,11 +192,19 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
         {/* NEWS */}
         <section id="sec-news" className="yat-section">
-          <div className="yat-placeholder">
-            <div className="yat-placeholder-icon">📰</div>
-            <div className="yat-placeholder-title">Alumni News Coming Soon</div>
-            <div className="yat-placeholder-body">
-              Integrating with <strong style={{ color: "var(--fg)" }}>Webz.io</strong> to automatically surface news for every active alumni.
+          <div className="yat-news-wrap">
+            <div className="yat-news-header">
+              <div>
+                <div className="yat-news-title">ACTIVE ALUMNI NEWS</div>
+                <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
+              </div>
+            </div>
+            <div className="yat-news-grid" id="news-grid">
+              {/* Populated client-side via /api/news/:hsid */}
+              <div className="yat-news-loading">
+                <div className="yat-news-loading-spinner" />
+                <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
+              </div>
             </div>
           </div>
         </section>

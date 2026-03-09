@@ -473,6 +473,149 @@ window.__firebase_config = ${firebaseConfigJSON};
   if(filtersReset)filtersReset.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
   if(filtersReset2)filtersReset2.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
+
+  /* ====================================================================
+     NEWS SECTION — Lazy-load from /api/news/:hsid on first tab switch
+     ==================================================================== */
+  var newsLoaded=false;
+  var newsContainer=document.getElementById('news-grid');
+
+  function timeAgo(dateStr){
+    try{
+      var d=new Date(dateStr);
+      var now=Date.now();
+      var diff=now-d.getTime();
+      var mins=Math.floor(diff/60000);
+      if(mins<60)return mins+'m ago';
+      var hrs=Math.floor(mins/60);
+      if(hrs<24)return hrs+'h ago';
+      var days=Math.floor(hrs/24);
+      if(days<30)return days+'d ago';
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    }catch(e){return '';}
+  }
+
+  function stripHtml(html){
+    var tmp=document.createElement('div');
+    tmp.innerHTML=html;
+    return tmp.textContent||tmp.innerText||'';
+  }
+
+  function renderNewsCard(post){
+    var card=document.createElement('a');
+    card.className='yat-news-card';
+    card.href=post.url||'#';
+    card.target='_blank';
+    card.rel='noopener noreferrer';
+
+    /* Image area */
+    var imgWrap=document.createElement('div');
+    imgWrap.className='yat-news-img-wrap';
+    if(post.mainImage){
+      var img=document.createElement('img');
+      img.className='yat-news-img';
+      img.loading='lazy';
+      img.alt='';
+      img.src=post.mainImage;
+      img.onerror=function(){img.style.display='none';var ph=document.createElement('div');ph.className='yat-news-img-placeholder';ph.innerHTML='\u26BE';imgWrap.appendChild(ph);};
+      imgWrap.appendChild(img);
+    }else{
+      var ph=document.createElement('div');
+      ph.className='yat-news-img-placeholder';
+      ph.innerHTML='\u26BE';
+      imgWrap.appendChild(ph);
+    }
+    /* Sentiment badge */
+    var sent=post.sentiment||'neutral';
+    var sentBadge=document.createElement('span');
+    sentBadge.className='yat-news-sentiment yat-news-sentiment-'+sent;
+    sentBadge.textContent=sent.toUpperCase();
+    imgWrap.appendChild(sentBadge);
+    card.appendChild(imgWrap);
+
+    /* Body */
+    var body=document.createElement('div');
+    body.className='yat-news-body';
+
+    var title=document.createElement('div');
+    title.className='yat-news-card-title';
+    title.textContent=stripHtml(post.title||'Untitled');
+    body.appendChild(title);
+
+    if(post.text){
+      var snippet=document.createElement('div');
+      snippet.className='yat-news-snippet';
+      snippet.innerHTML=post.text;
+      body.appendChild(snippet);
+    }
+
+    /* Categories */
+    if(post.categories&&post.categories.length){
+      var cats=document.createElement('div');
+      cats.className='yat-news-categories';
+      post.categories.slice(0,3).forEach(function(c){
+        var tag=document.createElement('span');
+        tag.className='yat-news-cat';
+        tag.textContent=c;
+        cats.appendChild(tag);
+      });
+      body.appendChild(cats);
+    }
+
+    /* Meta row */
+    var meta=document.createElement('div');
+    meta.className='yat-news-meta';
+    var src=document.createElement('span');
+    src.className='yat-news-source';
+    src.textContent=post.source&&post.source.site?post.source.site:'Unknown';
+    var date=document.createElement('span');
+    date.className='yat-news-date';
+    date.textContent=timeAgo(post.published);
+    meta.appendChild(src);
+    meta.appendChild(date);
+    body.appendChild(meta);
+
+    card.appendChild(body);
+    return card;
+  }
+
+  function loadNews(){
+    if(newsLoaded||!newsContainer)return;
+    newsLoaded=true;
+    newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-loading-spinner"></div><div class="yat-news-loading-text">LOADING ALUMNI NEWS\u2026</div></div>';
+    var hsid=window.__YAT_HSID;
+    fetch('/api/news/'+encodeURIComponent(hsid))
+      .then(function(r){return r.json();})
+      .then(function(data){
+        newsContainer.innerHTML='';
+        if(!data.posts||data.posts.length===0){
+          newsContainer.innerHTML='<div class="yat-news-loading"><div style="font-size:36px;opacity:.2;margin-bottom:12px">\u26BE</div><div class="yat-news-loading-text">NO ALUMNI NEWS FOUND YET</div><div style="font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto">News for active alumni will appear here as articles are published. Check back soon.</div></div>';
+          return;
+        }
+        data.posts.forEach(function(post){
+          newsContainer.appendChild(renderNewsCard(post));
+        });
+        /* Footer */
+        var footer=document.createElement('div');
+        footer.className='yat-news-footer';
+        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \u00B7 '+data.totalResults+' total results</span>';
+        newsContainer.parentNode.appendChild(footer);
+      })
+      .catch(function(err){
+        console.error('News fetch error:',err);
+        newsContainer.innerHTML='<div class="yat-news-error"><div class="yat-news-error-icon">\u26A0\uFE0F</div><div class="yat-news-error-text">Unable to load news right now. Please try again later.</div></div>';
+      });
+  }
+
+  /* Hook into section switching to trigger news load */
+  var origShowSection=showSection;
+  showSection=function(tabId){
+    origShowSection(tabId);
+    if(tabId==='news')loadNews();
+  };
+  /* Also load if news section is already visible on page load */
+  var newsSection=document.getElementById('sec-news');
+  if(newsSection&&newsSection.classList.contains('visible'))loadNews();
 })();
         `,
       }}
