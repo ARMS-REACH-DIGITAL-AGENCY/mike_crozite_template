@@ -517,7 +517,7 @@ export default async function PlayerProfilePage({
         .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
         .fav-btn-hero.active i{color:#000}
         /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
-        .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:10px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
+        .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0 0 10px;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
         .career-strip-inner{max-width:1100px;margin:0 auto;padding:0;display:flex;gap:0;align-items:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
@@ -777,8 +777,6 @@ export default async function PlayerProfilePage({
             </a>
           </div>
         </div>
-
-        <div className="yat-hr" />
 
         {/* School identity band: LEFT = crest + identity, RIGHT = Add Favorite */}
         <div className="yat-schoolrow">
