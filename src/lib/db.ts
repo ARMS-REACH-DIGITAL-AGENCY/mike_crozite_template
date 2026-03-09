@@ -632,11 +632,51 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 // Three query patterns matching the three news surfaces:
 //   1. getNewsByHsid()   — Alumni News page (all articles for a school)
 //   2. getNewsByPlayer() — Player profile + flip card teaser (player-scoped)
+//
+// getNewsByHsid now joins player identity rows so the API can:
+//   • normalize level labels
+//   • derive grad class from draft_info / playyears
+//   • detect active-2025 status
+//   • compute a confidence score to suppress false-positive name matches
 // ---------------------------------------------------------------------------
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT * FROM news_articles WHERE hsid = $1 ORDER BY published_at DESC LIMIT $2`,
+      `SELECT
+         na.*,
+         tp.firstname        AS player_firstname,
+         tp.lastname         AS player_lastname,
+         tp.highlevel        AS player_highlevel,
+         COALESCE(lb.draft_info,  lp.pit_draft_info)  AS player_draft_info,
+         COALESCE(lb.playyears,   lp.pit_playyears)   AS player_playyears,
+         CASE WHEN a25.playerid IS NOT NULL THEN true ELSE false END AS player_active
+       FROM news_articles na
+       LEFT JOIN tbc_players_raw tp
+         ON na.playerid::text = tp.playerid::text
+       LEFT JOIN LATERAL (
+         SELECT draft_info, playyears
+         FROM   tbc_batting_raw
+         WHERE  playerid::text = na.playerid::text
+         ORDER  BY year DESC
+         LIMIT  1
+       ) lb ON true
+       LEFT JOIN LATERAL (
+         SELECT draft_info AS pit_draft_info, playyears AS pit_playyears
+         FROM   tbc_pitching_raw
+         WHERE  playerid::text = na.playerid::text
+         ORDER  BY year DESC
+         LIMIT  1
+       ) lp ON true
+       LEFT JOIN LATERAL (
+         SELECT DISTINCT playerid::text AS playerid
+         FROM   tbc_batting_raw
+         WHERE  year = '2025'
+           AND  playerid::text = na.playerid::text
+         LIMIT  1
+       ) a25 ON true
+       WHERE na.hsid = $1
+       ORDER BY na.published_at DESC
+       LIMIT $2`,
       [hsid, limit]
     );
     return rows;

@@ -199,6 +199,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
               </div>
             </div>
+            {/* News filter bar — populated/wired by YatInteractivity */}
+            <div className="yat-news-filters" id="newsFilters">
+              <input id="newsFilterName" className="yat-news-filter-input" type="search" placeholder="Filter by player name…" />
+              <span className="yat-news-filter-label">Level:</span>
+              <div className="yat-news-filter-chips" id="newsFilterLevels" />
+              <button id="newsFilterReset" className="yat-news-filter-reset">Reset</button>
+            </div>
             <div className="yat-news-grid" id="news-grid">
               {/* Populated client-side via /api/news/:hsid */}
               <div className="yat-news-loading">
@@ -280,6 +287,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </footer>
 
       <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
+
+      {/* Article detail overlay + modal drawer */}
+      <div className="yat-article-overlay" id="articleOverlay" />
+      <aside className="yat-article-modal" id="articleModal" role="dialog" aria-modal="true" aria-label="Article detail">
+        <div className="yat-article-modal-top">
+          <span className="yat-article-modal-label">ALUMNI NEWS</span>
+          <button className="yat-article-modal-close" id="articleModalClose" aria-label="Close">
+            <i className="ri-close-line" />
+          </button>
+        </div>
+        {/* Image populated by JS */}
+        <div id="articleModalImg" />
+        <div className="yat-article-modal-body" id="articleModalBody">
+          {/* Populated by JS when a card is clicked */}
+        </div>
+      </aside>
     </>
   );
 }
