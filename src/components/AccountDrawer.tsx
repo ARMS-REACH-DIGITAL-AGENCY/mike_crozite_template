@@ -79,6 +79,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [displayName, setDisplayName] = useState('');
   // Track sign-in email so it can be reused for forgot-password flow
   const [signInEmail, setSignInEmail] = useState('');
+  // Favorite confirmation after auth + pending intent resume
+  const [favConfirm, setFavConfirm] = useState<string>(''); // player name if just favorited
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -95,6 +97,30 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     return () => unsubscribe();
   }, []);
 
+  /** Execute a pending favorite intent stored in sessionStorage, if any. */
+  const resumePendingFavorite = async (contactId: string) => {
+    const pid = sessionStorage.getItem('pending_fav_pid');
+    const pName = sessionStorage.getItem('pending_fav_name') || pid || '';
+    if (!pid || !contactId) return;
+    sessionStorage.removeItem('pending_fav_pid');
+    sessionStorage.removeItem('pending_fav_name');
+    try {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactId, playerId: pid, playerName: pName, type: 'fan' }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setFavConfirm(pName);
+        // Notify any listening player-profile JS that auth+favorite succeeded
+        window.dispatchEvent(new CustomEvent('yat-auth-success', { detail: { contactId } }));
+      }
+    } catch {
+      // Non-fatal — user is still logged in; favorite just wasn't added silently
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -108,6 +134,16 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       setMessage('Sign in successful!');
       setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
+
+      // Resume any pending favorite intent (uses contactId from localStorage if available)
+      try {
+        const stored = JSON.parse(localStorage.getItem('yat-user') || 'null');
+        if (stored?.contactId && sessionStorage.getItem('pending_fav_pid')) {
+          await resumePendingFavorite(stored.contactId);
+        }
+      } catch {
+        // non-fatal
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed');
       setMessageType('error');
@@ -157,9 +193,21 @@ const uid = cred.user?.uid;
         }),
       });
 
+      // Parse response once and reuse for both error handling and success data
+      const regData = await registerResponse.json();
       if (!registerResponse.ok) {
-        const errorData = await registerResponse.json();
-        throw new Error(errorData.error || 'Failed to sync to CRM');
+        throw new Error(regData?.error || 'Failed to sync to CRM');
+      }
+
+      // Save contactId to localStorage so future addFavorite() calls work
+      if (regData?.contactId) {
+        try {
+          localStorage.setItem('yat-user', JSON.stringify({ contactId: regData.contactId, email }));
+        } catch {
+          // non-fatal
+        }
+        // Resume any pending favorite intent
+        await resumePendingFavorite(regData.contactId);
       }
 
       setMessage('Registration successful! Welcome to YAT?STATS.');
@@ -217,6 +265,34 @@ const uid = cred.user?.uid;
       {user && !user.isAnonymous ? (
         // Logged in state
         <div style={{ padding: '20px' }}>
+          {/* ── Favorite confirmation banner ── */}
+          {favConfirm && (
+            <div style={{ background: 'rgba(22,163,74,.12)', border: '1px solid #16a34a', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '14px', color: '#16a34a', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '6px' }}>
+                ⭐ {favConfirm} added to your Favorites
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '10px' }}>
+                Free Fan accounts can follow players from this school.
+                Upgrade to Superfan to follow players from <strong>ANY</strong> school.
+              </p>
+              <Link
+                href="/superfan"
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 14px',
+                  background: '#b8860b',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  letterSpacing: '.06em',
+                  textDecoration: 'none',
+                }}
+              >
+                Upgrade to Superfan →
+              </Link>
+            </div>
+          )}
           <div style={{ marginBottom: '20px' }}>
             <p style={{ fontSize: '18px', marginBottom: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em' }}>
               Hi {displayName || 'Fan'}!

@@ -1442,16 +1442,25 @@ export default async function PlayerProfilePage({
     var user=null;
     try{user=JSON.parse(localStorage.getItem('yat-user')||'null');}catch(e){console.warn('Invalid stored user',e);localStorage.removeItem('yat-user');}
     if(!user||!user.contactId){
-      /* Not logged in — open right (account) drawer so user can sign in or register */
+      /* Not logged in — store pending intent then open right (account) drawer */
+      try{sessionStorage.setItem('pending_fav_pid',playerId);sessionStorage.setItem('pending_fav_name',playerName);}catch(e){}
       openAccountDrawer();
       return;
     }
     if(type==='superfan'&&!user.isSuperFan){openFavModal();return;}
     fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contactId:user.contactId,playerId:playerId,playerName:playerName,type:type})}).then(function(r){return r.json();}).then(function(data){
-      if(data&&data.success){if(type==='fan')setFavState(btnFanFav,true);alert(playerName+' added to your Fan Favorites.');}
-      else{alert('Error: '+(data&&data.error?data.error:'Could not add favorite'));}
-    }).catch(function(){alert('Network error. Please try again.');});
+      if(data&&data.success){if(type==='fan')setFavState(btnFanFav,true);}
+      else{console.warn('Favorite error:',(data&&data.error)||'unknown');}
+    }).catch(function(){console.warn('Network error saving favorite.');});
   }
+  /* After auth completes (from AccountDrawer), mark the button as favorited */
+  window.addEventListener('yat-auth-success',function(){
+    if(sessionStorage.getItem('pending_fav_pid')===playerId){
+      sessionStorage.removeItem('pending_fav_pid');
+      sessionStorage.removeItem('pending_fav_name');
+      setFavState(btnFanFav,true);
+    }
+  },{once:true});
   if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
   /* Rotate FAV button CTA text every 3s */
   (function(){
