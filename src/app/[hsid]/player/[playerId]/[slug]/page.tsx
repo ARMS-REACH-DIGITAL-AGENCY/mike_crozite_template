@@ -615,6 +615,10 @@ export default async function PlayerProfilePage({
         body.drawer-left-open .drawer-mask,body.drawer-account-open .drawer-mask{display:block}
         .drawer-nav-link{display:block;font:300 14px/1 Oswald,sans-serif;padding:10px 0;border-bottom:1px solid var(--line);transition:color .2s}
         .drawer-nav-link:hover{color:gold}
+        .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
+        body.light-theme .drawer-search-input{background:rgba(0,0,0,.06)}
+        .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
+        .drawer-live-hit:hover{background:var(--line)}
         /* OVERVIEW TAB */
         .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
@@ -847,10 +851,15 @@ export default async function PlayerProfilePage({
       {/* DRAWER MASK */}
       <div className="drawer-mask" id="drawerMask" />
 
-      {/* LEFT DRAWER */}
+      {/* LEFT DRAWER — Player search + navigation (unified, matches school microsite drawer) */}
       <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
         <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'16px',paddingTop:'8px'}}>NAVIGATION</h3>
+        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px',paddingTop:'8px'}}>PLAYER SEARCH</h3>
+        <div style={{paddingBottom:'12px'}}>
+          <input id="playerSearch" type="search" placeholder="Type a name…" className="drawer-search-input" />
+          <div id="liveResults" />
+        </div>
+        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px'}}>NAVIGATION</h3>
         <div style={{display:'flex',flexDirection:'column'}}>
           <a href={`/${resolvedHsid}`} className="drawer-nav-link">&#8592; BACK TO {schoolName}</a>
           {navItems.map((item) => (
@@ -1336,6 +1345,41 @@ export default async function PlayerProfilePage({
   if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-account-open','drawer-open');});
+  /* Player search in left drawer — fetches school roster from API and filters client-side */
+  (function(){
+    var searchInput=document.getElementById('playerSearch');
+    var liveResults=document.getElementById('liveResults');
+    if(!searchInput||!liveResults)return;
+    var roster=null;
+    function toSlug(firstName,lastName,pid){return(firstName+'-'+lastName).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||String(pid);}
+    function render(q){
+      if(!roster){liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Loading…</div>';return;}
+      var html='';
+      roster.forEach(function(p){
+        var firstName=p.first_name||'';var lastName=p.last_name||'';
+        var name=(firstName+' '+lastName).toLowerCase();
+        if(name.trim().includes(q)&&(p.id||p.player_id)){
+          var pid=p.id||p.player_id;
+          var slug=p.slug||toSlug(firstName,lastName,pid);
+          var displayName=escHtml((firstName+' '+lastName).trim());
+          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="drawer-live-hit">'+displayName+'</a>';
+        }
+      });
+      liveResults.innerHTML=html||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
+    }
+    function loadRoster(cb){
+      if(roster){cb();return;}
+      fetch('/api/players/${resolvedHsid}').then(function(r){return r.json();}).then(function(d){roster=Array.isArray(d)?d:[];cb();}).catch(function(){roster=[];cb();});
+    }
+    searchInput.addEventListener('focus',function(){
+      loadRoster(function(){var q=searchInput.value.toLowerCase().trim();if(q.length>=2)render(q);});
+    });
+    searchInput.addEventListener('input',function(){
+      var q=this.value.toLowerCase().trim();
+      if(q.length<2){liveResults.innerHTML='';return;}
+      loadRoster(function(){render(q);});
+    });
+  }());
   /* Global Search Modal */
   var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
   var CREST_FALLBACK='/img/school-placeholder.png';
