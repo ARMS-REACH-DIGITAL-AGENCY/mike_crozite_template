@@ -453,9 +453,9 @@ export default async function PlayerProfilePage({
 
   type FilmSlot = {img: string; label: string; sub: string};
 
-  // LEFT BOOKEND — always the high school (current hsid context)
+  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.png
   const hsBookend: FilmSlot = {
-    img: crestUrl,
+    img: playerThenImg,
     label: schoolName,
     sub: location,
   };
