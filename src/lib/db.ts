@@ -643,6 +643,34 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
+// PLAYER PHOTOS — uploaded career-progression photos for the filmstrip.
+// Rows are sorted by date_taken ASC (preferred) then season_year ASC.
+// Degrades gracefully (returns []) if the table doesn't exist yet.
+//
+// Expected columns (all optional except player_id + image_url):
+//   player_id    TEXT / INT  — matches player id
+//   image_url    TEXT        — full URL or S3 key for the photo
+//   team_name    TEXT        — label line 1 (team / school name)
+//   season_year  TEXT / INT  — label line 2 (year)
+//   date_taken   DATE        — primary sort key
+//   level        TEXT        — optional level tag (HS, College, AA, etc.)
+//   caption      TEXT        — optional caption override
+// ---------------------------------------------------------------------------
+export async function getPlayerPhotos(playerId: string): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM player_photos WHERE player_id::text = $1
+       ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+      [playerId]
+    );
+    return rows;
+  } catch {
+    // Table doesn't exist yet — return empty array gracefully
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Schema bootstrap — ensure auxiliary tables exist so JOINs never crash.
 // The teams table is populated externally (scripts/import-teams.ts); if it
 // hasn't been loaded yet the LEFT JOIN simply falls back to showing teamid

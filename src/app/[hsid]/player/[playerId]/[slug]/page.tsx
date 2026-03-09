@@ -24,6 +24,7 @@ import {
   getPlayerBattingGameLog,
   getPlayerPitchingGameLog,
   getTeamContext,
+  getPlayerPhotos,
 } from "@/lib/db";
 import { formatSchoolName } from "@/lib/playerUtils";
 
@@ -189,13 +190,14 @@ export default async function PlayerProfilePage({
   if (slug !== canonicalSlug) permanentRedirect(`/${hsid}/player/${safePlayerId}/${canonicalSlug}`);
 
   const playerSchool = playerSchoolLink;
-  const [battingSeasons, pitchingSeasons, careerBatting, careerPitching] =
+  const [battingSeasons, pitchingSeasons, careerBatting, careerPitching, playerPhotos] =
     (await Promise.all([
       getPlayerBattingStats(safePlayerId),
       getPlayerPitchingStats(safePlayerId),
       getPlayerCareerBatting(safePlayerId),
       getPlayerCareerPitching(safePlayerId),
-    ])) as [BattingSeason[], PitchingSeason[], any, any];
+      getPlayerPhotos(safePlayerId),
+    ])) as [BattingSeason[], PitchingSeason[], any, any, any[]];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -443,28 +445,39 @@ export default async function PlayerProfilePage({
   // Caption shown under THEN image (kept for potential future use)
   const thenCaption = gradClass !== "--" ? `CLASS OF ${gradClass}` : (latestYear > 0 ? String(latestYear) : "THEN");
 
-  // Build 6-slot career progression strip data
-  // Slot 1: HS (THEN image), Slots 2-5: career milestones (silhouette placeholder), Slot 6: current (NOW image)
+  // Build data-driven career filmstrip.
+  // If the player_photos table has rows, use those (sorted by date_taken / season_year ASC).
+  // Otherwise fall back to stats-derived team list with silhouette images.
   const SILHOUETTE_URL = '/img/player-silhouette.png';
-  const allSeasonsSorted = [...battingSeasons, ...pitchingSeasons]
-    .sort((a: any, b: any) => (Number(a.year) || 0) - (Number(b.year) || 0));
-  const careerTeamsOrdered: {name: string; level: string; year: string}[] = [];
-  for (const s of allSeasonsSorted) {
-    const name = ((s as any).team_name || '').trim();
-    const lv = ((s as any).level || '').toUpperCase().trim();
-    const yr = String((s as any).year || '');
-    if (name && name !== ctxTeam && !careerTeamsOrdered.find((t) => t.name === name)) {
-      careerTeamsOrdered.push({name, level: lv, year: yr});
+
+  type FilmSlot = {img: string; label: string; sub: string};
+  let careerSlots: FilmSlot[];
+
+  if (playerPhotos.length > 0) {
+    // Photo-driven filmstrip — render whatever photos exist, in upload order
+    careerSlots = playerPhotos.map((p: any) => ({
+      img: p.image_url || SILHOUETTE_URL,
+      label: p.caption || p.team_name || '',
+      sub: p.season_year ? String(p.season_year) : '',
+    }));
+  } else {
+    // Stats-derived fallback — build a chronological list from season data
+    const allSeasonsSorted = [...battingSeasons, ...pitchingSeasons]
+      .sort((a: any, b: any) => (Number(a.year) || 0) - (Number(b.year) || 0));
+    const seenTeams = new Set<string>();
+    const fallbackSlots: FilmSlot[] = [];
+    for (const s of allSeasonsSorted) {
+      const name = ((s as any).team_name || '').trim();
+      const lv = ((s as any).level || '').toUpperCase().trim();
+      const yr = String((s as any).year || '');
+      if (name && !seenTeams.has(name)) {
+        seenTeams.add(name);
+        fallbackSlots.push({img: SILHOUETTE_URL, label: name, sub: lv || yr});
+      }
     }
+    // If we have no usable season data either, show one silhouette placeholder
+    careerSlots = fallbackSlots.length > 0 ? fallbackSlots : [{img: SILHOUETTE_URL, label: displayName, sub: ''}];
   }
-  const careerSlots = [
-    {img: playerThenImg, label: schoolName, sub: gradClass !== '--' ? `CLASS OF ${gradClass}` : 'HIGH SCHOOL'},
-    ...Array.from({length: 4}, (_, i) => {
-      const m = careerTeamsOrdered[i];
-      return m ? {img: SILHOUETTE_URL, label: m.name, sub: m.level || m.year} : {img: SILHOUETTE_URL, label: '—', sub: ''};
-    }),
-    {img: playerNowImg, label: ctxTeam || displayName, sub: isActive ? 'CURRENT' : statusLabel},
-  ];
 
   return (
     <>
@@ -502,15 +515,15 @@ export default async function PlayerProfilePage({
         .yat-player-meta{display:flex;flex-direction:column;gap:3px;text-align:right;padding-top:2px;min-width:0;flex-shrink:1}
         .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .yat-player-ctx.dim{color:var(--muted)}
-        /* CAREER PROGRESSION STRIP — 6 slots left→right oldest→newest */
+        /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:10px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .career-strip-inner{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:10px;align-items:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .career-strip-inner{max-width:1100px;margin:0 auto;padding:0;display:flex;gap:0;align-items:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:80px;max-width:140px}
-        .career-slot-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:5px;border:1px solid var(--line);display:block}
-        .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
-        .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 20%;min-width:0}
+        .career-slot-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
+        .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:0 4px}
+        .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:0 4px}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
@@ -736,8 +749,8 @@ export default async function PlayerProfilePage({
           .yat-player-ctx{font-size:8px;letter-spacing:.03em;white-space:normal;overflow:visible;text-overflow:clip}
           .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
-          /* Career strip: narrower slots on small screens */
-          .career-slot{min-width:64px;max-width:100px}
+          /* Career strip: keep 5-per-viewport on mobile, smaller label text */
+          .career-slot{flex:0 0 20%}
           .career-slot-label,.career-slot-sub{font-size:7px}
           .yat-hero-left{padding-left:6px}
           /* Recent game log grid on mobile */
@@ -856,6 +869,7 @@ export default async function PlayerProfilePage({
       </aside>
 
       {/* CAREER PROGRESSION STRIP — 6 slots, oldest (HS) left → current right */}
+      {/* CAREER FILMSTRIP — data-driven, 5 frames visible, edge-to-edge, scrolls if > 5 photos */}
       <section className="career-strip">
         <div className="career-strip-inner">
           {careerSlots.map((slot, i) => (
