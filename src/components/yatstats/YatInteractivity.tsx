@@ -305,8 +305,10 @@ window.__firebase_config = ${firebaseConfigJSON};
     var schoolId=p.schoolId||'';
     var playerId=p.playerId||'';
     var slug=p.slug||'player';
-    var href=schoolId&&playerId?(\`/\${schoolId}/player/\${playerId}/\${slug}\`):'#';
-    el.setAttribute('href',href);
+    var href=schoolId&&playerId?(\`/\${schoolId}/player/\${playerId}/\${slug}\`):'';
+    if(href){
+      el.setAttribute('href',href);
+    }
     var topDiv=document.createElement('div');
     topDiv.className='yat-gs-result-top';
     var crestImg=document.createElement('img');
@@ -319,7 +321,8 @@ window.__firebase_config = ${firebaseConfigJSON};
     infoDiv.className='yat-gs-result-info';
     var nameDiv=document.createElement('div');
     nameDiv.className='yat-gs-result-name';
-    nameDiv.textContent=[p.firstName,p.lastName].filter(Boolean).join(' ');
+    var displayName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Unknown Player';
+    nameDiv.textContent=displayName;
     var locDiv=document.createElement('div');
     locDiv.className='yat-gs-result-loc';
     var locParts=[];
@@ -334,6 +337,11 @@ window.__firebase_config = ${firebaseConfigJSON};
     topDiv.appendChild(crestImg);
     topDiv.appendChild(infoDiv);
     el.appendChild(topDiv);
+    if(!href){
+      el.setAttribute('aria-disabled','true');
+      el.setAttribute('tabindex','-1');
+      el.addEventListener('click',function(e){e.preventDefault();});
+    }
     return el;
   }
 
