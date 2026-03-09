@@ -424,19 +424,6 @@ export default async function PlayerProfilePage({
     : careerGrid;
   const topStatsLabel = isActive ? `${CURRENT_SEASON} SEASON STATS` : "CAREER TOTALS";
 
-  // Career level ladder — ordered progression for the timeline
-  const LEVEL_ORDER = ["HS", "COLL", "ROK", "SS", "A", "A+", "AA", "AAA", "MLB", "IND"];
-  const allSeasonLevels = new Set(
-    [...battingSeasons, ...pitchingSeasons]
-      .map((s: any) => (s.level || "").toUpperCase().trim())
-      .filter(Boolean)
-  );
-  const levelLadder = [
-    ...LEVEL_ORDER.filter((l) => allSeasonLevels.has(l)),
-    ...[...allSeasonLevels].filter((l) => !LEVEL_ORDER.includes(l)).sort(),
-  ];
-  // Peak level comes from career_highlevel; mark that stop as gold in the timeline
-  const peakLevel = level.replace(/[^A-Z0-9+]/g, "").toUpperCase() || (levelLadder[levelLadder.length - 1] ?? "");
 
   // Helper: CSS class suffix for a career level string
   function levelClass(lv: string): string {
@@ -621,18 +608,6 @@ export default async function PlayerProfilePage({
         .ov-bio-row:last-child{border-bottom:none}
         .ov-bio-key{font:300 11px/1 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;flex-shrink:0;margin-right:8px}
         .ov-bio-val{font:500 13px/1 Oswald,sans-serif;text-align:right}
-        /* LEVEL LADDER */
-        .level-ladder-wrap{margin-bottom:16px}
-        .level-ladder{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-        .level-ladder::-webkit-scrollbar{display:none}
-        .level-stop{display:flex;flex-direction:column;align-items:center;position:relative;min-width:56px}
-        .level-line-wrap{display:flex;align-items:center;width:100%;position:relative;height:20px}
-        .level-dot{width:12px;height:12px;border-radius:50%;background:var(--line);border:2px solid var(--muted);flex-shrink:0;transition:background .2s}
-        .level-stop.peak .level-dot{background:gold;border-color:gold;width:16px;height:16px}
-        .level-connector{flex:1;height:2px;background:var(--line)}
-        .level-stop:last-child .level-connector{display:none}
-        .level-name{font:700 9px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;margin-top:6px;color:var(--muted);white-space:nowrap}
-        .level-stop.peak .level-name{color:gold}
         /* CAREER LOG TABLE */
         .career-log-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:8px}
         body.light-theme .career-log-title{background:rgba(0,0,0,.03)}
@@ -1041,24 +1016,6 @@ export default async function PlayerProfilePage({
               </div>
             );
           })()}
-
-          {/* Career Path — level progression timeline (compact secondary) */}
-          {levelLadder.length > 0 && (
-            <div className="ov-card level-ladder-wrap">
-              <div className="ov-card-title">CAREER PATH</div>
-              <div className="level-ladder">
-                {levelLadder.map((lvl, i) => (
-                  <div key={lvl} className={`level-stop${lvl === peakLevel ? ' peak' : ''}`}>
-                    <div className="level-line-wrap">
-                      <div className="level-dot" />
-                      {i < levelLadder.length - 1 && <div className="level-connector" />}
-                    </div>
-                    <div className="level-name">{lvl}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
         </div>
       </div>
