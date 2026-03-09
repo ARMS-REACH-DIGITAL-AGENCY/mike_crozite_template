@@ -139,6 +139,7 @@ window.__firebase_config = ${firebaseConfigJSON};
   var gsResults=document.getElementById('gsResults');
   var gsTimer=null;
   var gsQueryToken=0;
+  var gsHadError=false;
   function openGsModal(){
     if(!gsModal)return;
     gsModal.classList.add('open');
@@ -364,14 +365,14 @@ window.__firebase_config = ${firebaseConfigJSON};
     return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
       .then(function(d){return (d.programs||[]).map(normalizeSchoolResult);})
-      .catch(function(){return null;});
+      .catch(function(){gsHadError=true;return [];});
   }
 
   function fetchPlayerResults(q){
     return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
       .then(function(d){return d.players||[];})
-      .catch(function(){return null;});
+      .catch(function(){gsHadError=true;return [];});
   }
 
   function renderCombinedResults(players,schools,q,hadError){
@@ -383,7 +384,8 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(hasPlayers)renderPlayerSection(players,frag);
     if(hasSchools)renderSchoolGroups(schools,frag);
     if(!hasPlayers&&!hasSchools){
-      gsResults.innerHTML='<div class="yat-gs-msg">'+(hadError?'Search unavailable. Please try again.':'No results found matching \u201c'+escHtml(q)+'\u201d')+'</div>';
+      var msg=hadError?'Search unavailable. Please try again.':'No results found matching \u201c'+escHtml(q)+'\u201d';
+      gsResults.innerHTML='<div class="yat-gs-msg">'+msg+'</div>';
       return;
     }
     gsResults.appendChild(frag);
@@ -391,15 +393,13 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   function runGlobalSearch(q){
     if(!gsResults)return;
+    gsHadError=false;
     var token=++gsQueryToken;
     gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
     Promise.all([fetchPlayerResults(q), fetchSchoolResults(q)]).then(function(res){
       if(token!==gsQueryToken)return;
       var players=res[0],schools=res[1];
-      var hadError=players===null||schools===null;
-      players=players||[];
-      schools=schools||[];
-      renderCombinedResults(players,schools,q,hadError);
+      renderCombinedResults(players||[],schools||[],q,gsHadError);
     }).catch(function(){
       if(token!==gsQueryToken)return;
       renderCombinedResults([],[],q,true);
