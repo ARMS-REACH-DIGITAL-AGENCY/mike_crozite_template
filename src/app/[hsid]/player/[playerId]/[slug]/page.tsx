@@ -8,7 +8,6 @@ import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import AccountDrawer from "@/components/AccountDrawer";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import {
@@ -503,7 +502,7 @@ export default async function PlayerProfilePage({
         @media(max-width:1200px){.yat-topnav{display:none!important}}
         .yat-hr{border-top:1px solid var(--line)}
         /* Sticky identity band: two-part layout */
-        .yat-schoolrow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1100px;margin:0 auto}
+        .yat-schoolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1100px;margin:0 auto}
         .yat-schoolrow-id{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
         .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
         .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
@@ -511,10 +510,12 @@ export default async function PlayerProfilePage({
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        /* Right-side compact player metadata */
-        .yat-player-meta{display:flex;flex-direction:column;gap:3px;text-align:right;padding-top:2px;min-width:0;flex-shrink:1}
-        .yat-player-ctx{font:300 10px/1.4 Oswald,sans-serif;letter-spacing:.06em;color:var(--fg);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .yat-player-ctx.dim{color:var(--muted)}
+        .fav-btn-hero{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--fg);transition:all .2s;white-space:nowrap}
+        body.light-theme .fav-btn-hero{border-color:rgba(0,0,0,.18)}
+        .fav-btn-hero i{font-size:13px;transition:color .2s;color:gold}
+        .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
+        .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
+        .fav-btn-hero.active i{color:#000}
         /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:10px 0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
@@ -532,17 +533,6 @@ export default async function PlayerProfilePage({
         .pmb-line.dim{color:var(--muted)}
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
-        /* HERO ACTION ROW */
-        .yat-hero{padding:2px 0}
-        .yat-hero-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
-        .yat-hero-left{display:flex;align-items:center;gap:6px;padding-left:10px}
-        .yat-hero-right{display:flex;gap:10px;align-items:center;padding-right:4px}
-        .fav-btn-hero{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--fg);transition:all .2s;white-space:nowrap}
-        body.light-theme .fav-btn-hero{border-color:rgba(0,0,0,.18)}
-        .fav-btn-hero i{font-size:13px;transition:color .2s;color:gold}
-        .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
-        .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
-        .fav-btn-hero.active i{color:#000}
         /* TABS — sticky under header */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:var(--stickyHeaderH,120px);z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
@@ -750,13 +740,10 @@ export default async function PlayerProfilePage({
           .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
           .yat-schooltext .big1{font-size:14px}
           .yat-schooltext .big2{font-size:16px}
-          .yat-player-ctx{font-size:8px;letter-spacing:.03em;white-space:normal;overflow:visible;text-overflow:clip}
-          .yat-hero{padding:2px 0}
           .fav-btn-hero{padding:5px 10px;font-size:10px}
           /* Career strip: keep 5-per-viewport on mobile, smaller label text */
           .career-slot{flex:0 0 20%}
           .career-slot-label,.career-slot-sub{font-size:7px}
-          .yat-hero-left{padding-left:6px}
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
@@ -790,7 +777,7 @@ export default async function PlayerProfilePage({
 
         <div className="yat-hr" />
 
-        {/* Unified school identity band: LEFT = crest+identity, RIGHT = compact player metadata */}
+        {/* School identity band: LEFT = crest + identity, RIGHT = Add Favorite */}
         <div className="yat-schoolrow">
           {/* Left: crest anchored to the 3-line identity block */}
           <div className="yat-schoolrow-id">
@@ -809,42 +796,10 @@ export default async function PlayerProfilePage({
               <div className="big2">{displayName}</div>
             </div>
           </div>
-          {/* Right: compact player metadata — never goes away since it's in the sticky band */}
-          <div className="yat-player-meta">
-            {(ctxTeam || ctxSecondary || ctxLevel) && (
-              <div className="yat-player-ctx">
-                {[ctxTeam, ctxSecondary, ctxLevel].filter(Boolean).join(' | ')}
-              </div>
-            )}
-            {(pos !== "--" || bt !== "-/-" || ht !== "--") && (
-              <div className="yat-player-ctx dim">
-                {[
-                  pos !== "--" ? pos : null,
-                  bt !== "-/-" ? `B/T - ${bt}` : null,
-                  ht !== "--" ? ht : null,
-                  wt !== "--" ? `${wt} LBS` : null,
-                ].filter(Boolean).join(' | ')}
-              </div>
-            )}
-            {collegesToShow.map((col) => (
-              <div key={col} className="yat-player-ctx dim">{col}</div>
-            ))}
-            {draftMetaLine && <div className="yat-player-ctx dim">{draftMetaLine}</div>}
-          </div>
-        </div>
-
-        <div className="yat-hr" />
-
-        {/* Hero utility row: ADD FAVORITE + search */}
-        <div className="yat-hero">
-          <div className="yat-container yat-hero-grid">
-            <div className="yat-hero-left">
-              <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite">
-                <i className="ri-star-line" /> ADD FAVORITE
-              </button>
-            </div>
-            <GlobalSearchModal />
-          </div>
+          {/* Right: ADD FAVORITE sits directly across from school logo / identity */}
+          <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite">
+            <i className="ri-star-line" /> ADD FAVORITE
+          </button>
         </div>
       </header>
 
