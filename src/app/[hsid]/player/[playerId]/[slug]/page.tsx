@@ -519,9 +519,9 @@ export default async function PlayerProfilePage({
         /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0 0 10px;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .career-strip-inner{max-width:1100px;margin:0 auto;padding:0;display:flex;gap:0;align-items:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .career-strip-inner{width:100%;padding:0;display:flex;direction:rtl;gap:0;align-items:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 20%;min-width:0}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 20%;min-width:0;direction:ltr}
         .career-slot-img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:0 4px}
         .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:0 4px}
@@ -838,12 +838,11 @@ export default async function PlayerProfilePage({
           #btnSearch in the header icon row instead as the trigger. */}
       <GlobalSearchModal />
 
-      {/* CAREER PROGRESSION STRIP — 6 slots, oldest (HS) left → current right */}
-      {/* CAREER FILMSTRIP — data-driven, 5 frames visible, edge-to-edge, scrolls if > 5 photos */}
+      {/* CAREER FILMSTRIP — NOW anchored to far right; images grow leftward via direction:rtl */}
       <section className="career-strip">
         <div className="career-strip-inner">
-          {careerSlots.map((slot, i) => (
-            <div key={i} className="career-slot">
+          {[...careerSlots].reverse().map((slot) => (
+            <div key={slot.img} className="career-slot">
               <SafeImage
                 className="career-slot-img"
                 src={slot.img}
