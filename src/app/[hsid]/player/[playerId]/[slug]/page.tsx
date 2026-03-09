@@ -445,39 +445,38 @@ export default async function PlayerProfilePage({
   // Caption shown under THEN image (kept for potential future use)
   const thenCaption = gradClass !== "--" ? `CLASS OF ${gradClass}` : (latestYear > 0 ? String(latestYear) : "THEN");
 
-  // Build data-driven career filmstrip.
-  // If the player_photos table has rows, use those (sorted by date_taken / season_year ASC).
-  // Otherwise fall back to stats-derived team list with silhouette images.
+  // Build data-driven career filmstrip with explicit bookends.
+  // Structure: [ HS bookend ] + [ player_photos in date order ] + [ current team bookend ]
+  // The middle frames come ONLY from the player_photos table.
+  // If no photos exist, render just the two bookends.
   const SILHOUETTE_URL = '/img/player-silhouette.png';
 
   type FilmSlot = {img: string; label: string; sub: string};
-  let careerSlots: FilmSlot[];
 
-  if (playerPhotos.length > 0) {
-    // Photo-driven filmstrip — render whatever photos exist, in upload order
-    careerSlots = playerPhotos.map((p: any) => ({
-      img: p.image_url || SILHOUETTE_URL,
-      label: p.caption || p.team_name || '',
-      sub: p.season_year ? String(p.season_year) : '',
-    }));
-  } else {
-    // Stats-derived fallback — build a chronological list from season data
-    const allSeasonsSorted = [...battingSeasons, ...pitchingSeasons]
-      .sort((a: any, b: any) => (Number(a.year) || 0) - (Number(b.year) || 0));
-    const seenTeams = new Set<string>();
-    const fallbackSlots: FilmSlot[] = [];
-    for (const s of allSeasonsSorted) {
-      const name = ((s as any).team_name || '').trim();
-      const lv = ((s as any).level || '').toUpperCase().trim();
-      const yr = String((s as any).year || '');
-      if (name && !seenTeams.has(name)) {
-        seenTeams.add(name);
-        fallbackSlots.push({img: SILHOUETTE_URL, label: name, sub: lv || yr});
-      }
-    }
-    // If we have no usable season data either, show one silhouette placeholder
-    careerSlots = fallbackSlots.length > 0 ? fallbackSlots : [{img: SILHOUETTE_URL, label: displayName, sub: ''}];
-  }
+  // LEFT BOOKEND — always the high school (current hsid context)
+  const hsBookend: FilmSlot = {
+    img: crestUrl,
+    label: schoolName,
+    sub: location,
+  };
+
+  // RIGHT BOOKEND — current (most recent) team
+  const currentTeamLabel = ctxTeam || displayName;
+  const currentTeamSub = ctxLevel || (latestYear > 0 ? String(latestYear) : '');
+  const currentTeamBookend: FilmSlot = {
+    img: playerNowImg,
+    label: currentTeamLabel,
+    sub: currentTeamSub,
+  };
+
+  // MIDDLE — only from player_photos (chronological by date_taken / season_year)
+  const middleSlots: FilmSlot[] = playerPhotos.map((p: any) => ({
+    img: p.image_url || SILHOUETTE_URL,
+    label: p.caption || p.team_name || '',
+    sub: p.season_year ? String(p.season_year) : '',
+  }));
+
+  const careerSlots: FilmSlot[] = [hsBookend, ...middleSlots, currentTeamBookend];
 
   return (
     <>
