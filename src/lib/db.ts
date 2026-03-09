@@ -627,13 +627,30 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 
 // ---------------------------------------------------------------------------
 // NEWS ARTICLES — from news_articles table (populated by Webz.io cron job)
-// Returns null if table doesn't exist yet (graceful degradation)
+// Returns empty array if table doesn't exist yet (graceful degradation).
+//
+// Three query patterns matching the three news surfaces:
+//   1. getNewsByHsid()   — Alumni News page (all articles for a school)
+//   2. getNewsByPlayer() — Player profile + flip card teaser (player-scoped)
 // ---------------------------------------------------------------------------
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
     const { rows } = await query(
       `SELECT * FROM news_articles WHERE hsid = $1 ORDER BY published_at DESC LIMIT $2`,
       [hsid, limit]
+    );
+    return rows;
+  } catch {
+    // Table doesn't exist yet — return empty array gracefully
+    return [];
+  }
+}
+
+export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM news_articles WHERE playerid = $1 ORDER BY published_at DESC LIMIT $2`,
+      [playerId, limit]
     );
     return rows;
   } catch {

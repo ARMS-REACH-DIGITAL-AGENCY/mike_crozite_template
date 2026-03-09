@@ -511,12 +511,12 @@ window.__firebase_config = ${firebaseConfigJSON};
     /* Image area */
     var imgWrap=document.createElement('div');
     imgWrap.className='yat-news-img-wrap';
-    if(post.mainImage){
+    if(post.imageUrl){
       var img=document.createElement('img');
       img.className='yat-news-img';
       img.loading='lazy';
       img.alt='';
-      img.src=post.mainImage;
+      img.src=post.imageUrl;
       img.onerror=function(){img.style.display='none';var ph=document.createElement('div');ph.className='yat-news-img-placeholder';ph.innerHTML='\u26BE';imgWrap.appendChild(ph);};
       imgWrap.appendChild(img);
     }else{
@@ -542,11 +542,19 @@ window.__firebase_config = ${firebaseConfigJSON};
     title.textContent=stripHtml(post.title||'Untitled');
     body.appendChild(title);
 
-    if(post.text){
+    if(post.snippet){
       var snippet=document.createElement('div');
       snippet.className='yat-news-snippet';
-      snippet.innerHTML=post.text;
+      snippet.innerHTML=post.snippet;
       body.appendChild(snippet);
+    }
+
+    /* Player name badge (if available) */
+    if(post.playerName){
+      var pn=document.createElement('div');
+      pn.style.cssText='font:700 10px Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--fg);opacity:.7;margin-bottom:2px';
+      pn.textContent=post.playerName;
+      body.insertBefore(pn,title);
     }
 
     /* Categories */
@@ -567,10 +575,10 @@ window.__firebase_config = ${firebaseConfigJSON};
     meta.className='yat-news-meta';
     var src=document.createElement('span');
     src.className='yat-news-source';
-    src.textContent=post.source&&post.source.site?post.source.site:'Unknown';
+    src.textContent=post.source||'Unknown';
     var date=document.createElement('span');
     date.className='yat-news-date';
-    date.textContent=timeAgo(post.published);
+    date.textContent=timeAgo(post.publishedAt);
     meta.appendChild(src);
     meta.appendChild(date);
     body.appendChild(meta);
@@ -598,7 +606,7 @@ window.__firebase_config = ${firebaseConfigJSON};
         /* Footer */
         var footer=document.createElement('div');
         footer.className='yat-news-footer';
-        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \u00B7 '+data.totalResults+' total results</span>';
+        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \u00B7 '+data.total+' articles</span>';
         newsContainer.parentNode.appendChild(footer);
       })
       .catch(function(err){
