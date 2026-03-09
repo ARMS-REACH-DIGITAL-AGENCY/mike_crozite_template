@@ -1388,7 +1388,7 @@ export default async function PlayerProfilePage({
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'&&gsModal&&gsModal.classList.contains('open')){closeGsModal();return;}
     if(!gsModal||!gsModal.classList.contains('open'))return;
-    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    if((e.key==='ArrowDown'||e.key==='ArrowUp')&&gsResults){
       e.preventDefault();
       var items=Array.from(gsResults.querySelectorAll('.yat-gs-result'));
       if(!items.length)return;
@@ -1456,8 +1456,30 @@ export default async function PlayerProfilePage({
     if(!href){el.setAttribute('aria-disabled','true');el.setAttribute('tabindex','-1');el.addEventListener('click',function(e){e.preventDefault();});}
     return el;
   }
-  function renderSchoolGroups(items,frag){if(!items.length)return;frag.appendChild(makeSectionLabel('Schools'));var groups={};var order=[];items.forEach(function(r){var key=r.region||'Unknown Region';if(!groups[key]){groups[key]=[];order.push(key);}groups[key].push(r);});order.forEach(function(region){var hdr=document.createElement('div');hdr.className='yat-gs-region';hdr.textContent=region;frag.appendChild(hdr);groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});});}
-  function renderPlayerSection(players,frag){if(!players.length)return;frag.appendChild(makeSectionLabel('Players'));players.forEach(function(p){frag.appendChild(renderPlayerResult(p));});}
+  function renderSchoolGroups(items,frag){
+    if(!items.length)return;
+    frag.appendChild(makeSectionLabel('Schools'));
+    var groups={};var order=[];
+    items.forEach(function(r){
+      var key=r.region||'Unknown Region';
+      if(!groups[key]){groups[key]=[];order.push(key);}
+      groups[key].push(r);
+    });
+    order.forEach(function(region){
+      var hdr=document.createElement('div');
+      hdr.className='yat-gs-region';
+      hdr.textContent=region;
+      frag.appendChild(hdr);
+      groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
+    });
+  }
+  function renderPlayerSection(players,frag){
+    if(!players.length)return;
+    frag.appendChild(makeSectionLabel('Players'));
+    players.forEach(function(p){
+      frag.appendChild(renderPlayerResult(p));
+    });
+  }
   function fetchSchoolResults(q){
     return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
