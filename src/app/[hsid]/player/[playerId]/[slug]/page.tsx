@@ -8,6 +8,7 @@ import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import AccountDrawer from "@/components/AccountDrawer";
+import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import {
@@ -747,6 +748,8 @@ export default async function PlayerProfilePage({
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
+        /* Hide GlobalSearchModal's own header action buttons — we use #btnSearch in the icon row */
+        .yat-hero-right{display:none!important}
       `}</style>
 
       {/* HEADER — sticky global shell */}
@@ -757,6 +760,7 @@ export default async function PlayerProfilePage({
             <a href={`/${resolvedHsid}`} className="yat-icon-btn" aria-label="Back to school"><i className="ri-arrow-left-line" /></a>
             <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
             <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
+            <button className="yat-icon-btn" id="btnSearch" aria-label="Search"><i className="ri-search-line" /></button>
             <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
           </div>
           <nav className="yat-topnav" aria-label="Top Navigation">
@@ -831,6 +835,11 @@ export default async function PlayerProfilePage({
         <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'16px',paddingTop:'8px'}}>ACCOUNT</h3>
         <AccountDrawer subdomain={subdomain} />
       </aside>
+
+      {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay. The .yat-hero-right action buttons
+          inside GlobalSearchModal are hidden via CSS (.player-page .yat-hero-right); we use
+          #btnSearch in the header icon row instead as the trigger. */}
+      <GlobalSearchModal />
 
       {/* CAREER PROGRESSION STRIP — 6 slots, oldest (HS) left → current right */}
       {/* CAREER FILMSTRIP — data-driven, 5 frames visible, edge-to-edge, scrolls if > 5 photos */}
@@ -1289,6 +1298,9 @@ export default async function PlayerProfilePage({
     var hash=window.location.hash.slice(1);
     if(hash.slice(0,4)==='tab-'){activateTab(hash.slice(4));}
   }());
+  /* Drawer helpers */
+  function openAccountDrawer(){document.body.classList.add('drawer-account-open','drawer-open');document.body.classList.remove('drawer-left-open');}
+  function openLeftDrawer(){document.body.classList.add('drawer-left-open','drawer-open');document.body.classList.remove('drawer-account-open');}
   /* Drawer toggles */
   var btnMenu=document.getElementById('btnMenu');
   var closeLeft=document.getElementById('closeLeft');
@@ -1349,6 +1361,8 @@ export default async function PlayerProfilePage({
   function closeGsModal(){if(!gsModal)return;gsModal.classList.remove('open');document.body.classList.remove('drawer-open');if(gsInput)gsInput.value='';if(gsResults)gsResults.innerHTML='';}
   var openSearch=document.getElementById('openSearch');
   if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
+  var btnSearch=document.getElementById('btnSearch');
+  if(btnSearch)btnSearch.addEventListener('click',function(){openGsModal();});
   if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
   if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
   document.addEventListener('keydown',function(e){
@@ -1431,14 +1445,18 @@ export default async function PlayerProfilePage({
   function addFavorite(type){
     var user=null;
     try{user=JSON.parse(localStorage.getItem('yat-user')||'null');}catch(e){console.warn('Invalid stored user',e);localStorage.removeItem('yat-user');}
-    if(!user||!user.contactId){openFavModal();return;}
+    if(!user||!user.contactId){
+      /* Not logged in — open right (account) drawer so user can sign in or register */
+      openAccountDrawer();
+      return;
+    }
     if(type==='superfan'&&!user.isSuperFan){openFavModal();return;}
     fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contactId:user.contactId,playerId:playerId,playerName:playerName,type:type})}).then(function(r){return r.json();}).then(function(data){
       if(data&&data.success){if(type==='fan')setFavState(btnFanFav,true);alert(playerName+' added to your Fan Favorites.');}
       else{alert('Error: '+(data&&data.error?data.error:'Could not add favorite'));}
     }).catch(function(){alert('Network error. Please try again.');});
   }
-  if(btnFanFav)btnFanFav.addEventListener('click',function(){document.body.classList.add('drawer-left-open','drawer-open');document.body.classList.remove('drawer-account-open');addFavorite('fan');});
+  if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
   /* Rotate FAV button CTA text every 3s */
   (function(){
     var ctaVariants=[['ri-star-line','ADD FAN FAVORITE'],['ri-vip-crown-line','UPGRADE TO SUPERFAN']];
