@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const qRaw = (searchParams.get("q") || "").trim();
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "10", 10), 1), 10);
+    const MAX_LIMIT = 10;
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || String(MAX_LIMIT), 10), 1), MAX_LIMIT);
 
     if (!qRaw) {
       return NextResponse.json({ players: [] }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });

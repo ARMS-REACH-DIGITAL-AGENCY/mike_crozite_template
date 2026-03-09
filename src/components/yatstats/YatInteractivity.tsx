@@ -129,6 +129,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* Canonical same-origin fallback: avoids CORB on cross-origin SVG from S3 */
   var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
   var STAT_EMPTY='\u2014';
+  var GS_RESULT_LIMIT=10;
+  var GS_DEBOUNCE_MS=250;
   var gsModal=document.getElementById('gsModal');
   var gsOverlay=document.getElementById('gsOverlay');
   var gsClose=document.getElementById('gsClose');
@@ -358,14 +360,14 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
 
   function fetchSchoolResults(q){
-    return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit=10')
+    return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
       .then(function(d){return (d.programs||[]).map(normalizeSchoolResult);})
       .catch(function(){return null;});
   }
 
   function fetchPlayerResults(q){
-    return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit=10')
+    return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
       .then(function(d){return d.players||[];})
       .catch(function(){return null;});
@@ -408,7 +410,7 @@ window.__firebase_config = ${firebaseConfigJSON};
       var q=this.value.trim();
       clearTimeout(gsTimer);
       if(q.length<2){gsResults.innerHTML='';return;}
-      gsTimer=setTimeout(function(){runGlobalSearch(q);},250);
+      gsTimer=setTimeout(function(){runGlobalSearch(q);},GS_DEBOUNCE_MS);
     });
     gsInput.addEventListener('keydown',function(e){
       if(e.key==='Enter'){
