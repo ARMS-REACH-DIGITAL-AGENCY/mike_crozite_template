@@ -403,8 +403,6 @@ window.__firebase_config = ${firebaseConfigJSON};
   function runGlobalSearch(q){
     if(!gsResults)return;
     gsHadError=false;
-    gsPlayerError=false;
-    gsSchoolError=false;
     var token=++gsQueryToken;
     gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
     Promise.all([fetchPlayerResults(q), fetchSchoolResults(q)]).then(function(res){

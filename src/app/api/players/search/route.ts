@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     `;
     const { rows } = await query(sql, [pattern, limit]);
     const players = rows.map((r: any) => {
-      // hslocation is expected to be "City, ST"; everything after the first comma is treated as state/region and kept as-is.
+      // hslocation is expected to be "City, State"; everything after the first comma is treated as state/region and kept as-is.
       const locParts = String(r.hslocation || "").split(",");
       const city = (locParts[0] || "").trim();
       const state = (locParts.slice(1).join(",") || "").trim();
