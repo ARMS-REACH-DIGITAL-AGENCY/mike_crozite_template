@@ -362,14 +362,14 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
 
   function fetchSchoolResults(q){
-    return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
+    return fetch(\`/api/schools/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
       .then(function(r){return r.json();})
       .then(function(d){return (d.programs||[]).map(normalizeSchoolResult);})
       .catch(function(){gsHadError=true;return [];});
   }
 
   function fetchPlayerResults(q){
-    return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
+    return fetch(\`/api/players/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
       .then(function(r){return r.json();})
       .then(function(d){return d.players||[];})
       .catch(function(){gsHadError=true;return [];});
