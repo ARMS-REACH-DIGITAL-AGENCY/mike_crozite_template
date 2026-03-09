@@ -517,11 +517,11 @@ export default async function PlayerProfilePage({
         .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
         .fav-btn-hero.active i{color:#000}
         /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
-        .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:320px;overflow:hidden}
+        .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:160px;overflow:hidden}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
         .career-strip-inner{width:100%;height:100%;padding:0;display:flex;direction:rtl;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 20%;min-width:0;direction:ltr;height:100%;max-height:320px;overflow:hidden}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 20%;min-width:0;direction:ltr;height:100%;max-height:160px;overflow:hidden}
         .career-slot-img{width:100%;flex:1;min-height:0;object-fit:cover;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:3px 4px 0;flex:0 0 auto}
         .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:2px 4px 4px;flex:0 0 auto}
@@ -743,7 +743,7 @@ export default async function PlayerProfilePage({
           .fav-btn-hero{padding:5px 10px;font-size:10px}
           /* Career strip: keep 5-per-viewport on mobile, smaller label text, shorter height */
           .career-slot{flex:0 0 20%}
-          .career-strip{height:200px}
+          .career-strip{height:100px}
           .career-slot-label,.career-slot-sub{font-size:7px}
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
