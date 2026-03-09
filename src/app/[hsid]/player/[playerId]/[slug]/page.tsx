@@ -561,7 +561,7 @@ export default async function PlayerProfilePage({
         .season-table tr:last-child td{border-bottom:none}
         .season-table tbody tr:hover{background:rgba(255,209,102,.05)}
         /* TAB CONTENT — ensure enough height for sparse tabs to allow full scroll collapse */
-        .tab-content{display:none}
+        .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,120px) + var(--tabBarH,42px) + 8px)}
         .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
@@ -1270,6 +1270,8 @@ export default async function PlayerProfilePage({
     }
     update();
     window.addEventListener('resize',update,{passive:true});
+    /* Re-measure after full load (fonts/images may change header height) */
+    window.addEventListener('load',update,{once:true,passive:true});
   }());
   /* Profile tab switching */
   var VALID_TABS=['overview','stats','news','social','mentor','gallery'];
@@ -1282,6 +1284,16 @@ export default async function PlayerProfilePage({
     if(tab)tab.classList.add('active');
     if(content)content.classList.add('active');
   }
+  /* Helper: scroll so the tab bar sits just below the sticky header */
+  function scrollToTabBar(){
+    var header=document.getElementById('site-header');
+    var tabBar=document.querySelector('.profile-tabs');
+    if(!header||!tabBar)return;
+    var headerH=header.offsetHeight;
+    /* getBoundingClientRect().top + scrollY = element's absolute top in document */
+    var y=tabBar.getBoundingClientRect().top+window.scrollY-headerH;
+    window.scrollTo({top:Math.max(0,y),behavior:'auto'});
+  }
   document.querySelectorAll('.profile-tab').forEach(function(tab){
     tab.addEventListener('click',function(){
       var target=tab.getAttribute('data-profile-tab');
@@ -1289,10 +1301,16 @@ export default async function PlayerProfilePage({
       history.replaceState(null,'','#tab-'+target);
     });
   });
-  /* Activate tab from URL hash on load (e.g. #tab-stats) */
+  /* Activate tab from URL hash on load (e.g. #tab-stats) and scroll correctly */
   (function(){
     var hash=window.location.hash.slice(1);
-    if(hash.slice(0,4)==='tab-'){activateTab(hash.slice(4));}
+    if(hash.slice(0,4)==='tab-'){
+      activateTab(hash.slice(4));
+      /* Use rAF to ensure layout vars are up-to-date before scrolling */
+      requestAnimationFrame(function(){
+        requestAnimationFrame(scrollToTabBar);
+      });
+    }
   }());
   /* Drawer helpers */
   function openAccountDrawer(){document.body.classList.add('drawer-account-open','drawer-open');document.body.classList.remove('drawer-left-open');}
