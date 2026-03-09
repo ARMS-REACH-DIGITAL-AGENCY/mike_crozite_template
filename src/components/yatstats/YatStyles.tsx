@@ -35,6 +35,13 @@ export default function YatStyles() {
       .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
       .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
       .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
+      @media(max-width:640px){
+        :root{--crestH:44px}
+        .yat-schoolrow{padding:4px 12px;gap:8px}
+        .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
+        .yat-schooltext .big1{font-size:14px}
+        .yat-schooltext .big2{font-size:16px}
+      }
       .yat-hero{padding:2px 0;position:relative}
       .yat-hero-grid{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:4px 0}
       .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}

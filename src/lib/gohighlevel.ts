@@ -156,3 +156,43 @@ export async function addTagToGHLContact(
     };
   }
 }
+
+/**
+ * Look up a GoHighLevel contact by email address.
+ * Returns the contact ID if found, or null.
+ */
+export async function lookupGHLContactByEmail(
+  email: string
+): Promise<string | null> {
+  const apiKey = process.env.GHL_API_KEY;
+  const locationId = process.env.GHL_LOCATION_ID;
+
+  if (!apiKey || !locationId) return null;
+
+  try {
+    const url = new URL("https://services.leadconnectorhq.com/contacts/search");
+    url.searchParams.set("email", email);
+    url.searchParams.set("locationId", locationId);
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        Version: "2021-07-28",
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json() as {
+      contacts?: Array<{ id: string; email?: string }>;
+    };
+    const match = data.contacts?.find(
+      (c) => c.email?.toLowerCase() === email.toLowerCase()
+    );
+    return match?.id ?? null;
+  } catch {
+    return null;
+  }
+}

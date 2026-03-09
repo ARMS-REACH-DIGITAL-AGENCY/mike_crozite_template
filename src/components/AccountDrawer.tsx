@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   auth,
@@ -78,6 +79,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [displayName, setDisplayName] = useState('');
   // Track sign-in email so it can be reused for forgot-password flow
   const [signInEmail, setSignInEmail] = useState('');
+  // Favorite confirmation after auth + pending intent resume
+  const [favConfirm, setFavConfirm] = useState<string>(''); // player name if just favorited
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -94,6 +97,30 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     return () => unsubscribe();
   }, []);
 
+  /** Execute a pending favorite intent stored in sessionStorage, if any. */
+  const resumePendingFavorite = async (contactId: string) => {
+    const pid = sessionStorage.getItem('pending_fav_pid');
+    const pName = sessionStorage.getItem('pending_fav_name') || pid || '';
+    if (!pid || !contactId) return;
+    sessionStorage.removeItem('pending_fav_pid');
+    sessionStorage.removeItem('pending_fav_name');
+    try {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactId, playerId: pid, playerName: pName, type: 'fan' }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setFavConfirm(pName);
+        // Notify any listening player-profile JS that auth+favorite succeeded
+        window.dispatchEvent(new CustomEvent('yat-auth-success', { detail: { contactId } }));
+      }
+    } catch {
+      // Non-fatal — user is still logged in; favorite just wasn't added silently
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -107,6 +134,16 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       setMessage('Sign in successful!');
       setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
+
+      // Resume any pending favorite intent (uses contactId from localStorage if available)
+      try {
+        const stored = JSON.parse(localStorage.getItem('yat-user') || 'null');
+        if (stored?.contactId && sessionStorage.getItem('pending_fav_pid')) {
+          await resumePendingFavorite(stored.contactId);
+        }
+      } catch {
+        // non-fatal
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed');
       setMessageType('error');
@@ -156,9 +193,21 @@ const uid = cred.user?.uid;
         }),
       });
 
+      // Parse response once and reuse for both error handling and success data
+      const regData = await registerResponse.json();
       if (!registerResponse.ok) {
-        const errorData = await registerResponse.json();
-        throw new Error(errorData.error || 'Failed to sync to CRM');
+        throw new Error(regData?.error || 'Failed to sync to CRM');
+      }
+
+      // Save contactId to localStorage so future addFavorite() calls work
+      if (regData?.contactId) {
+        try {
+          localStorage.setItem('yat-user', JSON.stringify({ contactId: regData.contactId, email }));
+        } catch {
+          // non-fatal
+        }
+        // Resume any pending favorite intent
+        await resumePendingFavorite(regData.contactId);
       }
 
       setMessage('Registration successful! Welcome to YAT?STATS.');
@@ -216,6 +265,34 @@ const uid = cred.user?.uid;
       {user && !user.isAnonymous ? (
         // Logged in state
         <div style={{ padding: '20px' }}>
+          {/* ── Favorite confirmation banner ── */}
+          {favConfirm && (
+            <div style={{ background: 'rgba(22,163,74,.12)', border: '1px solid #16a34a', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '14px', color: '#16a34a', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '6px' }}>
+                ⭐ {favConfirm} added to your Favorites
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '10px' }}>
+                Free Fan accounts can follow players from this school.
+                Upgrade to Superfan to follow players from <strong>ANY</strong> school.
+              </p>
+              <Link
+                href="/superfan"
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 14px',
+                  background: '#b8860b',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  letterSpacing: '.06em',
+                  textDecoration: 'none',
+                }}
+              >
+                Upgrade to Superfan →
+              </Link>
+            </div>
+          )}
           <div style={{ marginBottom: '20px' }}>
             <p style={{ fontSize: '18px', marginBottom: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em' }}>
               Hi {displayName || 'Fan'}!
@@ -256,6 +333,88 @@ const uid = cred.user?.uid;
       ) : (
         // Not logged in state
         <>
+          {/* ── Tier conversion section ── */}
+          <div style={{ padding: '16px', borderBottom: '1px solid var(--line)' }}>
+            <h4 style={{ fontFamily: '"Bebas Neue", Oswald, sans-serif', fontSize: '18px', letterSpacing: '.08em', marginBottom: '8px', color: 'var(--fg)' }}>
+              Follow Your Favorite Players
+            </h4>
+            <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px', lineHeight: '1.5' }}>
+              Create an account to save players you want to follow and personalize your YAT?STATS experience.
+            </p>
+
+            {/* FREE FAN card */}
+            <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--line)', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontFamily: '"Bebas Neue", Oswald, sans-serif', fontSize: '14px', letterSpacing: '.06em' }}>FREE FAN</span>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', background: 'rgba(255,255,255,.08)', padding: '2px 8px', borderRadius: '4px' }}>Free</span>
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px', lineHeight: '1.5' }}>Follow players from this school&apos;s alumni network.</p>
+              <ul style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '16px', marginBottom: '10px', lineHeight: '1.8', margin: '0 0 10px' }}>
+                <li>Save favorite alumni from this school</li>
+                <li>Quickly filter alumni news and updates</li>
+                <li>Personalized experience for this school</li>
+              </ul>
+              <button
+                type="button"
+                onClick={() => setActiveTab('register')}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '13px',
+                  letterSpacing: '.06em',
+                  cursor: 'pointer',
+                  marginTop: '8px',
+                }}
+              >
+                Create Free Fan Account
+              </button>
+            </div>
+
+            {/* SUPERFAN card */}
+            <div style={{ background: 'rgba(255,215,0,.06)', border: '1px solid rgba(255,215,0,.25)', borderRadius: '8px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontFamily: '"Bebas Neue", Oswald, sans-serif', fontSize: '14px', letterSpacing: '.06em', color: '#FFD700' }}>SUPERFAN</span>
+                <span style={{ fontSize: '11px', color: '#FFD700', background: 'rgba(255,215,0,.15)', padding: '2px 8px', borderRadius: '4px' }}>$9.99/mo</span>
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px', lineHeight: '1.5' }}>Follow players from ANY school across the YAT?STATS network.</p>
+              <ul style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '16px', marginBottom: '10px', lineHeight: '1.8', margin: '0 0 10px' }}>
+                <li>Favorite players from any school</li>
+                <li>Build your own &quot;Dream Team&quot; across programs</li>
+                <li>Personalized alumni news feed</li>
+                <li>Track players across multiple schools</li>
+                <li>Optional daily or weekly update notifications</li>
+              </ul>
+              <Link
+                href="/superfan"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '10px',
+                  background: '#FFD700',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '13px',
+                  letterSpacing: '.06em',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  textDecoration: 'none',
+                  boxSizing: 'border-box',
+                  marginTop: '8px',
+                }}
+              >
+                Upgrade to Superfan
+              </Link>
+            </div>
+          </div>
+          {/* ── End tier conversion section ── */}
+
           <div
             style={{
               display: 'flex',

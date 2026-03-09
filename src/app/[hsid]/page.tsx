@@ -14,7 +14,7 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, type NavItem } from "@/lib/playerUtils";
+import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
 
 import YatStyles from "@/components/yatstats/YatStyles";
 import HeroHeader from "@/components/yatstats/HeroHeader";
@@ -80,8 +80,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
-  const schoolNameRaw = (String(school.hsname || "")).toUpperCase();
-  const schoolName = schoolNameRaw.includes("HIGH SCHOOL") ? schoolNameRaw : `${schoolNameRaw} HIGH SCHOOL`;
+  const schoolName = formatSchoolName(String(school.hsname || ""));
   const location = (String(school.hslocation || "")).toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
