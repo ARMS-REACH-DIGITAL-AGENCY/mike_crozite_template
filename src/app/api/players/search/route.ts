@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPlayerSlug } from "@/lib/slug";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
+import { GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const qRaw = (searchParams.get("q") || "").trim();
-    const MAX_LIMIT = 10;
+    const MAX_LIMIT = GLOBAL_SEARCH_LIMIT;
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || String(MAX_LIMIT), 10), 1), MAX_LIMIT);
 
     if (!qRaw) {

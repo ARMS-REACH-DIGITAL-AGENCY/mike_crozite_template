@@ -1,0 +1,2 @@
+export const GLOBAL_SEARCH_LIMIT = 10;
+export const GLOBAL_SEARCH_DEBOUNCE_MS = 250;

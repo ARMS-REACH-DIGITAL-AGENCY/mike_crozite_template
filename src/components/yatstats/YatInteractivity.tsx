@@ -3,6 +3,7 @@
 // drawer open/close, hero inline search, player drawer search, filter logic
 
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
+import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
 
 interface YatInteractivityProps {
   resolvedHsid: string;
@@ -129,8 +130,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* Canonical same-origin fallback: avoids CORB on cross-origin SVG from S3 */
   var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
   var STAT_EMPTY='\u2014';
-  var GS_RESULT_LIMIT=10;
-  var GS_DEBOUNCE_MS=250;
+  var GS_RESULT_LIMIT=${GLOBAL_SEARCH_LIMIT};
+  var GS_DEBOUNCE_MS=${GLOBAL_SEARCH_DEBOUNCE_MS};
   var gsModal=document.getElementById('gsModal');
   var gsOverlay=document.getElementById('gsOverlay');
   var gsClose=document.getElementById('gsClose');
@@ -392,7 +393,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(!gsResults)return;
     var token=++gsQueryToken;
     gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
-    Promise.all([fetchPlayerResults(q),fetchSchoolResults(q)]).then(function(res){
+    Promise.all([fetchPlayerResults(q), fetchSchoolResults(q)]).then(function(res){
       if(token!==gsQueryToken)return;
       var players=res[0],schools=res[1];
       var hadError=players===null||schools===null;
