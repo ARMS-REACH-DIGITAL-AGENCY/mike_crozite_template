@@ -1365,10 +1365,10 @@ export default async function PlayerProfilePage({
   }());
   /* Global Search Modal — match shared site behavior (players + schools) */
   var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
-  var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
+  var CREST_FALLBACK=${JSON.stringify(CREST_FALLBACK_PATH)};
   var STAT_EMPTY='\u2014';
-  var GS_RESULT_LIMIT=${GLOBAL_SEARCH_LIMIT};
-  var GS_DEBOUNCE_MS=${GLOBAL_SEARCH_DEBOUNCE_MS};
+  var GS_RESULT_LIMIT=${JSON.stringify(GLOBAL_SEARCH_LIMIT)};
+  var GS_DEBOUNCE_MS=${JSON.stringify(GLOBAL_SEARCH_DEBOUNCE_MS)};
   var gsModal=document.getElementById('gsModal');
   var gsOverlay=document.getElementById('gsOverlay');
   var gsClose=document.getElementById('gsClose');
@@ -1458,8 +1458,18 @@ export default async function PlayerProfilePage({
   }
   function renderSchoolGroups(items,frag){if(!items.length)return;frag.appendChild(makeSectionLabel('Schools'));var groups={};var order=[];items.forEach(function(r){var key=r.region||'Unknown Region';if(!groups[key]){groups[key]=[];order.push(key);}groups[key].push(r);});order.forEach(function(region){var hdr=document.createElement('div');hdr.className='yat-gs-region';hdr.textContent=region;frag.appendChild(hdr);groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});});}
   function renderPlayerSection(players,frag){if(!players.length)return;frag.appendChild(makeSectionLabel('Players'));players.forEach(function(p){frag.appendChild(renderPlayerResult(p));});}
-  function fetchSchoolResults(q){return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT).then(function(r){return r.json();}).then(function(d){return(d.programs||[]).map(normalizeSchoolResult);}).catch(function(err){gsHadError=true;console.warn('School search failed',err);return[];});}
-  function fetchPlayerResults(q){return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT).then(function(r){return r.json();}).then(function(d){return d.players||[];}).catch(function(err){gsHadError=true;console.warn('Player search failed',err);return[];});}
+  function fetchSchoolResults(q){
+    return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
+      .then(function(r){return r.json();})
+      .then(function(d){return(d.programs||[]).map(normalizeSchoolResult);})
+      .catch(function(err){gsHadError=true;console.warn('School search failed',err);return[];});
+  }
+  function fetchPlayerResults(q){
+    return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
+      .then(function(r){return r.json();})
+      .then(function(d){return d.players||[];})
+      .catch(function(err){gsHadError=true;console.warn('Player search failed',err);return[];});
+  }
   function renderCombinedResults(players,schools,q,hadError){
     if(!gsResults)return;
     gsResults.innerHTML='';
