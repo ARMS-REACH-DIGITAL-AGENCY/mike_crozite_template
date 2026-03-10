@@ -1,47 +1,49 @@
 // src/app/api/favorites/route.ts
-// API endpoint to add "favorite player" tags to a GHL contact
+// API endpoint to save a favorite player for an authenticated user.
 // POST /api/favorites
-// Body: { contactId: string, playerId: string, playerName: string, type: "fan" | "superfan" }
+// Body: { firebaseUid: string, contactId?: string, playerId: string, playerName?: string, schoolId?: string, type?: "fan" | "superfan" }
+//
+// Persists to:
+//   1. PostgreSQL user_favorites table (canonical, survives devices/sessions)
+//   2. GoHighLevel contact tag (secondary, for CRM segmentation)
 
 import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
+import { saveFavorite } from "@/lib/userProfile";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { contactId, playerId, playerName, type } = body;
+    const { firebaseUid, contactId, playerId, playerName, schoolId, type } = body;
 
-    if (!contactId || !playerId) {
+    if (!firebaseUid || !playerId) {
       return NextResponse.json(
-        { error: "contactId and playerId are required" },
+        { error: "firebaseUid and playerId are required" },
         { status: 400 }
       );
     }
 
-    // Build the tag based on type
-    // Fan favorites: "fav:{playerId}" — limited to school players
-    // SuperFan favorites: "superfav:{playerId}" — global access
-    const tagPrefix = type === "superfan" ? "superfav" : "fav";
-    const tag = `${tagPrefix}:${playerId}`;
+    // 1. Persist to PostgreSQL (canonical storage)
+    const { created } = await saveFavorite(firebaseUid, playerId, {
+      ghlContactId: contactId ?? null,
+      schoolId: schoolId ?? null,
+    });
 
-    // Also add a human-readable tag with the player name
-    const nameTag = `${tagPrefix}:${(playerName || playerId).replace(/\s+/g, "-").toLowerCase()}`;
-
-    // Add both tags to the contact
-    const result1 = await addTagToGHLContact(contactId, tag);
-    const result2 = await addTagToGHLContact(contactId, nameTag);
-
-    if (!result1.success) {
-      return NextResponse.json(
-        { error: result1.error || "Failed to add favorite tag" },
-        { status: 500 }
-      );
+    // 2. Tag the GHL contact (secondary / non-fatal)
+    if (contactId) {
+      const tagPrefix = type === "superfan" ? "superfav" : "fav";
+      const tag = `${tagPrefix}:${playerId}`;
+      const nameTag = `${tagPrefix}:${(playerName || playerId).replace(/\s+/g, "-").toLowerCase()}`;
+      await Promise.allSettled([
+        addTagToGHLContact(contactId, tag),
+        addTagToGHLContact(contactId, nameTag),
+      ]);
     }
 
     return NextResponse.json({
       success: true,
-      message: `Player ${playerName || playerId} added as ${type === "superfan" ? "SuperFan" : "Fan"} favorite`,
-      tags: [tag, nameTag],
+      created,
+      message: `Player ${playerName || playerId} added to favorites`,
     });
   } catch (error) {
     console.error("Error in favorites API:", error);

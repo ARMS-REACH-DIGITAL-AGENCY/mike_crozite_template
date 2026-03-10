@@ -196,3 +196,38 @@ export async function lookupGHLContactByEmail(
     return null;
   }
 }
+
+/**
+ * Find an existing GHL contact by email, or create a new one.
+ * Prevents duplicate contacts on repeated registration / login.
+ * Returns the GHL contact ID or null on failure.
+ */
+export async function findOrCreateGhlContact(
+  email: string,
+  firstName?: string,
+  lastName?: string
+): Promise<string | null> {
+  // 1. Try to find an existing contact first
+  const existingId = await lookupGHLContactByEmail(email);
+  if (existingId) return existingId;
+
+  // 2. Create a new contact
+  const result = await createGHLContact(
+    { email, firstName, lastName },
+    "yatstats"
+  );
+
+  if ("error" in result) {
+    console.error("findOrCreateGhlContact: failed to create contact", result);
+    return null;
+  }
+
+  const contact = result.contact as { id?: string } | undefined;
+  // GHL v2 returns { contact: { id, ... } } for create
+  if (contact?.id) return contact.id;
+  // Some responses return id at root
+  if (typeof (result as Record<string, unknown>).id === "string") {
+    return (result as Record<string, unknown>).id as string;
+  }
+  return null;
+}
