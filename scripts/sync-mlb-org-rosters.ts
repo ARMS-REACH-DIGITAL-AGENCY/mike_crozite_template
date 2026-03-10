@@ -15,6 +15,10 @@
 //   DATABASE_URL  — Neon Postgres connection string
 
 import { Pool } from "pg";
+import {
+  resolvePlayerFromSourceMap,
+  upsertSourceMap,
+} from "./lib/player-source-map";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -146,6 +150,26 @@ function buildNameIndex(
   return index;
 }
 
+/**
+ * Resolve a canonical playerid from player_source_map using the MLB Stats API
+ * person.id. Returns null if no mapping exists yet.
+ */
+async function resolveFromSourceMap(mlbPersonId: number): Promise<string | null> {
+  return resolvePlayerFromSourceMap(pool, "mlb_api", String(mlbPersonId));
+}
+
+/**
+ * Insert or update a row in player_source_map, recording the stable
+ * mlb_api → canonical playerid mapping for future runs.
+ */
+async function saveSourceMap(
+  playerid: string,
+  mlbPersonId: number,
+  fullName: string
+): Promise<void> {
+  return upsertSourceMap(pool, playerid, "mlb_api", String(mlbPersonId), fullName);
+}
+
 /** Upsert a player's current team into player_current_team. */
 async function upsertCurrentTeam(
   playerid: string,
@@ -227,6 +251,33 @@ async function main() {
 
     for (const entry of roster) {
       const p = entry.person;
+
+      // ── 1. Try stable source-map lookup (mlb_api person.id → playerid) ──
+      let resolvedId: string | null = null;
+      if (!dryRun) {
+        resolvedId = await resolveFromSourceMap(p.id);
+      }
+
+      if (resolvedId) {
+        // Fast path: deterministic mapping already exists
+        if (!dryRun) {
+          await upsertCurrentTeam(
+            resolvedId,
+            team.id,
+            team.name,
+            team.abbreviation,
+            entry.status?.description ?? "Active"
+          );
+        } else {
+          console.log(
+            `  [DRY RUN] Would upsert (source-map): ${p.fullName} → ${team.name} (playerid=${resolvedId})`
+          );
+        }
+        totalUpserted++;
+        continue;
+      }
+
+      // ── 2. Fallback: conservative exact-name matching ──
       const nameKey = `${p.firstName.toLowerCase()} ${p.lastName.toLowerCase()}`;
       const matches = nameIndex.get(nameKey) ?? [];
 
@@ -239,11 +290,18 @@ async function main() {
       }
 
       if (matches.length > 1) {
+        // Ambiguous: do not guess — log and skip to avoid wrong mapping
         console.log(
-          `  AMBIGUOUS (${matches.length} matches): ${p.fullName} — using first match (playerid=${matches[0].playerid})`
+          `  AMBIGUOUS (${matches.length} matches): ${p.fullName} (mlbId=${p.id}) — skipping to avoid incorrect mapping`
         );
+        totalUnmatched++;
+        unmatchedLog.push(
+          `  AMBIGUOUS: ${p.fullName} (mlbId=${p.id}, team=${team.name}, ${matches.length} name matches)`
+        );
+        continue;
       }
 
+      // Exactly one name match — safe to use
       const dbPlayer = matches[0];
       if (!dryRun) {
         await upsertCurrentTeam(
@@ -253,9 +311,11 @@ async function main() {
           team.abbreviation,
           entry.status?.description ?? "Active"
         );
+        // Record the stable mapping so future runs skip name matching
+        await saveSourceMap(dbPlayer.playerid, p.id, p.fullName);
       } else {
         console.log(
-          `  [DRY RUN] Would upsert: ${p.fullName} → ${team.name} (playerid=${dbPlayer.playerid})`
+          `  [DRY RUN] Would upsert (name-match): ${p.fullName} → ${team.name} (playerid=${dbPlayer.playerid})`
         );
       }
       totalUpserted++;

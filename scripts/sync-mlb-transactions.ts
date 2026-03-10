@@ -16,6 +16,10 @@
 //   DATABASE_URL  — Neon Postgres connection string
 
 import { Pool } from "pg";
+import {
+  resolvePlayerFromSourceMap,
+  upsertSourceMap,
+} from "./lib/player-source-map";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -186,6 +190,26 @@ function resolveNameKey(person: MlbPerson): string {
   return (person.fullName ?? "").toLowerCase();
 }
 
+/**
+ * Resolve a canonical playerid from player_source_map using the MLB Stats API
+ * person.id. Returns null if no mapping exists yet.
+ */
+async function resolveFromSourceMap(mlbPersonId: number): Promise<string | null> {
+  return resolvePlayerFromSourceMap(pool, "mlb_api", String(mlbPersonId));
+}
+
+/**
+ * Insert or update a row in player_source_map, recording the stable
+ * mlb_api → canonical playerid mapping for future runs.
+ */
+async function saveSourceMap(
+  playerid: string,
+  mlbPersonId: number,
+  fullName: string
+): Promise<void> {
+  return upsertSourceMap(pool, playerid, "mlb_api", String(mlbPersonId), fullName);
+}
+
 /** Insert one transaction row. Returns true if a new row was inserted. */
 async function insertTransaction(
   playerid: string,
@@ -259,6 +283,31 @@ async function main() {
       continue;
     }
 
+    // ── 1. Try stable source-map lookup (mlb_api person.id → playerid) ──
+    let resolvedId: string | null = null;
+    if (!dryRun) {
+      resolvedId = await resolveFromSourceMap(txn.person.id);
+    }
+
+    if (resolvedId) {
+      // Fast path: deterministic mapping already exists
+      if (dryRun) {
+        console.log(
+          `  [DRY RUN] Would insert (source-map): ${txn.person.fullName} | ${txn.typeDesc ?? txn.typeCode} | ${txn.effectiveDate ?? txn.date ?? "?"} | ${txn.fromTeam?.name ?? "—"} → ${txn.toTeam?.name ?? "—"}`
+        );
+        totalInserted++;
+      } else {
+        const inserted = await insertTransaction(resolvedId, txn);
+        if (inserted) {
+          totalInserted++;
+        } else {
+          totalDuplicates++;
+        }
+      }
+      continue;
+    }
+
+    // ── 2. Fallback: conservative exact-name matching ──
     const nameKey = resolveNameKey(txn.person);
     if (!nameKey) {
       totalSkipped++;
@@ -275,16 +324,23 @@ async function main() {
     }
 
     if (matches.length > 1) {
+      // Ambiguous: do not guess — log and skip to avoid wrong mapping
       console.log(
-        `  AMBIGUOUS (${matches.length} matches): ${txn.person.fullName} — using first match (playerid=${matches[0].playerid})`
+        `  AMBIGUOUS (${matches.length} matches): ${txn.person.fullName} (mlbId=${txn.person.id}) — skipping to avoid incorrect mapping`
       );
+      totalUnmatched++;
+      unmatchedLog.push(
+        `  AMBIGUOUS: ${txn.person.fullName} (mlbId=${txn.person.id}, ${matches.length} name matches, type=${txn.typeDesc ?? txn.typeCode ?? "unknown"})`
+      );
+      continue;
     }
 
+    // Exactly one name match — safe to use
     const dbPlayer = matches[0];
 
     if (dryRun) {
       console.log(
-        `  [DRY RUN] Would insert: ${txn.person.fullName} | ${txn.typeDesc ?? txn.typeCode} | ${txn.effectiveDate ?? txn.date ?? "?"} | ${txn.fromTeam?.name ?? "—"} → ${txn.toTeam?.name ?? "—"}`
+        `  [DRY RUN] Would insert (name-match): ${txn.person.fullName} | ${txn.typeDesc ?? txn.typeCode} | ${txn.effectiveDate ?? txn.date ?? "?"} | ${txn.fromTeam?.name ?? "—"} → ${txn.toTeam?.name ?? "—"}`
       );
       totalInserted++;
       continue;
@@ -293,6 +349,8 @@ async function main() {
     const inserted = await insertTransaction(dbPlayer.playerid, txn);
     if (inserted) {
       totalInserted++;
+      // Record the stable mapping so future runs skip name matching
+      await saveSourceMap(dbPlayer.playerid, txn.person.id, txn.person.fullName);
     } else {
       totalDuplicates++; // ON CONFLICT DO NOTHING suppressed the row
     }
