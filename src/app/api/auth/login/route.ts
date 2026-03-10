@@ -3,7 +3,7 @@
  * Called after a successful Firebase sign-in to:
  *   1. Load (or create) the user profile
  *   2. Backfill ghlContactId if missing (look up by email in GHL)
- * Returns the current profile and plan so the client can update its state.
+ * Returns the current profile so the client can hydrate greeting, home_hsid, role, etc.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Load existing profile
     let profile = await getUserProfile(body.uid);
 
-    // If no profile exists yet, create a minimal one
+    // If no profile exists yet, create a minimal one (no home_hsid — login doesn't set affiliation)
     if (!profile) {
       profile = await upsertUserProfile(body.uid, {
         email: body.email,
@@ -60,6 +60,10 @@ export async function POST(request: NextRequest) {
       contactId: profile.ghl_contact_id,
       plan: profile.plan,
       isSuperfan: profile.plan === "superfan",
+      firstName: profile.first_name,
+      homeHsid: profile.home_hsid,
+      role: profile.role,
+      subscriptionStatus: profile.subscription_status,
     });
   } catch (error) {
     console.error("Error in login API:", error);
