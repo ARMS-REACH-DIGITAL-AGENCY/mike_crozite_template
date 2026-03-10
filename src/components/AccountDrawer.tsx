@@ -118,7 +118,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       if (data && data.success) {
         setFavConfirm(pName);
         // Notify any listening player-profile JS that auth+favorite succeeded
-        window.dispatchEvent(new CustomEvent('yat-auth-success', { detail: { contactId } }));
+        window.dispatchEvent(new CustomEvent('yat-auth-success', { detail: { contactId, playerId: pid } }));
       }
     } catch {
       // Non-fatal — user is still logged in; favorite just wasn't added silently
@@ -338,11 +338,10 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           {favConfirm && !isSuperfan && (
             <div style={{ background: 'rgba(22,163,74,.12)', border: '1px solid #16a34a', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
               <p style={{ fontSize: '14px', color: '#16a34a', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '6px' }}>
-                ⭐ {favConfirm} added to your Favorites
+                ⭐ {favConfirm} added to your favorites
               </p>
               <p style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '10px' }}>
-                Free Fan accounts can follow players from this school.
-                Upgrade to Superfan to follow players from <strong>ANY</strong> school.
+                Want to follow players from other schools too? Upgrade to Superfan for global access.
               </p>
               <button
                 type="button"
@@ -439,90 +438,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       ) : (
         // Not logged in state
         <>
-          {/* ── Tier conversion section ── */}
-          <div style={{ padding: '16px', borderBottom: '1px solid var(--line)' }}>
-            <h4 style={{ fontFamily: '"Bebas Neue", Oswald, sans-serif', fontSize: '18px', letterSpacing: '.08em', marginBottom: '8px', color: 'var(--fg)' }}>
-              Follow Your Favorite Players
-            </h4>
-            <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px', lineHeight: '1.5' }}>
-              Create an account to save players you want to follow and personalize your YAT?STATS experience.
-            </p>
-
-            {/* FREE FAN card */}
-            <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--line)', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontFamily: '"Bebas Neue", Oswald, sans-serif', fontSize: '14px', letterSpacing: '.06em' }}>FREE FAN</span>
-                <span style={{ fontSize: '11px', color: 'var(--muted)', background: 'rgba(255,255,255,.08)', padding: '2px 8px', borderRadius: '4px' }}>Free</span>
-              </div>
-              <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px', lineHeight: '1.5' }}>Follow players from this school&apos;s alumni network.</p>
-              <ul style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '16px', marginBottom: '10px', lineHeight: '1.8', margin: '0 0 10px' }}>
-                <li>Save favorite alumni from this school</li>
-                <li>Quickly filter alumni news and updates</li>
-                <li>Personalized experience for this school</li>
-              </ul>
-              <button
-                type="button"
-                onClick={() => setActiveTab('register')}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: 'var(--fg)',
-                  color: 'var(--bg)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: '13px',
-                  letterSpacing: '.06em',
-                  cursor: 'pointer',
-                  marginTop: '8px',
-                }}
-              >
-                Create Free Fan Account
-              </button>
-            </div>
-
-            {/* SUPERFAN card */}
-            <div style={{ background: 'rgba(255,215,0,.06)', border: '1px solid rgba(255,215,0,.25)', borderRadius: '8px', padding: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontFamily: '"Bebas Neue", Oswald, sans-serif', fontSize: '14px', letterSpacing: '.06em', color: '#FFD700' }}>SUPERFAN</span>
-                <span style={{ fontSize: '11px', color: '#FFD700', background: 'rgba(255,215,0,.15)', padding: '2px 8px', borderRadius: '4px' }}>$9.99/mo</span>
-              </div>
-              <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px', lineHeight: '1.5' }}>Follow players from ANY school across the YAT?STATS network.</p>
-              <ul style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '16px', marginBottom: '10px', lineHeight: '1.8', margin: '0 0 10px' }}>
-                <li>Favorite players from any school</li>
-                <li>Build your own &quot;Dream Team&quot; across programs</li>
-                <li>Personalized alumni news feed</li>
-                <li>Track players across multiple schools</li>
-                <li>Optional daily or weekly update notifications</li>
-              </ul>
-              <button
-                type="button"
-                onClick={() => {
-                  try { sessionStorage.setItem('pending_superfan', '1'); } catch { /* non-fatal */ }
-                  setActiveTab('register');
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '10px',
-                  background: '#FFD700',
-                  color: '#000',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: '13px',
-                  letterSpacing: '.06em',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  marginTop: '8px',
-                }}
-              >
-                Become a Superfan
-              </button>
-            </div>
-          </div>
-          {/* ── End tier conversion section ── */}
-
           <div
             style={{
               display: 'flex',
@@ -734,6 +649,14 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               {message}
             </p>
           )}
+
+          {/* ── Concise fan / superfan explanation ── */}
+          <div style={{ padding: '16px', borderTop: '1px solid var(--line)', marginTop: '8px' }}>
+            <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: '1.6', margin: 0 }}>
+              Sign in or register to save favorites from this school.{' '}
+              Want to favorite players from other schools too? Upgrade to Superfan for global access — $9.99/month.
+            </p>
+          </div>
         </>
       )}
     </div>

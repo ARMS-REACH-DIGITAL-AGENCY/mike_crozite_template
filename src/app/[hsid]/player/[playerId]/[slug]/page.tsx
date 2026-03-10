@@ -517,12 +517,12 @@ export default async function PlayerProfilePage({
         .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
         .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
         .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        .fav-btn-hero{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid rgba(255,255,255,.22);border-radius:999px;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;background:none;color:var(--fg);transition:all .2s;white-space:nowrap}
-        body.light-theme .fav-btn-hero{border-color:rgba(0,0,0,.18)}
-        .fav-btn-hero i{font-size:13px;transition:color .2s;color:gold}
-        .fav-btn-hero:hover{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.5)}
-        .fav-btn-hero.active{background:gold;color:#000;border-color:gold}
-        .fav-btn-hero.active i{color:#000}
+        .fav-btn-hero{display:inline-flex;align-items:center;gap:5px;padding:0;border:none;background:none;color:var(--fg);font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:opacity .2s}
+        .fav-btn-hero i{font-size:15px;transition:color .2s}
+        .fav-btn-hero:hover{opacity:.7}
+        .fav-btn-hero.active i{color:gold}
+        .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
+        .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
         /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:160px;overflow:hidden}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
@@ -735,7 +735,7 @@ export default async function PlayerProfilePage({
           .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
           .yat-schooltext .big1{font-size:14px}
           .yat-schooltext .big2{font-size:16px}
-          .fav-btn-hero{padding:5px 10px;font-size:10px}
+          .fav-btn-hero{font-size:10px}
           /* Career strip: keep 5-per-viewport on mobile, smaller label text, shorter height */
           .career-slot{flex:0 0 20%}
           .career-strip{height:100px}
@@ -793,9 +793,9 @@ export default async function PlayerProfilePage({
               <div className="big2">{displayName}</div>
             </div>
           </div>
-          {/* Right: ADD FAVORITE sits directly across from school logo / identity */}
-          <button id="btnFanFav" className="fav-btn-hero" aria-label="Add Favorite">
-            <i className="ri-star-line" /> ADD FAVORITE
+          {/* Right: FAVORITE sits directly across from school logo / identity */}
+          <button id="btnFanFav" className="fav-btn-hero" aria-label="Favorite">
+            <i className="ri-star-line" /> FAVORITE
           </button>
         </div>
       </header>
@@ -1201,6 +1201,9 @@ export default async function PlayerProfilePage({
         </div>
       </div>
 
+      {/* FAVORITE CONFIRMATION TOAST */}
+      <div className="fav-toast" id="favToast" role="status" aria-live="polite" />
+
       {/* FOOTER — fixed sticky bar matching school page */}
       <footer className="yat-footer" data-player-id={safePlayerId}>
         {sponsorBanner ? (
@@ -1513,7 +1516,9 @@ export default async function PlayerProfilePage({
   function openFavModal(){if(favMask){favMask.style.display='flex';}}
   function closeFavModal(){if(favMask){favMask.style.display='none';}}
   var btnFanFav=document.getElementById('btnFanFav');
-  function setFavState(btn,active){if(!btn)return;if(active){btn.classList.add('active');}else{btn.classList.remove('active');}}
+  var favToast=document.getElementById('favToast');
+  function showFavToast(msg){if(!favToast)return;favToast.textContent=msg;favToast.classList.add('show');setTimeout(function(){favToast.classList.remove('show');},3500);}
+  function setFavState(btn,active){if(!btn)return;var icon=btn.querySelector('i');if(active){btn.classList.add('active');if(icon)icon.className='ri-star-fill';}else{btn.classList.remove('active');if(icon)icon.className='ri-star-line';}}
   function getFirebaseUser(){
     /* Read Firebase UID from auth state if available, fallback to localStorage cache */
     try{
@@ -1530,7 +1535,7 @@ export default async function PlayerProfilePage({
       return;
     }
     fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({firebaseUid:user.uid||'',contactId:user.contactId,playerId:playerId,playerName:playerName,type:'fan'})}).then(function(r){return r.json();}).then(function(data){
-      if(data&&data.success){setFavState(btnFanFav,true);}
+      if(data&&data.success){setFavState(btnFanFav,true);showFavToast(playerName+' added to your favorites');}
       else{console.warn('Favorite error:',(data&&data.error)||'unknown');}
     }).catch(function(){console.warn('Network error saving favorite.');});
   }
@@ -1550,25 +1555,13 @@ export default async function PlayerProfilePage({
     }).catch(function(){console.warn('Network error starting Superfan checkout.');});
   }
   /* After auth completes (from AccountDrawer), mark the button as favorited */
-  window.addEventListener('yat-auth-success',function(){
-    if(sessionStorage.getItem('pending_fav_pid')===playerId){
-      sessionStorage.removeItem('pending_fav_pid');
-      sessionStorage.removeItem('pending_fav_name');
-      setFavState(btnFanFav,true);
-    }
+  window.addEventListener('yat-auth-success',function(e){
+    var detail=e.detail||{};
+    if(detail.playerId&&detail.playerId!==playerId)return;
+    setFavState(btnFanFav,true);
+    showFavToast(playerName+' added to your favorites');
   },{once:true});
   if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite();});
-  /* Rotate FAV button CTA text every 3s */
-  (function(){
-    var ctaVariants=[['ri-star-line','ADD FAN FAVORITE'],['ri-vip-crown-line','BECOME A SUPERFAN']];
-    var idx=0;
-    var timer=setInterval(function(){
-      if(!document.contains(btnFanFav)){clearInterval(timer);return;}
-      if(!btnFanFav||btnFanFav.classList.contains('active'))return;
-      idx=(idx+1)%ctaVariants.length;
-      btnFanFav.innerHTML='<i class="'+ctaVariants[idx][0]+'"></i> '+ctaVariants[idx][1];
-    },3000);
-  }());
   var favClose=document.getElementById('favModalClose');
   var favContinue=document.getElementById('favContinue');
   var favRegister=document.getElementById('favRegister');
