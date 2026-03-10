@@ -284,8 +284,8 @@ async function main() {
       if (matches.length === 0) {
         totalUnmatched++;
         unmatchedLog.push(
-          `  UNMATCHED: ${p.fullName} (mlbId=${p.id}, team=${team.name})`
-        );
+  `UNMATCHED: ${p.fullName ?? `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() || "Unknown Player"} (mlbId=${p.id}, team=${team.name})`
+);
         continue;
       }
 
