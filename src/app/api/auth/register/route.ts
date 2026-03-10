@@ -1,14 +1,16 @@
 /**
  * API Route: POST /api/auth/register
  * Handles user registration:
- *   1. Find-or-create GHL contact (prevents duplicates)
- *   2. Persist user profile in PostgreSQL (firebase_uid → ghl_contact_id → plan)
+ *   1. Guard against duplicate email registrations (same email, different firebase uid).
+ *   2. Find-or-create GHL contact (prevents duplicates)
+ *   3. Persist user profile in PostgreSQL (firebase_uid → home_hsid → ghl_contact_id → plan)
  * Called from the client-side Firebase authentication after a user signs up.
+ * home_hsid is set from the subdomain at first registration and never overwritten.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { findOrCreateGhlContact } from "@/lib/gohighlevel";
-import { upsertUserProfile } from "@/lib/userProfile";
+import { getUserProfileByEmail, upsertUserProfile } from "@/lib/userProfile";
 
 export const runtime = "nodejs";
 
@@ -33,6 +35,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Guard: if a profile already exists for this email under a different firebase_uid,
+    // reject the registration. (Firebase itself prevents duplicate email sign-ups, but
+    // this adds a server-side check as belt-and-suspenders.)
+    const existing = await getUserProfileByEmail(body.email);
+    if (existing && existing.firebase_uid !== body.uid) {
+      return NextResponse.json(
+        { error: "This email already has a YAT?STATS account. Please sign in." },
+        { status: 409 }
+      );
+    }
+
     // 1. Find-or-create GHL contact (safe against duplicates)
     const ghlContactId = await findOrCreateGhlContact(
       body.email,
@@ -41,10 +54,13 @@ export async function POST(request: NextRequest) {
     );
 
     // 2. Persist user profile in PostgreSQL
+    //    home_hsid is set from the registration subdomain (first registration only;
+    //    subsequent upserts preserve the original value via COALESCE).
     const profile = await upsertUserProfile(body.uid, {
       email: body.email,
       first_name: body.firstName ?? null,
       last_name: body.lastName ?? null,
+      home_hsid: body.subdomain || null,
       ghl_contact_id: ghlContactId,
       ghl_location_id: process.env.GHL_LOCATION_ID ?? null,
       plan: "free",
@@ -55,6 +71,7 @@ export async function POST(request: NextRequest) {
         success: true,
         contactId: ghlContactId,
         plan: profile.plan,
+        homeHsid: profile.home_hsid,
         message: "User registered and synced",
       },
       { status: 201 }

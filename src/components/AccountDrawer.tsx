@@ -179,9 +179,23 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           body: JSON.stringify({ uid, email }),
         });
         const loginData = await loginRes.json();
+        // Hydrate first_name from DB profile if available
+        if (loginData?.firstName) {
+          try {
+            localStorage.setItem(`yat_firstName_${uid}`, loginData.firstName);
+          } catch { /* non-fatal */ }
+          setDisplayName(loginData.firstName);
+        }
         if (loginData?.contactId) {
           try {
-            localStorage.setItem('yat-user', JSON.stringify({ uid, contactId: loginData.contactId, email }));
+            localStorage.setItem('yat-user', JSON.stringify({
+              uid,
+              contactId: loginData.contactId,
+              email,
+              firstName: loginData.firstName ?? null,
+              homeHsid: loginData.homeHsid ?? null,
+              role: loginData.role ?? 'fan',
+            }));
           } catch { /* non-fatal */ }
         }
         if (loginData?.isSuperfan) setIsSuperfan(true);
@@ -250,13 +264,23 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       // Parse response once and reuse for both error handling and success data
       const regData = await registerResponse.json();
       if (!registerResponse.ok) {
-        throw new Error(regData?.error || 'Failed to sync to CRM');
+        // Use a typed error so the catch block can identify email-taken without string matching
+        const err = new Error(regData?.error || 'Failed to sync to CRM') as Error & { isEmailTaken?: boolean };
+        if (registerResponse.status === 409) err.isEmailTaken = true;
+        throw err;
       }
 
       // Save contactId to localStorage so future addFavorite() calls work
       if (regData?.contactId) {
         try {
-          localStorage.setItem('yat-user', JSON.stringify({ uid, contactId: regData.contactId, email }));
+          localStorage.setItem('yat-user', JSON.stringify({
+            uid,
+            contactId: regData.contactId,
+            email,
+            firstName: firstName || null,
+            homeHsid: regData.homeHsid ?? null,
+            role: 'fan',
+          }));
         } catch {
           // non-fatal
         }
@@ -274,7 +298,19 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Registration failed');
+      // Show a friendly message when the email is already registered.
+      // Firebase errors expose a `code` property; the server-side 409 guard
+      // sets a sentinel flag on the thrown Error.
+      const firebaseCode = (error as { code?: string })?.code;
+      if (
+        firebaseCode === 'auth/email-already-in-use' ||
+        (error as { isEmailTaken?: boolean })?.isEmailTaken
+      ) {
+        setMessage('This email already has a YAT?STATS account. Please sign in.');
+        setActiveTab('signin');
+      } else {
+        setMessage(error instanceof Error ? error.message : 'Registration failed');
+      }
       setMessageType('error');
     } finally {
       setIsLoading(false);
@@ -378,7 +414,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           )}
           <div style={{ marginBottom: '20px' }}>
             <p style={{ fontSize: '18px', marginBottom: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em' }}>
-              Hi {displayName || 'Fan'}!
+              Hi, {displayName || 'Fan'}!
             </p>
             <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</p>
           </div>

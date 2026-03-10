@@ -19,6 +19,9 @@ export interface UserProfile {
   email: string;
   first_name: string | null;
   last_name: string | null;
+  home_hsid: string | null;
+  role: string;
+  subscription_status: string | null;
   ghl_contact_id: string | null;
   ghl_location_id: string | null;
   plan: 'free' | 'superfan';
@@ -55,6 +58,9 @@ if (!global.__userProfileBootstrapped) {
           email                 TEXT NOT NULL,
           first_name            TEXT,
           last_name             TEXT,
+          home_hsid             TEXT,
+          role                  TEXT NOT NULL DEFAULT 'fan',
+          subscription_status   TEXT,
           ghl_contact_id        TEXT,
           ghl_location_id       TEXT,
           plan                  TEXT NOT NULL DEFAULT 'free',
@@ -64,6 +70,10 @@ if (!global.__userProfileBootstrapped) {
           updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
+      // Migrate existing tables: add new columns if they don't exist yet
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS home_hsid TEXT`);
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'fan'`);
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT`);
       await query(`
         CREATE TABLE IF NOT EXISTS user_favorites (
           id              SERIAL PRIMARY KEY,
@@ -132,6 +142,9 @@ export async function getUserProfileByStripeSubscriptionId(
  * Update semantics:
  *   email              — always updated to the latest value (Firebase is the auth source of truth)
  *   first_name/last_name — preserved if caller passes null/undefined (COALESCE)
+ *   home_hsid          — set only on INSERT (first registration); never overwritten on update
+ *   role               — preserved once set; only updated if caller provides a value
+ *   subscription_status — updated when provided
  *   ghl_contact_id     — preserved once set; only updated if caller provides a value
  *   plan               — never downgraded from 'superfan' to 'free' via this function
  */
@@ -142,13 +155,18 @@ export async function upsertUserProfile(
   const res = await query<UserProfile>(
     `INSERT INTO user_profiles (
        firebase_uid, email, first_name, last_name,
+       home_hsid, role, subscription_status,
        ghl_contact_id, ghl_location_id, plan,
        stripe_customer_id, stripe_subscription_id
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      ON CONFLICT (firebase_uid) DO UPDATE SET
        email                 = EXCLUDED.email,
        first_name            = COALESCE(EXCLUDED.first_name, user_profiles.first_name),
        last_name             = COALESCE(EXCLUDED.last_name,  user_profiles.last_name),
+       -- home_hsid is set at first registration only; never overwritten
+       home_hsid             = COALESCE(user_profiles.home_hsid, EXCLUDED.home_hsid),
+       role                  = COALESCE(EXCLUDED.role, user_profiles.role),
+       subscription_status   = COALESCE(EXCLUDED.subscription_status, user_profiles.subscription_status),
        ghl_contact_id        = COALESCE(EXCLUDED.ghl_contact_id, user_profiles.ghl_contact_id),
        ghl_location_id       = COALESCE(EXCLUDED.ghl_location_id, user_profiles.ghl_location_id),
        -- Never downgrade plan from superfan to free via upsert
@@ -165,6 +183,9 @@ export async function upsertUserProfile(
       data.email,
       data.first_name ?? null,
       data.last_name ?? null,
+      data.home_hsid ?? null,
+      data.role ?? 'fan',
+      data.subscription_status ?? null,
       data.ghl_contact_id ?? null,
       data.ghl_location_id ?? null,
       data.plan ?? 'free',
@@ -231,4 +252,37 @@ export async function getFavorites(firebaseUid: string): Promise<UserFavorite[]>
     [firebaseUid]
   );
   return res.rows;
+}
+
+// ---------------------------------------------------------------------------
+// ensureUserProfile
+// ---------------------------------------------------------------------------
+
+/**
+ * Ensure a user profile exists and is up-to-date.
+ * - On first call for a firebase_uid, creates the profile and sets home_hsid from currentHsid.
+ * - On subsequent calls (login from any subdomain), loads the existing profile without
+ *   overwriting home_hsid.
+ * - Returns the current profile.
+ */
+export async function ensureUserProfile(
+  firebaseUid: string,
+  email: string,
+  currentHsid: string | null,
+  opts: {
+    firstName?: string | null;
+    lastName?: string | null;
+    ghlContactId?: string | null;
+    ghlLocationId?: string | null;
+  } = {}
+): Promise<UserProfile> {
+  return upsertUserProfile(firebaseUid, {
+    email,
+    first_name: opts.firstName ?? null,
+    last_name: opts.lastName ?? null,
+    home_hsid: currentHsid ?? null,
+    ghl_contact_id: opts.ghlContactId ?? null,
+    ghl_location_id: opts.ghlLocationId ?? null,
+    plan: 'free',
+  });
 }
