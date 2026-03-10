@@ -510,11 +510,11 @@ export default async function PlayerProfilePage({
         .career-strip-inner{width:100%;height:100%;padding:0;display:flex;direction:rtl;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
         .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 20%;min-width:0;direction:ltr;height:100%;max-height:160px;overflow:hidden}
-        .career-slot-img{width:100%;flex:1;min-height:0;object-fit:cover;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
+        .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:cover;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:3px 4px 0;flex:0 0 auto}
         .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:2px 4px 4px;flex:0 0 auto}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
-        .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line)}
+        .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
         .pmb-right{flex:0 0 40%;display:flex;flex-direction:column;gap:2px;text-align:right}
         .pmb-line{font:300 11px/1.15 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -522,7 +522,7 @@ export default async function PlayerProfilePage({
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
         /* TABS — sticky under header */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:var(--stickyHeaderH,120px);z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
+        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
@@ -549,8 +549,8 @@ export default async function PlayerProfilePage({
         .season-table tr:last-child td{border-bottom:none}
         .season-table tbody tr:hover{background:rgba(255,209,102,.05)}
         /* TAB CONTENT — ensure enough height for sparse tabs to allow full scroll collapse */
-        .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,120px) + var(--tabBarH,42px) + 8px)}
-        .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--tabBarH,42px) - var(--footerH))}
+        .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px) + var(--tabBarH,42px) + 8px)}
+        .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
         /* FAVORITES MODAL */
@@ -816,7 +816,7 @@ export default async function PlayerProfilePage({
       <GlobalSearchModal />
 
       {/* CAREER FILMSTRIP — NOW anchored to far right; images grow leftward via direction:rtl */}
-      <section className="career-strip">
+      <section className="career-strip" id="playerHeroMeta">
         <div className="career-strip-inner">
           {[...careerSlots].reverse().map((slot) => (
             <div key={slot.img} className="career-slot">
@@ -1221,11 +1221,14 @@ export default async function PlayerProfilePage({
   (function setLayoutVars(){
     var header=document.getElementById('site-header');
     var tabBar=document.querySelector('.profile-tabs');
+    var metaBand=document.querySelector('.player-meta-band');
     function update(){
       var headerHeight=header?header.offsetHeight:0;
       var tabBarHeight=tabBar?tabBar.offsetHeight:0;
+      var metaBandHeight=metaBand?metaBand.offsetHeight:0;
       document.documentElement.style.setProperty('--stickyHeaderH',headerHeight+'px');
       document.documentElement.style.setProperty('--tabBarH',tabBarHeight+'px');
+      document.documentElement.style.setProperty('--metaBandH',metaBandHeight+'px');
     }
     update();
     window.addEventListener('resize',update,{passive:true});
@@ -1243,14 +1246,16 @@ export default async function PlayerProfilePage({
     if(tab)tab.classList.add('active');
     if(content)content.classList.add('active');
   }
-  /* Helper: scroll so the tab bar sits just below the sticky header */
+  /* Helper: scroll so the tab bar sits just below the sticky header + metadata band */
   function scrollToTabBar(){
     var header=document.getElementById('site-header');
     var tabBar=document.querySelector('.profile-tabs');
     if(!header||!tabBar)return;
     var headerH=header.offsetHeight;
+    var metaBand=document.querySelector('.player-meta-band');
+    var metaBandH=metaBand?metaBand.offsetHeight:0;
     /* getBoundingClientRect().top + scrollY = element's absolute top in document */
-    var y=tabBar.getBoundingClientRect().top+window.scrollY-headerH;
+    var y=tabBar.getBoundingClientRect().top+window.scrollY-headerH-metaBandH;
     window.scrollTo({top:Math.max(0,y),behavior:'auto'});
   }
   document.querySelectorAll('.profile-tab').forEach(function(tab){
@@ -1541,8 +1546,22 @@ export default async function PlayerProfilePage({
     if(!heroMeta||!stickyImg)return;
     var crestSrc=stickyImg.getAttribute('data-crest')||stickyImg.src;
     var headshotSrc=stickyImg.getAttribute('data-headshot')||'';
-    /* Fallback: if crest fails to load, show generic placeholder */
-    stickyImg.onerror=function(){this.onerror=null;this.src=CREST_FALLBACK;crestSrc=CREST_FALLBACK;};
+    /* Robust onerror: headshot failure → crest; crest failure → generic fallback */
+    stickyImg.onerror=function(){
+      if(this.src!==crestSrc&&this.src!==CREST_FALLBACK){
+        /* Headshot failed — fall back to crest */
+        this.src=crestSrc;
+        this.classList.remove('is-headshot');
+      }else if(this.src!==CREST_FALLBACK){
+        /* Crest failed — use generic fallback */
+        this.onerror=null;
+        this.src=CREST_FALLBACK;
+        crestSrc=CREST_FALLBACK;
+      }else{
+        /* Generic fallback also failed — give up */
+        this.onerror=null;
+      }
+    };
     if(!headshotSrc)return;
     var observer=new IntersectionObserver(function(entries){
       entries.forEach(function(entry){
