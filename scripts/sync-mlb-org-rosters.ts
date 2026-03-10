@@ -278,7 +278,7 @@ async function main() {
       }
 
       // ── 2. Fallback: conservative exact-name matching ──
-      const nameKey = `${p.firstName.toLowerCase()} ${p.lastName.toLowerCase()}`;
+      const nameKey = `${(p.firstName ?? "").toLowerCase()} ${(p.lastName ?? "").toLowerCase()}`.trim();
       const matches = nameIndex.get(nameKey) ?? [];
 
       if (matches.length === 0) {
