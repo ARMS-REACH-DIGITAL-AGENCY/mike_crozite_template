@@ -579,7 +579,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT * FROM v_player_upcoming_games WHERE tbc_teamid::text = $1 ORDER BY game_date ASC LIMIT $2`,
+      `'SELECT * FROM v_team_schedule_feed WHERE tbc_teamid::text = $1 ORDER BY game_date ASC LIMIT $2'`,
       [teamId, limit]
     );
     return rows;
