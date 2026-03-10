@@ -579,7 +579,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT * FROM team_schedule WHERE team_id::text = $1 ORDER BY game_date ASC LIMIT $2`,
+      `SELECT * FROM team_schedules WHERE team_id::text = $1 ORDER BY game_date ASC LIMIT $2`,
       [teamId, limit]
     );
     return rows;
