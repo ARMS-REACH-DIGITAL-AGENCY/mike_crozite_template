@@ -226,33 +226,52 @@ export default function YatStyles() {
       .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
       /* ── News Section ─────────────────────────────────────────────── */
       .yat-news-wrap{max-width:1400px;margin:0 auto;padding:16px}
-      .yat-news-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
-      .yat-news-title{font:700 clamp(16px,2.4vw,22px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
-      .yat-news-sub{font:300 11px/1.4 Oswald,sans-serif;color:var(--muted);letter-spacing:.04em}
-      .yat-news-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
-      @media(max-width:1100px){.yat-news-grid{grid-template-columns:repeat(2,1fr)}}
-      @media(max-width:768px){.yat-news-grid{grid-template-columns:1fr}}
-      .yat-news-card{display:flex;flex-direction:column;background:var(--card-bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .2s,transform .15s;cursor:pointer;text-decoration:none;color:inherit}
-      .yat-news-card:hover{border-color:rgba(255,255,255,.2);transform:translateY(-2px)}
-      body.light-theme .yat-news-card:hover{border-color:rgba(0,0,0,.2)}
-      .yat-news-img-wrap{position:relative;width:100%;padding-bottom:48%;overflow:hidden;background:#0a0a0a;flex-shrink:0}
-      .yat-news-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-      .yat-news-img-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;opacity:.15;background:var(--card-bg)}
-      .yat-news-sentiment{position:absolute;top:8px;right:8px;font:700 8px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:5px;line-height:1.4}
+      .yat-news-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+      .yat-news-title{font:700 clamp(18px,2.6vw,26px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
+      .yat-news-sub{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted);letter-spacing:.03em;margin-top:2px}
+      /* ── News filter bar */
+      .yat-news-filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 0 14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+      .yat-news-filter-input{flex:1;min-width:180px;max-width:260px;background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:300 13px Oswald,sans-serif;color:var(--fg);letter-spacing:.03em;outline:none}
+      .yat-news-filter-input:focus{border-color:rgba(255,255,255,.3)}
+      body.light-theme .yat-news-filter-input:focus{border-color:rgba(0,0,0,.3)}
+      .yat-news-filter-input::placeholder{color:var(--muted);opacity:.7}
+      .yat-news-filter-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+      .yat-news-chip{font:700 10px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:20px;background:transparent;border:1px solid var(--line);color:var(--muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+      .yat-news-chip:hover,.yat-news-chip.active{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+      .yat-news-filter-reset{font:700 10px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:5px 12px;border-radius:20px;background:transparent;border:1px solid var(--line);color:var(--muted);cursor:pointer;transition:opacity .15s}
+      .yat-news-filter-reset:hover{opacity:.7}
+      .yat-news-filter-label{font:300 10px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+      /* ── News grid */
+      .yat-news-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+      @media(max-width:768px){.yat-news-grid{grid-template-columns:1fr;gap:12px}}
+      /* ── News cards */
+      .yat-news-card{display:flex;flex-direction:column;background:var(--card-bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .2s,transform .15s,box-shadow .2s;cursor:pointer}
+      .yat-news-card:hover{border-color:rgba(255,255,255,.22);transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+      body.light-theme .yat-news-card:hover{border-color:rgba(0,0,0,.18);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+      .yat-news-img-wrap{position:relative;width:100%;padding-bottom:52%;overflow:hidden;background:#0a0a0a;flex-shrink:0}
+      .yat-news-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
+      .yat-news-card:hover .yat-news-img{transform:scale(1.03)}
+      .yat-news-img-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;opacity:.12;background:var(--card-bg)}
+      .yat-news-sentiment{position:absolute;top:8px;right:8px;font:700 9px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:5px;line-height:1.4}
       .yat-news-sentiment-positive{background:rgba(0,230,118,.18);border:1px solid rgba(0,230,118,.5);color:#00e676}
       .yat-news-sentiment-negative{background:rgba(244,67,54,.18);border:1px solid rgba(244,67,54,.5);color:#f44336}
       .yat-news-sentiment-neutral{background:rgba(158,158,158,.12);border:1px solid rgba(158,158,158,.3);color:#9e9e9e}
-      .yat-news-body{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1}
-      .yat-news-card-title{font:700 16px/1.2 "Bebas Neue",sans-serif;letter-spacing:.03em;color:var(--fg);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-      .yat-news-snippet{font:300 12px/1.5 Oswald,sans-serif;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+      .yat-news-body{padding:16px;display:flex;flex-direction:column;gap:8px;flex:1}
+      .yat-news-player-row{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+      .yat-news-player-name{font:700 11px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--green)}
+      .yat-news-level-chip{font:700 9px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--muted)}
+      body.light-theme .yat-news-level-chip{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12)}
+      .yat-news-card-title{font:700 clamp(15px,1.8vw,18px)/1.25 "Bebas Neue",sans-serif;letter-spacing:.03em;color:var(--fg);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:2px}
+      .yat-news-snippet{font:300 13px/1.6 Oswald,sans-serif;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
       .yat-news-snippet em{color:var(--fg);font-style:normal;font-weight:500}
-      .yat-news-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line)}
-      .yat-news-source{font:400 10px Oswald,sans-serif;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .yat-news-date{font:300 10px Oswald,sans-serif;color:var(--muted);white-space:nowrap}
+      .yat-news-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+      .yat-news-source{font:400 11px Oswald,sans-serif;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .yat-news-date{font:300 11px Oswald,sans-serif;color:var(--muted);white-space:nowrap}
       .yat-news-categories{display:flex;flex-wrap:wrap;gap:4px}
-      .yat-news-cat{font:700 8px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted)}
+      .yat-news-cat{font:700 9px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted)}
       body.light-theme .yat-news-cat{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1)}
       .yat-news-loading{grid-column:1/-1;text-align:center;padding:60px 0}
+      .yat-news-empty-icon{font-size:36px;opacity:.2;margin-bottom:12px}
       .yat-news-loading-spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:yat-spin 0.8s linear infinite}
       @keyframes yat-spin{to{transform:rotate(360deg)}}
       .yat-news-loading-text{font:300 13px Oswald,sans-serif;color:var(--muted);margin-top:12px;letter-spacing:.06em}
@@ -261,6 +280,41 @@ export default function YatStyles() {
       .yat-news-error-text{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted)}
       .yat-news-footer{text-align:center;margin-top:16px;padding:12px 0}
       .yat-news-powered{font:300 9px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);opacity:.5}
+      /* ── Article detail modal */
+      .yat-article-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+      .yat-article-overlay.open{opacity:1;pointer-events:auto}
+      .yat-article-modal{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--bg);overflow-y:auto;z-index:201;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+      body.light-theme .yat-article-modal{border-left:1px solid var(--line)}
+      .yat-article-modal.open{transform:translateX(0)}
+      .yat-article-modal-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+      .yat-article-modal-label{font:700 11px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+      .yat-article-modal-close{background:none;border:none;color:var(--fg);cursor:pointer;padding:4px;display:inline-flex;align-items:center}
+      .yat-article-modal-close i{font-size:22px}
+      .yat-article-modal-img{width:100%;aspect-ratio:16/8;object-fit:cover;display:block;flex-shrink:0}
+      .yat-article-modal-img-ph{width:100%;aspect-ratio:16/8;background:var(--card-bg);display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.1;flex-shrink:0}
+      .yat-article-modal-body{padding:20px 20px 32px;display:flex;flex-direction:column;gap:14px;flex:1}
+      .yat-article-modal-player{display:flex;align-items:center;gap:8px}
+      .yat-article-modal-player-name{font:700 13px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--green)}
+      .yat-article-modal-level{font:700 10px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--muted)}
+      body.light-theme .yat-article-modal-level{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12)}
+      .yat-article-modal-title{font:700 clamp(18px,3vw,26px)/1.2 "Bebas Neue",sans-serif;letter-spacing:.04em;color:var(--fg)}
+      .yat-article-modal-snippet{font:300 15px/1.65 Oswald,sans-serif;color:var(--muted)}
+      .yat-article-modal-snippet em{color:var(--fg);font-style:normal;font-weight:500}
+      .yat-article-modal-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+      .yat-article-modal-source{font:400 12px Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+      .yat-article-modal-date{font:300 12px Oswald,sans-serif;color:var(--muted)}
+      .yat-article-modal-actions{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+      .yat-article-modal-read{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;background:var(--green);color:#000;font:700 13px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;border-radius:8px;text-decoration:none;transition:opacity .15s}
+      .yat-article-modal-read:hover{opacity:.85}
+      .yat-article-modal-read i{font-size:16px}
+      /* ── Social sharing */
+      .yat-share-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .yat-share-label{font:300 10px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+      .yat-share-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--muted);font:700 10px Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+      .yat-share-btn:hover{border-color:rgba(255,255,255,.3);color:var(--fg);background:rgba(255,255,255,.06)}
+      body.light-theme .yat-share-btn:hover{border-color:rgba(0,0,0,.25);background:rgba(0,0,0,.04)}
+      .yat-share-btn i{font-size:14px}
+      .yat-share-btn.copied{color:var(--green);border-color:var(--green)}
     `}</style>
   );
 }
