@@ -26,6 +26,7 @@ import {
   getPlayerPitchingGameLog,
   getTeamContext,
   getPlayerPhotos,
+  getResolvedCurrentTeam,
 } from "@/lib/db";
 import { formatSchoolName } from "@/lib/playerUtils";
 
@@ -191,14 +192,22 @@ export default async function PlayerProfilePage({
   if (slug !== canonicalSlug) permanentRedirect(`/${hsid}/player/${safePlayerId}/${canonicalSlug}`);
 
   const playerSchool = playerSchoolLink;
-  const [battingSeasons, pitchingSeasons, careerBatting, careerPitching, playerPhotos] =
+  const [
+    battingSeasons,
+    pitchingSeasons,
+    careerBatting,
+    careerPitching,
+    playerPhotos,
+    resolvedCurrentTeam,
+  ] =
     (await Promise.all([
       getPlayerBattingStats(safePlayerId),
       getPlayerPitchingStats(safePlayerId),
       getPlayerCareerBatting(safePlayerId),
       getPlayerCareerPitching(safePlayerId),
       getPlayerPhotos(safePlayerId),
-    ])) as [BattingSeason[], PitchingSeason[], any, any, any[]];
+      getResolvedCurrentTeam(safePlayerId),
+    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -237,15 +246,25 @@ export default async function PlayerProfilePage({
   const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
   const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
 
-  // Player context line: TEAM · LEVEL from most recent season
+  // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
+  const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
+  const resolvedLevel = resolvedCurrentTeam?.level
+    ? String(resolvedCurrentTeam.level).toUpperCase()
+    : "";
   const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
     .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
-  const ctxTeam = mostRecentSeason?.team_name || "";
-  const ctxLevel = mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "";
+  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
+  const ctxLevel =
+    resolvedLevel ||
+    (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "");
   const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
 
-  // Current team_id for schedule lookup — most recent season's teamid
-  const currentTeamId = (mostRecentSeason as any)?.teamid ? String((mostRecentSeason as any).teamid) : null;
+  // Current team_id for schedule lookup — prefer roster-truth teamid, fall back to latest season
+  const currentTeamId = resolvedCurrentTeam?.teamid
+    ? String(resolvedCurrentTeam.teamid)
+    : (mostRecentSeason as any)?.teamid
+      ? String((mostRecentSeason as any).teamid)
+      : null;
 
   // Fetch org/conference for the current team (graceful — returns null if columns absent)
   const teamCtx = currentTeamId ? await getTeamContext(currentTeamId) : null;
