@@ -666,8 +666,12 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* ── News filter logic ────────────────────────────────────────────── */
   var newsFilterName=document.getElementById('newsFilterName');
   var newsFilterLevels=document.getElementById('newsFilterLevels');
+  var newsFilterGradClass=document.getElementById('newsFilterGradClass');
+  var newsFilterActive=document.getElementById('newsFilterActive');
   var newsFilterReset=document.getElementById('newsFilterReset');
   var activeNewsLevels=[];
+  var activeGradClasses=[];
+  var activeOnlyFlag=false;
 
   function applyNewsFilters(){
     var nf=(newsFilterName?newsFilterName.value||'':'').toLowerCase().trim();
@@ -676,9 +680,13 @@ window.__firebase_config = ${firebaseConfigJSON};
     cards.forEach(function(card){
       var name=(card.getAttribute('data-name')||'').toLowerCase();
       var level=card.getAttribute('data-level')||'';
+      var gc=card.getAttribute('data-gradclass')||'';
+      var isActive=card.getAttribute('data-active')==='true';
       var matchName=!nf||name.includes(nf);
       var matchLevel=!activeNewsLevels.length||activeNewsLevels.includes(level);
-      var show=matchName&&matchLevel;
+      var matchGc=!activeGradClasses.length||activeGradClasses.includes(gc);
+      var matchActive=!activeOnlyFlag||isActive;
+      var show=matchName&&matchLevel&&matchGc&&matchActive;
       card.style.display=show?'':'none';
       if(show)visible++;
     });
@@ -724,11 +732,45 @@ window.__firebase_config = ${firebaseConfigJSON};
     });
   }
 
+  function buildNewsGradClassChips(posts){
+    if(!newsFilterGradClass)return;
+    var classes={};
+    posts.forEach(function(p){if(p.gradClass)classes[p.gradClass]=true;});
+    var keys=Object.keys(classes).sort().reverse();
+    newsFilterGradClass.innerHTML='';
+    activeGradClasses=[];
+    keys.forEach(function(gc){
+      var btn=document.createElement('button');
+      btn.className='yat-news-chip';
+      btn.textContent=gc;
+      btn.dataset.gc=gc;
+      btn.addEventListener('click',function(){
+        btn.classList.toggle('active');
+        if(btn.classList.contains('active')){
+          if(!activeGradClasses.includes(gc))activeGradClasses.push(gc);
+        }else{
+          activeGradClasses=activeGradClasses.filter(function(c){return c!==gc;});
+        }
+        applyNewsFilters();
+      });
+      newsFilterGradClass.appendChild(btn);
+    });
+  }
+
   if(newsFilterName)newsFilterName.addEventListener('input',applyNewsFilters);
+  if(newsFilterActive)newsFilterActive.addEventListener('click',function(){
+    newsFilterActive.classList.toggle('active');
+    activeOnlyFlag=newsFilterActive.classList.contains('active');
+    applyNewsFilters();
+  });
   if(newsFilterReset)newsFilterReset.addEventListener('click',function(){
     if(newsFilterName)newsFilterName.value='';
     activeNewsLevels=[];
+    activeGradClasses=[];
+    activeOnlyFlag=false;
     if(newsFilterLevels)newsFilterLevels.querySelectorAll('.yat-news-chip').forEach(function(b){b.classList.remove('active');});
+    if(newsFilterGradClass)newsFilterGradClass.querySelectorAll('.yat-news-chip').forEach(function(b){b.classList.remove('active');});
+    if(newsFilterActive)newsFilterActive.classList.remove('active');
     applyNewsFilters();
   });
 
@@ -742,6 +784,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     card.setAttribute('data-level',post.level||'');
     card.setAttribute('data-gradclass',post.gradClass||'');
     card.setAttribute('data-pid',post.playerId||'');
+    card.setAttribute('data-active',post.active===true?'true':'false');
 
     /* Image area */
     var imgWrap=document.createElement('div');
@@ -860,8 +903,9 @@ window.__firebase_config = ${firebaseConfigJSON};
           return;
         }
         allNewsPosts=data.posts;
-        /* Build level filter chips from available levels */
+        /* Build level and grad-class filter chips from available data */
         buildNewsLevelChips(allNewsPosts);
+        buildNewsGradClassChips(allNewsPosts);
         allNewsPosts.forEach(function(post){
           newsContainer.appendChild(renderNewsCard(post));
         });

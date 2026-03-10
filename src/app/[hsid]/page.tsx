@@ -204,7 +204,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               <input id="newsFilterName" className="yat-news-filter-input" type="search" placeholder="Filter by player name…" />
               <span className="yat-news-filter-label">Level:</span>
               <div className="yat-news-filter-chips" id="newsFilterLevels" />
-              <button id="newsFilterReset" className="yat-news-filter-reset">Reset</button>
+              <span className="yat-news-filter-label">Class:</span>
+              <div className="yat-news-filter-chips" id="newsFilterGradClass" />
+              <button id="newsFilterActive" className="yat-news-chip" type="button">Active Only</button>
+              <button id="newsFilterReset" className="yat-news-filter-reset" type="button">Reset</button>
             </div>
             <div className="yat-news-grid" id="news-grid">
               {/* Populated client-side via /api/news/:hsid */}
