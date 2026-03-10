@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   auth,
@@ -81,6 +80,10 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [signInEmail, setSignInEmail] = useState('');
   // Favorite confirmation after auth + pending intent resume
   const [favConfirm, setFavConfirm] = useState<string>(''); // player name if just favorited
+  // Track when Stripe checkout is being launched
+  const [superfanLaunching, setSuperfanLaunching] = useState(false);
+  // Whether the current user is a Superfan (derived from profile API response)
+  const [isSuperfan, setIsSuperfan] = useState(false);
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -92,23 +95,24 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         setDisplayName(currentUser.displayName || storedName || '');
       } else {
         setDisplayName('');
+        setIsSuperfan(false);
       }
     });
     return () => unsubscribe();
   }, []);
 
   /** Execute a pending favorite intent stored in sessionStorage, if any. */
-  const resumePendingFavorite = async (contactId: string) => {
+  const resumePendingFavorite = async (firebaseUid: string, contactId?: string | null) => {
     const pid = sessionStorage.getItem('pending_fav_pid');
     const pName = sessionStorage.getItem('pending_fav_name') || pid || '';
-    if (!pid || !contactId) return;
+    if (!pid || !firebaseUid) return;
     sessionStorage.removeItem('pending_fav_pid');
     sessionStorage.removeItem('pending_fav_name');
     try {
       const res = await fetch('/api/favorites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contactId, playerId: pid, playerName: pName, type: 'fan' }),
+        body: JSON.stringify({ firebaseUid, contactId, playerId: pid, playerName: pName, type: 'fan' }),
       });
       const data = await res.json();
       if (data && data.success) {
@@ -121,6 +125,40 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     }
   };
 
+  /** Launch Stripe checkout for the Superfan subscription. */
+  const launchSuperfanCheckout = async (firebaseUid: string, email: string) => {
+    setSuperfanLaunching(true);
+    setMessage('Launching Superfan checkout…');
+    setMessageType('info');
+    try {
+      const res = await fetch('/api/stripe/create-superfan-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid, email }),
+      });
+      const data = await res.json();
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        setMessage(data?.error || 'Could not start checkout. Please try again.');
+        setMessageType('error');
+        setSuperfanLaunching(false);
+      }
+    } catch {
+      setMessage('Network error starting checkout. Please try again.');
+      setMessageType('error');
+      setSuperfanLaunching(false);
+    }
+  };
+
+  /** Resume a pending superfan intent after auth, or dismiss if none. */
+  const resumePendingSuperfan = async (firebaseUid: string, email: string) => {
+    const pending = sessionStorage.getItem('pending_superfan');
+    if (!pending) return;
+    sessionStorage.removeItem('pending_superfan');
+    await launchSuperfanCheckout(firebaseUid, email);
+  };
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -130,20 +168,36 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const email = (e.currentTarget.elements.namedItem('signInEmail') as HTMLInputElement).value;
       const password = (e.currentTarget.elements.namedItem('signInPassword') as HTMLInputElement).value;
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+
+      // Sync profile + GHL backfill
+      try {
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, email }),
+        });
+        const loginData = await loginRes.json();
+        if (loginData?.contactId) {
+          try {
+            localStorage.setItem('yat-user', JSON.stringify({ uid, contactId: loginData.contactId, email }));
+          } catch { /* non-fatal */ }
+        }
+        if (loginData?.isSuperfan) setIsSuperfan(true);
+
+        // Resume pending actions
+        if (sessionStorage.getItem('pending_fav_pid')) {
+          await resumePendingFavorite(uid, loginData?.contactId);
+        } else if (sessionStorage.getItem('pending_superfan')) {
+          await resumePendingSuperfan(uid, email);
+          return; // checkout redirect handles the rest
+        }
+      } catch { /* non-fatal */ }
+
       setMessage('Sign in successful!');
       setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
-
-      // Resume any pending favorite intent (uses contactId from localStorage if available)
-      try {
-        const stored = JSON.parse(localStorage.getItem('yat-user') || 'null');
-        if (stored?.contactId && sessionStorage.getItem('pending_fav_pid')) {
-          await resumePendingFavorite(stored.contactId);
-        }
-      } catch {
-        // non-fatal
-      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Sign in failed');
       setMessageType('error');
@@ -172,7 +226,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
       // Create user in Firebase
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-const uid = cred.user?.uid;
+      const uid = cred.user.uid;
 
       // Store first name in localStorage for greeting
       if (auth.currentUser) {
@@ -180,7 +234,7 @@ const uid = cred.user?.uid;
         setDisplayName(firstName);
       }
 
-      // Sync to GoHighLevel
+      // Sync to GoHighLevel + create user profile
       const registerResponse = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -202,12 +256,18 @@ const uid = cred.user?.uid;
       // Save contactId to localStorage so future addFavorite() calls work
       if (regData?.contactId) {
         try {
-          localStorage.setItem('yat-user', JSON.stringify({ contactId: regData.contactId, email }));
+          localStorage.setItem('yat-user', JSON.stringify({ uid, contactId: regData.contactId, email }));
         } catch {
           // non-fatal
         }
-        // Resume any pending favorite intent
-        await resumePendingFavorite(regData.contactId);
+      }
+
+      // Resume pending intents
+      if (sessionStorage.getItem('pending_fav_pid') && uid) {
+        await resumePendingFavorite(uid, regData?.contactId);
+      } else if (sessionStorage.getItem('pending_superfan') && uid) {
+        await resumePendingSuperfan(uid, email);
+        return; // checkout redirect handles the rest
       }
 
       setMessage('Registration successful! Welcome to YAT?STATS.');
@@ -265,8 +325,17 @@ const uid = cred.user?.uid;
       {user && !user.isAnonymous ? (
         // Logged in state
         <div style={{ padding: '20px' }}>
+          {/* ── Superfan launching overlay ── */}
+          {superfanLaunching && (
+            <div style={{ background: 'rgba(255,215,0,.1)', border: '1px solid #FFD700', borderRadius: '8px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+              <p style={{ fontSize: '14px', color: '#FFD700', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '4px' }}>
+                ⭐ Launching Superfan Checkout…
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)' }}>You&apos;ll be redirected to our secure payment page.</p>
+            </div>
+          )}
           {/* ── Favorite confirmation banner ── */}
-          {favConfirm && (
+          {favConfirm && !isSuperfan && (
             <div style={{ background: 'rgba(22,163,74,.12)', border: '1px solid #16a34a', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
               <p style={{ fontSize: '14px', color: '#16a34a', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '6px' }}>
                 ⭐ {favConfirm} added to your Favorites
@@ -275,22 +344,37 @@ const uid = cred.user?.uid;
                 Free Fan accounts can follow players from this school.
                 Upgrade to Superfan to follow players from <strong>ANY</strong> school.
               </p>
-              <Link
-                href="/superfan"
+              <button
+                type="button"
+                disabled={superfanLaunching}
+                onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
                 style={{
                   display: 'inline-block',
                   padding: '8px 14px',
                   background: '#b8860b',
                   color: '#fff',
+                  border: 'none',
                   borderRadius: '6px',
                   fontSize: '12px',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
                   letterSpacing: '.06em',
-                  textDecoration: 'none',
+                  cursor: superfanLaunching ? 'not-allowed' : 'pointer',
+                  opacity: superfanLaunching ? 0.6 : 1,
                 }}
               >
-                Upgrade to Superfan →
-              </Link>
+                {superfanLaunching ? 'Launching…' : 'Upgrade to Superfan →'}
+              </button>
+            </div>
+          )}
+          {/* ── Superfan badge ── */}
+          {isSuperfan && (
+            <div style={{ background: 'rgba(255,215,0,.1)', border: '1px solid rgba(255,215,0,.4)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '13px', color: '#FFD700', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em' }}>
+                ⭐ You are a Superfan
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+                You can follow players from any school in the YAT?STATS network.
+              </p>
             </div>
           )}
           <div style={{ marginBottom: '20px' }}>
@@ -299,6 +383,28 @@ const uid = cred.user?.uid;
             </p>
             <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</p>
           </div>
+          {/* Become a Superfan CTA for non-superfan logged-in users */}
+          {!isSuperfan && !superfanLaunching && (
+            <button
+              type="button"
+              onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#FFD700',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '14px',
+                letterSpacing: '.08em',
+                cursor: 'pointer',
+                marginBottom: '10px',
+              }}
+            >
+              ⭐ Become a Superfan — $9.99/mo
+            </button>
+          )}
           <button
             onClick={handleSignOut}
             style={{
@@ -389,8 +495,12 @@ const uid = cred.user?.uid;
                 <li>Track players across multiple schools</li>
                 <li>Optional daily or weekly update notifications</li>
               </ul>
-              <Link
-                href="/superfan"
+              <button
+                type="button"
+                onClick={() => {
+                  try { sessionStorage.setItem('pending_superfan', '1'); } catch { /* non-fatal */ }
+                  setActiveTab('register');
+                }}
                 style={{
                   display: 'block',
                   width: '100%',
@@ -404,13 +514,11 @@ const uid = cred.user?.uid;
                   letterSpacing: '.06em',
                   cursor: 'pointer',
                   textAlign: 'center',
-                  textDecoration: 'none',
-                  boxSizing: 'border-box',
                   marginTop: '8px',
                 }}
               >
-                Upgrade to Superfan
-              </Link>
+                Become a Superfan
+              </button>
             </div>
           </div>
           {/* ── End tier conversion section ── */}

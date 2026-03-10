@@ -1495,20 +1495,40 @@ export default async function PlayerProfilePage({
   function closeFavModal(){if(favMask){favMask.style.display='none';}}
   var btnFanFav=document.getElementById('btnFanFav');
   function setFavState(btn,active){if(!btn)return;if(active){btn.classList.add('active');}else{btn.classList.remove('active');}}
-  function addFavorite(type){
-    var user=null;
-    try{user=JSON.parse(localStorage.getItem('yat-user')||'null');}catch(e){console.warn('Invalid stored user',e);localStorage.removeItem('yat-user');}
+  function getFirebaseUser(){
+    /* Read Firebase UID from auth state if available, fallback to localStorage cache */
+    try{
+      var stored=JSON.parse(localStorage.getItem('yat-user')||'null');
+      return stored||null;
+    }catch(e){localStorage.removeItem('yat-user');return null;}
+  }
+  function addFavorite(){
+    var user=getFirebaseUser();
     if(!user||!user.contactId){
       /* Not logged in — store pending intent then open right (account) drawer */
       try{sessionStorage.setItem('pending_fav_pid',playerId);sessionStorage.setItem('pending_fav_name',playerName);}catch(e){}
       openAccountDrawer();
       return;
     }
-    if(type==='superfan'&&!user.isSuperFan){openFavModal();return;}
-    fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contactId:user.contactId,playerId:playerId,playerName:playerName,type:type})}).then(function(r){return r.json();}).then(function(data){
-      if(data&&data.success){if(type==='fan')setFavState(btnFanFav,true);}
+    fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({firebaseUid:user.uid||'',contactId:user.contactId,playerId:playerId,playerName:playerName,type:'fan'})}).then(function(r){return r.json();}).then(function(data){
+      if(data&&data.success){setFavState(btnFanFav,true);}
       else{console.warn('Favorite error:',(data&&data.error)||'unknown');}
     }).catch(function(){console.warn('Network error saving favorite.');});
+  }
+  function becomeSuperfan(){
+    var user=getFirebaseUser();
+    if(!user||!user.contactId){
+      /* Not logged in — store pending intent then open right (account) drawer */
+      try{sessionStorage.setItem('pending_superfan','1');}catch(e){}
+      openAccountDrawer();
+      return;
+    }
+    /* Already logged in — launch Stripe checkout directly */
+    if(!user.uid||!user.email){openAccountDrawer();return;}
+    fetch('/api/stripe/create-superfan-checkout-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({firebaseUid:user.uid,email:user.email})}).then(function(r){return r.json();}).then(function(data){
+      if(data&&data.url){window.location.href=data.url;}
+      else{console.warn('Checkout error:',(data&&data.error)||'unknown');}
+    }).catch(function(){console.warn('Network error starting Superfan checkout.');});
   }
   /* After auth completes (from AccountDrawer), mark the button as favorited */
   window.addEventListener('yat-auth-success',function(){
@@ -1518,10 +1538,10 @@ export default async function PlayerProfilePage({
       setFavState(btnFanFav,true);
     }
   },{once:true});
-  if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite('fan');});
+  if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite();});
   /* Rotate FAV button CTA text every 3s */
   (function(){
-    var ctaVariants=[['ri-star-line','ADD FAN FAVORITE'],['ri-vip-crown-line','UPGRADE TO SUPERFAN']];
+    var ctaVariants=[['ri-star-line','ADD FAN FAVORITE'],['ri-vip-crown-line','BECOME A SUPERFAN']];
     var idx=0;
     var timer=setInterval(function(){
       if(!document.contains(btnFanFav)){clearInterval(timer);return;}
@@ -1537,8 +1557,8 @@ export default async function PlayerProfilePage({
   if(favClose)favClose.addEventListener('click',closeFavModal);
   if(favMask)favMask.addEventListener('click',function(e){if(e.target===favMask)closeFavModal();});
   if(favContinue)favContinue.addEventListener('click',closeFavModal);
-  if(favRegister)favRegister.addEventListener('click',function(){window.location.href='/api/auth/register';});
-  if(favUpgrade)favUpgrade.addEventListener('click',function(){window.location.href='/api/auth/register?plan=superfan';});
+  if(favRegister)favRegister.addEventListener('click',function(){openAccountDrawer();});
+  if(favUpgrade)favUpgrade.addEventListener('click',function(){becomeSuperfan();});
   /* Crest ↔ THEN headshot swap via IntersectionObserver */
   (function(){
     var heroMeta=document.getElementById('playerHeroMeta');
