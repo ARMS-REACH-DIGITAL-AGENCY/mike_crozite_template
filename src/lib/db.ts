@@ -728,6 +728,49 @@ export async function getPlayerPhotos(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
+// ROSTER TRUTH — resolved current team + transactions
+// ---------------------------------------------------------------------------
+
+export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
+  try {
+    const { rows } = await query(
+      `SELECT
+         playerid,
+         teamid,
+         team_name,
+         level,
+         source,
+         last_verified
+       FROM public.v_player_current_team_resolved
+       WHERE playerid::text = $1
+       LIMIT 1`,
+      [playerid]
+    );
+    return rows[0] || null;
+  } catch {
+    // View may not exist yet — degrade gracefully
+    return null;
+  }
+}
+
+export async function getPlayerTransactions(playerid: string, limit = 20): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT *
+       FROM player_transactions
+       WHERE playerid::text = $1
+       ORDER BY effective_date DESC NULLS LAST, created_at DESC
+       LIMIT $2`,
+      [playerid, limit]
+    );
+    return rows;
+  } catch {
+    // Table may not exist yet — degrade gracefully
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Schema bootstrap — ensure auxiliary tables exist so JOINs never crash.
 // The teams table is populated externally (scripts/import-teams.ts); if it
 // hasn't been loaded yet the LEFT JOIN simply falls back to showing teamid
