@@ -275,7 +275,16 @@ export default async function PlayerProfilePage({
 
   // Final Team Display Logic:
   // Prefer the canonical resolved team name (from MLB/MiLB sync) over historical season records.
-  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
+  // We explicitly filter out known stale fallback names like "Syracuse Mets" if a better option exists.
+  let ctxTeam = resolvedTeamName || "";
+  if (!ctxTeam || ctxTeam === "Syracuse Mets") {
+    const betterTeam = [...battingSeasons, ...pitchingSeasons]
+      .sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0))
+      .find(s => s.team_name && s.team_name !== "Syracuse Mets");
+    if (betterTeam) ctxTeam = betterTeam.team_name;
+  }
+  if (!ctxTeam) ctxTeam = mostRecentSeason?.team_name || "";
+
   const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
 
   // Derive unique colleges from NCAA/JUCO-level season entries (chronological)
@@ -532,7 +541,7 @@ export default async function PlayerProfilePage({
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
         .career-strip-inner{width:100%;height:100%;padding:0;display:flex;direction:rtl;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 20%;min-width:0;direction:ltr;height:100%;max-height:100%;overflow:hidden}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:1 1 0;min-width:0;max-width:20%;direction:ltr;height:100%;max-height:100%;overflow:hidden}
         .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:3px 4px 0;flex:0 0 auto}
         .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:2px 4px 4px;flex:0 0 auto}
