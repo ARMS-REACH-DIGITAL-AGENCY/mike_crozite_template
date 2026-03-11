@@ -1,6 +1,6 @@
 // src/app/[hsid]/layout.tsx
 // YAT?STATS — Shared school-level layout
-// Provides the global shell (Header, Nav, Drawers) for all school and player pages.
+// Provides the global functional shell (Header, Nav, Drawers, Interactivity) for all school and player pages.
 
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -91,9 +91,6 @@ export default async function SchoolLayout({
         </div>
       </aside>
 
-      {/* We'll pass an empty array for gradClasses initially, 
-          or refactor FiltersDrawer to fetch its own data if needed. 
-          For now, we'll keep it simple. */}
       <FiltersDrawer gradClasses={[]} />
       <AccountDrawer subdomain={subdomain} />
 
@@ -107,6 +104,7 @@ export default async function SchoolLayout({
         </a>
       </footer>
 
+      {/* This is the functional engine that powers search, drawers, and tabs */}
       <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
 
       {/* Article detail overlay + modal drawer */}
