@@ -1,52 +1,48 @@
 import { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { 
-  getPlayerById, 
-  getSchoolByHsid, 
-  getPlayerBattingStats, 
-  getPlayerPitchingStats, 
-  getPlayerCareerBatting, 
-  getPlayerCareerPitching, 
-  getPlayerPhotos, 
-  getResolvedCurrentTeam 
+import SafeImage from "@/components/SafeImage";
+import {
+  getSchoolByHsid,
+  getPlayerById,
+  getPlayerBattingStats,
+  getPlayerPitchingStats,
+  getPlayerCareerBatting,
+  getPlayerCareerPitching,
+  getPlayerPhotos,
+  getResolvedCurrentTeam,
 } from "@/lib/db";
-import { 
-  Trophy, 
-  Calendar, 
-  MapPin, 
-  User, 
-  Star
-} from "lucide-react";
 
-interface PlayerPageProps {
-  params: Promise<{
-    hsid: string;
-    playerId: string;
-    slug: string;
-  }>;
+function fmt(v: any, decimals = 0): string {
+  if (v === null || v === undefined || v === "" || v === "--") return "--";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  if (decimals > 0) return n.toFixed(decimals);
+  return String(n);
 }
 
-export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
-  const { playerId } = await params;
-  const player = await getPlayerById(playerId);
-  if (!player) return { title: "Player Not Found" };
-
-  const name = `${player.firstname || ""} ${player.lastname || ""}`.trim();
-  return {
-    title: `${name} | YAT?STATS`,
-    description: `View stats, bio, and career history for ${name}.`,
-  };
+function fmtAvg(v: any): string {
+  if (v === null || v === undefined || v === "" || v === "--") return "--";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(3).replace(/^0/, "");
 }
 
-export default async function PlayerPage({ params }: PlayerPageProps) {
+export default async function PlayerProfilePage({
+  params,
+}: {
+  params: Promise<{ hsid: string; playerId: string; slug: string }>;
+}) {
   const { hsid, playerId } = await params;
   const safePlayerId = String(parseInt(playerId, 10));
 
+  const [player, school] = await Promise.all([
+    getPlayerById(safePlayerId),
+    getSchoolByHsid(hsid),
+  ]);
+
+  if (!player) notFound();
+
   const [
-    player, 
-    school,
     battingSeasons,
     pitchingSeasons,
     careerBatting,
@@ -54,8 +50,6 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     playerPhotos,
     resolvedCurrentTeam,
   ] = await Promise.all([
-    getPlayerById(safePlayerId),
-    getSchoolByHsid(hsid),
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
     getPlayerCareerBatting(safePlayerId),
@@ -64,13 +58,9 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     getResolvedCurrentTeam(safePlayerId),
   ]);
 
-  if (!player) {
-    notFound();
-  }
-
   const displayName = `${player.firstname || ""} ${player.lastname || ""}`.trim();
 
-  // TEAM DISPLAY LOGIC: Prioritize resolved/enriched data
+  // TEAM DISPLAY LOGIC: Kill the Syracuse Ghost
   let teamDisplayName = (resolvedCurrentTeam?.team_name || "").trim();
   if (!teamDisplayName || teamDisplayName === "Syracuse Mets") {
     const allSeasons = [...(battingSeasons || []), ...(pitchingSeasons || [])];
@@ -82,105 +72,163 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   if (!teamDisplayName) teamDisplayName = "Alumni";
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Hero Section */}
-      <div className="relative bg-[#111] border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            {/* Player Headshot */}
-            <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-white/20 bg-black flex-shrink-0">
-              {player.headshot_url ? (
-                <Image
-                  src={player.headshot_url}
-                  alt={displayName}
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                  <User className="w-20 h-20 text-zinc-600" />
+    <main id="main-content" className="player-profile">
+      {/* Player Hero Section */}
+      <div id="playerHeroMeta" className="player-meta-band">
+        <div className="player-meta-band-inner">
+          <div className="player-meta-id">
+            <div className="player-meta-id-name">{displayName}</div>
+            <div className="player-meta-id-context">{teamDisplayName}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="player-content-wrap">
+        <div className="player-profile-grid">
+          {/* Left Column: Headshot & Bio */}
+          <div className="player-profile-left">
+            <div className="player-headshot-wrap">
+              <SafeImage
+                src={player.headshot_url || "/img/player-placeholder.png"}
+                alt={displayName}
+                width={300}
+                height={400}
+                className="player-headshot"
+              />
+            </div>
+            <div className="player-bio-card">
+              <div className="bio-row">
+                <span className="bio-label">POSITION</span>
+                <span className="bio-value">{player.position || "--"}</span>
+              </div>
+              <div className="bio-row">
+                <span className="bio-label">B/T</span>
+                <span className="bio-value">{player.bats || "-"}/{player.throws || "-"}</span>
+              </div>
+              <div className="bio-row">
+                <span className="bio-label">HEIGHT</span>
+                <span className="bio-value">{player.height || "--"}</span>
+              </div>
+              <div className="bio-row">
+                <span className="bio-label">WEIGHT</span>
+                <span className="bio-value">{player.weight || "--"}</span>
+              </div>
+              <div className="bio-row">
+                <span className="bio-label">CLASS</span>
+                <span className="bio-value">{player.grad_year || "--"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Stats & History */}
+          <div className="player-profile-right">
+            {/* Career Strip */}
+            <div className="career-progression-strip">
+              <div className="career-strip-inner">
+                <div className="career-slot">
+                  <div className="slot-label">HIGH SCHOOL</div>
+                  <div className="slot-team">{school?.hsname || "Hamilton"}</div>
+                </div>
+                <div className="career-slot">
+                  <div className="slot-label">COLLEGE</div>
+                  <div className="slot-team">{player.college_name || "--"}</div>
+                </div>
+                <div className="career-slot active">
+                  <div className="slot-label">CURRENT</div>
+                  <div className="slot-team">{teamDisplayName}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Tables */}
+            <div className="player-stats-wrap">
+              {battingSeasons.length > 0 && (
+                <div className="stats-section">
+                  <h3 className="stats-title">BATTING HISTORY</h3>
+                  <div className="stats-table-scroll">
+                    <table className="stats-table">
+                      <thead>
+                        <tr>
+                          <th>YEAR</th>
+                          <th>TEAM</th>
+                          <th>LVL</th>
+                          <th>G</th>
+                          <th>AB</th>
+                          <th>R</th>
+                          <th>H</th>
+                          <th>HR</th>
+                          <th>RBI</th>
+                          <th>AVG</th>
+                          <th>OPS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {battingSeasons.map((s, i) => (
+                          <tr key={i}>
+                            <td>{s.year}</td>
+                            <td>{s.team_name}</td>
+                            <td>{s.level}</td>
+                            <td>{fmt(s.g)}</td>
+                            <td>{fmt(s.ab)}</td>
+                            <td>{fmt(s.r)}</td>
+                            <td>{fmt(s.h)}</td>
+                            <td>{fmt(s.hr)}</td>
+                            <td>{fmt(s.rbi)}</td>
+                            <td>{fmtAvg(s.avg)}</td>
+                            <td>{fmtAvg(s.ops)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {pitchingSeasons.length > 0 && (
+                <div className="stats-section">
+                  <h3 className="stats-title">PITCHING HISTORY</h3>
+                  <div className="stats-table-scroll">
+                    <table className="stats-table">
+                      <thead>
+                        <tr>
+                          <th>YEAR</th>
+                          <th>TEAM</th>
+                          <th>LVL</th>
+                          <th>W-L</th>
+                          <th>ERA</th>
+                          <th>G</th>
+                          <th>GS</th>
+                          <th>SV</th>
+                          <th>IP</th>
+                          <th>SO</th>
+                          <th>WHIP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pitchingSeasons.map((s, i) => (
+                          <tr key={i}>
+                            <td>{s.year}</td>
+                            <td>{s.team_name}</td>
+                            <td>{s.level}</td>
+                            <td>{s.w}-{s.l}</td>
+                            <td>{fmt(s.era, 2)}</td>
+                            <td>{fmt(s.g)}</td>
+                            <td>{fmt(s.gs)}</td>
+                            <td>{fmt(s.saves)}</td>
+                            <td>{fmt(s.ip, 1)}</td>
+                            <td>{fmt(s.ko)}</td>
+                            <td>{fmt(s.whip, 2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Player Info */}
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 text-zinc-400 mb-2">
-                <MapPin className="w-4 h-4" />
-                <span className="text-sm uppercase tracking-wider">{school?.city}, {school?.state}</span>
-              </div>
-              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-2">
-                {player.firstname} <span className="text-white/60">{player.lastname}</span>
-              </h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/5">
-                  <span className="text-sm font-bold text-white">{teamDisplayName}</span>
-                  <span className="w-1 h-1 bg-white/30 rounded-full" />
-                  <span className="text-sm text-zinc-400">{player.position || 'P'}</span>
-                </div>
-                <div className="text-sm text-zinc-400">
-                  Class of {player.grad_year || '2021'}
-                </div>
-              </div>
-            </div>
-
-            {/* Favorite Button */}
-            <button className="flex items-center gap-2 px-6 py-3 bg-white text-black font-bold rounded-full hover:bg-zinc-200 transition-colors">
-              <Star className="w-5 h-5" />
-              FAVORITE
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Career Progression Strip */}
-      <div className="bg-black py-8 border-b border-white/5 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { label: 'HIGH SCHOOL', team: 'Hamilton', year: player.grad_year },
-              { label: 'COLLEGE', team: player.college_name || 'Dallas Baptist', year: '2021' },
-              { label: 'DRAFTED', team: 'NYM', year: '2021' },
-              { label: 'PRO', team: 'St. Lucie', year: '2022' },
-              { label: 'NOW', team: teamDisplayName, year: '2025', active: true }
-            ].map((slot, i) => (
-              <div key={i} className={`p-4 rounded-lg border ${slot.active ? 'border-white/20 bg-white/5' : 'border-white/5 bg-transparent'}`}>
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">{slot.label}</div>
-                <div className="text-sm font-black truncate">{slot.team}</div>
-                <div className="text-xs text-zinc-400">{slot.year}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs / Content */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="flex gap-8 border-b border-white/10 mb-8 overflow-x-auto pb-1">
-          {['GAME LOG', 'STATS', 'NEWS & VIDEOS', 'SOCIAL MEDIA', 'PHOTO GALLERY'].map((tab) => (
-            <button key={tab} className={`text-sm font-bold whitespace-nowrap pb-4 border-b-2 transition-colors ${tab === 'GAME LOG' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'}`}>
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Game Log Section */}
-        <div className="bg-[#111] rounded-xl border border-white/10 overflow-hidden">
-          <div className="p-6 border-b border-white/10 flex items-center justify-between">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              GAME LOG
-            </h2>
-            <div className="text-sm text-zinc-400">{teamDisplayName}</div>
-          </div>
-          <div className="p-12 text-center">
-            <div className="text-zinc-500 mb-4 italic">Schedule not yet available for this team.</div>
-            <button className="text-sm font-bold text-white/40 hover:text-white transition-colors underline underline-offset-4">
-              VIEW HISTORICAL STATS
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }

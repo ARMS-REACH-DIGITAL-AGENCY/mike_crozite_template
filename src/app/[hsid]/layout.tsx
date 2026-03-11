@@ -83,7 +83,12 @@ export default async function SchoolLayout({
           <h3>NAVIGATION</h3>
           <div className="yat-drawer-nav">
             {navItems.map((item) => (
-              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-drawer-nav-item" data-tab={item.tab}>
+              <a 
+                key={item.tab} 
+                href={`/${resolvedHsid}#sec-${item.tab}`} 
+                className="yat-drawer-nav-item" 
+                data-tab={item.tab}
+              >
                 {item.thin ? `${item.thin} ` : ""}{item.bold}
               </a>
             ))}
