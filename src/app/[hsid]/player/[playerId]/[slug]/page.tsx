@@ -253,11 +253,9 @@ export default async function PlayerProfilePage({
     : "";
   const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
     .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
-  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
   const ctxLevel =
     resolvedLevel ||
     (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "");
-  const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
 
   // Current team_id for schedule lookup — prefer roster-truth teamid, fall back to latest season
   const currentTeamId = resolvedCurrentTeam?.teamid
@@ -270,9 +268,15 @@ export default async function PlayerProfilePage({
   const teamCtx = currentTeamId ? await getTeamContext(currentTeamId) : null;
   const ctxOrg = (teamCtx?.organization || '').toUpperCase().trim();
   const ctxConference = (teamCtx?.conference || '').toUpperCase().trim();
+
   // For the identity line: professional players use org, college players use conference
   const isCollegeLevel = ctxLevel.includes('NCAA') || ctxLevel.includes('JUCO') || ctxLevel === 'NAIA' || ctxLevel.includes('COLLEGE');
   const ctxSecondary = isCollegeLevel ? ctxConference : ctxOrg;
+
+  // Final Team Display Logic:
+  // Prefer the canonical resolved team name (from MLB/MiLB sync) over historical season records.
+  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
+  const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
 
   // Derive unique colleges from NCAA/JUCO-level season entries (chronological)
   const ncaaSeasonsList = [...battingSeasons, ...pitchingSeasons]
