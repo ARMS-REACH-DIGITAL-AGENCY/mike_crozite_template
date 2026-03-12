@@ -27,7 +27,16 @@ import {
   getTeamContext,
   getPlayerPhotos,
   getResolvedCurrentTeam,
+  getPlayerMlbApiId,
+  upsertPlayerMlbApiId,
 } from "@/lib/db";
+import {
+  fetchMlbPlayerCurrentTeam,
+  fetchNextTeamGame,
+  searchMlbPlayerByName,
+  type MlbCurrentTeamInfo,
+  type MlbNextGame,
+} from "@/lib/mlbApi";
 import { formatSchoolName } from "@/lib/playerUtils";
 
 // ---------------------------------------------------------------------------
@@ -247,17 +256,78 @@ export default async function PlayerProfilePage({
   const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
+  // ---------------------------------------------------------------------------
+  // TEAM DISPLAY LOGIC
+  // Priority (highest → lowest):
+  //   1. Live MLB Stats API  (real-time, authoritative)
+  //   2. v_player_current_team_resolved  (populated by weekly roster sync)
+  //   3. Most-recent non-ghost batting/pitching season team
+  //   4. "Alumni" (player not found in any active roster)
+  //
+  // "Syracuse Mets" is a phantom team from stale roster-truth rows — suppress it
+  // at every level.  Raw numeric team IDs mean the teams lookup table has no
+  // entry for that teamid; skip those too.
+  // ---------------------------------------------------------------------------
+  const isSyracuseMets = (name: string) => /^syracuse\s+mets$/i.test(name.trim());
+
+  // MLB API lookup — fast path uses stored ID, falls back to name search.
+  let mlbInfo: MlbCurrentTeamInfo | null = null;
+  let nextGame: MlbNextGame | null = null;
+  const storedMlbId = await getPlayerMlbApiId(safePlayerId);
+  if (storedMlbId) {
+    mlbInfo = await fetchMlbPlayerCurrentTeam(storedMlbId);
+  } else {
+    mlbInfo = await searchMlbPlayerByName(player.firstname || "", player.lastname || "");
+    if (mlbInfo) {
+      void upsertPlayerMlbApiId(safePlayerId, mlbInfo.mlbPersonId, mlbInfo.fullName);
+    }
+  }
+  if (mlbInfo) {
+    nextGame = await fetchNextTeamGame(mlbInfo.teamId, mlbInfo.sportId);
+  }
+
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
   const resolvedLevel = resolvedCurrentTeam?.level
     ? String(resolvedCurrentTeam.level).toUpperCase()
     : "";
   const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
     .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
-  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
-  const ctxLevel =
-    resolvedLevel ||
-    (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "");
+
+  // Build ctxTeam with full priority chain + phantom suppression
+  let ctxTeam = mlbInfo?.teamName ?? "";
+  let ctxLevel = mlbInfo?.level ?? "";
+  let ctxStatus = mlbInfo?.active ? (mlbInfo.status || "Active") : "";
+
+  if (!ctxTeam) {
+    if (resolvedTeamName && !isSyracuseMets(resolvedTeamName)) {
+      ctxTeam = resolvedTeamName;
+      ctxLevel = resolvedLevel;
+    }
+  }
+
+  if (!ctxTeam || isSyracuseMets(ctxTeam)) {
+    const allSeasons = [...(battingSeasons || []), ...(pitchingSeasons || [])];
+    const betterTeam = allSeasons
+      .sort((a: any, b: any) => (Number(b.year) || 0) - (Number(a.year) || 0))
+      .find((s: any) => s.team_name && !isSyracuseMets(s.team_name) && !/^\d+$/.test(s.team_name));
+    if (betterTeam) {
+      ctxTeam = betterTeam.team_name as string;
+      ctxLevel = (betterTeam.level ?? "").toUpperCase();
+    }
+  }
+
+  if (!ctxTeam || isSyracuseMets(ctxTeam)) {
+    ctxTeam = "Alumni";
+    ctxLevel = "";
+    ctxStatus = "";
+  }
+
   const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
+
+  // Format next game string
+  const nextGameStr = nextGame
+    ? `${nextGame.date.slice(5).replace("-", "/")} ${nextGame.home ? "vs" : "@"} ${nextGame.opponent}`
+    : null;
 
   // Current team_id for schedule lookup — prefer roster-truth teamid, fall back to latest season
   const currentTeamId = resolvedCurrentTeam?.teamid
