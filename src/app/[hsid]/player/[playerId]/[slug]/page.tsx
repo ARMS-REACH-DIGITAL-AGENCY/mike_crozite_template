@@ -7,7 +7,6 @@ import { headers } from "next/headers";
 import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from "@/lib/schoolAssets";
-import AccountDrawer from "@/components/AccountDrawer";
 import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
@@ -37,7 +36,7 @@ import {
   type MlbCurrentTeamInfo,
   type MlbNextGame,
 } from "@/lib/mlbApi";
-import { formatSchoolName } from "@/lib/playerUtils";
+import { formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -409,19 +408,7 @@ export default async function PlayerProfilePage({
   // eslint-disable-next-line prefer-const
   const sponsorBanner = resolveSponsorBanner(safePlayerId);
 
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || resolvedHsid;
-
-  const navItems = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
+  const navItems = NAV_ITEMS;
 
   // Build career stats grid for the profile
   const careerBattingGrid = careerBatting
@@ -669,23 +656,6 @@ export default async function PlayerProfilePage({
         .player-id-line .dim{color:var(--muted);font-weight:300}
         .player-id-line .sep{color:var(--muted);margin:0 5px}
         .player-id-label{font-weight:600;color:var(--fg)}
-        /* DRAWERS */
-        .yat-drawer{position:fixed;top:0;width:290px;height:100vh;background:var(--header-bg);z-index:100;padding:24px 20px;overflow-y:auto;transition:transform .3s cubic-bezier(.4,0,.2,1);border-right:1px solid var(--line)}
-        .yat-drawer-left{left:0;transform:translateX(-100%)}
-        .yat-drawer-right{right:0;transform:translateX(100%);border-right:none;border-left:1px solid var(--line)}
-        body.drawer-left-open .yat-drawer-left{transform:translateX(0)}
-        body.drawer-account-open #drawerAccount{transform:translateX(0)}
-        body.drawer-open{overflow:hidden}
-        .yat-close-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--fg);cursor:pointer;font-size:22px;display:flex;align-items:center;opacity:.7}
-        .yat-close-btn:hover{opacity:1}
-        .drawer-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90}
-        body.drawer-left-open .drawer-mask,body.drawer-account-open .drawer-mask{display:block}
-        .drawer-nav-link{display:block;font:300 14px/1 Oswald,sans-serif;padding:10px 0;border-bottom:1px solid var(--line);transition:color .2s}
-        .drawer-nav-link:hover{color:gold}
-        .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
-        body.light-theme .drawer-search-input{background:rgba(0,0,0,.06)}
-        .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
-        .drawer-live-hit:hover{background:var(--line)}
         /* OVERVIEW TAB */
         .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
@@ -869,35 +839,6 @@ export default async function PlayerProfilePage({
           </button>
         </div>
       </header>
-
-      {/* DRAWER MASK */}
-      <div className="drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation (unified, matches school microsite drawer) */}
-      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px',paddingTop:'8px'}}>PLAYER SEARCH</h3>
-        <div style={{paddingBottom:'12px'}}>
-          <input id="playerSearch" type="search" placeholder="Type a name…" className="drawer-search-input" />
-          <div id="liveResults" />
-        </div>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px'}}>NAVIGATION</h3>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          <a href={`/${resolvedHsid}`} className="drawer-nav-link">&#8592; BACK TO {schoolName}</a>
-          {navItems.map((item) => (
-            <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="drawer-nav-link">
-              {item.thin ? `${item.thin} ` : ""}{item.bold}
-            </a>
-          ))}
-        </div>
-      </aside>
-
-      {/* ACCOUNT DRAWER */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-        <button className="yat-icon-btn yat-close-btn" id="closeAccount"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'16px',paddingTop:'8px'}}>ACCOUNT</h3>
-        <AccountDrawer subdomain={subdomain} />
-      </aside>
 
       {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay. The .yat-hero-right action buttons
           inside GlobalSearchModal are hidden via CSS (.player-page .yat-hero-right); we use
@@ -1399,7 +1340,7 @@ export default async function PlayerProfilePage({
           var pid=p.id||p.player_id;
           var slug=p.slug||toSlug(firstName,lastName,pid);
           var displayName=escHtml((firstName+' '+lastName).trim());
-          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="drawer-live-hit">'+displayName+'</a>';
+          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="yat-live-hit">'+displayName+'</a>';
         }
       });
       liveResults.innerHTML=html||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');

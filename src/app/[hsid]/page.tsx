@@ -14,12 +14,10 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
+import { gradClass, formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
 
-import YatStyles from "@/components/yatstats/YatStyles";
 import HeroHeader from "@/components/yatstats/HeroHeader";
 import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
-import AccountDrawer from "@/components/yatstats/AccountDrawer";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import YatInteractivity from "@/components/yatstats/YatInteractivity";
 
@@ -87,20 +85,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
   const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
-  const navItems: NavItem[] = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
-  const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
+  const navItems = NAV_ITEMS;
 
   const gradClasses = Array.from(new Set(
     [...(activeRoster as Record<string, unknown>[]), ...(allTimeRoster as Record<string, unknown>[])].map((p) => gradClass(p)).filter(Boolean)
@@ -108,8 +93,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
   return (
     <>
-      <YatStyles />
-
       <HeroHeader
         schoolName={schoolName}
         location={location}
@@ -118,33 +101,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         navItems={navItems}
       />
 
-      {/* DRAWER MASK */}
-      <div className="yat-drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation */}
-      <aside className="yat-drawer" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft">
-          <i className="ri-close-line" />
-        </button>
-        <div className="yat-drawer-content">
-          <h3>PLAYER SEARCH</h3>
-          <div style={{ padding: "0 0 10px" }}>
-            <input id="playerSearch" type="search" placeholder="Type a name…" />
-            <div id="liveResults" />
-          </div>
-          <h3>NAVIGATION</h3>
-          <div className="yat-drawer-nav">
-            {navItems.map((item) => (
-              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-drawer-nav-item" data-tab={item.tab}>
-                {item.thin ? `${item.thin} ` : ""}{item.bold}
-              </a>
-            ))}
-          </div>
-        </div>
-      </aside>
-
       <FiltersDrawer gradClasses={gradClasses} />
-      <AccountDrawer subdomain={subdomain} />
 
       {/* MAIN CONTENT */}
       <main id="main-content">
