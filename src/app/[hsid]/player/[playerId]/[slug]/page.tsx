@@ -253,10 +253,12 @@ export default async function PlayerProfilePage({
     : "";
   const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
     .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
-  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
-  const ctxLevel =
-    resolvedLevel ||
-    (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "");
+  const isSyracuseMets = (t: string) => /syracuse\s+mets/i.test(t);
+  const rawCtxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
+  const ctxTeam = rawCtxTeam && !isSyracuseMets(rawCtxTeam) ? rawCtxTeam : "";
+  const ctxLevel = ctxTeam
+    ? resolvedLevel || (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "")
+    : "";
   const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
 
   // Current team_id for schedule lookup — prefer roster-truth teamid, fall back to latest season
