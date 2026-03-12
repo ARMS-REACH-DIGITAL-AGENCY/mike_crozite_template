@@ -242,9 +242,9 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // NOW image = .jpg, THEN image = .png
+  // NOW image = .jpg, THEN image = .jpg
   const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.jpg`;
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
@@ -460,7 +460,7 @@ export default async function PlayerProfilePage({
 
   type FilmSlot = {img: string; label: string; sub: string};
 
-  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.png
+  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.jpg
   const hsBookend: FilmSlot = {
     img: playerThenImg,
     label: schoolName,
