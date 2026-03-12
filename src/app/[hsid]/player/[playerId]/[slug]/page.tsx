@@ -1312,6 +1312,16 @@ export default async function PlayerProfilePage({
   /* Drawer helpers */
   function openAccountDrawer(){document.body.classList.add('drawer-account-open','drawer-open');document.body.classList.remove('drawer-left-open');}
   function openLeftDrawer(){document.body.classList.add('drawer-left-open','drawer-open');document.body.classList.remove('drawer-account-open');}
+  /* Inject "back to school" link at top of layout drawer nav — player profile only */
+  (function(){
+    var nav=document.querySelector('#drawerLeft .yat-drawer-nav');
+    if(!nav)return;
+    var backLink=document.createElement('a');
+    backLink.href='/${resolvedHsid}';
+    backLink.className='yat-drawer-nav-item';
+    backLink.textContent='\u2190 BACK TO ${schoolName}';
+    nav.insertBefore(backLink,nav.firstChild);
+  })();
   /* Drawer toggles */
   var btnMenu=document.getElementById('btnMenu');
   var closeLeft=document.getElementById('closeLeft');
