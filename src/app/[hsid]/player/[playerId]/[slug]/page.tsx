@@ -1,4 +1,3 @@
-import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import {
@@ -6,9 +5,6 @@ import {
   getPlayerById,
   getPlayerBattingStats,
   getPlayerPitchingStats,
-  getPlayerCareerBatting,
-  getPlayerCareerPitching,
-  getPlayerPhotos,
   getResolvedCurrentTeam,
 } from "@/lib/db";
 
@@ -45,16 +41,10 @@ export default async function PlayerProfilePage({
   const [
     battingSeasons,
     pitchingSeasons,
-    careerBatting,
-    careerPitching,
-    playerPhotos,
     resolvedCurrentTeam,
   ] = await Promise.all([
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
-    getPlayerCareerBatting(safePlayerId),
-    getPlayerCareerPitching(safePlayerId),
-    getPlayerPhotos(safePlayerId),
     getResolvedCurrentTeam(safePlayerId),
   ]);
 
@@ -91,8 +81,6 @@ export default async function PlayerProfilePage({
               <SafeImage
                 src={player.headshot_url || "/img/player-placeholder.png"}
                 alt={displayName}
-                width={300}
-                height={400}
                 className="player-headshot"
               />
             </div>

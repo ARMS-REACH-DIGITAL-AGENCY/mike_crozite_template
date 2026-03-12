@@ -1,3 +1,4 @@
+"use client";
 // src/components/yatstats/SectionTabs.tsx
 // Top navigation bar tab links
 
