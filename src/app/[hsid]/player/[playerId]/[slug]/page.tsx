@@ -526,9 +526,9 @@ export default async function PlayerProfilePage({
         /* CAREER PROGRESSION FILMSTRIP — chronological visual montage, no captions */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:clamp(100px,12vw,140px);overflow:hidden}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-behavior:smooth}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden;scroll-snap-align:start}
         .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
