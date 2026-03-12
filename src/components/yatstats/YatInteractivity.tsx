@@ -1,7 +1,11 @@
 // src/components/yatstats/YatInteractivity.tsx
-// Inline client-side script: theme toggle, card flip, section navigation,
-// drawer open/close, hero inline search, player drawer search, filter logic
-
+// Client-side interactivity: theme toggle, card flip, section navigation,
+// drawer open/close, hero inline search, player drawer search, filter logic.
+// Rendered as a 'use client' component so it re-executes on every page mount
+// (including Next.js client-side navigation), fixing the bug where element
+// listeners were lost after navigating away and back.
+'use client';
+import { useEffect } from 'react';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
 
@@ -11,14 +15,59 @@ interface YatInteractivityProps {
 }
 
 export default function YatInteractivity({ resolvedHsid, firebaseConfigJSON }: YatInteractivityProps) {
-  return (
-    <script
-      dangerouslySetInnerHTML={{
-        __html: `
-window.__firebase_config = ${firebaseConfigJSON};
+  useEffect(() => {
+    /* Dynamically append a <script> element so the browser executes it fresh
+       on every mount, including after Next.js client-side navigation. */
+    const el = document.createElement('script');
+    el.textContent = `
 (function(){
+  /* ── SHARED CONSTANT ──────────────────────────────────────────────────── */
+  var SEC_PFX='#sec-';
+  var SEC_PFX_LEN=5; /* length of '#sec-' */
+
+  /* ── HASH NAVIGATION ON LOAD ─────────────────────────────────────────────
+     Always run on every mount: if the URL has a #sec-* hash, show that
+     section immediately. This fixes the bug where /5004#sec-news always
+     displayed sec-active (the default visible section). */
+  (function(){
+    var h=window.location.hash;
+    if(h&&h.slice(0,SEC_PFX_LEN)===SEC_PFX){
+      var t=h.slice(SEC_PFX_LEN);
+      document.querySelectorAll('.yat-section').forEach(function(s){s.classList.remove('visible');});
+      var sec=document.getElementById('sec-'+t);
+      if(sec)sec.classList.add('visible');
+    }
+  })();
+
+  /* ── HASH CHANGE LISTENER ────────────────────────────────────────────────
+     Handle browser back/forward navigation that changes only the hash.
+     Registered before the init guard so it always listens, but also guarded
+     below with a separate flag to prevent duplicate registrations. */
+  if(!window['__yatHash_${resolvedHsid}']){
+    window['__yatHash_${resolvedHsid}']=true;
+    window.addEventListener('hashchange',function(){
+      var h=window.location.hash;
+      if(h&&h.slice(0,SEC_PFX_LEN)===SEC_PFX){
+        var t=h.slice(SEC_PFX_LEN);
+        if(document.getElementById('sec-'+t))showSectionSafe(t);
+      }
+    });
+  }
+  /* Forward declaration for hashchange listener (defined fully below) */
+  function showSectionSafe(tabId){if(typeof showSection==='function')showSection(tabId);}
+
+  /* ── INIT GUARD ──────────────────────────────────────────────────────────
+     The document-level event listeners (drawer buttons, card flip, tabs,
+     search, filters) must only be registered ONCE regardless of how many
+     times React mounts this component. Use a per-hsid flag on window. */
+  var _initKey='__yatInit_${resolvedHsid}';
+  if(window[_initKey])return;
+  window[_initKey]=true;
+
+  window.__firebase_config=${firebaseConfigJSON};
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   window.__YAT_HSID='${resolvedHsid}';
+
   /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
   if(favLink){
@@ -55,22 +104,6 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
-  var btn=document.getElementById('theme-toggle');
-  if(btn){
-    btn.addEventListener('click',function(){
-      var isLight=document.body.classList.toggle('light-theme');
-      localStorage.setItem('yat-theme',isLight?'light':'dark');
-      var ic=btn.querySelector('i');
-      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
-    });
-    if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
-  }
-  document.addEventListener('click',function(e){
-    var card=e.target.closest('.yat-card');
-    if(!card)return;
-    if(e.target.closest('a')||e.target.closest('button'))return;
-    card.classList.toggle('is-flipped');
-  });
 
   function showSection(tabId){
     document.querySelectorAll('.yat-section').forEach(function(s){
@@ -95,35 +128,96 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
   }
 
+  /* ── SINGLE DELEGATED CLICK HANDLER ─────────────────────────────────────
+     All button interactions use event delegation on document so they survive
+     React remounting elements during client-side navigation.
+     Handles: theme toggle, drawers, search modal, card flip, tab navigation,
+     filters reset. */
   document.addEventListener('click',function(e){
-    var pair=e.target.closest('[data-tab]');
-    if(!pair)return;
-    var tab=pair.dataset.tab;
-    if(!tab)return;
-    /* Only intercept when the school sections exist on this page (school home).
-       On player-profile pages there are no #sec-* elements, so let the browser
-       navigate normally back to the school home page. */
-    if(!document.getElementById('sec-'+tab))return;
-    e.preventDefault();
-    showSection(tab);
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+    var t=e.target;
+    /* Theme toggle */
+    var themeBtn=t.closest('#theme-toggle');
+    if(themeBtn){
+      var isLight=document.body.classList.toggle('light-theme');
+      localStorage.setItem('yat-theme',isLight?'light':'dark');
+      var ic=themeBtn.querySelector('i');
+      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
+      return;
+    }
+    /* Left drawer — hamburger open */
+    if(t.closest('#btnMenu')){
+      document.body.classList.toggle('drawer-left-open');
+      document.body.classList.toggle('drawer-open');
+      document.body.classList.remove('drawer-right-open','drawer-account-open');
+      return;
+    }
+    /* Left drawer — close */
+    if(t.closest('#closeLeft')){
+      document.body.classList.remove('drawer-left-open','drawer-open');
+      return;
+    }
+    /* Filters drawer — open */
+    if(t.closest('#openFilters')){
+      document.body.classList.toggle('drawer-right-open');
+      document.body.classList.toggle('drawer-open');
+      document.body.classList.remove('drawer-left-open','drawer-account-open');
+      return;
+    }
+    /* Filters drawer — close */
+    if(t.closest('#closeFilters')){
+      document.body.classList.remove('drawer-right-open','drawer-open');
+      return;
+    }
+    /* Account drawer — open */
+    if(t.closest('#btnAccount')){
+      document.body.classList.toggle('drawer-account-open');
+      document.body.classList.toggle('drawer-open');
+      document.body.classList.remove('drawer-left-open','drawer-right-open');
+      return;
+    }
+    /* Account drawer — close */
+    if(t.closest('#closeAccount')){
+      document.body.classList.remove('drawer-account-open','drawer-open');
+      return;
+    }
+    /* Drawer mask — close all */
+    if(t.closest('#drawerMask')||t.id==='drawerMask'){
+      document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+      return;
+    }
+    /* Global search modal — open */
+    if(t.closest('#openSearch')){openGsModal();return;}
+    /* Global search modal — overlay close */
+    if(t.closest('#gsOverlay')){closeGsModal();return;}
+    /* Global search modal — X close */
+    if(t.closest('#gsClose')){closeGsModal();return;}
+    /* Filters reset buttons */
+    if(t.closest('#filtersReset')||t.closest('#filtersReset2')){
+      document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});
+      applyFilters();
+      return;
+    }
+    /* Card flip */
+    var card=t.closest('.yat-card');
+    if(card&&!t.closest('a')&&!t.closest('button')){
+      card.classList.toggle('is-flipped');
+      return;
+    }
+    /* Tab/section navigation — only intercept when sec-* elements exist (school home page) */
+    var pair=t.closest('[data-tab]');
+    if(pair){
+      var tab=pair.dataset.tab;
+      if(tab&&document.getElementById('sec-'+tab)){
+        e.preventDefault();
+        showSection(tab);
+        document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+      }
+    }
   });
-  var btnMenu=document.getElementById('btnMenu');
-  var closeLeft=document.getElementById('closeLeft');
-  if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');});
-  if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
-  var openFilters=document.getElementById('openFilters');
-  var closeFilters=document.getElementById('closeFilters');
-  var filtersReset=document.getElementById('filtersReset');
-  var filtersReset2=document.getElementById('filtersReset2');
-  if(openFilters)openFilters.addEventListener('click',function(){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');});
-  if(closeFilters)closeFilters.addEventListener('click',function(){document.body.classList.remove('drawer-right-open','drawer-open');});
-  var btnAccount=document.getElementById('btnAccount');
-  var closeAccount=document.getElementById('closeAccount');
-  if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
-  if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
-  var mask=document.getElementById('drawerMask');
-  if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
+
+  /* Update theme icon on initial load */
+  if(saved==='light'){var _btn=document.getElementById('theme-toggle');if(_btn){var _ic=_btn.querySelector('i');if(_ic)_ic.className='ri-moon-line';}}
+
 
   /* ====================================================================
      GLOBAL SEARCH MODAL
@@ -158,9 +252,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(gsResults)gsResults.innerHTML='';
   }
   var openSearch=document.getElementById('openSearch');
-  if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
-  if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
-  if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
+  /* openSearch, gsOverlay, gsClose clicks handled by delegated click handler above */
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'&&gsModal&&gsModal.classList.contains('open')){closeGsModal();return;}
     if(!gsModal||!gsModal.classList.contains('open'))return;
@@ -499,8 +591,7 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
   document.addEventListener('change',function(e){if(e.target.closest('#filters'))applyFilters();});
   document.addEventListener('input',function(e){if(e.target.id==='filterName')applyFilters();});
-  if(filtersReset)filtersReset.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
-  if(filtersReset2)filtersReset2.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
+  /* filtersReset / filtersReset2 clicks handled by delegated click handler above */
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
   /* ====================================================================
@@ -960,8 +1051,12 @@ window.__firebase_config = ${firebaseConfigJSON};
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
 })();
-        `,
-      }}
-    />
-  );
+`;
+    document.head.appendChild(el);
+    /* Cleanup: remove the script element from the DOM on unmount.
+       The script has already executed; removal prevents DOM accumulation. */
+    return () => { document.head.removeChild(el); };
+  }, [resolvedHsid, firebaseConfigJSON]);
+
+  return null;
 }
