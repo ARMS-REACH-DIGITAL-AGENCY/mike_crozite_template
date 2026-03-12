@@ -54,12 +54,15 @@ export default async function PlayerProfilePage({
   // "Syracuse Mets" is a phantom team that appears when the roster-truth row
   // is stale. Suppress it and prefer the most-recent non-Syracuse, non-numeric
   // season team instead. Fall back to "Alumni" if nothing better is found.
+  // NOTE: When the `teams` lookup table has no entry for a teamid, the view
+  // falls back to the raw numeric teamid string (e.g. "12345") — skip those.
   const isSyracuseMets = (name: string) => /^syracuse\s+mets$/i.test(name.trim());
   let teamDisplayName = (resolvedCurrentTeam?.team_name || "").trim();
   if (!teamDisplayName || isSyracuseMets(teamDisplayName)) {
     const allSeasons = [...(battingSeasons || []), ...(pitchingSeasons || [])];
     const betterTeam = allSeasons
       .sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0))
+      // Skip Syracuse ghost, and skip raw numeric teamids (unresolved teams table entries)
       .find(s => s.team_name && !isSyracuseMets(s.team_name) && !/^\d+$/.test(s.team_name));
     if (betterTeam) teamDisplayName = betterTeam.team_name;
   }

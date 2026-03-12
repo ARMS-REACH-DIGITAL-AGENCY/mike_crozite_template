@@ -1,0 +1,50 @@
+name: Sync MLB Org Rosters
+
+on:
+  # Run every Monday at 06:00 UTC (start of the work week, before US business hours)
+  schedule:
+    - cron: '0 6 * * 1'
+
+  # Allow manual runs from the Actions tab
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season year to sync (e.g. 2025). Defaults to current year.'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run — fetch and match without writing to the DB.'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sync-rosters:
+    name: Sync MLB Full-Org Rosters → player_current_team
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full-org roster sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.season }}" ]; then
+            ARGS="--season ${{ inputs.season }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          npx tsx scripts/sync-mlb-full-org-rosters.ts $ARGS

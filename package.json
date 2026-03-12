@@ -2,11 +2,18 @@
   "name": "yatstats-microsite",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:rosters": "tsx scripts/sync-mlb-full-org-rosters.ts",
+    "sync:rosters:dry": "tsx scripts/sync-mlb-full-org-rosters.ts --dry-run",
+    "sync:transactions": "tsx scripts/sync-mlb-transactions.ts",
+    "sync:transactions:dry": "tsx scripts/sync-mlb-transactions.ts --dry-run"
   },
   "dependencies": {
     "firebase": "^12.10.0",
@@ -25,6 +32,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "latest",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3"
   }
 }
