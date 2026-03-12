@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS public.player_photos (
     date_precision       TEXT      NOT NULL DEFAULT 'unknown'
                             CHECK (date_precision IN ('day', 'month', 'year', 'unknown')),
     caption              TEXT,
+    uploader_relationship TEXT
+                            CHECK (uploader_relationship IN ('self', 'parent', 'sibling', 'relative', 'friend', 'no_relation')),
     approval_status      TEXT      NOT NULL DEFAULT 'pending'
                             CHECK (approval_status IN ('pending', 'approved', 'rejected')),
     visibility_status    TEXT      NOT NULL DEFAULT 'private'

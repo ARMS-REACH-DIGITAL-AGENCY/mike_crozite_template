@@ -570,6 +570,40 @@ export default async function PlayerProfilePage({
         .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
+        /* UPLOAD FORM */
+        .upload-section{max-width:600px;margin:0 auto;padding:24px 16px}
+        .upload-gate{text-align:center;padding:40px 16px}
+        .upload-gate i{font-size:40px;display:block;margin-bottom:12px;color:gold;opacity:.8}
+        .upload-gate h2{font:700 24px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:8px}
+        .upload-gate p{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
+        .upload-gate .btn-gate{display:inline-block;background:gold;color:#000;border:none;border-radius:10px;padding:12px 28px;font:700 13px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;cursor:pointer;text-transform:uppercase}
+        .upload-heading{font:700 20px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:4px}
+        .upload-subhead{font:300 12px/1.4 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
+        .upload-field{margin-bottom:16px}
+        .upload-label{display:block;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+        .upload-file-zone{border:2px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .2s}
+        .upload-file-zone:hover{border-color:gold}
+        .upload-file-zone i{font-size:28px;display:block;margin-bottom:8px;color:var(--muted)}
+        .upload-file-zone p{font:300 12px/1.5 Oswald,sans-serif;color:var(--muted);margin:0}
+        .upload-preview-img{display:none;width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+        .upload-input,.upload-select,.upload-textarea{width:100%;padding:10px 12px;background:var(--card-bg);border:1px solid var(--line);border-radius:8px;color:var(--fg);font:300 13px/1.4 Oswald,sans-serif;outline:none;transition:border-color .2s;box-sizing:border-box}
+        .upload-input:focus,.upload-select:focus,.upload-textarea:focus{border-color:gold}
+        body.light-theme .upload-input,body.light-theme .upload-select,body.light-theme .upload-textarea{background:#fff}
+        .upload-date-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .upload-textarea{resize:vertical;min-height:72px}
+        .upload-disclaimer-wrap{display:flex;align-items:flex-start;gap:10px;background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:12px}
+        body.light-theme .upload-disclaimer-wrap{background:rgba(255,209,102,.1)}
+        .upload-disclaimer-check{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:gold}
+        .upload-disclaimer-text{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted)}
+        .upload-error{font:300 12px/1.4 Oswald,sans-serif;color:#f66;margin-top:6px;display:none}
+        .upload-btn{width:100%;padding:14px;background:gold;color:#000;border:none;border-radius:10px;font:700 14px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;cursor:pointer;margin-top:8px;transition:opacity .2s}
+        .upload-btn:disabled{opacity:.5;cursor:default}
+        .upload-success{text-align:center;padding:40px 16px;display:none}
+        .upload-success i{font-size:44px;color:gold;display:block;margin-bottom:12px}
+        .upload-success h2{font:700 22px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:8px}
+        .upload-success p{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
+        .upload-another-btn{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:10px 22px;font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;cursor:pointer;transition:border-color .2s}
+        .upload-another-btn:hover{border-color:gold;color:gold}
         /* FAVORITES MODAL */
         .fav-modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
         .fav-modal{background:var(--card-bg);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:380px;width:90%;color:var(--fg);box-shadow:0 20px 40px rgba(0,0,0,.4);position:relative}
@@ -886,7 +920,7 @@ export default async function PlayerProfilePage({
         <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
         <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
         <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>MENTORSHIP MARKETPLACE</div>
-        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>PHOTO GALLERY</div>
+        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>UPLOAD PHOTOS</div>
       </div>
 
       {/* TAB: GAME LOG */}
@@ -1174,11 +1208,114 @@ export default async function PlayerProfilePage({
 
       {/* TAB: GALLERY */}
       <div className="tab-content" id="tab-gallery" role="tabpanel">
-        <div className="stats-section">
-          <div className="coming-soon">
-            <i className="ri-image-line" />
-            PHOTO GALLERY — Coming soon
+        <div className="upload-section">
+
+          {/* NOT LOGGED IN — prompt to sign in */}
+          <div id="uploadGate" className="upload-gate" style={{display:'none'}}>
+            <i className="ri-camera-line" />
+            <h2>Share Your Photos</h2>
+            <p>Sign in or create a free account to upload photos to this player&apos;s scrapbook.</p>
+            <button className="btn-gate" id="uploadSignInBtn">Sign In / Register Free</button>
           </div>
+
+          {/* UPLOAD FORM — shown when logged in */}
+          <div id="uploadFormWrap" style={{display:'none'}}>
+            <p className="upload-heading">Upload a Photo</p>
+            <p className="upload-subhead">Help build {displayName}&apos;s career scrapbook. Photos are reviewed before going public.</p>
+
+            <form id="uploadPhotoForm" noValidate>
+
+              {/* File picker */}
+              <div className="upload-field">
+                <label className="upload-label" htmlFor="photoFile">Select Photo *</label>
+                <div className="upload-file-zone" id="photoFileZone" role="button" tabIndex={0}
+                     aria-label="Click to select a photo">
+                  <i className="ri-upload-cloud-2-line" />
+                  <p>Click to choose a photo<br /><span style={{fontSize:'10px'}}>JPG, PNG, WEBP, GIF, HEIC — max 20 MB</span></p>
+                </div>
+                <input id="photoFile" type="file"
+                       accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
+                       style={{display:'none'}} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img id="photoPreviewImg" className="upload-preview-img" src="" alt="Preview" />
+              </div>
+
+              {/* Date taken */}
+              <div className="upload-field">
+                <label className="upload-label">When was this photo taken? *</label>
+                <div className="upload-date-row">
+                  <div>
+                    <label className="upload-label" htmlFor="photoMonth" style={{fontSize:'9px'}}>Month (optional)</label>
+                    <select id="photoMonth" className="upload-select">
+                      <option value="">— Month —</option>
+                      <option value="01">January</option>
+                      <option value="02">February</option>
+                      <option value="03">March</option>
+                      <option value="04">April</option>
+                      <option value="05">May</option>
+                      <option value="06">June</option>
+                      <option value="07">July</option>
+                      <option value="08">August</option>
+                      <option value="09">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="upload-label" htmlFor="photoYear" style={{fontSize:'9px'}}>Year *</label>
+                    <input id="photoYear" type="number" className="upload-input"
+                           placeholder="e.g. 2019" min="1950" max={new Date().getFullYear()} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Relationship */}
+              <div className="upload-field">
+                <label className="upload-label" htmlFor="photoRelationship">Your Relationship to {displayName} *</label>
+                <select id="photoRelationship" className="upload-select">
+                  <option value="">— Select relationship —</option>
+                  <option value="self">This is me</option>
+                  <option value="parent">Parent</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="relative">Other Relative</option>
+                  <option value="friend">Friend / Teammate</option>
+                  <option value="no_relation">Fan / No Direct Relation</option>
+                </select>
+              </div>
+
+              {/* Caption */}
+              <div className="upload-field">
+                <label className="upload-label" htmlFor="photoCaption">Caption (optional)</label>
+                <textarea id="photoCaption" className="upload-textarea"
+                          placeholder="Add context — team, season, event, etc." maxLength={500} />
+              </div>
+
+              {/* Disclaimer */}
+              <div className="upload-field">
+                <div className="upload-disclaimer-wrap">
+                  <input id="photoDisclaimer" type="checkbox" className="upload-disclaimer-check" />
+                  <label htmlFor="photoDisclaimer" className="upload-disclaimer-text">
+                    I confirm that I own or have the right to share this photo, that it features {displayName},
+                    and that it is appropriate for all audiences including children. I consent to YAT?STATS
+                    displaying this photo on the player&apos;s profile after review.
+                  </label>
+                </div>
+              </div>
+
+              <div id="uploadError" className="upload-error" role="alert" />
+              <button type="submit" className="upload-btn" id="uploadSubmitBtn">Submit Photo</button>
+            </form>
+          </div>
+
+          {/* SUCCESS STATE */}
+          <div id="uploadSuccess" className="upload-success">
+            <i className="ri-checkbox-circle-line" />
+            <h2>Photo Submitted!</h2>
+            <p>Your photo is pending review and will appear on {displayName}&apos;s profile once approved. Thank you for contributing to the scrapbook!</p>
+            <button className="upload-another-btn" id="uploadAnotherBtn">Upload Another Photo</button>
+          </div>
+
         </div>
       </div>
 
@@ -1603,6 +1740,135 @@ export default async function PlayerProfilePage({
       });
     },{threshold:0,rootMargin:'0px 0px 0px 0px'});
     observer.observe(heroMeta);
+  }());
+  /* ── PHOTO UPLOAD ── */
+  (function(){
+    var uploadGate=document.getElementById('uploadGate');
+    var uploadFormWrap=document.getElementById('uploadFormWrap');
+    var uploadSuccess=document.getElementById('uploadSuccess');
+    var uploadPhotoForm=document.getElementById('uploadPhotoForm');
+    var uploadError=document.getElementById('uploadError');
+    var uploadSubmitBtn=document.getElementById('uploadSubmitBtn');
+    var photoFileZone=document.getElementById('photoFileZone');
+    var photoFileInput=document.getElementById('photoFile');
+    var photoPreviewImg=document.getElementById('photoPreviewImg');
+    var uploadSignInBtn=document.getElementById('uploadSignInBtn');
+    var uploadAnotherBtn=document.getElementById('uploadAnotherBtn');
+    function showUploadError(msg){if(!uploadError)return;uploadError.textContent=msg;uploadError.style.display='block';}
+    function clearUploadError(){if(uploadError){uploadError.style.display='none';uploadError.textContent='';}}
+    function initUploadPanel(){
+      var user=getFirebaseUser();
+      if(!uploadGate||!uploadFormWrap)return;
+      if(!user||!user.contactId){
+        uploadGate.style.display='block';
+        uploadFormWrap.style.display='none';
+      }else{
+        uploadGate.style.display='none';
+        uploadFormWrap.style.display='block';
+      }
+      if(uploadSuccess)uploadSuccess.style.display='none';
+    }
+    /* Init when gallery tab is clicked */
+    document.querySelectorAll('.profile-tab').forEach(function(t){
+      t.addEventListener('click',function(){
+        if(t.getAttribute('data-profile-tab')==='gallery'){initUploadPanel();}
+      });
+    });
+    /* Re-init after successful auth */
+    window.addEventListener('yat-auth-success',function(){initUploadPanel();});
+    /* Sign-in gate button */
+    if(uploadSignInBtn){uploadSignInBtn.addEventListener('click',function(){openAccountDrawer();});}
+    /* File zone click → trigger hidden input */
+    if(photoFileZone){photoFileZone.addEventListener('click',function(){if(photoFileInput)photoFileInput.click();});}
+    if(photoFileZone){photoFileZone.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){if(photoFileInput)photoFileInput.click();}});}
+    /* Show preview when file selected */
+    if(photoFileInput){photoFileInput.addEventListener('change',function(){
+      var file=this.files&&this.files[0];
+      if(!file||!photoPreviewImg)return;
+      var reader=new FileReader();
+      reader.onload=function(e){photoPreviewImg.src=e.target.result;photoPreviewImg.style.display='block';};
+      reader.readAsDataURL(file);
+    });}
+    /* Upload another button */
+    if(uploadAnotherBtn){uploadAnotherBtn.addEventListener('click',function(){
+      if(uploadSuccess)uploadSuccess.style.display='none';
+      if(uploadFormWrap)uploadFormWrap.style.display='block';
+      if(uploadPhotoForm)(uploadPhotoForm).reset();
+      if(photoPreviewImg){photoPreviewImg.src='';photoPreviewImg.style.display='none';}
+      clearUploadError();
+    });}
+    /* Form submit */
+    if(uploadPhotoForm){uploadPhotoForm.addEventListener('submit',function(e){
+      e.preventDefault();
+      clearUploadError();
+      var user=getFirebaseUser();
+      if(!user||!user.contactId){openAccountDrawer();return;}
+      var fileInput=document.getElementById('photoFile');
+      var file=fileInput&&fileInput.files&&fileInput.files[0];
+      if(!file){showUploadError('Please select a photo to upload.');return;}
+      var yearEl=document.getElementById('photoYear');
+      var monthEl=document.getElementById('photoMonth');
+      var relEl=document.getElementById('photoRelationship');
+      var captionEl=document.getElementById('photoCaption');
+      var disclaimerEl=document.getElementById('photoDisclaimer');
+      var year=yearEl?yearEl.value.trim():'';
+      var month=monthEl?monthEl.value:'';
+      var relationship=relEl?relEl.value:'';
+      var caption=captionEl?captionEl.value.trim():'';
+      var agreed=disclaimerEl?disclaimerEl.checked:false;
+      if(!year){showUploadError('Please enter the year the photo was taken.');return;}
+      var yearNum=parseInt(year,10);
+      if(isNaN(yearNum)||yearNum<1950||yearNum>new Date().getFullYear()){showUploadError('Please enter a valid year (1950 – present).');return;}
+      if(!relationship){showUploadError('Please select your relationship to the player.');return;}
+      if(!agreed){showUploadError('You must agree to the photo rights disclaimer before submitting.');return;}
+      if(uploadSubmitBtn)uploadSubmitBtn.disabled=true;
+      /* Step 1 — get presigned URL */
+      fetch('/api/player/upload-presigned',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({playerid:playerId,fileName:file.name,mimeType:file.type,uploadType:'photo'})
+      }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});}).then(function(res){
+        if(!res.ok){throw new Error(res.data.error||'Upload setup failed.');}
+        var presign=res.data;
+        /* Step 2 — PUT file directly to S3 */
+        return fetch(presign.uploadUrl,{method:'PUT',headers:{'Content-Type':file.type},body:file})
+          .then(function(r2){
+            if(!r2.ok)throw new Error('File upload to storage failed. Please try again.');
+            return presign;
+          });
+      }).then(function(presign){
+        /* Step 3 — notify server upload is complete */
+        var datePrecision=month?'month':'year';
+        var photoDate=month?(year+'-'+month+'-01'):null;
+        var uploaderName=(user.firstName||(user.email||'').split('@')[0]||'Fan');
+        return fetch('/api/player/upload-complete',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            playerid:playerId,
+            s3_bucket:presign.bucket,
+            s3_key:presign.s3Key,
+            file_name:presign.s3Key.split('/').pop()||file.name,
+            original_file_name:file.name,
+            mime_type:file.type,
+            source_type:'user',
+            uploader_type:'user',
+            uploaded_by_name:uploaderName,
+            uploaded_by_email:user.email||null,
+            photo_date:photoDate,
+            photo_year:yearNum,
+            date_precision:datePrecision,
+            caption:caption||null,
+            uploader_relationship:relationship
+          })
+        }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});});
+      }).then(function(res){
+        if(!res.ok)throw new Error(res.data.error||'Submission failed.');
+        /* Show success */
+        if(uploadFormWrap)uploadFormWrap.style.display='none';
+        if(uploadSuccess)uploadSuccess.style.display='block';
+        if(uploadSubmitBtn)uploadSubmitBtn.disabled=false;
+      }).catch(function(err){
+        showUploadError(err.message||'Something went wrong. Please try again.');
+        if(uploadSubmitBtn)uploadSubmitBtn.disabled=false;
+      });
+    });}
   }());
 })();
       `}} />

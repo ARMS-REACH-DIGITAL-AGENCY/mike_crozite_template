@@ -25,6 +25,9 @@ const schema = z.object({
   photo_year: z.number().int().min(1800).max(2100).optional(),
   date_precision: z.enum(['day', 'month', 'year', 'unknown']).default('unknown'),
   caption: z.string().max(1000).optional(),
+  uploader_relationship: z
+    .enum(['self', 'parent', 'sibling', 'relative', 'friend', 'no_relation'])
+    .optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -37,12 +40,14 @@ export async function POST(request: NextRequest) {
         (playerid, s3_bucket, s3_key, file_name, original_file_name,
          mime_type, source_type, uploader_type, uploaded_by_name,
          uploaded_by_email, photo_date, photo_year, date_precision,
-         caption, approval_status, visibility_status, usage_rights_status)
+         caption, uploader_relationship,
+         approval_status, visibility_status, usage_rights_status)
        VALUES
         ($1, $2, $3, $4, $5,
          $6, $7, $8, $9,
          $10, $11, $12, $13,
-         $14, 'pending', 'private', 'user_submitted_consent')
+         $14, $15,
+         'pending', 'private', 'user_submitted_consent')
        RETURNING id`,
       [
         params.playerid,
@@ -59,6 +64,7 @@ export async function POST(request: NextRequest) {
         params.photo_year ?? null,
         params.date_precision,
         params.caption ?? null,
+        params.uploader_relationship ?? null,
       ]
     );
 
