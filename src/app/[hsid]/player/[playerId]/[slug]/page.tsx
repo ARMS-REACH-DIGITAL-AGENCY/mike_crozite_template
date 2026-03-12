@@ -523,15 +523,13 @@ export default async function PlayerProfilePage({
         .fav-btn-hero.active i{color:gold}
         .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
         .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-        /* CAREER PROGRESSION FILMSTRIP — data-driven, edge-to-edge, 5 frames visible */
+        /* CAREER PROGRESSION FILMSTRIP — chronological visual montage, no captions */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:clamp(100px,12vw,140px);overflow:hidden}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;direction:rtl;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 20%;min-width:0;direction:ltr;height:100%;max-height:100%;overflow:hidden}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden}
         .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
-        .career-slot-label{font:700 9px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:3px 4px 0;flex:0 0 auto}
-        .career-slot-sub{font:300 8px/1 Oswald,sans-serif;letter-spacing:.06em;text-align:center;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;padding:2px 4px 4px;flex:0 0 auto}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
@@ -736,10 +734,8 @@ export default async function PlayerProfilePage({
           .yat-schooltext .big1{font-size:14px}
           .yat-schooltext .big2{font-size:16px}
           .fav-btn-hero{font-size:10px}
-          /* Career strip: keep 5-per-viewport on mobile, smaller label text, shorter height */
-          .career-slot{flex:0 0 20%}
+          /* Career strip: smaller height on mobile */
           .career-strip{height:100px}
-          .career-slot-label,.career-slot-sub{font-size:7px}
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
@@ -834,10 +830,10 @@ export default async function PlayerProfilePage({
           #btnSearch in the header icon row instead as the trigger. */}
       <GlobalSearchModal />
 
-      {/* CAREER FILMSTRIP — NOW anchored to far right; images grow leftward via direction:rtl */}
+      {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
       <section className="career-strip" id="playerHeroMeta">
         <div className="career-strip-inner">
-          {[...careerSlots].reverse().map((slot) => (
+          {careerSlots.map((slot) => (
             <div key={slot.img} className="career-slot">
               <SafeImage
                 className="career-slot-img"
@@ -846,8 +842,6 @@ export default async function PlayerProfilePage({
                 fallbackSrc={SILHOUETTE_URL}
                 placeholderSrc={SILHOUETTE_URL}
               />
-              <div className="career-slot-label">{slot.label}</div>
-              {slot.sub && <div className="career-slot-sub">{slot.sub}</div>}
             </div>
           ))}
         </div>
