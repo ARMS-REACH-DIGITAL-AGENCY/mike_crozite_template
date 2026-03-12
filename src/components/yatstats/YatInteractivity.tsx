@@ -1,11 +1,10 @@
 // src/components/yatstats/YatInteractivity.tsx
-// Client-side interactivity: theme toggle, card flip, section navigation,
+// Inline client-side script: theme toggle, card flip, section navigation,
 // drawer open/close, hero inline search, player drawer search, filter logic.
-// Rendered as a 'use client' component so it re-executes on every page mount
-// (including Next.js client-side navigation), fixing the bug where element
-// listeners were lost after navigating away and back.
-'use client';
-import { useEffect } from 'react';
+// Server-rendered as an inline <script> so it executes synchronously during
+// HTML parse — before any user interaction is possible.
+// All interactive handlers use event delegation on document so they survive
+// React client-side navigation without needing re-registration.
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
 
@@ -15,11 +14,10 @@ interface YatInteractivityProps {
 }
 
 export default function YatInteractivity({ resolvedHsid, firebaseConfigJSON }: YatInteractivityProps) {
-  useEffect(() => {
-    /* Dynamically append a <script> element so the browser executes it fresh
-       on every mount, including after Next.js client-side navigation. */
-    const el = document.createElement('script');
-    el.textContent = `
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
 (function(){
   /* ── SHARED CONSTANT ──────────────────────────────────────────────────── */
   var SEC_PFX='#sec-';
@@ -1051,12 +1049,8 @@ export default function YatInteractivity({ resolvedHsid, firebaseConfigJSON }: Y
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
 })();
-`;
-    document.head.appendChild(el);
-    /* Cleanup: remove the script element from the DOM on unmount.
-       The script has already executed; removal prevents DOM accumulation. */
-    return () => { document.head.removeChild(el); };
-  }, [resolvedHsid, firebaseConfigJSON]);
-
-  return null;
+`,
+      }}
+    />
+  );
 }
