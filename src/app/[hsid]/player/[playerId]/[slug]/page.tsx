@@ -293,8 +293,8 @@ export default async function PlayerProfilePage({
     .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
 
   // Build ctxTeam with full priority chain + phantom suppression
-  let ctxTeam = mlbInfo?.teamName ?? "";
-  let ctxLevel = mlbInfo?.level ?? "";
+  let ctxTeam = (mlbInfo?.teamName && !isSyracuseMets(mlbInfo.teamName)) ? mlbInfo.teamName : "";
+  let ctxLevel = ctxTeam ? (mlbInfo?.level ?? "") : "";
   let ctxStatus = mlbInfo?.active ? (mlbInfo.status || "Active") : "";
 
   if (!ctxTeam) {
@@ -316,7 +316,7 @@ export default async function PlayerProfilePage({
   }
 
   if (!ctxTeam || isSyracuseMets(ctxTeam)) {
-    ctxTeam = "Alumni";
+    ctxTeam = "";
     ctxLevel = "";
     ctxStatus = "";
   }
