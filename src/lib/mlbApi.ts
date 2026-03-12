@@ -185,17 +185,34 @@ export async function searchMlbPlayerByName(
 ): Promise<MlbCurrentTeamInfo | null> {
   const firstLower = firstName.toLowerCase().trim();
   const lastLower = lastName.toLowerCase().trim();
-  const season = String(new Date().getFullYear());
+  const currentYear = new Date().getFullYear();
+  const season = String(currentYear);
+  const seasonPrev = String(currentYear - 1);
 
   // Fetch all sport levels in parallel — each response is independently cached
   // for one hour, so after the first cache-miss the overhead is negligible.
-  const allPeople = (
-    await Promise.all(
+  //
+  // Also fetch the prior season as a fallback: during early spring training
+  // the current year may have fewer than 1,000 players (rosters not yet
+  // finalised), causing misses.  Prior season covers anyone who played last
+  // year and is still in the system.
+  const [currentPlayers, prevPlayers] = await Promise.all([
+    Promise.all(
       SPORT_IDS_FOR_SEARCH.map((sportId) =>
         fetchSportPlayerIds(sportId, season)
       )
-    )
-  ).flat();
+    ).then((r) => r.flat()),
+    Promise.all(
+      SPORT_IDS_FOR_SEARCH.map((sportId) =>
+        fetchSportPlayerIds(sportId, seasonPrev)
+      )
+    ).then((r) => r.flat()),
+  ]);
+
+  // Merge both seasons, deduplicated by person ID.
+  // Current-season entries take priority (appear first) so if a player's team
+  // differs between seasons, we'll resolve with current-season data.
+  const allPeople = [...currentPlayers, ...prevPlayers];
 
   // Deduplicate by person ID (a player can appear in multiple sport levels).
   const seen = new Set<number>();

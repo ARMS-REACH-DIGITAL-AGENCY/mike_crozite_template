@@ -10,6 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "sync:bootstrap-ids": "tsx scripts/bootstrap-mlb-player-ids.ts",
+    "sync:bootstrap-ids:dry": "tsx scripts/bootstrap-mlb-player-ids.ts --dry-run",
     "sync:rosters": "tsx scripts/sync-mlb-full-org-rosters.ts",
     "sync:rosters:dry": "tsx scripts/sync-mlb-full-org-rosters.ts --dry-run",
     "sync:transactions": "tsx scripts/sync-mlb-transactions.ts",
