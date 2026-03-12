@@ -728,6 +728,57 @@ export async function getPlayerPhotos(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
+// MLB API SOURCE MAP — map our internal playerid ↔ MLB Stats API person ID
+// ---------------------------------------------------------------------------
+
+/**
+ * Look up the MLB Stats API person ID for a player.
+ * Returns null if no mapping exists yet (sync hasn't run for this player).
+ */
+export async function getPlayerMlbApiId(playerid: string): Promise<number | null> {
+  try {
+    const { rows } = await query(
+      `SELECT source_player_id
+       FROM player_source_map
+       WHERE playerid::text = $1
+         AND source = 'mlb_api'
+       LIMIT 1`,
+      [playerid]
+    );
+    const raw = rows[0]?.source_player_id;
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return isNaN(n) ? null : n;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist an mlb_api → canonical playerid mapping so subsequent page renders
+ * skip the name-search round-trip.  Non-fatal on failure.
+ */
+export async function upsertPlayerMlbApiId(
+  playerid: string,
+  mlbPersonId: number,
+  fullName: string
+): Promise<void> {
+  try {
+    await query(
+      `INSERT INTO player_source_map
+         (playerid, source, source_player_id, source_player_name, updated_at)
+       VALUES ($1, 'mlb_api', $2, $3, NOW())
+       ON CONFLICT (source, source_player_id) DO UPDATE SET
+         playerid           = EXCLUDED.playerid,
+         source_player_name = EXCLUDED.source_player_name,
+         updated_at         = EXCLUDED.updated_at`,
+      [playerid, String(mlbPersonId), fullName]
+    );
+  } catch {
+    // Non-fatal — the page still renders with MLB API data; mapping is best-effort
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ROSTER TRUTH — resolved current team + transactions
 // ---------------------------------------------------------------------------
 

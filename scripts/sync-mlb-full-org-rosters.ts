@@ -1,17 +1,49 @@
 #!/usr/bin/env ts-node
 // scripts/sync-mlb-full-org-rosters.ts
-// YAT?STATS — MLB Full-Season Org Roster Sync
+// YAT?STATS — MLB Full-Season Org Roster Sync  (THE ONE CANONICAL SYNC SCRIPT)
 //
-// Pulls the fullSeason roster for all 30 MLB organizations from the MLB Stats
-// API, capturing MLB and MiLB affiliate assignments for each player.  Each
-// entry is matched to a canonical YAT?STATS playerid (via player_source_map
-// first, then conservative exact-name fallback) and upserted into
-// player_current_team with the assigned team name, level, and MLB API team id.
+// WHY THIS SCRIPT EXISTS
+// ──────────────────────
+// Our canonical player records (tbc_players_raw) carry stats from
+// tbc_batting_raw / tbc_pitching_raw.  Those stat rows reflect the team a
+// player appeared for most often in a season — NOT the team they currently
+// play for.  Dom Hamel, for example, accumulated most of his 2025 AB with the
+// Syracuse Mets even though he later moved to the SWB RailRiders (Yankees AAA).
+// Stats-based team lookup therefore always lags reality, sometimes by months.
+//
+// The MLB Stats API `fullSeason` roster type returns EVERY player assigned to
+// any team in an organization's system for the full season — from the MLB
+// 26-man active roster all the way down to Rookie ball.  This is the only
+// reliable, real-time source for "where is this player YAT?"
+//
+// WHY NOT THE 40-MAN / fullRoster SCRIPT?
+// ─────────────────────────────────────────
+// A separate "org roster" script was written that uses rosterType=fullRoster
+// (the MLB 40-man roster) and hardcodes level='MLB' for every entry.  That
+// script misses every player below 40-man status — the majority of tracked
+// YAT?STATS alumni — and would overwrite accurate minor-league data with wrong
+// data.  It has been removed.  This script is the one to run.
+//
+// NICKNAME / LEGAL-NAME MISMATCH FIX
+// ───────────────────────────────────
+// Our DB stores preferred/nickname first names (e.g. "Dom" for Dominic Hamel).
+// The MLB Stats API returns legal first names ("Dominic").  Exact-string
+// matching therefore silently skips those players (logged as UNMATCHED).
+// This script now adds a Step 2.5 prefix-based nickname fallback:
+//   "dominic".startsWith("dom")  →  matches  ✓
+//   "dom".startsWith("dom")      →  exact, already matched in Step 2
+// Only unambiguous (single-candidate) nickname matches are accepted.
+//
+// ENDPOINTS USED  (verified against official MLB Stats API docs)
+// ──────────────────────────────────────────────────────────────
+//   GET /teams?sportId=1&season=               → 30 MLB orgs
+//   GET /teams?sportIds=1,11-16&hydrate=sport  → affiliate team/level map
+//   GET /teams/{teamId}/roster?rosterType=fullSeason&season=&hydrate=person,team
 //
 // Usage:
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts               # all orgs, current season
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --season 2024 # specific season
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --dry-run     # preview, no writes
+//   npm run sync:rosters                   # all orgs, current season
+//   npm run sync:rosters -- --season 2024  # specific season
+//   npm run sync:rosters:dry               # preview, no DB writes
 //
 // Required env vars:
 //   DATABASE_URL  — Neon Postgres connection string
@@ -67,6 +99,10 @@ interface MlbRosterEntry {
     id: number;
     fullName?: string;
     firstName?: string;
+    /** useName is the MLB API's preferred/nickname field (e.g. "Dom" for
+     *  Dominic Hamel).  Our canonical DB stores the same preferred name, so
+     *  this is the primary key for name matching — not firstName. */
+    useName?: string;
     lastName?: string;
   };
   position?: { name?: string; abbreviation?: string };
@@ -178,7 +214,7 @@ async function fetchAllTeamsWithSport(): Promise<
 async function fetchFullSeasonRoster(
   teamId: number
 ): Promise<MlbRosterResponse | null> {
-  const url = `${MLB_API_BASE}/teams/${teamId}/roster?rosterType=fullSeason&season=${SEASON}&hydrate=person,team`;
+  const url = `${MLB_API_BASE}/teams/${teamId}/roster?rosterType=fullSeason&season=${SEASON}&hydrate=person(useName,firstName,lastName,fullName),team`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -217,6 +253,53 @@ function buildNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
     index.set(key, bucket);
   }
   return index;
+}
+
+/**
+ * Secondary index keyed by lowercase lastName for prefix-based fallback.
+ * Used only when both firstName and useName exact matches fail.
+ */
+function buildLastNameIndex(
+  players: DbPlayerRow[]
+): Map<string, DbPlayerRow[]> {
+  const index = new Map<string, DbPlayerRow[]>();
+  for (const p of players) {
+    const key = p.lastname.toLowerCase();
+    const bucket = index.get(key) ?? [];
+    bucket.push(p);
+    index.set(key, bucket);
+  }
+  return index;
+}
+
+/**
+ * Last-resort prefix match: MLB firstName/useName starts with our stored name
+ * or vice-versa.  Returns only a single unambiguous result.
+ *
+ * This fires only when both the firstName-key and useName-key exact lookups
+ * miss.  Real-world example (should now be rare): our DB has "TJ" but MLB
+ * API has useName="T.J." and firstName="Thomas".
+ */
+function findPrefixMatch(
+  mlbFirstName: string,
+  mlbUseName: string,
+  mlbLastName: string,
+  lastNameIndex: Map<string, DbPlayerRow[]>
+): DbPlayerRow | null {
+  const mlbFirst = mlbFirstName.toLowerCase();
+  const mlbUse = mlbUseName.toLowerCase();
+  const mlbLast = mlbLastName.toLowerCase();
+
+  const candidates = (lastNameIndex.get(mlbLast) ?? []).filter((p) => {
+    const dbFirst = p.firstname.toLowerCase();
+    // Prefix match on firstName
+    if (mlbFirst.startsWith(dbFirst) || dbFirst.startsWith(mlbFirst)) return true;
+    // Prefix match on useName
+    if (mlbUse && (mlbUse.startsWith(dbFirst) || dbFirst.startsWith(mlbUse))) return true;
+    return false;
+  });
+
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 async function resolveFromSourceMap(
@@ -303,14 +386,17 @@ async function main() {
   const dbPlayers = await getAllDbPlayers();
   console.log(`✓ Loaded ${dbPlayers.length} players from DB`);
   const nameIndex = buildNameIndex(dbPlayers);
-  console.log(`✓ Name index built (${nameIndex.size} unique name keys)`);
+  const lastNameIndex = buildLastNameIndex(dbPlayers);
+  console.log(`✓ Name indexes built (${nameIndex.size} unique name keys)`);
   console.log("");
 
   // --- Per-run counters ------------------------------------------------------
   let orgsProcessed = 0;
   let totalEntries = 0;
   let resolvedViaSourceMap = 0;
-  let resolvedViaName = 0;
+  let resolvedViaFirstName = 0;
+  let resolvedViaUseName = 0;
+  let resolvedViaPrefix = 0;
   let ambiguousSkipped = 0;
   let unmatchedSkipped = 0;
   let rowsWritten = 0;
@@ -369,14 +455,51 @@ async function main() {
         continue;
       }
 
-      // ----- Step 2: conservative exact-name fallback -----------------------
-      const nameKey = buildNameKey(p.firstName ?? "", p.lastName ?? "");
-      const matches = nameIndex.get(nameKey) ?? [];
+      // ----- Step 2: name matching (three tiers) ----------------------------
+      //
+      // Tier A — useName exact match (BEST): useName is the MLB API's
+      //   preferred/nickname field and matches what our DB stores.
+      //   "Dom Hamel" in DB → useName="Dom" in API → exact hit. ✓
+      //
+      // Tier B — firstName exact match: for players who go by their legal name.
+      //   "Michael King" in DB → firstName="Michael" in API → exact hit. ✓
+      //
+      // Tier C — prefix fallback (LAST RESORT): catches edge cases like "TJ"
+      //   vs "T.J." or initialisms where neither name field exactly matches.
+      //
+      // In all tiers, last names must match exactly.
+
+      const useNameKey = buildNameKey(p.useName ?? "", p.lastName ?? "");
+      const firstNameKey = buildNameKey(p.firstName ?? "", p.lastName ?? "");
+
+      // Tier A: useName exact match
+      let matches = p.useName ? (nameIndex.get(useNameKey) ?? []) : [];
+      let matchTier = "useName";
+
+      // Tier B: firstName exact match (if useName missed or is same as firstName)
+      if (matches.length === 0) {
+        matches = nameIndex.get(firstNameKey) ?? [];
+        matchTier = "firstName";
+      }
+
+      if (matches.length === 0) {
+        // Tier C: prefix fallback
+        const prefixMatch = findPrefixMatch(
+          p.firstName ?? "",
+          p.useName ?? "",
+          p.lastName ?? "",
+          lastNameIndex
+        );
+        if (prefixMatch) {
+          matches = [prefixMatch];
+          matchTier = "prefix";
+        }
+      }
 
       if (matches.length === 0) {
         unmatchedSkipped++;
         console.log(
-          `  UNMATCHED: ${displayName} (mlbId=${p.id}, team=${assignedTeamName})`
+          `  UNMATCHED: ${displayName} (mlbId=${p.id}, useName=${p.useName ?? "—"}, team=${assignedTeamName})`
         );
         continue;
       }
@@ -384,14 +507,17 @@ async function main() {
       if (matches.length > 1) {
         ambiguousSkipped++;
         console.log(
-          `  AMBIGUOUS (${matches.length} matches): ${displayName} (mlbId=${p.id}) — skipping`
+          `  AMBIGUOUS (${matches.length} matches, tier=${matchTier}): ${displayName} (mlbId=${p.id}) — skipping`
         );
         continue;
       }
 
       // Exactly one match — safe to use.
       const dbPlayer = matches[0];
-      resolvedViaName++;
+      if (matchTier === "useName") resolvedViaUseName++;
+      else if (matchTier === "firstName") resolvedViaFirstName++;
+      else resolvedViaPrefix++;
+
       if (!dryRun) {
         await upsertFullSeasonTeam(
           dbPlayer.playerid,
@@ -404,7 +530,7 @@ async function main() {
         rowsWritten++;
       } else {
         console.log(
-          `  [DRY RUN] name-match: ${displayName} → ${assignedTeamName} (${level}) playerid=${dbPlayer.playerid}`
+          `  [DRY RUN] ${matchTier}: ${displayName} (useName=${p.useName ?? "—"}) → ${assignedTeamName} (${level}) playerid=${dbPlayer.playerid}`
         );
       }
     }
@@ -415,12 +541,14 @@ async function main() {
   // --- Summary ---------------------------------------------------------------
   console.log("");
   console.log("=== Full-Season Org Roster Sync Complete ===");
-  console.log(`Organizations processed:      ${orgsProcessed}`);
-  console.log(`Roster entries processed:     ${totalEntries}`);
-  console.log(`Resolved via source map:      ${resolvedViaSourceMap}`);
-  console.log(`Resolved via name match:      ${resolvedViaName}`);
-  console.log(`Ambiguous skipped:            ${ambiguousSkipped}`);
-  console.log(`Unmatched skipped:            ${unmatchedSkipped}`);
+  console.log(`Organizations processed:          ${orgsProcessed}`);
+  console.log(`Roster entries processed:         ${totalEntries}`);
+  console.log(`Resolved via source map:          ${resolvedViaSourceMap}`);
+  console.log(`Resolved via useName match:       ${resolvedViaUseName}`);
+  console.log(`Resolved via firstName match:     ${resolvedViaFirstName}`);
+  console.log(`Resolved via prefix fallback:     ${resolvedViaPrefix}`);
+  console.log(`Ambiguous skipped:                ${ambiguousSkipped}`);
+  console.log(`Unmatched skipped:                ${unmatchedSkipped}`);
   console.log(
     `Rows written to player_current_team: ${dryRun ? "0 (dry run)" : String(rowsWritten)}`
   );

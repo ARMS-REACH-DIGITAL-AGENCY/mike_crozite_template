@@ -6,7 +6,16 @@ import {
   getPlayerBattingStats,
   getPlayerPitchingStats,
   getResolvedCurrentTeam,
+  getPlayerMlbApiId,
+  upsertPlayerMlbApiId,
 } from "@/lib/db";
+import {
+  fetchMlbPlayerCurrentTeam,
+  fetchNextTeamGame,
+  searchMlbPlayerByName,
+  type MlbCurrentTeamInfo,
+  type MlbNextGame,
+} from "@/lib/mlbApi";
 
 function fmt(v: any, decimals = 0): string {
   if (v === null || v === undefined || v === "" || v === "--") return "--";
@@ -42,31 +51,101 @@ export default async function PlayerProfilePage({
     battingSeasons,
     pitchingSeasons,
     resolvedCurrentTeam,
+    storedMlbId,
   ] = await Promise.all([
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
     getResolvedCurrentTeam(safePlayerId),
+    getPlayerMlbApiId(safePlayerId),
   ]);
 
   const displayName = `${player.firstname || ""} ${player.lastname || ""}`.trim();
 
-  // TEAM DISPLAY LOGIC: Kill the Syracuse Ghost
-  // "Syracuse Mets" is a phantom team that appears when the roster-truth row
-  // is stale. Suppress it and prefer the most-recent non-Syracuse, non-numeric
-  // season team instead. Fall back to "Alumni" if nothing better is found.
-  // NOTE: When the `teams` lookup table has no entry for a teamid, the view
-  // falls back to the raw numeric teamid string (e.g. "12345") — skip those.
+  // ---------------------------------------------------------------------------
+  // LIVE MLB API LOOKUP
+  // Priority: player_source_map (stable MLB person ID) → name search fallback.
+  //
+  // Fast path: if the weekly sync has already written the player's MLB person
+  // ID into player_source_map, use it directly — one API call, instant result.
+  //
+  // Fallback: if no ID is stored yet (sync hasn't run, or player was UNMATCHED
+  // due to a nickname mismatch that has since been fixed), search by name using
+  // the sports_players endpoint.  We check useName first (the MLB API's
+  // preferred/nickname field — e.g. "Dom" for Dominic Hamel) which matches
+  // what our DB stores, so the hit is usually exact.  Once found we persist
+  // the MLB ID to player_source_map so subsequent renders use the fast path.
+  // ---------------------------------------------------------------------------
+  let mlbInfo: MlbCurrentTeamInfo | null = null;
+  let nextGame: MlbNextGame | null = null;
+
+  if (storedMlbId) {
+    // Fast path — stable ID already known
+    mlbInfo = await fetchMlbPlayerCurrentTeam(storedMlbId);
+  } else {
+    // Name-search fallback — uses sports_players endpoint (documented API)
+    mlbInfo = await searchMlbPlayerByName(
+      player.firstname || "",
+      player.lastname || ""
+    );
+    // Persist the ID so next render uses the fast path (fire-and-forget)
+    if (mlbInfo) {
+      void upsertPlayerMlbApiId(safePlayerId, mlbInfo.mlbPersonId, mlbInfo.fullName);
+    }
+  }
+
+  if (mlbInfo) {
+    nextGame = await fetchNextTeamGame(mlbInfo.teamId, mlbInfo.sportId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // TEAM DISPLAY LOGIC
+  // Priority (highest → lowest):
+  //   1. Live MLB Stats API  (real-time, authoritative)
+  //   2. v_player_current_team_resolved  (populated by weekly roster sync)
+  //   3. Most-recent non-ghost batting/pitching season team
+  //   4. "Alumni" (player not found in any active roster)
+  //
+  // "Syracuse Mets" is a phantom team from stale roster-truth rows — suppress it
+  // at every level.  Raw numeric team IDs mean the teams lookup table has no
+  // entry for that teamid; skip those too.
+  // ---------------------------------------------------------------------------
   const isSyracuseMets = (name: string) => /^syracuse\s+mets$/i.test(name.trim());
-  let teamDisplayName = (resolvedCurrentTeam?.team_name || "").trim();
+
+  let teamDisplayName = mlbInfo?.teamName ?? "";
+  let teamLevel = mlbInfo?.level ?? "";
+  let teamStatus = mlbInfo?.active ? (mlbInfo.status || "Active") : "";
+
+  if (!teamDisplayName) {
+    // Fall back to resolved current team from the weekly sync
+    const rct = (resolvedCurrentTeam?.team_name || "").trim();
+    if (rct && !isSyracuseMets(rct)) {
+      teamDisplayName = rct;
+      teamLevel = resolvedCurrentTeam?.level ?? "";
+    }
+  }
+
   if (!teamDisplayName || isSyracuseMets(teamDisplayName)) {
+    // Fall back to the most-recent valid season team
     const allSeasons = [...(battingSeasons || []), ...(pitchingSeasons || [])];
     const betterTeam = allSeasons
       .sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0))
-      // Skip Syracuse ghost, and skip raw numeric teamids (unresolved teams table entries)
       .find(s => s.team_name && !isSyracuseMets(s.team_name) && !/^\d+$/.test(s.team_name));
-    if (betterTeam) teamDisplayName = betterTeam.team_name;
+    if (betterTeam) {
+      teamDisplayName = betterTeam.team_name;
+      teamLevel = betterTeam.level ?? "";
+    }
   }
-  if (!teamDisplayName || isSyracuseMets(teamDisplayName)) teamDisplayName = "Alumni";
+
+  if (!teamDisplayName || isSyracuseMets(teamDisplayName)) {
+    teamDisplayName = "Alumni";
+    teamLevel = "";
+    teamStatus = "";
+  }
+
+  // Format next game string: "03-27 @ BUF" or "03-27 vs BUF"
+  const nextGameStr = nextGame
+    ? `${nextGame.date.slice(5).replace("-", "/")} ${nextGame.home ? "vs" : "@"} ${nextGame.opponent}`
+    : null;
 
   return (
     <main id="main-content" className="player-profile">
@@ -75,7 +154,29 @@ export default async function PlayerProfilePage({
         <div className="player-meta-band-inner">
           <div className="player-meta-id">
             <div className="player-meta-id-name">{displayName}</div>
-            <div className="player-meta-id-context">{teamDisplayName}</div>
+            <div className="player-meta-id-context">
+              {teamDisplayName}
+              {teamLevel && (
+                <span className="player-level-badge">{teamLevel}</span>
+              )}
+            </div>
+            {(teamStatus || nextGameStr) && (
+              <div className="player-meta-live">
+                {teamStatus && (
+                  <span
+                    className="player-status-badge"
+                    data-active={String(mlbInfo?.active ?? false)}
+                  >
+                    {teamStatus}
+                  </span>
+                )}
+                {nextGameStr && mlbInfo?.teamAbbreviation && (
+                  <span className="player-next-game">
+                    Next {mlbInfo.teamAbbreviation} Game: {nextGameStr}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
