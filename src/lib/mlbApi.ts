@@ -254,7 +254,7 @@ export async function fetchNextTeamGame(
       `&teamId=${teamId}` +
       `&startDate=${today}` +
       `&endDate=${future}` +
-      `&gameTypes=S,R` +
+      `&gameTypes=S,R` + // S=Spring Training, R=Regular Season (plural per MLB Stats API docs)
       `&fields=dates,date,games,gamePk,gameType,teams,home,away,team,id,abbreviation`;
 
     const res = await fetch(url, {

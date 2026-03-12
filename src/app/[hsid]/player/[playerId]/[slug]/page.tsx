@@ -142,7 +142,9 @@ export default async function PlayerProfilePage({
     teamStatus = "";
   }
 
-  // Format next game string: "03-27 @ BUF" or "03-27 vs BUF"
+  // Format next game string: "03/27 @ BUF" or "03/27 vs BUF"
+  // nextGame.date is always ISO "YYYY-MM-DD"; slice(5) strips the year, then
+  // replace converts the dash separator to a slash: "03-27" → "03/27".
   const nextGameStr = nextGame
     ? `${nextGame.date.slice(5).replace("-", "/")} ${nextGame.home ? "vs" : "@"} ${nextGame.opponent}`
     : null;
