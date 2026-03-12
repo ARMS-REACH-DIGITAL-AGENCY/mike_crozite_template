@@ -100,6 +100,10 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(!pair)return;
     var tab=pair.dataset.tab;
     if(!tab)return;
+    /* Only intercept when the school sections exist on this page (school home).
+       On player-profile pages there are no #sec-* elements, so let the browser
+       navigate normally back to the school home page. */
+    if(!document.getElementById('sec-'+tab))return;
     e.preventDefault();
     showSection(tab);
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
@@ -432,12 +436,16 @@ window.__firebase_config = ${firebaseConfigJSON};
   var searchInput=document.getElementById('playerSearch');
   var liveResults=document.getElementById('liveResults');
   if(searchInput&&liveResults){
+    var drawerSearchTimer=null;
     searchInput.addEventListener('input',function(){
       var q=this.value.toLowerCase().trim();
-      var results='';
-      var seen={};
-      if(q.length>=2){
-        document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
+      if(q.length<2){liveResults.innerHTML='';return;}
+      var cards=document.querySelectorAll('.yat-card[data-name]');
+      if(cards.length>0){
+        /* ── DOM-based search: school home page has player cards loaded ── */
+        var results='';
+        var seen={};
+        cards.forEach(function(card){
           var name=card.getAttribute('data-name')||'';
           var pid=card.getAttribute('data-playerid')||'';
           var slug=card.getAttribute('data-slug')||'';
@@ -446,11 +454,32 @@ window.__firebase_config = ${firebaseConfigJSON};
             var nameEl=card.querySelector('.yat-name');
             var dn;
             if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
-            results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+            results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px \'Bebas Neue\',sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
+        liveResults.innerHTML=results||'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>';
+      } else {
+        /* ── API-based search: player-profile page has no DOM cards ── */
+        clearTimeout(drawerSearchTimer);
+        liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Searching\u2026</div>';
+        var qSnap=q;
+        drawerSearchTimer=setTimeout(function(){
+          fetch('/api/players/search?q='+encodeURIComponent(qSnap)+'&limit=20')
+            .then(function(r){return r.json();})
+            .then(function(data){
+              if(searchInput.value.toLowerCase().trim()!==qSnap)return;
+              var players=(data.players||[]).filter(function(p){return String(p.schoolId)===String(window.__YAT_HSID);});
+              var html='';
+              players.forEach(function(p){
+                var dn=escHtml(((p.firstName||'')+' '+(p.lastName||'')).trim());
+                var href='/'+escHtml(String(window.__YAT_HSID))+'/player/'+escHtml(String(p.playerId))+(p.slug?'/'+escHtml(p.slug):'');
+                html+='<a href="'+href+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px \'Bebas Neue\',sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
+              });
+              liveResults.innerHTML=html||'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>';
+            })
+            .catch(function(){liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Search unavailable</div>';});
+        },300);
       }
-      liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
     });
   }
   function applyFilters(){
