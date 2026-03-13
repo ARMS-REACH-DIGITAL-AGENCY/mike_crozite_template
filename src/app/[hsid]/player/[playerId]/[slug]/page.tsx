@@ -29,6 +29,7 @@ import {
   getResolvedCurrentTeam,
 } from "@/lib/db";
 import { formatSchoolName } from "@/lib/playerUtils";
+import PlayerActionBar from "@/components/yatstats/PlayerActionBar";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -538,12 +539,6 @@ export default async function PlayerProfilePage({
         .pmb-line.dim{color:var(--muted)}
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
-        /* TABS — sticky under header */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
-        .profile-tabs::-webkit-scrollbar{display:none}
-        .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
-        .profile-tab.active{color:var(--fg);border-bottom-color:gold}
-        .profile-tab:hover:not(.active){color:var(--fg)}
         /* STATS */
         .stats-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .stats-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;text-align:center;padding:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase}
@@ -879,15 +874,8 @@ export default async function PlayerProfilePage({
         </div>
       </div>
 
-      {/* TABS */}
-      <div className="profile-tabs" role="tablist">
-        <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>GAME LOG</div>
-        <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>STATS</div>
-        <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
-        <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
-        <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>MENTORSHIP MARKETPLACE</div>
-        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>PHOTO GALLERY</div>
-      </div>
+      {/* ACTION BAR — icon + label tab row */}
+      <PlayerActionBar active="schedule" />
 
       {/* TAB: GAME LOG */}
       <div className="tab-content active" id="tab-overview" role="tabpanel">
@@ -1236,7 +1224,7 @@ export default async function PlayerProfilePage({
   /* Measure sticky header height and set CSS variables used by sticky tabs and min-height */
   (function setLayoutVars(){
     var header=document.getElementById('site-header');
-    var tabBar=document.querySelector('.profile-tabs');
+    var tabBar=document.querySelector('.yat-action-bar');
     var metaBand=document.querySelector('.player-meta-band');
     function update(){
       var headerHeight=header?header.offsetHeight:0;
@@ -1255,17 +1243,21 @@ export default async function PlayerProfilePage({
   var VALID_TABS=['overview','stats','news','social','mentor','gallery'];
   function activateTab(name){
     if(VALID_TABS.indexOf(name)===-1)return;
-    document.querySelectorAll('.profile-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.yat-action-btn[data-profile-tab]').forEach(function(t){
+      t.classList.remove('active');
+      t.setAttribute('aria-selected','false');
+      t.setAttribute('tabindex','-1');
+    });
     document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
-    var tab=document.querySelector('.profile-tab[data-profile-tab="'+name+'"]');
+    var tab=document.querySelector('.yat-action-btn[data-profile-tab="'+name+'"]');
     var content=document.getElementById('tab-'+name);
-    if(tab)tab.classList.add('active');
+    if(tab){tab.classList.add('active');tab.setAttribute('aria-selected','true');tab.setAttribute('tabindex','0');}
     if(content)content.classList.add('active');
   }
   /* Helper: scroll so the tab bar sits just below the sticky header + metadata band */
   function scrollToTabBar(){
     var header=document.getElementById('site-header');
-    var tabBar=document.querySelector('.profile-tabs');
+    var tabBar=document.querySelector('.yat-action-bar');
     if(!header||!tabBar)return;
     var headerH=header.offsetHeight;
     var metaBand=document.querySelector('.player-meta-band');
@@ -1274,7 +1266,7 @@ export default async function PlayerProfilePage({
     var y=tabBar.getBoundingClientRect().top+window.scrollY-headerH-metaBandH;
     window.scrollTo({top:Math.max(0,y),behavior:'auto'});
   }
-  document.querySelectorAll('.profile-tab').forEach(function(tab){
+  document.querySelectorAll('.yat-action-btn[data-profile-tab]').forEach(function(tab){
     tab.addEventListener('click',function(){
       var target=tab.getAttribute('data-profile-tab');
       activateTab(target);

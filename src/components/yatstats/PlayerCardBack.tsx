@@ -1,8 +1,8 @@
 // src/components/yatstats/PlayerCardBack.tsx
-// Back face of the flip card: THEN image, name, position, draft info, stats grid, fun zone
+// Back face of the flip card: THEN image, name, position, draft info, stats grid, action bar
 
 import SafeImage from "@/components/SafeImage";
-import FunZone from "@/components/yatstats/FunZone";
+import PlayerActionBar from "@/components/yatstats/PlayerActionBar";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 
 interface PlayerCardBackProps {
@@ -76,7 +76,17 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
             ))}
           </div>
         </div>
-        <FunZone />
+        <PlayerActionBar
+          variant="card-back"
+          hrefs={{
+            schedule: `/${resolvedHsid}/player/${pid}/${slug}#tab-overview`,
+            stats:    `/${resolvedHsid}/player/${pid}/${slug}#tab-stats`,
+            news:     `/${resolvedHsid}/player/${pid}/${slug}#tab-news`,
+            social:   `/${resolvedHsid}/player/${pid}/${slug}#tab-social`,
+            connect:  `/${resolvedHsid}/player/${pid}/${slug}#tab-mentor`,
+            upload:   `/${resolvedHsid}/player/${pid}/${slug}#tab-gallery`,
+          }}
+        />
       </div>
     </div>
   );

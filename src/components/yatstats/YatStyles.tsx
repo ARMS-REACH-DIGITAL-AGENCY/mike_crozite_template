@@ -120,6 +120,19 @@ export default function YatStyles() {
       .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
       .yat-fun-zone{border-top:1px solid var(--line);padding:4px 8px;flex-shrink:0;background:rgba(0,0,0,.3)}
       .yat-fun-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.1em;opacity:.5;text-align:center;text-transform:uppercase}
+      /* PLAYER ACTION BAR — reusable icon+label action row (player profile and card-back) */
+      .yat-action-bar{display:flex;align-items:stretch;background:var(--header-bg);backdrop-filter:blur(8px);border-bottom:2px solid var(--line);position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;max-width:1100px;margin:0 auto}
+      .yat-action-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px;min-height:56px;border:none;border-right:1px solid var(--line);border-bottom:3px solid transparent;margin-bottom:-2px;background:none;color:var(--muted);cursor:pointer;text-decoration:none;transition:color .2s,border-color .2s;-webkit-tap-highlight-color:transparent;font-family:inherit}
+      .yat-action-btn:last-child{border-right:none}
+      .yat-action-btn i{font-size:26px;line-height:1;display:block}
+      .yat-action-label{font:700 10px/1 "Bebas Neue",sans-serif;letter-spacing:.05em;white-space:nowrap;display:block}
+      .yat-action-btn.active{color:var(--fg);border-bottom-color:var(--gold,gold)}
+      .yat-action-btn:hover:not(.active){color:var(--fg)}
+      .yat-action-btn:focus-visible{outline:2px solid var(--fg);outline-offset:-2px}
+      /* Card-back variant — compact, non-sticky, inherits card-scoped CSS vars */
+      .yat-action-bar--card{position:static;top:auto;border-top:1px solid var(--line);border-bottom:none;background:rgba(0,0,0,.3);backdrop-filter:none;max-width:none;margin:0;flex-shrink:0}
+      .yat-action-bar--card .yat-action-btn{min-height:44px;padding:6px 2px}
+      .yat-action-bar--card .yat-action-btn i{font-size:20px}
       .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
       .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
       .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
