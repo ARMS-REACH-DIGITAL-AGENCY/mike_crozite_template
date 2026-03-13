@@ -2,7 +2,7 @@
 // Back face of the flip card: THEN image, name, position, draft info, stats grid, fun zone
 
 import SafeImage from "@/components/SafeImage";
-import FunZone from "@/components/yatstats/FunZone";
+import PlayerActionBar from "@/components/yatstats/PlayerActionBar";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 
 interface PlayerCardBackProps {
@@ -76,7 +76,12 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
             ))}
           </div>
         </div>
-        <FunZone />
+        <PlayerActionBar
+          variant="card-back"
+          playerId={pid}
+          slug={slug}
+          resolvedHsid={resolvedHsid}
+        />
       </div>
     </div>
   );
