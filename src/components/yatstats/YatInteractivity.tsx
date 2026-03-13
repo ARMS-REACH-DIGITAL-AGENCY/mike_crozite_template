@@ -104,6 +104,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
   }());
 
+  /* [data-tab] — SectionTabs header nav (school home only) */
   document.addEventListener('click',function(e){
     var pair=e.target.closest('[data-tab]');
     if(!pair)return;
@@ -112,6 +113,17 @@ window.__firebase_config = ${firebaseConfigJSON};
     e.preventDefault();
     showSection(tab);
     history.replaceState(null,'','#sec-'+tab);
+    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+  });
+  /* [data-sec] — left drawer nav links (school home only; player profile uses plain href navigation) */
+  document.addEventListener('click',function(e){
+    var pair=e.target.closest('[data-sec]');
+    if(!pair)return;
+    var sec=pair.dataset.sec;
+    if(!sec)return;
+    e.preventDefault();
+    showSection(sec);
+    history.replaceState(null,'','#sec-'+sec);
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
   });
   var btnMenu=document.getElementById('btnMenu');
