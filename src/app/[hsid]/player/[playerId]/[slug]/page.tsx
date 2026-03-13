@@ -595,6 +595,7 @@ export default async function PlayerProfilePage({
         body.light-theme .upload-disclaimer-wrap{background:rgba(255,209,102,.1)}
         .upload-disclaimer-check{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:gold}
         .upload-disclaimer-text{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted)}
+        .upload-auth-hint{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);text-align:center;margin-top:8px}
         .upload-error{font:300 12px/1.4 Oswald,sans-serif;color:#f66;margin-top:6px;display:none}
         .upload-btn{width:100%;padding:14px;background:gold;color:#000;border:none;border-radius:10px;font:700 14px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;cursor:pointer;margin-top:8px;transition:opacity .2s}
         .upload-btn:disabled{opacity:.5;cursor:default}
@@ -1305,7 +1306,7 @@ export default async function PlayerProfilePage({
 
               <div id="uploadError" className="upload-error" role="alert" />
               <button type="submit" className="upload-btn" id="uploadSubmitBtn">Submit Photo</button>
-              <p style={{textAlign:'center',fontSize:'11px',marginTop:'8px',color:'var(--muted)',fontFamily:'Oswald,sans-serif',fontWeight:300}}>
+              <p className="upload-auth-hint">
                 A free account is required to submit. You&apos;ll be prompted to sign in when you click Submit.
               </p>
             </form>
