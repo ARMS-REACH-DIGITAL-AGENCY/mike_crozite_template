@@ -19,10 +19,10 @@ export default function HeroHeader() {
           </div>
         </div>
         <div className="yat-hero-right">
-          <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
+          <button id="openFilters" className="yat-icon-btn" type="button" aria-label="Open filters">
             <i className="ri-filter-3-line" />
           </button>
-          <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters">
+          <button id="filtersReset2" className="yat-icon-btn" type="button" aria-label="Reset filters">
             <i className="ri-restart-line" />
           </button>
         </div>

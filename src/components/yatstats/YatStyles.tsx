@@ -15,7 +15,7 @@ export default function YatStyles() {
       .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
       .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
       .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
-      .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
+      .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:10px;margin:0 2px;cursor:pointer;min-width:40px;min-height:40px;touch-action:manipulation}
       .yat-icon-btn i{font-size:20px}
       .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
       .yat-topnav{display:flex;gap:18px;align-items:center}

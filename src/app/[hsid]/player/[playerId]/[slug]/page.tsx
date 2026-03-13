@@ -983,6 +983,12 @@ export default async function PlayerProfilePage({
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  /* Pre-load: apply saved theme immediately to prevent flash */
+  var saved=localStorage.getItem('yat-theme');
+  if(saved==='light')document.body.classList.add('light-theme');
+  /* DOM-dependent wiring — deferred until document is ready so layout.tsx shell
+     elements (buttons, drawers, slots) are guaranteed to be in the DOM. */
+  function wireUI(){
   /* Populate shell header slots for player profile */
   (function(){
     var _resolvedHsid=${JSON.stringify(resolvedHsid)};
@@ -998,9 +1004,7 @@ export default async function PlayerProfilePage({
     var rSlot=document.getElementById('schoolRowRight');
     if(rSlot){var fb=document.createElement('button');fb.id='btnFanFav';fb.className='fav-btn-hero';fb.setAttribute('aria-label','Favorite');var icon=document.createElement('i');icon.className='ri-star-line';fb.appendChild(icon);fb.appendChild(document.createTextNode(' FAVORITE'));rSlot.appendChild(fb);}
   }());
-  /* Theme */
-  var saved=localStorage.getItem('yat-theme');
-  if(saved==='light')document.body.classList.add('light-theme');
+  /* Theme toggle */
   var btn=document.getElementById('theme-toggle');
   if(btn){
     btn.addEventListener('click',function(){
@@ -1382,6 +1386,8 @@ export default async function PlayerProfilePage({
     },{threshold:0,rootMargin:'0px 0px 0px 0px'});
     observer.observe(heroMeta);
   }());
+  } /* end wireUI */
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',wireUI);}else{wireUI();}
 })();
       `}} />
     </>

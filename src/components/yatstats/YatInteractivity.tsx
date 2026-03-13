@@ -55,6 +55,9 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
+  /* DOM-dependent wiring — deferred until document is ready so layout.tsx shell
+     elements (buttons, drawers) are guaranteed to be in the DOM. */
+  function wireUI(){
   var btn=document.getElementById('theme-toggle');
   if(btn){
     btn.addEventListener('click',function(){
@@ -961,6 +964,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* Also load if news section is already visible on page load */
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
+  } /* end wireUI */
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',wireUI);}else{wireUI();}
 })();
         `,
       }}

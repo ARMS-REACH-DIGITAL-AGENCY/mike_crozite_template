@@ -10,7 +10,7 @@ interface AccountDrawerProps {
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   return (
     <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-      <button className="yat-icon-btn yat-close-btn" id="closeAccount">
+      <button className="yat-icon-btn yat-close-btn" id="closeAccount" type="button">
         <i className="ri-close-line" />
       </button>
       <h3>ACCOUNT</h3>

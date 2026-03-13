@@ -58,16 +58,16 @@ export default async function HsidLayout({
           <div className="yat-left-icons">
             {/* DOM slot: page scripts inject page-specific left icons (e.g. back arrow on player profile) */}
             <span id="topbarLeftExt" />
-            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu">
+            <button className="yat-icon-btn" id="btnMenu" type="button" aria-label="Menu">
               <i className="ri-menu-line" />
             </button>
-            <button className="yat-icon-btn" id="btnAccount" aria-label="Account">
+            <button className="yat-icon-btn" id="btnAccount" type="button" aria-label="Account">
               <i className="ri-user-3-line" />
             </button>
-            <button className="yat-icon-btn" id="btnSearch" aria-label="Search">
+            <button className="yat-icon-btn" id="btnSearch" type="button" aria-label="Search">
               <i className="ri-search-line" />
             </button>
-            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme">
+            <button className="yat-icon-btn" id="theme-toggle" type="button" aria-label="Toggle Theme">
               <i className="ri-sun-line" />
             </button>
           </div>
@@ -105,7 +105,7 @@ export default async function HsidLayout({
 
       {/* LEFT DRAWER — Player search + navigation */}
       <aside className="yat-drawer" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft">
+        <button className="yat-icon-btn yat-close-btn" id="closeLeft" type="button">
           <i className="ri-close-line" />
         </button>
         <div className="yat-drawer-content">

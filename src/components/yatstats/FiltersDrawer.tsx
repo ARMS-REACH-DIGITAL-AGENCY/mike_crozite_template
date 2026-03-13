@@ -8,7 +8,7 @@ interface FiltersDrawerProps {
 export default function FiltersDrawer({ gradClasses }: FiltersDrawerProps) {
   return (
     <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
-      <button className="yat-icon-btn yat-close-btn" id="closeFilters">
+      <button className="yat-icon-btn yat-close-btn" id="closeFilters" type="button">
         <i className="ri-close-line" />
       </button>
       <h3>FILTERS</h3>
