@@ -1845,9 +1845,14 @@ export default async function PlayerProfilePage({
     if(uploadAnotherBtn){uploadAnotherBtn.addEventListener('click',function(){
       if(uploadSuccess)uploadSuccess.style.display='none';
       if(uploadFormWrap)uploadFormWrap.style.display='block';
+      /* Revoke all object URLs before clearing the queue */
+      pendingFiles.forEach(function(f){URL.revokeObjectURL(f.objectUrl);});
       pendingFiles=[];renderQueue();clearUploadError();
     });}
-    /* Form submit — process all pending files sequentially */
+    /* Revoke all object URLs when page is unloaded to prevent memory leaks */
+    window.addEventListener('beforeunload',function(){
+      pendingFiles.forEach(function(f){URL.revokeObjectURL(f.objectUrl);});
+    });    /* Form submit — process all pending files sequentially */
     var uploadProgressWrap=document.getElementById('uploadProgressWrap');
     var uploadProgressFill=document.getElementById('uploadProgressFill');
     var uploadProgressText=document.getElementById('uploadProgressText');
@@ -1877,7 +1882,7 @@ export default async function PlayerProfilePage({
       var total=pendingFiles.length;
       var done=0;
       var uploaderName=(user.firstName||(user.email||'').split('@')[0]||'Fan');
-      var failed=0;
+      var failedNums=[];/* 1-based photo numbers that failed */
       /* Upload one file, returns a Promise */
       function uploadOne(item){
         var file=item.file;
@@ -1910,14 +1915,17 @@ export default async function PlayerProfilePage({
       var queue=pendingFiles.slice();
       function processNext(idx){
         if(idx>=queue.length){
-          /* All done */
+          /* All done — revoke object URLs */
+          pendingFiles.forEach(function(f){URL.revokeObjectURL(f.objectUrl);});
           if(uploadProgressWrap)uploadProgressWrap.style.display='none';
           if(uploadSubmitBtn)uploadSubmitBtn.disabled=false;
-          var succeeded=total-failed;
+          var succeeded=total-failedNums.length;
           if(uploadSuccessHeading)uploadSuccessHeading.textContent=succeeded===1?'Photo Submitted!':(succeeded+' Photos Submitted!');
-          if(uploadSuccessBody)uploadSuccessBody.textContent=succeeded===1
+          var bodyMsg=succeeded===1
             ?'Your photo is pending review and will appear on the profile once approved. Thank you!'
             :(succeeded+' of '+total+' photos submitted and pending review. Thank you for contributing!');
+          if(failedNums.length){bodyMsg+=' (Photo'+(failedNums.length>1?'s':'')+' '+failedNums.join(', ')+' could not be uploaded — please try again.)';}
+          if(uploadSuccessBody)uploadSuccessBody.textContent=bodyMsg;
           if(uploadFormWrap)uploadFormWrap.style.display='none';
           if(uploadSuccess)uploadSuccess.style.display='block';
           return;
@@ -1929,8 +1937,8 @@ export default async function PlayerProfilePage({
           if(uploadProgressFill)uploadProgressFill.style.width=Math.round((done/total)*100)+'%';
           processNext(idx+1);
         }).catch(function(err){
-          failed++;
-          console.warn('Upload failed for photo '+(idx+1)+':',err.message);
+          failedNums.push(done);
+          console.warn('Upload failed for photo '+done+':',err.message);
           processNext(idx+1);/* continue with remaining */
         });
       }
