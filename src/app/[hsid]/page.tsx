@@ -14,7 +14,7 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
+import { gradClass, formatSchoolName } from "@/lib/playerUtils";
 
 import HeroHeader from "@/components/yatstats/HeroHeader";
 import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
@@ -79,9 +79,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   ]);
 
   const schoolName = formatSchoolName(String(school.hsname || ""));
-  const location = (String(school.hslocation || "")).toUpperCase();
-  const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
   const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
   const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
@@ -91,13 +88,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
   return (
     <>
-      <HeroHeader
-        schoolName={schoolName}
-        location={location}
-        crestUrl={crestUrl}
-        defaultSectionLabel={defaultSectionLabel}
-        navItems={NAV_ITEMS}
-      />
+      <HeroHeader />
 
       <FiltersDrawer gradClasses={gradClasses} />
 
@@ -175,7 +166,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </section>
 
         {/* CURRENT TEAM */}
-        <section id="sec-team" className="yat-section">
+        <section id="sec-current" className="yat-section">
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">🏟️</div>
             <div className="yat-placeholder-title">Current Team Roster</div>
@@ -235,14 +226,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </section>
 
       </main>
-
-      {/* SPONSOR FOOTER */}
-      <footer className="yat-footer">
-        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-          <span className="sponsor-text">Presented by</span>
-          <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
-        </a>
-      </footer>
 
       <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
 

@@ -85,7 +85,7 @@ window.__firebase_config = ${firebaseConfigJSON};
         active:'ACTIVE BASEBALL ALUMNI',
         news:'ACTIVE ALUMNI NEWS',
         alltime:'NEXT-LEVEL ALL-TIME LIST',
-        team:'CURRENT TEAM',
+        current:'CURRENT TEAM',
         mentor:'MENTORSHIP MARKETPLACE',
         partner:'PCD ACTION PARTNER PROGRAM',
         faq:"FAQ'S"
@@ -102,6 +102,13 @@ window.__firebase_config = ${firebaseConfigJSON};
       var tabId=hash.slice(5);
       if(document.getElementById('sec-'+tabId)){showSection(tabId);}
     }
+  }());
+
+  /* Initialize section label to active when no hash is present (layout renders it empty) */
+  (function(){
+    if(window.location.hash&&window.location.hash.slice(0,5)==='#sec-')return;
+    var lbl=document.getElementById('yatSectionLabel');
+    if(lbl&&!lbl.textContent.trim())lbl.textContent='ACTIVE BASEBALL ALUMNI';
   }());
 
   /* [data-tab] — SectionTabs header nav (school home only) */
@@ -177,6 +184,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
   var openSearch=document.getElementById('openSearch');
   if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
+  var btnSearch=document.getElementById('btnSearch');
+  if(btnSearch)btnSearch.addEventListener('click',function(){openGsModal();});
   if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
   if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
   document.addEventListener('keydown',function(e){

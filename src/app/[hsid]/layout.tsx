@@ -1,13 +1,18 @@
 // src/app/[hsid]/layout.tsx
 // Shared shell for all /{hsid}/* routes.
-// Renders once: YatStyles, drawer mask, left drawer (player search + nav),
-// AccountDrawer (right), and GlobalSearchModal overlay.
+// Owns: stable header chrome (topbar + wordmark + SchoolRow + dividers),
+//       GlobalSearchModal overlay, drawers (left + account), drawer mask, footer.
+// Pages own: body/content family + page-local slot content (back arrow, player name, FAVORITE).
 
 import { headers } from "next/headers";
 import { getSchoolByHsid, getSchoolByUrl } from "@/lib/db";
+import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import YatStyles from "@/components/yatstats/YatStyles";
 import AccountDrawer from "@/components/yatstats/AccountDrawer";
-import { NAV_ITEMS } from "@/lib/playerUtils";
+import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
+import SchoolRow from "@/components/yatstats/SchoolRow";
+import SectionTabs from "@/components/yatstats/SectionTabs";
+import { NAV_ITEMS, formatSchoolName } from "@/lib/playerUtils";
 
 export default async function HsidLayout({
   children,
@@ -29,6 +34,9 @@ export default async function HsidLayout({
   }
 
   const resolvedHsid = String(school?.hsid || hsid);
+  const schoolName = formatSchoolName(String(school?.hsname || ""));
+  const location = (String(school?.hslocation || "")).toUpperCase();
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
 
   // Subdomain for AccountDrawer GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
@@ -38,6 +46,59 @@ export default async function HsidLayout({
   return (
     <>
       <YatStyles />
+
+      {/* HEADER — stable chrome across ALL /{hsid}/* routes
+           DOM slots for page-local content:
+           • #topbarLeftExt — player profile prepends a back-arrow <a> here via inline script
+           • #yatSectionLabel — gallery YatInteractivity sets section breadcrumb;
+                                player profile inline script sets player display name
+           • #schoolRowRight — player profile inline script injects the FAVORITE button here */}
+      <header className="yat-header" id="site-header">
+        <div className="yat-container yat-topbar">
+          <div className="yat-left-icons">
+            {/* DOM slot: page scripts inject page-specific left icons (e.g. back arrow on player profile) */}
+            <span id="topbarLeftExt" />
+            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu">
+              <i className="ri-menu-line" />
+            </button>
+            <button className="yat-icon-btn" id="btnAccount" aria-label="Account">
+              <i className="ri-user-3-line" />
+            </button>
+            <button className="yat-icon-btn" id="btnSearch" aria-label="Search">
+              <i className="ri-search-line" />
+            </button>
+            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme">
+              <i className="ri-sun-line" />
+            </button>
+          </div>
+
+          <SectionTabs navItems={NAV_ITEMS} resolvedHsid={resolvedHsid} />
+
+          <div className="yat-wordmark-wrap">
+            <a
+              href="https://home.yatstats.com"
+              style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+                alt="YAT?STATS"
+                className="yat-wordmark-img"
+                style={{ height: "28px", width: "auto", filter: "var(--logo-filter)" }}
+              />
+            </a>
+          </div>
+        </div>
+
+        <div className="yat-hr" />
+
+        <SchoolRow crestUrl={crestUrl} schoolName={schoolName} location={location} />
+
+        <div className="yat-hr" />
+      </header>
+
+      {/* GLOBAL SEARCH MODAL — wired by YatInteractivity (gallery) and inline script (player profile) */}
+      <GlobalSearchModal />
 
       {/* DRAWER MASK */}
       <div className="yat-drawer-mask" id="drawerMask" />
@@ -72,9 +133,18 @@ export default async function HsidLayout({
       {/* RIGHT DRAWER — Account */}
       <AccountDrawer subdomain={subdomain} />
 
-      {/* GLOBAL SEARCH MODAL — provided by HeroHeader on school home; by page itself on player profile */}
-
       {children}
+
+      {/* FOOTER — stable chrome */}
+      <footer className="yat-footer">
+        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
+          <span className="sponsor-text">Presented by</span>
+          <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
+        </a>
+        <a href="mailto:sponsor@yatstats.com" className="sponsor-cta-link">
+          Sponsor This Page
+        </a>
+      </footer>
     </>
   );
 }

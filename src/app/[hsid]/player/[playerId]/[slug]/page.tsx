@@ -26,8 +26,7 @@ import {
   getPlayerPhotos,
   getResolvedCurrentTeam,
 } from "@/lib/db";
-import { formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
+import { formatSchoolName } from "@/lib/playerUtils";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -89,14 +88,6 @@ function fmtAvg(v: any): string {
   return n.toFixed(3).replace(/^0/, "");
 }
 
-// ---------------------------------------------------------------------------
-// Sponsor banner resolver — returns a per-player banner or null for the default.
-// Future: replace this with a DB lookup keyed by playerId.
-// ---------------------------------------------------------------------------
-type SponsorBanner = { name: string; url: string; label?: string };
-function resolveSponsorBanner(_playerId: string): SponsorBanner | null {
-  return null;
-}
 
 type BattingSeason = {
   year: string | number;
@@ -332,12 +323,6 @@ export default async function PlayerProfilePage({
     if (d) pitStatsByDate.set(d, row);
   }
 
-  // Sponsor banner — null = default site sponsor.
-  // Future: query a sponsor_banners table by playerId to allow per-player sponsor overrides.
-  // Using `let` so TypeScript doesn't narrow to `never` in the JSX truthy branch.
-  // eslint-disable-next-line prefer-const
-  const sponsorBanner = resolveSponsorBanner(safePlayerId);
-
   // Build career stats grid for the profile
   const careerBattingGrid = careerBatting
     ? [
@@ -480,6 +465,8 @@ export default async function PlayerProfilePage({
         .fav-btn-hero i{font-size:15px;transition:color .2s}
         .fav-btn-hero:hover{opacity:.7}
         .fav-btn-hero.active i{color:gold}
+        /* Right slot in shell school row — player profile pushes FAVORITE button to the far right */
+        #schoolRowRight{margin-left:auto;flex-shrink:0}
         .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
         .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
         /* CAREER PROGRESSION FILMSTRIP — chronological visual montage, no captions */
@@ -622,69 +609,7 @@ export default async function PlayerProfilePage({
           .gl-result{font-size:10px}
           .gl-stat-line{font-size:10px}
         }
-        /* Hide GlobalSearchModal's own header action buttons — we use #btnSearch in the icon row */
-        .yat-hero-right{display:none!important}
       `}</style>
-
-      {/* HEADER — sticky global shell */}
-      <header className="yat-header" id="site-header">
-        {/* Row 1: Global controls */}
-        <div className="yat-container yat-topbar">
-          <div className="yat-left-icons">
-            <a href={`/${resolvedHsid}`} className="yat-icon-btn" aria-label="Back to school"><i className="ri-arrow-left-line" /></a>
-            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
-            <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
-            <button className="yat-icon-btn" id="btnSearch" aria-label="Search"><i className="ri-search-line" /></button>
-            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
-          </div>
-          <nav className="yat-topnav" aria-label="Top Navigation">
-            {NAV_ITEMS.map((item) => (
-              <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="yat-nav-pair">
-                {item.thin && <span className="thin">{item.thin} </span>}
-                <span className="bold">{item.bold}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="yat-wordmark-wrap">
-            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto'}} />
-            </a>
-          </div>
-        </div>
-
-        <div className="yat-hr" />
-
-        {/* School identity band: LEFT = crest + identity, RIGHT = Add Favorite */}
-        <div className="yat-schoolrow">
-          {/* Left: crest anchored to the 3-line identity block */}
-          <div className="yat-schoolrow-id">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              id="stickyIdentityImg"
-              className="yat-crest"
-              src={crestUrl}
-              alt={`${schoolName} crest`}
-              data-crest={crestUrl}
-              data-headshot={playerThenImg}
-            />
-            <div className="yat-schooltext">
-              <div className="small">{location}</div>
-              <div className="big1">{schoolName}</div>
-              <div className="big2">{displayName}</div>
-            </div>
-          </div>
-          {/* Right: FAVORITE sits directly across from school logo / identity */}
-          <button id="btnFanFav" className="fav-btn-hero" aria-label="Favorite">
-            <i className="ri-star-line" /> FAVORITE
-          </button>
-        </div>
-
-        <div className="yat-hr" />
-      </header>
-
-      {/* GLOBAL SEARCH MODAL — provides #gsModal overlay; .yat-hero-right buttons hidden via CSS above */}
-      <GlobalSearchModal />
 
       {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
       <section className="career-strip" id="playerHeroMeta">
@@ -1054,28 +979,25 @@ export default async function PlayerProfilePage({
       {/* FAVORITE CONFIRMATION TOAST */}
       <div className="fav-toast" id="favToast" role="status" aria-live="polite" />
 
-      {/* FOOTER — fixed sticky bar matching school page */}
-      <footer className="yat-footer" data-player-id={safePlayerId}>
-        {sponsorBanner ? (
-          <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">{sponsorBanner.label || "PRESENTED BY"}</span>
-            <span className="sponsor-name">{sponsorBanner.name}</span>
-          </a>
-        ) : (
-          <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">Presented by</span>
-            <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
-          </a>
-        )}
-        <a href="mailto:sponsor@yatstats.com" className="sponsor-cta-link">
-          Sponsor This Page
-        </a>
-      </footer>
-
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  /* Populate shell header slots for player profile */
+  (function(){
+    var _resolvedHsid=${JSON.stringify(resolvedHsid)};
+    var _displayName=${JSON.stringify(displayName)};
+    var _crestUrl=${JSON.stringify(crestUrl)};
+    /* Back arrow in topbar left slot */
+    var ext=document.getElementById('topbarLeftExt');
+    if(ext){var a=document.createElement('a');a.href='/'+_resolvedHsid;a.className='yat-icon-btn';a.setAttribute('aria-label','Back to school');var arrowIcon=document.createElement('i');arrowIcon.className='ri-arrow-left-line';a.appendChild(arrowIcon);ext.prepend(a);}
+    /* Secondary label = player name */
+    var lbl=document.getElementById('yatSectionLabel');
+    if(lbl)lbl.textContent=_displayName;
+    /* School row right slot: FAVORITE button */
+    var rSlot=document.getElementById('schoolRowRight');
+    if(rSlot){var fb=document.createElement('button');fb.id='btnFanFav';fb.className='fav-btn-hero';fb.setAttribute('aria-label','Favorite');var icon=document.createElement('i');icon.className='ri-star-line';fb.appendChild(icon);fb.appendChild(document.createTextNode(' FAVORITE'));rSlot.appendChild(fb);}
+  }());
   /* Theme */
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
@@ -1424,10 +1346,10 @@ export default async function PlayerProfilePage({
   /* Crest ↔ THEN headshot swap via IntersectionObserver */
   (function(){
     var heroMeta=document.getElementById('playerHeroMeta');
-    var stickyImg=document.getElementById('stickyIdentityImg');
+    var stickyImg=document.querySelector('.yat-schoolrow .yat-crest');
     if(!heroMeta||!stickyImg)return;
-    var crestSrc=stickyImg.getAttribute('data-crest')||stickyImg.src;
-    var headshotSrc=stickyImg.getAttribute('data-headshot')||'';
+    var crestSrc=${JSON.stringify(crestUrl)};
+    var headshotSrc=${JSON.stringify(playerThenImg)};
     /* Robust onerror: headshot failure → crest; crest failure → generic fallback */
     stickyImg.onerror=function(){
       if(this.src!==crestSrc&&this.src!==CREST_FALLBACK){
