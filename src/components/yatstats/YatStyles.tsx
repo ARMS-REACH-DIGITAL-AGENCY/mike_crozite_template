@@ -13,11 +13,20 @@ export default function YatStyles() {
       a{color:inherit;text-decoration:none}
       .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
       .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
-      .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
-      .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
-      .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
+      .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:0}
+      .yat-left-icons{display:flex;align-items:stretch;gap:0;margin-left:0}
+      .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0;cursor:pointer;touch-action:manipulation}
       .yat-icon-btn i{font-size:20px}
       .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
+      /* Labeled topbar buttons (NAVIGATION/ACCOUNT/THEME/SEARCH) */
+      .yat-topbar-btn{flex-direction:column;gap:3px;padding:10px 14px;min-width:56px;border-right:1px solid var(--line)}
+      .yat-topbar-btn:last-child{border-right:none}
+      .yat-topbar-btn i{font-size:22px}
+      .yat-icon-label{font:700 7px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+      /* Hero action buttons (FILTER/RESET) */
+      .yat-hero-action-btn{flex-direction:column;gap:5px;padding:12px 20px;min-width:72px;border-right:1px solid var(--line)}
+      .yat-hero-action-btn:last-child{border-right:none}
+      .yat-hero-action-btn i{font-size:32px}
       .yat-topnav{display:flex;gap:18px;align-items:center}
       .yat-nav-pair{white-space:nowrap;cursor:pointer}
       .yat-nav-pair .thin{font:300 var(--hamSmall) Oswald,sans-serif;letter-spacing:.02em;color:#cfd2d6;margin-right:2px}
@@ -31,10 +40,10 @@ export default function YatStyles() {
       .yat-hr{border-top:1px solid var(--line)}
       .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
       .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
-      .yat-schooltext{line-height:1}
+      .yat-schooltext{line-height:1;flex:1}
       .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
       .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-      .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0}
+      .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-top:0;min-height:1.1em}
       @media(max-width:640px){
         :root{--crestH:44px}
         .yat-schoolrow{padding:4px 12px;gap:8px}
@@ -42,10 +51,11 @@ export default function YatStyles() {
         .yat-schooltext .big1{font-size:14px}
         .yat-schooltext .big2{font-size:16px}
       }
-      .yat-hero{padding:2px 0;position:relative}
+      .yat-media-strip{position:relative;width:100%;overflow:hidden}
+      .yat-hero{padding:2px 0}
       .yat-hero-grid{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:4px 0}
       .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}
-      .yat-hero-right{display:flex;gap:10px;padding-top:2px;}
+      .yat-hero-right{display:flex;align-items:stretch;gap:0;padding:2px 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
       .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
       .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
       .yat-tag-swap:nth-child(1){animation-delay:0s}
@@ -169,6 +179,8 @@ export default function YatStyles() {
       .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
       .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
       .yat-footer a:hover{opacity:.8}
+      .yat-footer .sponsor-cta-link{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:4px 10px}
+      .yat-footer .sponsor-cta-link:hover{color:gold;border-color:rgba(255,209,102,.5)}
       /* ── Global Search Modal ─────────────────────────────────────────── */
       .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
       .yat-gs-modal.open{display:flex}

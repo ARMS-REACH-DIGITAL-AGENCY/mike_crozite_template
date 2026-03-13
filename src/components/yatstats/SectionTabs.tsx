@@ -5,13 +5,20 @@ import type { NavItem } from "@/lib/playerUtils";
 
 interface SectionTabsProps {
   navItems: NavItem[];
+  /** When provided, links use full /{resolvedHsid}#sec-{tab} URLs (correct for all routes). */
+  resolvedHsid?: string;
 }
 
-export default function SectionTabs({ navItems }: SectionTabsProps) {
+export default function SectionTabs({ navItems, resolvedHsid }: SectionTabsProps) {
   return (
     <nav className="yat-topnav" aria-label="Top Navigation">
       {navItems.map((item) => (
-        <a key={item.tab} href={`#sec-${item.tab}`} className="yat-nav-pair" data-tab={item.tab}>
+        <a
+          key={item.tab}
+          href={resolvedHsid ? `/${resolvedHsid}#sec-${item.tab}` : `#sec-${item.tab}`}
+          className="yat-nav-pair"
+          data-tab={item.tab}
+        >
           {item.thin && <span className="thin">{item.thin} </span>}
           <span className="bold">{item.bold}</span>
         </a>

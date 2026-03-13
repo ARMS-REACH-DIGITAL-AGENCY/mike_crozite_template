@@ -7,8 +7,6 @@ import { headers } from "next/headers";
 import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from "@/lib/schoolAssets";
-import AccountDrawer from "@/components/AccountDrawer";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
@@ -91,13 +89,8 @@ function fmtAvg(v: any): string {
 }
 
 // ---------------------------------------------------------------------------
-// Sponsor banner resolver — returns a per-player banner or null for the default.
-// Future: replace this with a DB lookup keyed by playerId.
+// Sponsor banner resolver — removed; footer is now owned by layout.tsx.
 // ---------------------------------------------------------------------------
-type SponsorBanner = { name: string; url: string; label?: string };
-function resolveSponsorBanner(_playerId: string): SponsorBanner | null {
-  return null;
-}
 
 type BattingSeason = {
   year: string | number;
@@ -333,26 +326,6 @@ export default async function PlayerProfilePage({
     if (d) pitStatsByDate.set(d, row);
   }
 
-  // Sponsor banner — null = default site sponsor.
-  // Future: query a sponsor_banners table by playerId to allow per-player sponsor overrides.
-  // Using `let` so TypeScript doesn't narrow to `never` in the JSX truthy branch.
-  // eslint-disable-next-line prefer-const
-  const sponsorBanner = resolveSponsorBanner(safePlayerId);
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || resolvedHsid;
-
-  const navItems = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
-
   // Build career stats grid for the profile
   const careerBattingGrid = careerBatting
     ? [
@@ -488,35 +461,13 @@ export default async function PlayerProfilePage({
   return (
     <>
       <style>{`
-        :root{--bg:#0d0d0d;--fg:#f5f5f5;--muted:#999;--line:rgba(255,255,255,.08);--header-bg:rgba(13,13,13,.97);--crestH:60px;--logo-filter:invert(1);--card-bg:#1a1a1a;--footerH:clamp(56px,8vh,77px)}
-        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--line:rgba(0,0,0,.1);--header-bg:rgba(244,244,244,.97);--logo-filter:none;--card-bg:#fff}
-        *{margin:0;padding:0;box-sizing:border-box}
-        html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .3s,color .3s;padding-bottom:var(--footerH)}
-        a{color:inherit;text-decoration:none}
-        .yat-container{max-width:1100px;margin:0 auto;padding:0 16px}
-        /* HEADER */
-        .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);backdrop-filter:blur(8px);transition:background-color .3s}
-        .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
-        .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
-        .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.9;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
-        .yat-icon-btn i{font-size:20px}
-        .yat-topnav{display:flex;gap:18px;align-items:center}
-        .yat-nav-pair{white-space:nowrap;cursor:pointer;text-decoration:none}
-        .yat-nav-pair .thin{font:300 11px Oswald,sans-serif;letter-spacing:.02em;color:var(--muted);margin-right:2px}
-        .yat-nav-pair .bold{font:400 11px "Bebas Neue",sans-serif}
-        .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
-        @media(max-width:1200px){.yat-topnav{display:none!important}}
-        .yat-hr{border-top:1px solid var(--line)}
-        /* Sticky identity band: two-part layout */
-        .yat-schoolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1100px;margin:0 auto}
-        .yat-schoolrow-id{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
-        .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
-        .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
-        .yat-schooltext{line-height:1}
-        .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-        .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+        /* Player profile overrides the shared --crestH for portrait-mode sticky header */
+        :root{--crestH:60px}
+        /* Crest headshot swap — player profile only */
+        .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px;transition:border-radius .2s,object-fit .2s}
+        /* #schoolRowRight slot — FAVORITE button pushed to far right */
+        #schoolRowRight{margin-left:auto;flex-shrink:0;display:flex;align-items:center}
+        /* FAVORITE button — player profile only */
         .fav-btn-hero{display:inline-flex;align-items:center;gap:5px;padding:0;border:none;background:none;color:var(--fg);font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:opacity .2s}
         .fav-btn-hero i{font-size:15px;transition:color .2s}
         .fav-btn-hero:hover{opacity:.7}
@@ -538,11 +489,15 @@ export default async function PlayerProfilePage({
         .pmb-line.dim{color:var(--muted)}
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
-        /* TABS — sticky under header */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
+        /* PROFILE TABS — icon + label design, sticky under header+meta band */
+        .profile-tabs{display:flex;gap:0;max-width:1100px;margin:0 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px);border-bottom:2px solid var(--line)}
         .profile-tabs::-webkit-scrollbar{display:none}
-        .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
+        .profile-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;flex:1;padding:12px 8px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;border-right:1px solid var(--line);min-width:52px}
+        .profile-tab:last-child{border-right:none}
+        .profile-tab i{font-size:26px}
+        .profile-tab-label{font:400 11px/1 Oswald,sans-serif;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
+        .profile-tab.active .profile-tab-label{font-weight:700}
         .profile-tab:hover:not(.active){color:var(--fg)}
         /* STATS */
         .stats-section{max-width:1100px;margin:0 auto;padding:20px 16px}
@@ -580,14 +535,6 @@ export default async function PlayerProfilePage({
         body.light-theme .fav-modal-actions button{background:rgba(0,0,0,.04)}
         .fav-modal-actions button.cta{background:gold;color:#000;border-color:gold}
         .fav-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1}
-        /* FOOTER — fixed at bottom */
-        .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:20px;padding:0 16px}
-        .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-        .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
-        .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none}
-        .yat-footer a:hover{opacity:.8}
-        .yat-footer .sponsor-cta-link{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:4px 10px}
-        .yat-footer .sponsor-cta-link:hover{color:gold;border-color:rgba(255,209,102,.5)}
         /* PLAYER CONTEXT LINE */
         .player-context-line{font:300 11px/1.3 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
         .player-context-line .ctx-team{color:var(--fg);font-weight:500}
@@ -597,23 +544,6 @@ export default async function PlayerProfilePage({
         .player-id-line .dim{color:var(--muted);font-weight:300}
         .player-id-line .sep{color:var(--muted);margin:0 5px}
         .player-id-label{font-weight:600;color:var(--fg)}
-        /* DRAWERS */
-        .yat-drawer{position:fixed;top:0;width:290px;height:100vh;background:var(--header-bg);z-index:100;padding:24px 20px;overflow-y:auto;transition:transform .3s cubic-bezier(.4,0,.2,1);border-right:1px solid var(--line)}
-        .yat-drawer-left{left:0;transform:translateX(-100%)}
-        .yat-drawer-right{right:0;transform:translateX(100%);border-right:none;border-left:1px solid var(--line)}
-        body.drawer-left-open .yat-drawer-left{transform:translateX(0)}
-        body.drawer-account-open #drawerAccount{transform:translateX(0)}
-        body.drawer-open{overflow:hidden}
-        .yat-close-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--fg);cursor:pointer;font-size:22px;display:flex;align-items:center;opacity:.7}
-        .yat-close-btn:hover{opacity:1}
-        .drawer-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90}
-        body.drawer-left-open .drawer-mask,body.drawer-account-open .drawer-mask{display:block}
-        .drawer-nav-link{display:block;font:300 14px/1 Oswald,sans-serif;padding:10px 0;border-bottom:1px solid var(--line);transition:color .2s}
-        .drawer-nav-link:hover{color:gold}
-        .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
-        body.light-theme .drawer-search-input{background:rgba(0,0,0,.06)}
-        .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
-        .drawer-live-hit:hover{background:var(--line)}
         /* OVERVIEW TAB */
         .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
@@ -674,161 +604,16 @@ export default async function PlayerProfilePage({
         .gl-status.live{background:rgba(0,230,118,.15);color:#00e676;border-color:rgba(0,230,118,.4)}
         .gl-empty{padding:32px 16px;text-align:center;font:300 12px/1.4 Oswald,sans-serif;color:var(--muted)}
         @media(max-width:640px){
+          :root{--crestH:44px}
           .gl-row{padding:7px 10px;gap:0}
           .gl-date{min-width:32px;font-size:10px}
           .gl-matchup{min-width:90px;font-size:10px}
           .gl-result{font-size:10px}
           .gl-stat-line{font-size:10px}
-        }
-        /* GLOBAL SEARCH MODAL */
-        .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
-        .yat-gs-modal.open{display:flex}
-        .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
-        .yat-gs-panel{position:relative;width:100%;max-width:620px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:82vh}
-        body.light-theme .yat-gs-panel{background:#fff;border-color:rgba(0,0,0,.12)}
-        .yat-gs-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 0}
-        .yat-gs-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.08em;color:var(--fg);text-transform:uppercase}
-        .yat-gs-sub{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
-        .yat-gs-body{padding:14px 16px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
-        .yat-gs-input-wrap{position:relative;display:flex;align-items:center}
-        .yat-gs-input-wrap .ri-search-line{position:absolute;left:14px;font-size:16px;color:var(--muted);pointer-events:none}
-        .yat-gs-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:var(--fg);font:400 14px Oswald,sans-serif;padding:10px 14px 10px 40px;outline:none;transition:border-color .2s}
-        body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
-        .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
-        body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
-        .yat-gs-results{overflow-y:auto;max-height:calc(82vh - 180px);display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
-        .yat-gs-region{font:700 9px Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:14px 2px 6px;border-top:1px solid var(--line);margin-top:2px;flex-shrink:0}
-        .yat-gs-region:first-child{border-top:none;margin-top:0;padding-top:4px}
-        .yat-gs-result{display:flex;flex-direction:column;gap:0;padding:0;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);transition:background .15s,border-color .15s;overflow:hidden;flex-shrink:0}
-        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2);outline:none}
-        body.light-theme .yat-gs-result{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08)}
-        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.14)}
-        .yat-gs-result[data-status="inactive"]{opacity:.6}
-        .yat-gs-result-top{display:flex;align-items:center;gap:12px;padding:12px 14px 10px}
-        .yat-gs-result-crest{width:44px;height:44px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0;border:1px solid rgba(255,255,255,.1);padding:2px}
-        body.light-theme .yat-gs-result-crest{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1)}
-        .yat-gs-result-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-        .yat-gs-result-name{font:700 16px "Bebas Neue",sans-serif;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg);line-height:1.15}
-        .yat-gs-result-loc{font:300 10px Oswald,sans-serif;letter-spacing:.06em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
-        .yat-gs-status{font:700 8px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:5px;white-space:nowrap;flex-shrink:0;display:inline-block;line-height:1.5;align-self:flex-start}
-        .yat-gs-status-live{background:rgba(0,230,118,.14);border:1px solid rgba(0,230,118,.6);color:#00e676}
-        .yat-gs-status-potential{background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.5);color:#ffc107}
-        .yat-gs-status-inactive{background:rgba(158,158,158,.07);border:1px solid rgba(158,158,158,.25);color:#888}
-        .yat-gs-stats{display:flex;flex-wrap:nowrap;gap:0;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.25);overflow-x:auto}
-        body.light-theme .yat-gs-stats{border-top-color:rgba(0,0,0,.08);background:rgba(0,0,0,.04)}
-        .yat-gs-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 12px;min-width:52px;flex:1;border-right:1px solid rgba(255,255,255,.06)}
-        .yat-gs-chip:last-child{border-right:none}
-        body.light-theme .yat-gs-chip{border-right-color:rgba(0,0,0,.07)}
-        .yat-gs-chip-val{font:700 16px "Bebas Neue",sans-serif;letter-spacing:.04em;color:var(--fg);line-height:1;white-space:nowrap}
-        .yat-gs-chip-val.hi{color:#00e676}
-        .yat-gs-chip-lbl{font:300 8px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);line-height:1;white-space:nowrap}
-        .yat-gs-msg{padding:28px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
-        .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
-        /* MOBILE */
-        @media(max-width:640px){
-          /* Shrink sticky header crest/text */
-          :root{--crestH:44px}
-          .yat-schoolrow{padding:4px 10px;gap:6px}
-          .yat-schoolrow-id{gap:8px}
-          .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
-          .yat-schooltext .big1{font-size:14px}
-          .yat-schooltext .big2{font-size:16px}
-          .fav-btn-hero{font-size:10px}
-          /* Career strip: smaller height on mobile */
           .career-strip{height:100px}
-          /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
-        /* Hide GlobalSearchModal's own header action buttons — we use #btnSearch in the icon row */
-        .yat-hero-right{display:none!important}
       `}</style>
-
-      {/* HEADER — sticky global shell */}
-      <header className="yat-header" id="site-header">
-        {/* Row 1: Global controls */}
-        <div className="yat-container yat-topbar">
-          <div className="yat-left-icons">
-            <a href={`/${resolvedHsid}`} className="yat-icon-btn" aria-label="Back to school"><i className="ri-arrow-left-line" /></a>
-            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
-            <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
-            <button className="yat-icon-btn" id="btnSearch" aria-label="Search"><i className="ri-search-line" /></button>
-            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
-          </div>
-          <nav className="yat-topnav" aria-label="Top Navigation">
-            {navItems.map((item) => (
-              <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="yat-nav-pair">
-                {item.thin && <span className="thin">{item.thin} </span>}
-                <span className="bold">{item.bold}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="yat-wordmark-wrap">
-            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center'}}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
-            </a>
-          </div>
-        </div>
-
-        {/* School identity band: LEFT = crest + identity, RIGHT = Add Favorite */}
-        <div className="yat-schoolrow">
-          {/* Left: crest anchored to the 3-line identity block */}
-          <div className="yat-schoolrow-id">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              id="stickyIdentityImg"
-              className="yat-crest"
-              src={crestUrl}
-              alt={`${schoolName} crest`}
-              data-crest={crestUrl}
-              data-headshot={playerThenImg}
-            />
-            <div className="yat-schooltext">
-              <div className="small">{location}</div>
-              <div className="big1">{schoolName}</div>
-              <div className="big2">{displayName}</div>
-            </div>
-          </div>
-          {/* Right: FAVORITE sits directly across from school logo / identity */}
-          <button id="btnFanFav" className="fav-btn-hero" aria-label="Favorite">
-            <i className="ri-star-line" /> FAVORITE
-          </button>
-        </div>
-      </header>
-
-      {/* DRAWER MASK */}
-      <div className="drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation (unified, matches school microsite drawer) */}
-      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px',paddingTop:'8px'}}>PLAYER SEARCH</h3>
-        <div style={{paddingBottom:'12px'}}>
-          <input id="playerSearch" type="search" placeholder="Type a name…" className="drawer-search-input" />
-          <div id="liveResults" />
-        </div>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px'}}>NAVIGATION</h3>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          <a href={`/${resolvedHsid}`} className="drawer-nav-link">&#8592; BACK TO {schoolName}</a>
-          {navItems.map((item) => (
-            <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="drawer-nav-link">
-              {item.thin ? `${item.thin} ` : ""}{item.bold}
-            </a>
-          ))}
-        </div>
-      </aside>
-
-      {/* ACCOUNT DRAWER */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-        <button className="yat-icon-btn yat-close-btn" id="closeAccount"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'16px',paddingTop:'8px'}}>ACCOUNT</h3>
-        <AccountDrawer subdomain={subdomain} />
-      </aside>
-
-      {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay. The .yat-hero-right action buttons
-          inside GlobalSearchModal are hidden via CSS (.player-page .yat-hero-right); we use
-          #btnSearch in the header icon row instead as the trigger. */}
-      <GlobalSearchModal />
 
       {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
       <section className="career-strip" id="playerHeroMeta">
@@ -879,14 +664,32 @@ export default async function PlayerProfilePage({
         </div>
       </div>
 
-      {/* TABS */}
+      {/* TABS — icon + label design */}
       <div className="profile-tabs" role="tablist">
-        <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>GAME LOG</div>
-        <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>STATS</div>
-        <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
-        <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
-        <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>MENTORSHIP MARKETPLACE</div>
-        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>PHOTO GALLERY</div>
+        <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>
+          <i className="ri-calendar-line" />
+          <span className="profile-tab-label">Schedule</span>
+        </div>
+        <div role="tab" className="profile-tab" data-profile-tab="stats" tabIndex={0}>
+          <i className="ri-bar-chart-2-line" />
+          <span className="profile-tab-label">Stats</span>
+        </div>
+        <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>
+          <i className="ri-newspaper-line" />
+          <span className="profile-tab-label">News</span>
+        </div>
+        <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>
+          <i className="ri-share-2-line" />
+          <span className="profile-tab-label">Social</span>
+        </div>
+        <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>
+          <i className="ri-group-line" />
+          <span className="profile-tab-label">Connect</span>
+        </div>
+        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>
+          <i className="ri-upload-2-line" />
+          <span className="profile-tab-label">Upload</span>
+        </div>
       </div>
 
       {/* TAB: GAME LOG */}
@@ -1198,28 +1001,43 @@ export default async function PlayerProfilePage({
       {/* FAVORITE CONFIRMATION TOAST */}
       <div className="fav-toast" id="favToast" role="status" aria-live="polite" />
 
-      {/* FOOTER — fixed sticky bar matching school page */}
-      <footer className="yat-footer" data-player-id={safePlayerId}>
-        {sponsorBanner ? (
-          <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">{sponsorBanner.label || "PRESENTED BY"}</span>
-            <span className="sponsor-name">{sponsorBanner.name}</span>
-          </a>
-        ) : (
-          <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">Presented by</span>
-            <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
-          </a>
-        )}
-        <a href="mailto:sponsor@yatstats.com" className="sponsor-cta-link">
-          Sponsor This Page
-        </a>
-      </footer>
-
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  /* ── DOM slot injections ─────────────────────────────────────────────────── */
+  /* 1. Section label in school row = player display name */
+  var sectionLabel=document.getElementById('yatSectionLabel');
+  if(sectionLabel)sectionLabel.textContent='${displayName.replace(/'/g, "\\'")}';
+  /* 2. Back arrow in topbar left slot */
+  var topbarExt=document.getElementById('topbarLeftExt');
+  if(topbarExt){
+    var backLink=document.createElement('a');
+    backLink.href='/${resolvedHsid}';
+    backLink.className='yat-icon-btn yat-topbar-btn';
+    backLink.setAttribute('aria-label','Back to school');
+    backLink.innerHTML='<i class="ri-arrow-left-line"></i><span class="yat-icon-label">Back</span>';
+    topbarExt.appendChild(backLink);
+  }
+  /* 3. FAVORITE button in school row right slot */
+  var schoolRowRight=document.getElementById('schoolRowRight');
+  if(schoolRowRight){
+    var favBtnEl=document.createElement('button');
+    favBtnEl.id='btnFanFav';
+    favBtnEl.className='fav-btn-hero';
+    favBtnEl.setAttribute('aria-label','Favorite');
+    favBtnEl.setAttribute('type','button');
+    favBtnEl.innerHTML='<i class="ri-star-line"></i> FAVORITE';
+    schoolRowRight.appendChild(favBtnEl);
+  }
+  /* 4. Set data-crest and data-headshot on the crest img for the headshot swap */
+  var stickyImg=document.querySelector('#site-header .yat-crest');
+  if(stickyImg){
+    stickyImg.id='stickyIdentityImg';
+    stickyImg.setAttribute('data-crest','${crestUrl}');
+    stickyImg.setAttribute('data-headshot','${playerThenImg}');
+  }
+  /* ─────────────────────────────────────────────────────────────────────────── */
   /* Theme */
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
@@ -1323,7 +1141,7 @@ export default async function PlayerProfilePage({
           var pid=p.id||p.player_id;
           var slug=p.slug||toSlug(firstName,lastName,pid);
           var displayName=escHtml((firstName+' '+lastName).trim());
-          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="drawer-live-hit">'+displayName+'</a>';
+          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;">'+displayName+'</a>';
         }
       });
       liveResults.innerHTML=html||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
