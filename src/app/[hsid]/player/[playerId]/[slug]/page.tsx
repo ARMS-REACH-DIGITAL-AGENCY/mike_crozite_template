@@ -646,12 +646,14 @@ export default async function PlayerProfilePage({
             ))}
           </nav>
           <div className="yat-wordmark-wrap">
-            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center'}}>
+            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:'6px'}}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
+              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" className="yat-wordmark-img" style={{height:'28px',width:'auto'}} />
             </a>
           </div>
         </div>
+
+        <div className="yat-hr" />
 
         {/* School identity band: LEFT = crest + identity, RIGHT = Add Favorite */}
         <div className="yat-schoolrow">
@@ -677,6 +679,8 @@ export default async function PlayerProfilePage({
             <i className="ri-star-line" /> FAVORITE
           </button>
         </div>
+
+        <div className="yat-hr" />
       </header>
 
       {/* GLOBAL SEARCH MODAL — provides #gsModal overlay; .yat-hero-right buttons hidden via CSS above */}
