@@ -197,6 +197,18 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               role: loginData.role ?? 'fan',
             }));
           } catch { /* non-fatal */ }
+        } else {
+          /* contactId not available yet — store uid+email so upload/favorite checks work */
+          try {
+            localStorage.setItem('yat-user', JSON.stringify({
+              uid,
+              contactId: null,
+              email,
+              firstName: loginData?.firstName ?? null,
+              homeHsid: loginData?.homeHsid ?? null,
+              role: loginData?.role ?? 'fan',
+            }));
+          } catch { /* non-fatal */ }
         }
         if (loginData?.isSuperfan) setIsSuperfan(true);
 
@@ -270,20 +282,18 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         throw err;
       }
 
-      // Save contactId to localStorage so future addFavorite() calls work
-      if (regData?.contactId) {
-        try {
-          localStorage.setItem('yat-user', JSON.stringify({
-            uid,
-            contactId: regData.contactId,
-            email,
-            firstName: firstName || null,
-            homeHsid: regData.homeHsid ?? null,
-            role: 'fan',
-          }));
-        } catch {
-          // non-fatal
-        }
+      // Save user info to localStorage so upload/favorite checks work
+      try {
+        localStorage.setItem('yat-user', JSON.stringify({
+          uid,
+          contactId: regData?.contactId ?? null,
+          email,
+          firstName: firstName || null,
+          homeHsid: regData?.homeHsid ?? null,
+          role: 'fan',
+        }));
+      } catch {
+        // non-fatal
       }
 
       // Resume pending intents

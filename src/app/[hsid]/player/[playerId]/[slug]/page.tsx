@@ -605,6 +605,18 @@ export default async function PlayerProfilePage({
         .upload-success p{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
         .upload-another-btn{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:10px 22px;font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;cursor:pointer;transition:border-color .2s}
         .upload-another-btn:hover{border-color:gold;color:gold}
+        /* PHOTO QUEUE (multi-upload) */
+        .photo-queue{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+        .photo-queue-item{display:flex;gap:12px;align-items:flex-start;background:var(--card-bg);border:1px solid var(--line);border-radius:10px;padding:12px;position:relative}
+        .photo-queue-thumb{width:72px;height:72px;object-fit:cover;border-radius:6px;flex-shrink:0}
+        .photo-queue-fields{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+        .photo-queue-date-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .photo-queue-caption{resize:vertical;min-height:48px}
+        .photo-queue-remove{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px;transition:color .15s}
+        .photo-queue-remove:hover{color:#f66}
+        .upload-progress-bar{background:var(--line);border-radius:4px;height:4px;margin-top:8px;overflow:hidden}
+        .upload-progress-fill{height:100%;background:gold;border-radius:4px;transition:width .3s}
+        .upload-progress-text{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);text-align:center;margin-top:6px}
         /* FAVORITES MODAL */
         .fav-modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
         .fav-modal{background:var(--card-bg);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:380px;width:90%;color:var(--fg);box-shadow:0 20px 40px rgba(0,0,0,.4);position:relative}
@@ -1211,7 +1223,7 @@ export default async function PlayerProfilePage({
       <div className="tab-content" id="tab-gallery" role="tabpanel">
         <div className="upload-section">
 
-          {/* NOT LOGGED IN — prompt to sign in */}
+          {/* NOT LOGGED IN — prompt to sign in (hidden; auth checked at submit time) */}
           <div id="uploadGate" className="upload-gate" style={{display:'none'}}>
             <i className="ri-camera-line" />
             <h2>Share Your Photos</h2>
@@ -1221,57 +1233,28 @@ export default async function PlayerProfilePage({
 
           {/* UPLOAD FORM — always visible; auth checked at submit time */}
           <div id="uploadFormWrap">
-            <p className="upload-heading">Upload a Photo</p>
-            <p className="upload-subhead">Help build {displayName}&apos;s career scrapbook. Photos are reviewed before going public.</p>
+            <p className="upload-heading">Upload Photos</p>
+            <p className="upload-subhead">Help build {displayName}&apos;s career scrapbook. Select one or more photos — each needs a year. Photos are reviewed before going public.</p>
 
             <form id="uploadPhotoForm" noValidate>
 
-              {/* File picker */}
+              {/* File picker — multiple allowed */}
               <div className="upload-field">
-                <label className="upload-label" htmlFor="photoFile">Select Photo *</label>
+                <label className="upload-label">Select Photos *</label>
                 <div className="upload-file-zone" id="photoFileZone" role="button" tabIndex={0}
-                     aria-label="Click to select a photo">
+                     aria-label="Click to select photos">
                   <i className="ri-upload-cloud-2-line" />
-                  <p>Click to choose a photo<br /><span style={{fontSize:'10px'}}>JPG, PNG, WEBP, GIF, HEIC — max 20 MB</span></p>
+                  <p>Click to choose photos (one or more)<br /><span style={{fontSize:'10px'}}>JPG, PNG, WEBP, GIF, HEIC — max 20 MB each</span></p>
                 </div>
                 <input id="photoFile" type="file"
                        accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
-                       style={{display:'none'}} />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img id="photoPreviewImg" className="upload-preview-img" src="" alt="Preview" />
+                       multiple style={{display:'none'}} />
               </div>
 
-              {/* Date taken */}
-              <div className="upload-field">
-                <label className="upload-label">When was this photo taken? *</label>
-                <div className="upload-date-row">
-                  <div>
-                    <label className="upload-label" htmlFor="photoMonth" style={{fontSize:'9px'}}>Month (optional)</label>
-                    <select id="photoMonth" className="upload-select">
-                      <option value="">— Month —</option>
-                      <option value="01">January</option>
-                      <option value="02">February</option>
-                      <option value="03">March</option>
-                      <option value="04">April</option>
-                      <option value="05">May</option>
-                      <option value="06">June</option>
-                      <option value="07">July</option>
-                      <option value="08">August</option>
-                      <option value="09">September</option>
-                      <option value="10">October</option>
-                      <option value="11">November</option>
-                      <option value="12">December</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="upload-label" htmlFor="photoYear" style={{fontSize:'9px'}}>Year *</label>
-                    <input id="photoYear" type="number" className="upload-input"
-                           placeholder="e.g. 2019" min="1950" max={new Date().getFullYear()} />
-                  </div>
-                </div>
-              </div>
+              {/* Selected photo queue — rendered by JS */}
+              <div className="photo-queue" id="photoQueue" />
 
-              {/* Relationship */}
+              {/* Relationship — shared for all photos */}
               <div className="upload-field">
                 <label className="upload-label" htmlFor="photoRelationship">Your Relationship to {displayName} *</label>
                 <select id="photoRelationship" className="upload-select">
@@ -1285,27 +1268,27 @@ export default async function PlayerProfilePage({
                 </select>
               </div>
 
-              {/* Caption */}
-              <div className="upload-field">
-                <label className="upload-label" htmlFor="photoCaption">Caption (optional)</label>
-                <textarea id="photoCaption" className="upload-textarea"
-                          placeholder="Add context — team, season, event, etc." maxLength={500} />
-              </div>
-
-              {/* Disclaimer */}
+              {/* Disclaimer — shared for all photos */}
               <div className="upload-field">
                 <div className="upload-disclaimer-wrap">
                   <input id="photoDisclaimer" type="checkbox" className="upload-disclaimer-check" />
                   <label htmlFor="photoDisclaimer" className="upload-disclaimer-text">
-                    I confirm that I own or have the right to share this photo, that it features {displayName},
-                    and that it is appropriate for all audiences including children. I consent to YAT?STATS
-                    displaying this photo on the player&apos;s profile after review.
+                    I confirm that I own or have the right to share these photos, that they feature {displayName},
+                    and that they are appropriate for all audiences including children. I consent to YAT?STATS
+                    displaying these photos on the player&apos;s profile after review.
                   </label>
                 </div>
               </div>
 
               <div id="uploadError" className="upload-error" role="alert" />
-              <button type="submit" className="upload-btn" id="uploadSubmitBtn">Submit Photo</button>
+
+              {/* Progress bar — shown during batch upload */}
+              <div id="uploadProgressWrap" style={{display:'none'}}>
+                <div className="upload-progress-bar"><div className="upload-progress-fill" id="uploadProgressFill" style={{width:'0%'}} /></div>
+                <p className="upload-progress-text" id="uploadProgressText">Uploading…</p>
+              </div>
+
+              <button type="submit" className="upload-btn" id="uploadSubmitBtn" disabled>Select Photos to Begin</button>
               <p className="upload-auth-hint">
                 A free account is required to submit. You&apos;ll be prompted to sign in when you click Submit.
               </p>
@@ -1315,9 +1298,9 @@ export default async function PlayerProfilePage({
           {/* SUCCESS STATE */}
           <div id="uploadSuccess" className="upload-success">
             <i className="ri-checkbox-circle-line" />
-            <h2>Photo Submitted!</h2>
-            <p>Your photo is pending review and will appear on {displayName}&apos;s profile once approved. Thank you for contributing to the scrapbook!</p>
-            <button className="upload-another-btn" id="uploadAnotherBtn">Upload Another Photo</button>
+            <h2 id="uploadSuccessHeading">Photos Submitted!</h2>
+            <p id="uploadSuccessBody">Your photos are pending review and will appear on {displayName}&apos;s profile once approved. Thank you for contributing to the scrapbook!</p>
+            <button className="upload-another-btn" id="uploadAnotherBtn">Upload More Photos</button>
           </div>
 
         </div>
@@ -1755,7 +1738,6 @@ export default async function PlayerProfilePage({
     var uploadSubmitBtn=document.getElementById('uploadSubmitBtn');
     var photoFileZone=document.getElementById('photoFileZone');
     var photoFileInput=document.getElementById('photoFile');
-    var photoPreviewImg=document.getElementById('photoPreviewImg');
     var uploadSignInBtn=document.getElementById('uploadSignInBtn');
     var uploadAnotherBtn=document.getElementById('uploadAnotherBtn');
     function showUploadError(msg){if(!uploadError)return;uploadError.textContent=msg;uploadError.style.display='block';}
@@ -1776,96 +1758,183 @@ export default async function PlayerProfilePage({
     window.addEventListener('yat-auth-success',function(){initUploadPanel();});
     /* Sign-in gate button */
     if(uploadSignInBtn){uploadSignInBtn.addEventListener('click',function(){openAccountDrawer();});}
+
+    /* ── MULTI-FILE QUEUE ── */
+    var pendingFiles=[];/* [{file,objectUrl,year,month,caption}] */
+    var MONTHS=['','January','February','March','April','May','June','July','August','September','October','November','December'];
+    var curYear=new Date().getFullYear();
+
+    function updateSubmitBtn(){
+      if(!uploadSubmitBtn)return;
+      var n=pendingFiles.length;
+      if(n===0){uploadSubmitBtn.textContent='Select Photos to Begin';uploadSubmitBtn.disabled=true;}
+      else{uploadSubmitBtn.textContent='Submit '+(n===1?'1 Photo':(n+' Photos'));uploadSubmitBtn.disabled=false;}
+    }
+
+    function buildMonthOptions(){
+      var html='<option value="">— Month —</option>';
+      for(var m=1;m<=12;m++){html+='<option value="'+(m<10?'0':'')+m+'">'+MONTHS[m]+'</option>';}
+      return html;
+    }
+
+    function renderQueue(){
+      if(!photoQueue)return;
+      photoQueue.innerHTML='';
+      pendingFiles.forEach(function(item,idx){
+        var div=document.createElement('div');
+        div.className='photo-queue-item';
+        div.dataset.idx=idx;
+        div.innerHTML=
+          '<img class="photo-queue-thumb" src="'+item.objectUrl+'" alt="Photo '+(idx+1)+'" />'+
+          '<div class="photo-queue-fields">'+
+            '<label style="font:700 10px/1 \'Bebas Neue\',sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px">Photo '+(idx+1)+': When was this taken? *</label>'+
+            '<div class="photo-queue-date-row">'+
+              '<select class="upload-select pq-month" data-idx="'+idx+'" style="font-size:12px">'+buildMonthOptions()+'</select>'+
+              '<input type="number" class="upload-input pq-year" data-idx="'+idx+'" placeholder="Year *" min="1950" max="'+curYear+'" style="font-size:12px" value="'+(item.year||'')+'" />'+
+            '</div>'+
+            '<textarea class="upload-textarea photo-queue-caption pq-caption" data-idx="'+idx+'" placeholder="Caption (optional)" maxlength="500" style="font-size:12px;min-height:44px">'+(item.caption||'')+'</textarea>'+
+          '</div>'+
+          '<button type="button" class="photo-queue-remove" data-idx="'+idx+'" aria-label="Remove photo">&#x2715;</button>';
+        /* Restore month select value */
+        var sel=div.querySelector('.pq-month');
+        if(sel&&item.month)sel.value=item.month;
+        photoQueue.appendChild(div);
+      });
+      /* Live field change listeners */
+      photoQueue.querySelectorAll('.pq-month').forEach(function(el){
+        el.addEventListener('change',function(){pendingFiles[this.dataset.idx].month=this.value;});
+      });
+      photoQueue.querySelectorAll('.pq-year').forEach(function(el){
+        el.addEventListener('change',function(){pendingFiles[this.dataset.idx].year=this.value;});
+        el.addEventListener('input',function(){pendingFiles[this.dataset.idx].year=this.value;});
+      });
+      photoQueue.querySelectorAll('.pq-caption').forEach(function(el){
+        el.addEventListener('input',function(){pendingFiles[this.dataset.idx].caption=this.value;});
+      });
+      photoQueue.querySelectorAll('.photo-queue-remove').forEach(function(el){
+        el.addEventListener('click',function(){
+          var i=parseInt(this.dataset.idx,10);
+          URL.revokeObjectURL(pendingFiles[i].objectUrl);
+          pendingFiles.splice(i,1);
+          renderQueue();updateSubmitBtn();
+        });
+      });
+      updateSubmitBtn();
+    }
+
+    function addFiles(files){
+      for(var i=0;i<files.length;i++){
+        var f=files[i];
+        if(!f.type.startsWith('image/'))continue;
+        if(f.size>20*1024*1024)continue;/* skip >20 MB */
+        pendingFiles.push({file:f,objectUrl:URL.createObjectURL(f),year:'',month:'',caption:''});
+      }
+      renderQueue();
+    }
+
+    var photoQueue=document.getElementById('photoQueue');
     /* File zone click → trigger hidden input */
     if(photoFileZone){photoFileZone.addEventListener('click',function(){if(photoFileInput)photoFileInput.click();});}
     if(photoFileZone){photoFileZone.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){if(photoFileInput)photoFileInput.click();}});}
-    /* Show preview when file selected */
+    /* Files selected */
     if(photoFileInput){photoFileInput.addEventListener('change',function(){
-      var file=this.files&&this.files[0];
-      if(!file||!photoPreviewImg)return;
-      var reader=new FileReader();
-      reader.onload=function(e){photoPreviewImg.src=e.target.result;photoPreviewImg.style.display='block';};
-      reader.readAsDataURL(file);
+      if(this.files&&this.files.length)addFiles(this.files);
+      this.value='';/* reset so same file can be added again */
     });}
     /* Upload another button */
     if(uploadAnotherBtn){uploadAnotherBtn.addEventListener('click',function(){
       if(uploadSuccess)uploadSuccess.style.display='none';
       if(uploadFormWrap)uploadFormWrap.style.display='block';
-      if(uploadPhotoForm)(uploadPhotoForm).reset();
-      if(photoPreviewImg){photoPreviewImg.src='';photoPreviewImg.style.display='none';}
-      clearUploadError();
+      pendingFiles=[];renderQueue();clearUploadError();
     });}
-    /* Form submit */
+    /* Form submit — process all pending files sequentially */
+    var uploadProgressWrap=document.getElementById('uploadProgressWrap');
+    var uploadProgressFill=document.getElementById('uploadProgressFill');
+    var uploadProgressText=document.getElementById('uploadProgressText');
+    var uploadSuccessHeading=document.getElementById('uploadSuccessHeading');
+    var uploadSuccessBody=document.getElementById('uploadSuccessBody');
     if(uploadPhotoForm){uploadPhotoForm.addEventListener('submit',function(e){
       e.preventDefault();
       clearUploadError();
       var user=getFirebaseUser();
-      if(!user||!user.contactId){openAccountDrawer();return;}
-      var fileInput=document.getElementById('photoFile');
-      var file=fileInput&&fileInput.files&&fileInput.files[0];
-      if(!file){showUploadError('Please select a photo to upload.');return;}
-      var yearEl=document.getElementById('photoYear');
-      var monthEl=document.getElementById('photoMonth');
+      if(!user||!user.uid){openAccountDrawer();return;}
+      if(pendingFiles.length===0){showUploadError('Please select at least one photo to upload.');return;}
+      /* Validate each photo has a year */
+      for(var vi=0;vi<pendingFiles.length;vi++){
+        var yr=String(pendingFiles[vi].year||'').trim();
+        if(!yr){showUploadError('Photo '+(vi+1)+': Please enter the year it was taken.');return;}
+        var yn=parseInt(yr,10);
+        if(isNaN(yn)||yn<1950||yn>curYear){showUploadError('Photo '+(vi+1)+': Year must be between 1950 and '+curYear+'.');return;}
+      }
       var relEl=document.getElementById('photoRelationship');
-      var captionEl=document.getElementById('photoCaption');
       var disclaimerEl=document.getElementById('photoDisclaimer');
-      var year=yearEl?yearEl.value.trim():'';
-      var month=monthEl?monthEl.value:'';
       var relationship=relEl?relEl.value:'';
-      var caption=captionEl?captionEl.value.trim():'';
       var agreed=disclaimerEl?disclaimerEl.checked:false;
-      if(!year){showUploadError('Please enter the year the photo was taken.');return;}
-      var yearNum=parseInt(year,10);
-      if(isNaN(yearNum)||yearNum<1950||yearNum>new Date().getFullYear()){showUploadError('Please enter a valid year (1950 – present).');return;}
       if(!relationship){showUploadError('Please select your relationship to the player.');return;}
       if(!agreed){showUploadError('You must agree to the photo rights disclaimer before submitting.');return;}
       if(uploadSubmitBtn)uploadSubmitBtn.disabled=true;
-      /* Step 1 — get presigned URL */
-      fetch('/api/player/upload-presigned',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({playerid:playerId,fileName:file.name,mimeType:file.type,uploadType:'photo'})
-      }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});}).then(function(res){
-        if(!res.ok){throw new Error(res.data.error||'Upload setup failed.');}
-        var presign=res.data;
-        /* Step 2 — PUT file directly to S3 */
-        return fetch(presign.uploadUrl,{method:'PUT',headers:{'Content-Type':file.type},body:file})
-          .then(function(r2){
-            if(!r2.ok)throw new Error('File upload to storage failed. Please try again.');
-            return presign;
-          });
-      }).then(function(presign){
-        /* Step 3 — notify server upload is complete */
+      if(uploadProgressWrap)uploadProgressWrap.style.display='block';
+      var total=pendingFiles.length;
+      var done=0;
+      var uploaderName=(user.firstName||(user.email||'').split('@')[0]||'Fan');
+      var failed=0;
+      /* Upload one file, returns a Promise */
+      function uploadOne(item){
+        var file=item.file;
+        var yearNum=parseInt(String(item.year),10);
+        var month=item.month||'';
+        var caption=(item.caption||'').trim();
         var datePrecision=month?'month':'year';
-        var photoDate=month?(year+'-'+month+'-01'):null;
-        var uploaderName=(user.firstName||(user.email||'').split('@')[0]||'Fan');
-        return fetch('/api/player/upload-complete',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            playerid:playerId,
-            s3_bucket:presign.bucket,
-            s3_key:presign.s3Key,
-            file_name:presign.s3Key.split('/').pop()||file.name,
-            original_file_name:file.name,
-            mime_type:file.type,
-            source_type:'user',
-            uploader_type:'user',
-            uploaded_by_name:uploaderName,
-            uploaded_by_email:user.email||null,
-            photo_date:photoDate,
-            photo_year:yearNum,
-            date_precision:datePrecision,
-            caption:caption||null,
-            uploader_relationship:relationship
-          })
-        }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});});
-      }).then(function(res){
-        if(!res.ok)throw new Error(res.data.error||'Submission failed.');
-        /* Show success */
-        if(uploadFormWrap)uploadFormWrap.style.display='none';
-        if(uploadSuccess)uploadSuccess.style.display='block';
-        if(uploadSubmitBtn)uploadSubmitBtn.disabled=false;
-      }).catch(function(err){
-        showUploadError(err.message||'Something went wrong. Please try again.');
-        if(uploadSubmitBtn)uploadSubmitBtn.disabled=false;
-      });
+        var photoDate=month?(yearNum+'-'+month+'-01'):null;
+        return fetch('/api/player/upload-presigned',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({playerid:playerId,fileName:file.name,mimeType:file.type,uploadType:'photo'})
+        }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});}).then(function(res){
+          if(!res.ok)throw new Error(res.data.error||'Upload setup failed.');
+          var presign=res.data;
+          return fetch(presign.uploadUrl,{method:'PUT',headers:{'Content-Type':file.type},body:file})
+            .then(function(r2){if(!r2.ok)throw new Error('File upload failed.');return presign;});
+        }).then(function(presign){
+          return fetch('/api/player/upload-complete',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              playerid:playerId,s3_bucket:presign.bucket,s3_key:presign.s3Key,
+              file_name:presign.s3Key.split('/').pop()||file.name,original_file_name:file.name,
+              mime_type:file.type,source_type:'user',uploader_type:'user',
+              uploaded_by_name:uploaderName,uploaded_by_email:user.email||null,
+              photo_date:photoDate,photo_year:yearNum,date_precision:datePrecision,
+              caption:caption||null,uploader_relationship:relationship
+            })
+          }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});});
+        }).then(function(res){if(!res.ok)throw new Error(res.data.error||'Submission failed.');});
+      }
+      /* Sequential execution via reduce */
+      var queue=pendingFiles.slice();
+      function processNext(idx){
+        if(idx>=queue.length){
+          /* All done */
+          if(uploadProgressWrap)uploadProgressWrap.style.display='none';
+          if(uploadSubmitBtn)uploadSubmitBtn.disabled=false;
+          var succeeded=total-failed;
+          if(uploadSuccessHeading)uploadSuccessHeading.textContent=succeeded===1?'Photo Submitted!':(succeeded+' Photos Submitted!');
+          if(uploadSuccessBody)uploadSuccessBody.textContent=succeeded===1
+            ?'Your photo is pending review and will appear on the profile once approved. Thank you!'
+            :(succeeded+' of '+total+' photos submitted and pending review. Thank you for contributing!');
+          if(uploadFormWrap)uploadFormWrap.style.display='none';
+          if(uploadSuccess)uploadSuccess.style.display='block';
+          return;
+        }
+        done=idx+1;
+        if(uploadProgressText)uploadProgressText.textContent='Uploading photo '+done+' of '+total+'…';
+        if(uploadProgressFill)uploadProgressFill.style.width=Math.round((idx/total)*100)+'%';
+        uploadOne(queue[idx]).then(function(){
+          if(uploadProgressFill)uploadProgressFill.style.width=Math.round((done/total)*100)+'%';
+          processNext(idx+1);
+        }).catch(function(err){
+          failed++;
+          console.warn('Upload failed for photo '+(idx+1)+':',err.message);
+          processNext(idx+1);/* continue with remaining */
+        });
+      }
+      processNext(0);
     });}
   }());
 })();
