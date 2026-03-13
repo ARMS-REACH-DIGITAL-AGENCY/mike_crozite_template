@@ -5,6 +5,7 @@
 import type { NavItem } from "@/lib/playerUtils";
 import SchoolRow from "@/components/yatstats/SchoolRow";
 import SectionTabs from "@/components/yatstats/SectionTabs";
+import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 
 interface HeroHeaderProps {
   schoolName: string;
@@ -79,6 +80,7 @@ export default function HeroHeader({
               </div>
             </div>
           </div>
+          <GlobalSearchModal />
         </div>
       </div>
     </header>

@@ -27,6 +27,7 @@ import {
   getResolvedCurrentTeam,
 } from "@/lib/db";
 import { formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
+import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -779,6 +780,9 @@ export default async function PlayerProfilePage({
           </button>
         </div>
       </header>
+
+      {/* GLOBAL SEARCH MODAL — provides #gsModal overlay; .yat-hero-right buttons hidden via CSS above */}
+      <GlobalSearchModal />
 
       {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
       <section className="career-strip" id="playerHeroMeta">

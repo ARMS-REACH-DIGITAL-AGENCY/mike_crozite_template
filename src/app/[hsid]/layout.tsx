@@ -7,7 +7,6 @@ import { headers } from "next/headers";
 import { getSchoolByHsid, getSchoolByUrl } from "@/lib/db";
 import YatStyles from "@/components/yatstats/YatStyles";
 import AccountDrawer from "@/components/yatstats/AccountDrawer";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { NAV_ITEMS } from "@/lib/playerUtils";
 
 export default async function HsidLayout({
@@ -73,8 +72,7 @@ export default async function HsidLayout({
       {/* RIGHT DRAWER — Account */}
       <AccountDrawer subdomain={subdomain} />
 
-      {/* GLOBAL SEARCH MODAL */}
-      <GlobalSearchModal />
+      {/* GLOBAL SEARCH MODAL — provided by HeroHeader on school home; by page itself on player profile */}
 
       {children}
     </>

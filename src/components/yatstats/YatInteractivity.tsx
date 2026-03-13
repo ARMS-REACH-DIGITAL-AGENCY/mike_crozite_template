@@ -95,6 +95,15 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
   }
 
+  /* Activate section from URL hash on page load (e.g. navigating here with /{hsid}#sec-news) */
+  (function(){
+    var hash=window.location.hash;
+    if(hash&&hash.slice(0,5)==='#sec-'){
+      var tabId=hash.slice(5);
+      if(document.getElementById('sec-'+tabId)){showSection(tabId);}
+    }
+  }());
+
   document.addEventListener('click',function(e){
     var pair=e.target.closest('[data-tab]');
     if(!pair)return;
@@ -102,6 +111,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(!tab)return;
     e.preventDefault();
     showSection(tab);
+    history.replaceState(null,'','#sec-'+tab);
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
   });
   var btnMenu=document.getElementById('btnMenu');
