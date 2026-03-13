@@ -4,7 +4,7 @@
 
 export default function HeroHeader() {
   return (
-    <div className="yat-hero">
+    <div className="yat-media-strip yat-hero">
       <div className="yat-container yat-hero-grid">
         <div className="yat-hero-left">
           <div className="yat-tag-duo">

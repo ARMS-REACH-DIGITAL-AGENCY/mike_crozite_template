@@ -42,7 +42,12 @@ export default function YatStyles() {
         .yat-schooltext .big1{font-size:14px}
         .yat-schooltext .big2{font-size:16px}
       }
-      .yat-hero{padding:2px 0;position:relative}
+      /* MEDIA STRIP — shared structural slot directly beneath shell header, above page body.
+         Gallery pages supply .yat-hero content; player profile pages supply .career-strip content;
+         info/news pages omit the element entirely (no layout shift). */
+      .yat-media-strip{position:relative;width:100%;overflow:hidden}
+      .yat-media-strip:empty{display:none}
+      .yat-hero{padding:2px 0}
       .yat-hero-grid{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:4px 0}
       .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}
       .yat-hero-right{display:flex;gap:10px;padding-top:2px;}
