@@ -1218,8 +1218,8 @@ export default async function PlayerProfilePage({
             <button className="btn-gate" id="uploadSignInBtn">Sign In / Register Free</button>
           </div>
 
-          {/* UPLOAD FORM — shown when logged in */}
-          <div id="uploadFormWrap" style={{display:'none'}}>
+          {/* UPLOAD FORM — always visible; auth checked at submit time */}
+          <div id="uploadFormWrap">
             <p className="upload-heading">Upload a Photo</p>
             <p className="upload-subhead">Help build {displayName}&apos;s career scrapbook. Photos are reviewed before going public.</p>
 
@@ -1305,6 +1305,9 @@ export default async function PlayerProfilePage({
 
               <div id="uploadError" className="upload-error" role="alert" />
               <button type="submit" className="upload-btn" id="uploadSubmitBtn">Submit Photo</button>
+              <p style={{textAlign:'center',fontSize:'11px',marginTop:'8px',color:'var(--muted)',fontFamily:'Oswald,sans-serif',fontWeight:300}}>
+                A free account is required to submit. You&apos;ll be prompted to sign in when you click Submit.
+              </p>
             </form>
           </div>
 
@@ -1757,15 +1760,9 @@ export default async function PlayerProfilePage({
     function showUploadError(msg){if(!uploadError)return;uploadError.textContent=msg;uploadError.style.display='block';}
     function clearUploadError(){if(uploadError){uploadError.style.display='none';uploadError.textContent='';}}
     function initUploadPanel(){
-      var user=getFirebaseUser();
-      if(!uploadGate||!uploadFormWrap)return;
-      if(!user||!user.contactId){
-        uploadGate.style.display='block';
-        uploadFormWrap.style.display='none';
-      }else{
-        uploadGate.style.display='none';
-        uploadFormWrap.style.display='block';
-      }
+      /* Always show the form — auth is checked on submit, not on view */
+      if(uploadGate)uploadGate.style.display='none';
+      if(uploadFormWrap)uploadFormWrap.style.display='block';
       if(uploadSuccess)uploadSuccess.style.display='none';
     }
     /* Init when gallery tab is clicked */
