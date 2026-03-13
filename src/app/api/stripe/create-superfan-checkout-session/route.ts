@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
       sessionParams.customer = existingCustomer;
     } else {
       sessionParams.customer_email = email;
-      sessionParams.customer_creation = "always";
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
