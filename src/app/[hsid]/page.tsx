@@ -14,11 +14,10 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
+import { formatSchoolName, type NavItem } from "@/lib/playerUtils";
 
 import YatStyles from "@/components/yatstats/YatStyles";
 import HeroHeader from "@/components/yatstats/HeroHeader";
-import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
 import AccountDrawer from "@/components/yatstats/AccountDrawer";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import YatInteractivity from "@/components/yatstats/YatInteractivity";
@@ -102,10 +101,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
   const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
 
-  const gradClasses = Array.from(new Set(
-    [...(activeRoster as Record<string, unknown>[]), ...(allTimeRoster as Record<string, unknown>[])].map((p) => gradClass(p)).filter(Boolean)
-  )).sort().reverse();
-
   return (
     <>
       <YatStyles />
@@ -143,7 +138,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>
       </aside>
 
-      <FiltersDrawer gradClasses={gradClasses} />
       <AccountDrawer subdomain={subdomain} />
 
       {/* MAIN CONTENT */}
@@ -198,16 +192,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 <div className="yat-news-title">ACTIVE ALUMNI NEWS</div>
                 <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
               </div>
-            </div>
-            {/* News filter bar — populated/wired by YatInteractivity */}
-            <div className="yat-news-filters" id="newsFilters">
-              <input id="newsFilterName" className="yat-news-filter-input" type="search" placeholder="Filter by player name…" />
-              <span className="yat-news-filter-label">Level:</span>
-              <div className="yat-news-filter-chips" id="newsFilterLevels" />
-              <span className="yat-news-filter-label">Class:</span>
-              <div className="yat-news-filter-chips" id="newsFilterGradClass" />
-              <button id="newsFilterActive" className="yat-news-chip" type="button">Active Only</button>
-              <button id="newsFilterReset" className="yat-news-filter-reset" type="button">Reset</button>
             </div>
             <div className="yat-news-grid" id="news-grid">
               {/* Populated client-side via /api/news/:hsid */}

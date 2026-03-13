@@ -132,9 +132,7 @@ export default function YatStyles() {
       .yat-drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
       body.drawer-left-open .yat-drawer-mask,body.drawer-right-open .yat-drawer-mask,body.drawer-account-open .yat-drawer-mask{opacity:1;pointer-events:auto}
       .yat-drawer{position:fixed;top:0;bottom:0;width:min(360px,82vw);background:var(--drawer-bg);backdrop-filter:blur(4px);color:var(--ink);transform:translateX(-110%);transition:transform .25s,background-color .3s;z-index:70;display:flex;flex-direction:column}
-      .yat-drawer-right{right:0;left:auto;transform:translateX(110%)}
       body.drawer-left-open #drawerLeft{transform:translateX(0)}
-      body.drawer-right-open #drawerFilters{transform:translateX(0)}
       body.drawer-account-open #drawerAccount{transform:translateX(0)}
       .yat-drawer h3{margin:18px 16px 8px;padding-right:30px;font:700 16px "Bebas Neue",sans-serif;letter-spacing:.06em}
       .yat-drawer .yat-close-btn{position:absolute;top:12px;right:12px}
@@ -142,10 +140,6 @@ export default function YatStyles() {
       .yat-drawer-footer{flex-shrink:0;padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
       .yat-drawer input[type="text"],.yat-drawer input[type="search"]{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px}
       body.light-theme .yat-drawer input{background:rgba(0,0,0,.06)}
-      .yat-filter-group{border-bottom:1px solid var(--line);padding:8px 0}
-      .yat-filter-group summary{font:600 12px Oswald,sans-serif;letter-spacing:.06em;cursor:pointer;padding:4px 0;text-transform:uppercase;color:var(--muted)}
-      .yat-filter-options{padding:8px 0;display:flex;flex-direction:column;gap:6px}
-      .yat-filter-options label{display:flex;align-items:center;gap:8px;font:400 12px Oswald,sans-serif;cursor:pointer}
       .yat-drawer-nav{display:flex;flex-direction:column;gap:12px}
       .yat-drawer-nav-item{font:400 14px Oswald,sans-serif;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink)}
       .yat-drawer-nav-item:hover{color:var(--fg)}
@@ -229,18 +223,6 @@ export default function YatStyles() {
       .yat-news-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
       .yat-news-title{font:700 clamp(20px,2.8vw,28px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
       .yat-news-sub{font:300 14px/1.6 Oswald,sans-serif;color:var(--muted);letter-spacing:.03em;margin-top:4px}
-      /* ── News filter bar */
-      .yat-news-filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 0 16px;border-bottom:1px solid var(--line);margin-bottom:18px}
-      .yat-news-filter-input{flex:1;min-width:200px;max-width:280px;background:transparent;border:1px solid var(--line);border-radius:8px;padding:8px 14px;font:300 14px Oswald,sans-serif;color:var(--fg);letter-spacing:.03em;outline:none}
-      .yat-news-filter-input:focus{border-color:rgba(255,255,255,.3)}
-      body.light-theme .yat-news-filter-input:focus{border-color:rgba(0,0,0,.3)}
-      .yat-news-filter-input::placeholder{color:var(--muted);opacity:.7}
-      .yat-news-filter-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-      .yat-news-chip{font:700 11px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;padding:6px 12px;border-radius:20px;background:transparent;border:1px solid var(--line);color:var(--muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
-      .yat-news-chip:hover,.yat-news-chip.active{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-      .yat-news-filter-reset{font:700 11px Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;border-radius:20px;background:transparent;border:1px solid var(--line);color:var(--muted);cursor:pointer;transition:opacity .15s}
-      .yat-news-filter-reset:hover{opacity:.7}
-      .yat-news-filter-label{font:300 11px Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
       /* ── News grid */
       .yat-news-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
       @media(max-width:768px){.yat-news-grid{grid-template-columns:1fr;gap:14px}}
