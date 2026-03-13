@@ -7,8 +7,6 @@ import { headers } from "next/headers";
 import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from "@/lib/schoolAssets";
-import AccountDrawer from "@/components/AccountDrawer";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
@@ -28,7 +26,7 @@ import {
   getPlayerPhotos,
   getResolvedCurrentTeam,
 } from "@/lib/db";
-import { formatSchoolName } from "@/lib/playerUtils";
+import { formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -338,20 +336,6 @@ export default async function PlayerProfilePage({
   // Using `let` so TypeScript doesn't narrow to `never` in the JSX truthy branch.
   // eslint-disable-next-line prefer-const
   const sponsorBanner = resolveSponsorBanner(safePlayerId);
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || resolvedHsid;
-
-  const navItems = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
 
   // Build career stats grid for the profile
   const careerBattingGrid = careerBatting
@@ -755,7 +739,7 @@ export default async function PlayerProfilePage({
             <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
           </div>
           <nav className="yat-topnav" aria-label="Top Navigation">
-            {navItems.map((item) => (
+            {NAV_ITEMS.map((item) => (
               <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="yat-nav-pair">
                 {item.thin && <span className="thin">{item.thin} </span>}
                 <span className="bold">{item.bold}</span>
@@ -795,40 +779,6 @@ export default async function PlayerProfilePage({
           </button>
         </div>
       </header>
-
-      {/* DRAWER MASK */}
-      <div className="drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation (unified, matches school microsite drawer) */}
-      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px',paddingTop:'8px'}}>PLAYER SEARCH</h3>
-        <div style={{paddingBottom:'12px'}}>
-          <input id="playerSearch" type="search" placeholder="Type a name…" className="drawer-search-input" />
-          <div id="liveResults" />
-        </div>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px'}}>NAVIGATION</h3>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          <a href={`/${resolvedHsid}`} className="drawer-nav-link">&#8592; BACK TO {schoolName}</a>
-          {navItems.map((item) => (
-            <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="drawer-nav-link">
-              {item.thin ? `${item.thin} ` : ""}{item.bold}
-            </a>
-          ))}
-        </div>
-      </aside>
-
-      {/* ACCOUNT DRAWER */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-        <button className="yat-icon-btn yat-close-btn" id="closeAccount"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'16px',paddingTop:'8px'}}>ACCOUNT</h3>
-        <AccountDrawer subdomain={subdomain} />
-      </aside>
-
-      {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay. The .yat-hero-right action buttons
-          inside GlobalSearchModal are hidden via CSS (.player-page .yat-hero-right); we use
-          #btnSearch in the header icon row instead as the trigger. */}
-      <GlobalSearchModal />
 
       {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
       <section className="career-strip" id="playerHeroMeta">
