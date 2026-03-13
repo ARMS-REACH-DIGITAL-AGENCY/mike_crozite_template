@@ -1141,7 +1141,7 @@ export default async function PlayerProfilePage({
           var pid=p.id||p.player_id;
           var slug=p.slug||toSlug(firstName,lastName,pid);
           var displayName=escHtml((firstName+' '+lastName).trim());
-          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;">'+displayName+'</a>';
+          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="yat-live-hit">'+displayName+'</a>';
         }
       });
       liveResults.innerHTML=html||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');

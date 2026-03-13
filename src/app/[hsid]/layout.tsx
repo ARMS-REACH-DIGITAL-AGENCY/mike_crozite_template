@@ -125,7 +125,7 @@ export default async function HsidLayout({
                 key={item.tab}
                 href={`/${resolvedHsid}#sec-${item.tab}`}
                 className="yat-drawer-nav-item"
-                data-sec={item.tab}
+                data-tab={item.tab}
               >
                 {item.thin ? `${item.thin} ` : ""}{item.bold}
               </a>

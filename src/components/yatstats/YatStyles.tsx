@@ -160,7 +160,7 @@ export default function YatStyles() {
       .yat-drawer-nav-item{font:400 14px Oswald,sans-serif;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink)}
       .yat-drawer-nav-item:hover{color:var(--fg)}
       #liveResults{margin:10px 4px 18px;max-height:55vh;overflow:auto}
-      .yat-live-hit{padding:10px 12px;display:flex;align-items:center;gap:10px;border-radius:10px;cursor:pointer}
+      .yat-live-hit{display:block;text-decoration:none;color:inherit;padding:10px 12px;border-radius:10px;cursor:pointer}
       .yat-live-hit:hover{background:var(--line)}
       .yat-placeholder{max-width:1400px;margin:0 auto;padding:60px 16px;text-align:center}
       .yat-placeholder-icon{font-size:48px;margin-bottom:16px;opacity:.3}
