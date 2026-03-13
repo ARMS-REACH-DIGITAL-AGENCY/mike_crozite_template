@@ -169,6 +169,20 @@ export default function YatStyles() {
       .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
       .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
       .yat-footer a:hover{opacity:.8}
+      /* ── Player Action Bar ───────────────────────────────────────────── */
+      .pab{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:0 auto;background:var(--header-bg);backdrop-filter:blur(8px)}
+      .pab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:12px 4px 10px;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;background:none;color:var(--muted);cursor:pointer;min-height:68px;touch-action:manipulation;transition:color .2s,border-color .2s;position:relative}
+      .pab-btn+.pab-btn::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:1px;background:var(--line)}
+      .pab-icon{font-size:28px;line-height:1;display:block;transition:color .2s}
+      .pab-label{font:400 10px/1 Oswald,sans-serif;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;transition:font-weight .1s,color .2s}
+      .pab-btn.active{color:var(--fg);border-bottom-color:gold}
+      .pab-btn.active .pab-label{font-weight:700}
+      .pab-btn:hover:not(.active){color:var(--fg)}
+      .pab-btn:focus-visible{outline:2px solid var(--fg);outline-offset:-2px;z-index:1}
+      /* compact card-back variant */
+      .pab--card .pab-btn{min-height:52px;padding:8px 2px 6px}
+      .pab--card .pab-icon{font-size:22px}
+      .pab--card .pab-label{font-size:9px}
       /* ── Global Search Modal ─────────────────────────────────────────── */
       .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
       .yat-gs-modal.open{display:flex}
