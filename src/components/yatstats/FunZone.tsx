@@ -12,7 +12,7 @@ const FUN_ZONE_TABS = [
   { label: "NEWS",    hash: "news"    },
   { label: "SOCIAL",  hash: "social"  },
   { label: "MENTOR",  hash: "mentor"  },
-  { label: "GALLERY", hash: "gallery" },
+  { label: "UPLOAD",  hash: "gallery" },
 ] as const;
 
 export default function FunZone({ playerId, slug, resolvedHsid }: FunZoneProps) {

@@ -1403,13 +1403,16 @@ export default async function PlayerProfilePage({
       var target=tab.getAttribute('data-profile-tab');
       activateTab(target);
       history.replaceState(null,'','#tab-'+target);
+      /* Scroll so the tab bar is visible and content starts right below it */
+      requestAnimationFrame(function(){scrollToTabBar();});
     });
   });
   /* Activate tab from URL hash on load (e.g. #tab-stats) and scroll correctly */
   (function(){
     var hash=window.location.hash.slice(1);
     if(hash.slice(0,4)==='tab-'){
-      activateTab(hash.slice(4));
+      var tabName=hash.slice(4);
+      activateTab(tabName);
       /* Use rAF to ensure layout vars are up-to-date before scrolling */
       requestAnimationFrame(function(){
         requestAnimationFrame(scrollToTabBar);
@@ -1756,6 +1759,8 @@ export default async function PlayerProfilePage({
     });
     /* Re-init after successful auth */
     window.addEventListener('yat-auth-success',function(){initUploadPanel();});
+    /* Init on page load if URL hash already points at the gallery tab */
+    if(window.location.hash==='#tab-gallery'){initUploadPanel();}
     /* Sign-in gate button */
     if(uploadSignInBtn){uploadSignInBtn.addEventListener('click',function(){openAccountDrawer();});}
 
