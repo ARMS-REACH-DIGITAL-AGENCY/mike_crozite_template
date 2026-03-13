@@ -242,9 +242,9 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // NOW image = .jpg, THEN image = .jpg
+  // NOW image = .jpg, THEN image = .png
   const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.jpg`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
@@ -460,7 +460,7 @@ export default async function PlayerProfilePage({
 
   type FilmSlot = {img: string; label: string; sub: string};
 
-  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.jpg
+  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.png
   const hsBookend: FilmSlot = {
     img: playerThenImg,
     label: schoolName,
@@ -526,9 +526,9 @@ export default async function PlayerProfilePage({
         /* CAREER PROGRESSION FILMSTRIP — chronological visual montage, no captions */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:clamp(100px,12vw,140px);overflow:hidden}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-behavior:smooth}
+        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden;scroll-snap-align:start}
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden}
         .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
@@ -570,42 +570,6 @@ export default async function PlayerProfilePage({
         .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
-        /* UPLOAD FORM */
-        .upload-section{max-width:600px;margin:0 auto;padding:24px 16px}
-        .upload-gate{text-align:center;padding:40px 16px}
-        .upload-gate i{font-size:40px;display:block;margin-bottom:12px;color:gold;opacity:.8}
-        .upload-gate h2{font:700 24px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:8px}
-        .upload-gate p{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
-        .upload-gate .btn-gate{display:inline-block;background:gold;color:#000;border:none;border-radius:10px;padding:12px 28px;font:700 13px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;cursor:pointer;text-transform:uppercase}
-        .upload-heading{font:700 20px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:4px}
-        .upload-subhead{font:300 12px/1.4 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
-        .upload-field{margin-bottom:16px}
-        .upload-label{display:block;font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
-        .upload-file-zone{border:2px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .2s}
-        .upload-file-zone:hover{border-color:gold}
-        .upload-file-zone i{font-size:28px;display:block;margin-bottom:8px;color:var(--muted)}
-        .upload-file-zone p{font:300 12px/1.5 Oswald,sans-serif;color:var(--muted);margin:0}
-        .upload-preview-img{display:none;width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--line);margin-top:10px}
-        .upload-input,.upload-select,.upload-textarea{width:100%;padding:10px 12px;background:var(--card-bg);border:1px solid var(--line);border-radius:8px;color:var(--fg);font:300 13px/1.4 Oswald,sans-serif;outline:none;transition:border-color .2s;box-sizing:border-box}
-        .upload-input:focus,.upload-select:focus,.upload-textarea:focus{border-color:gold}
-        body.light-theme .upload-input,body.light-theme .upload-select,body.light-theme .upload-textarea{background:#fff}
-        .upload-date-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-        .upload-textarea{resize:vertical;min-height:72px}
-        .upload-disclaimer-wrap{display:flex;align-items:flex-start;gap:10px;background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:12px}
-        body.light-theme .upload-disclaimer-wrap{background:rgba(255,209,102,.1)}
-        .upload-disclaimer-check{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:gold}
-        .upload-disclaimer-text{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted)}
-        .upload-auth-hint{font:300 11px/1.5 Oswald,sans-serif;color:var(--muted);text-align:center;margin-top:8px}
-        .upload-error{font:300 12px/1.4 Oswald,sans-serif;color:#f66;margin-top:6px;display:none}
-        .upload-btn{width:100%;padding:14px;background:gold;color:#000;border:none;border-radius:10px;font:700 14px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;cursor:pointer;margin-top:8px;transition:opacity .2s}
-        .upload-btn:disabled{opacity:.5;cursor:default}
-        .upload-success{text-align:center;padding:40px 16px;display:none}
-        .upload-success i{font-size:44px;color:gold;display:block;margin-bottom:12px}
-        .upload-success h2{font:700 22px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;margin-bottom:8px}
-        .upload-success p{font:300 13px/1.5 Oswald,sans-serif;color:var(--muted);margin-bottom:20px}
-        .upload-another-btn{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:10px 22px;font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;cursor:pointer;transition:border-color .2s}
-        .upload-another-btn:hover{border-color:gold;color:gold}
-        /* PHOTO QUEUE (multi-upload) */
         /* FAVORITES MODAL */
         .fav-modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
         .fav-modal{background:var(--card-bg);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:380px;width:90%;color:var(--fg);box-shadow:0 20px 40px rgba(0,0,0,.4);position:relative}
@@ -922,7 +886,7 @@ export default async function PlayerProfilePage({
         <div role="tab" className="profile-tab" data-profile-tab="news" tabIndex={0}>NEWS &amp; VIDEOS</div>
         <div role="tab" className="profile-tab" data-profile-tab="social" tabIndex={0}>SOCIAL MEDIA</div>
         <div role="tab" className="profile-tab" data-profile-tab="mentor" tabIndex={0}>MENTORSHIP MARKETPLACE</div>
-        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>UPLOAD PHOTOS</div>
+        <div role="tab" className="profile-tab" data-profile-tab="gallery" tabIndex={0}>PHOTO GALLERY</div>
       </div>
 
       {/* TAB: GAME LOG */}
@@ -1210,16 +1174,13 @@ export default async function PlayerProfilePage({
 
       {/* TAB: GALLERY */}
       <div className="tab-content" id="tab-gallery" role="tabpanel">
-        <div className="upload-section">
-          <div style={{textAlign:'center',padding:'40px 20px',color:'var(--muted)'}}>
-            <i className="ri-image-add-line" style={{fontSize:'32px',marginBottom:'12px',display:'block'}} />
-            <div style={{font:'700 14px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px'}}>GALLERY &amp; UPLOAD</div>
-            <div style={{font:'300 12px/1.5 Oswald,sans-serif'}}>Photo upload coming soon. Backend infrastructure is ready.</div>
+        <div className="stats-section">
+          <div className="coming-soon">
+            <i className="ri-image-line" />
+            PHOTO GALLERY — Coming soon
           </div>
         </div>
       </div>
-
-
 
       {/* FAVORITES MODAL */}
       <div className="fav-modal-mask" id="favModalMask" role="dialog" aria-modal="true">
