@@ -76,7 +76,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
             ))}
           </div>
         </div>
-        <FunZone />
+        <FunZone playerId={pid} slug={slug} resolvedHsid={resolvedHsid} />
       </div>
     </div>
   );

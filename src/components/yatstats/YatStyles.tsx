@@ -120,6 +120,9 @@ export default function YatStyles() {
       .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
       .yat-fun-zone{border-top:1px solid var(--line);padding:4px 8px;flex-shrink:0;background:rgba(0,0,0,.3)}
       .yat-fun-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.1em;opacity:.5;text-align:center;text-transform:uppercase}
+      .yat-fun-nav{display:flex;justify-content:space-around;gap:2px;margin-top:4px}
+      .yat-fun-nav-link{flex:1;text-align:center;padding:5px 2px;font:700 9px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--muted);text-decoration:none;border-radius:4px;border:1px solid var(--line);background:rgba(255,255,255,.04);transition:color .15s,background .15s}
+      .yat-fun-nav-link:hover{color:var(--fg);background:rgba(255,255,255,.1)}
       .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
       .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
       .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
