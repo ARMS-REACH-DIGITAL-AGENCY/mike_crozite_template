@@ -109,7 +109,7 @@ export async function getSchoolByHsid(hsid: string) {
 }
 
 // ---------------------------------------------------------------------------
-// School color lookup (from tbs_schools_raw)
+// School color lookup (from tbc_schools_raw)
 // Returns the three school brand colors keyed by hsid.
 // Falls back to all-null when the table or row does not exist.
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ export async function getSchoolColors(hsid: string): Promise<{
 }> {
   try {
     const { rows } = await query(
-      'SELECT color1, color2, color3 FROM tbs_schools_raw WHERE hsid = $1 LIMIT 1',
+      'SELECT color1, color2, color3 FROM tbc_schools_raw WHERE hsid = $1 LIMIT 1',
       [hsid]
     );
     if (rows[0]) {
@@ -130,7 +130,7 @@ export async function getSchoolColors(hsid: string): Promise<{
         color3: rows[0].color3 ?? null,
       };
     }
-  } catch { /* tbs_schools_raw may not exist or hsid not found; fall through */ }
+  } catch { /* tbc_schools_raw may not exist or hsid not found; fall through */ }
   return { color1: null, color2: null, color3: null };
 }
 
