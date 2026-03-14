@@ -748,7 +748,7 @@ export default async function PlayerProfilePage({
         {/* Row 1: Global controls */}
         <div className="yat-container yat-topbar">
           <div className="yat-left-icons">
-            <a href={`/${resolvedHsid}`} className="yat-icon-btn" aria-label="Back to school"><i className="ri-arrow-left-line" /></a>
+            <a href={`/${resolvedHsid}#player-${safePlayerId}`} className="yat-icon-btn" aria-label="Back to flip card"><i className="ri-arrow-left-line" /></a>
             <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
             <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
             <button className="yat-icon-btn" id="btnSearch" aria-label="Search"><i className="ri-search-line" /></button>
@@ -1172,12 +1172,27 @@ export default async function PlayerProfilePage({
         </div>
       </div>
 
-      {/* TAB: GALLERY */}
+      {/* TAB: GALLERY — Chronological Career Path Photo Timeline */}
       <div className="tab-content" id="tab-gallery" role="tabpanel">
         <div className="stats-section">
-          <div className="coming-soon">
-            <i className="ri-image-line" />
-            PHOTO GALLERY — Coming soon
+          <div className="ov-card">
+            <div className="ov-card-title">CHRONOLOGICAL CAREER PATH PHOTO TIMELINE</div>
+            <p style={{font:'300 13px/1.6 Oswald,sans-serif',color:'var(--muted)',margin:'0 0 14px'}}>
+              The filmstrip above is {displayName}&apos;s personal photo timeline — a chronological record of
+              their career from high school to today. Scroll left and right to explore every chapter.
+            </p>
+            <p style={{font:'300 13px/1.6 Oswald,sans-serif',color:'var(--muted)',margin:'0 0 14px'}}>
+              Got a great photo? Upload it and — once approved — it will be placed on the timeline
+              in the right chronological slot based on the photo&apos;s metadata.
+            </p>
+            <a
+              href="#playerHeroMeta"
+              className="yat-back-cta-btn"
+              style={{display:'inline-block',marginTop:'8px'}}
+            >
+              <i className="ri-upload-2-line" style={{marginRight:'6px'}} />
+              UPLOAD A PHOTO
+            </a>
           </div>
         </div>
       </div>

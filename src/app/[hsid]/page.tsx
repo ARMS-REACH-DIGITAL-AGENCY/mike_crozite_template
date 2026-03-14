@@ -164,6 +164,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 player={p}
                 resolvedHsid={resolvedHsid}
                 photoDefaultUrl={photoDefaultUrl}
+                schoolName={schoolName}
+                location={location}
               />
             ))}
           </div>
@@ -184,6 +186,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 player={p}
                 resolvedHsid={resolvedHsid}
                 photoDefaultUrl={photoDefaultUrl}
+                schoolName={schoolName}
+                location={location}
                 isAllTime
               />
             ))}
@@ -290,6 +294,33 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </footer>
 
       <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
+
+      {/* Hash-anchor navigation: when returning from player profile via #player-{pid}, make the
+          correct section visible and scroll smoothly to the card, then briefly highlight it. */}
+      <script dangerouslySetInnerHTML={{ __html: `
+(function(){
+  var hash=window.location.hash;
+  if(!hash||hash.indexOf('player-')!==1)return;
+  var el=document.getElementById(hash.slice(1));
+  if(!el)return;
+  var section=el.closest('.yat-section');
+  if(section&&!section.classList.contains('visible')){
+    document.querySelectorAll('.yat-section').forEach(function(s){s.classList.remove('visible');});
+    section.classList.add('visible');
+    /* Update breadcrumb label */
+    var sectionLabel=document.getElementById('yatSectionLabel');
+    if(sectionLabel){
+      var idMap={active:'ACTIVE BASEBALL ALUMNI',alltime:'NEXT-LEVEL ALL-TIME LIST'};
+      sectionLabel.textContent=idMap[section.id.replace('sec-','')]||section.id.replace('sec-','').toUpperCase();
+    }
+  }
+  setTimeout(function(){
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    el.classList.add('is-highlighted');
+    setTimeout(function(){el.classList.remove('is-highlighted');},1800);
+  },120);
+})();
+      `}} />
 
       {/* Article detail overlay + modal drawer */}
       <div className="yat-article-overlay" id="articleOverlay" />

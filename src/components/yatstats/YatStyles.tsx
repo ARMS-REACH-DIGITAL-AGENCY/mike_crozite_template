@@ -74,6 +74,8 @@ export default function YatStyles() {
       @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
       .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
+      .yat-card.is-highlighted{outline:3px solid gold;outline-offset:-3px;animation:card-highlight-pulse 1.8s ease-out forwards}
+      @keyframes card-highlight-pulse{0%,20%{box-shadow:0 0 0 4px gold}80%{box-shadow:0 0 0 4px transparent}100%{outline:none}}
       .yat-card::before{content:"";display:block;padding-top:140%}
       .yat-card-inner{position:absolute;inset:0;perspective:1200px}
       .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
@@ -104,15 +106,30 @@ export default function YatStyles() {
       .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
       .yat-face.yat-back{transform:rotateY(180deg);background:#111;color:var(--fg);--fg:#f2f2f2;--muted:#9e9e9e;--line:rgba(255,255,255,.1);--card-bg:#1a1a1a}
       .yat-back-content{position:absolute;inset:0;display:flex;flex-direction:column;z-index:1;overflow:hidden}
-      .yat-back-hero{display:flex;flex-direction:column;flex-shrink:0;text-decoration:none;color:inherit}
-      .yat-back-hero:hover .yat-back-name{opacity:.75}
-      .yat-back-img-wrap{width:100%;padding-bottom:40%;position:relative;overflow:hidden;background:#111;flex-shrink:0}
-      .yat-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
-      .yat-back-info{padding:7px 10px;background:rgba(17,17,17,.9);border-bottom:1px solid var(--line)}
-      .yat-back-name{font:700 18px "Bebas Neue",sans-serif;letter-spacing:.04em;margin-bottom:2px}
-      .yat-back-details{font-size:10px;opacity:.8;line-height:1.3}
-      .yat-back-draft{font:300 9px/1.3 Oswald,sans-serif;color:var(--muted);margin-top:2px}
-      .yat-back-stats{flex:1 1 0;padding:7px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+      /* ── Back header: mug | identity | CTA ── */
+      .yat-back-header{display:grid;grid-template-columns:52px 1fr auto;gap:6px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line);flex-shrink:0}
+      .yat-back-mug{width:52px;height:52px;border-radius:4px;overflow:hidden;flex-shrink:0;background:#222}
+      .yat-back-mug-img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+      .yat-back-identity{display:flex;flex-direction:column;gap:1px;overflow:hidden}
+      .yat-back-location{font:400 8px/1 Oswald,sans-serif;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+      .yat-back-school{font:700 9px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;color:var(--fg);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .yat-back-name{font:700 14px/1 "Bebas Neue",sans-serif;letter-spacing:.03em;color:var(--fg);text-transform:uppercase;margin-top:2px}
+      .yat-back-cta{display:block;background:#8b0000;color:#fff;font:700 7px/1.2 "Bebas Neue",sans-serif;letter-spacing:.06em;padding:5px 6px;border-radius:4px;text-decoration:none;text-align:center;text-transform:uppercase;max-width:78px;flex-shrink:0}
+      .yat-back-cta:hover{background:#a00000}
+      /* ── Meta row ── */
+      .yat-back-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px 8px;border-bottom:1px solid var(--line);font:400 8.5px/1.3 Oswald,sans-serif;flex-shrink:0}
+      .yat-back-meta-left{color:var(--fg)}
+      .yat-back-meta-right{color:var(--muted);text-align:right}
+      .yat-back-status{display:inline-block;background:rgba(255,255,255,.08);border-radius:3px;padding:0 4px;font-size:7.5px;margin-left:3px;vertical-align:middle;text-transform:uppercase}
+      /* ── Action bar ── */
+      .yat-back-action-bar{display:flex;border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+      .yat-back-action-bar::-webkit-scrollbar{display:none}
+      .yat-back-action-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 6px;color:var(--muted);text-decoration:none;font-size:11px;flex:1;min-width:36px;border-right:1px solid var(--line);transition:color .15s}
+      .yat-back-action-btn:last-child{border-right:none}
+      .yat-back-action-btn:hover{color:var(--fg)}
+      .yat-back-action-label{font:700 6px "Bebas Neue",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+      /* ── Stats ── */
+      .yat-back-stats{flex:1 1 0;padding:5px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
       .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:4px;font:700 10px "Bebas Neue",sans-serif;margin:0 0 5px;border-radius:4px;flex-shrink:0}
       .yat-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;text-align:center}
       .yat-stat{background:var(--line);border-radius:6px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
@@ -120,6 +137,54 @@ export default function YatStyles() {
       .yat-stat-val{font-size:13px;font-weight:700;line-height:1;margin-top:2px}
       .yat-fun-zone{border-top:1px solid var(--line);padding:4px 8px;flex-shrink:0;background:rgba(0,0,0,.3)}
       .yat-fun-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.1em;opacity:.5;text-align:center;text-transform:uppercase}
+      /* ── Flip card back tab panels ── */
+      .yat-back-tab-panel{flex:1 1 0;overflow-y:auto;display:flex;flex-direction:column;min-height:0}
+      .yat-back-tab-panel[hidden]{display:none}
+      /* Spinner while lazy content loads */
+      .yat-back-spinner{display:flex;align-items:center;justify-content:center;padding:16px;font-size:18px;opacity:.5;animation:spin .8s linear infinite;flex:1}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      /* Schedule tab */
+      .yat-back-schedule{padding:4px 8px;flex:1 1 0;display:flex;flex-direction:column;gap:0}
+      .yat-back-sched-label{font:700 9px "Bebas Neue",sans-serif;letter-spacing:.08em;color:var(--muted);padding:5px 0 3px;border-bottom:1px solid var(--line)}
+      .yat-back-game-row{display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid var(--line);font:400 8px/1.2 Oswald,sans-serif}
+      .yat-back-game-date{color:var(--muted);font-size:7.5px}
+      .yat-back-game-opp{color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .yat-back-game-stat{color:gold;font-weight:600;font-size:9px;text-align:right}
+      .yat-back-next-game{background:rgba(255,209,102,.07);border-radius:4px;padding:5px 6px;margin-top:5px;font:400 9px/1.3 Oswald,sans-serif}
+      .yat-back-next-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.08em;color:gold;margin-bottom:3px}
+      /* News tab */
+      .yat-back-news{display:grid;grid-template-columns:1fr;gap:0;flex:1 1 0;overflow-y:auto}
+      .yat-back-news-item{display:grid;grid-template-columns:36px 1fr;gap:5px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+      .yat-back-news-item:hover{background:rgba(255,255,255,.04)}
+      .yat-back-news-thumb{width:36px;height:36px;object-fit:cover;border-radius:3px;background:#222;display:block}
+      .yat-back-news-headline{font:400 9px/1.3 Oswald,sans-serif;color:var(--fg);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .yat-back-news-source{font:300 7.5px/1 Oswald,sans-serif;color:var(--muted);margin-top:2px}
+      .yat-back-no-news{text-align:center;padding:20px 12px;font:300 10px/1.5 Oswald,sans-serif;color:var(--muted)}
+      /* Social tab */
+      .yat-back-social{padding:6px 8px;display:flex;flex-direction:column;gap:6px;flex:1}
+      .yat-back-social-hint{font:300 8px/1.4 Oswald,sans-serif;color:var(--muted);text-align:center}
+      .yat-back-social-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+      .yat-back-share-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;border-radius:5px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--fg);text-decoration:none;font:700 7px "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;transition:background .15s}
+      .yat-back-share-btn:hover{background:rgba(255,255,255,.1)}
+      .yat-back-share-btn i{font-size:16px}
+      .yat-share-x:hover{border-color:#1d9bf0;color:#1d9bf0}
+      .yat-share-fb:hover{border-color:#1877f2;color:#1877f2}
+      .yat-share-ig:hover{border-color:#e1306c;color:#e1306c}
+      .yat-share-tt:hover{border-color:#69c9d0;color:#69c9d0}
+      .yat-back-share-copied{font-size:8px;color:gold;opacity:0;transition:opacity .3s;text-align:center;letter-spacing:.06em}
+      .yat-back-share-copied.show{opacity:1}
+      /* Connect / Upload CTA panels */
+      .yat-back-cta-panel{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 10px 6px;text-align:center;flex:1}
+      .yat-back-cta-icon{font-size:22px;opacity:.7}
+      .yat-back-cta-title{font:700 13px "Bebas Neue",sans-serif;letter-spacing:.08em;color:var(--fg)}
+      .yat-back-cta-body{font:300 8.5px/1.4 Oswald,sans-serif;color:var(--muted);max-width:160px}
+      .yat-back-cta-btn{display:inline-block;background:#8b0000;color:#fff;font:700 8px "Bebas Neue",sans-serif;letter-spacing:.08em;padding:7px 10px;border-radius:4px;text-decoration:none;text-transform:uppercase;margin-top:4px}
+      .yat-back-cta-btn:hover{background:#a00000}
+      /* Active tab button indicator */
+      .yat-back-action-btn.active{color:gold}
+      .yat-back-action-btn.active .yat-back-action-label{color:gold}
+      .yat-back-stats{padding:5px 8px;display:flex;flex-direction:column;flex:1 1 0;overflow:hidden;min-height:0}
+
       .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
       .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
       .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}

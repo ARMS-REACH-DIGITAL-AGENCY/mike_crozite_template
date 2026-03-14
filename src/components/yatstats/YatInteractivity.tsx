@@ -930,6 +930,174 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* Also load if news section is already visible on page load */
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
+
+  /* ====================================================================
+     FLIP CARD BACK — in-card tab switching + lazy data loading
+     Tab buttons carry data-card-tab={id}; panels carry data-tab-panel={id}.
+     Schedule and News data are fetched once per card from /api/player/{pid}/card-data.
+     Social "Copy" buttons write to clipboard.
+     ==================================================================== */
+  (function(){
+    /* ── Format a game date as "M/D" ── */
+    function fmtDate(d){
+      if(!d)return'';
+      var dt=new Date(d+'T12:00:00');
+      return(dt.getMonth()+1)+'/'+(dt.getDate());
+    }
+
+    /* ── Format opponent line: "vs BOS" or "@ BOS" ── */
+    function fmtOpp(game){
+      var away=String(game.away_team_abbr||game.away_team||'').toUpperCase();
+      var home=String(game.home_team_abbr||game.home_team||'').toUpperCase();
+      var home_id=String(game.home_team_id||game.home_teamid||'');
+      var team_id=String(game.tbc_teamid||game.teamid||'');
+      var isHome=home_id===team_id;
+      var opp=isHome?away:home;
+      return(isHome?'vs ':'\u0040 ')+(opp||'OPP');
+    }
+
+    /* ── Summarise one batting game row ── */
+    function fmtBatLine(g){
+      var ab=g.ab||0,h=g.h||0,hr=g.hr||0,rbi=g.rbi||0;
+      return h+'-'+ab+(hr?' '+hr+' HR':'')+(rbi?' '+rbi+' RBI':'');
+    }
+
+    /* ── Summarise one pitching game row ── */
+    function fmtPitLine(g){
+      var ip=g.ip?parseFloat(g.ip).toFixed(1):'';
+      var k=g.ko||g.so||0,er=g.er||0;
+      return(ip?ip+' IP ':'')+(k?' '+k+'K ':'')+(er?' '+er+'ER':'').trim();
+    }
+
+    /* ── Render schedule panel HTML for a card ── */
+    function renderSchedule(data,back){
+      var panel=back.querySelector('[data-tab-panel="schedule"]');
+      if(!panel)return;
+      var games=data.lastGames||[];
+      var next=data.nextGame||null;
+      /* Detect pitcher from pitching game rows */
+      var isPitch=games.length>0&&('ip' in games[0]||'ko' in games[0]);
+      var html='<div class="yat-back-schedule">';
+      html+='<div class="yat-back-sched-label">LAST 3 GAMES</div>';
+      if(games.length===0){
+        html+='<div style="padding:8px 0;font:300 9px Oswald,sans-serif;color:var(--muted)">No game data yet</div>';
+      }else{
+        games.forEach(function(g){
+          var stat=isPitch?fmtPitLine(g):fmtBatLine(g);
+          html+='<div class="yat-back-game-row">';
+          html+='<span class="yat-back-game-date">'+fmtDate(g.game_date)+'</span>';
+          html+='<span class="yat-back-game-opp">'+fmtOpp(g)+'</span>';
+          html+='<span class="yat-back-game-stat">'+stat+'</span>';
+          html+='</div>';
+        });
+      }
+      if(next){
+        html+='<div class="yat-back-next-game">';
+        html+='<div class="yat-back-next-label">NEXT GAME</div>';
+        html+=fmtDate(next.game_date)+' '+fmtOpp(next);
+        if(data.teamName)html+=' \u2014 '+(data.teamName);
+        html+='</div>';
+      }
+      html+='</div>';
+      panel.innerHTML=html;
+    }
+
+    /* ── Render news panel HTML for a card ── */
+    function renderNews(data,back){
+      var panel=back.querySelector('[data-tab-panel="news"]');
+      if(!panel)return;
+      var items=data.news||[];
+      if(items.length===0){
+        panel.innerHTML='<div class="yat-back-no-news">No recent news found.</div>';
+        return;
+      }
+      var html='<div class="yat-back-news">';
+      items.slice(0,4).forEach(function(n){
+        var thumb=n.imageUrl
+          ?'<img src="'+n.imageUrl+'" class="yat-back-news-thumb" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+          :'<div class="yat-back-news-thumb" style="background:#333"></div>';
+        html+='<a href="'+(n.url||'#')+'" target="_blank" rel="noopener noreferrer" class="yat-back-news-item">';
+        html+=thumb;
+        html+='<div><div class="yat-back-news-headline">'+String(n.title||'').replace(/</g,'&lt;')+'</div>';
+        html+='<div class="yat-back-news-source">'+(n.source||'')+'</div></div>';
+        html+='</a>';
+      });
+      html+='</div>';
+      panel.innerHTML=html;
+    }
+
+    /* ── Switch visible tab panel within a single card ── */
+    function activateCardTab(card,tabId){
+      var back=card.querySelector('.yat-back-content');
+      if(!back)return;
+      back.querySelectorAll('[data-card-tab]').forEach(function(btn){
+        var active=btn.getAttribute('data-card-tab')===tabId;
+        btn.classList.toggle('active',active);
+        btn.setAttribute('aria-selected',String(active));
+      });
+      back.querySelectorAll('[data-tab-panel]').forEach(function(panel){
+        panel.hidden=panel.getAttribute('data-tab-panel')!==tabId;
+      });
+    }
+
+    /* ── Lazy fetch card data (once per card) ── */
+    var cardDataCache={};
+    function loadCardData(card,tabId){
+      var pid=card.getAttribute('data-playerid');
+      if(!pid)return;
+      var back=card.querySelector('.yat-back-content');
+      if(!back)return;
+      if(cardDataCache[pid]){
+        tabId==='schedule'?renderSchedule(cardDataCache[pid],back):renderNews(cardDataCache[pid],back);
+        return;
+      }
+      fetch('/api/player/'+pid+'/card-data')
+        .then(function(r){return r.json();})
+        .then(function(data){
+          cardDataCache[pid]=data;
+          renderSchedule(data,back);
+          renderNews(data,back);
+        })
+        .catch(function(){
+          var p2=back.querySelector('[data-tab-panel="'+tabId+'"]');
+          if(p2)p2.innerHTML='<div class="yat-back-no-news">Unable to load data.</div>';
+        });
+    }
+
+    /* ── Global click handler for card tab buttons ── */
+    document.addEventListener('click',function(e){
+      var btn=e.target.closest('[data-card-tab]');
+      if(!btn)return;
+      e.stopPropagation(); /* prevent card flip */
+      var card=btn.closest('.yat-card');
+      if(!card)return;
+      var tabId=btn.getAttribute('data-card-tab');
+      if(!tabId)return;
+      activateCardTab(card,tabId);
+      /* Lazy load schedule or news on first open */
+      if(tabId==='schedule'||tabId==='news'){
+        var back=card.querySelector('.yat-back-content');
+        var panel=back&&back.querySelector('[data-tab-panel="'+tabId+'"]');
+        var lazy=panel&&panel.querySelector('[data-lazy-tab]');
+        if(lazy)loadCardData(card,tabId);
+      }
+    });
+
+    /* ── Copy-to-clipboard for Instagram / TikTok share buttons ── */
+    document.addEventListener('click',function(e){
+      var btn=e.target.closest('[data-copy-share]');
+      if(!btn)return;
+      var text=btn.getAttribute('data-copy-share');
+      if(!text)return;
+      navigator.clipboard&&navigator.clipboard.writeText(text).then(function(){
+        var label=btn.querySelector('span');
+        if(!label)return;
+        var orig=label.textContent;
+        label.textContent='Copied!';
+        setTimeout(function(){label.textContent=orig;},2000);
+      });
+    });
+  })();
 })();
         `,
       }}
