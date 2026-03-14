@@ -112,10 +112,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 })();
 ` }} />
 
-      <HeroHeader />
-
-      {/* GALLERY THUMBNAIL RAIL (flip_link_photo_strip) — square 1:1 official headshots
-          linking to each player's flip card below. Sources in priority order:
+      {/* GALLERY THUMBNAIL RAIL (flip_link_photo_strip) — square 1:1 official headshots, sticky row 3.
+          Sits immediately below the header (rows 1+2). HeroHeader taglines appear BELOW in row 4.
+          Sources in priority order:
           1) MLB/MiLB CDN  (player_source_map mlb_api row)
           2) College URL   (player_headshots.headshot_url — SideArm/Presto)
           3) S3 mugs/      (legacy fallback)  */}
@@ -173,6 +172,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   if(document.readyState==='loading'){addEventListener('DOMContentLoaded',wireGalleryStrip);}else{wireGalleryStrip();}
 })();
 ` }} />
+
+      {/* ROW 4 — TAGLINE (non-sticky, scrolls with page).
+          "FLIP FOR STATS!" / "WHERE THEY YAT?" sit here, below the sticky strip.
+          This aligns row 3 (the strip) identically with the player profile's career-strip. */}
+      <HeroHeader />
 
       {/* RIGHT DRAWER — gallery-only filters panel */}
       <FiltersDrawer gradClasses={gradClasses} />

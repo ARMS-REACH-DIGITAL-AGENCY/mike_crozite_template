@@ -4,7 +4,7 @@
 export default function YatStyles() {
   return (
     <style>{`
-      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--header-h:0px}
+      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--header-h:0px;--strip-h:clamp(100px,12vw,140px)}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
@@ -388,8 +388,8 @@ export default function YatStyles() {
          Used on both player-profile (career-strip) and gallery (gallery-strip).
          Portrait slots = 5:7 aspect ratio (default).  Landscape = 7:5.
       ────────────────────────────────────────────────────────────────────── */
-      .career-strip,.gallery-strip{--strip-h:clamp(100px,12vw,140px);height:var(--strip-h);overflow:hidden;width:100%}
-      .career-strip{position:relative}
+      .career-strip,.gallery-strip{height:var(--strip-h);overflow:hidden;width:100%}
+      .career-strip{position:sticky;top:var(--stickyHeaderH,0px);z-index:45}
       .gallery-strip{position:sticky;top:var(--header-h,0px);z-index:45}
       .career-strip-inner,.gallery-strip-inner{width:100%;height:100%;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
       .career-strip-inner::-webkit-scrollbar,.gallery-strip-inner::-webkit-scrollbar{display:none}
@@ -416,7 +416,7 @@ export default function YatStyles() {
       /* gallery slots are anchor tags */
       a.gallery-slot{text-decoration:none;cursor:pointer}
       a.gallery-slot:hover .gallery-slot-img{opacity:.8}
-      @media(max-width:640px){.career-strip,.gallery-strip{--strip-h:clamp(80px,10vw,110px)}}
+      @media(max-width:640px){:root{--strip-h:clamp(80px,10vw,110px)}}
     `}</style>
   );
 }

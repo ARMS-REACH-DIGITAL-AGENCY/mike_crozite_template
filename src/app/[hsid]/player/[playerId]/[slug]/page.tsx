@@ -479,7 +479,7 @@ export default async function PlayerProfilePage({
         .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
         .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
-        .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
+        .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:calc(var(--stickyHeaderH,0px) + var(--strip-h,110px));z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
         .pmb-right{flex:0 0 40%;display:flex;flex-direction:column;gap:2px;text-align:right}
         .pmb-line{font:300 11px/1.15 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -487,7 +487,7 @@ export default async function PlayerProfilePage({
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
         /* PROFILE TABS — sticky under meta band */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
+        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,0px) + var(--strip-h,110px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
@@ -514,8 +514,8 @@ export default async function PlayerProfilePage({
         .season-table tr:last-child td{border-bottom:none}
         .season-table tbody tr:hover{background:rgba(255,209,102,.05)}
         /* TAB CONTENT */
-        .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px) + var(--tabBarH,42px) + 8px)}
-        .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
+        .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,0px) + var(--strip-h,110px) + var(--metaBandH,60px) + var(--tabBarH,42px) + 8px)}
+        .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,0px) - var(--strip-h,110px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
         /* FAVORITES MODAL */
@@ -1059,16 +1059,18 @@ export default async function PlayerProfilePage({
     if(tab)tab.classList.add('active');
     if(content)content.classList.add('active');
   }
-  /* Helper: scroll so the tab bar sits just below the sticky header + metadata band */
+  /* Helper: scroll so the tab bar sits just below the sticky header + career-strip + metadata band */
   function scrollToTabBar(){
     var header=document.getElementById('site-header');
     var tabBar=document.querySelector('.profile-tabs');
     if(!header||!tabBar)return;
     var headerH=header.offsetHeight;
+    var strip=document.querySelector('.career-strip');
+    var stripH=strip?strip.offsetHeight:0;
     var metaBand=document.querySelector('.player-meta-band');
     var metaBandH=metaBand?metaBand.offsetHeight:0;
     /* getBoundingClientRect().top + scrollY = element's absolute top in document */
-    var y=tabBar.getBoundingClientRect().top+window.scrollY-headerH-metaBandH;
+    var y=tabBar.getBoundingClientRect().top+window.scrollY-headerH-stripH-metaBandH;
     window.scrollTo({top:Math.max(0,y),behavior:'auto'});
   }
   document.querySelectorAll('.profile-tab').forEach(function(tab){
