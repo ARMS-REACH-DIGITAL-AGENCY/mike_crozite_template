@@ -385,37 +385,44 @@ export default function YatStyles() {
       .yat-share-btn i{font-size:14px}
       .yat-share-btn.copied{color:var(--green);border-color:var(--green)}
       /* ── SHARED PHOTO STRIP ─────────────────────────────────────────────
-         Used on both player-profile (career-strip) and gallery (gallery-strip).
+         Row 3 of the global page layout — sits immediately below the two
+         sticky header rows on EVERY page type.  ALL three strip variants
+         (career / gallery / funnel) use the SAME sticky top anchor:
+         var(--header-h, 0px), which is measured and set by each page's
+         inline <script> so every strip lands at identical vertical position.
          Portrait slots = 5:7 aspect ratio (default).  Landscape = 7:5.
       ────────────────────────────────────────────────────────────────────── */
-      .career-strip,.gallery-strip{height:var(--strip-h);overflow:hidden;width:100%}
-      .career-strip{position:sticky;top:var(--stickyHeaderH,0px);z-index:45}
-      .gallery-strip{position:sticky;top:var(--header-h,0px);z-index:45}
-      .career-strip-inner,.gallery-strip-inner{width:100%;height:100%;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-      .career-strip-inner::-webkit-scrollbar,.gallery-strip-inner::-webkit-scrollbar{display:none}
-      .career-slot,.gallery-slot{flex:0 0 auto;height:100%;overflow:hidden;border-right:1px solid var(--line);position:relative}
+      .career-strip,.gallery-strip,.funnel-strip{height:var(--strip-h);overflow:hidden;width:100%}
+      .career-strip,.gallery-strip,.funnel-strip{position:sticky;top:var(--header-h,0px);z-index:45}
+      .career-strip-inner,.gallery-strip-inner,.funnel-strip-inner{width:100%;height:100%;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .career-strip-inner::-webkit-scrollbar,.gallery-strip-inner::-webkit-scrollbar,.funnel-strip-inner::-webkit-scrollbar{display:none}
+      .career-slot,.gallery-slot,.funnel-slot{flex:0 0 auto;height:100%;overflow:hidden;border-right:1px solid var(--line);position:relative}
       /* career-slot: 5:7 portrait (HS photos / then-photos) */
       .career-slot{width:calc(5/7*var(--strip-h,100px))}
       .career-slot[data-orient="landscape"]{width:calc(7/5*var(--strip-h,100px))}
       /* gallery-slot: 1:1 square (official MLB/MiLB/college headshots) */
       .gallery-slot{width:var(--strip-h,100px)}
-      .career-slot-img,.gallery-slot-img{width:100%;height:100%;object-fit:cover;display:block}
+      /* funnel-slot: 1:1 square (CTA anchor images, S3 paths provided later) */
+      .funnel-slot{width:var(--strip-h,100px)}
+      .career-slot-img,.gallery-slot-img,.funnel-slot-img{width:100%;height:100%;object-fit:cover;display:block}
       .career-slot-img{object-position:top center}
-      .gallery-slot-img{object-position:center center}
+      .gallery-slot-img,.funnel-slot-img{object-position:center center}
       /* career-strip visual theme — dark gradient + gold border */
       .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--gold),#ff9800,var(--gold)) 1}
       body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
       /* gallery-strip visual theme — card bg + subtle border */
       .gallery-strip{background:var(--card-bg);border-bottom:2px solid var(--line)}
+      /* funnel-strip visual theme — card bg + gold border (CTA pages) */
+      .funnel-strip{background:var(--card-bg);border-bottom:2px solid var(--gold)}
       /* scroll arrows — desktop (pointer:fine) only */
       .gallery-strip-arrow{position:absolute;top:0;bottom:0;z-index:2;width:36px;display:none;align-items:center;justify-content:center;border:none;cursor:pointer;color:var(--fg);font-size:22px;padding:0;transition:opacity .15s}
       .gallery-strip-arrow.left{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}
       .gallery-strip-arrow.right{right:0;background:linear-gradient(to left,var(--bg) 30%,transparent)}
       .gallery-strip-arrow.hidden{opacity:0;pointer-events:none}
       @media(hover:hover) and (pointer:fine){.gallery-strip-arrow{display:flex}}
-      /* gallery slots are anchor tags */
-      a.gallery-slot{text-decoration:none;cursor:pointer}
-      a.gallery-slot:hover .gallery-slot-img{opacity:.8}
+      /* gallery and funnel slots are anchor tags */
+      a.gallery-slot,a.funnel-slot{text-decoration:none;cursor:pointer}
+      a.gallery-slot:hover .gallery-slot-img,a.funnel-slot:hover .funnel-slot-img{opacity:.8}
       @media(max-width:640px){:root{--strip-h:clamp(80px,10vw,110px)}}
     `}</style>
   );

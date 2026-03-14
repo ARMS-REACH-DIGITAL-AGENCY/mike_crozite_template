@@ -5,15 +5,15 @@
 // tabs that make up the FunZone.  Both the full player profile page and the
 // flip-card back reference this array so the tab set is never duplicated.
 //
-// Tab-ID mapping:
-//   profileTab   cardTab     Description
+// Tab-ID / label mapping (profile and card-back share identical icon names):
+//   profileTab   cardTab     label (both variants)
 //   ──────────   ───────     ──────────────────────────────────────────────
-//   overview     schedule    Game log / schedule feed
-//   stats        stats       Season + career stats tables
-//   news         news        News clips and video highlights
-//   social       social      Social-media share buttons
-//   mentor       connect     Mentorship marketplace CTA
-//   gallery      upload      Chronological career photo gallery + upload CTA
+//   overview     schedule    SCHEDULE
+//   stats        stats       STATS
+//   news         news        NEWS
+//   social       social      SOCIAL
+//   mentor       connect     CONNECT
+//   gallery      upload      UPLOAD
 //
 // variant='profile'   → sticky .profile-tab divs with data-profile-tab attr
 // variant='card-back' → compact .yat-back-action-btn buttons with data-card-tab attr
@@ -23,7 +23,7 @@ export const PLAYER_ACTIONS = [
     profileTab: "overview",
     cardTab:    "schedule",
     icon:       "ri-calendar-schedule-line",
-    label:      "GAME LOG",
+    label:      "SCHEDULE",
     shortLabel: "Schedule",
   },
   {
@@ -37,28 +37,28 @@ export const PLAYER_ACTIONS = [
     profileTab: "news",
     cardTab:    "news",
     icon:       "ri-article-line",
-    label:      "NEWS & VIDEOS",
+    label:      "NEWS",
     shortLabel: "News",
   },
   {
     profileTab: "social",
     cardTab:    "social",
     icon:       "ri-share-line",
-    label:      "SOCIAL MEDIA",
+    label:      "SOCIAL",
     shortLabel: "Social",
   },
   {
     profileTab: "mentor",
     cardTab:    "connect",
     icon:       "ri-group-line",
-    label:      "MENTORSHIP MARKETPLACE",
+    label:      "CONNECT",
     shortLabel: "Connect",
   },
   {
     profileTab: "gallery",
     cardTab:    "upload",
     icon:       "ri-upload-2-line",
-    label:      "PHOTO GALLERY",
+    label:      "UPLOAD",
     shortLabel: "Upload",
   },
 ] as const;

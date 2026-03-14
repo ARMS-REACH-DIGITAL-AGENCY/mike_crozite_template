@@ -1039,6 +1039,9 @@ export default async function PlayerProfilePage({
       var headerHeight=header?header.offsetHeight:0;
       var tabBarHeight=tabBar?tabBar.offsetHeight:0;
       var metaBandHeight=metaBand?metaBand.offsetHeight:0;
+      /* --header-h is the shared cross-page variable used by all strip variants
+         (career-strip, gallery-strip, funnel-strip) to align at the same top. */
+      document.documentElement.style.setProperty('--header-h',headerHeight+'px');
       document.documentElement.style.setProperty('--stickyHeaderH',headerHeight+'px');
       document.documentElement.style.setProperty('--tabBarH',tabBarHeight+'px');
       document.documentElement.style.setProperty('--metaBandH',metaBandHeight+'px');
