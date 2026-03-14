@@ -3,27 +3,45 @@
 // school microsite (PREVIEW_DEFAULT_HSID env var); otherwise redirect to the
 // main yatstats.com homepage.
 //
-// IMPORTANT: PREVIEW_DEFAULT_HSID MUST be a numeric school ID (e.g. "5004").
-// Slug-based values (e.g. "hamilton") cannot be resolved on Vercel preview
-// deployments because there is no yatstats.com subdomain for the middleware
-// to rewrite, so the [hsid] route has no way to look up the school and will
-// return a 404. Always use the numeric hsid.
+// PREVIEW_DEFAULT_HSID accepts two formats:
+//   • Numeric HSID  — e.g. "5004"   (direct, no DB lookup required)
+//   • Slug.state    — e.g. "hamilton.az"  (resolved to numeric HSID via DB)
+//
+// A bare slug (e.g. "hamilton" without a state) is NOT supported because it
+// is ambiguous.  Leaving the variable blank (or setting it to an unrecognised
+// value) causes the root path to redirect to https://yatstats.com instead.
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { getSchoolBySubdomainParts } from "@/lib/db";
 
 export default async function RootPage() {
-  const previewHsid = process.env.PREVIEW_DEFAULT_HSID;
+  const raw = (process.env.PREVIEW_DEFAULT_HSID || "").trim();
 
-  // Only use the preview HSID when it is a purely numeric school ID.
-  // Slug-based values (e.g. "hamilton") cannot be resolved on Vercel preview
-  // deployments — the [hsid] route depends on a yatstats.com subdomain header
-  // to translate a slug into a numeric HSID via the database, and that header
-  // is absent on *.vercel.app / localhost URLs. Using a slug would redirect to
-  // a route that immediately returns 404, which confuses Vercel's preview links.
-  const numericPreviewHsid =
-    previewHsid && /^\d+$/.test(previewHsid.trim()) ? previewHsid.trim() : null;
+  let resolvedHsid: string | null = null;
 
-  if (numericPreviewHsid) {
+  if (/^\d+$/.test(raw)) {
+    // Already a numeric school ID — use it directly without a DB round-trip.
+    resolvedHsid = raw;
+  } else if (/^[a-z0-9-]+\.[a-z0-9-]+$/i.test(raw)) {
+    // "slug.state" format (e.g. "hamilton.az") — resolve to numeric HSID via DB.
+    // getSchoolBySubdomainParts is already safe against injection and returns
+    // null on any error, so a DB failure here is non-fatal.
+    const dotIdx = raw.indexOf(".");
+    const slug = raw.slice(0, dotIdx);
+    const state = raw.slice(dotIdx + 1);
+    try {
+      const school = await getSchoolBySubdomainParts(slug, state);
+      if (school?.hsid) {
+        resolvedHsid = String(school.hsid);
+      }
+    } catch {
+      // DB lookup failed — fall through to yatstats.com redirect.
+    }
+  }
+  // Any other value (blank, bare slug like "hamilton", etc.) → resolvedHsid
+  // remains null and the visitor is sent to yatstats.com below.
+
+  if (resolvedHsid) {
     const rootDomain = (
       process.env.ROOT_DOMAIN || "yatstats.com"
     ).toLowerCase();
@@ -36,7 +54,7 @@ export default async function RootPage() {
     // On Vercel previews, localhost, or any other non-production host the
     // root path should open the designated school microsite directly.
     if (!isOnRootDomain) {
-      redirect(`/${numericPreviewHsid}`);
+      redirect(`/${resolvedHsid}`);
     }
   }
 
