@@ -206,11 +206,18 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
           lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
         ) THEN true
         ELSE false
-      END AS is_pitcher
+      END AS is_pitcher,
+      -- Headshot resolution fields (see src/lib/headshot.ts resolveHeadshotUrl)
+      psm.source_player_id  AS mlb_person_id,
+      ph.headshot_url,
+      ph.headshot_source
     FROM school_players sp
     JOIN active_playerids ap ON sp.playerid::text = ap.playerid
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    LEFT JOIN player_source_map psm
+           ON psm.playerid = sp.playerid::text AND psm.source = 'mlb_api'
+    LEFT JOIN player_headshots  ph  ON ph.playerid = sp.playerid::text
     ORDER BY
       CASE COALESCE(
         CASE
@@ -335,11 +342,18 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
           lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
         ) THEN true
         ELSE false
-      END AS is_pitcher
+      END AS is_pitcher,
+      -- Headshot resolution fields (see src/lib/headshot.ts resolveHeadshotUrl)
+      psm.source_player_id  AS mlb_person_id,
+      ph.headshot_url,
+      ph.headshot_source
     FROM school_players sp
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
     LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
+    LEFT JOIN player_source_map psm
+           ON psm.playerid = sp.playerid::text AND psm.source = 'mlb_api'
+    LEFT JOIN player_headshots  ph  ON ph.playerid = sp.playerid::text
     ORDER BY
       CASE sp.career_highlevel
         WHEN 'MLB'        THEN 1

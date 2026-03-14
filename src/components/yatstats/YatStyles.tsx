@@ -391,9 +391,15 @@ export default function YatStyles() {
       .career-strip,.gallery-strip{--strip-h:clamp(100px,12vw,140px);height:var(--strip-h);overflow:hidden;position:relative;width:100%}
       .career-strip-inner,.gallery-strip-inner{width:100%;height:100%;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
       .career-strip-inner::-webkit-scrollbar,.gallery-strip-inner::-webkit-scrollbar{display:none}
-      .career-slot,.gallery-slot{flex:0 0 auto;height:100%;width:calc(5/7*var(--strip-h,100px));overflow:hidden;border-right:1px solid var(--line);position:relative}
-      .career-slot[data-orient="landscape"],.gallery-slot[data-orient="landscape"]{width:calc(7/5*var(--strip-h,100px))}
-      .career-slot-img,.gallery-slot-img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+      .career-slot,.gallery-slot{flex:0 0 auto;height:100%;overflow:hidden;border-right:1px solid var(--line);position:relative}
+      /* career-slot: 5:7 portrait (HS photos / then-photos) */
+      .career-slot{width:calc(5/7*var(--strip-h,100px))}
+      .career-slot[data-orient="landscape"]{width:calc(7/5*var(--strip-h,100px))}
+      /* gallery-slot: 1:1 square (official MLB/MiLB/college headshots) */
+      .gallery-slot{width:var(--strip-h,100px)}
+      .career-slot-img,.gallery-slot-img{width:100%;height:100%;object-fit:cover;display:block}
+      .career-slot-img{object-position:top center}
+      .gallery-slot-img{object-position:center center}
       /* career-strip visual theme — dark gradient + gold border */
       .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--gold),#ff9800,var(--gold)) 1}
       body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}

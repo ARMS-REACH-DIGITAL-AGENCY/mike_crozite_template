@@ -20,6 +20,7 @@ import HeroHeader from "@/components/yatstats/HeroHeader";
 import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import SafeImage from "@/components/SafeImage";
+import { resolveHeadshotUrl } from "@/lib/headshot";
 
 export const runtime = "nodejs";
 
@@ -113,20 +114,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       <HeroHeader />
 
-      {/* GALLERY THUMBNAIL RAIL — same position and height as player-profile career-strip.
-          Shows active-roster player photos as portrait (5:7) thumbnails, each linking to
-          the player's flip card below via anchor scroll. */}
+      {/* GALLERY THUMBNAIL RAIL (flip_link_photo_strip) — square 1:1 official headshots
+          linking to each player's flip card below. Sources in priority order:
+          1) MLB/MiLB CDN  (player_source_map mlb_api row)
+          2) College URL   (player_headshots.headshot_url — SideArm/Presto)
+          3) S3 mugs/      (legacy fallback)  */}
       <section className="gallery-strip" aria-label="Player thumbnail rail">
         <div className="gallery-strip-inner">
           {(activeRoster as Record<string, unknown>[]).map((p) => {
             const pid = String(p.playerid);
-            const thenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.png`;
+            const headshotUrl = resolveHeadshotUrl(p) ?? `/img/player-silhouette.png`;
             const name = String(p.display_name || p.last_name || pid);
             return (
               <a key={pid} className="gallery-slot" href={`#player-${pid}`} aria-label={name} title={name}>
                 <SafeImage
                   className="gallery-slot-img"
-                  src={thenImg}
+                  src={headshotUrl}
                   alt={name}
                   fallbackSrc="/img/player-silhouette.png"
                 />
