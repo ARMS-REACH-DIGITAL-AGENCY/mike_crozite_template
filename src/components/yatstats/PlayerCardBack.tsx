@@ -35,7 +35,7 @@ export default function PlayerCardBack({
   const displayName = String(p.display_name || `${firstName} ${p.lastname || ""}`).trim();
 
   const S3_BASE     = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
-  const thenUrl     = `${S3_BASE}/players/then/${pid}.jpg`;
+  const thenUrl     = `${S3_BASE}/players/then/${pid}.png`;
   const silhouette  = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
   // Resolve the official headshot (MLB CDN → S3 mugs → fallback chain handled by SafeImage)
   const mugUrl      = resolveHeadshotUrl(p) ?? `${S3_BASE}/players/mugs/${pid}.jpg`;

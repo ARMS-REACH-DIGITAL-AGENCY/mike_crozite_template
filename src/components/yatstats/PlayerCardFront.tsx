@@ -18,7 +18,7 @@ export default function PlayerCardFront({ player: p, photoDefaultUrl, isAllTime 
   const dots = varsityDots(p);
   const pid = String(p.playerid || "");
   const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-  const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
+  const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.png`;
   const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
 
   const statusLabel = isAllTime

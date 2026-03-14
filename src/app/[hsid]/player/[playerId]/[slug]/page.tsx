@@ -97,8 +97,10 @@ function fmtAvg(v: any): string {
 // ---------------------------------------------------------------------------
 // Sponsor banner resolver — returns a per-player banner or null for the default.
 // Future: replace this with a DB lookup keyed by playerId.
+// When imgUrl is provided, the banner renders as an image (same as the site default);
+// otherwise it falls back to text (name + label).
 // ---------------------------------------------------------------------------
-type SponsorBanner = { name: string; url: string; label?: string };
+type SponsorBanner = { name: string; url: string; label?: string; imgUrl?: string };
 function resolveSponsorBanner(_playerId: string): SponsorBanner | null {
   return null;
 }
@@ -1022,9 +1024,21 @@ export default async function PlayerProfilePage({
           To upload: yatstats-assets bucket / sponsors/footer-banner.png (recommended: 800×120 px PNG) */}
       <footer className="yat-footer" data-player-id={safePlayerId}>
         {sponsorBanner ? (
-          <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">{sponsorBanner.label || "PRESENTED BY"}</span>
-            <span className="sponsor-name">{sponsorBanner.name}</span>
+          <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer" id="sponsorFooterLink">
+            {sponsorBanner.imgUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                id="sponsorBannerImg"
+                src={sponsorBanner.imgUrl}
+                alt={`${sponsorBanner.name} — Presented by`}
+                className="sponsor-banner-img"
+              />
+            ) : (
+              <>
+                <span className="sponsor-text">{sponsorBanner.label || "PRESENTED BY"}</span>
+                <span className="sponsor-name">{sponsorBanner.name}</span>
+              </>
+            )}
           </a>
         ) : (
           <a href={SPONSOR_FOOTER_HREF} target="_blank" rel="noopener noreferrer" id="sponsorFooterLink">

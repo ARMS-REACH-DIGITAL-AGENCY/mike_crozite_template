@@ -244,6 +244,9 @@ export default function YatStyles() {
       /* Sponsor banner image in footer — max-height keeps it within the fixed footer bar */
       .sponsor-banner-img{max-height:40px;width:auto;max-width:280px;display:block;object-fit:contain}
       @media(max-width:480px){.sponsor-banner-img{max-height:32px;max-width:180px}}
+      /* "Sponsor This Page" CTA link in player-profile footer */
+      .sponsor-cta-link{font:400 10px/1 Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:5px 10px;white-space:nowrap;flex-shrink:0}
+      .sponsor-cta-link:hover{color:var(--gold);border-color:var(--gold);opacity:1}
       /* ── Global Search Modal ─────────────────────────────────────────── */
       .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
       .yat-gs-modal.open{display:flex}
