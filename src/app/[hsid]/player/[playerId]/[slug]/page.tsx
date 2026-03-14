@@ -27,6 +27,12 @@ import {
 } from "@/lib/db";
 import { formatSchoolName } from "@/lib/playerUtils";
 import PlayerActionBar from "@/components/yatstats/PlayerActionBar";
+import {
+  SPONSOR_BANNER_IMG_URL,
+  SPONSOR_FOOTER_HREF,
+  SPONSOR_FOOTER_NAME,
+  SPONSOR_BANNER_ERROR_SCRIPT,
+} from "@/lib/sponsorBanner";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -1012,7 +1018,8 @@ export default async function PlayerProfilePage({
       {/* FAVORITE CONFIRMATION TOAST */}
       <div className="fav-toast" id="favToast" role="status" aria-live="polite" />
 
-      {/* FOOTER — fixed sticky bar matching school page */}
+      {/* FOOTER — fixed sticky bar with sponsor banner image (S3: sponsors/footer-banner.png).
+          To upload: yatstats-assets bucket / sponsors/footer-banner.png (recommended: 800×120 px PNG) */}
       <footer className="yat-footer" data-player-id={safePlayerId}>
         {sponsorBanner ? (
           <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer">
@@ -1020,15 +1027,25 @@ export default async function PlayerProfilePage({
             <span className="sponsor-name">{sponsorBanner.name}</span>
           </a>
         ) : (
-          <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">Presented by</span>
-            <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
+          <a href={SPONSOR_FOOTER_HREF} target="_blank" rel="noopener noreferrer" id="sponsorFooterLink">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              id="sponsorBannerImg"
+              src={SPONSOR_BANNER_IMG_URL}
+              alt={`${SPONSOR_FOOTER_NAME} — Presented by`}
+              className="sponsor-banner-img"
+            />
+            <noscript>
+              <span className="sponsor-text">Presented by</span>
+              <span className="sponsor-name">{SPONSOR_FOOTER_NAME}</span>
+            </noscript>
           </a>
         )}
         <a href="mailto:sponsor@yatstats.com" className="sponsor-cta-link">
           Sponsor This Page
         </a>
       </footer>
+      <script dangerouslySetInnerHTML={{ __html: SPONSOR_BANNER_ERROR_SCRIPT }} />
 
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`

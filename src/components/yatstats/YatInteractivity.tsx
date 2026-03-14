@@ -111,18 +111,20 @@ window.__firebase_config = ${firebaseConfigJSON};
   var closeLeft=document.getElementById('closeLeft');
   if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');});
   if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
-  var openFilters=document.getElementById('openFilters');
-  var closeFilters=document.getElementById('closeFilters');
-  var filtersReset=document.getElementById('filtersReset');
-  var filtersReset2=document.getElementById('filtersReset2');
-  if(openFilters)openFilters.addEventListener('click',function(){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');});
-  if(closeFilters)closeFilters.addEventListener('click',function(){document.body.classList.remove('drawer-right-open','drawer-open');});
+  /* openFilters / closeFilters — buttons injected by page script after this runs; wired via event delegation below */
+  /* filtersReset / filtersReset2 — also wired via event delegation below after applyFilters is defined */
   var btnAccount=document.getElementById('btnAccount');
   var closeAccount=document.getElementById('closeAccount');
   if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
   if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
+  /* Filter drawer open/close — these buttons are injected by the gallery page script AFTER this
+     inline script runs, so we cannot use getElementById here.  Use event delegation instead. */
+  document.addEventListener('click',function(e){
+    if(e.target.closest('#openFilters')){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');}
+    if(e.target.closest('#closeFilters')){document.body.classList.remove('drawer-right-open','drawer-open');}
+  });
 
   /* ====================================================================
      GLOBAL SEARCH MODAL
@@ -475,8 +477,13 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
   document.addEventListener('change',function(e){if(e.target.closest('#filters'))applyFilters();});
   document.addEventListener('input',function(e){if(e.target.id==='filterName')applyFilters();});
-  if(filtersReset)filtersReset.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
-  if(filtersReset2)filtersReset2.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
+  /* filtersReset / filtersReset2 — delegated (elements may be injected after script runs) */
+  document.addEventListener('click',function(e){
+    if(e.target.closest('#filtersReset')||e.target.closest('#filtersReset2')){
+      document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});
+      applyFilters();
+    }
+  });
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
   /* ====================================================================

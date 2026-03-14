@@ -11,6 +11,7 @@ export default function YatStyles() {
       body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
       body.drawer-open{overflow:hidden}
       a{color:inherit;text-decoration:none}
+      a:hover{text-decoration:none}
       .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
       .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
       .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
@@ -31,6 +32,7 @@ export default function YatStyles() {
       .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
       body.light-theme .yat-wordmark{color:#000}
       @media(max-width:1200px){.yat-topnav{display:none!important}}
+      .yat-school-stripe{height:3px;background:var(--school-color1,var(--gold));flex-shrink:0}
       .yat-hr{border-top:1px solid var(--line)}
       .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
       .yat-schoolrow-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -77,7 +79,7 @@ export default function YatStyles() {
       @media(max-width:1100px){.yat-grid{grid-template-columns:repeat(3,1fr)}}
       @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
-      .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
+      .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2);cursor:pointer;touch-action:manipulation}
       .yat-card.is-highlighted{outline:3px solid gold;outline-offset:-3px;animation:card-highlight-pulse 1.8s ease-out forwards}
       @keyframes card-highlight-pulse{0%,20%{box-shadow:0 0 0 4px gold}80%{box-shadow:0 0 0 4px transparent}100%{outline:none}}
       .yat-card::before{content:"";display:block;padding-top:140%}
@@ -87,7 +89,7 @@ export default function YatStyles() {
       .yat-face{position:absolute;inset:0;backface-visibility:hidden}
       .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
       .yat-card.is-flipped .yat-front{pointer-events:none}
-      .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
+      .yat-card.is-flipped .yat-back a,.yat-card.is-flipped .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
@@ -239,6 +241,9 @@ export default function YatStyles() {
       .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
       .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
       .yat-footer a:hover{opacity:.8}
+      /* Sponsor banner image in footer — max-height keeps it within the fixed footer bar */
+      .sponsor-banner-img{max-height:40px;width:auto;max-width:280px;display:block;object-fit:contain}
+      @media(max-width:480px){.sponsor-banner-img{max-height:32px;max-width:180px}}
       /* ── Global Search Modal ─────────────────────────────────────────── */
       .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
       .yat-gs-modal.open{display:flex}
@@ -393,7 +398,7 @@ export default function YatStyles() {
          inline <script> so every strip lands at identical vertical position.
          Portrait slots = 5:7 aspect ratio (default).  Landscape = 7:5.
       ────────────────────────────────────────────────────────────────────── */
-      .career-strip,.gallery-strip,.funnel-strip{height:var(--strip-h);overflow:hidden;width:100%}
+      .career-strip,.gallery-strip,.funnel-strip{height:var(--strip-h);overflow:hidden;width:100%;max-width:1280px;margin-left:auto;margin-right:auto}
       .career-strip,.gallery-strip,.funnel-strip{position:sticky;top:var(--header-h,0px);z-index:45}
       .career-strip-inner,.gallery-strip-inner,.funnel-strip-inner{width:100%;height:100%;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
       .career-strip-inner::-webkit-scrollbar,.gallery-strip-inner::-webkit-scrollbar,.funnel-strip-inner::-webkit-scrollbar{display:none}

@@ -169,7 +169,7 @@ export default async function HsidLayout({
           defaultSectionLabel="ACTIVE BASEBALL ALUMNI"
         />
 
-        <div className="yat-hr" />
+        <div className="yat-school-stripe" />
       </header>
 
       {/* ── DRAWER MASK (shared) ──────────────────────────────────────── */}

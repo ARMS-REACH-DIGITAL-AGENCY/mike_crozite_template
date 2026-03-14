@@ -21,6 +21,12 @@ import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import SafeImage from "@/components/SafeImage";
 import { resolveHeadshotUrl } from "@/lib/headshot";
+import {
+  SPONSOR_BANNER_IMG_URL,
+  SPONSOR_FOOTER_HREF,
+  SPONSOR_FOOTER_NAME,
+  SPONSOR_BANNER_ERROR_SCRIPT,
+} from "@/lib/sponsorBanner";
 
 export const runtime = "nodejs";
 
@@ -320,13 +326,25 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
       </main>
 
-      {/* SPONSOR FOOTER */}
+      {/* SPONSOR FOOTER — banner image loaded from S3 (sponsors/footer-banner.png),
+          falls back to text via inline error handler script below.
+          To upload: yatstats-assets bucket / sponsors/footer-banner.png (recommended: 800×120 px PNG) */}
       <footer className="yat-footer">
-        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-          <span className="sponsor-text">Presented by</span>
-          <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
+        <a href={SPONSOR_FOOTER_HREF} target="_blank" rel="noopener noreferrer" id="sponsorFooterLink">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            id="sponsorBannerImg"
+            src={SPONSOR_BANNER_IMG_URL}
+            alt={`${SPONSOR_FOOTER_NAME} — Presented by`}
+            className="sponsor-banner-img"
+          />
+          <noscript>
+            <span className="sponsor-text">Presented by</span>
+            <span className="sponsor-name">{SPONSOR_FOOTER_NAME}</span>
+          </noscript>
         </a>
       </footer>
+      <script dangerouslySetInnerHTML={{ __html: SPONSOR_BANNER_ERROR_SCRIPT }} />
 
       {/* Hash-anchor navigation: when returning from player profile via #player-{pid}, make the
           correct section visible and scroll smoothly to the card, then briefly highlight it. */}
