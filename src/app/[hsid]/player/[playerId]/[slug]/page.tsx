@@ -489,10 +489,12 @@ export default async function PlayerProfilePage({
         /* PROFILE TABS — sticky under meta band */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,0px) + var(--strip-h,110px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
-        .profile-tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
-        .profile-tab i{font-size:18px;line-height:1}
-        .profile-tab-label{font:700 7px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-transform:uppercase}
+        .profile-tab{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 16px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;border-right:1px solid var(--line);margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
+        .profile-tab:last-child{border-right:none}
+        .profile-tab i{font-size:26px;line-height:1}
+        .profile-tab-label{font:400 10px/1.2 sans-serif;letter-spacing:.02em}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
+        .profile-tab.active .profile-tab-label{font-weight:700}
         .profile-tab:hover:not(.active){color:var(--fg)}
         /* STATS */
         .stats-section{max-width:1100px;margin:0 auto;padding:20px 16px}

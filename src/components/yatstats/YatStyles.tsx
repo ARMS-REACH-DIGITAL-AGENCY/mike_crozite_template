@@ -128,10 +128,11 @@ export default function YatStyles() {
       /* ── Action bar ── */
       .yat-back-action-bar{display:flex;border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
       .yat-back-action-bar::-webkit-scrollbar{display:none}
-      .yat-back-action-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 6px;color:var(--muted);text-decoration:none;font-size:11px;flex:1;min-width:36px;border-right:1px solid var(--line);transition:color .15s}
+      .yat-back-action-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 6px;color:var(--muted);text-decoration:none;flex:1;min-width:36px;border-right:1px solid var(--line);transition:color .15s}
       .yat-back-action-btn:last-child{border-right:none}
       .yat-back-action-btn:hover{color:var(--fg)}
-      .yat-back-action-label{font:700 6px "Bebas Neue",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+      .yat-back-action-btn i{font-size:20px;line-height:1}
+      .yat-back-action-label{font:400 9px/1.2 sans-serif;letter-spacing:.02em}
       /* ── Stats ── */
       .yat-back-stats{flex:1 1 0;padding:5px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
       .yat-stats-bar{border-bottom:1px solid var(--line);color:var(--fg);padding:4px 0 6px;font:700 10px "Bebas Neue",sans-serif;letter-spacing:.06em;margin:0 0 4px;flex-shrink:0}
@@ -186,7 +187,7 @@ export default function YatStyles() {
       .yat-back-cta-btn:hover{background:#a00000}
       /* Active tab button indicator */
       .yat-back-action-btn.active{color:gold;border-bottom:2px solid gold}
-      .yat-back-action-btn.active .yat-back-action-label{color:gold}
+      .yat-back-action-btn.active .yat-back-action-label{color:gold;font-weight:700}
       .yat-back-stats{padding:5px 8px;display:flex;flex-direction:column;flex:1 1 0;overflow:hidden;min-height:0}
 
       .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
