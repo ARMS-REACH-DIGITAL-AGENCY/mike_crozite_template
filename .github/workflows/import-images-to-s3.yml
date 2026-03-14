@@ -99,5 +99,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hamilton-mvp-import-report
-          path: /mnt/data/hamilton_mvp_import_report.csv
+          path: hamilton_mvp_import_report.csv
           if-no-files-found: ignore
