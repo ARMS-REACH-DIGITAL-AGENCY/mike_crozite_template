@@ -41,6 +41,41 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 }
 
 // ---------------------------------------------------------------------------
+// Optional-table existence check (uses pg to_regclass — never throws).
+// Returns which optional extension tables are present in this deployment.
+// Called once per request; results are NOT cached across requests.
+// ---------------------------------------------------------------------------
+async function getAvailableTables(): Promise<{ hasSourceMap: boolean; hasHeadshots: boolean }> {
+  try {
+    const { rows } = await query<{ has_source_map: boolean; has_headshots: boolean }>(
+      `SELECT
+         to_regclass('public.player_source_map') IS NOT NULL AS has_source_map,
+         to_regclass('public.player_headshots')  IS NOT NULL AS has_headshots`
+    );
+    return {
+      hasSourceMap: rows[0]?.has_source_map ?? false,
+      hasHeadshots: rows[0]?.has_headshots ?? false,
+    };
+  } catch {
+    return { hasSourceMap: false, hasHeadshots: false };
+  }
+}
+
+// Builds the headshot SELECT columns and JOIN clauses for roster queries.
+// When optional tables are absent, returns NULL literals so downstream code
+// (resolveHeadshotUrl) gracefully falls back to S3 mugs.
+function buildHeadshotSqlParts(hasSourceMap: boolean, hasHeadshots: boolean) {
+  const cols = `
+      ${hasSourceMap ? 'psm.source_player_id  AS mlb_person_id,' : 'NULL::text AS mlb_person_id,'}
+      ${hasHeadshots ? 'ph.headshot_url, ph.headshot_source' : 'NULL::text AS headshot_url, NULL::text AS headshot_source'}`;
+  const joins = [
+    hasSourceMap ? `LEFT JOIN player_source_map psm ON psm.playerid = sp.playerid::text AND psm.source = 'mlb_api'` : '',
+    hasHeadshots ? `LEFT JOIN player_headshots  ph  ON ph.playerid  = sp.playerid::text` : '',
+  ].filter(Boolean).join('\n    ');
+  return { cols, joins };
+}
+
+// ---------------------------------------------------------------------------
 // Normalize host/URL input -> { hostOnly, httpsUrl }
 // ---------------------------------------------------------------------------
 function normalizeHostOrUrl(input: string) {
@@ -97,6 +132,8 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 // Team name is looked up from the teams table via LEFT JOIN on team_id.
 // ---------------------------------------------------------------------------
 export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+  const { hasSourceMap, hasHeadshots } = await getAvailableTables();
+  const { cols: headshotCols, joins: headshotJoins } = buildHeadshotSqlParts(hasSourceMap, hasHeadshots);
   const sql = `
     WITH school_players AS (
       SELECT
@@ -208,16 +245,12 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         ELSE false
       END AS is_pitcher,
       -- Headshot resolution fields (see src/lib/headshot.ts resolveHeadshotUrl)
-      psm.source_player_id  AS mlb_person_id,
-      ph.headshot_url,
-      ph.headshot_source
+      ${headshotCols}
     FROM school_players sp
     JOIN active_playerids ap ON sp.playerid::text = ap.playerid
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
-    LEFT JOIN player_source_map psm
-           ON psm.playerid = sp.playerid::text AND psm.source = 'mlb_api'
-    LEFT JOIN player_headshots  ph  ON ph.playerid = sp.playerid::text
+    ${headshotJoins}
     ORDER BY
       CASE COALESCE(
         CASE
@@ -253,6 +286,8 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 // Used for the "All-Time Next Level List" page.
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  const { hasSourceMap, hasHeadshots } = await getAvailableTables();
+  const { cols: headshotCols, joins: headshotJoins } = buildHeadshotSqlParts(hasSourceMap, hasHeadshots);
   const sql = `
     WITH school_players AS (
       SELECT
@@ -344,16 +379,12 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         ELSE false
       END AS is_pitcher,
       -- Headshot resolution fields (see src/lib/headshot.ts resolveHeadshotUrl)
-      psm.source_player_id  AS mlb_person_id,
-      ph.headshot_url,
-      ph.headshot_source
+      ${headshotCols}
     FROM school_players sp
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
     LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
-    LEFT JOIN player_source_map psm
-           ON psm.playerid = sp.playerid::text AND psm.source = 'mlb_api'
-    LEFT JOIN player_headshots  ph  ON ph.playerid = sp.playerid::text
+    ${headshotJoins}
     ORDER BY
       CASE sp.career_highlevel
         WHEN 'MLB'        THEN 1
