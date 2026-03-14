@@ -120,7 +120,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           2) College URL   (player_headshots.headshot_url — SideArm/Presto)
           3) S3 mugs/      (legacy fallback)  */}
       <section className="gallery-strip" aria-label="Player thumbnail rail">
-        <div className="gallery-strip-inner">
+        <button className="gallery-strip-arrow left hidden" id="stripArrowLeft" type="button" aria-label="Scroll left">
+          <i className="ri-arrow-left-s-line" />
+        </button>
+        <div className="gallery-strip-inner" id="galleryStripInner">
           {(activeRoster as Record<string, unknown>[]).map((p) => {
             const pid = String(p.playerid);
             const headshotUrl = resolveHeadshotUrl(p) ?? `/img/player-silhouette.png`;
@@ -137,7 +140,39 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             );
           })}
         </div>
+        <button className="gallery-strip-arrow right" id="stripArrowRight" type="button" aria-label="Scroll right">
+          <i className="ri-arrow-right-s-line" />
+        </button>
       </section>
+
+      {/* Wire sticky header offset and scroll arrows for the gallery strip */}
+      <script dangerouslySetInnerHTML={{ __html: `
+(function(){
+  function wireGalleryStrip(){
+    var header=document.getElementById('site-header');
+    var inner=document.getElementById('galleryStripInner');
+    var btnL=document.getElementById('stripArrowLeft');
+    var btnR=document.getElementById('stripArrowRight');
+    if(!inner||!btnL||!btnR)return;
+    function syncHeaderH(){
+      if(header){document.documentElement.style.setProperty('--header-h',header.offsetHeight+'px');}
+    }
+    syncHeaderH();
+    if(typeof ResizeObserver!=='undefined'&&header){new ResizeObserver(syncHeaderH).observe(header);}
+    btnL.addEventListener('click',function(){inner.scrollBy({left:-(Math.round(inner.clientWidth*0.7)||300),behavior:'smooth'});});
+    btnR.addEventListener('click',function(){inner.scrollBy({left:Math.round(inner.clientWidth*0.7)||300,behavior:'smooth'});/* scroll ~70% of visible width */});
+    function updateArrows(){
+      var atLeft=inner.scrollLeft<=1;
+      var atRight=inner.scrollLeft+inner.clientWidth>=inner.scrollWidth-1;
+      btnL.classList.toggle('hidden',atLeft);
+      btnR.classList.toggle('hidden',atRight);
+    }
+    inner.addEventListener('scroll',updateArrows,{passive:true});
+    updateArrows();
+  }
+  if(document.readyState==='loading'){addEventListener('DOMContentLoaded',wireGalleryStrip);}else{wireGalleryStrip();}
+})();
+` }} />
 
       {/* RIGHT DRAWER — gallery-only filters panel */}
       <FiltersDrawer gradClasses={gradClasses} />
