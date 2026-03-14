@@ -483,7 +483,7 @@ export default async function PlayerProfilePage({
         .fav-btn-hero{display:inline-flex;align-items:center;gap:5px;padding:0;border:none;background:none;color:var(--fg);font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:opacity .2s}
         .fav-btn-hero i{font-size:15px;transition:color .2s}
         .fav-btn-hero:hover{opacity:.7}
-        .fav-btn-hero.active i{color:gold}
+        .fav-btn-hero.active i{color:var(--school-color1,var(--gold))}
         .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
         .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
@@ -501,7 +501,7 @@ export default async function PlayerProfilePage({
         .profile-tab:last-child{border-right:none}
         .profile-tab i{font-size:26px;line-height:1}
         .profile-tab-label{font:400 10px/1.2 sans-serif;letter-spacing:.02em}
-        .profile-tab.active{color:var(--fg);border-bottom-color:gold}
+        .profile-tab.active{color:var(--fg);border-bottom-color:var(--school-color1,var(--gold))}
         .profile-tab.active .profile-tab-label{font-weight:700}
         .profile-tab:hover:not(.active){color:var(--fg)}
         /* STATS */
@@ -538,7 +538,7 @@ export default async function PlayerProfilePage({
         .fav-modal-actions{display:flex;flex-direction:column;gap:8px}
         .fav-modal-actions button{padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--fg);font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;cursor:pointer;transition:background .15s}
         body.light-theme .fav-modal-actions button{background:rgba(0,0,0,.04)}
-        .fav-modal-actions button.cta{background:gold;color:#000;border-color:gold}
+        .fav-modal-actions button.cta{background:var(--school-color1,var(--gold));color:#000;border-color:var(--school-color1,var(--gold))}
         .fav-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1}
         /* PLAYER CONTEXT / IDENTITY */
         .player-context-line{font:300 11px/1.3 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
@@ -575,7 +575,7 @@ export default async function PlayerProfilePage({
         .career-log tbody .career-totals-row{background:rgba(255,209,102,.08);font-weight:700}
         body.light-theme .career-log tbody .career-totals-row{background:rgba(255,209,102,.12)}
         .career-log tbody .career-totals-row td{font:700 12px/1.4 Oswald,sans-serif;border-top:2px solid rgba(255,209,102,.3)}
-        .career-log tbody .career-totals-row .year-cell{color:gold}
+        .career-log tbody .career-totals-row .year-cell{color:var(--school-color1,var(--gold))}
         .log-section{margin-bottom:20px}
         /* RECENT GAME LOG */
         .recent-log-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;overflow:hidden}
@@ -594,7 +594,7 @@ export default async function PlayerProfilePage({
         .gl-row{display:flex;align-items:baseline;gap:0;padding:8px 14px;border-bottom:1px solid var(--line);min-height:36px}
         .gl-row:last-child{border-bottom:none}
         .gl-row.gl-row-past{background:rgba(255,255,255,.01)}
-        .gl-row.gl-row-today{background:rgba(255,209,102,.07);border-left:3px solid gold}
+        .gl-row.gl-row-today{background:rgba(255,209,102,.07);border-left:3px solid var(--school-color1,var(--gold))}
         body.light-theme .gl-row.gl-row-today{background:rgba(255,209,102,.1)}
         .gl-date{font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.04em;min-width:38px;flex-shrink:0;color:var(--fg)}
         .gl-row.gl-row-past .gl-date{color:var(--muted)}
@@ -604,7 +604,7 @@ export default async function PlayerProfilePage({
         .gl-result.win{color:#00e676}
         .gl-result.loss{color:#ff5252}
         .gl-stat-line{font:400 11px/1 Oswald,sans-serif;color:var(--fg);flex:1;padding-left:8px;border-left:1px solid var(--line);margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .gl-status{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:3px 7px;border-radius:3px;background:rgba(255,209,102,.15);color:gold;border:1px solid rgba(255,209,102,.3);flex-shrink:0;margin-left:6px;white-space:nowrap;align-self:center}
+        .gl-status{font:700 8px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:3px 7px;border-radius:3px;background:rgba(255,209,102,.15);color:var(--school-color1,var(--gold));border:1px solid rgba(255,209,102,.3);flex-shrink:0;margin-left:6px;white-space:nowrap;align-self:center}
         .gl-status.live{background:rgba(0,230,118,.15);color:#00e676;border-color:rgba(0,230,118,.4)}
         .gl-empty{padding:32px 16px;text-align:center;font:300 12px/1.4 Oswald,sans-serif;color:var(--muted)}
         @media(max-width:640px){

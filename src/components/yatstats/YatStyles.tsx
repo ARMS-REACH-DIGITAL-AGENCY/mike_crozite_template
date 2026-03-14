@@ -80,8 +80,8 @@ export default function YatStyles() {
       @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
       .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2);cursor:pointer;touch-action:manipulation}
-      .yat-card.is-highlighted{outline:3px solid gold;outline-offset:-3px;animation:card-highlight-pulse 1.8s ease-out forwards}
-      @keyframes card-highlight-pulse{0%,20%{box-shadow:0 0 0 4px gold}80%{box-shadow:0 0 0 4px transparent}100%{outline:none}}
+      .yat-card.is-highlighted{outline:3px solid var(--school-color1,var(--gold));outline-offset:-3px;animation:card-highlight-pulse 1.8s ease-out forwards}
+      @keyframes card-highlight-pulse{0%,20%{box-shadow:0 0 0 4px var(--school-color1,var(--gold))}80%{box-shadow:0 0 0 4px transparent}100%{outline:none}}
       .yat-card::before{content:"";display:block;padding-top:140%}
       .yat-card-inner{position:absolute;inset:0;perspective:1200px}
       .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
@@ -156,9 +156,9 @@ export default function YatStyles() {
       .yat-back-game-row{display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid var(--line);font:400 8px/1.2 Oswald,sans-serif}
       .yat-back-game-date{color:var(--muted);font-size:7.5px}
       .yat-back-game-opp{color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .yat-back-game-stat{color:gold;font-weight:600;font-size:9px;text-align:right}
+      .yat-back-game-stat{color:var(--school-color1,var(--gold));font-weight:600;font-size:9px;text-align:right}
       .yat-back-next-game{background:rgba(255,209,102,.07);border-radius:4px;padding:5px 6px;margin-top:5px;font:400 9px/1.3 Oswald,sans-serif}
-      .yat-back-next-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.08em;color:gold;margin-bottom:3px}
+      .yat-back-next-label{font:700 8px "Bebas Neue",sans-serif;letter-spacing:.08em;color:var(--school-color1,var(--gold));margin-bottom:3px}
       /* News tab */
       .yat-back-news{display:grid;grid-template-columns:1fr;gap:0;flex:1 1 0;overflow-y:auto}
       .yat-back-news-item{display:grid;grid-template-columns:36px 1fr;gap:5px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
@@ -178,7 +178,7 @@ export default function YatStyles() {
       .yat-share-fb:hover{border-color:#1877f2;color:#1877f2}
       .yat-share-ig:hover{border-color:#e1306c;color:#e1306c}
       .yat-share-tt:hover{border-color:#69c9d0;color:#69c9d0}
-      .yat-back-share-copied{font-size:8px;color:gold;opacity:0;transition:opacity .3s;text-align:center;letter-spacing:.06em}
+      .yat-back-share-copied{font-size:8px;color:var(--school-color1,var(--gold));opacity:0;transition:opacity .3s;text-align:center;letter-spacing:.06em}
       .yat-back-share-copied.show{opacity:1}
       /* Connect / Upload CTA panels */
       .yat-back-cta-panel{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 10px 6px;text-align:center;flex:1}
@@ -188,8 +188,8 @@ export default function YatStyles() {
       .yat-back-cta-btn{display:inline-block;background:#8b0000;color:#fff;font:700 8px "Bebas Neue",sans-serif;letter-spacing:.08em;padding:7px 10px;border-radius:4px;text-decoration:none;text-transform:uppercase;margin-top:4px}
       .yat-back-cta-btn:hover{background:#a00000}
       /* Active tab button indicator */
-      .yat-back-action-btn.active{color:gold;border-bottom:2px solid gold}
-      .yat-back-action-btn.active .yat-back-action-label{color:gold;font-weight:700}
+      .yat-back-action-btn.active{color:var(--school-color1,var(--gold));border-bottom:2px solid var(--school-color1,var(--gold))}
+      .yat-back-action-btn.active .yat-back-action-label{color:var(--school-color1,var(--gold));font-weight:700}
       .yat-back-stats{padding:5px 8px;display:flex;flex-direction:column;flex:1 1 0;overflow:hidden;min-height:0}
 
       .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
