@@ -5,6 +5,7 @@
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
+import PlayerActionBar from "@/components/yatstats/PlayerActionBar";
 import { fmt, parseDraft, levelLabel, formatSchoolName } from "@/lib/playerUtils";
 import { resolveHeadshotUrl } from "@/lib/headshot";
 
@@ -18,15 +19,6 @@ interface PlayerCardBackProps {
   /** When true, shows "CAREER STATS" label instead of the season year. */
   isAllTime?: boolean;
 }
-
-const CARD_TABS = [
-  { id: "schedule", icon: "ri-calendar-schedule-line", label: "Schedule" },
-  { id: "stats",    icon: "ri-bar-chart-2-line",        label: "Stats"    },
-  { id: "news",     icon: "ri-article-line",             label: "News"     },
-  { id: "social",   icon: "ri-share-line",               label: "Social"   },
-  { id: "connect",  icon: "ri-group-line",               label: "Connect"  },
-  { id: "upload",   icon: "ri-upload-2-line",            label: "Upload"   },
-] as const;
 
 export default function PlayerCardBack({
   player: p,
@@ -123,23 +115,8 @@ export default function PlayerCardBack({
           </div>
         </div>
 
-        {/* ── Tab bar ── */}
-        <div className="yat-back-action-bar" role="tablist">
-          {CARD_TABS.map(({ id, icon, label }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              className={`yat-back-action-btn${id === "stats" ? " active" : ""}`}
-              data-card-tab={id}
-              aria-label={label}
-              aria-selected={id === "stats"}
-            >
-              <i className={icon} />
-              <span className="yat-back-action-label">{label}</span>
-            </button>
-          ))}
-        </div>
+        {/* ── Tab bar — FunZone navigation (canonical via PlayerActionBar) ── */}
+        <PlayerActionBar variant="card-back" />
 
         {/* ── Tab panels ── */}
 
