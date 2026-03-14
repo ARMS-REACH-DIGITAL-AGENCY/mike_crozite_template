@@ -1,7 +1,6 @@
 // src/app/api/player/[pid]/card-data/route.ts
-// Lightweight endpoint powering the flip-card back tab panels.
-// Returns last 3 completed games + next scheduled game + 4 news items.
-// Called client-side when the Schedule or News tab is first opened on a card.
+// FIXED: pid is now parsed to integer BEFORE any DB call
+// This stops the "invalid input syntax for type integer" crashes that killed the entire client bundle.
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -34,14 +33,19 @@ export async function GET(
 ) {
   const cors = corsHeaders(req);
   const { pid } = await context.params;
-  if (!pid) {
-    return NextResponse.json({ error: 'Missing pid' }, { status: 400, headers: cors });
+
+  // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+  // THE FIX: convert to integer immediately
+  const playerId = parseInt(pid, 10);
+  if (isNaN(playerId) || playerId < 1) {
+    return NextResponse.json({ error: 'Invalid pid' }, { status: 400, headers: cors });
   }
+  // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 
   try {
     const [currentTeam, newsRows] = await Promise.all([
-      getResolvedCurrentTeam(pid),
-      getNewsByPlayer(pid, 4),
+      getResolvedCurrentTeam(playerId),        // ← now integer
+      getNewsByPlayer(playerId, 4),            // ← now integer
     ]);
 
     let lastGames: any[] = [];
@@ -50,17 +54,14 @@ export async function GET(
     if (currentTeam?.teamid) {
       const tid = String(currentTeam.teamid);
 
-      // Determine pitcher flag from the team data; fall back to trying both logs
       const [battingLog, pitchingLog, schedule] = await Promise.all([
-        getPlayerBattingGameLog(pid, tid),
-        getPlayerPitchingGameLog(pid, tid),
+        getPlayerBattingGameLog(playerId, tid),   // ← now integer
+        getPlayerPitchingGameLog(playerId, tid),  // ← now integer
         getTeamSchedule(tid, 50),
       ]);
 
-      // Prefer whichever log has more entries (best indicator of primary role)
       const useLog = pitchingLog.length > battingLog.length ? pitchingLog : battingLog;
 
-      // Last 3 FINAL games (most recent first)
       const played = useLog
         .filter((g: any) => {
           const s = String(g.status || g.game_status || '').toUpperCase();
@@ -69,7 +70,6 @@ export async function GET(
         .sort((a: any, b: any) => (a.game_date < b.game_date ? 1 : -1));
       lastGames = played.slice(0, 3);
 
-      // Next scheduled game (first SCHEDULED game on or after today)
       const today = new Date().toISOString().slice(0, 10);
       nextGame =
         schedule.find((g: any) => {
