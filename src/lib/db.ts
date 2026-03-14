@@ -909,11 +909,18 @@ if (!global.__pgSchemaBootstrapped) {
 
 // ---------------------------------------------------------------------------
 // Graceful shutdown
+// During Next.js SSG (production build), worker processes receive SIGTERM
+// when they finish their chunk of pages.  Calling pool.end() at that point
+// causes "Cannot use a pool after calling end on the pool" errors for any
+// subsequent page that still needs the DB.  Skip the shutdown hook entirely
+// during the build phase — the process will exit naturally and the OS will
+// reclaim the connections.
 // ---------------------------------------------------------------------------
 declare global {
   var __pgPoolShutdownRegistered: any;
 }
-if (!global.__pgPoolShutdownRegistered) {
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+if (!isBuildPhase && !global.__pgPoolShutdownRegistered) {
   global.__pgPoolShutdownRegistered = true;
   const shutdown = async () => {
     try { await pool.end(); } catch { /* ignore */ }
