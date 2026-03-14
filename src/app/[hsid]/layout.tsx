@@ -16,7 +16,8 @@
 //   #yatSectionLabel       — section name (gallery via YatInteractivity) | player name (profile)
 
 import { headers } from "next/headers";
-import { getSchoolByHsid, getSchoolByUrl, getSchoolColors } from "@/lib/db";
+import { getSchoolByHsid, getSchoolByUrl, getSchoolColors, getSchoolBySubdomainParts } from "@/lib/db";
+import { parseSubdomainSlugState } from "@/lib/subdomainUtils";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
@@ -61,7 +62,15 @@ export default async function HsidLayout({
   let school: Record<string, unknown> | null = null;
   try {
     if (host) school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
+    // Fallback 1: numeric hsid direct lookup
     if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    // Fallback 2: {slug}.{state}.yatstats.com subdomain naming protocol
+    if (!school && host) {
+      const subParts = parseSubdomainSlugState(host, process.env.ROOT_DOMAIN);
+      if (subParts) {
+        school = (await getSchoolBySubdomainParts(subParts.slug, subParts.state)) as Record<string, unknown> | null;
+      }
+    }
   } catch { /* silently fall back to defaults */ }
 
   const resolvedHsid = school ? String(school.hsid ?? hsid) : hsid;
@@ -81,10 +90,6 @@ export default async function HsidLayout({
   ]
     .filter(Boolean)
     .join(";");
-
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
-  const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
 
   const firebaseConfigJSON = getFirebaseConfigJSON();
 
@@ -203,7 +208,8 @@ export default async function HsidLayout({
       </aside>
 
       {/* ── ACCOUNT DRAWER — account icon opens this ─────────────────── */}
-      <AccountDrawer subdomain={subdomain} />
+      {/* Pass resolvedHsid (integer school ID) so home_hsid is stored correctly on registration */}
+      <AccountDrawer subdomain={resolvedHsid} />
 
       {/* ── GLOBAL SEARCH MODAL — search icon opens this ─────────────── */}
       <GlobalSearchModal />

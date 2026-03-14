@@ -153,6 +153,39 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Subdomain-parts fallback resolver — naming protocol: {slug}.{state}.{domain}
+// e.g. hamilton.az.yatstats.com → slug='hamilton', state='az'
+// Used when getSchoolByUrl exact-match misses (staging_url not yet populated).
+// ---------------------------------------------------------------------------
+
+/** Escape LIKE wildcard characters ('%' and '_') in a literal string. */
+function escapeLike(s: string) {
+  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+export async function getSchoolBySubdomainParts(slug: string, state: string) {
+  if (!slug || !state) return null;
+  // Subdomains are hostname labels — valid chars are [a-z0-9-]; reject anything else
+  // to prevent LIKE-wildcard injection and unexpected matches.
+  if (!/^[a-z0-9-]+$/i.test(slug) || !/^[a-z0-9-]+$/i.test(state)) return null;
+  // Match staging_url / microsite_url whose subdomain starts with {slug}.{state}.
+  // Pattern: 'https://hamilton.az.%' covers any root domain.
+  const pattern = `https://${escapeLike(slug.toLowerCase())}.${escapeLike(state.toLowerCase())}.%`;
+  try {
+    const { rows } = await query(
+      `SELECT * FROM school_success
+       WHERE LOWER(staging_url)   LIKE $1 ESCAPE '\\'
+          OR LOWER(microsite_url) LIKE $1 ESCAPE '\\'
+       LIMIT 1`,
+      [pattern]
+    );
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ACTIVE ROSTER — players with 2025 stats (homepage)
 //
 // Returns one row per player with their most recent season stats.

@@ -11,7 +11,9 @@ import {
   getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getSchoolByUrl,
+  getSchoolBySubdomainParts,
 } from "@/lib/db";
+import { parseSubdomainSlugState } from "@/lib/subdomainUtils";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { gradClass, formatSchoolName } from "@/lib/playerUtils";
@@ -35,8 +37,14 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
-  const school = hostSchool || await getSchoolByHsid(hsid);
+  let school = host ? await getSchoolByUrl(`https://${host}`) : null;
+  // Fallback 1: numeric hsid direct lookup
+  if (!school) school = await getSchoolByHsid(hsid);
+  // Fallback 2: {slug}.{state}.yatstats.com subdomain naming protocol
+  if (!school && host) {
+    const parts = parseSubdomainSlugState(host, process.env.ROOT_DOMAIN);
+    if (parts) school = await getSchoolBySubdomainParts(parts.slug, parts.state);
+  }
   const name = (school as Record<string, unknown>)?.hsname as string || "Your School";
   const loc = (school as Record<string, unknown>)?.hslocation as string || "";
   const locParts = loc.split(",").map((s: string) => s.trim());
@@ -72,7 +80,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   let school: Record<string, unknown> | null = null;
   try {
     school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
+    // Fallback 1: numeric hsid direct lookup
     if (!school) school = await getSchoolByHsid(hsid) as Record<string, unknown> | null;
+    // Fallback 2: {slug}.{state}.yatstats.com subdomain naming protocol
+    if (!school && host) {
+      const parts = parseSubdomainSlugState(host, process.env.ROOT_DOMAIN);
+      if (parts) school = await getSchoolBySubdomainParts(parts.slug, parts.state) as Record<string, unknown> | null;
+    }
   } catch {
     notFound();
   }
