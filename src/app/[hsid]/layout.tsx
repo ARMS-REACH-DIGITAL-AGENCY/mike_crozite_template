@@ -214,11 +214,14 @@ export default async function HsidLayout({
       {/* ── GLOBAL SEARCH MODAL — search icon opens this ─────────────── */}
       <GlobalSearchModal />
 
-      {/* ── INTERACTIVITY — wires every shared element above ─────────── */}
-      <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={firebaseConfigJSON} />
-
       {/* ── PAGE BODY ─────────────────────────────────────────────────── */}
       {children}
+
+      {/* ── INTERACTIVITY — placed after {children} so the script runs
+          after ALL page content (player cards, filter drawer, news grid,
+          etc.) is in the DOM.  Event delegation and getElementById both
+          work correctly at this position.                               */}
+      <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={firebaseConfigJSON} />
     </>
   );
 }
