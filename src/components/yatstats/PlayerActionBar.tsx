@@ -93,15 +93,17 @@ export default function PlayerActionBar(props: PlayerActionBarProps) {
     const activeTab = props.activeTab ?? "overview";
     return (
       <div className="profile-tabs" role="tablist">
-        {PLAYER_ACTIONS.map(({ profileTab, label }) => (
+        {PLAYER_ACTIONS.map(({ profileTab, icon, shortLabel }) => (
           <div
             key={profileTab}
             role="tab"
             className={`profile-tab${profileTab === activeTab ? " active" : ""}`}
             data-profile-tab={profileTab}
             tabIndex={0}
+            aria-label={shortLabel}
           >
-            {label}
+            <i className={icon} />
+            <span className="profile-tab-label">{shortLabel}</span>
           </div>
         ))}
       </div>

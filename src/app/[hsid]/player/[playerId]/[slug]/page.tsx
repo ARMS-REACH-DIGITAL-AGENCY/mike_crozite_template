@@ -489,7 +489,9 @@ export default async function PlayerProfilePage({
         /* PROFILE TABS — sticky under meta band */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,0px) + var(--strip-h,110px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
-        .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
+        .profile-tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
+        .profile-tab i{font-size:18px;line-height:1}
+        .profile-tab-label{font:700 7px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;text-transform:uppercase}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
         .profile-tab:hover:not(.active){color:var(--fg)}
         /* STATS */

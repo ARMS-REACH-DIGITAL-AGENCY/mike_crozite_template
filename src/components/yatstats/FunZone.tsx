@@ -6,7 +6,7 @@
 // zone that appears on the player profile page and (in simplified CTA form)
 // on the flip-card back.  The six tabs are:
 //
-//   Game Log  |  Stats  |  News & Videos  |  Social Media  |  Mentorship  |  Photo Gallery
+//   SCHEDULE  |  STATS  |  NEWS  |  SOCIAL  |  CONNECT  |  UPLOAD
 //
 // Canonical tab definitions live in PlayerActionBar.tsx (PLAYER_ACTIONS).
 //
