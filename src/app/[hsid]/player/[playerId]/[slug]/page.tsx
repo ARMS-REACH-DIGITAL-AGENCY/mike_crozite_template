@@ -727,18 +727,25 @@ export default async function PlayerProfilePage({
           Runs synchronously so elements are in place before YatInteractivity's wireUI fires. */}
       <script dangerouslySetInnerHTML={{ __html: `
 (function(){
-  /* Back arrow → #topbarSecondaryIcons */
+  /* Back arrow → #topbarSecondaryIcons (resolvedHsid and safePlayerId are server-validated safe values) */
   var tsi=document.getElementById('topbarSecondaryIcons');
-  if(tsi)tsi.innerHTML='<a href="/${resolvedHsid}#player-${safePlayerId}" class="yat-icon-btn" aria-label="Back to gallery"><i class="ri-arrow-left-line"></i></a>';
+  if(tsi){
+    var a=document.createElement('a');
+    a.href='/${resolvedHsid}#player-${safePlayerId}';
+    a.className='yat-icon-btn';
+    a.setAttribute('aria-label','Back to gallery');
+    a.innerHTML='<i class="ri-arrow-left-line"></i>';
+    tsi.appendChild(a);
+  }
   /* Favorite button → #schoolRowRight */
   var srr=document.getElementById('schoolRowRight');
   if(srr)srr.innerHTML='<button id="btnFanFav" class="fav-btn-hero" type="button" aria-label="Favorite"><i class="ri-star-line"></i> FAVORITE</button>';
-  /* Section label → player display name */
+  /* Section label → player display name (via textContent, XSS-safe) */
   var lbl=document.getElementById('yatSectionLabel');
-  if(lbl)lbl.textContent='${displayName.replace(/'/g, "\\'")}';
+  if(lbl)lbl.textContent=${JSON.stringify(displayName)};
   /* Tag crest img with player headshot so the IntersectionObserver can swap it */
   var ci=document.getElementById('stickyIdentityImg');
-  if(ci)ci.setAttribute('data-headshot','${playerThenImg}');
+  if(ci)ci.setAttribute('data-headshot',${JSON.stringify(playerThenImg)});
 })();
 ` }} />
 

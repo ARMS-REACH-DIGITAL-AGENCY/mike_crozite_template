@@ -92,9 +92,21 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       <script dangerouslySetInnerHTML={{ __html: `
 (function(){
   var slot=document.getElementById('topbarSecondaryIcons');
-  if(slot){
-    slot.innerHTML='<button class="yat-icon-btn" id="openFilters" type="button" aria-label="Open filters"><i class="ri-filter-3-line"></i></button><button class="yat-icon-btn" id="filtersReset2" type="button" aria-label="Reset filters"><i class="ri-restart-line"></i></button>';
-  }
+  if(!slot)return;
+  var btnFilter=document.createElement('button');
+  btnFilter.className='yat-icon-btn';
+  btnFilter.id='openFilters';
+  btnFilter.type='button';
+  btnFilter.setAttribute('aria-label','Open filters');
+  btnFilter.innerHTML='<i class="ri-filter-3-line"></i>';
+  var btnReset=document.createElement('button');
+  btnReset.className='yat-icon-btn';
+  btnReset.id='filtersReset2';
+  btnReset.type='button';
+  btnReset.setAttribute('aria-label','Reset filters');
+  btnReset.innerHTML='<i class="ri-restart-line"></i>';
+  slot.appendChild(btnFilter);
+  slot.appendChild(btnReset);
 })();
 ` }} />
 

@@ -157,6 +157,10 @@ export default function SafeImage({
     return normalizedPlaceholder;
   }, [src, computedFallback, normalizedPlaceholder]);
 
+  // Filter to only genuine data-* attributes to prevent accidental pass-through
+  const dataAttrs = Object.fromEntries(
+    Object.entries(rest).filter(([k, v]) => k.startsWith("data-") && typeof v === "string") as [string, string][]
+  );
   return (
     <StatefulSafeImage
       key={initialSrc}
@@ -167,7 +171,7 @@ export default function SafeImage({
       className={className}
       style={style}
       id={id}
-      extraDataAttrs={rest as Record<string, string>}
+      extraDataAttrs={dataAttrs}
     />
   );
 }
