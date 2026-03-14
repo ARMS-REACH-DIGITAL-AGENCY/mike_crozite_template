@@ -470,48 +470,13 @@ export default async function PlayerProfilePage({
   return (
     <>
       <style>{`
-        :root{--bg:#0d0d0d;--fg:#f5f5f5;--muted:#999;--line:rgba(255,255,255,.08);--header-bg:rgba(13,13,13,.97);--crestH:60px;--logo-filter:invert(1);--card-bg:#1a1a1a;--footerH:clamp(56px,8vh,77px)}
-        body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--line:rgba(0,0,0,.1);--header-bg:rgba(244,244,244,.97);--logo-filter:none;--card-bg:#fff}
-        *{margin:0;padding:0;box-sizing:border-box}
-        html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .3s,color .3s;padding-bottom:var(--footerH)}
-        a{color:inherit;text-decoration:none}
-        .yat-container{max-width:1100px;margin:0 auto;padding:0 16px}
-        /* HEADER */
-        .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);backdrop-filter:blur(8px);transition:background-color .3s}
-        .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
-        .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
-        .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.9;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
-        .yat-icon-btn i{font-size:20px}
-        .yat-topnav{display:flex;gap:18px;align-items:center}
-        .yat-nav-pair{white-space:nowrap;cursor:pointer;text-decoration:none}
-        .yat-nav-pair .thin{font:300 11px Oswald,sans-serif;letter-spacing:.02em;color:var(--muted);margin-right:2px}
-        .yat-nav-pair .bold{font:400 11px "Bebas Neue",sans-serif}
-        .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
-        @media(max-width:1200px){.yat-topnav{display:none!important}}
-        .yat-hr{border-top:1px solid var(--line)}
-        /* Sticky identity band: two-part layout */
-        .yat-schoolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1100px;margin:0 auto}
-        .yat-schoolrow-id{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
-        .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
-        .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
-        .yat-schooltext{line-height:1}
-        .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-        .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+        /* FAVORITES button in #schoolRowRight */
         .fav-btn-hero{display:inline-flex;align-items:center;gap:5px;padding:0;border:none;background:none;color:var(--fg);font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:opacity .2s}
         .fav-btn-hero i{font-size:15px;transition:color .2s}
         .fav-btn-hero:hover{opacity:.7}
         .fav-btn-hero.active i{color:gold}
         .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
         .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-        /* CAREER PROGRESSION FILMSTRIP — chronological visual montage, no captions */
-        .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:clamp(100px,12vw,140px);overflow:hidden}
-        body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-        .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-        .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden}
-        .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
@@ -520,7 +485,7 @@ export default async function PlayerProfilePage({
         .pmb-line.dim{color:var(--muted)}
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
-        /* TABS — sticky under header */
+        /* PROFILE TABS — sticky under meta band */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
@@ -547,7 +512,7 @@ export default async function PlayerProfilePage({
         .season-table td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
         .season-table tr:last-child td{border-bottom:none}
         .season-table tbody tr:hover{background:rgba(255,209,102,.05)}
-        /* TAB CONTENT — ensure enough height for sparse tabs to allow full scroll collapse */
+        /* TAB CONTENT */
         .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px) + var(--tabBarH,42px) + 8px)}
         .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
@@ -562,40 +527,14 @@ export default async function PlayerProfilePage({
         body.light-theme .fav-modal-actions button{background:rgba(0,0,0,.04)}
         .fav-modal-actions button.cta{background:gold;color:#000;border-color:gold}
         .fav-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1}
-        /* FOOTER — fixed at bottom */
-        .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:20px;padding:0 16px}
-        .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-        .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
-        .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none}
-        .yat-footer a:hover{opacity:.8}
-        .yat-footer .sponsor-cta-link{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:4px 10px}
-        .yat-footer .sponsor-cta-link:hover{color:gold;border-color:rgba(255,209,102,.5)}
-        /* PLAYER CONTEXT LINE */
+        /* PLAYER CONTEXT / IDENTITY */
         .player-context-line{font:300 11px/1.3 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
         .player-context-line .ctx-team{color:var(--fg);font-weight:500}
-        /* COMPACT PLAYER IDENTITY BLOCK */
         .player-id-block{display:flex;flex-direction:column;gap:4px}
         .player-id-line{font:400 11px/1.5 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);text-transform:uppercase;white-space:normal}
         .player-id-line .dim{color:var(--muted);font-weight:300}
         .player-id-line .sep{color:var(--muted);margin:0 5px}
         .player-id-label{font-weight:600;color:var(--fg)}
-        /* DRAWERS */
-        .yat-drawer{position:fixed;top:0;width:290px;height:100vh;background:var(--header-bg);z-index:100;padding:24px 20px;overflow-y:auto;transition:transform .3s cubic-bezier(.4,0,.2,1);border-right:1px solid var(--line)}
-        .yat-drawer-left{left:0;transform:translateX(-100%)}
-        .yat-drawer-right{right:0;transform:translateX(100%);border-right:none;border-left:1px solid var(--line)}
-        body.drawer-left-open .yat-drawer-left{transform:translateX(0)}
-        body.drawer-account-open #drawerAccount{transform:translateX(0)}
-        body.drawer-open{overflow:hidden}
-        .yat-close-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--fg);cursor:pointer;font-size:22px;display:flex;align-items:center;opacity:.7}
-        .yat-close-btn:hover{opacity:1}
-        .drawer-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90}
-        body.drawer-left-open .drawer-mask,body.drawer-account-open .drawer-mask{display:block}
-        .drawer-nav-link{display:block;font:300 14px/1 Oswald,sans-serif;padding:10px 0;border-bottom:1px solid var(--line);transition:color .2s}
-        .drawer-nav-link:hover{color:gold}
-        .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
-        body.light-theme .drawer-search-input{background:rgba(0,0,0,.06)}
-        .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
-        .drawer-live-hit:hover{background:var(--line)}
         /* OVERVIEW TAB */
         .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
@@ -625,7 +564,7 @@ export default async function PlayerProfilePage({
         .career-log tbody .career-totals-row td{font:700 12px/1.4 Oswald,sans-serif;border-top:2px solid rgba(255,209,102,.3)}
         .career-log tbody .career-totals-row .year-cell{color:gold}
         .log-section{margin-bottom:20px}
-        /* RECENT GAME LOG (overview) */
+        /* RECENT GAME LOG */
         .recent-log-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;overflow:hidden}
         .recent-log-grid{display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--line)}
         @media(max-width:700px){.recent-log-grid{grid-template-columns:repeat(4,1fr)}}
@@ -656,69 +595,12 @@ export default async function PlayerProfilePage({
         .gl-status.live{background:rgba(0,230,118,.15);color:#00e676;border-color:rgba(0,230,118,.4)}
         .gl-empty{padding:32px 16px;text-align:center;font:300 12px/1.4 Oswald,sans-serif;color:var(--muted)}
         @media(max-width:640px){
+          .fav-btn-hero{font-size:10px}
           .gl-row{padding:7px 10px;gap:0}
           .gl-date{min-width:32px;font-size:10px}
           .gl-matchup{min-width:90px;font-size:10px}
           .gl-result{font-size:10px}
           .gl-stat-line{font-size:10px}
-        }
-        /* GLOBAL SEARCH MODAL */
-        .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
-        .yat-gs-modal.open{display:flex}
-        .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
-        .yat-gs-panel{position:relative;width:100%;max-width:620px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.7);display:flex;flex-direction:column;overflow:hidden;max-height:82vh}
-        body.light-theme .yat-gs-panel{background:#fff;border-color:rgba(0,0,0,.12)}
-        .yat-gs-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 0}
-        .yat-gs-title{font:700 24px "Bebas Neue",sans-serif;letter-spacing:.08em;color:var(--fg);text-transform:uppercase}
-        .yat-gs-sub{font:300 11px Oswald,sans-serif;color:var(--muted);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
-        .yat-gs-body{padding:14px 16px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
-        .yat-gs-input-wrap{position:relative;display:flex;align-items:center}
-        .yat-gs-input-wrap .ri-search-line{position:absolute;left:14px;font-size:16px;color:var(--muted);pointer-events:none}
-        .yat-gs-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:var(--fg);font:400 14px Oswald,sans-serif;padding:10px 14px 10px 40px;outline:none;transition:border-color .2s}
-        body.light-theme .yat-gs-input{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.15)}
-        .yat-gs-input:focus{border-color:rgba(255,255,255,.38)}
-        body.light-theme .yat-gs-input:focus{border-color:rgba(0,0,0,.3)}
-        .yat-gs-results{overflow-y:auto;max-height:calc(82vh - 180px);display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
-        .yat-gs-region{font:700 9px Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:14px 2px 6px;border-top:1px solid var(--line);margin-top:2px;flex-shrink:0}
-        .yat-gs-region:first-child{border-top:none;margin-top:0;padding-top:4px}
-        .yat-gs-result{display:flex;flex-direction:column;gap:0;padding:0;border-radius:12px;text-decoration:none;color:inherit;cursor:pointer;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);transition:background .15s,border-color .15s;overflow:hidden;flex-shrink:0}
-        .yat-gs-result:hover,.yat-gs-result:focus{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2);outline:none}
-        body.light-theme .yat-gs-result{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08)}
-        body.light-theme .yat-gs-result:hover{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.14)}
-        .yat-gs-result[data-status="inactive"]{opacity:.6}
-        .yat-gs-result-top{display:flex;align-items:center;gap:12px;padding:12px 14px 10px}
-        .yat-gs-result-crest{width:44px;height:44px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,.06);flex-shrink:0;border:1px solid rgba(255,255,255,.1);padding:2px}
-        body.light-theme .yat-gs-result-crest{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.1)}
-        .yat-gs-result-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-        .yat-gs-result-name{font:700 16px "Bebas Neue",sans-serif;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg);line-height:1.15}
-        .yat-gs-result-loc{font:300 10px Oswald,sans-serif;letter-spacing:.06em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
-        .yat-gs-status{font:700 8px Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:5px;white-space:nowrap;flex-shrink:0;display:inline-block;line-height:1.5;align-self:flex-start}
-        .yat-gs-status-live{background:rgba(0,230,118,.14);border:1px solid rgba(0,230,118,.6);color:#00e676}
-        .yat-gs-status-potential{background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.5);color:#ffc107}
-        .yat-gs-status-inactive{background:rgba(158,158,158,.07);border:1px solid rgba(158,158,158,.25);color:#888}
-        .yat-gs-stats{display:flex;flex-wrap:nowrap;gap:0;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.25);overflow-x:auto}
-        body.light-theme .yat-gs-stats{border-top-color:rgba(0,0,0,.08);background:rgba(0,0,0,.04)}
-        .yat-gs-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 12px;min-width:52px;flex:1;border-right:1px solid rgba(255,255,255,.06)}
-        .yat-gs-chip:last-child{border-right:none}
-        body.light-theme .yat-gs-chip{border-right-color:rgba(0,0,0,.07)}
-        .yat-gs-chip-val{font:700 16px "Bebas Neue",sans-serif;letter-spacing:.04em;color:var(--fg);line-height:1;white-space:nowrap}
-        .yat-gs-chip-val.hi{color:#00e676}
-        .yat-gs-chip-lbl{font:300 8px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);line-height:1;white-space:nowrap}
-        .yat-gs-msg{padding:28px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
-        .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
-        /* MOBILE */
-        @media(max-width:640px){
-          /* Shrink sticky header crest/text */
-          :root{--crestH:44px}
-          .yat-schoolrow{padding:4px 10px;gap:6px}
-          .yat-schoolrow-id{gap:8px}
-          .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
-          .yat-schooltext .big1{font-size:14px}
-          .yat-schooltext .big2{font-size:16px}
-          .fav-btn-hero{font-size:10px}
-          /* Career strip: smaller height on mobile */
-          .career-strip{height:100px}
-          /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
       `}</style>

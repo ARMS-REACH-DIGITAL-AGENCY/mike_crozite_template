@@ -384,6 +384,25 @@ export default function YatStyles() {
       body.light-theme .yat-share-btn:hover{border-color:rgba(0,0,0,.25);background:rgba(0,0,0,.04)}
       .yat-share-btn i{font-size:14px}
       .yat-share-btn.copied{color:var(--green);border-color:var(--green)}
+      /* ── SHARED PHOTO STRIP ─────────────────────────────────────────────
+         Used on both player-profile (career-strip) and gallery (gallery-strip).
+         Portrait slots = 5:7 aspect ratio (default).  Landscape = 7:5.
+      ────────────────────────────────────────────────────────────────────── */
+      .career-strip,.gallery-strip{--strip-h:clamp(100px,12vw,140px);height:var(--strip-h);overflow:hidden;position:relative;width:100%}
+      .career-strip-inner,.gallery-strip-inner{width:100%;height:100%;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .career-strip-inner::-webkit-scrollbar,.gallery-strip-inner::-webkit-scrollbar{display:none}
+      .career-slot,.gallery-slot{flex:0 0 auto;height:100%;width:calc(5/7*var(--strip-h,120px));overflow:hidden;border-right:1px solid var(--line);position:relative}
+      .career-slot[data-orient="landscape"],.gallery-slot[data-orient="landscape"]{width:calc(7/5*var(--strip-h,120px))}
+      .career-slot-img,.gallery-slot-img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+      /* career-strip visual theme — dark gradient + gold border */
+      .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--gold),#ff9800,var(--gold)) 1}
+      body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
+      /* gallery-strip visual theme — card bg + subtle border */
+      .gallery-strip{background:var(--card-bg);border-bottom:2px solid var(--line)}
+      /* gallery slots are anchor tags */
+      a.gallery-slot{text-decoration:none;cursor:pointer}
+      a.gallery-slot:hover .gallery-slot-img{opacity:.8}
+      @media(max-width:640px){.career-strip,.gallery-strip{--strip-h:clamp(80px,10vw,110px)}}
     `}</style>
   );
 }

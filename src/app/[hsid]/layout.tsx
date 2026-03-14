@@ -76,11 +76,11 @@ export default async function HsidLayout({
             <button className="yat-icon-btn" id="btnAccount" type="button" aria-label="Account">
               <i className="ri-user-3-line" />
             </button>
-            <button className="yat-icon-btn" id="btnSearch" type="button" aria-label="Global Search">
-              <i className="ri-search-line" />
-            </button>
             <button className="yat-icon-btn" id="theme-toggle" type="button" aria-label="Toggle Theme">
               <i className="ri-sun-line" />
+            </button>
+            <button className="yat-icon-btn" id="btnSearch" type="button" aria-label="Global Search">
+              <i className="ri-search-line" />
             </button>
           </div>
 
