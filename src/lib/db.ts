@@ -101,6 +101,9 @@ function normalizeHostOrUrl(input: string) {
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
 export async function getSchoolByHsid(hsid: string) {
+  // hsid is an integer column — reject non-numeric strings before hitting the DB
+  // to avoid PostgreSQL "invalid input syntax for type integer" errors.
+  if (!hsid || !/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
@@ -158,6 +161,8 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 // Team name is looked up from the teams table via LEFT JOIN on team_id.
 // ---------------------------------------------------------------------------
 export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+  // hsid maps to an integer column in player_hsids — guard against non-numeric input.
+  if (!hsid || !/^\d+$/.test(hsid)) return [];
   const { hasSourceMap, hasHeadshots } = await getAvailableTables();
   const { cols: headshotCols, joins: headshotJoins } = buildHeadshotSqlParts(hasSourceMap, hasHeadshots);
   const sql = `
@@ -312,6 +317,8 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 // Used for the "All-Time Next Level List" page.
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  // hsid maps to an integer column in player_hsids — guard against non-numeric input.
+  if (!hsid || !/^\d+$/.test(hsid)) return [];
   const { hasSourceMap, hasHeadshots } = await getAvailableTables();
   const { cols: headshotCols, joins: headshotJoins } = buildHeadshotSqlParts(hasSourceMap, hasHeadshots);
   const sql = `

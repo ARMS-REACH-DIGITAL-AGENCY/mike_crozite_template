@@ -30,6 +30,8 @@ export default async function PlayerProfileRedirect({
   params: Promise<{ hsid: string; playerId: string }>;
 }) {
   const { hsid, playerId } = await params;
+  // Reject non-numeric playerId early — tbc_players_raw.playerid is an integer column.
+  if (!/^\d+$/.test(playerId) || parseInt(playerId, 10) <= 0) notFound();
   const player = await getPlayerById(String(playerId));
   if (!player) notFound();
   const slug = toPlayerSlug(player.firstname, player.lastname);

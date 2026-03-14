@@ -31,6 +31,7 @@ import {
 export const runtime = "nodejs";
 
 export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
+  try {
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
@@ -56,6 +57,12 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
       apple: crestUrl,
     },
   };
+  } catch {
+    return {
+      title: "YAT?STATS - Where They YAT?",
+      description: "Track active and all-time baseball alumni on YAT?STATS.",
+    };
+  }
 }
 
 export default async function SchoolPage({ params }: { params: Promise<{ hsid: string }> }) {
