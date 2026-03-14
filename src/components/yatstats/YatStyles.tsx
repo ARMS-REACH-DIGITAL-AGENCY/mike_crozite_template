@@ -408,13 +408,13 @@ export default function YatStyles() {
       .career-slot-img,.gallery-slot-img,.funnel-slot-img{width:100%;height:100%;object-fit:cover;display:block}
       .career-slot-img{object-position:top center}
       .gallery-slot-img,.funnel-slot-img{object-position:center center}
-      /* career-strip visual theme — dark gradient + gold border */
-      .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--gold),#ff9800,var(--gold)) 1}
+      /* career-strip visual theme — dark gradient + school-color border */
+      .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:3px solid var(--school-color1,var(--gold))}
       body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
-      /* gallery-strip visual theme — card bg + subtle border */
-      .gallery-strip{background:var(--card-bg);border-bottom:2px solid var(--line)}
-      /* funnel-strip visual theme — card bg + gold border (CTA pages) */
-      .funnel-strip{background:var(--card-bg);border-bottom:2px solid var(--gold)}
+      /* gallery-strip visual theme — card bg + school-color border */
+      .gallery-strip{background:var(--card-bg);border-bottom:3px solid var(--school-color1,var(--gold))}
+      /* funnel-strip visual theme — card bg + school-color border (CTA pages) */
+      .funnel-strip{background:var(--card-bg);border-bottom:3px solid var(--school-color1,var(--gold))}
       /* scroll arrows — desktop (pointer:fine) only */
       .gallery-strip-arrow{position:absolute;top:0;bottom:0;z-index:2;width:36px;display:none;align-items:center;justify-content:center;border:none;cursor:pointer;color:var(--fg);font-size:22px;padding:0;transition:opacity .15s}
       .gallery-strip-arrow.left{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}

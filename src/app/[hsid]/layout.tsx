@@ -16,7 +16,7 @@
 //   #yatSectionLabel       — section name (gallery via YatInteractivity) | player name (profile)
 
 import { headers } from "next/headers";
-import { getSchoolByHsid, getSchoolByUrl } from "@/lib/db";
+import { getSchoolByHsid, getSchoolByUrl, getSchoolColors } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { formatSchoolName, NAV_ITEMS } from "@/lib/playerUtils";
@@ -28,6 +28,24 @@ import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
 import YatInteractivity from "@/components/yatstats/YatInteractivity";
 
 export const runtime = "nodejs";
+
+/** Strict CSS color value allow-list.
+ *  Accepts:  #RGB / #RRGGBB / #RGBA / #RRGGBBAA
+ *            CSS named colors (letters-only, e.g. "red", "navy")
+ *            rgb() / rgba() with integer channels
+ *            hsl() / hsla() with numeric values
+ *  Rejects:  url(), expression(), data URIs, or anything else.
+ *  The return value is safe to embed in a `<style>` rule as a property value.
+ */
+function sanitizeCssColor(v: string | null): string {
+  if (!v) return "";
+  const t = v.trim();
+  if (/^#[0-9A-Fa-f]{3,8}$/.test(t)) return t;
+  if (/^[a-z]{2,30}$/.test(t)) return t; // named color (e.g. "red")
+  if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(\s*,\s*(0|1|0?\.\d+))?\s*\)$/.test(t)) return t;
+  if (/^hsla?\(\s*\d{1,3}(\.\d+)?\s*,\s*\d{1,3}(\.\d+)?%\s*,\s*\d{1,3}(\.\d+)?%(\s*,\s*(0|1|0?\.\d+))?\s*\)$/.test(t)) return t;
+  return "";
+}
 
 export default async function HsidLayout({
   children,
@@ -51,6 +69,19 @@ export default async function HsidLayout({
   const location = school ? String(school.hslocation || "").toUpperCase() : "";
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
 
+  // Fetch school brand colors for the strip border accent line.
+  const { color1, color2, color3 } = await getSchoolColors(resolvedHsid);
+  const c1 = sanitizeCssColor(color1);
+  const c2 = sanitizeCssColor(color2);
+  const c3 = sanitizeCssColor(color3);
+  const colorVars = [
+    c1 && `--school-color1:${c1}`,
+    c2 && `--school-color2:${c2}`,
+    c3 && `--school-color3:${c3}`,
+  ]
+    .filter(Boolean)
+    .join(";");
+
   const ROOT_DOMAIN = "yatstats.com";
   const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
   const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
@@ -60,6 +91,13 @@ export default async function HsidLayout({
   return (
     <>
       <YatStyles />
+      {/* School brand colors — injected as CSS variables used by strip borders.
+          Each value has been validated by sanitizeCssColor() which only passes
+          hex, named, rgb(), or hsl() literals — no url(), expression(), or
+          arbitrary characters — making the innerHTML content safe. */}
+      {colorVars && (
+        <style dangerouslySetInnerHTML={{ __html: `:root{${colorVars}}` }} />
+      )}
 
       {/* ── GLOBAL HEADER ──────────────────────────────────────────────────
           This is the ONE header rendered for every page in the microsite.
