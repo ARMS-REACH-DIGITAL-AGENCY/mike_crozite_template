@@ -24,9 +24,23 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
 };
 
-// Singleton: reuse existing app if already initialized
-const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth: Auth = getAuth(app);
+// Firebase must only be initialized in the browser.
+// Calling initializeApp / getAuth during server-side module evaluation (Next.js SSR
+// pre-renders every 'use client' component on the server) causes
+// "auth/invalid-api-key" to be thrown at module-load time, which crashes the
+// entire SSR pass and produces a broken HTML shell with no usable JavaScript.
+const isBrowser = typeof window !== "undefined";
+let app: FirebaseApp;
+let auth: Auth;
+if (isBrowser) {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+} else {
+  // Server-side stubs — all real Firebase calls live inside useEffect / event
+  // handlers in AccountDrawer.tsx, which only execute in the browser.
+  app = {} as FirebaseApp;
+  auth = {} as Auth;
+}
 
 export {
   app,
