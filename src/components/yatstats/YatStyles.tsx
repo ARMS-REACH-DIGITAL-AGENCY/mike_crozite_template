@@ -32,7 +32,7 @@ export default function YatStyles() {
       .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
       body.light-theme .yat-wordmark{color:#000}
       @media(max-width:1200px){.yat-topnav{display:none!important}}
-      .yat-school-stripe{height:3px;background:var(--school-color1,var(--gold));flex-shrink:0}
+      .yat-school-stripe{height:1px;background:var(--school-color1,var(--gold));flex-shrink:0}
       .yat-hr{border-top:1px solid var(--line)}
       .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
       .yat-schoolrow-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -417,12 +417,12 @@ export default function YatStyles() {
       .career-slot-img{object-position:top center}
       .gallery-slot-img,.funnel-slot-img{object-position:center center}
       /* career-strip visual theme — dark gradient + school-color border */
-      .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:3px solid var(--school-color1,var(--gold))}
+      .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);border-bottom:1px solid var(--school-color1,var(--gold))}
       body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
       /* gallery-strip visual theme — card bg + school-color border */
-      .gallery-strip{background:var(--card-bg);border-bottom:3px solid var(--school-color1,var(--gold))}
+      .gallery-strip{background:var(--card-bg);border-bottom:1px solid var(--school-color1,var(--gold))}
       /* funnel-strip visual theme — card bg + school-color border (CTA pages) */
-      .funnel-strip{background:var(--card-bg);border-bottom:3px solid var(--school-color1,var(--gold))}
+      .funnel-strip{background:var(--card-bg);border-bottom:1px solid var(--school-color1,var(--gold))}
       /* scroll arrows — desktop (pointer:fine) only */
       .gallery-strip-arrow{position:absolute;top:0;bottom:0;z-index:2;width:36px;display:none;align-items:center;justify-content:center;border:none;cursor:pointer;color:var(--fg);font-size:22px;padding:0;transition:opacity .15s}
       .gallery-strip-arrow.left{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}

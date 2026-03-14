@@ -22,13 +22,12 @@ export default async function RootPage() {
   if (/^\d+$/.test(raw)) {
     // Already a numeric school ID — use it directly without a DB round-trip.
     resolvedHsid = raw;
-  } else if (/^[a-z0-9-]+\.[a-z0-9-]+$/i.test(raw)) {
+  } else if (/^[a-z0-9-]+\.[a-z]{2}$/i.test(raw)) {
     // "slug.state" format (e.g. "hamilton.az") — resolve to numeric HSID via DB.
+    // State portion is exactly two letters (U.S. state code).
     // getSchoolBySubdomainParts is already safe against injection and returns
     // null on any error, so a DB failure here is non-fatal.
-    const dotIdx = raw.indexOf(".");
-    const slug = raw.slice(0, dotIdx);
-    const state = raw.slice(dotIdx + 1);
+    const [slug, state] = raw.split(".");
     try {
       const school = await getSchoolBySubdomainParts(slug, state);
       if (school?.hsid) {
