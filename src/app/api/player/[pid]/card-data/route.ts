@@ -1,6 +1,5 @@
 // src/app/api/player/[pid]/card-data/route.ts
-// FIXED: pid is now parsed to integer BEFORE any DB call
-// This stops the "invalid input syntax for type integer" crashes that killed the entire client bundle.
+// FIXED: integer validation + TypeScript compatibility
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -35,17 +34,17 @@ export async function GET(
   const { pid } = await context.params;
 
   // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-  // THE FIX: convert to integer immediately
+  // SAFETY CHECK: make sure it's a real number
   const playerId = parseInt(pid, 10);
   if (isNaN(playerId) || playerId < 1) {
-    return NextResponse.json({ error: 'Invalid pid' }, { status: 400, headers: cors });
+    return NextResponse.json({ error: 'Invalid player ID' }, { status: 400, headers: cors });
   }
   // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 
   try {
     const [currentTeam, newsRows] = await Promise.all([
-      getResolvedCurrentTeam(playerId),        // ← now integer
-      getNewsByPlayer(playerId, 4),            // ← now integer
+      getResolvedCurrentTeam(pid),          // ← string (matches TS types)
+      getNewsByPlayer(pid, 4),              // ← string
     ]);
 
     let lastGames: any[] = [];
@@ -55,8 +54,8 @@ export async function GET(
       const tid = String(currentTeam.teamid);
 
       const [battingLog, pitchingLog, schedule] = await Promise.all([
-        getPlayerBattingGameLog(playerId, tid),   // ← now integer
-        getPlayerPitchingGameLog(playerId, tid),  // ← now integer
+        getPlayerBattingGameLog(pid, tid),   // ← string
+        getPlayerPitchingGameLog(pid, tid),  // ← string
         getTeamSchedule(tid, 50),
       ]);
 
