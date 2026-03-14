@@ -328,7 +328,7 @@ def main() -> int:
             str(source_path), s3_key, str(converted), status, note
         ))
 
-    report_path = workdir / "hamilton_mvp_import_report.csv"
+    report_path = Path("hamilton_mvp_import_report.csv").resolve()
     with report_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
