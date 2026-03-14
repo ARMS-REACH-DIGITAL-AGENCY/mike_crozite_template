@@ -25,6 +25,7 @@ export default function HeroHeader({
   return (
     <header className="yat-header" id="site-header">
       <div className="yat-container yat-topbar">
+        {/* Global icons — identical on every page type */}
         <div className="yat-left-icons">
           <button className="yat-icon-btn" id="btnMenu" aria-label="Menu">
             <i className="ri-menu-line" />
@@ -32,12 +33,25 @@ export default function HeroHeader({
           <button className="yat-icon-btn" id="btnAccount" aria-label="Account">
             <i className="ri-user-3-line" />
           </button>
+          <button className="yat-icon-btn" id="btnSearch" aria-label="Search">
+            <i className="ri-search-line" />
+          </button>
           <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme">
             <i className="ri-sun-line" />
           </button>
         </div>
 
         <SectionTabs navItems={navItems} />
+
+        {/* Gallery-page secondary icons: filter + reset */}
+        <div className="yat-right-icons">
+          <button className="yat-icon-btn" id="openFilters" aria-label="Open filters">
+            <i className="ri-filter-3-line" />
+          </button>
+          <button className="yat-icon-btn" id="filtersReset2" aria-label="Reset filters">
+            <i className="ri-restart-line" />
+          </button>
+        </div>
 
         <div className="yat-wordmark-wrap">
           <a

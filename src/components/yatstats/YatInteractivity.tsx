@@ -155,6 +155,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
   var openSearch=document.getElementById('openSearch');
   if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
+  var btnSearch=document.getElementById('btnSearch');
+  if(btnSearch)btnSearch.addEventListener('click',function(){openGsModal();});
   if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
   if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
   document.addEventListener('keydown',function(e){

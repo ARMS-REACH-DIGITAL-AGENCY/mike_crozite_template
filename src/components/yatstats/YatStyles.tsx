@@ -15,6 +15,7 @@ export default function YatStyles() {
       .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
       .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
       .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
+      .yat-right-icons{display:flex;align-items:center;gap:6px;margin-right:4px}
       .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
       .yat-icon-btn i{font-size:20px}
       .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
@@ -130,7 +131,7 @@ export default function YatStyles() {
       .yat-back-action-label{font:700 6px "Bebas Neue",sans-serif;letter-spacing:.06em;text-transform:uppercase}
       /* ── Stats ── */
       .yat-back-stats{flex:1 1 0;padding:5px 8px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
-      .yat-stats-bar{background:var(--line);color:var(--fg);text-align:center;padding:4px;font:700 10px "Bebas Neue",sans-serif;margin:0 0 5px;border-radius:4px;flex-shrink:0}
+      .yat-stats-bar{border-bottom:1px solid var(--line);color:var(--fg);padding:4px 0 6px;font:700 10px "Bebas Neue",sans-serif;letter-spacing:.06em;margin:0 0 4px;flex-shrink:0}
       .yat-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;text-align:center}
       .yat-stat{background:var(--line);border-radius:6px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
       .yat-stat-label{font-size:8px;text-transform:uppercase;opacity:.7}
@@ -181,7 +182,7 @@ export default function YatStyles() {
       .yat-back-cta-btn{display:inline-block;background:#8b0000;color:#fff;font:700 8px "Bebas Neue",sans-serif;letter-spacing:.08em;padding:7px 10px;border-radius:4px;text-decoration:none;text-transform:uppercase;margin-top:4px}
       .yat-back-cta-btn:hover{background:#a00000}
       /* Active tab button indicator */
-      .yat-back-action-btn.active{color:gold}
+      .yat-back-action-btn.active{color:gold;border-bottom:2px solid gold}
       .yat-back-action-btn.active .yat-back-action-label{color:gold}
       .yat-back-stats{padding:5px 8px;display:flex;flex-direction:column;flex:1 1 0;overflow:hidden;min-height:0}
 

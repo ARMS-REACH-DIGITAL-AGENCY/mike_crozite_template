@@ -1,26 +1,12 @@
 // src/components/yatstats/GlobalSearchModal.tsx
-// Global school search modal overlay.
-// The #openSearch button that triggers this modal lives in HeroHeader via GlobalSearchModal.
-// This component renders both the header action buttons (right side of hero) and the
-// full-screen modal overlay. Both are included in a fragment so HeroHeader can place
-// the buttons inline while the fixed-position modal sits naturally anywhere in the tree.
+// Global school/player search modal overlay.
+// Triggered by #btnSearch in the shared topbar left-icons group.
+// This component renders ONLY the fixed-position modal overlay so it can be placed
+// anywhere in the tree without affecting layout.
 
 export default function GlobalSearchModal() {
   return (
     <>
-      {/* Right-side header action buttons */}
-      <div className="yat-hero-right">
-        <button id="openSearch" className="yat-icon-btn" aria-label="Open global school search">
-          <i className="ri-search-line" />
-        </button>
-        <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
-          <i className="ri-filter-3-line" />
-        </button>
-        <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters">
-          <i className="ri-restart-line" />
-        </button>
-      </div>
-
       {/* ── GLOBAL SEARCH MODAL ───────────────────────────────────────────── */}
       <div id="gsModal" className="yat-gs-modal" role="dialog" aria-modal="true" aria-labelledby="gsTitle">
         <div className="yat-gs-overlay" id="gsOverlay" />

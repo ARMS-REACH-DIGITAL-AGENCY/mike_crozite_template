@@ -739,16 +739,14 @@ export default async function PlayerProfilePage({
           /* Recent game log grid on mobile */
           .recent-log-grid{grid-template-columns:repeat(4,1fr)}
         }
-        /* Hide GlobalSearchModal's own header action buttons — we use #btnSearch in the icon row */
-        .yat-hero-right{display:none!important}
       `}</style>
 
       {/* HEADER — sticky global shell */}
       <header className="yat-header" id="site-header">
         {/* Row 1: Global controls */}
         <div className="yat-container yat-topbar">
+          {/* Global icons — identical on every page type */}
           <div className="yat-left-icons">
-            <a href={`/${resolvedHsid}#player-${safePlayerId}`} className="yat-icon-btn" aria-label="Back to flip card"><i className="ri-arrow-left-line" /></a>
             <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
             <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
             <button className="yat-icon-btn" id="btnSearch" aria-label="Search"><i className="ri-search-line" /></button>
@@ -762,6 +760,12 @@ export default async function PlayerProfilePage({
               </a>
             ))}
           </nav>
+          {/* Player-profile secondary icon: back arrow */}
+          <div className="yat-right-icons">
+            <a href={`/${resolvedHsid}#player-${safePlayerId}`} className="yat-icon-btn" aria-label="Back to flip card">
+              <i className="ri-arrow-left-line" />
+            </a>
+          </div>
           <div className="yat-wordmark-wrap">
             <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center'}}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -825,9 +829,7 @@ export default async function PlayerProfilePage({
         <AccountDrawer subdomain={subdomain} />
       </aside>
 
-      {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay. The .yat-hero-right action buttons
-          inside GlobalSearchModal are hidden via CSS (.player-page .yat-hero-right); we use
-          #btnSearch in the header icon row instead as the trigger. */}
+      {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay, triggered by #btnSearch in the topbar */}
       <GlobalSearchModal />
 
       {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
