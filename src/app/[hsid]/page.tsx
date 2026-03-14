@@ -1,6 +1,7 @@
 // src/app/[hsid]/page.tsx
-// YAT?STATS — Dynamic school microsite
-// Minimal orchestration: fetch school + players, pass props to components.
+// YAT?STATS — Dynamic school microsite (gallery sub-type)
+// The global header, drawers, and interactivity are provided by [hsid]/layout.tsx.
+// This page renders only: gallery-specific secondary icons + flip-card grid + sections.
 
 import type { Metadata } from "next";
 import { permanentRedirect, notFound } from "next/navigation";
@@ -12,16 +13,12 @@ import {
   getSchoolByUrl,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
-import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
+import { gradClass, formatSchoolName } from "@/lib/playerUtils";
 
-import YatStyles from "@/components/yatstats/YatStyles";
 import HeroHeader from "@/components/yatstats/HeroHeader";
 import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
-import AccountDrawer from "@/components/yatstats/AccountDrawer";
 import PlayerCard from "@/components/yatstats/PlayerCard";
-import YatInteractivity from "@/components/yatstats/YatInteractivity";
 
 export const runtime = "nodejs";
 
@@ -82,25 +79,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
   const schoolName = formatSchoolName(String(school.hsname || ""));
   const location = (String(school.hslocation || "")).toUpperCase();
-  const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
   const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
   const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
-
-  const navItems: NavItem[] = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
-  const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
 
   const gradClasses = Array.from(new Set(
     [...(activeRoster as Record<string, unknown>[]), ...(allTimeRoster as Record<string, unknown>[])].map((p) => gradClass(p)).filter(Boolean)
@@ -108,43 +88,20 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
   return (
     <>
-      <YatStyles />
+      {/* Gallery secondary icons injected into layout's #topbarSecondaryIcons slot */}
+      <script dangerouslySetInnerHTML={{ __html: `
+(function(){
+  var slot=document.getElementById('topbarSecondaryIcons');
+  if(slot){
+    slot.innerHTML='<button class="yat-icon-btn" id="openFilters" type="button" aria-label="Open filters"><i class="ri-filter-3-line"></i></button><button class="yat-icon-btn" id="filtersReset2" type="button" aria-label="Reset filters"><i class="ri-restart-line"></i></button>';
+  }
+})();
+` }} />
 
-      <HeroHeader
-        schoolName={schoolName}
-        location={location}
-        crestUrl={crestUrl}
-        defaultSectionLabel={defaultSectionLabel}
-        navItems={navItems}
-      />
+      <HeroHeader />
 
-      {/* DRAWER MASK */}
-      <div className="yat-drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation */}
-      <aside className="yat-drawer" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft">
-          <i className="ri-close-line" />
-        </button>
-        <div className="yat-drawer-content">
-          <h3>PLAYER SEARCH</h3>
-          <div style={{ padding: "0 0 10px" }}>
-            <input id="playerSearch" type="search" placeholder="Type a name…" />
-            <div id="liveResults" />
-          </div>
-          <h3>NAVIGATION</h3>
-          <div className="yat-drawer-nav">
-            {navItems.map((item) => (
-              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-drawer-nav-item" data-tab={item.tab}>
-                {item.thin ? `${item.thin} ` : ""}{item.bold}
-              </a>
-            ))}
-          </div>
-        </div>
-      </aside>
-
+      {/* RIGHT DRAWER — gallery-only filters panel */}
       <FiltersDrawer gradClasses={gradClasses} />
-      <AccountDrawer subdomain={subdomain} />
 
       {/* MAIN CONTENT */}
       <main id="main-content">
@@ -292,8 +249,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
         </a>
       </footer>
-
-      <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
 
       {/* Hash-anchor navigation: when returning from player profile via #player-{pid}, make the
           correct section visible and scroll smoothly to the card, then briefly highlight it. */}

@@ -57,6 +57,16 @@ export function varsityDots(p: Record<string, unknown>): string[] {
 
 export type NavItem = { thin: string; bold: string; tab: string };
 
+export const NAV_ITEMS: NavItem[] = [
+  { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
+  { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
+  { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
+  { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
+  { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
+  { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
+  { thin: "", bold: "FAQ'S", tab: "faq" },
+];
+
 /**
  * Format a school name for display.
  * Appends "HIGH SCHOOL" unless the name already contains it,

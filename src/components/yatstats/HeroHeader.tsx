@@ -1,102 +1,24 @@
 // src/components/yatstats/HeroHeader.tsx
-// Top hero bar: hamburger + account + theme toggle | top nav | wordmark
-// School crest + name row + hero strip with search/filter icons
+// Hero strip for the gallery page: "FLIP FOR STATS!" / "WHERE THEY YAT?" tag duo.
+// The header, SchoolRow, drawers, and GS modal are owned by [hsid]/layout.tsx.
 
-import type { NavItem } from "@/lib/playerUtils";
-import SchoolRow from "@/components/yatstats/SchoolRow";
-import SectionTabs from "@/components/yatstats/SectionTabs";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
-
-interface HeroHeaderProps {
-  schoolName: string;
-  location: string;
-  crestUrl: string;
-  defaultSectionLabel: string;
-  navItems: NavItem[];
-}
-
-export default function HeroHeader({
-  schoolName,
-  location,
-  crestUrl,
-  defaultSectionLabel,
-  navItems,
-}: HeroHeaderProps) {
+export default function HeroHeader() {
   return (
-    <header className="yat-header" id="site-header">
-      <div className="yat-container yat-topbar">
-        {/* Global icons — identical on every page type */}
-        <div className="yat-left-icons">
-          <button className="yat-icon-btn" id="btnMenu" aria-label="Menu">
-            <i className="ri-menu-line" />
-          </button>
-          <button className="yat-icon-btn" id="btnAccount" aria-label="Account">
-            <i className="ri-user-3-line" />
-          </button>
-          <button className="yat-icon-btn" id="btnSearch" aria-label="Search">
-            <i className="ri-search-line" />
-          </button>
-          <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme">
-            <i className="ri-sun-line" />
-          </button>
-        </div>
-
-        <SectionTabs navItems={navItems} />
-
-        {/* Gallery-page secondary icons: filter + reset */}
-        <div className="yat-right-icons">
-          <button className="yat-icon-btn" id="openFilters" aria-label="Open filters">
-            <i className="ri-filter-3-line" />
-          </button>
-          <button className="yat-icon-btn" id="filtersReset2" aria-label="Reset filters">
-            <i className="ri-restart-line" />
-          </button>
-        </div>
-
-        <div className="yat-wordmark-wrap">
-          <a
-            href="https://home.yatstats.com"
-            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-              alt="YAT?STATS"
-              className="yat-wordmark-img"
-              style={{ height: "28px", width: "auto", filter: "var(--logo-filter)" }}
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="yat-hr" />
-
-      <SchoolRow
-        crestUrl={crestUrl}
-        schoolName={schoolName}
-        location={location}
-        defaultSectionLabel={defaultSectionLabel}
-      />
-
-      <div className="yat-hr" />
-
-      <div className="yat-hero">
-        <div className="yat-container yat-hero-grid">
-          <div className="yat-hero-left">
-            <div className="yat-tag-duo">
-              <div className="yat-tag-swap">
-                <span className="yat-tag-grey">FLIP FOR </span>
-                <span className="yat-tag-bold">STATS!</span>
-              </div>
-              <div className="yat-tag-swap">
-                <span className="yat-tag-grey">WHERE THEY </span>
-                <span className="yat-tag-bold">YAT?</span>
-              </div>
+    <div className="yat-hero">
+      <div className="yat-container yat-hero-grid">
+        <div className="yat-hero-left">
+          <div className="yat-tag-duo">
+            <div className="yat-tag-swap">
+              <span className="yat-tag-grey">FLIP FOR </span>
+              <span className="yat-tag-bold">STATS!</span>
+            </div>
+            <div className="yat-tag-swap">
+              <span className="yat-tag-grey">WHERE THEY </span>
+              <span className="yat-tag-bold">YAT?</span>
             </div>
           </div>
-          <GlobalSearchModal />
         </div>
       </div>
-    </header>
+    </div>
   );
 }

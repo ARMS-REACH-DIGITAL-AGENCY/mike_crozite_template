@@ -6,12 +6,9 @@ import { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect, notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
-import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from "@/lib/schoolAssets";
-import AccountDrawer from "@/components/AccountDrawer";
-import GlobalSearchModal from "@/components/yatstats/GlobalSearchModal";
+import { CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
 import {
   getSchoolByHsid,
   getSchoolByUrl,
@@ -241,7 +238,6 @@ export default async function PlayerProfilePage({
   const gcMatch = playYears.match(/\d{4}/);
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
-  const crestUrl = getSchoolCrestUrl(resolvedHsid);
   // NOW image = .jpg, THEN image = .png
   const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
   const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
@@ -338,20 +334,6 @@ export default async function PlayerProfilePage({
   // Using `let` so TypeScript doesn't narrow to `never` in the JSX truthy branch.
   // eslint-disable-next-line prefer-const
   const sponsorBanner = resolveSponsorBanner(safePlayerId);
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomain = host.replace(`.${ROOT_DOMAIN}`, "").replace(ROOT_DOMAIN, "") || resolvedHsid;
-
-  const navItems = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
 
   // Build career stats grid for the profile
   const careerBattingGrid = careerBatting
@@ -741,96 +723,24 @@ export default async function PlayerProfilePage({
         }
       `}</style>
 
-      {/* HEADER — sticky global shell */}
-      <header className="yat-header" id="site-header">
-        {/* Row 1: Global controls */}
-        <div className="yat-container yat-topbar">
-          {/* Global icons — identical on every page type */}
-          <div className="yat-left-icons">
-            <button className="yat-icon-btn" id="btnMenu" aria-label="Menu"><i className="ri-menu-line" /></button>
-            <button className="yat-icon-btn" id="btnAccount" aria-label="Account"><i className="ri-user-3-line" /></button>
-            <button className="yat-icon-btn" id="btnSearch" aria-label="Search"><i className="ri-search-line" /></button>
-            <button className="yat-icon-btn" id="theme-toggle" aria-label="Toggle Theme"><i className="ri-sun-line" /></button>
-          </div>
-          <nav className="yat-topnav" aria-label="Top Navigation">
-            {navItems.map((item) => (
-              <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="yat-nav-pair">
-                {item.thin && <span className="thin">{item.thin} </span>}
-                <span className="bold">{item.bold}</span>
-              </a>
-            ))}
-          </nav>
-          {/* Player-profile secondary icon: back arrow */}
-          <div className="yat-right-icons">
-            <a href={`/${resolvedHsid}#player-${safePlayerId}`} className="yat-icon-btn" aria-label="Back to flip card">
-              <i className="ri-arrow-left-line" />
-            </a>
-          </div>
-          <div className="yat-wordmark-wrap">
-            <a href="https://home.yatstats.com" style={{textDecoration:'none',display:'flex',alignItems:'center'}}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png" alt="YAT?STATS" style={{height:'28px',width:'auto',filter:'var(--logo-filter)'}} />
-            </a>
-          </div>
-        </div>
-
-        {/* School identity band: LEFT = crest + identity, RIGHT = Add Favorite */}
-        <div className="yat-schoolrow">
-          {/* Left: crest anchored to the 3-line identity block */}
-          <div className="yat-schoolrow-id">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              id="stickyIdentityImg"
-              className="yat-crest"
-              src={crestUrl}
-              alt={`${schoolName} crest`}
-              data-crest={crestUrl}
-              data-headshot={playerThenImg}
-            />
-            <div className="yat-schooltext">
-              <div className="small">{location}</div>
-              <div className="big1">{schoolName}</div>
-              <div className="big2">{displayName}</div>
-            </div>
-          </div>
-          {/* Right: FAVORITE sits directly across from school logo / identity */}
-          <button id="btnFanFav" className="fav-btn-hero" aria-label="Favorite">
-            <i className="ri-star-line" /> FAVORITE
-          </button>
-        </div>
-      </header>
-
-      {/* DRAWER MASK */}
-      <div className="drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation (unified, matches school microsite drawer) */}
-      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px',paddingTop:'8px'}}>PLAYER SEARCH</h3>
-        <div style={{paddingBottom:'12px'}}>
-          <input id="playerSearch" type="search" placeholder="Type a name…" className="drawer-search-input" />
-          <div id="liveResults" />
-        </div>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'8px'}}>NAVIGATION</h3>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          <a href={`/${resolvedHsid}`} className="drawer-nav-link">&#8592; BACK TO {schoolName}</a>
-          {navItems.map((item) => (
-            <a key={item.tab} href={`/${resolvedHsid}#sec-${item.tab}`} className="drawer-nav-link">
-              {item.thin ? `${item.thin} ` : ""}{item.bold}
-            </a>
-          ))}
-        </div>
-      </aside>
-
-      {/* ACCOUNT DRAWER */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-        <button className="yat-icon-btn yat-close-btn" id="closeAccount"><i className="ri-close-line" /></button>
-        <h3 style={{font:'700 16px "Bebas Neue",sans-serif',letterSpacing:'.1em',marginBottom:'16px',paddingTop:'8px'}}>ACCOUNT</h3>
-        <AccountDrawer subdomain={subdomain} />
-      </aside>
-
-      {/* GLOBAL SEARCH MODAL — provides the #gsModal overlay, triggered by #btnSearch in the topbar */}
-      <GlobalSearchModal />
+      {/* Inject player-profile secondary icons into the layout's shared slots.
+          Runs synchronously so elements are in place before YatInteractivity's wireUI fires. */}
+      <script dangerouslySetInnerHTML={{ __html: `
+(function(){
+  /* Back arrow → #topbarSecondaryIcons */
+  var tsi=document.getElementById('topbarSecondaryIcons');
+  if(tsi)tsi.innerHTML='<a href="/${resolvedHsid}#player-${safePlayerId}" class="yat-icon-btn" aria-label="Back to gallery"><i class="ri-arrow-left-line"></i></a>';
+  /* Favorite button → #schoolRowRight */
+  var srr=document.getElementById('schoolRowRight');
+  if(srr)srr.innerHTML='<button id="btnFanFav" class="fav-btn-hero" type="button" aria-label="Favorite"><i class="ri-star-line"></i> FAVORITE</button>';
+  /* Section label → player display name */
+  var lbl=document.getElementById('yatSectionLabel');
+  if(lbl)lbl.textContent='${displayName.replace(/'/g, "\\'")}';
+  /* Tag crest img with player headshot so the IntersectionObserver can swap it */
+  var ci=document.getElementById('stickyIdentityImg');
+  if(ci)ci.setAttribute('data-headshot','${playerThenImg}');
+})();
+` }} />
 
       {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
       <section className="career-strip" id="playerHeroMeta">
@@ -1237,20 +1147,7 @@ export default async function PlayerProfilePage({
       <script dangerouslySetInnerHTML={{__html:`
 (function(){
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-  /* Theme */
-  var saved=localStorage.getItem('yat-theme');
-  if(saved==='light')document.body.classList.add('light-theme');
-  var btn=document.getElementById('theme-toggle');
-  if(btn){
-    btn.addEventListener('click',function(){
-      var isLight=document.body.classList.toggle('light-theme');
-      localStorage.setItem('yat-theme',isLight?'light':'dark');
-      var ic=btn.querySelector('i');
-      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
-    });
-    if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
-  }
-  /* Measure sticky header height and set CSS variables used by sticky tabs and min-height */
+  /* Measure sticky header + meta band height → CSS variables for sticky tabs */
   (function setLayoutVars(){
     var header=document.getElementById('site-header');
     var tabBar=document.querySelector('.profile-tabs');
@@ -1309,217 +1206,10 @@ export default async function PlayerProfilePage({
       });
     }
   }());
-  /* Drawer helpers */
+  /* Drawer helpers — used by fav/superfan logic below to open shared drawers */
   function openAccountDrawer(){document.body.classList.add('drawer-account-open','drawer-open');document.body.classList.remove('drawer-left-open');}
-  function openLeftDrawer(){document.body.classList.add('drawer-left-open','drawer-open');document.body.classList.remove('drawer-account-open');}
-  /* Drawer toggles */
-  var btnMenu=document.getElementById('btnMenu');
-  var closeLeft=document.getElementById('closeLeft');
-  if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-account-open');});
-  if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
-  var btnAccount=document.getElementById('btnAccount');
-  var closeAccount=document.getElementById('closeAccount');
-  if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open');});
-  if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
-  var mask=document.getElementById('drawerMask');
-  if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-account-open','drawer-open');});
-  /* Player search in left drawer — fetches school roster from API and filters client-side */
-  (function(){
-    var searchInput=document.getElementById('playerSearch');
-    var liveResults=document.getElementById('liveResults');
-    if(!searchInput||!liveResults)return;
-    var roster=null;
-    function toSlug(firstName,lastName,pid){return(firstName+'-'+lastName).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||String(pid);}
-    function render(q){
-      if(!roster){liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Loading…</div>';return;}
-      var html='';
-      roster.forEach(function(p){
-        var firstName=p.first_name||'';var lastName=p.last_name||'';
-        var name=(firstName+' '+lastName).toLowerCase();
-        if(name.trim().includes(q)&&(p.id||p.player_id)){
-          var pid=p.id||p.player_id;
-          var slug=p.slug||toSlug(firstName,lastName,pid);
-          var displayName=escHtml((firstName+' '+lastName).trim());
-          html+='<a href="/${resolvedHsid}/player/'+pid+'/'+slug+'" class="drawer-live-hit">'+displayName+'</a>';
-        }
-      });
-      liveResults.innerHTML=html||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
-    }
-    function loadRoster(cb){
-      if(roster){cb();return;}
-      fetch('/api/players/${resolvedHsid}').then(function(r){return r.json();}).then(function(d){roster=Array.isArray(d)?d:[];cb();}).catch(function(){roster=[];cb();});
-    }
-    searchInput.addEventListener('focus',function(){
-      loadRoster(function(){var q=searchInput.value.toLowerCase().trim();if(q.length>=2)render(q);});
-    });
-    searchInput.addEventListener('input',function(){
-      var q=this.value.toLowerCase().trim();
-      if(q.length<2){liveResults.innerHTML='';return;}
-      loadRoster(function(){render(q);});
-    });
-  }());
-  /* Global Search Modal — match shared site behavior (players + schools) */
-  var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
+  /* CREST_FALLBACK — used by crest↔headshot swap below */
   var CREST_FALLBACK=${JSON.stringify(CREST_FALLBACK_PATH)};
-  var STAT_EMPTY='\u2014';
-  var GS_RESULT_LIMIT=${JSON.stringify(GLOBAL_SEARCH_LIMIT)};
-  var GS_DEBOUNCE_MS=${JSON.stringify(GLOBAL_SEARCH_DEBOUNCE_MS)};
-  var gsModal=document.getElementById('gsModal');
-  var gsOverlay=document.getElementById('gsOverlay');
-  var gsClose=document.getElementById('gsClose');
-  var gsInput=document.getElementById('gsInput');
-  var gsResults=document.getElementById('gsResults');
-  var gsTimer=null;
-  var gsQueryToken=0;
-  var gsHadError=false;
-  function openGsModal(){if(!gsModal)return;gsModal.classList.add('open');document.body.classList.add('drawer-open');if(gsInput)setTimeout(function(){gsInput.focus();},60);}
-  function closeGsModal(){if(!gsModal)return;gsModal.classList.remove('open');document.body.classList.remove('drawer-open');if(gsInput)gsInput.value='';if(gsResults)gsResults.innerHTML='';}
-  var openSearch=document.getElementById('openSearch');
-  if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
-  var btnSearch=document.getElementById('btnSearch');
-  if(btnSearch)btnSearch.addEventListener('click',function(){openGsModal();});
-  if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
-  if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
-  document.addEventListener('keydown',function(e){
-    if(e.key==='Escape'&&gsModal&&gsModal.classList.contains('open')){closeGsModal();return;}
-    if(!gsModal||!gsModal.classList.contains('open'))return;
-    if((e.key==='ArrowDown'||e.key==='ArrowUp')&&gsResults){
-      e.preventDefault();
-      var items=Array.from(gsResults.querySelectorAll('.yat-gs-result'));
-      if(!items.length)return;
-      var focused=document.activeElement;
-      var idx=items.indexOf(focused);
-      if(e.key==='ArrowDown')idx=idx<items.length-1?idx+1:0;
-      else idx=idx>0?idx-1:items.length-1;
-      items[idx].focus();
-    }
-  });
-  function makeSectionLabel(text){var lbl=document.createElement('div');lbl.className='yat-gs-section';lbl.textContent=text;return lbl;}
-  function normalizeSchoolResult(p){
-    var hasAlumni=p.current_aa&&p.current_aa>0;
-    var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
-    var dest;
-    if(status==='live'){
-      dest=p.microsite_url;
-    }else if(p.hsid){
-      dest='/'+p.hsid;
-    }else{
-      var sp=new URLSearchParams();
-      if(p.hsname)sp.set('school',p.hsname);
-      if(p.hslocation){var lp=p.hslocation.split(',');if(lp[0])sp.set('city',lp[0].trim());if(lp[1])sp.set('state',lp[1].trim());}
-      sp.set('reason',status);
-      var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
-      dest=notLiveBase+'/school-not-live?'+sp.toString();
-    }
-    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_FALLBACK;
-    var region=p.regionid||'';
-    if(!region&&p.hslocation){var hl=p.hslocation.split(',');if(hl.length>=2)region=hl[hl.length-1].trim();}
-    var draftedRatio=null;
-    if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){draftedRatio=p.drafted_hs+'/'+p.drafted;}
-    return{schoolName:p.hsname||'',location:p.hslocation||'',region:region,crestUrl:crestUrl,status:status,dest:dest,activeAlumni:p.current_aa!=null?p.current_aa:null,mlb:p.mlb!=null?p.mlb:null,natRank:p.yatstats_national_rank!=null?p.yatstats_national_rank:null,stateRank:p.yatstats_state_rank!=null?p.yatstats_state_rank:null,atnla:p.atnla!=null?p.atnla:null,draftedRatio:draftedRatio};
-  }
-  function makeChip(val,lbl,highlight){var chip=document.createElement('div');chip.className='yat-gs-chip';var valEl=document.createElement('span');valEl.className='yat-gs-chip-val'+(highlight?' hi':'');valEl.textContent=val!=null?String(val):STAT_EMPTY;var lblEl=document.createElement('span');lblEl.className='yat-gs-chip-lbl';lblEl.textContent=lbl;chip.appendChild(valEl);chip.appendChild(lblEl);return chip;}
-  function renderSchoolResult(r){
-    var statusLabel=r.status==='live'?'Live':(r.status==='potential'?'Candidate':'Not Active');
-    var el=document.createElement('a');el.className='yat-gs-result';el.setAttribute('data-status',r.status);el.setAttribute('href',r.dest);el.setAttribute('role','option');el.setAttribute('tabindex','0');
-    var topDiv=document.createElement('div');topDiv.className='yat-gs-result-top';
-    var crestImg=document.createElement('img');crestImg.className='yat-gs-result-crest';crestImg.alt='';crestImg.loading='lazy';crestImg.src=r.crestUrl;crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
-    var infoDiv=document.createElement('div');infoDiv.className='yat-gs-result-info';
-    var nameDiv=document.createElement('div');nameDiv.className='yat-gs-result-name';nameDiv.textContent=r.schoolName;
-    var locDiv=document.createElement('div');locDiv.className='yat-gs-result-loc';locDiv.textContent=r.location;
-    infoDiv.appendChild(nameDiv);if(r.location)infoDiv.appendChild(locDiv);
-    var badge=document.createElement('span');badge.className='yat-gs-status yat-gs-status-'+r.status;badge.textContent=statusLabel;
-    topDiv.appendChild(crestImg);topDiv.appendChild(infoDiv);topDiv.appendChild(badge);el.appendChild(topDiv);
-    var hasStats=r.activeAlumni!=null||r.mlb!=null||r.natRank!=null||r.stateRank!=null||r.atnla!=null||r.draftedRatio!=null;
-    if(hasStats){var statsDiv=document.createElement('div');statsDiv.className='yat-gs-stats';if(r.activeAlumni!=null)statsDiv.appendChild(makeChip(r.activeAlumni,'Active',true));if(r.mlb!=null)statsDiv.appendChild(makeChip(r.mlb,'MLB',false));if(r.natRank!=null)statsDiv.appendChild(makeChip('#'+r.natRank,"Nat'l",false));if(r.stateRank!=null)statsDiv.appendChild(makeChip('#'+r.stateRank,'State',false));if(r.atnla!=null)statsDiv.appendChild(makeChip(r.atnla,'All-Time',false));if(r.draftedRatio)statsDiv.appendChild(makeChip(r.draftedRatio,'Drafted',false));el.appendChild(statsDiv);}
-    return el;
-  }
-  function renderPlayerResult(p){
-    var el=document.createElement('a');el.className='yat-gs-result yat-gs-player';el.setAttribute('role','option');el.setAttribute('tabindex','0');
-    var schoolId=p.schoolId||'';var playerId=p.playerId||'';var slug=p.slug||'player';
-    var href=schoolId&&playerId?('/'+schoolId+'/player/'+playerId+'/'+slug):'';
-    if(href){el.setAttribute('href',href);}
-    var topDiv=document.createElement('div');topDiv.className='yat-gs-result-top';
-    var crestImg=document.createElement('img');crestImg.className='yat-gs-result-crest';crestImg.alt='';crestImg.loading='lazy';crestImg.src=p.crestUrl||CREST_FALLBACK;crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
-    var infoDiv=document.createElement('div');infoDiv.className='yat-gs-result-info';
-    var nameDiv=document.createElement('div');nameDiv.className='yat-gs-result-name';var displayName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Unknown Player';nameDiv.textContent=displayName;
-    var locDiv=document.createElement('div');locDiv.className='yat-gs-result-loc';
-    var locParts=[];if(p.city)locParts.push(p.city);if(p.state)locParts.push(p.state);
-    var subtitle=p.schoolName||'';var loc=locParts.join(', ');if(loc)subtitle+=(subtitle?' \u2014 ':'')+loc;locDiv.textContent=subtitle;
-    infoDiv.appendChild(nameDiv);if(subtitle)infoDiv.appendChild(locDiv);
-    topDiv.appendChild(crestImg);topDiv.appendChild(infoDiv);el.appendChild(topDiv);
-    if(!href){el.setAttribute('aria-disabled','true');el.setAttribute('tabindex','-1');el.addEventListener('click',function(e){e.preventDefault();});}
-    return el;
-  }
-  function renderSchoolGroups(items,frag){
-    if(!items.length)return;
-    frag.appendChild(makeSectionLabel('Schools'));
-    var groups={};var order=[];
-    items.forEach(function(r){
-      var key=r.region||'Unknown Region';
-      if(!groups[key]){groups[key]=[];order.push(key);}
-      groups[key].push(r);
-    });
-    order.forEach(function(region){
-      var hdr=document.createElement('div');
-      hdr.className='yat-gs-region';
-      hdr.textContent=region;
-      frag.appendChild(hdr);
-      groups[region].forEach(function(r){frag.appendChild(renderSchoolResult(r));});
-    });
-  }
-  function renderPlayerSection(players,frag){
-    if(!players.length)return;
-    frag.appendChild(makeSectionLabel('Players'));
-    players.forEach(function(p){
-      frag.appendChild(renderPlayerResult(p));
-    });
-  }
-  function fetchSchoolResults(q){
-    return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
-      .then(function(r){return r.json();})
-      .then(function(d){return(d.programs||[]).map(normalizeSchoolResult);})
-      .catch(function(err){gsHadError=true;console.warn('School search failed',err);return[];});
-  }
-  function fetchPlayerResults(q){
-    return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
-      .then(function(r){return r.json();})
-      .then(function(d){return d.players||[];})
-      .catch(function(err){gsHadError=true;console.warn('Player search failed',err);return[];});
-  }
-  function renderCombinedResults(players,schools,q,hadError){
-    if(!gsResults)return;
-    gsResults.innerHTML='';
-    var frag=document.createDocumentFragment();
-    var hasPlayers=players&&players.length>0;
-    var hasSchools=schools&&schools.length>0;
-    if(hasPlayers)renderPlayerSection(players,frag);
-    if(hasSchools)renderSchoolGroups(schools,frag);
-    if(!hasPlayers&&!hasSchools){
-      var msg=hadError?'Search unavailable. Please try again.':'No results found matching \u201c'+escHtml(q)+'\u201d';
-      gsResults.innerHTML='<div class="yat-gs-msg">'+msg+'</div>';
-      return;
-    }
-    gsResults.appendChild(frag);
-  }
-  function runGlobalSearch(q){
-    if(!gsResults)return;
-    gsHadError=false;
-    var token=++gsQueryToken;
-    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
-    Promise.all([fetchPlayerResults(q),fetchSchoolResults(q)]).then(function(res){
-      if(token!==gsQueryToken)return;
-      var players=res[0],schools=res[1];
-      renderCombinedResults(players||[],schools||[],q,gsHadError);
-    }).catch(function(){
-      if(token!==gsQueryToken)return;
-      renderCombinedResults([],[],q,true);
-    });
-  }
-  if(gsInput&&gsResults){
-    gsInput.addEventListener('input',function(){var q=this.value.trim();clearTimeout(gsTimer);if(q.length<2){gsResults.innerHTML='';return;}gsTimer=setTimeout(function(){runGlobalSearch(q);},GS_DEBOUNCE_MS);});
-    gsInput.addEventListener('keydown',function(e){if(e.key==='Enter'){var q=gsInput.value.trim();if(q.length>=2){clearTimeout(gsTimer);runGlobalSearch(q);}}});
-  }
   /* Favorites */
   var playerId='${safePlayerId}';
   var playerName='${displayName.replace(/'/g, "\\'")}';

@@ -10,6 +10,9 @@ interface SafeImageProps {
   fallbackSrc?: string | null;
   placeholderSrc?: string;
   style?: React.CSSProperties;
+  id?: string;
+  /** Arbitrary data-* attributes forwarded to the underlying <img> */
+  [dataAttr: `data-${string}`]: string | undefined;
 }
 
 /** Tracks which base source a fail count applies to (0=initial, 1=fallback when available, 2=placeholder). */
@@ -40,6 +43,8 @@ function StatefulSafeImage({
   alt,
   className,
   style,
+  id,
+  extraDataAttrs,
 }: {
   initialSrc: string;
   computedFallback: string;
@@ -47,6 +52,8 @@ function StatefulSafeImage({
   alt: string;
   className?: string;
   style?: React.CSSProperties;
+  id?: string;
+  extraDataAttrs?: Record<string, string>;
 }) {
   const [failState, setFailState] = useState<FailState>({ baseSrc: initialSrc, count: 0 });
   const effectiveFailCount = computeEffectiveFailCount(failState, initialSrc);
@@ -96,7 +103,9 @@ function StatefulSafeImage({
       alt={alt}
       className={className}
       style={style}
+      id={id}
       onError={handleError}
+      {...(extraDataAttrs ?? {})}
     />
   );
 }
@@ -108,6 +117,8 @@ export default function SafeImage({
   fallbackSrc,
   placeholderSrc,
   style,
+  id,
+  ...rest
 }: SafeImageProps) {
   // Default placeholder: silhouettes for players; crest fallback for schools/logos.
   const computedPlaceholder = useMemo(() => {
@@ -155,6 +166,8 @@ export default function SafeImage({
       alt={alt}
       className={className}
       style={style}
+      id={id}
+      extraDataAttrs={rest as Record<string, string>}
     />
   );
 }

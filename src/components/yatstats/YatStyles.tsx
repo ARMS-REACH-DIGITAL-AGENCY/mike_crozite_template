@@ -16,6 +16,8 @@ export default function YatStyles() {
       .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
       .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
       .yat-right-icons{display:flex;align-items:center;gap:6px;margin-right:4px}
+      /* #topbarSecondaryIcons is the right-side slot; empty on funnel pages, filled by page JS */
+      #topbarSecondaryIcons:empty{display:none}
       .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.92;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
       .yat-icon-btn i{font-size:20px}
       .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
@@ -31,6 +33,7 @@ export default function YatStyles() {
       @media(max-width:1200px){.yat-topnav{display:none!important}}
       .yat-hr{border-top:1px solid var(--line)}
       .yat-schoolrow{display:flex;align-items:center;gap:12px;padding:6px 16px;max-width:1400px;margin:0 auto}
+      .yat-schoolrow-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
       .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0}
       .yat-schooltext{line-height:1}
       .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}

@@ -100,6 +100,9 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(!pair)return;
     var tab=pair.dataset.tab;
     if(!tab)return;
+    /* Only intercept tab clicks when gallery sections exist on this page.
+       On player-profile and funnel pages the href navigates back to the gallery. */
+    if(!document.querySelector('.yat-section'))return;
     e.preventDefault();
     showSection(tab);
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
