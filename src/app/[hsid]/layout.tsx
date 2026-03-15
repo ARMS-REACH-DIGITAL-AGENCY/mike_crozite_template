@@ -103,9 +103,9 @@ export default async function SchoolLayout({
 
       {/* SPONSOR FOOTER */}
       <footer className="yat-footer">
-        <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
+        <a href="https://www.instagram.com/platoscloset_scottsdale?igsh=bzh3NGN0a3d5dW44" target="_blank" rel="noopener noreferrer">
           <span className="sponsor-text">Presented by</span>
-          <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
+          <span className="sponsor-name">PLATO'S CLOSET</span>
         </a>
       </footer>
 
