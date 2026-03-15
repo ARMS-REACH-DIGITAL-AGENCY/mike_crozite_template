@@ -17,120 +17,142 @@ export default function YatInteractivity({ resolvedHsid, firebaseConfigJSON }: Y
         __html: `
 window.__firebase_config = ${firebaseConfigJSON};
 (function(){
+  console.log('YatInteractivity booted');
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   window.__YAT_HSID='${resolvedHsid}';
-  /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
-  var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
-  if(favLink){
-    var favImg=new Image();
-    favImg.onerror=function(){
-      var placeholder = '/img/yatstats-logo-circle.png';
-      favLink.href=placeholder;
-      var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
-      if(appleLink)appleLink.href=placeholder;
-    };
-    favImg.src=favLink.href;
-  }
-  /* Background image fallback for player cards */
-  document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
-    var src=el.getAttribute('data-src');
-    var fallback=el.getAttribute('data-fallback');
-    var placeholder=el.getAttribute('data-placeholder');
-    var img=new Image();
-    img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
-    img.onerror=function(){
-      if(fallback){
-        var fallbackBg="url('"+fallback+"')";
-        var img2=new Image();
-        img2.onload=function(){el.style.backgroundImage=fallbackBg;};
-        img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
-        img2.src=fallback;
-      } else if(placeholder){
-        el.style.backgroundImage="url('"+placeholder+"')";
-        el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
-      }
-    };
-    img.src=src;
-  });
 
-  var saved=localStorage.getItem('yat-theme');
-  if(saved==='light')document.body.classList.add('light-theme');
-  var btn=document.getElementById('theme-toggle');
-  if(btn){
-    btn.addEventListener('click',function(){
-      var isLight=document.body.classList.toggle('light-theme');
-      localStorage.setItem('yat-theme',isLight?'light':'dark');
-      var ic=btn.querySelector('i');
-      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
-    });
-    if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
-  }
-  document.addEventListener('click',function(e){
-    var card=e.target.closest('.yat-card');
-    if(!card)return;
-    if(e.target.closest('a')||e.target.closest('button'))return;
-    card.classList.toggle('is-flipped');
-  });
-
-  function showSection(tabId){
-    document.querySelectorAll('.yat-section').forEach(function(s){
-      s.classList.remove('visible');
-    });
-    var sec=document.getElementById('sec-'+tabId);
-    if(sec)sec.classList.add('visible');
-    /* update section label in school row (serves as breadcrumb) */
-    var sectionLabel=document.getElementById('yatSectionLabel');
-    if(sectionLabel){
-      var labels={
-        active:'ACTIVE BASEBALL ALUMNI',
-        news:'ACTIVE ALUMNI NEWS',
-        alltime:'NEXT-LEVEL ALL-TIME LIST',
-        team:'CURRENT TEAM',
-        mentor:'MENTORSHIP MARKETPLACE',
-        partner:'PCD ACTION PARTNER PROGRAM',
-        faq:"FAQ'S"
+  /* ── Block 1: Favicon fallback ───────────────────────────────────── */
+  try {
+    var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
+    if(favLink){
+      var favImg=new Image();
+      favImg.onerror=function(){
+        var placeholder = '/img/yatstats-logo-circle.png';
+        favLink.href=placeholder;
+        var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
+        if(appleLink)appleLink.href=placeholder;
       };
-      var label=labels[tabId]||tabId.toUpperCase();
-      sectionLabel.textContent=label;
+      favImg.src=favLink.href;
     }
+  } catch(e) { console.error('YatInteractivity: favicon init failed', e); }
+
+  /* ── Block 2: Background image lazy-loading for player cards ─────── */
+  try {
+    document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
+      var src=el.getAttribute('data-src');
+      var fallback=el.getAttribute('data-fallback');
+      var placeholder=el.getAttribute('data-placeholder');
+      var img=new Image();
+      img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
+      img.onerror=function(){
+        if(fallback){
+          var fallbackBg="url('"+fallback+"')";
+          var img2=new Image();
+          img2.onload=function(){el.style.backgroundImage=fallbackBg;};
+          img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
+          img2.src=fallback;
+        } else if(placeholder){
+          el.style.backgroundImage="url('"+placeholder+"')";
+          el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
+        }
+      };
+      img.src=src;
+    });
+  } catch(e) { console.error('YatInteractivity: bg-img lazy-init failed', e); }
+
+  /* ── Block 3: Theme toggle ───────────────────────────────────────── */
+  try {
+    var saved=localStorage.getItem('yat-theme');
+    if(saved==='light')document.body.classList.add('light-theme');
+    var btn=document.getElementById('theme-toggle');
+    if(btn){
+      btn.addEventListener('click',function(){
+        var isLight=document.body.classList.toggle('light-theme');
+        localStorage.setItem('yat-theme',isLight?'light':'dark');
+        var ic=btn.querySelector('i');
+        if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
+      });
+      if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
+    }
+  } catch(e) { console.error('YatInteractivity: theme toggle init failed', e); }
+
+  /* ── Block 4: Card flip (global delegation) ──────────────────────── */
+  try {
+    document.addEventListener('click',function(e){
+      var card=e.target.closest('.yat-card');
+      if(!card)return;
+      if(e.target.closest('a')||e.target.closest('button'))return;
+      card.classList.toggle('is-flipped');
+    });
+    console.log('card flip handler bound');
+  } catch(e) { console.error('YatInteractivity: card flip init failed', e); }
+
+  /* ── Block 5: Section navigation ────────────────────────────────── */
+  function showSection(tabId){
+    try {
+      document.querySelectorAll('.yat-section').forEach(function(s){
+        s.classList.remove('visible');
+      });
+      var sec=document.getElementById('sec-'+tabId);
+      if(sec)sec.classList.add('visible');
+      /* update section label in school row (serves as breadcrumb) */
+      var sectionLabel=document.getElementById('yatSectionLabel');
+      if(sectionLabel){
+        var labels={
+          active:'ACTIVE BASEBALL ALUMNI',
+          news:'ACTIVE ALUMNI NEWS',
+          alltime:'NEXT-LEVEL ALL-TIME LIST',
+          team:'CURRENT TEAM',
+          mentor:'MENTORSHIP MARKETPLACE',
+          partner:'PCD ACTION PARTNER PROGRAM',
+          faq:"FAQ'S"
+        };
+        var label=labels[tabId]||tabId.toUpperCase();
+        sectionLabel.textContent=label;
+      }
+    } catch(e) { console.error('YatInteractivity: showSection failed', e); }
   }
 
-  document.addEventListener('click',function(e){
-    var pair=e.target.closest('[data-tab]');
-    if(!pair)return;
-    var tab=pair.dataset.tab;
-    if(!tab)return;
-    /* Only intercept tab clicks when gallery sections exist on this page.
-       On player-profile and funnel pages the href navigates back to the gallery. */
-    if(!document.querySelector('.yat-section'))return;
-    e.preventDefault();
-    showSection(tab);
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
-  });
-  var btnMenu=document.getElementById('btnMenu');
-  var closeLeft=document.getElementById('closeLeft');
-  if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');});
-  if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
-  /* openFilters / closeFilters — buttons injected by page script after this runs; wired via event delegation below */
-  /* filtersReset / filtersReset2 — also wired via event delegation below after applyFilters is defined */
-  var btnAccount=document.getElementById('btnAccount');
-  var closeAccount=document.getElementById('closeAccount');
-  if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
-  if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
-  var mask=document.getElementById('drawerMask');
-  if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
-  /* Filter drawer open/close — these buttons are injected by the gallery page script AFTER this
-     inline script runs, so we cannot use getElementById here.  Use event delegation instead. */
-  document.addEventListener('click',function(e){
-    if(e.target.closest('#openFilters')){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');}
-    if(e.target.closest('#closeFilters')){document.body.classList.remove('drawer-right-open','drawer-open');}
-  });
+  try {
+    document.addEventListener('click',function(e){
+      var pair=e.target.closest('[data-tab]');
+      if(!pair)return;
+      var tab=pair.dataset.tab;
+      if(!tab)return;
+      /* Only intercept tab clicks when gallery sections exist on this page.
+         On player-profile and funnel pages the href navigates back to the gallery. */
+      if(!document.querySelector('.yat-section'))return;
+      e.preventDefault();
+      showSection(tab);
+      document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+    });
+  } catch(e) { console.error('YatInteractivity: section-nav delegation failed', e); }
 
-  /* ====================================================================
-     GLOBAL SEARCH MODAL
-     Opens #gsModal on #openSearch click.
-     Results show players first, then schools (grouped by region).
-     ==================================================================== */
+  /* ── Block 6: Drawers — hamburger, account, mask, filters ───────── */
+  try {
+    var btnMenu=document.getElementById('btnMenu');
+    var closeLeft=document.getElementById('closeLeft');
+    if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');});
+    if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
+    console.log('btnMenu bound');
+    /* openFilters / closeFilters — buttons injected by page script after this runs; wired via event delegation below */
+    /* filtersReset / filtersReset2 — also wired via event delegation below after applyFilters is defined */
+    var btnAccount=document.getElementById('btnAccount');
+    var closeAccount=document.getElementById('closeAccount');
+    if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
+    if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
+    var mask=document.getElementById('drawerMask');
+    if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
+    /* Filter drawer open/close — these buttons are injected by the gallery page script AFTER this
+       inline script runs, so we cannot use getElementById here.  Use event delegation instead. */
+    document.addEventListener('click',function(e){
+      if(e.target.closest('#openFilters')){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');}
+      if(e.target.closest('#closeFilters')){document.body.classList.remove('drawer-right-open','drawer-open');}
+    });
+  } catch(e) { console.error('YatInteractivity: drawer bindings failed', e); }
+
+  /* ── Block 7: Global search modal ───────────────────────────────── */
+  try {
   var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
   /* Canonical same-origin fallback: avoids CORB on cross-origin SVG from S3 */
   var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
@@ -436,6 +458,10 @@ window.__firebase_config = ${firebaseConfigJSON};
       }
     });
   }
+  } catch(e) { console.error('YatInteractivity: global search init failed', e); }
+
+  /* ── Block 8: Player-drawer search ──────────────────────────────── */
+  try {
   var searchInput=document.getElementById('playerSearch');
   var liveResults=document.getElementById('liveResults');
   if(searchInput&&liveResults){
@@ -460,6 +486,10 @@ window.__firebase_config = ${firebaseConfigJSON};
       liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
     });
   }
+  } catch(e) { console.error('YatInteractivity: player-drawer search failed', e); }
+
+  /* ── Block 9: Card-grid filter logic ────────────────────────────── */
+  try {
   function applyFilters(){
     var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
     var lc=Array.from(document.querySelectorAll('#filterLevels input:checked')).map(function(i){return i.value;});
@@ -485,10 +515,10 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
   });
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
+  } catch(e) { console.error('YatInteractivity: filter logic failed', e); }
 
-  /* ====================================================================
-     NEWS SECTION — Lazy-load from /api/news/:hsid on first tab switch
-     ==================================================================== */
+  /* ── Block 10: News section ──────────────────────────────────────── */
+  try {
   var newsLoaded=false;
   var newsContainer=document.getElementById('news-grid');
   var allNewsPosts=[];
@@ -942,13 +972,10 @@ window.__firebase_config = ${firebaseConfigJSON};
   /* Also load if news section is already visible on page load */
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
+  } catch(e) { console.error('YatInteractivity: news init failed', e); }
 
-  /* ====================================================================
-     FLIP CARD BACK — in-card tab switching + lazy data loading
-     Tab buttons carry data-card-tab={id}; panels carry data-tab-panel={id}.
-     Schedule and News data are fetched once per card from /api/player/{pid}/card-data.
-     Social "Copy" buttons write to clipboard.
-     ==================================================================== */
+  /* ── Block 11: Flip card back — in-card tab switching + lazy data ── */
+  try {
   (function(){
     /* ── Format a game date as "M/D" ── */
     function fmtDate(d){
@@ -1110,6 +1137,7 @@ window.__firebase_config = ${firebaseConfigJSON};
       });
     });
   })();
+  } catch(e) { console.error('YatInteractivity: card-back tab init failed', e); }
 })();
         `,
       }}
