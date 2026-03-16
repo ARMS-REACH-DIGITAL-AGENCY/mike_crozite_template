@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCardFront.tsx
-// Front face of the flip card: player photo, chips, name, meta, varsity dots, last 3 games
+// Front face of the flip card: HS image, chips, name, meta, varsity dots, last 3 games
 
 import { levelLabel, levelClass, gradClass, varsityDots } from "@/lib/playerUtils";
 

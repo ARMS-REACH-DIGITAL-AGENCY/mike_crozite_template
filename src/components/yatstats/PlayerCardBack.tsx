@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCardBack.tsx
-// Back face of the flip card: THEN image, name, position, draft info, stats grid, fun zone
+// Back face of the flip card: NOW/current image, name, position, draft info, stats grid, fun zone
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -42,7 +42,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   return (
     <div className="yat-face yat-back">
       <div className="yat-back-content">
-        {/* Hero: THEN image + name/position/draft — entire section links to profile */}
+        {/* Hero: NOW image + name/position/draft — entire section links to profile */}
         <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
           <div className="yat-back-img-wrap">
             <SafeImage
