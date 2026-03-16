@@ -38,7 +38,6 @@ import argparse
 import csv
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -61,7 +60,17 @@ SOURCE_DIRS = {
     "assets/img/now_players": "now",
 }
 
-VALID_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".gif", ".eps"}
+VALID_IMAGE_EXTS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".gif",
+    ".eps",
+}
 
 
 @dataclass
@@ -147,22 +156,26 @@ def build_source_index(repo_dir: Path) -> dict[tuple[str, str], Path]:
     return index
 
 
-def find_source_file(source_index: dict[tuple[str, str], Path], original_folder: str, original_filename: str) -> Optional[Path]:
-    from pathlib import Path
-
-def find_source_file(source_index: dict[tuple[str, str], Path], original_folder: str, original_filename: str) -> Optional[Path]:
+def find_source_file(
+    source_index: dict[tuple[str, str], Path],
+    original_folder: str,
+    original_filename: str
+) -> Optional[Path]:
+    # 1. exact folder + exact filename
     key = (original_folder, original_filename.lower())
     found = source_index.get(key)
     if found:
         return found
 
+    # 2. same basename, alternate common extensions
     stem = Path(original_filename).stem.lower()
-    for ext in [".jpg", ".jpeg", ".png"]:
-        alt_key = (original_folder, f"{stem}{ext}")
+    for ext in [".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"]:
+        alt_key = (original_folder, f"{stem}{ext.lower()}")
         found = source_index.get(alt_key)
         if found:
             return found
 
+    # 3. same folder, same basename, any valid extension in index
     for (folder, filename), path in source_index.items():
         if folder == original_folder and Path(filename).stem.lower() == stem:
             return path
@@ -207,7 +220,6 @@ def convert_image(src: Path, kind: str, out_dir: Path, basename_no_ext: str) -> 
 
     try:
         with Image.open(src) as im:
-            # Handle EXIF orientation where present.
             try:
                 exif = im.getexif()
                 orientation = exif.get(274)
@@ -221,12 +233,10 @@ def convert_image(src: Path, kind: str, out_dir: Path, basename_no_ext: str) -> 
                 pass
 
             if kind == "then":
-                # Keep transparency if present.
                 if im.mode not in ("RGBA", "LA") and "transparency" not in im.info:
                     im = im.convert("RGBA")
                 im.save(out_path, format="PNG", optimize=True)
             else:
-                # JPG requires RGB.
                 if im.mode in ("RGBA", "LA"):
                     bg = Image.new("RGB", im.size, (255, 255, 255))
                     alpha = im.getchannel("A") if "A" in im.getbands() else None
@@ -288,7 +298,6 @@ def main() -> int:
     for row_number, (_, row) in enumerate(df.iterrows(), start=2):
         player_name = normalize_text(row.get("player_name"))
         playerid_raw = normalize_text(row.get("playerid"))
-        playerid = normalize_playerid(row.get("playerid"))
         original_filename = normalize_text(row.get("original_filename"))
         original_folder = normalize_text(row.get("original_folder"))
 
@@ -303,7 +312,8 @@ def main() -> int:
         if not source_path:
             results.append(RowResult(
                 row_number, player_name, playerid_raw, original_filename, original_folder,
-                "", "", "", "UNMATCHED", "source file not found in repo"
+                "", "", "", "UNMATCHED",
+                "source file not found in repo (including alternate jpg/jpeg/png extensions)"
             ))
             continue
 
@@ -325,7 +335,7 @@ def main() -> int:
         except Exception as e:
             results.append(RowResult(
                 row_number, player_name, playerid_raw, original_filename, original_folder,
-                str(source_path), s3_key, "", "ERROR", f"convert failed: {e}"
+                str(source_path), s3_key, "", "ERROR", f"convert failed: {type(e).__name__}: {e}"
             ))
             continue
 
@@ -338,7 +348,7 @@ def main() -> int:
                 note = "ok"
             except Exception as e:
                 status = "ERROR"
-                note = f"upload failed: {e}"
+                note = f"upload failed: {type(e).__name__}: {e}"
 
         print(f"{status}: {source_path} -> s3://{args.bucket}/{s3_key}")
         results.append(RowResult(
@@ -391,6 +401,11 @@ def main() -> int:
 
     if tmp_root_obj is not None:
         tmp_root_obj.cleanup()
+
+    # Fail the workflow on real runs if there are unresolved problems.
+    if not args.dry_run and (errors > 0 or unmatched > 0):
+        print("\nFAIL: real upload run completed with unmatched rows or errors.", file=sys.stderr)
+        return 2
 
     return 0
 
