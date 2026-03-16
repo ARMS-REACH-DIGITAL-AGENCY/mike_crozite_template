@@ -4,7 +4,7 @@
 
 import { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect, notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
@@ -166,7 +166,7 @@ export default async function PlayerProfilePage({
   if (playerHsid) school = (await getSchoolByHsid(playerHsid)) as Record<string, unknown> | null;
   if (!school && host) school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
   if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
-  if (!school) redirect("https://yatstats.com");
+  if (!school) notFound();
 
   const resolvedHsid = String(school?.hsid ?? hsid);
 
@@ -240,9 +240,10 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // NOW image = .jpg, THEN image = .png
+  const playerRecordId = String(player.playerid ?? "");
+  // NOW image = .jpg, THEN image = .jpg
   const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerRecordId}.jpg`;
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
@@ -455,14 +456,19 @@ export default async function PlayerProfilePage({
   // The middle frames come ONLY from the player_photos table.
   // If no photos exist, render just the two bookends.
   const SILHOUETTE_URL = '/img/player-silhouette.png';
+  const THEN_SILHOUETTE_URL = isPitcher
+    ? '/img/then-pitcher-silhouette.png'
+    : '/img/then-batter-silhouette.png';
 
-  type FilmSlot = {img: string; label: string; sub: string};
+  type FilmSlot = {img: string; label: string; sub: string; fallbackSrc?: string; placeholderSrc?: string};
 
-  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.png
+  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerid}.jpg
   const hsBookend: FilmSlot = {
     img: playerThenImg,
     label: schoolName,
     sub: location,
+    fallbackSrc: THEN_SILHOUETTE_URL,
+    placeholderSrc: THEN_SILHOUETTE_URL,
   };
 
   // RIGHT BOOKEND — current (most recent) team
@@ -750,8 +756,8 @@ export default async function PlayerProfilePage({
                 className="career-slot-img"
                 src={slot.img}
                 alt={slot.label}
-                fallbackSrc={SILHOUETTE_URL}
-                placeholderSrc={SILHOUETTE_URL}
+                fallbackSrc={slot.fallbackSrc || SILHOUETTE_URL}
+                placeholderSrc={slot.placeholderSrc || SILHOUETTE_URL}
               />
             </div>
           ))}
