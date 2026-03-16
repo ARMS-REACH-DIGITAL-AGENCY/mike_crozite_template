@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCardBack.tsx
-// Back face of the flip card: THEN image, name, position, draft info, stats grid, fun zone
+// Back face of the flip card: NOW/current image, name, position, draft info, stats grid, fun zone
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -17,8 +17,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const draft = parseDraft(p.draft_info as string | null);
   const pid = String(p.playerid || "");
   const slug = String(p.slug || "");
+  const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
   const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-  const thenSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
+  const backSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
   const statBarLabel = isAllTime
@@ -42,14 +43,15 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   return (
     <div className="yat-face yat-back">
       <div className="yat-back-content">
-        {/* Hero: THEN image + name/position/draft — entire section links to profile */}
+        {/* Hero: NOW image + name/position/draft — entire section links to profile */}
         <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
           <div className="yat-back-img-wrap">
             <SafeImage
-              src={photoFallback}
+              src={photoUrl}
               alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
               className="yat-back-img"
-              placeholderSrc={thenSilhouetteUrl}
+              fallbackSrc={photoFallback}
+              placeholderSrc={backSilhouetteUrl}
             />
           </div>
           <div className="yat-back-info">

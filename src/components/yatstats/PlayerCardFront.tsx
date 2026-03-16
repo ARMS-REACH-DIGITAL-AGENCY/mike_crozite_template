@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCardFront.tsx
-// Front face of the flip card: player photo, chips, name, meta, varsity dots, last 3 games
+// Front face of the flip card: HS image, chips, name, meta, varsity dots, last 3 games
 
 import { levelLabel, levelClass, gradClass, varsityDots } from "@/lib/playerUtils";
 
@@ -17,9 +17,9 @@ export default function PlayerCardFront({ player: p, photoDefaultUrl, isAllTime 
   const gc = gradClass(p);
   const dots = varsityDots(p);
   const pid = String(p.playerid || "");
-  const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-  const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-  const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
+  const photoUrl = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
+  const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+  const frontSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
 
   const statusLabel = isAllTime
     ? (!!p.is_active_2025 ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED"))
@@ -31,7 +31,7 @@ export default function PlayerCardFront({ player: p, photoDefaultUrl, isAllTime 
         className="yat-bg"
         data-src={photoUrl}
         data-fallback={photoFallback}
-        data-placeholder={nowSilhouetteUrl}
+        data-placeholder={frontSilhouetteUrl}
         style={{ backgroundImage: `url('${photoUrl}'), url('${photoDefaultUrl}')` }}
       />
       <div className="yat-shade" />
