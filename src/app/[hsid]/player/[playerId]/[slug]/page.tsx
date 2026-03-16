@@ -241,9 +241,9 @@ export default async function PlayerProfilePage({
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const playerRecordId = String(player.playerid ?? "");
-  // NOW image = .jpg, THEN image = .jpg
+  // NOW image = .jpg, THEN image = .png
   const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerRecordId}.jpg`;
+  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerRecordId}.png`;
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
