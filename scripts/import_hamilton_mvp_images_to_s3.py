@@ -148,8 +148,26 @@ def build_source_index(repo_dir: Path) -> dict[tuple[str, str], Path]:
 
 
 def find_source_file(source_index: dict[tuple[str, str], Path], original_folder: str, original_filename: str) -> Optional[Path]:
+    from pathlib import Path
+
+def find_source_file(source_index: dict[tuple[str, str], Path], original_folder: str, original_filename: str) -> Optional[Path]:
     key = (original_folder, original_filename.lower())
-    return source_index.get(key)
+    found = source_index.get(key)
+    if found:
+        return found
+
+    stem = Path(original_filename).stem.lower()
+    for ext in [".jpg", ".jpeg", ".png"]:
+        alt_key = (original_folder, f"{stem}{ext}")
+        found = source_index.get(alt_key)
+        if found:
+            return found
+
+    for (folder, filename), path in source_index.items():
+        if folder == original_folder and Path(filename).stem.lower() == stem:
+            return path
+
+    return None
 
 
 def build_s3_key(row: pd.Series) -> tuple[str, str]:
