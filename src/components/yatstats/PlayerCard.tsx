@@ -9,12 +9,11 @@ import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
 interface PlayerCardProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
-  photoDefaultUrl: string;
   /** When true, applies all-time display differences (CAREER STATS label, etc.) */
   isAllTime?: boolean;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, photoDefaultUrl, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, isAllTime }: PlayerCardProps) {
   const lvl = levelLabel(String(p.level || ""));
   const gc = gradClass(p);
   const dots = varsityDots(p);
@@ -35,7 +34,7 @@ export default function PlayerCard({ player: p, resolvedHsid, photoDefaultUrl, i
     >
       <div className="yat-card-inner">
         <div className="yat-flip">
-          <PlayerCardFront player={playerWithSlug} photoDefaultUrl={photoDefaultUrl} isAllTime={isAllTime} />
+          <PlayerCardFront player={playerWithSlug} isAllTime={isAllTime} />
           <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} isAllTime={isAllTime} />
         </div>
       </div>
