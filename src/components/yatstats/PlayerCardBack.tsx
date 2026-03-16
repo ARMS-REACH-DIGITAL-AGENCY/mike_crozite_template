@@ -17,8 +17,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const draft = parseDraft(p.draft_info as string | null);
   const pid = String(p.playerid || "");
   const slug = String(p.slug || "");
-  const photoFallback = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${pid}.jpg`;
-  const thenSilhouetteUrl = isPitcher ? `/img/then-pitcher-silhouette.png` : `/img/then-batter-silhouette.png`;
+  const photoSrc = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
+  const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
   const statBarLabel = isAllTime
@@ -46,10 +46,10 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
           <div className="yat-back-img-wrap">
             <SafeImage
-              src={photoFallback}
+              src={photoSrc}
               alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
               className="yat-back-img"
-              placeholderSrc={thenSilhouetteUrl}
+              placeholderSrc={nowSilhouetteUrl}
             />
           </div>
           <div className="yat-back-info">
