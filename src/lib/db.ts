@@ -757,6 +757,42 @@ export async function getDesignatedPlayerImage(
 }
 
 /**
+ * Batch version of getDesignatedPlayerImage.
+ *
+ * Given a list of imageIds and a single role, returns a Map of imageId → row (APPROVED only).
+ * Players with no designated row for the role are absent from the Map (not in results).
+ *
+ * Use this to avoid N+1 queries when rendering many PlayerCard components on the roster page.
+ *
+ * Supported roles: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR | HEADSHOT
+ */
+export async function getBatchDesignatedPlayerImages(
+  imageIds: string[],
+  role: string
+): Promise<Map<string, any>> {
+  if (imageIds.length === 0) return new Map();
+  try {
+    const { rows } = await query(
+      `SELECT DISTINCT ON (player_id::text) player_id, image_url
+         FROM player_photos
+        WHERE player_id::text = ANY($1::text[])
+          AND image_role = $2
+          AND approval_status = 'APPROVED'
+        ORDER BY player_id::text, date_taken DESC NULLS LAST, id DESC`,
+      [imageIds, role]
+    );
+    const map = new Map<string, any>();
+    for (const row of rows) {
+      map.set(String(row.player_id), row);
+    }
+    return map;
+  } catch {
+    // Table or columns don't exist yet — degrade gracefully
+    return new Map();
+  }
+}
+
+/**
  * Returns TIMELINE middle-frame photos for the career strip.
  *
  * Only rows where:

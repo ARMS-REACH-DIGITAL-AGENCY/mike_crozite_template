@@ -11,7 +11,7 @@
 
 ### 1. Why Dom Hamel's FRONT / LEFT_ANCHOR Image Did Not Load
 
-**Root cause: wrong file extension.**
+**Root cause (code-confirmed): wrong file extension.**
 
 The old `PlayerCardFront` code requested `players/then/{playerId}.jpg` for THEN-era images.
 S3 stores those files as `.png` (confirmed by the import script: `hs_players → players/then/{playerid}.png`).
@@ -19,10 +19,26 @@ Every `.jpg` request was a guaranteed 404. When the request failed, the now-remo
 chain substituted the NOW image (`players/now/{id}.jpg`), hiding the failure completely.
 
 **Fix applied in commit `c871797`:** `getPlayerThenImageUrl(imageId)` now returns `.png`.
-Dom's `players/then/{imageId}.png` object should now load correctly.
 
-If it still does not load, the S3 object itself may be missing or the `imageId` value used at runtime
-may differ from the filename. That would be a data/upload issue, not a code issue.
+**What can be verified from code vs. what requires live S3 access:**
+
+| Question | Can verify from code | Requires live S3 |
+|---|---|---|
+| Was the request `.jpg`? | ✅ Yes — old code used `.jpg` | — |
+| Is the S3 key `.png`? | ✅ Yes — import script confirms `.png` | — |
+| Does Dom's key exist at `players/then/{domPlayerId}.png`? | ❌ Cannot query | ✅ Must verify in S3 console |
+| Was the object overwritten by a different asset? | ❌ Cannot query | ✅ Must verify S3 versioning or event log |
+| Were there multiple uploads with name collision? | ❌ Cannot query | ✅ Must check CloudTrail or upload history |
+
+**Verified root cause:** extension mismatch (`.jpg` requested vs `.png` stored). This is the primary
+and proven cause. Whether the S3 object itself was also overwritten or is missing entirely cannot be
+determined from this codebase — that requires a live S3 `head_object` check against `players/then/{domPlayerId}.png`.
+
+If the image still does not render after this fix, run:
+```
+aws s3 ls s3://yatstats-assets/players/then/{domPlayerId}
+```
+to confirm the object exists. If missing, re-upload using the import script.
 
 ---
 
@@ -41,11 +57,11 @@ may differ from the filename. That would be a data/upload issue, not a code issu
 ### 3. What Logic Now Determines Each Slot
 
 #### A. Front Flip Image (`PlayerCardFront`)
-- Still uses `getPlayerThenImageUrl(imageId)` → `players/then/{imageId}.png`
-- This is the legacy-wired path; it IS the de-facto front image for all current players
-- When `player_photos` rows with `image_role = 'YATSTATS_FRONT'` exist, that lookup
-  would be wired here (deferred — no per-player lookup in grid-view currently)
-- Fallback: silhouette from `getThenSilhouetteUrl(isPitcher)`
+- **Now metadata-driven.** Slot logic (as of this revision):
+  1. Preferred: `player_photos WHERE image_role = 'YATSTATS_FRONT' AND approval_status = 'APPROVED'` — fetched via `getBatchDesignatedPlayerImages()` in the roster page, passed as `frontImageUrl` prop to `PlayerCard` → `PlayerCardFront`
+  2. Fallback: legacy `players/then/{imageId}.png` (used when `frontImageUrl` is null)
+  3. Final fallback: silhouette from `getThenSilhouetteUrl(isPitcher)` (handled by `data-placeholder` on the bg-image div)
+- The `frontImageUrl` prop defaults to `null` — if no designated row exists in `player_photos`, the legacy path is used silently as before
 
 #### B. LEFT_ANCHOR (career strip left bookend)
 - Queries `player_photos WHERE image_role = 'LEFT_ANCHOR' AND approval_status = 'APPROVED'` via `getDesignatedPlayerImage(imageId, 'LEFT_ANCHOR')`
@@ -160,16 +176,47 @@ No code change is needed at that point — only data.
 
 ### 10. Every File Changed
 
-| File | Change |
-|------|--------|
-| `db/migrations/006_player_photos_image_roles.sql` | **NEW** — adds `image_role`, `image_source`, `approval_status`, `show_on_pp_timeline` columns; constraints; indexes |
+| `src/components/yatstats/PlayerCardFront.tsx` | **NEW in this revision** — added `frontImageUrl?: string | null` prop; uses designated URL when provided, falls back to legacy `players/then/{imageId}.png` |
+| `src/components/yatstats/PlayerCard.tsx` | **NEW in this revision** — added `frontImageUrl?: string | null` prop; passes to `PlayerCardFront` |
+| `src/app/[hsid]/page.tsx` | **NEW in this revision** — imports `getBatchDesignatedPlayerImages`; batch-fetches YATSTATS_FRONT for all roster players in one query; passes `frontImageUrl` to each `PlayerCard` |
+| `src/lib/db.ts` | **NEW in this revision** — added `getBatchDesignatedPlayerImages(imageIds, role)` for N-player batch lookup in one SQL query |
+| `db/migrations/007_backfill_legacy_player_photos.sql` | **NEW in this revision** — backfill script: promotes pre-migration `player_photos` rows (image_role=NULL, approval_status='PENDING') to TIMELINE/APPROVED/show_on_pp_timeline=TRUE; includes DRY-RUN SELECT and admin workflow docs |
+| `db/migrations/006_player_photos_image_roles.sql` | **Previous revision** — adds `image_role`, `image_source`, `approval_status`, `show_on_pp_timeline` columns; constraints; indexes |
 | `src/lib/playerImage.ts` | Updated slot table docs; `getPlayerNowImageUrl` docstring now explicitly states it is NOT a designated HEADSHOT; silhouette JSDoc updated to match new role names; canonical naming roles updated to include `LEFT_ANCHOR` and `RIGHT_ANCHOR` |
-| `src/lib/db.ts` | Added `getDesignatedPlayerImage(imageId, role)` function; `getPlayerPhotos` now filters `show_on_pp_timeline=true AND approval_status='APPROVED' AND image_role='TIMELINE'` with graceful two-level degradation |
+| `src/lib/db.ts` (previous) | Added `getDesignatedPlayerImage(imageId, role)` function; `getPlayerPhotos` now filters `show_on_pp_timeline=true AND approval_status='APPROVED' AND image_role='TIMELINE'` with graceful two-level degradation |
 | `src/components/yatstats/PlayerCardBack.tsx` | Added `headshotUrl: string | null` prop; removed auto-use of `getPlayerNowImageUrl`; null → silhouette only |
-| `src/components/yatstats/PlayerCard.tsx` | Added `headshotUrl?: string | null` prop (default null); threads through to `PlayerCardBack` |
 | `src/app/[hsid]/player/[playerId]/[slug]/page.tsx` | Imports `getDesignatedPlayerImage`, `getThenSilhouetteUrl`, `getNowSilhouetteUrl`; removed `getPlayerNowImageUrl` import; added designated slot queries for LEFT_ANCHOR + RIGHT_ANCHOR in Promise.all; `FilmSlot` type gains `role` field; RIGHT_ANCHOR uses silhouette (not `playerNowImg`) when not designated; strip CSS updated for `.career-slot.anchor` vs `.career-slot.timeline` |
 | `scripts/import_hamilton_mvp_images_to_s3.py` | Added `s3_key_exists()`, `generate_unique_s3_key()`, `--overwrite` flag; `upload_file_to_s3()` returns `(uri, note)` tuple; collision detection with `_NN` suffix; summary shows collision count |
 | `PLAYER_IMAGE_AUDIT.md` | This file — full Part 10 answers |
+
+---
+
+## Legacy Row Visibility After Migration 006 (Backfill Answer)
+
+After migration 006 runs, ALL pre-existing `player_photos` rows have:
+- `image_role = NULL`
+- `approval_status = 'PENDING'` (default)
+- `show_on_pp_timeline = FALSE` (default)
+
+`getPlayerPhotos()` requires `show_on_pp_timeline = TRUE AND approval_status = 'APPROVED'` — so **every pre-migration row is invisible after 006 runs without a backfill step.**
+
+**How many rows are affected:** All rows that existed before 006. To see the count:
+```sql
+SELECT COUNT(*) AS rows_invisible_after_006
+FROM player_photos
+WHERE image_role IS NULL AND approval_status = 'PENDING';
+```
+
+**Backfill file:** `db/migrations/007_backfill_legacy_player_photos.sql`
+
+The script:
+1. Starts a transaction
+2. Updates all `image_role IS NULL, approval_status = 'PENDING'` rows to `TIMELINE / APPROVED / show_on_pp_timeline=TRUE`
+3. Reports how many rows were affected
+4. Requires explicit `COMMIT;` — does NOT auto-commit (DBA must review first)
+5. Includes a DRY-RUN SELECT to inspect which rows are affected before committing
+
+The script also documents the admin workflow for promoting rows to designated slots (YATSTATS_FRONT, HEADSHOT, etc.) after the backfill.
 
 ---
 
