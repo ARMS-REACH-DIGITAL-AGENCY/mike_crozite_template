@@ -16,8 +16,8 @@ export default function PlayerCardFront({ player: p, isAllTime }: PlayerCardFron
   const isPitcher = p.is_pitcher === true;
   const gc = gradClass(p);
   const dots = varsityDots(p);
-  const pid = String(p.playerid || "");
-  const photoUrl = getPlayerThenImageUrl(pid);
+  const imageId = String(p.playerid || "");
+  const photoUrl = getPlayerThenImageUrl(imageId);
   const thenSilhouetteUrl = getThenSilhouetteUrl(isPitcher);
 
   const statusLabel = isAllTime

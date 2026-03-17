@@ -245,7 +245,7 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // NOW image = .jpg, THEN image = .png — managed via shared playerImage utility
+  // HEADSHOT role (NOW) = .jpg, YATSTATS role (THEN) = .png — via shared playerImage utility
   const playerNowImg = getPlayerNowImageUrl(safePlayerId);
   const playerThenImg = getPlayerThenImageUrl(safePlayerId);
 
@@ -464,7 +464,7 @@ export default async function PlayerProfilePage({
 
   type FilmSlot = {img: string; label: string; sub: string};
 
-  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.png
+  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{imageId}.png
   const hsBookend: FilmSlot = {
     img: playerThenImg,
     label: schoolName,

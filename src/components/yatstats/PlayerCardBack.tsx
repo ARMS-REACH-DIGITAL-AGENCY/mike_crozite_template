@@ -16,9 +16,9 @@ interface PlayerCardBackProps {
 export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: PlayerCardBackProps) {
   const isPitcher = p.is_pitcher === true;
   const draft = parseDraft(p.draft_info as string | null);
-  const pid = String(p.playerid || "");
+  const imageId = String(p.playerid || "");
   const slug = String(p.slug || "");
-  const photoSrc = getPlayerNowImageUrl(pid);
+  const photoSrc = getPlayerNowImageUrl(imageId);
   const nowSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
@@ -44,7 +44,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
     <div className="yat-face yat-back">
       <div className="yat-back-content">
         {/* Hero: NOW image + name/position/draft — entire section links to profile */}
-        <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
+        <a href={`/${resolvedHsid}/player/${imageId}/${slug}`} className="yat-back-hero">
           <div className="yat-back-img-wrap">
             <SafeImage
               src={photoSrc}
