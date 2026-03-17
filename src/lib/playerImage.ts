@@ -19,10 +19,17 @@
 //  ──────────────────┼─────────────────────────────────────────────────┼─────────
 //  FRONT FLIP CARD   | player_photos WHERE image_role='YATSTATS_FRONT' | legacy players/then/{imageId}.png
 //  LEFT_ANCHOR       | player_photos WHERE image_role='LEFT_ANCHOR'    | legacy players/then/{imageId}.png
-//  RIGHT_ANCHOR      | player_photos WHERE image_role='RIGHT_ANCHOR'   | silhouette ONLY
+//  RIGHT_ANCHOR      | player_photos WHERE image_role='RIGHT_ANCHOR'   | HEADSHOT image (same asset, different context)
+//                    |                                                  | → silhouette if neither exists
 //  HEADSHOT          | player_photos WHERE image_role='HEADSHOT'       | silhouette ONLY
 //  TIMELINE frames   | player_photos WHERE show_on_pp_timeline=true    | generic silhouette per frame
 //                    |   AND approval_status='APPROVED'                |
+//
+//  RIGHT_ANCHOR / HEADSHOT relationship:
+//    - The same asset may serve both purposes at once (common case: current-era player photo).
+//    - Assigning a newer HEADSHOT does NOT remove the older HEADSHOT from the timeline.
+//    - Timeline visibility is driven by show_on_pp_timeline flag, not by role.
+//    - One asset may have image_role='HEADSHOT' AND show_on_pp_timeline=TRUE simultaneously.
 //
 //  IMPORTANT: players/now/{imageId}.jpg is a LEGACY PATH for general/timeline images.
 //  It is NOT a designated HEADSHOT. Do NOT use it as the back-card image.
@@ -132,7 +139,8 @@ export function getThenSilhouetteUrl(isPitcher: boolean): string {
 
 /**
  * Silhouette for the HEADSHOT / RIGHT_ANCHOR slot (back card, career strip right bookend).
- * This is the ONLY allowed fallback when no designated HEADSHOT image exists.
+ * Used only when NEITHER a designated RIGHT_ANCHOR NOR a designated HEADSHOT exists.
+ * Fallback chain: explicit RIGHT_ANCHOR → HEADSHOT → this silhouette.
  * Never substitute a legacy NOW/general image.
  */
 export function getNowSilhouetteUrl(isPitcher: boolean): string {

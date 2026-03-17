@@ -70,32 +70,39 @@ to confirm the object exists. If missing, re-upload using the import script.
 
 #### C. RIGHT_ANCHOR (career strip right bookend)
 - Queries `player_photos WHERE image_role = 'RIGHT_ANCHOR' AND approval_status = 'APPROVED'` via `getDesignatedPlayerImage(imageId, 'RIGHT_ANCHOR')`
-- If no designated row → silhouette (`getNowSilhouetteUrl(isPitcher)`)
-- **`players/now/{imageId}.jpg` is no longer used as the right anchor**
+- If no designated RIGHT_ANCHOR row → uses the **HEADSHOT image as the default right bookend** (same asset, different slot context)
+- If neither RIGHT_ANCHOR nor HEADSHOT exists → silhouette (`getNowSilhouetteUrl(isPitcher)`)
+- **`players/now/{imageId}.jpg` is never used here**
+- One asset may legitimately serve as both the active HEADSHOT and the default RIGHT_ANCHOR simultaneously
 
 #### D. Back-Card Headshot (`PlayerCardBack`)
 - Accepts `headshotUrl: string | null` prop
 - If null → silhouette (`getNowSilhouetteUrl(isPitcher)`)
 - **`players/now/{imageId}.jpg` is no longer auto-used as the headshot**
-- `PlayerCard` defaults `headshotUrl={null}` — all grid cards show silhouette until designated HEADSHOTs are assigned in `player_photos`
-- On the individual player profile page, `getDesignatedPlayerImage(imageId, 'HEADSHOT')` will drive a future wiring point
+- Roster page batch-fetches HEADSHOT via `getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT')` — passes to each `PlayerCard`
+- Profile page fetches HEADSHOT via `getDesignatedPlayerImage(safePlayerId, 'HEADSHOT')` in the Promise.all
 
 #### E. Timeline Inclusion
 - `getPlayerPhotos(imageId)` queries: `show_on_pp_timeline = TRUE AND approval_status = 'APPROVED' AND image_role = 'TIMELINE'`
 - Pre-migration rows (no columns yet): graceful degradation via nested try/catch returns all rows
 - Each timeline frame uses `p.image_url || PLAYER_SILHOUETTE_URL`
+- A single asset may have `image_role='HEADSHOT'` AND `show_on_pp_timeline=TRUE` simultaneously — it appears both in the right bookend and as a timeline frame. This is intentional.
+- Assigning a NEW HEADSHOT does NOT remove the OLD HEADSHOT from the timeline unless `show_on_pp_timeline` is explicitly flipped. Timeline history is owned by metadata, not by role assignment.
 
 ---
 
-### 4. RIGHT_ANCHOR and HEADSHOT Are Now Fully Separated
+### 4. RIGHT_ANCHOR / HEADSHOT Relationship
+
+RIGHT_ANCHOR and HEADSHOT are distinct logical roles, but the same physical asset may serve both.
 
 | Slot | Old behavior | New behavior |
 |------|-------------|-------------|
-| RIGHT_ANCHOR | `players/now/{id}.jpg` auto-used | designated `player_photos` row only; silhouette if missing |
-| HEADSHOT | `players/now/{id}.jpg` auto-used | `headshotUrl` prop must be explicitly passed; null → silhouette |
+| RIGHT_ANCHOR | `players/now/{id}.jpg` auto-used | explicit RIGHT_ANCHOR row → HEADSHOT fallback → silhouette |
+| HEADSHOT | `players/now/{id}.jpg` auto-used | `headshotUrl` prop (from `player_photos WHERE image_role='HEADSHOT'`); null → silhouette |
 
-They are separate concepts: RIGHT_ANCHOR is a career strip visual bookend; HEADSHOT is the
-back-card portrait. Neither is filled by the legacy NOW path any more.
+Key rule: **asset identity ≠ slot identity**. One `player_photos` row with `image_role='HEADSHOT'` may have its `image_url` used in both the back-card and the career strip right bookend — this is correct behavior, not a collision.
+
+Neither slot is filled by the legacy `players/now/{id}.jpg` path.
 
 ---
 

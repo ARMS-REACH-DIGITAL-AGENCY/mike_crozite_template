@@ -206,6 +206,7 @@ export default async function PlayerProfilePage({
     resolvedCurrentTeam,
     designatedLeftAnchor,
     designatedRightAnchor,
+    designatedHeadshot,
   ] =
     (await Promise.all([
       getPlayerBattingStats(safePlayerId),
@@ -217,7 +218,8 @@ export default async function PlayerProfilePage({
       // Designated slot lookups — null means silhouette (except LEFT_ANCHOR which falls back to legacy)
       getDesignatedPlayerImage(safePlayerId, 'LEFT_ANCHOR'),
       getDesignatedPlayerImage(safePlayerId, 'RIGHT_ANCHOR'),
-    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null, any | null, any | null];
+      getDesignatedPlayerImage(safePlayerId, 'HEADSHOT'),
+    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null, any | null, any | null, any | null];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -469,11 +471,15 @@ export default async function PlayerProfilePage({
   //   LEFT_ANCHOR:  designated player_photos row (image_role='LEFT_ANCHOR') if present;
   //                 otherwise falls back to legacy players/then/{imageId}.png.
   //   RIGHT_ANCHOR: designated player_photos row (image_role='RIGHT_ANCHOR') if present;
-  //                 otherwise silhouette ONLY — legacy players/now/{id}.jpg is NOT used.
+  //                 otherwise, the current HEADSHOT image (image_role='HEADSHOT') serves
+  //                 as the default right bookend — same asset, different slot role;
+  //                 finally silhouette if neither exists.
+  //                 players/now/{id}.jpg is NEVER used here.
   //   TIMELINE:     only rows from player_photos with show_on_pp_timeline=true AND
   //                 approval_status='APPROVED' AND image_role='TIMELINE'.
   //
-  // The ONLY allowed fallback for a missing anchor image is the silhouette.
+  // Note: one asset may legitimately serve both HEADSHOT and RIGHT_ANCHOR roles at once.
+  // The asset identity does not change — only the slot assignment context differs.
   // ─────────────────────────────────────────────────────────────────────────
 
   const SILHOUETTE_URL = PLAYER_SILHOUETTE_URL;
@@ -492,16 +498,19 @@ export default async function PlayerProfilePage({
     role: 'anchor',
   };
 
-  // RIGHT_ANCHOR: must be explicitly designated — silhouette if no designated row exists.
-  // Do NOT use players/now/{id}.jpg here — that is a legacy general path, not a designated HEADSHOT/anchor.
-  const rightAnchorImg = designatedRightAnchor?.image_url || null;
+  // RIGHT_ANCHOR: prefer explicit designated RIGHT_ANCHOR row;
+  // fall back to HEADSHOT image (same asset, different role context) if no explicit RIGHT_ANCHOR;
+  // final fallback = silhouette. players/now/{id}.jpg is NEVER used here.
+  const rightAnchorImg = designatedRightAnchor?.image_url || designatedHeadshot?.image_url || null;
   const rightAnchorSilhouette = getNowSilhouetteUrl(isPitcher);
+  // Use RIGHT_ANCHOR metadata for label/year if present; otherwise HEADSHOT metadata; otherwise defaults
+  const rightAnchorMeta = designatedRightAnchor || designatedHeadshot;
   const currentTeamLabel = ctxTeam || displayName;
   const currentTeamSub = ctxLevel || (latestYear > 0 ? String(latestYear) : '');
   const currentTeamBookend: FilmSlot = {
     img: rightAnchorImg || rightAnchorSilhouette,
-    label: designatedRightAnchor?.team_name || currentTeamLabel,
-    sub: designatedRightAnchor?.season_year ? String(designatedRightAnchor.season_year) : currentTeamSub,
+    label: rightAnchorMeta?.team_name || currentTeamLabel,
+    sub: rightAnchorMeta?.season_year ? String(rightAnchorMeta.season_year) : currentTeamSub,
     role: 'anchor',
   };
 
