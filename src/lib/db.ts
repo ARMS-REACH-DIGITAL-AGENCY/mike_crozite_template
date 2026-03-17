@@ -66,6 +66,10 @@ function normalizeHostOrUrl(input: string) {
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
 export async function getSchoolByHsid(hsid: string) {
+  // hsid column is an integer — non-numeric values would cause a Postgres
+  // "invalid input syntax for integer" error (e.g. state-only subdomains
+  // like "co" or "az" routed here by the middleware). Return null early.
+  if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
@@ -745,7 +749,8 @@ export async function getDesignatedPlayerImage(
         WHERE player_id::text = $1
           AND image_role = $2
           AND approval_status = 'APPROVED'
-        ORDER BY date_taken DESC NULLS LAST, id DESC
+          AND (is_active IS NULL OR is_active = TRUE)
+        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC
         LIMIT 1`,
       [imageId, role]
     );
@@ -778,7 +783,8 @@ export async function getBatchDesignatedPlayerImages(
         WHERE player_id::text = ANY($1::text[])
           AND image_role = $2
           AND approval_status = 'APPROVED'
-        ORDER BY player_id::text, date_taken DESC NULLS LAST, id DESC`,
+          AND (is_active IS NULL OR is_active = TRUE)
+        ORDER BY player_id::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC`,
       [imageIds, role]
     );
     const map = new Map<string, any>();
@@ -825,6 +831,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
             -- Pre-migration legacy rows: no columns yet → show all (column missing handled by catch)
           )
           AND (image_role IS NULL OR image_role = 'TIMELINE')
+          AND (is_active IS NULL OR is_active = TRUE)
         ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
       [imageId]
     );
