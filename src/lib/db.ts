@@ -66,6 +66,10 @@ function normalizeHostOrUrl(input: string) {
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
 export async function getSchoolByHsid(hsid: string) {
+  // hsid column is an integer — non-numeric values would cause a Postgres
+  // "invalid input syntax for integer" error (e.g. state-only subdomains
+  // like "co" or "az" routed here by the middleware). Return null early.
+  if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
