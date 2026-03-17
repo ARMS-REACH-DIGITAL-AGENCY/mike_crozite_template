@@ -9,7 +9,7 @@ interface PlayerCardFrontProps {
   /**
    * Explicitly designated YATSTATS_FRONT image URL from player_photos WHERE image_role='YATSTATS_FRONT'.
    * When provided, this is used as the primary front-card image.
-   * Falls back to legacy players/then/{imageId}.png when null/undefined.
+   * Falls back to legacy players/then/{imageId}.jpg when null/undefined.
    * Do NOT pass the legacy then-path here — pass null and let the component resolve it.
    */
   frontImageUrl?: string | null;
@@ -24,7 +24,7 @@ export default function PlayerCardFront({ player: p, frontImageUrl = null, isAll
   const gc = gradClass(p);
   const dots = varsityDots(p);
   const imageId = String(p.playerid || "");
-  // Prefer designated YATSTATS_FRONT row; fall back to legacy players/then/{imageId}.png
+  // Prefer designated YATSTATS_FRONT row; fall back to legacy players/then/{imageId}.jpg
   const photoUrl = frontImageUrl || getPlayerThenImageUrl(imageId);
   const thenSilhouetteUrl = getThenSilhouetteUrl(isPitcher);
 

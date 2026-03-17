@@ -11,34 +11,39 @@
 
 ### 1. Why Dom Hamel's FRONT / LEFT_ANCHOR Image Did Not Load
 
-**Root cause (code-confirmed): wrong file extension.**
+**Root cause (confirmed from live S3): wrong file extension assumed by the code.**
 
-The old `PlayerCardFront` code requested `players/then/{playerId}.jpg` for THEN-era images.
-S3 stores those files as `.png` (confirmed by the import script: `hs_players → players/then/{playerid}.png`).
-Every `.jpg` request was a guaranteed 404. When the request failed, the now-removed `photoFallback`
-chain substituted the NOW image (`players/now/{id}.jpg`), hiding the failure completely.
+S3 object confirmed present at: `players/then/225132.jpg`
 
-**Fix applied in commit `c871797`:** `getPlayerThenImageUrl(imageId)` now returns `.png`.
+The code (after an earlier revision) requested `players/then/{imageId}.png`.  
+The actual stored object is `.jpg`. Every `.png` request was a guaranteed 404 → silhouette.
+
+**Earlier revision history:**
+- Pre-PR code requested `.jpg` for THEN images (correct for Dom)
+- A previous revision changed it to `.png` based on an incorrect assumption that "S3 stores them as PNG"
+- That `.png` assumption was wrong for at least Dom Hamel (225132) — confirmed from live S3
+
+**Fix applied in this revision:**
+- `getPlayerThenImageUrl(imageId)` now returns `.jpg` (matching the confirmed S3 reality)
+- `YatInteractivity` now adds an **extension-flip fallback**: if the primary URL fails, it tries the
+  alternate extension (`.jpg` ↔ `.png`) before showing the silhouette
+- This makes the legacy THEN path robust to mixed-extension legacy objects without a server-side HEAD probe
+
+**Exact URL requested for Dom Hamel (playerid 225132) after this fix:**
+```
+https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/225132.jpg
+```
+This matches the confirmed S3 key. The silhouette will no longer be shown for Dom (assuming
+the `.jpg` object is still present at that key).
 
 **What can be verified from code vs. what requires live S3 access:**
 
-| Question | Can verify from code | Requires live S3 |
-|---|---|---|
-| Was the request `.jpg`? | ✅ Yes — old code used `.jpg` | — |
-| Is the S3 key `.png`? | ✅ Yes — import script confirms `.png` | — |
-| Does Dom's key exist at `players/then/{domPlayerId}.png`? | ❌ Cannot query | ✅ Must verify in S3 console |
-| Was the object overwritten by a different asset? | ❌ Cannot query | ✅ Must verify S3 versioning or event log |
-| Were there multiple uploads with name collision? | ❌ Cannot query | ✅ Must check CloudTrail or upload history |
-
-**Verified root cause:** extension mismatch (`.jpg` requested vs `.png` stored). This is the primary
-and proven cause. Whether the S3 object itself was also overwritten or is missing entirely cannot be
-determined from this codebase — that requires a live S3 `head_object` check against `players/then/{domPlayerId}.png`.
-
-If the image still does not render after this fix, run:
-```
-aws s3 ls s3://yatstats-assets/players/then/{domPlayerId}
-```
-to confirm the object exists. If missing, re-upload using the import script.
+| Question | Status |
+|---|---|
+| Confirmed S3 key | `players/then/225132.jpg` ✅ provided by @yatstats |
+| Requested URL after fix | `players/then/225132.jpg` ✅ matches |
+| Was the object overwritten by a different asset? | ❌ Cannot query — requires S3 versioning or CloudTrail |
+| Were there multiple uploads with name collision? | ❌ Cannot query — requires upload history |
 
 ---
 
@@ -46,11 +51,16 @@ to confirm the object exists. If missing, re-upload using the import script.
 
 | Path | Extension | Used for |
 |------|-----------|---------|
-| `players/then/{imageId}.png` | **PNG** (not .jpg) | LEFT_ANCHOR / FRONT fallback |
+| `players/then/{imageId}.jpg` | **JPG** (confirmed from live S3) | LEFT_ANCHOR / FRONT fallback |
 | `players/now/{imageId}.jpg` | JPG | General/timeline images — NOT headshot, NOT anchor |
 
-`getPlayerThenImageUrl(imageId)` → `players/then/{imageId}.png` (fixed)  
+`getPlayerThenImageUrl(imageId)` → `players/then/{imageId}.jpg` (corrected from .png)  
 `getPlayerNowImageUrl(imageId)` → `players/now/{imageId}.jpg` (retained for legacy/timeline use only)
+
+**Extension-flip safety net (YatInteractivity):**
+If the primary `.jpg` request fails (e.g. a player whose THEN asset was stored as `.png`),  
+`YatInteractivity` automatically retries with the alternate extension before showing the silhouette.  
+This protects against mixed-extension legacy objects without any server-side HEAD probing.
 
 ---
 
@@ -189,7 +199,13 @@ No code change is needed at that point — only data.
 | `src/lib/db.ts` | **NEW in this revision** — added `getBatchDesignatedPlayerImages(imageIds, role)` for N-player batch lookup in one SQL query |
 | `db/migrations/007_backfill_legacy_player_photos.sql` | **NEW in this revision** — backfill script: promotes pre-migration `player_photos` rows (image_role=NULL, approval_status='PENDING') to TIMELINE/APPROVED/show_on_pp_timeline=TRUE; includes DRY-RUN SELECT and admin workflow docs |
 | `db/migrations/006_player_photos_image_roles.sql` | **Previous revision** — adds `image_role`, `image_source`, `approval_status`, `show_on_pp_timeline` columns; constraints; indexes |
-| `src/lib/playerImage.ts` | Updated slot table docs; `getPlayerNowImageUrl` docstring now explicitly states it is NOT a designated HEADSHOT; silhouette JSDoc updated to match new role names; canonical naming roles updated to include `LEFT_ANCHOR` and `RIGHT_ANCHOR` |
+| `src/lib/playerImage.ts` | **Revised** — `getPlayerThenImageUrl` now returns `.jpg` (corrected from `.png`; `.jpg` confirmed from live S3 for Dom Hamel 225132); slot table and WIRED NOW comments updated; extension-flip documented |
+| `src/components/yatstats/YatInteractivity.tsx` | **Revised** — `yat-bg` image loader now tries alternate extension (`.jpg`↔`.png`) before falling back to silhouette; protects against mixed-extension legacy THEN objects |
+| `src/components/yatstats/PlayerCardFront.tsx` | Comment updated: `.png` → `.jpg` for legacy fallback path |
+| `src/components/yatstats/PlayerCard.tsx` | Comment updated: `.png` → `.jpg` for legacy fallback path |
+| `src/app/[hsid]/page.tsx` | Comment updated: `.png` → `.jpg` for legacy fallback path |
+| `src/app/[hsid]/player/[playerId]/[slug]/page.tsx` | Comments updated: `.png` → `.jpg` for legacy THEN path; filmstrip comment block updated |
+| `PLAYER_IMAGE_AUDIT.md` | Section 1 (Dom Hamel forensics) fully revised: confirmed S3 key `players/then/225132.jpg`, exact requested URL after fix, extension-flip mechanism documented |
 | `src/lib/db.ts` (previous) | Added `getDesignatedPlayerImage(imageId, role)` function; `getPlayerPhotos` now filters `show_on_pp_timeline=true AND approval_status='APPROVED' AND image_role='TIMELINE'` with graceful two-level degradation |
 | `src/components/yatstats/PlayerCardBack.tsx` | Added `headshotUrl: string | null` prop; removed auto-use of `getPlayerNowImageUrl`; null → silhouette only |
 | `src/app/[hsid]/player/[playerId]/[slug]/page.tsx` | Imports `getDesignatedPlayerImage`, `getThenSilhouetteUrl`, `getNowSilhouetteUrl`; removed `getPlayerNowImageUrl` import; added designated slot queries for LEFT_ANCHOR + RIGHT_ANCHOR in Promise.all; `FilmSlot` type gains `role` field; RIGHT_ANCHOR uses silhouette (not `playerNowImg`) when not designated; strip CSS updated for `.career-slot.anchor` vs `.career-slot.timeline` |

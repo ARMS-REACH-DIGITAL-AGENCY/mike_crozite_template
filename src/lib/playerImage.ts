@@ -17,8 +17,8 @@
 //
 //  Slot              | Source                                          | Fallback
 //  ──────────────────┼─────────────────────────────────────────────────┼─────────
-//  FRONT FLIP CARD   | player_photos WHERE image_role='YATSTATS_FRONT' | legacy players/then/{imageId}.png
-//  LEFT_ANCHOR       | player_photos WHERE image_role='LEFT_ANCHOR'    | legacy players/then/{imageId}.png
+//  FRONT FLIP CARD   | player_photos WHERE image_role='YATSTATS_FRONT' | legacy players/then/{imageId}.jpg
+//  LEFT_ANCHOR       | player_photos WHERE image_role='LEFT_ANCHOR'    | legacy players/then/{imageId}.jpg
 //  RIGHT_ANCHOR      | player_photos WHERE image_role='RIGHT_ANCHOR'   | HEADSHOT image (same asset, different context)
 //                    |                                                  | → silhouette if neither exists
 //  HEADSHOT          | player_photos WHERE image_role='HEADSHOT'       | silhouette ONLY
@@ -61,7 +61,10 @@
 // WHAT IS WIRED NOW vs. DEFERRED
 // ─────────────────────────────────────────────────────────────────────────────
 // WIRED NOW (current S3 paths, active in production):
-//   players/then/{imageId}.png  — HS-era legacy path used as LEFT_ANCHOR / FRONT fallback
+//   players/then/{imageId}.jpg  — HS-era legacy path used as LEFT_ANCHOR / FRONT fallback
+//                                  Extension is .jpg (confirmed from live S3; .png assumed earlier was wrong).
+//                                  YatInteractivity applies a jpg↔png extension-flip fallback for any
+//                                  mixed-extension legacy objects.
 //                                  (NOT canonical YATSTATS_FRONT — that lookup hits player_photos)
 //
 // LEGACY PATH — do NOT treat as designated HEADSHOT or RIGHT_ANCHOR:
@@ -83,7 +86,11 @@ const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
  * Legacy S3 path for the player's HS-era image — used as LEFT_ANCHOR and FRONT FLIP CARD
  * fallback when no designated player_photos row exists.
  *
- * Extension: PNG (S3 stores these as PNG — using .jpg causes a guaranteed 404).
+ * Extension: JPG (confirmed from live S3 — e.g. players/then/225132.jpg for Dom Hamel).
+ * Earlier code assumed .png, which caused guaranteed 404s. The actual stored extension is .jpg.
+ *
+ * YatInteractivity also applies an extension-flip fallback (jpg↔png) so mixed-extension
+ * legacy objects are handled without requiring a server-side HEAD probe.
  *
  * This is NOT the canonical YATSTATS_FRONT path; it is the current S3 reality.
  * When player_photos rows with image_role='LEFT_ANCHOR' or 'YATSTATS_FRONT' are present,
@@ -92,7 +99,7 @@ const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
  * If this image is missing, use getThenSilhouetteUrl() — no alternate player image.
  */
 export function getPlayerThenImageUrl(imageId: string): string {
-  return `${S3_BASE}/players/then/${imageId}.png`;
+  return `${S3_BASE}/players/then/${imageId}.jpg`;
 }
 
 /**

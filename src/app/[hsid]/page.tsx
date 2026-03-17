@@ -82,7 +82,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   ]);
 
   // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players (one query each).
-  // Players without a designated row fall back to legacy players/then/{imageId}.png in PlayerCardFront.
+  // Players without a designated row fall back to legacy players/then/{imageId}.jpg in PlayerCardFront.
   // Deduplicate IDs in case a player appears in both active and all-time rosters.
   const allRosterIds = Array.from(new Set([
     ...(activeRoster as Record<string, unknown>[]),

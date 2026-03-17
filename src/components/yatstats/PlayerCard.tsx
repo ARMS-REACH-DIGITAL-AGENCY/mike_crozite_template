@@ -11,7 +11,7 @@ interface PlayerCardProps {
   resolvedHsid: string;
   /**
    * Explicitly designated YATSTATS_FRONT image URL (player_photos WHERE image_role='YATSTATS_FRONT').
-   * Pass null when no designated row exists — front card falls back to legacy players/then/{imageId}.png,
+   * Pass null when no designated row exists — front card falls back to legacy players/then/{imageId}.jpg,
    * then silhouette.
    */
   frontImageUrl?: string | null;

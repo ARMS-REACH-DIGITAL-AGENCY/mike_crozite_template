@@ -254,7 +254,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // Legacy THEN path: players/then/{imageId}.png — used as LEFT_ANCHOR fallback if no designated row exists.
+  // Legacy THEN path: players/then/{imageId}.jpg — used as LEFT_ANCHOR fallback if no designated row exists.
+  // Extension is .jpg (confirmed from live S3; earlier assumption of .png was incorrect).
   // players/now/{imageId}.jpg is a general/timeline path — NOT used as anchor or headshot.
   const playerThenImg = getPlayerThenImageUrl(safePlayerId);
 
@@ -469,7 +470,7 @@ export default async function PlayerProfilePage({
   //
   // Slot assignment rules:
   //   LEFT_ANCHOR:  designated player_photos row (image_role='LEFT_ANCHOR') if present;
-  //                 otherwise falls back to legacy players/then/{imageId}.png.
+  //                 otherwise falls back to legacy players/then/{imageId}.jpg.
   //   RIGHT_ANCHOR: designated player_photos row (image_role='RIGHT_ANCHOR') if present;
   //                 otherwise, the current HEADSHOT image (image_role='HEADSHOT') serves
   //                 as the default right bookend — same asset, different slot role;

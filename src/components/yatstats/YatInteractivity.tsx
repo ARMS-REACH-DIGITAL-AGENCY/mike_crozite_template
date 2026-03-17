@@ -38,7 +38,19 @@ window.__firebase_config = ${firebaseConfigJSON};
     var img=new Image();
     img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
     img.onerror=function(){
-      if(placeholder){
+      /* Extension-flip: legacy THEN objects may be .jpg or .png depending on upload era.
+         Try the alternate extension before falling back to the silhouette placeholder. */
+      var altsrc=null;
+      if(src&&src.endsWith('.jpg'))altsrc=src.slice(0,-4)+'.png';
+      else if(src&&src.endsWith('.png'))altsrc=src.slice(0,-4)+'.jpg';
+      if(altsrc){
+        var altimg=new Image();
+        altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";};
+        altimg.onerror=function(){
+          if(placeholder){el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';}
+        };
+        altimg.src=altsrc;
+      } else if(placeholder){
         el.style.backgroundImage="url('"+placeholder+"')";
         el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
       }
