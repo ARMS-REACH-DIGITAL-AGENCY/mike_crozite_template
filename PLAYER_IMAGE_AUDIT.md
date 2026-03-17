@@ -5,101 +5,184 @@
 
 ---
 
-## 1. Every File Changed
-
-| File | What Changed |
-|------|-------------|
-| `src/lib/playerImage.ts` | **NEW** — single shared utility. Functions: `getPlayerThenImageUrl(imageId)`, `getPlayerNowImageUrl(imageId)`, `getThenSilhouetteUrl(isPitcher)`, `getNowSilhouetteUrl(isPitcher)`, `PLAYER_SILHOUETTE_URL`. Parameter name is `imageId` throughout. Full canonical naming spec documented (see section 4). |
-| `src/components/yatstats/PlayerCardFront.tsx` | Imports shared utility. Renamed `pid` → `imageId`. Removed `photoFallback`, `photoDefaultUrl` props. Fixed THEN image extension `.jpg` → `.png`. Removed `data-fallback` attribute and alternate-image CSS layer. Silhouette-only fallback. |
-| `src/components/yatstats/PlayerCardBack.tsx` | Imports shared utility. Renamed `pid` → `imageId`. Uses `getPlayerNowImageUrl(imageId)` and `getNowSilhouetteUrl`. Href link updated to use `imageId`. |
-| `src/components/yatstats/PlayerCard.tsx` | Removed `photoDefaultUrl` prop from interface and component signature. |
-| `src/components/yatstats/YatInteractivity.tsx` | Removed `data-fallback` JS branch from `.yat-bg` image-load handler. Handler now goes directly to silhouette (`data-placeholder`) on primary load failure. |
-| `src/app/[hsid]/page.tsx` | Removed `photoDefaultUrl` variable, removed prop from both `PlayerCard` usages, removed now-unused `canonicalBase` variable. |
-| `src/app/[hsid]/player/[playerId]/[slug]/page.tsx` | Imports `getPlayerThenImageUrl`, `getPlayerNowImageUrl`, `PLAYER_SILHOUETTE_URL` from shared utility. Updated inline comments to use `imageId` / canonical role labels. |
+## Part 10 — Required Report Back (Answers to all 10 questions)
 
 ---
 
-## 2. Every Alternate-Image Fallback Rule Removed
+### 1. Why Dom Hamel's FRONT / LEFT_ANCHOR Image Did Not Load
+
+**Root cause: wrong file extension.**
+
+The old `PlayerCardFront` code requested `players/then/{playerId}.jpg` for THEN-era images.
+S3 stores those files as `.png` (confirmed by the import script: `hs_players → players/then/{playerid}.png`).
+Every `.jpg` request was a guaranteed 404. When the request failed, the now-removed `photoFallback`
+chain substituted the NOW image (`players/now/{id}.jpg`), hiding the failure completely.
+
+**Fix applied in commit `c871797`:** `getPlayerThenImageUrl(imageId)` now returns `.png`.
+Dom's `players/then/{imageId}.png` object should now load correctly.
+
+If it still does not load, the S3 object itself may be missing or the `imageId` value used at runtime
+may differ from the filename. That would be a data/upload issue, not a code issue.
+
+---
+
+### 2. Extension / Path Logic for Current Legacy THEN Images
+
+| Path | Extension | Used for |
+|------|-----------|---------|
+| `players/then/{imageId}.png` | **PNG** (not .jpg) | LEFT_ANCHOR / FRONT fallback |
+| `players/now/{imageId}.jpg` | JPG | General/timeline images — NOT headshot, NOT anchor |
+
+`getPlayerThenImageUrl(imageId)` → `players/then/{imageId}.png` (fixed)  
+`getPlayerNowImageUrl(imageId)` → `players/now/{imageId}.jpg` (retained for legacy/timeline use only)
+
+---
+
+### 3. What Logic Now Determines Each Slot
+
+#### A. Front Flip Image (`PlayerCardFront`)
+- Still uses `getPlayerThenImageUrl(imageId)` → `players/then/{imageId}.png`
+- This is the legacy-wired path; it IS the de-facto front image for all current players
+- When `player_photos` rows with `image_role = 'YATSTATS_FRONT'` exist, that lookup
+  would be wired here (deferred — no per-player lookup in grid-view currently)
+- Fallback: silhouette from `getThenSilhouetteUrl(isPitcher)`
+
+#### B. LEFT_ANCHOR (career strip left bookend)
+- Queries `player_photos WHERE image_role = 'LEFT_ANCHOR' AND approval_status = 'APPROVED'` via `getDesignatedPlayerImage(imageId, 'LEFT_ANCHOR')`
+- If no designated row → falls back to legacy `players/then/{imageId}.png`
+- Final fallback (if legacy also fails): silhouette via SafeImage `placeholderSrc`
+
+#### C. RIGHT_ANCHOR (career strip right bookend)
+- Queries `player_photos WHERE image_role = 'RIGHT_ANCHOR' AND approval_status = 'APPROVED'` via `getDesignatedPlayerImage(imageId, 'RIGHT_ANCHOR')`
+- If no designated row → silhouette (`getNowSilhouetteUrl(isPitcher)`)
+- **`players/now/{imageId}.jpg` is no longer used as the right anchor**
+
+#### D. Back-Card Headshot (`PlayerCardBack`)
+- Accepts `headshotUrl: string | null` prop
+- If null → silhouette (`getNowSilhouetteUrl(isPitcher)`)
+- **`players/now/{imageId}.jpg` is no longer auto-used as the headshot**
+- `PlayerCard` defaults `headshotUrl={null}` — all grid cards show silhouette until designated HEADSHOTs are assigned in `player_photos`
+- On the individual player profile page, `getDesignatedPlayerImage(imageId, 'HEADSHOT')` will drive a future wiring point
+
+#### E. Timeline Inclusion
+- `getPlayerPhotos(imageId)` queries: `show_on_pp_timeline = TRUE AND approval_status = 'APPROVED' AND image_role = 'TIMELINE'`
+- Pre-migration rows (no columns yet): graceful degradation via nested try/catch returns all rows
+- Each timeline frame uses `p.image_url || PLAYER_SILHOUETTE_URL`
+
+---
+
+### 4. RIGHT_ANCHOR and HEADSHOT Are Now Fully Separated
+
+| Slot | Old behavior | New behavior |
+|------|-------------|-------------|
+| RIGHT_ANCHOR | `players/now/{id}.jpg` auto-used | designated `player_photos` row only; silhouette if missing |
+| HEADSHOT | `players/now/{id}.jpg` auto-used | `headshotUrl` prop must be explicitly passed; null → silhouette |
+
+They are separate concepts: RIGHT_ANCHOR is a career strip visual bookend; HEADSHOT is the
+back-card portrait. Neither is filled by the legacy NOW path any more.
+
+---
+
+### 5. CSS / Rendering Changes to the Player Profile Strip
+
+The career strip now has two distinct slot types with different CSS treatment:
+
+| Class | Width | `object-fit` | Border |
+|-------|-------|-------------|--------|
+| `.career-slot.anchor` | `clamp(72px, 10vw, 110px)` | `cover` (portrait crop) | 2px gold-tinted (`rgba(255,209,102,.35)`) |
+| `.career-slot.timeline` | `clamp(60px, 8vw, 90px)` | `contain` (full image, no crop) | 1px neutral (`var(--line)`) |
+
+- Anchor slots are wider and use `cover` to give a intentional portrait-fill look
+- Last anchor (RIGHT) has its gold border on the left side instead of right
+- Timeline frames are narrower and use `contain` so full image aspect ratios are respected
+- No padded bands from mismatched aspect ratios
+
+---
+
+### 6. DB Migration Changes
+
+**File:** `db/migrations/006_player_photos_image_roles.sql`
+
+Creates `player_photos` if it doesn't exist (idempotent `CREATE TABLE IF NOT EXISTS`), then adds:
+
+| Column | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `image_role` | `TEXT NULL` | — | Display slot: `YATSTATS_FRONT \| LEFT_ANCHOR \| RIGHT_ANCHOR \| HEADSHOT \| TIMELINE` |
+| `image_source` | `TEXT NULL` | — | Supplier: `FAN \| PLAYER \| MLB \| LICENSED \| STAFF \| SCHOOL \| BOOSTER \| IMPORT` |
+| `approval_status` | `TEXT NOT NULL` | `'PENDING'` | Display gate: `PENDING \| APPROVED \| REJECTED` |
+| `show_on_pp_timeline` | `BOOLEAN NOT NULL` | `FALSE` | Opt-in flag for TIMELINE middle frames |
+
+Also adds three CHECK constraints (on `image_role`, `image_source`, `approval_status`) and two partial indexes for the two runtime query patterns.
+
+---
+
+### 7. S3 Collision Behavior
+
+**File:** `scripts/import_hamilton_mvp_images_to_s3.py`
+
+Before: `s3.upload_file()` was called directly — silently overwrote any existing object.
+
+After:
+1. `generate_unique_s3_key()` calls `head_object` to check if the key exists before upload
+2. If the key is free → upload to original key (no change)
+3. If the key exists → append `_01`, `_02`, … `_99` suffix until a free slot is found
+4. Collision is printed as a warning and recorded in the `note` field of the audit CSV
+5. Summary output now includes a `collisions` count when renames occurred
+6. `--overwrite` flag added for explicit canonical-image replacement workflows
+
+---
+
+### 8. Uploads Are Additive by Default
+
+Yes. Additive-by-default is the new default behavior.
+
+- No silent overwrite ever occurs without `--overwrite`
+- Uploading a new image with the same base name generates a new object (`_01`, `_02`, etc.)
+- Changing which image fills a slot (FRONT, HEADSHOT, etc.) is a metadata update to `player_photos.image_role`, not a file rename or silent overwrite
+
+---
+
+### 9. Canonical Role-Prefixed Naming Status
+
+**Partially documented, not yet wired in production path generation.**
+
+| State | Details |
+|-------|---------|
+| **Documented** | Full spec in `src/lib/playerImage.ts` — role-prefixed format, designated vs general, all supported roles |
+| **NOT wired** | No runtime function constructs or resolves `YATSTATS_FRONT_*`, `HEADSHOT_*`, etc. filenames |
+| **Blocked by** | S3 upload pipeline does not yet produce role-prefixed object keys |
+
+When `player_photos` rows with `image_role = 'LEFT_ANCHOR'`, `'RIGHT_ANCHOR'`, `'HEADSHOT'` are populated,
+`getDesignatedPlayerImage()` will return them and the legacy path fallbacks will be bypassed automatically.
+No code change is needed at that point — only data.
+
+---
+
+### 10. Every File Changed
+
+| File | Change |
+|------|--------|
+| `db/migrations/006_player_photos_image_roles.sql` | **NEW** — adds `image_role`, `image_source`, `approval_status`, `show_on_pp_timeline` columns; constraints; indexes |
+| `src/lib/playerImage.ts` | Updated slot table docs; `getPlayerNowImageUrl` docstring now explicitly states it is NOT a designated HEADSHOT; silhouette JSDoc updated to match new role names; canonical naming roles updated to include `LEFT_ANCHOR` and `RIGHT_ANCHOR` |
+| `src/lib/db.ts` | Added `getDesignatedPlayerImage(imageId, role)` function; `getPlayerPhotos` now filters `show_on_pp_timeline=true AND approval_status='APPROVED' AND image_role='TIMELINE'` with graceful two-level degradation |
+| `src/components/yatstats/PlayerCardBack.tsx` | Added `headshotUrl: string | null` prop; removed auto-use of `getPlayerNowImageUrl`; null → silhouette only |
+| `src/components/yatstats/PlayerCard.tsx` | Added `headshotUrl?: string | null` prop (default null); threads through to `PlayerCardBack` |
+| `src/app/[hsid]/player/[playerId]/[slug]/page.tsx` | Imports `getDesignatedPlayerImage`, `getThenSilhouetteUrl`, `getNowSilhouetteUrl`; removed `getPlayerNowImageUrl` import; added designated slot queries for LEFT_ANCHOR + RIGHT_ANCHOR in Promise.all; `FilmSlot` type gains `role` field; RIGHT_ANCHOR uses silhouette (not `playerNowImg`) when not designated; strip CSS updated for `.career-slot.anchor` vs `.career-slot.timeline` |
+| `scripts/import_hamilton_mvp_images_to_s3.py` | Added `s3_key_exists()`, `generate_unique_s3_key()`, `--overwrite` flag; `upload_file_to_s3()` returns `(uri, note)` tuple; collision detection with `_NN` suffix; summary shows collision count |
+| `PLAYER_IMAGE_AUDIT.md` | This file — full Part 10 answers |
+
+---
+
+## Alternate-Image Fallback Rules Removed (cumulative from all commits)
 
 | Location | Removed Rule |
 |----------|-------------|
-| `PlayerCardFront` | `photoFallback` variable — NOW image (`players/now/{imageId}.jpg`) was the fallback when THEN failed. Violated rule: never substitute a different player image. |
-| `PlayerCardFront` | `photoDefaultUrl` prop — school-wide default NOW image was the second CSS `background-image` layer, creating automatic alternate-image substitution. |
-| `PlayerCardFront` | `data-fallback` HTML attribute — populated with the NOW image URL, driving the JS fallback chain in `YatInteractivity` to show a different (current-era) player image when the HS-era image was missing. |
-| `PlayerCardFront` | Wrong `.jpg` extension for THEN image — S3 stores THEN images as `.png`; the `.jpg` request caused a guaranteed 404 which triggered the NOW image fallback chain above. |
-| `PlayerCard` | `photoDefaultUrl` prop removed from interface — no longer accepted or forwarded. |
-| `src/app/[hsid]/page.tsx` | `photoDefaultUrl` variable and prop — was computed and passed into every `PlayerCard`; obsolete after above removal. |
-| `YatInteractivity.tsx` | `data-fallback` JS branch — the `if(fallback){...}` block that loaded a secondary image (`img2`) from an alternate player URL before reaching the silhouette placeholder. Handler now skips directly to `data-placeholder` on failure. |
-
----
-
-## 3. Every Place Generic `id` Wording Was Replaced With `imageId` / `image_id`
-
-| Location | Before | After |
-|----------|--------|-------|
-| `playerImage.ts` — `getPlayerThenImageUrl` param | `playerId: string` | `imageId: string` |
-| `playerImage.ts` — `getPlayerNowImageUrl` param | `playerId: string` | `imageId: string` |
-| `playerImage.ts` — header comments | `{id}` in S3 path descriptions | `{imageId}` |
-| `PlayerCardFront.tsx` | `const pid = String(p.playerid \|\| "")` | `const imageId = String(p.playerid \|\| "")` |
-| `PlayerCardBack.tsx` | `const pid = String(p.playerid \|\| "")` | `const imageId = String(p.playerid \|\| "")` |
-| `PlayerCardBack.tsx` href | `player/${pid}/` | `player/${imageId}/` |
-| `page.tsx` comment | `players/then/{playerId}.png` | `players/then/{imageId}.png` |
-| `page.tsx` comment | `NOW image = .jpg, THEN image = .png` | `HEADSHOT role (NOW) = .jpg, YATSTATS role (THEN) = .png` |
-
----
-
-## 4. Canonical Naming Convention — What Is and Is Not Wired Now
-
-### Spec (documented in `src/lib/playerImage.ts`)
-
-**Canonical designated images** (role-prefixed):  
-`{role}_{hsid}_{imageId}[_{source}][_{level}][_{year}][_{month}][_{day}][_{seq}]`
-
-Supported roles:
-- `YATSTATS` — canonical front flip-card image (HS/THEN era)
-- `HEADSHOT` — canonical back-card image (NOW/current era)
-
-**General non-designated images** (no role prefix):  
-`{hsid}_{imageId}[_{source}][_{level}][_{year}][_{month}][_{day}][_{seq}]`
-
-### What is wired now (active in production)
-
-| Function | S3 path |
-|----------|---------|
-| `getPlayerThenImageUrl(imageId)` | `players/then/{imageId}.png` |
-| `getPlayerNowImageUrl(imageId)` | `players/now/{imageId}.jpg` |
-
-### What is deferred (not yet wired)
-
-The role-prefixed canonical filenames (`YATSTATS_5006_213884_PLAYER_HS_2017_month_day`,
-`HEADSHOT_5006_213884_MLB_MLB_2024_month_day`, etc.) are the **target** naming format.
-
-They are **not wired** in any current path-generation function because:
-- S3 currently stores images under `players/then/` and `players/now/` with bare numeric IDs.
-- The upstream upload pipeline does not yet produce canonical-named objects.
-
-Stub functions `getYatStatsImageUrl` and `getHeadshotImageUrl` are sketched in comments inside
-`playerImage.ts`. They will replace the legacy functions once the data source is updated.
-No behavior change is produced by this PR regarding canonical naming.
-
----
-
-## 5. Anything Still Deferred Because Upstream Data Is Not Yet Available
-
-| Item | Status |
-|------|--------|
-| Role-prefixed S3 image filenames (`YATSTATS_*`, `HEADSHOT_*`) | **Deferred** — S3 upload pipeline does not yet produce these keys. Path generation in `getPlayerThenImageUrl` / `getPlayerNowImageUrl` remains on legacy `players/then/` and `players/now/` paths. |
-| `source`, `level`, `year`, `month`, `day`, `seq` components of canonical name | **Deferred** — documented in spec but not constructible without a data source that exposes these per image. |
-| `getYatStatsImageUrl` / `getHeadshotImageUrl` functions | **Stubbed in comments only** inside `playerImage.ts`; not exported or called anywhere. |
-
----
-
-## Behavior After This PR
-
-| Scenario | Before | After |
-|----------|--------|-------|
-| THEN image missing (front card) | Shows NOW image (wrong era, alternate substitution) | Shows THEN silhouette only |
-| THEN image requested with wrong extension `.jpg` | Guaranteed 404 → triggered NOW image fallback | `.png` now requested — loads correctly; if missing → silhouette |
-| NOW image missing (back card) | Shows silhouette ✓ | Shows silhouette ✓ (unchanged) |
-| Career strip image missing | Shows silhouette ✓ | Shows silhouette ✓ (unchanged) |
-| Unknown school request | Redirects to yatstats.com ✓ | Redirects to yatstats.com ✓ (unchanged) |
+| `PlayerCardFront` | `photoFallback` variable — NOW image was used when THEN failed |
+| `PlayerCardFront` | `photoDefaultUrl` prop — school-wide default was CSS background layer |
+| `PlayerCardFront` | `data-fallback` attribute — drove JS to load alternate player image |
+| `PlayerCardFront` | `.jpg` extension for THEN — caused guaranteed 404 |
+| `PlayerCardBack` | Auto-use of `getPlayerNowImageUrl` as headshot — legacy path, not designated |
+| `PlayerCard` | `photoDefaultUrl` prop forwarding |
+| `[hsid]/page.tsx` | `photoDefaultUrl` variable and prop |
+| `YatInteractivity` | `data-fallback` JS branch — loaded alternate player image on primary fail |
+| Career strip | `playerNowImg` as RIGHT_ANCHOR — replaced by designated lookup + silhouette fallback |

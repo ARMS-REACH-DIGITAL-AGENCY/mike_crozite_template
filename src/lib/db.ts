@@ -701,29 +701,110 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
 
 // ---------------------------------------------------------------------------
 // PLAYER PHOTOS — uploaded career-progression photos for the filmstrip.
-// Rows are sorted by date_taken ASC (preferred) then season_year ASC.
-// Degrades gracefully (returns []) if the table doesn't exist yet.
 //
-// Expected columns (all optional except player_id + image_url):
-//   player_id    TEXT / INT  — matches player id
-//   image_url    TEXT        — full URL or S3 key for the photo
-//   team_name    TEXT        — label line 1 (team / school name)
-//   season_year  TEXT / INT  — label line 2 (year)
-//   date_taken   DATE        — primary sort key
-//   level        TEXT        — optional level tag (HS, College, AA, etc.)
-//   caption      TEXT        — optional caption override
+// Table columns (after migration 006):
+//   player_id         TEXT / INT  — matches player imageId
+//   image_url         TEXT        — full URL or S3 key for the photo
+//   image_role        TEXT NULL   — display slot: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR
+//                                   | HEADSHOT | TIMELINE
+//   image_source      TEXT NULL   — supplier: FAN | PLAYER | MLB | LICENSED | STAFF
+//                                   | SCHOOL | BOOSTER | IMPORT
+//   approval_status   TEXT        — PENDING (default) | APPROVED | REJECTED
+//   show_on_pp_timeline BOOLEAN   — true = include as a TIMELINE middle frame
+//   team_name         TEXT        — label line 1
+//   season_year       TEXT / INT  — label line 2
+//   date_taken        DATE        — primary sort key
+//   level             TEXT        — optional level tag (HS, College, AA, etc.)
+//   caption           TEXT        — optional caption override
+//
+// RUNTIME RULES (mirror of src/lib/playerImage.ts slot table):
+//   Designated slot images:  queried by image_role + approval_status='APPROVED'
+//   Timeline middle frames:  queried by show_on_pp_timeline=true + approval_status='APPROVED'
+//   image_role='TIMELINE' images are ONLY eligible as middle frames, never as anchors.
+//
+// All functions degrade gracefully (empty / null) if the table / columns don't exist.
 // ---------------------------------------------------------------------------
-export async function getPlayerPhotos(playerId: string): Promise<any[]> {
+
+/**
+ * Returns the single designated player_photos row for a given role (APPROVED only).
+ *
+ * Supported roles: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR | HEADSHOT
+ *
+ * Returns null if:
+ *   - no row exists for the given player + role
+ *   - the table / new columns are not yet present (graceful degradation)
+ */
+export async function getDesignatedPlayerImage(
+  imageId: string,
+  role: string
+): Promise<any | null> {
   try {
     const { rows } = await query(
-      `SELECT * FROM player_photos WHERE player_id::text = $1
-       ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
-      [playerId]
+      `SELECT *
+         FROM player_photos
+        WHERE player_id::text = $1
+          AND image_role = $2
+          AND approval_status = 'APPROVED'
+        ORDER BY date_taken DESC NULLS LAST, id DESC
+        LIMIT 1`,
+      [imageId, role]
+    );
+    return rows[0] || null;
+  } catch {
+    // Table or columns don't exist yet — degrade gracefully
+    return null;
+  }
+}
+
+/**
+ * Returns TIMELINE middle-frame photos for the career strip.
+ *
+ * Only rows where:
+ *   show_on_pp_timeline = true
+ *   approval_status = 'APPROVED'
+ *   image_role = 'TIMELINE' (or NULL for legacy rows pre-migration)
+ *
+ * NOTE on legacy rows (rows that existed before migration 006):
+ *   After migration 006 runs, existing rows get approval_status='PENDING' (default) and
+ *   show_on_pp_timeline=FALSE (default). Those rows will NOT appear in the timeline.
+ *   To include a legacy row, an admin must explicitly set:
+ *     approval_status='APPROVED' AND show_on_pp_timeline=TRUE AND image_role='TIMELINE'.
+ *   This is intentional — images must be explicitly approved to appear.
+ *
+ * The outer try/catch handles the case where migration 006 has NOT yet run
+ * (columns don't exist). In that case, the inner fallback query returns all rows
+ * for the player as a graceful degradation until the migration is applied.
+ *
+ * Sorted by date_taken ASC then season_year ASC.
+ */
+export async function getPlayerPhotos(imageId: string): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT *
+         FROM player_photos
+        WHERE player_id::text = $1
+          AND (
+            -- Post-migration: explicit timeline role + approved + timeline flag
+            (show_on_pp_timeline = TRUE AND approval_status = 'APPROVED')
+            -- Pre-migration legacy rows: no columns yet → show all (column missing handled by catch)
+          )
+          AND (image_role IS NULL OR image_role = 'TIMELINE')
+        ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+      [imageId]
     );
     return rows;
   } catch {
-    // Table doesn't exist yet — return empty array gracefully
-    return [];
+    // Table or new columns don't exist yet — try simpler fallback query
+    try {
+      const { rows } = await query(
+        `SELECT * FROM player_photos WHERE player_id::text = $1
+         ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+        [imageId]
+      );
+      return rows;
+    } catch {
+      return [];
+    }
   }
 }
 

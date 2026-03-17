@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Optional
 
 import boto3
+import botocore.exceptions
 import pandas as pd
 from PIL import Image, UnidentifiedImageError
 
@@ -98,6 +99,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--repo-dir", default="", help="Optional existing local repo directory instead of cloning")
     p.add_argument("--dry-run", action="store_true", help="Do everything except the S3 upload")
     p.add_argument("--limit", type=int, default=0, help="Process only first N rows (0 = all)")
+    p.add_argument(
+        "--overwrite",
+        action="store_true",
+        help=(
+            "Allow overwriting existing S3 objects. "
+            "DEFAULT IS OFF — by default uploads are additive and collisions get a unique suffix. "
+            "Only use this flag for explicit canonical-image replacement workflows."
+        ),
+    )
     return p.parse_args()
 
 
@@ -250,16 +260,87 @@ def convert_image(src: Path, kind: str, out_dir: Path, basename_no_ext: str) -> 
         raise ValueError(f"unsupported image format: {src.name}") from e
 
 
-def upload_file_to_s3(local_file: Path, bucket: str, key: str, region: str) -> str:
+def s3_key_exists(s3_client, bucket: str, key: str) -> bool:
+    """Return True if an object already exists at the given S3 key."""
+    try:
+        s3_client.head_object(Bucket=bucket, Key=key)
+        return True
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            return False
+        # Re-raise for permission errors, network issues, etc. — don't silently swallow them
+        raise
+
+
+def generate_unique_s3_key(s3_client, bucket: str, base_key: str) -> tuple[str, bool]:
+    """
+    Return (key, was_unique). If base_key does not exist, return it unchanged.
+    Otherwise try base_key_01, base_key_02 ... base_key_99 until a free slot is found.
+    This ensures uploads are ADDITIVE by default — no silent overwrite.
+    """
+    if not s3_key_exists(s3_client, bucket, base_key):
+        return base_key, True
+
+    stem = Path(base_key).stem
+    ext = Path(base_key).suffix
+    parent = str(Path(base_key).parent)
+    if parent == ".":
+        parent = ""
+    else:
+        parent = parent + "/"
+
+    for seq in range(1, 100):
+        candidate = f"{parent}{stem}_{seq:02d}{ext}"
+        if not s3_key_exists(s3_client, bucket, candidate):
+            return candidate, False
+
+    raise RuntimeError(
+        f"Could not find a free S3 key after 99 attempts (base: {base_key}). "
+        "Manual cleanup required."
+    )
+
+
+def upload_file_to_s3(
+    local_file: Path,
+    bucket: str,
+    key: str,
+    region: str,
+    *,
+    allow_overwrite: bool = False,
+) -> tuple[str, str]:
+    """
+    Upload local_file to S3 and return (final_s3_uri, note).
+
+    Default behaviour (allow_overwrite=False):
+      - If the key already exists, a unique suffix (_01, _02, …) is appended.
+      - No silent overwrite of an existing object ever occurs.
+      - Collision is logged explicitly in the returned note.
+
+    With allow_overwrite=True:
+      - Uploads directly to the requested key, overwriting any existing object.
+      - Use only for explicit canonical-image replacement workflows.
+    """
     s3 = boto3.client("s3", region_name=region)
-    extra = {}
+    extra: dict = {}
     ext = local_file.suffix.lower()
     if ext == ".png":
         extra["ContentType"] = "image/png"
     elif ext in {".jpg", ".jpeg"}:
         extra["ContentType"] = "image/jpeg"
-    s3.upload_file(str(local_file), bucket, key, ExtraArgs=extra)
-    return f"s3://{bucket}/{key}"
+
+    if allow_overwrite:
+        final_key = key
+        note = "ok (explicit overwrite)"
+    else:
+        final_key, was_unique = generate_unique_s3_key(s3, bucket, key)
+        if was_unique:
+            note = "ok"
+        else:
+            note = f"COLLISION — key renamed from {key} to {final_key} to prevent overwrite"
+            print(f"  COLLISION WARNING: {key} already exists → uploading as {final_key}")
+
+    s3.upload_file(str(local_file), bucket, final_key, ExtraArgs=extra)
+    return f"s3://{bucket}/{final_key}", note
 
 
 def main() -> int:
@@ -343,9 +424,11 @@ def main() -> int:
         status = "READY"
         if not args.dry_run:
             try:
-                upload_file_to_s3(converted, args.bucket, s3_key, args.region)
+                _final_uri, note = upload_file_to_s3(
+                    converted, args.bucket, s3_key, args.region,
+                    allow_overwrite=args.overwrite,
+                )
                 status = "UPLOADED"
-                note = "ok"
             except Exception as e:
                 status = "ERROR"
                 note = f"upload failed: {type(e).__name__}: {e}"
@@ -386,17 +469,20 @@ def main() -> int:
             ])
 
     uploaded = sum(1 for r in results if r.status == "UPLOADED")
+    collisions = sum(1 for r in results if r.status == "UPLOADED" and "COLLISION" in r.note)
     ready = sum(1 for r in results if r.status == "READY")
     skipped = sum(1 for r in results if r.status == "SKIPPED")
     unmatched = sum(1 for r in results if r.status == "UNMATCHED")
     errors = sum(1 for r in results if r.status == "ERROR")
 
     print("\nSUMMARY")
-    print(f"  uploaded : {uploaded}")
-    print(f"  ready    : {ready}")
-    print(f"  skipped  : {skipped}")
-    print(f"  unmatched: {unmatched}")
-    print(f"  errors   : {errors}")
+    print(f"  uploaded   : {uploaded}")
+    if collisions:
+        print(f"  collisions : {collisions}  ← renamed with _NN suffix to prevent overwrite")
+    print(f"  ready      : {ready}")
+    print(f"  skipped    : {skipped}")
+    print(f"  unmatched  : {unmatched}")
+    print(f"  errors     : {errors}")
     print(f"  report   : {report_path}")
 
     if tmp_root_obj is not None:

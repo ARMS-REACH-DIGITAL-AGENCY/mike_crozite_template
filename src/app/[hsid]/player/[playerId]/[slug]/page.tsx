@@ -12,7 +12,8 @@ import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
 import {
   getPlayerThenImageUrl,
-  getPlayerNowImageUrl,
+  getThenSilhouetteUrl,
+  getNowSilhouetteUrl,
   PLAYER_SILHOUETTE_URL,
 } from "@/lib/playerImage";
 import {
@@ -29,6 +30,7 @@ import {
   getPlayerPitchingGameLog,
   getTeamContext,
   getPlayerPhotos,
+  getDesignatedPlayerImage,
   getResolvedCurrentTeam,
 } from "@/lib/db";
 import { formatSchoolName } from "@/lib/playerUtils";
@@ -202,6 +204,8 @@ export default async function PlayerProfilePage({
     careerPitching,
     playerPhotos,
     resolvedCurrentTeam,
+    designatedLeftAnchor,
+    designatedRightAnchor,
   ] =
     (await Promise.all([
       getPlayerBattingStats(safePlayerId),
@@ -210,7 +214,10 @@ export default async function PlayerProfilePage({
       getPlayerCareerPitching(safePlayerId),
       getPlayerPhotos(safePlayerId),
       getResolvedCurrentTeam(safePlayerId),
-    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null];
+      // Designated slot lookups — null means silhouette (except LEFT_ANCHOR which falls back to legacy)
+      getDesignatedPlayerImage(safePlayerId, 'LEFT_ANCHOR'),
+      getDesignatedPlayerImage(safePlayerId, 'RIGHT_ANCHOR'),
+    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null, any | null, any | null];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -245,8 +252,8 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // HEADSHOT role (NOW) = .jpg, YATSTATS role (THEN) = .png — via shared playerImage utility
-  const playerNowImg = getPlayerNowImageUrl(safePlayerId);
+  // Legacy THEN path: players/then/{imageId}.png — used as LEFT_ANCHOR fallback if no designated row exists.
+  // players/now/{imageId}.jpg is a general/timeline path — NOT used as anchor or headshot.
   const playerThenImg = getPlayerThenImageUrl(safePlayerId);
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
@@ -455,36 +462,55 @@ export default async function PlayerProfilePage({
   // Caption shown under THEN image (kept for potential future use)
   const thenCaption = gradClass !== "--" ? `CLASS OF ${gradClass}` : (latestYear > 0 ? String(latestYear) : "THEN");
 
-  // Build data-driven career filmstrip with explicit bookends.
-  // Structure: [ HS bookend ] + [ player_photos in date order ] + [ current team bookend ]
-  // The middle frames come ONLY from the player_photos table.
-  // If no photos exist, render just the two bookends.
-  // Generic silhouette for career strip frames — only allowed fallback for missing images
+  // ─── CAREER FILMSTRIP ──────────────────────────────────────────────────────
+  // Structure: [ LEFT_ANCHOR ] + [ TIMELINE middle frames ] + [ RIGHT_ANCHOR ]
+  //
+  // Slot assignment rules:
+  //   LEFT_ANCHOR:  designated player_photos row (image_role='LEFT_ANCHOR') if present;
+  //                 otherwise falls back to legacy players/then/{imageId}.png.
+  //   RIGHT_ANCHOR: designated player_photos row (image_role='RIGHT_ANCHOR') if present;
+  //                 otherwise silhouette ONLY — legacy players/now/{id}.jpg is NOT used.
+  //   TIMELINE:     only rows from player_photos with show_on_pp_timeline=true AND
+  //                 approval_status='APPROVED' AND image_role='TIMELINE'.
+  //
+  // The ONLY allowed fallback for a missing anchor image is the silhouette.
+  // ─────────────────────────────────────────────────────────────────────────
+
   const SILHOUETTE_URL = PLAYER_SILHOUETTE_URL;
 
-  type FilmSlot = {img: string; label: string; sub: string};
+  type FilmSlot = {img: string; label: string; sub: string; role: 'anchor' | 'timeline'};
 
-  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{imageId}.png
+  // LEFT_ANCHOR: prefer designated; fall back to legacy then-path; final fallback = silhouette (SafeImage handles it)
+  const leftAnchorImg = designatedLeftAnchor?.image_url || playerThenImg;
+  const leftAnchorLabel = designatedLeftAnchor?.team_name || schoolName;
+  const leftAnchorSub = designatedLeftAnchor?.season_year ? String(designatedLeftAnchor.season_year) : location;
+
   const hsBookend: FilmSlot = {
-    img: playerThenImg,
-    label: schoolName,
-    sub: location,
+    img: leftAnchorImg,
+    label: leftAnchorLabel,
+    sub: leftAnchorSub,
+    role: 'anchor',
   };
 
-  // RIGHT BOOKEND — current (most recent) team
+  // RIGHT_ANCHOR: must be explicitly designated — silhouette if no designated row exists.
+  // Do NOT use players/now/{id}.jpg here — that is a legacy general path, not a designated HEADSHOT/anchor.
+  const rightAnchorImg = designatedRightAnchor?.image_url || null;
+  const rightAnchorSilhouette = getNowSilhouetteUrl(isPitcher);
   const currentTeamLabel = ctxTeam || displayName;
   const currentTeamSub = ctxLevel || (latestYear > 0 ? String(latestYear) : '');
   const currentTeamBookend: FilmSlot = {
-    img: playerNowImg,
-    label: currentTeamLabel,
-    sub: currentTeamSub,
+    img: rightAnchorImg || rightAnchorSilhouette,
+    label: designatedRightAnchor?.team_name || currentTeamLabel,
+    sub: designatedRightAnchor?.season_year ? String(designatedRightAnchor.season_year) : currentTeamSub,
+    role: 'anchor',
   };
 
-  // MIDDLE — only from player_photos (chronological by date_taken / season_year)
+  // TIMELINE middle frames — only APPROVED + show_on_pp_timeline rows from player_photos
   const middleSlots: FilmSlot[] = playerPhotos.map((p: any) => ({
     img: p.image_url || SILHOUETTE_URL,
     label: p.caption || p.team_name || '',
     sub: p.season_year ? String(p.season_year) : '',
+    role: 'timeline' as const,
   }));
 
   const careerSlots: FilmSlot[] = [hsBookend, ...middleSlots, currentTeamBookend];
@@ -532,8 +558,15 @@ export default async function PlayerProfilePage({
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
         .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden}
-        .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
+        /* All slots share base layout */
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;direction:ltr;height:100%;max-height:100%;overflow:hidden;position:relative}
+        /* ANCHOR slots (LEFT_ANCHOR / RIGHT_ANCHOR): fixed portrait width, cover crop, gold-tinted border */
+        .career-slot.anchor{width:clamp(72px,10vw,110px);border-right:2px solid rgba(255,209,102,.35)}
+        .career-slot.anchor:last-child{border-right:none;border-left:2px solid rgba(255,209,102,.35)}
+        .career-slot.anchor .career-slot-img{object-fit:cover;object-position:top center;width:100%;height:100%}
+        /* TIMELINE slots (middle frames): narrower, contain crop, neutral divider */
+        .career-slot.timeline{width:clamp(60px,8vw,90px);border-right:1px solid var(--line)}
+        .career-slot.timeline .career-slot-img{object-fit:contain;object-position:top center;width:100%;flex:1;min-height:0;height:0;display:block}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
@@ -747,11 +780,11 @@ export default async function PlayerProfilePage({
         .yat-hero-right{display:none!important}
       `}</style>
 
-      {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
+      {/* CAREER FILMSTRIP — LEFT_ANCHOR → TIMELINE frames → RIGHT_ANCHOR */}
       <section className="career-strip" id="playerHeroMeta">
         <div className="career-strip-inner">
-          {careerSlots.map((slot) => (
-            <div key={slot.img} className="career-slot">
+          {careerSlots.map((slot, idx) => (
+            <div key={`${slot.role}-${idx}-${slot.img}`} className={`career-slot ${slot.role}`}>
               <SafeImage
                 className="career-slot-img"
                 src={slot.img}

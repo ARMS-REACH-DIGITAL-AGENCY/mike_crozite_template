@@ -9,11 +9,17 @@ import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
 interface PlayerCardProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
+  /**
+   * Explicitly designated HEADSHOT image URL (player_photos WHERE image_role='HEADSHOT').
+   * Pass null when no designated HEADSHOT has been looked up — back card will show silhouette.
+   * Do NOT pass the legacy players/now/{id}.jpg path here.
+   */
+  headshotUrl?: string | null;
   /** When true, applies all-time display differences (CAREER STATS label, etc.) */
   isAllTime?: boolean;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, headshotUrl = null, isAllTime }: PlayerCardProps) {
   const lvl = levelLabel(String(p.level || ""));
   const gc = gradClass(p);
   const dots = varsityDots(p);
@@ -35,7 +41,7 @@ export default function PlayerCard({ player: p, resolvedHsid, isAllTime }: Playe
       <div className="yat-card-inner">
         <div className="yat-flip">
           <PlayerCardFront player={playerWithSlug} isAllTime={isAllTime} />
-          <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} isAllTime={isAllTime} />
+          <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} headshotUrl={headshotUrl} isAllTime={isAllTime} />
         </div>
       </div>
     </article>
