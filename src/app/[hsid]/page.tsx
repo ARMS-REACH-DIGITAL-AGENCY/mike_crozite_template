@@ -84,8 +84,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const location = (String(school.hslocation || "")).toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
-  const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
-  const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
   const navItems: NavItem[] = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -163,7 +161,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 key={String(p.playerid)}
                 player={p}
                 resolvedHsid={resolvedHsid}
-                photoDefaultUrl={photoDefaultUrl}
               />
             ))}
           </div>
@@ -183,7 +180,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 key={String(p.playerid)}
                 player={p}
                 resolvedHsid={resolvedHsid}
-                photoDefaultUrl={photoDefaultUrl}
                 isAllTime
               />
             ))}

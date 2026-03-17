@@ -4,6 +4,7 @@
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
 import { fmt, parseDraft } from "@/lib/playerUtils";
+import { getPlayerNowImageUrl, getNowSilhouetteUrl } from "@/lib/playerImage";
 
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
@@ -17,8 +18,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const draft = parseDraft(p.draft_info as string | null);
   const pid = String(p.playerid || "");
   const slug = String(p.slug || "");
-  const photoSrc = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-  const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
+  const photoSrc = getPlayerNowImageUrl(pid);
+  const nowSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
   const statBarLabel = isAllTime

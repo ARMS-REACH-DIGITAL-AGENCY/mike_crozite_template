@@ -31,21 +31,14 @@ window.__firebase_config = ${firebaseConfigJSON};
     };
     favImg.src=favLink.href;
   }
-  /* Background image fallback for player cards */
+  /* Background image fallback for player cards — silhouette is the only allowed fallback */
   document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
     var src=el.getAttribute('data-src');
-    var fallback=el.getAttribute('data-fallback');
     var placeholder=el.getAttribute('data-placeholder');
     var img=new Image();
     img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
     img.onerror=function(){
-      if(fallback){
-        var fallbackBg="url('"+fallback+"')";
-        var img2=new Image();
-        img2.onload=function(){el.style.backgroundImage=fallbackBg;};
-        img2.onerror=function(){if(placeholder)el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';};
-        img2.src=fallback;
-      } else if(placeholder){
+      if(placeholder){
         el.style.backgroundImage="url('"+placeholder+"')";
         el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
       }

@@ -11,6 +11,11 @@ import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
 import {
+  getPlayerThenImageUrl,
+  getPlayerNowImageUrl,
+  PLAYER_SILHOUETTE_URL,
+} from "@/lib/playerImage";
+import {
   getSchoolByHsid,
   getSchoolByUrl,
   getPlayerById,
@@ -240,9 +245,9 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // NOW image = .jpg, THEN image = .png
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
+  // NOW image = .jpg, THEN image = .png — managed via shared playerImage utility
+  const playerNowImg = getPlayerNowImageUrl(safePlayerId);
+  const playerThenImg = getPlayerThenImageUrl(safePlayerId);
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
@@ -454,7 +459,8 @@ export default async function PlayerProfilePage({
   // Structure: [ HS bookend ] + [ player_photos in date order ] + [ current team bookend ]
   // The middle frames come ONLY from the player_photos table.
   // If no photos exist, render just the two bookends.
-  const SILHOUETTE_URL = '/img/player-silhouette.png';
+  // Generic silhouette for career strip frames — only allowed fallback for missing images
+  const SILHOUETTE_URL = PLAYER_SILHOUETTE_URL;
 
   type FilmSlot = {img: string; label: string; sub: string};
 
