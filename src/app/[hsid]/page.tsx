@@ -10,6 +10,7 @@ import {
   getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getSchoolByUrl,
+  getBatchDesignatedPlayerImages,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
@@ -80,12 +81,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
+  // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players (one query each).
+  // Players without a designated row fall back to legacy players/then/{imageId}.jpg in PlayerCardFront.
+  // Deduplicate IDs in case a player appears in both active and all-time rosters.
+  const allRosterIds = Array.from(new Set([
+    ...(activeRoster as Record<string, unknown>[]),
+    ...(allTimeRoster as Record<string, unknown>[]),
+  ].map((p) => String(p.playerid))));
+  const [frontImageMap, headshotMap] = await Promise.all([
+    getBatchDesignatedPlayerImages(allRosterIds, 'YATSTATS_FRONT'),
+    getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT'),
+  ]);
+
   const schoolName = formatSchoolName(String(school.hsname || ""));
   const location = (String(school.hslocation || "")).toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
-  const canonicalBase = getCanonicalBaseUrl(school, resolvedHsid);
-  const photoDefaultUrl = `${canonicalBase}/assets/img/now_players/default.jpg`;
 
   const navItems: NavItem[] = [
     { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
@@ -163,7 +174,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 key={String(p.playerid)}
                 player={p}
                 resolvedHsid={resolvedHsid}
-                photoDefaultUrl={photoDefaultUrl}
+                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
               />
             ))}
           </div>
@@ -183,7 +195,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 key={String(p.playerid)}
                 player={p}
                 resolvedHsid={resolvedHsid}
-                photoDefaultUrl={photoDefaultUrl}
+                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
                 isAllTime
               />
             ))}

@@ -9,12 +9,23 @@ import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
 interface PlayerCardProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
-  photoDefaultUrl: string;
+  /**
+   * Explicitly designated YATSTATS_FRONT image URL (player_photos WHERE image_role='YATSTATS_FRONT').
+   * Pass null when no designated row exists — front card falls back to legacy players/then/{imageId}.jpg,
+   * then silhouette.
+   */
+  frontImageUrl?: string | null;
+  /**
+   * Explicitly designated HEADSHOT image URL (player_photos WHERE image_role='HEADSHOT').
+   * Pass null when no designated HEADSHOT has been looked up — back card will show silhouette.
+   * Do NOT pass the legacy players/now/{id}.jpg path here.
+   */
+  headshotUrl?: string | null;
   /** When true, applies all-time display differences (CAREER STATS label, etc.) */
   isAllTime?: boolean;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, photoDefaultUrl, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
   const lvl = levelLabel(String(p.level || ""));
   const gc = gradClass(p);
   const dots = varsityDots(p);
@@ -35,8 +46,8 @@ export default function PlayerCard({ player: p, resolvedHsid, photoDefaultUrl, i
     >
       <div className="yat-card-inner">
         <div className="yat-flip">
-          <PlayerCardFront player={playerWithSlug} photoDefaultUrl={photoDefaultUrl} isAllTime={isAllTime} />
-          <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} isAllTime={isAllTime} />
+          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} />
+          <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} headshotUrl={headshotUrl} isAllTime={isAllTime} />
         </div>
       </div>
     </article>

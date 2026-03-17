@@ -1,24 +1,37 @@
 // src/components/yatstats/PlayerCardBack.tsx
-// Back face of the flip card: NOW/current image, name, position, draft info, stats grid, fun zone
+// Back face of the flip card: HEADSHOT image, name, position, draft info, stats grid, fun zone
+//
+// HEADSHOT RULE: the headshotUrl prop must be explicitly designated (from player_photos WHERE
+// image_role='HEADSHOT'). If the caller has no designated HEADSHOT, pass null.
+// This component will then render the appropriate silhouette.
+// Do NOT pass players/now/{id}.jpg as the headshot — that is a legacy general/timeline path.
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
 import { fmt, parseDraft } from "@/lib/playerUtils";
+import { getNowSilhouetteUrl } from "@/lib/playerImage";
 
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
+  /**
+   * Explicitly designated HEADSHOT image URL from player_photos (image_role='HEADSHOT').
+   * Pass null when no designated HEADSHOT exists — the silhouette will be shown.
+   * Do NOT pass the legacy players/now/{id}.jpg path here.
+   */
+  headshotUrl: string | null;
   /** When true, shows "CAREER STATS" label instead of the season year */
   isAllTime?: boolean;
 }
 
-export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: PlayerCardBackProps) {
+export default function PlayerCardBack({ player: p, resolvedHsid, headshotUrl, isAllTime }: PlayerCardBackProps) {
   const isPitcher = p.is_pitcher === true;
   const draft = parseDraft(p.draft_info as string | null);
-  const pid = String(p.playerid || "");
+  const imageId = String(p.playerid || "");
   const slug = String(p.slug || "");
-  const photoSrc = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${pid}.jpg`;
-  const nowSilhouetteUrl = isPitcher ? `/img/now-pitcher-silhouette.png` : `/img/now-batter-silhouette.png`;
+  // photoSrc is the designated headshot URL, or null if no HEADSHOT is designated → silhouette.
+  const photoSrc = headshotUrl;
+  const nowSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
   const statBarLabel = isAllTime
@@ -43,7 +56,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
     <div className="yat-face yat-back">
       <div className="yat-back-content">
         {/* Hero: NOW image + name/position/draft — entire section links to profile */}
-        <a href={`/${resolvedHsid}/player/${pid}/${slug}`} className="yat-back-hero">
+        <a href={`/${resolvedHsid}/player/${imageId}/${slug}`} className="yat-back-hero">
           <div className="yat-back-img-wrap">
             <SafeImage
               src={photoSrc}

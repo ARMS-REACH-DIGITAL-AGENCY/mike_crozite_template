@@ -11,6 +11,12 @@ import { toPlayerSlug } from "@/lib/slug";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
 import {
+  getPlayerThenImageUrl,
+  getThenSilhouetteUrl,
+  getNowSilhouetteUrl,
+  PLAYER_SILHOUETTE_URL,
+} from "@/lib/playerImage";
+import {
   getSchoolByHsid,
   getSchoolByUrl,
   getPlayerById,
@@ -24,6 +30,7 @@ import {
   getPlayerPitchingGameLog,
   getTeamContext,
   getPlayerPhotos,
+  getDesignatedPlayerImage,
   getResolvedCurrentTeam,
 } from "@/lib/db";
 import { formatSchoolName } from "@/lib/playerUtils";
@@ -197,6 +204,9 @@ export default async function PlayerProfilePage({
     careerPitching,
     playerPhotos,
     resolvedCurrentTeam,
+    designatedLeftAnchor,
+    designatedRightAnchor,
+    designatedHeadshot,
   ] =
     (await Promise.all([
       getPlayerBattingStats(safePlayerId),
@@ -205,7 +215,11 @@ export default async function PlayerProfilePage({
       getPlayerCareerPitching(safePlayerId),
       getPlayerPhotos(safePlayerId),
       getResolvedCurrentTeam(safePlayerId),
-    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null];
+      // Designated slot lookups — null means silhouette (except LEFT_ANCHOR which falls back to legacy)
+      getDesignatedPlayerImage(safePlayerId, 'LEFT_ANCHOR'),
+      getDesignatedPlayerImage(safePlayerId, 'RIGHT_ANCHOR'),
+      getDesignatedPlayerImage(safePlayerId, 'HEADSHOT'),
+    ])) as [BattingSeason[], PitchingSeason[], any, any, any[], any | null, any | null, any | null, any | null];
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -240,9 +254,10 @@ export default async function PlayerProfilePage({
   const gradClass = gcMatch ? gcMatch[0] : "--";
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // NOW image = .jpg, THEN image = .png
-  const playerNowImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${safePlayerId}.jpg`;
-  const playerThenImg = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${safePlayerId}.png`;
+  // Legacy THEN path: players/then/{imageId}.jpg — used as LEFT_ANCHOR fallback if no designated row exists.
+  // Extension is .jpg (confirmed from live S3; earlier assumption of .png was incorrect).
+  // players/now/{imageId}.jpg is a general/timeline path — NOT used as anchor or headshot.
+  const playerThenImg = getPlayerThenImageUrl(safePlayerId);
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
@@ -450,35 +465,71 @@ export default async function PlayerProfilePage({
   // Caption shown under THEN image (kept for potential future use)
   const thenCaption = gradClass !== "--" ? `CLASS OF ${gradClass}` : (latestYear > 0 ? String(latestYear) : "THEN");
 
-  // Build data-driven career filmstrip with explicit bookends.
-  // Structure: [ HS bookend ] + [ player_photos in date order ] + [ current team bookend ]
-  // The middle frames come ONLY from the player_photos table.
-  // If no photos exist, render just the two bookends.
-  const SILHOUETTE_URL = '/img/player-silhouette.png';
+  // ─── CAREER FILMSTRIP ──────────────────────────────────────────────────────
+  // Structure: [ LEFT_ANCHOR ] + [ TIMELINE middle frames ] + [ RIGHT_ANCHOR ]
+  //
+  // Slot assignment rules:
+  //   LEFT_ANCHOR:  designated player_photos row (image_role='LEFT_ANCHOR') if present;
+  //                 otherwise falls back to legacy players/then/{imageId}.jpg.
+  //   RIGHT_ANCHOR: designated player_photos row (image_role='RIGHT_ANCHOR') if present;
+  //                 otherwise, the current HEADSHOT image (image_role='HEADSHOT') serves
+  //                 as the default right bookend — same asset, different slot role;
+  //                 finally silhouette if neither exists.
+  //                 players/now/{id}.jpg is NEVER used here.
+  //   TIMELINE:     only rows from player_photos with show_on_pp_timeline=true AND
+  //                 approval_status='APPROVED' AND image_role='TIMELINE'.
+  //
+  // Note: one asset may legitimately serve both HEADSHOT and RIGHT_ANCHOR roles at once.
+  // The asset identity does not change — only the slot assignment context differs.
+  // ─────────────────────────────────────────────────────────────────────────
 
-  type FilmSlot = {img: string; label: string; sub: string};
+  const SILHOUETTE_URL = PLAYER_SILHOUETTE_URL;
 
-  // LEFT BOOKEND — player's "THEN" (HS era) image from S3: players/then/{playerId}.png
+  type FilmSlot = {img: string; altSrc?: string; label: string; sub: string; role: 'anchor' | 'timeline'};
+
+  // LEFT_ANCHOR: prefer designated; fall back to legacy then-path; final fallback = silhouette (SafeImage handles it)
+  const leftAnchorImg = designatedLeftAnchor?.image_url || playerThenImg;
+  const leftAnchorLabel = designatedLeftAnchor?.team_name || schoolName;
+  const leftAnchorSub = designatedLeftAnchor?.season_year ? String(designatedLeftAnchor.season_year) : location;
+  // When using the legacy THEN path, provide the alternate extension as fallback so mixed-extension
+  // legacy S3 objects (some .jpg, some .png) resolve without going straight to silhouette.
+  // Designated rows have known-correct URLs so they don't need an altSrc.
+  const leftAnchorAlt = !designatedLeftAnchor?.image_url
+    ? (leftAnchorImg.endsWith('.jpg') ? leftAnchorImg.slice(0,-4)+'.png'
+      : leftAnchorImg.endsWith('.png') ? leftAnchorImg.slice(0,-4)+'.jpg'
+      : undefined)
+    : undefined;
+
   const hsBookend: FilmSlot = {
-    img: playerThenImg,
-    label: schoolName,
-    sub: location,
+    img: leftAnchorImg,
+    altSrc: leftAnchorAlt,
+    label: leftAnchorLabel,
+    sub: leftAnchorSub,
+    role: 'anchor',
   };
 
-  // RIGHT BOOKEND — current (most recent) team
+  // RIGHT_ANCHOR: prefer explicit designated RIGHT_ANCHOR row;
+  // fall back to HEADSHOT image (same asset, different role context) if no explicit RIGHT_ANCHOR;
+  // final fallback = silhouette. players/now/{id}.jpg is NEVER used here.
+  const rightAnchorImg = designatedRightAnchor?.image_url || designatedHeadshot?.image_url || null;
+  const rightAnchorSilhouette = getNowSilhouetteUrl(isPitcher);
+  // Use RIGHT_ANCHOR metadata for label/year if present; otherwise HEADSHOT metadata; otherwise defaults
+  const rightAnchorMeta = designatedRightAnchor || designatedHeadshot;
   const currentTeamLabel = ctxTeam || displayName;
   const currentTeamSub = ctxLevel || (latestYear > 0 ? String(latestYear) : '');
   const currentTeamBookend: FilmSlot = {
-    img: playerNowImg,
-    label: currentTeamLabel,
-    sub: currentTeamSub,
+    img: rightAnchorImg || rightAnchorSilhouette,
+    label: rightAnchorMeta?.team_name || currentTeamLabel,
+    sub: rightAnchorMeta?.season_year ? String(rightAnchorMeta.season_year) : currentTeamSub,
+    role: 'anchor',
   };
 
-  // MIDDLE — only from player_photos (chronological by date_taken / season_year)
+  // TIMELINE middle frames — only APPROVED + show_on_pp_timeline rows from player_photos
   const middleSlots: FilmSlot[] = playerPhotos.map((p: any) => ({
     img: p.image_url || SILHOUETTE_URL,
     label: p.caption || p.team_name || '',
     sub: p.season_year ? String(p.season_year) : '',
+    role: 'timeline' as const,
   }));
 
   const careerSlots: FilmSlot[] = [hsBookend, ...middleSlots, currentTeamBookend];
@@ -526,8 +577,15 @@ export default async function PlayerProfilePage({
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
         .career-strip-inner{width:100%;height:100%;padding:0;display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .career-strip-inner::-webkit-scrollbar{display:none}
-        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;width:clamp(80px,12vw,120px);direction:ltr;height:100%;max-height:100%;overflow:hidden}
-        .career-slot-img{width:100%;flex:1;min-height:0;height:0;object-fit:contain;object-position:top center;border-radius:0;border-right:1px solid var(--line);display:block}
+        /* All slots share base layout */
+        .career-slot{display:flex;flex-direction:column;align-items:center;gap:0;flex:0 0 auto;direction:ltr;height:100%;max-height:100%;overflow:hidden;position:relative}
+        /* ANCHOR slots (LEFT_ANCHOR / RIGHT_ANCHOR): fixed portrait width, cover crop, gold-tinted border */
+        .career-slot.anchor{width:clamp(72px,10vw,110px);border-right:2px solid rgba(255,209,102,.35)}
+        .career-slot.anchor:last-child{border-right:none;border-left:2px solid rgba(255,209,102,.35)}
+        .career-slot.anchor .career-slot-img{object-fit:cover;object-position:top center;width:100%;height:100%}
+        /* TIMELINE slots (middle frames): narrower, contain crop, neutral divider */
+        .career-slot.timeline{width:clamp(60px,8vw,90px);border-right:1px solid var(--line)}
+        .career-slot.timeline .career-slot-img{object-fit:contain;object-position:top center;width:100%;flex:1;min-height:0;height:0;display:block}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
         .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
@@ -741,16 +799,16 @@ export default async function PlayerProfilePage({
         .yat-hero-right{display:none!important}
       `}</style>
 
-      {/* CAREER FILMSTRIP — chronological visual montage: THEN (left) → middle photos → NOW (right) */}
+      {/* CAREER FILMSTRIP — LEFT_ANCHOR → TIMELINE frames → RIGHT_ANCHOR */}
       <section className="career-strip" id="playerHeroMeta">
         <div className="career-strip-inner">
-          {careerSlots.map((slot) => (
-            <div key={slot.img} className="career-slot">
+          {careerSlots.map((slot, idx) => (
+            <div key={`${slot.role}-${idx}-${slot.img}`} className={`career-slot ${slot.role}`}>
               <SafeImage
                 className="career-slot-img"
                 src={slot.img}
                 alt={slot.label}
-                fallbackSrc={SILHOUETTE_URL}
+                fallbackSrc={slot.altSrc || SILHOUETTE_URL}
                 placeholderSrc={SILHOUETTE_URL}
               />
             </div>
