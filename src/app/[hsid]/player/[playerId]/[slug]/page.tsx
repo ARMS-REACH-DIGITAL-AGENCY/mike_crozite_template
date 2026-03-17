@@ -485,15 +485,24 @@ export default async function PlayerProfilePage({
 
   const SILHOUETTE_URL = PLAYER_SILHOUETTE_URL;
 
-  type FilmSlot = {img: string; label: string; sub: string; role: 'anchor' | 'timeline'};
+  type FilmSlot = {img: string; altSrc?: string; label: string; sub: string; role: 'anchor' | 'timeline'};
 
   // LEFT_ANCHOR: prefer designated; fall back to legacy then-path; final fallback = silhouette (SafeImage handles it)
   const leftAnchorImg = designatedLeftAnchor?.image_url || playerThenImg;
   const leftAnchorLabel = designatedLeftAnchor?.team_name || schoolName;
   const leftAnchorSub = designatedLeftAnchor?.season_year ? String(designatedLeftAnchor.season_year) : location;
+  // When using the legacy THEN path, provide the alternate extension as fallback so mixed-extension
+  // legacy S3 objects (some .jpg, some .png) resolve without going straight to silhouette.
+  // Designated rows have known-correct URLs so they don't need an altSrc.
+  const leftAnchorAlt = !designatedLeftAnchor?.image_url
+    ? (leftAnchorImg.endsWith('.jpg') ? leftAnchorImg.slice(0,-4)+'.png'
+      : leftAnchorImg.endsWith('.png') ? leftAnchorImg.slice(0,-4)+'.jpg'
+      : undefined)
+    : undefined;
 
   const hsBookend: FilmSlot = {
     img: leftAnchorImg,
+    altSrc: leftAnchorAlt,
     label: leftAnchorLabel,
     sub: leftAnchorSub,
     role: 'anchor',
@@ -799,7 +808,7 @@ export default async function PlayerProfilePage({
                 className="career-slot-img"
                 src={slot.img}
                 alt={slot.label}
-                fallbackSrc={SILHOUETTE_URL}
+                fallbackSrc={slot.altSrc || SILHOUETTE_URL}
                 placeholderSrc={SILHOUETTE_URL}
               />
             </div>
