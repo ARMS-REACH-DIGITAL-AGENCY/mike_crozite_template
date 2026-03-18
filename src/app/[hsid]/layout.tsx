@@ -1,7 +1,8 @@
 // src/app/[hsid]/layout.tsx
-// FIXED VERSION — builds right now (no missing imports)
-// Search icon is in Row 2 right side exactly as you wanted
-// Bottom tabs slot ready for player profile
+// FINAL FIXED VERSION — builds on Next.js 16
+// params is now a Promise (required in your version)
+// Search icon is in Row 2 right side
+// Bottom tabs slot ready
 
 import { ReactNode } from 'react';
 
@@ -10,9 +11,11 @@ export default async function HsidLayout({
   params,
 }: {
   children: ReactNode;
-  params: { hsid: string };
+  params: Promise<{ hsid: string }>;
 }) {
-  // Temporary placeholder for school data (we'll make it real in step 2)
+  const { hsid } = await params;
+
+  // Temporary placeholder school data
   const school = { name: 'Hamilton High School', cityState: 'Chandler, AZ' };
 
   return (
@@ -29,7 +32,7 @@ export default async function HsidLayout({
         </div>
       </header>
 
-      {/* ROW 2 — SCHOOL CONTEXT BAR (sticky) — SEARCH ON RIGHT SIDE */}
+      {/* ROW 2 — SCHOOL CONTEXT BAR (sticky) — SEARCH ON RIGHT */}
       <div className="sticky top-[60px] z-50 bg-black border-b border-white/10 px-4 py-3">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div>
@@ -50,7 +53,7 @@ export default async function HsidLayout({
         {children}
       </main>
 
-      {/* BOTTOM TABS CONTAINER (for player profile only) */}
+      {/* BOTTOM TABS CONTAINER (for player profile) */}
       <div id="bottom-tabs-container" className="fixed bottom-0 left-0 right-0 z-50 hidden bg-black border-t border-white/10" />
 
       {/* FOOTER */}
