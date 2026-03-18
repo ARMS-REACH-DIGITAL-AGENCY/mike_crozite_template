@@ -1,6 +1,6 @@
 // src/app/[hsid]/page.tsx
-// YAT?STATS — Dynamic school microsite
-// Minimal orchestration: fetch school + players, pass props to components.
+// CLEANED VERSION — no duplicated header, drawers, or HeroHeader
+// Only content sections remain. The new shared layout handles everything above.
 
 import type { Metadata } from "next";
 import { permanentRedirect, notFound } from "next/navigation";
@@ -15,13 +15,7 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getFirebaseConfigJSON } from "@/lib/firebase-config";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
-
-import YatStyles from "@/components/yatstats/YatStyles";
-import HeroHeader from "@/components/yatstats/HeroHeader";
-import FiltersDrawer from "@/components/yatstats/FiltersDrawer";
-import AccountDrawer from "@/components/yatstats/AccountDrawer";
-import PlayerCard from "@/components/yatstats/PlayerCard";
+import { gradClass, formatSchoolName } from "@/lib/playerUtils";
 import YatInteractivity from "@/components/yatstats/YatInteractivity";
 
 export const runtime = "nodejs";
@@ -40,6 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const schoolHsid = (school as Record<string, unknown>)?.hsid as string || hsid;
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school as Record<string, unknown> | null, schoolHsid);
+
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -58,6 +53,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
+
   let school: Record<string, unknown> | null = null;
   try {
     school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
@@ -67,7 +63,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   }
   if (!school) notFound();
 
-  // Redirect numeric hsid paths to the school's custom domain (skip on preview deployments)
+  // Redirect numeric hsid paths to custom domain
   const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
@@ -76,90 +72,29 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   }
 
   const resolvedHsid = String(school.hsid ?? hsid);
+
   const [activeRoster, allTimeRoster] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid),
     getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
-  // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players (one query each).
-  // Players without a designated row fall back to legacy players/then/{imageId}.jpg in PlayerCardFront.
-  // Deduplicate IDs in case a player appears in both active and all-time rosters.
   const allRosterIds = Array.from(new Set([
     ...(activeRoster as Record<string, unknown>[]),
     ...(allTimeRoster as Record<string, unknown>[]),
   ].map((p) => String(p.playerid))));
+
   const [frontImageMap, headshotMap] = await Promise.all([
     getBatchDesignatedPlayerImages(allRosterIds, 'YATSTATS_FRONT'),
     getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT'),
   ]);
 
   const schoolName = formatSchoolName(String(school.hsname || ""));
-  const location = (String(school.hslocation || "")).toUpperCase();
-  const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  const defaultSectionLabel = "ACTIVE BASEBALL ALUMNI";
-
-  const navItems: NavItem[] = [
-    { thin: "WHERE THEY", bold: "YAT?", tab: "active" },
-    { thin: "ACTIVE ALUMNI", bold: "NEWS", tab: "news" },
-    { thin: "NEXT-LEVEL", bold: "ALL-TIME LIST", tab: "alltime" },
-    { thin: "THE", bold: "CURRENT TEAM", tab: "team" },
-    { thin: "MENTORSHIP", bold: "MARKETPLACE", tab: "mentor" },
-    { thin: "PCD ACTION", bold: "PARTNER PROGRAM", tab: "partner" },
-    { thin: "", bold: "FAQ'S", tab: "faq" },
-  ];
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = "yatstats.com";
-  const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
-  const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
-
-  const gradClasses = Array.from(new Set(
-    [...(activeRoster as Record<string, unknown>[]), ...(allTimeRoster as Record<string, unknown>[])].map((p) => gradClass(p)).filter(Boolean)
-  )).sort().reverse();
+  const subdomain = host.split(".")[0] || hsid || "unknown";
 
   return (
     <>
-      <YatStyles />
-
-      <HeroHeader
-        schoolName={schoolName}
-        location={location}
-        crestUrl={crestUrl}
-        defaultSectionLabel={defaultSectionLabel}
-        navItems={navItems}
-      />
-
-      {/* DRAWER MASK */}
-      <div className="yat-drawer-mask" id="drawerMask" />
-
-      {/* LEFT DRAWER — Player search + navigation */}
-      <aside className="yat-drawer" id="drawerLeft">
-        <button className="yat-icon-btn yat-close-btn" id="closeLeft">
-          <i className="ri-close-line" />
-        </button>
-        <div className="yat-drawer-content">
-          <h3>PLAYER SEARCH</h3>
-          <div style={{ padding: "0 0 10px" }}>
-            <input id="playerSearch" type="search" placeholder="Type a name…" />
-            <div id="liveResults" />
-          </div>
-          <h3>NAVIGATION</h3>
-          <div className="yat-drawer-nav">
-            {navItems.map((item) => (
-              <a key={item.tab} href={`#sec-${item.tab}`} className="yat-drawer-nav-item" data-tab={item.tab}>
-                {item.thin ? `${item.thin} ` : ""}{item.bold}
-              </a>
-            ))}
-          </div>
-        </div>
-      </aside>
-
-      <FiltersDrawer gradClasses={gradClasses} />
-      <AccountDrawer subdomain={subdomain} />
-
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT — everything else is now in the shared layout */}
       <main id="main-content">
-
         {/* ACTIVE ALUMNI */}
         <section id="sec-active" className="yat-section visible">
           <div className="yat-grid" id="active-grid">
@@ -212,7 +147,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
                 <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
               </div>
             </div>
-            {/* News filter bar — populated/wired by YatInteractivity */}
             <div className="yat-news-filters" id="newsFilters">
               <input id="newsFilterName" className="yat-news-filter-input" type="search" placeholder="Filter by player name…" />
               <span className="yat-news-filter-label">Level:</span>
@@ -223,7 +157,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               <button id="newsFilterReset" className="yat-news-filter-reset" type="button">Reset</button>
             </div>
             <div className="yat-news-grid" id="news-grid">
-              {/* Populated client-side via /api/news/:hsid */}
               <div className="yat-news-loading">
                 <div className="yat-news-loading-spinner" />
                 <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
@@ -243,7 +176,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </section>
 
-        {/* MENTOR */}
+        {/* MENTORSHIP MARKETPLACE */}
         <section id="sec-mentor" className="yat-section">
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">🤝</div>
@@ -254,7 +187,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </section>
 
-        {/* PARTNER */}
+        {/* PCD ACTION PARTNER PROGRAM */}
         <section id="sec-partner" className="yat-section">
           <div className="yat-placeholder">
             <div className="yat-placeholder-icon">🤝</div>
@@ -262,19 +195,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             <div className="yat-placeholder-body">
               Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
               <br /><br />
-              <a
-                href="mailto:sponsor@yatstats.com"
-                style={{
-                  display: "inline-block",
-                  background: "#00e676",
-                  color: "#000",
-                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                  fontSize: "14px",
-                  letterSpacing: ".1em",
-                  padding: "10px 24px",
-                  borderRadius: "4px",
-                }}
-              >
+              <a href="mailto:sponsor@yatstats.com" style={{ display: "inline-block", background: "#00e676", color: "#000", fontFamily: '"Bebas Neue",Oswald,sans-serif', fontSize: "14px", letterSpacing: ".1em", padding: "10px 24px", borderRadius: "4px" }}>
                 Get In Touch
               </a>
             </div>
@@ -291,7 +212,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             </div>
           </div>
         </section>
-
       </main>
 
       {/* SPONSOR FOOTER */}
@@ -302,9 +222,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </a>
       </footer>
 
+      {/* Page-specific interactivity (kept for news/article modal) */}
       <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
 
-      {/* Article detail overlay + modal drawer */}
+      {/* Article detail overlay + modal */}
       <div className="yat-article-overlay" id="articleOverlay" />
       <aside className="yat-article-modal" id="articleModal" role="dialog" aria-modal="true" aria-label="Article detail">
         <div className="yat-article-modal-top">
@@ -313,11 +234,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             <i className="ri-close-line" />
           </button>
         </div>
-        {/* Image populated by JS */}
         <div id="articleModalImg" />
-        <div className="yat-article-modal-body" id="articleModalBody">
-          {/* Populated by JS when a card is clicked */}
-        </div>
+        <div className="yat-article-modal-body" id="articleModalBody" />
       </aside>
     </>
   );
