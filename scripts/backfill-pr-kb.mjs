@@ -4,9 +4,9 @@
  * Backfill GitHub PR history into the YAT?STATS Neon knowledge-base documents table.
  *
  * Usage examples:
- *   node scripts/backfill-pr-kb.mjs --repo yatstats/yatstats --pr 80 --output sql
- *   node scripts/backfill-pr-kb.mjs --repo yatstats/yatstats --prs 80,82,84 --output sql --out-file ./tmp/pr-backfill.sql
- *   node scripts/backfill-pr-kb.mjs --repo yatstats/yatstats --range 80-90 --output db --kb-branch-url "$KB_DATABASE_URL"
+ *   node scripts/backfill-pr-kb.mjs --repo ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template --pr 80 --output sql
+ *   node scripts/backfill-pr-kb.mjs --repo ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template --prs 80,82,84 --output sql --out-file ./tmp/pr-backfill.sql
+ *   node scripts/backfill-pr-kb.mjs --repo ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template --range 80-90 --output db --kb-branch-url "$KB_DATABASE_URL"
  */
 
 import { writeFile } from 'node:fs/promises';
@@ -233,8 +233,25 @@ function buildDocument({ repo, pr, issueComments, reviewComments, commits, files
     },
   };
 
+  // cleaned_text: a lightweight, prose-only excerpt of title + body (no commit log or diff detail)
+  const cleaned_text = [pr.title, pr.body || '']
+    .filter(Boolean)
+    .join('\n\n')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .trim() || null;
+
   return {
     title: `GitHub PR #${pr.number}: ${pr.title}`,
+    // Optional KB schema fields
+    source_type: 'github_pr',
+    source_name: repo,
+    doc_type: 'pull_request',
+    category: 'development',
+    // doc_status maps to the PR state: open | closed | merged
+    doc_status: decisionInfo.status,
+    // doc_date: merge date if merged, otherwise PR creation date
+    doc_date: pr.merged_at || pr.created_at || null,
+    cleaned_text,
     summary,
     action_items: actionItems,
     strategic_notes: strategicNotes,
@@ -243,21 +260,36 @@ function buildDocument({ repo, pr, issueComments, reviewComments, commits, files
   };
 }
 
-function buildInsertSql(table, doc) {
-  return `INSERT INTO ${table} (title, summary, action_items, strategic_notes, raw_text, metadata) VALUES (${sqlString(doc.title)}, ${sqlString(doc.summary)}, ${sqlString(JSON.stringify(doc.action_items))}::jsonb, ${sqlString(doc.strategic_notes)}, ${sqlString(doc.raw_text)}, ${sqlString(JSON.stringify(doc.metadata))}::jsonb);`;
+function buildInsertSql(table, doc, repo) {
+  // Idempotent: skip if a document with the same pr_number + repo already exists.
+  return `INSERT INTO ${table} (title, source_type, source_name, doc_type, category, status, doc_date, cleaned_text, summary, action_items, strategic_notes, raw_text, metadata)
+SELECT ${sqlString(doc.title)}, ${sqlString(doc.source_type)}, ${sqlString(doc.source_name)}, ${sqlString(doc.doc_type)}, ${sqlString(doc.category)}, ${sqlString(doc.doc_status)}, ${sqlString(doc.doc_date)}, ${sqlString(doc.cleaned_text)}, ${sqlString(doc.summary)}, ${sqlString(JSON.stringify(doc.action_items))}::jsonb, ${sqlString(doc.strategic_notes)}, ${sqlString(doc.raw_text)}, ${sqlString(JSON.stringify(doc.metadata))}::jsonb
+WHERE NOT EXISTS (
+  SELECT 1 FROM ${table}
+  WHERE metadata->>'pr_number' = ${sqlString(String(doc.metadata.pr_number))}
+    AND metadata->>'repo' = ${sqlString(repo)}
+);`;
 }
 
+// Assumed document_links schema: id (serial PK), from_document_id (int FK → documents.id),
+// to_document_id (int FK → documents.id), link_type (text), metadata (jsonb).
+// Only supported in --create-links mode. document_chunks are not handled by this script (v1 scope).
 function buildDocumentLinksSql(docsByPr, table = 'document_links') {
   const sql = [];
   for (const [prNumber, doc] of docsByPr.entries()) {
     const related = doc.metadata.related_prs || [];
     for (const other of related) {
       if (!docsByPr.has(other)) continue;
+      // Idempotent: only insert if the link between these two documents does not already exist.
       sql.push(`INSERT INTO ${table} (from_document_id, to_document_id, link_type, metadata)
 SELECT d1.id, d2.id, 'related_pr', ${sqlString(JSON.stringify({ via: `#${other}`, source_pr: prNumber }))}::jsonb
 FROM documents d1, documents d2
 WHERE d1.metadata->>'pr_number' = ${sqlString(String(prNumber))}
-  AND d2.metadata->>'pr_number' = ${sqlString(String(other))};`);
+  AND d2.metadata->>'pr_number' = ${sqlString(String(other))}
+  AND NOT EXISTS (
+    SELECT 1 FROM ${table} lk
+    WHERE lk.from_document_id = d1.id AND lk.to_document_id = d2.id AND lk.link_type = 'related_pr'
+  );`);
     }
   }
   return sql;
@@ -309,7 +341,7 @@ async function main() {
   const docs = [...docsByPr.values()];
 
   if (args.output === 'sql') {
-    const sql = docs.map((d) => buildInsertSql(args.table, d));
+    const sql = docs.map((d) => buildInsertSql(args.table, d, args.repo));
     if (args.createLinks) sql.push(...buildDocumentLinksSql(docsByPr));
     const finalSql = sql.join('\n\n') + '\n';
 
@@ -329,10 +361,33 @@ async function main() {
     await client.connect();
     try {
       for (const d of docs) {
+        // Idempotent: skip if a document with the same pr_number + repo already exists.
+        const existing = await client.query(
+          `SELECT id FROM ${args.table} WHERE metadata->>'pr_number' = $1 AND metadata->>'repo' = $2 LIMIT 1`,
+          [String(d.metadata.pr_number), args.repo]
+        );
+        if (existing.rowCount > 0) {
+          console.log(`Skipping PR #${d.metadata.pr_number} — document already exists (id=${existing.rows[0].id})`);
+          continue;
+        }
         await client.query(
-          `INSERT INTO ${args.table} (title, summary, action_items, strategic_notes, raw_text, metadata)
-           VALUES ($1, $2, $3::jsonb, $4, $5, $6::jsonb)`,
-          [d.title, d.summary, JSON.stringify(d.action_items), d.strategic_notes, d.raw_text, JSON.stringify(d.metadata)]
+          `INSERT INTO ${args.table} (title, source_type, source_name, doc_type, category, status, doc_date, cleaned_text, summary, action_items, strategic_notes, raw_text, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13::jsonb)`,
+          [
+            d.title,
+            d.source_type,
+            d.source_name,
+            d.doc_type,
+            d.category,
+            d.doc_status,
+            d.doc_date,
+            d.cleaned_text,
+            d.summary,
+            JSON.stringify(d.action_items),
+            d.strategic_notes,
+            d.raw_text,
+            JSON.stringify(d.metadata),
+          ]
         );
       }
 
