@@ -1,4 +1,4 @@
-// src/components/yatstats/profile/ProfileTabs.tsx
+// src/components/yatstats/funzone/ProfileTabs.tsx
 // The tab bar for the player profile page.
 // Tab switching is handled client-side by ProfileInteractivity.
 

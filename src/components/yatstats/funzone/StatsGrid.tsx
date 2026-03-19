@@ -1,4 +1,4 @@
-// src/components/yatstats/profile/StatsGrid.tsx
+// src/components/yatstats/funzone/StatsGrid.tsx
 // Renders a titled grid of stat cells (used for current season stats and career totals).
 
 interface StatItem {

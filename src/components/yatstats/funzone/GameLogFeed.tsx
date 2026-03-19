@@ -1,4 +1,4 @@
-// src/components/yatstats/profile/GameLogFeed.tsx
+// src/components/yatstats/funzone/GameLogFeed.tsx
 // Renders the game log feed: chronological schedule with per-game stat lines.
 
 interface GameLogFeedProps {

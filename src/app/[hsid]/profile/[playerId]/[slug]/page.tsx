@@ -38,10 +38,10 @@ import ProfileStyles from "@/components/yatstats/profile/ProfileStyles";
 import ProfileInteractivity from "@/components/yatstats/profile/ProfileInteractivity";
 import CareerFilmstrip, { type FilmSlot } from "@/components/yatstats/profile/CareerFilmstrip";
 import PlayerMetadataBand from "@/components/yatstats/profile/PlayerMetadataBand";
-import ProfileTabs from "@/components/yatstats/profile/ProfileTabs";
-import StatsGrid from "@/components/yatstats/profile/StatsGrid";
-import GameLogFeed from "@/components/yatstats/profile/GameLogFeed";
-import { BattingSeasonTable, PitchingSeasonTable } from "@/components/yatstats/profile/SeasonTable";
+import ProfileTabs from "@/components/yatstats/funzone/ProfileTabs";
+import StatsGrid from "@/components/yatstats/funzone/StatsGrid";
+import GameLogFeed from "@/components/yatstats/funzone/GameLogFeed";
+import { BattingSeasonTable, PitchingSeasonTable } from "@/components/yatstats/funzone/SeasonTable";
 import FavoritesModal from "@/components/yatstats/profile/FavoritesModal";
 
 // ---------------------------------------------------------------------------

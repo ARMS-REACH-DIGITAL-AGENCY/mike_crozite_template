@@ -1,4 +1,4 @@
-// src/components/yatstats/profile/SeasonTable.tsx
+// src/components/yatstats/funzone/SeasonTable.tsx
 // Renders a season-by-season batting or pitching table with career totals row.
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
