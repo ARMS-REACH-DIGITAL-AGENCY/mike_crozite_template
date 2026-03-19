@@ -56,7 +56,7 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
           </>
         )}
         {isPlayerProfile && (
-            <button id="btnFavorite" className="yat-icon-btn" aria-label="Favorite this player">
+            <button id="btnFanFav" className="yat-icon-btn" aria-label="Favorite this player">
                 <i className="ri-heart-add-line" />
             </button>
         )}
