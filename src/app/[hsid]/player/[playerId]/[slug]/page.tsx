@@ -260,24 +260,21 @@ export default async function PlayerProfilePage({
   const playerThenImg = getPlayerThenImageUrl(safePlayerId);
 
   // Player context: roster-truth view is the source of truth; historical season stats are fallback-only.
+  if (!resolvedCurrentTeam) {
+    console.warn(`Player ${safePlayerId}: resolvedCurrentTeam is null. Team may be out of sync.`);
+  }
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
   const resolvedLevel = resolvedCurrentTeam?.level
     ? String(resolvedCurrentTeam.level).toUpperCase()
     : "";
   const mostRecentSeason = [...battingSeasons, ...pitchingSeasons]
     .sort((a: BattingSeason | PitchingSeason, b: BattingSeason | PitchingSeason) => (Number(b.year) || 0) - (Number(a.year) || 0))[0] as BattingSeason | PitchingSeason | undefined;
-  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
-  const ctxLevel =
-    resolvedLevel ||
-    (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "");
+  const ctxTeam = resolvedTeamName || "Unknown / Not Synced";
+  const ctxLevel = resolvedLevel || "";
   const playerContext = [ctxTeam, ctxLevel].filter(Boolean).join(" · ");
 
   // Current team_id for schedule lookup — prefer roster-truth teamid, fall back to latest season
-  const currentTeamId = resolvedCurrentTeam?.teamid
-    ? String(resolvedCurrentTeam.teamid)
-    : (mostRecentSeason as any)?.teamid
-      ? String((mostRecentSeason as any).teamid)
-      : null;
+  const currentTeamId = resolvedCurrentTeam?.teamid ? String(resolvedCurrentTeam.teamid) : null;
 
   // Fetch org/conference for the current team (graceful — returns null if columns absent)
   const teamCtx = currentTeamId ? await getTeamContext(currentTeamId) : null;
