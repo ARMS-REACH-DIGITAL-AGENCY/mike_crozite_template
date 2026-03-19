@@ -107,15 +107,65 @@ export default async function HsidLayout({
         </button>
         <h3>FILTERS</h3>
         <div className="yat-drawer-content" id="filters">
-          {/* filters content stays the same */}
+          <details className="yat-filter-group" open>
+            <summary>By Name</summary>
+            <div className="yat-filter-options">
+              <input id="filterName" type="text" placeholder="Type a name…" />
+            </div>
+          </details>
+          <details className="yat-filter-group">
+            <summary>By Level</summary>
+            <div className="yat-filter-options" id="filterLevels">
+              {['MLB', 'AAA', 'AA', 'A+', 'A', 'INDY', 'NCAA', 'JUCO', 'NAIA'].map((l) => (
+                <label key={l}>
+                  <input type="checkbox" value={l} /> {l}
+                </label>
+              ))}
+            </div>
+          </details>
+          <details className="yat-filter-group">
+            <summary>By Graduating Class</summary>
+            <div className="yat-filter-options" id="filterGradClass">
+              {/* Will be populated dynamically once grad_class data is available */}
+            </div>
+          </details>
+          <details className="yat-filter-group">
+            <summary>By Status</summary>
+            <div className="yat-filter-options" id="filterStatus">
+              {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
+                <label key={s}>
+                  <input type="checkbox" value={s} /> {s}
+                </label>
+              ))}
+            </div>
+          </details>
+        </div>
+        <div className="yat-drawer-footer">
+          <button
+            id="filtersReset"
+            className="yat-icon-btn"
+            style={{ padding: '10px 14px', border: '1px solid var(--line)', borderRadius: '12px' }}
+          >
+            <i className="ri-restart-line" /> Reset Filters
+          </button>
         </div>
       </aside>
 
       <GlobalSearchModal />
       <div id="drawerMask" className="yat-drawer-mask" />
 
-      {/* Article detail overlay */}
+      {/* Article detail overlay + modal drawer */}
       <div className="yat-article-overlay" id="articleOverlay" />
+      <aside className="yat-article-modal" id="articleModal" role="dialog" aria-modal="true" aria-label="Article detail">
+        <div className="yat-article-modal-top">
+          <span className="yat-article-modal-label">ALUMNI NEWS</span>
+          <button className="yat-article-modal-close" id="articleModalClose" aria-label="Close">
+            <i className="ri-close-line" />
+          </button>
+        </div>
+        <div id="articleModalImg" />
+        <div className="yat-article-modal-body" id="articleModalBody" />
+      </aside>
 
       {/* <!-- ROW 6 --> Footer */}
       <footer className="yat-footer">
@@ -125,6 +175,7 @@ export default async function HsidLayout({
         </a>
       </footer>
 
+      {/* Shared Interactivity — must be rendered last */}
       <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
     </SchoolContextProvider>
   );
