@@ -74,6 +74,28 @@ export default async function HsidLayout({
       </SharedShell>
 
       {/* Shared Drawers & Modals */}
+      <aside className="yat-drawer" id="drawerLeft">
+        <button className="yat-icon-btn yat-close-btn" id="closeLeft">
+          <i className="ri-close-line" />
+        </button>
+        <h3>NAVIGATION</h3>
+        <div className="yat-drawer-content">
+          <div className="yat-filter-options" style={{ paddingTop: 0 }}>
+            <input id="playerSearch" type="search" placeholder="Search players…" />
+          </div>
+          <div id="liveResults" />
+          <nav className="yat-drawer-nav">
+            <a href="#sec-active" className="yat-drawer-nav-item" data-tab="active">ACTIVE BASEBALL ALUMNI</a>
+            <a href="#sec-alltime" className="yat-drawer-nav-item" data-tab="alltime">NEXT-LEVEL ALL-TIME LIST</a>
+            <a href="#sec-news" className="yat-drawer-nav-item" data-tab="news">ACTIVE ALUMNI NEWS</a>
+            <a href="#sec-team" className="yat-drawer-nav-item" data-tab="team">CURRENT TEAM</a>
+            <a href="#sec-mentor" className="yat-drawer-nav-item" data-tab="mentor">MENTORSHIP MARKETPLACE</a>
+            <a href="#sec-partner" className="yat-drawer-nav-item" data-tab="partner">PCD ACTION PARTNER PROGRAM</a>
+            <a href="#sec-faq" className="yat-drawer-nav-item" data-tab="faq">FAQ&apos;S</a>
+          </nav>
+        </div>
+      </aside>
+
       <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
         <button className="yat-icon-btn yat-close-btn" id="closeAccount">
           <i className="ri-close-line" />

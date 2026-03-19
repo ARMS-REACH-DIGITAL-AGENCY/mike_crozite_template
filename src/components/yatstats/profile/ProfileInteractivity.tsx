@@ -24,6 +24,11 @@ export default function ProfileInteractivity({
   return (
     <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  var sectionLabel=document.getElementById('yatSectionLabel');
+  if(sectionLabel&&playerName){
+    sectionLabel.textContent=String(playerName).toUpperCase();
+  }
+
   /* ── Layout variable measurement ─────────────────────────────────── */
   (function setLayoutVars(){
     var header=document.querySelector('.yat-header');
