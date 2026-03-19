@@ -1,6 +1,6 @@
 
 // src/components/yatstats/shell/SchoolContextBar.tsx
-// Renders Row 2 of the shared shell.
+// Renders Row 2 of the shared shell
 
 'use client';
 
