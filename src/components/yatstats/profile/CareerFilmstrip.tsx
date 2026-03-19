@@ -1,5 +1,5 @@
 // src/components/yatstats/profile/CareerFilmstrip.tsx
-// Row 3 equivalent for the player profile: the career progression filmstrip.
+// Row 3 equivalent for the player profile: the career progression filmstrip
 // LEFT_ANCHOR → TIMELINE frames → RIGHT_ANCHOR
 
 import SafeImage from '@/components/SafeImage';
