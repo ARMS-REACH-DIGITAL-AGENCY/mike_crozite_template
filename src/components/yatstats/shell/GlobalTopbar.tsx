@@ -5,7 +5,7 @@
 export default function GlobalTopbar() {
   return (
     <div className="yat-topbar">
-      <div className="yat-topbar-left">
+      <div className="yat-left-icons">
         <button id="btnMenu" className="yat-icon-btn" aria-label="Open navigation">
           <i className="ri-menu-line" />
         </button>
@@ -16,13 +16,42 @@ export default function GlobalTopbar() {
           <i className="ri-sun-line" />
         </button>
       </div>
-      <div className="yat-topbar-logo">
-        <a href="/">
-          <img src="/img/yatstats-logo.svg" alt="YAT?STATS" />
+
+      <nav className="yat-topnav" aria-label="Top Navigation">
+        <a href="#sec-active" className="yat-nav-pair" data-tab="active">
+          <span className="thin">ACTIVE </span>
+          <span className="bold">BASEBALL ALUMNI</span>
+        </a>
+        <a href="#sec-alltime" className="yat-nav-pair" data-tab="alltime">
+          <span className="thin">NEXT-LEVEL </span>
+          <span className="bold">ALL-TIME LIST</span>
+        </a>
+        <a href="#sec-news" className="yat-nav-pair" data-tab="news">
+          <span className="thin">ACTIVE </span>
+          <span className="bold">ALUMNI NEWS</span>
+        </a>
+        <a href="#sec-team" className="yat-nav-pair" data-tab="team">
+          <span className="thin">CURRENT </span>
+          <span className="bold">TEAM</span>
+        </a>
+        <a href="#sec-mentor" className="yat-nav-pair" data-tab="mentor">
+          <span className="thin">MENTORSHIP </span>
+          <span className="bold">MARKETPLACE</span>
+        </a>
+        <a href="#sec-partner" className="yat-nav-pair" data-tab="partner">
+          <span className="thin">PCD ACTION </span>
+          <span className="bold">PARTNER PROGRAM</span>
+        </a>
+        <a href="#sec-faq" className="yat-nav-pair" data-tab="faq">
+          <span className="thin">FAQ&apos;S</span>
+        </a>
+      </nav>
+
+      <div className="yat-wordmark-wrap">
+        <a href="/" className="yat-wordmark-link" aria-label="YAT?STATS Home">
+          <img className="yat-wordmark-img" src="/img/yatstats-logo.svg" alt="YAT?STATS" width="120" height="24" />
         </a>
       </div>
-      {/* The right side is empty in this design, but the container is here for balance */}
-      <div className="yat-topbar-right"></div>
     </div>
   );
 }

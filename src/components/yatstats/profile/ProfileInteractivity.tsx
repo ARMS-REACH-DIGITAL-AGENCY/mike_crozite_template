@@ -24,6 +24,11 @@ export default function ProfileInteractivity({
   return (
     <script dangerouslySetInnerHTML={{__html:`
 (function(){
+  var sectionLabel=document.getElementById('yatSectionLabel');
+  if(sectionLabel&&playerName){
+    sectionLabel.textContent=String(playerName).toUpperCase();
+  }
+
   /* ── Layout variable measurement ─────────────────────────────────── */
   (function setLayoutVars(){
     var header=document.querySelector('.yat-header');
@@ -87,9 +92,22 @@ export default function ProfileInteractivity({
   function openFavModal(){if(favMask){favMask.style.display='flex';}}
   function closeFavModal(){if(favMask){favMask.style.display='none';}}
   var btnFanFav=document.getElementById('btnFanFav');
+  var btnFavorite=document.getElementById('btnFavorite');
+  var favButtons=[btnFanFav,btnFavorite].filter(Boolean);
   var favToast=document.getElementById('favToast');
   function showFavToast(msg){if(!favToast)return;favToast.textContent=msg;favToast.classList.add('show');setTimeout(function(){favToast.classList.remove('show');},3500);}
-  function setFavState(btn,active){if(!btn)return;var icon=btn.querySelector('i');if(active){btn.classList.add('active');if(icon)icon.className='ri-star-fill';}else{btn.classList.remove('active');if(icon)icon.className='ri-star-line';}}
+  function setFavState(btn,active){
+    if(!btn)return;
+    var icon=btn.querySelector('i');
+    var useHeart=btn.id==='btnFavorite'||(icon&&icon.className&&icon.className.indexOf('heart')!==-1);
+    if(active){
+      btn.classList.add('active');
+      if(icon)icon.className=useHeart?'ri-heart-fill':'ri-star-fill';
+    }else{
+      btn.classList.remove('active');
+      if(icon)icon.className=useHeart?'ri-heart-add-line':'ri-star-line';
+    }
+  }
   function openAccountDrawer(){document.body.classList.add('drawer-account-open','drawer-open');document.body.classList.remove('drawer-left-open');}
   function getFirebaseUser(){
     try{
@@ -105,7 +123,7 @@ export default function ProfileInteractivity({
       return;
     }
     fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({firebaseUid:user.uid||'',contactId:user.contactId,playerId:playerId,playerName:playerName,type:'fan'})}).then(function(r){return r.json();}).then(function(data){
-      if(data&&data.success){setFavState(btnFanFav,true);showFavToast(playerName+' added to your favorites');}
+      if(data&&data.success){favButtons.forEach(function(btn){setFavState(btn,true);});showFavToast(playerName+' added to your favorites');}
       else{console.warn('Favorite error:',(data&&data.error)||'unknown');}
     }).catch(function(){console.warn('Network error saving favorite.');});
   }
@@ -125,10 +143,10 @@ export default function ProfileInteractivity({
   window.addEventListener('yat-auth-success',function(e){
     var detail=e.detail||{};
     if(detail.playerId&&detail.playerId!==playerId)return;
-    setFavState(btnFanFav,true);
+    favButtons.forEach(function(btn){setFavState(btn,true);});
     showFavToast(playerName+' added to your favorites');
   },{once:true});
-  if(btnFanFav)btnFanFav.addEventListener('click',function(){addFavorite();});
+  favButtons.forEach(function(btn){btn.addEventListener('click',function(){addFavorite();});});
   var favClose=document.getElementById('favModalClose');
   var favContinue=document.getElementById('favContinue');
   var favRegister=document.getElementById('favRegister');
