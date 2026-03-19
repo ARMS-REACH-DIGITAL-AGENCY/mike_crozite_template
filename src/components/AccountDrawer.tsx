@@ -1,0 +1,700 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import {
+  auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged,
+} from '@/lib/firebase';
+import type { User } from 'firebase/auth';
+
+interface AccountDrawerProps {
+  subdomain: string;
+}
+
+function PasswordInput({ name, required = true }: { name: string; required?: boolean }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        type={visible ? 'text' : 'password'}
+        name={name}
+        required={required}
+        style={{
+          width: '100%',
+          padding: '10px',
+          paddingRight: '40px',
+          borderRadius: '8px',
+          border: '1px solid var(--line)',
+          background: 'rgba(255, 255, 255, .06)',
+          color: 'var(--ink)',
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(!visible)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        style={{
+          position: 'absolute',
+          right: '8px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'none',
+          border: 'none',
+          color: 'var(--muted)',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '18px',
+          lineHeight: 1,
+        }}
+      >
+        <i className={visible ? 'ri-eye-off-line' : 'ri-eye-line'} />
+      </button>
+    </div>
+  );
+}
+
+export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
+  // Color constants for auth feedback messages
+  const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
+    error: '#dc2626',   // red-600 — visible on both light and dark backgrounds
+    success: '#16a34a', // green-600 — readable on both themes
+    info: 'var(--muted)',
+  };
+
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('info');
+  // Default to Register tab so new visitors land on the registration form
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('register');
+  const [displayName, setDisplayName] = useState('');
+  // Track sign-in email so it can be reused for forgot-password flow
+  const [signInEmail, setSignInEmail] = useState('');
+  // Favorite confirmation after auth + pending intent resume
+  const [favConfirm, setFavConfirm] = useState<string>(''); // player name if just favorited
+  // Track when Stripe checkout is being launched
+  const [superfanLaunching, setSuperfanLaunching] = useState(false);
+  // Whether the current user is a Superfan (derived from profile API response)
+  const [isSuperfan, setIsSuperfan] = useState(false);
+
+  // Listen to Firebase auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Try to get display name from Firebase profile or localStorage
+        const storedName = localStorage.getItem(`yat_firstName_${currentUser.uid}`);
+        setDisplayName(currentUser.displayName || storedName || '');
+      } else {
+        setDisplayName('');
+        setIsSuperfan(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  /** Execute a pending favorite intent stored in sessionStorage, if any. */
+  const resumePendingFavorite = async (firebaseUid: string, contactId?: string | null) => {
+    const pid = sessionStorage.getItem('pending_fav_pid');
+    const pName = sessionStorage.getItem('pending_fav_name') || pid || '';
+    if (!pid || !firebaseUid) return;
+    sessionStorage.removeItem('pending_fav_pid');
+    sessionStorage.removeItem('pending_fav_name');
+    try {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid, contactId, playerId: pid, playerName: pName, type: 'fan' }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setFavConfirm(pName);
+        // Notify any listening player-profile JS that auth+favorite succeeded
+        window.dispatchEvent(new CustomEvent('yat-auth-success', { detail: { contactId, playerId: pid } }));
+      }
+    } catch {
+      // Non-fatal — user is still logged in; favorite just wasn't added silently
+    }
+  };
+
+  /** Launch Stripe checkout for the Superfan subscription. */
+  const launchSuperfanCheckout = async (firebaseUid: string, email: string) => {
+    setSuperfanLaunching(true);
+    setMessage('Launching Superfan checkout…');
+    setMessageType('info');
+    try {
+      const res = await fetch('/api/stripe/create-superfan-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid, email }),
+      });
+      const data = await res.json();
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        setMessage(data?.error || 'Could not start checkout. Please try again.');
+        setMessageType('error');
+        setSuperfanLaunching(false);
+      }
+    } catch {
+      setMessage('Network error starting checkout. Please try again.');
+      setMessageType('error');
+      setSuperfanLaunching(false);
+    }
+  };
+
+  /** Resume a pending superfan intent after auth, or dismiss if none. */
+  const resumePendingSuperfan = async (firebaseUid: string, email: string) => {
+    const pending = sessionStorage.getItem('pending_superfan');
+    if (!pending) return;
+    sessionStorage.removeItem('pending_superfan');
+    await launchSuperfanCheckout(firebaseUid, email);
+  };
+
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      const email = (e.currentTarget.elements.namedItem('signInEmail') as HTMLInputElement).value;
+      const password = (e.currentTarget.elements.namedItem('signInPassword') as HTMLInputElement).value;
+
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+
+      // Sync profile + GHL backfill
+      try {
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, email }),
+        });
+        const loginData = await loginRes.json();
+        // Hydrate first_name from DB profile if available
+        if (loginData?.firstName) {
+          try {
+            localStorage.setItem(`yat_firstName_${uid}`, loginData.firstName);
+          } catch { /* non-fatal */ }
+          setDisplayName(loginData.firstName);
+        }
+        if (loginData?.contactId) {
+          try {
+            localStorage.setItem('yat-user', JSON.stringify({
+              uid,
+              contactId: loginData.contactId,
+              email,
+              firstName: loginData.firstName ?? null,
+              homeHsid: loginData.homeHsid ?? null,
+              role: loginData.role ?? 'fan',
+            }));
+          } catch { /* non-fatal */ }
+        }
+        if (loginData?.isSuperfan) setIsSuperfan(true);
+
+        // Resume pending actions
+        if (sessionStorage.getItem('pending_fav_pid')) {
+          await resumePendingFavorite(uid, loginData?.contactId);
+        } else if (sessionStorage.getItem('pending_superfan')) {
+          await resumePendingSuperfan(uid, email);
+          return; // checkout redirect handles the rest
+        }
+      } catch { /* non-fatal */ }
+
+      setMessage('Sign in successful!');
+      setMessageType('success');
+      setTimeout(() => setMessage(''), 1500);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Sign in failed');
+      setMessageType('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      const email = (e.currentTarget.elements.namedItem('registerEmail') as HTMLInputElement).value;
+      const password = (e.currentTarget.elements.namedItem('registerPassword') as HTMLInputElement).value;
+      const firstName = (e.currentTarget.elements.namedItem('registerFirstName') as HTMLInputElement)?.value?.trim() || '';
+      const lastName = (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value?.trim() || '';
+
+      if (!firstName || !lastName) {
+        setMessage('First name and last name are required.');
+        setMessageType('error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Create user in Firebase
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+
+      // Store first name in localStorage for greeting
+      if (auth.currentUser) {
+        localStorage.setItem(`yat_firstName_${auth.currentUser.uid}`, firstName);
+        setDisplayName(firstName);
+      }
+
+      // Sync to GoHighLevel + create user profile
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid,
+          email,
+          firstName,
+          lastName,
+          subdomain,
+        }),
+      });
+
+      // Parse response once and reuse for both error handling and success data
+      const regData = await registerResponse.json();
+      if (!registerResponse.ok) {
+        // Use a typed error so the catch block can identify email-taken without string matching
+        const err = new Error(regData?.error || 'Failed to sync to CRM') as Error & { isEmailTaken?: boolean };
+        if (registerResponse.status === 409) err.isEmailTaken = true;
+        throw err;
+      }
+
+      // Save contactId to localStorage so future addFavorite() calls work
+      if (regData?.contactId) {
+        try {
+          localStorage.setItem('yat-user', JSON.stringify({
+            uid,
+            contactId: regData.contactId,
+            email,
+            firstName: firstName || null,
+            homeHsid: regData.homeHsid ?? null,
+            role: 'fan',
+          }));
+        } catch {
+          // non-fatal
+        }
+      }
+
+      // Resume pending intents
+      if (sessionStorage.getItem('pending_fav_pid') && uid) {
+        await resumePendingFavorite(uid, regData?.contactId);
+      } else if (sessionStorage.getItem('pending_superfan') && uid) {
+        await resumePendingSuperfan(uid, email);
+        return; // checkout redirect handles the rest
+      }
+
+      setMessage('Registration successful! Welcome to YAT?STATS.');
+      setMessageType('success');
+      setTimeout(() => setMessage(''), 1500);
+    } catch (error) {
+      // Show a friendly message when the email is already registered.
+      // Firebase errors expose a `code` property; the server-side 409 guard
+      // sets a sentinel flag on the thrown Error.
+      const firebaseCode = (error as { code?: string })?.code;
+      if (
+        firebaseCode === 'auth/email-already-in-use' ||
+        (error as { isEmailTaken?: boolean })?.isEmailTaken
+      ) {
+        setMessage('This email already has a YAT?STATS account. Please sign in.');
+        setActiveTab('signin');
+      } else {
+        setMessage(error instanceof Error ? error.message : 'Registration failed');
+      }
+      setMessageType('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setMessage('Signed out successfully');
+      setMessageType('success');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Sign out failed');
+      setMessageType('error');
+    }
+  };
+
+  // Send a Firebase password reset email using the address in the sign-in field
+  const handleForgotPassword = async () => {
+    const email = signInEmail.trim();
+    if (!email) {
+      setMessage('Please enter your email address first.');
+      setMessageType('error');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setMessage('Please enter a valid email address.');
+      setMessageType('error');
+      return;
+    }
+    setIsLoading(true);
+    setMessage('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setMessage('Password reset email sent. Check your inbox.');
+      setMessageType('success');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to send password reset email.');
+      setMessageType('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="yat-drawer-content">
+      {user && !user.isAnonymous ? (
+        // Logged in state
+        <div style={{ padding: '20px' }}>
+          {/* ── Superfan launching overlay ── */}
+          {superfanLaunching && (
+            <div style={{ background: 'rgba(255,215,0,.1)', border: '1px solid #FFD700', borderRadius: '8px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
+              <p style={{ fontSize: '14px', color: '#FFD700', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '4px' }}>
+                ⭐ Launching Superfan Checkout…
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)' }}>You&apos;ll be redirected to our secure payment page.</p>
+            </div>
+          )}
+          {/* ── Favorite confirmation banner ── */}
+          {favConfirm && !isSuperfan && (
+            <div style={{ background: 'rgba(22,163,74,.12)', border: '1px solid #16a34a', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '14px', color: '#16a34a', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em', marginBottom: '6px' }}>
+                ⭐ {favConfirm} added to your favorites
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.5', marginBottom: '10px' }}>
+                Want to follow players from other schools too? Upgrade to Superfan for global access.
+              </p>
+              <button
+                type="button"
+                disabled={superfanLaunching}
+                onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 14px',
+                  background: '#b8860b',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  letterSpacing: '.06em',
+                  cursor: superfanLaunching ? 'not-allowed' : 'pointer',
+                  opacity: superfanLaunching ? 0.6 : 1,
+                }}
+              >
+                {superfanLaunching ? 'Launching…' : 'Upgrade to Superfan →'}
+              </button>
+            </div>
+          )}
+          {/* ── Superfan badge ── */}
+          {isSuperfan && (
+            <div style={{ background: 'rgba(255,215,0,.1)', border: '1px solid rgba(255,215,0,.4)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '13px', color: '#FFD700', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em' }}>
+                ⭐ You are a Superfan
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+                You can follow players from any school in the YAT?STATS network.
+              </p>
+            </div>
+          )}
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{ fontSize: '18px', marginBottom: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.05em' }}>
+              Hi, {displayName || 'Fan'}!
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</p>
+          </div>
+          {/* Become a Superfan CTA for non-superfan logged-in users */}
+          {!isSuperfan && !superfanLaunching && (
+            <button
+              type="button"
+              onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#FFD700',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '14px',
+                letterSpacing: '.08em',
+                cursor: 'pointer',
+                marginBottom: '10px',
+              }}
+            >
+              ⭐ Become a Superfan — $9.99/mo
+            </button>
+          )}
+          <button
+            onClick={handleSignOut}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: 'var(--fg)',
+              color: 'var(--bg)',
+              border: 'none',
+              borderRadius: '8px',
+              fontFamily: '"Bebas Neue", Oswald, sans-serif',
+              fontSize: '14px',
+              letterSpacing: '.08em',
+              cursor: 'pointer',
+              marginBottom: '15px',
+            }}
+          >
+            Sign Out
+          </button>
+          {message && (
+            <p
+              style={{
+                marginTop: '15px',
+                textAlign: 'center',
+                fontSize: '12px',
+                color: MSG_COLOR[messageType],
+              }}
+            >
+              {message}
+            </p>
+          )}
+        </div>
+      ) : (
+        // Not logged in state
+        <>
+          <div
+            style={{
+              display: 'flex',
+              borderBottom: '1px solid var(--line)',
+              marginBottom: '15px',
+            }}
+          >
+            <button
+              onClick={() => setActiveTab('signin')}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                padding: '10px',
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                color: activeTab === 'signin' ? 'var(--fg)' : 'var(--muted)',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '14px',
+                letterSpacing: '.05em',
+                borderBottom: activeTab === 'signin' ? '2px solid var(--fg)' : 'none',
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => setActiveTab('register')}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                padding: '10px',
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                color: activeTab === 'register' ? 'var(--fg)' : 'var(--muted)',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '14px',
+                letterSpacing: '.05em',
+                borderBottom: activeTab === 'register' ? '2px solid var(--fg)' : 'none',
+              }}
+            >
+              Register
+            </button>
+          </div>
+
+          {activeTab === 'signin' && (
+            <form onSubmit={handleSignIn} style={{ padding: '15px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="signInEmail"
+                  required
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(255, 255, 255, .06)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
+                  Password
+                </label>
+                <PasswordInput name="signInPassword" />
+              </div>
+              {/* Forgot password link — reuses the email already entered above */}
+              <div style={{ textAlign: 'right', marginBottom: '15px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={isLoading}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '4px 0',
+                    fontSize: '12px',
+                    color: 'var(--muted)',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '14px',
+                  letterSpacing: '.08em',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                {isLoading ? 'Signing In...' : 'Sign In'}
+              </button>
+            </form>
+          )}
+
+          {activeTab === 'register' && (
+            <form onSubmit={handleRegister} style={{ padding: '15px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  name="registerFirstName"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(255, 255, 255, .06)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  name="registerLastName"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(255, 255, 255, .06)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="registerEmail"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(255, 255, 255, .06)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
+                  Password
+                </label>
+                <PasswordInput name="registerPassword" />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '14px',
+                  letterSpacing: '.08em',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                {isLoading ? 'Creating Account...' : 'Create Account'}
+              </button>
+            </form>
+          )}
+
+          {message && (
+            <p
+              style={{
+                marginTop: '15px',
+                textAlign: 'center',
+                fontSize: '12px',
+                color: MSG_COLOR[messageType],
+                padding: '0 15px',
+              }}
+            >
+              {message}
+            </p>
+          )}
+
+          {/* ── Concise fan / superfan explanation ── */}
+          <div style={{ padding: '16px', borderTop: '1px solid var(--line)', marginTop: '8px' }}>
+            <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: '1.6', margin: 0 }}>
+              Sign in or register to save favorites from this school.{' '}
+              Want to favorite players from other schools too? Upgrade to Superfan for global access — $9.99/month.
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

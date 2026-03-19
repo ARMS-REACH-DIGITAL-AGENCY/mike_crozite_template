@@ -1,0 +1,125 @@
+#!/usr/bin/env ts-node
+// scripts/import-teams.ts
+// Bulk-load team names from a CSV file into the `teams` table.
+//
+// Usage:
+//   npx ts-node scripts/import-teams.ts <path-to-csv>
+//
+// CSV format (exported from the team-names Google Spreadsheet):
+//   teamid,team_name
+//   LAD,Los Angeles Dodgers
+//   NYY,New York Yankees
+//   ...
+//
+// The script upserts rows so it is safe to re-run.
+
+import fs from "fs";
+import path from "path";
+import { Pool } from "pg";
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("ERROR: DATABASE_URL environment variable is not set.");
+  process.exit(1);
+}
+
+const csvPath = process.argv[2];
+if (!csvPath) {
+  console.error("Usage: npx ts-node scripts/import-teams.ts <path-to-csv>");
+  process.exit(1);
+}
+
+const resolvedPath = path.resolve(csvPath);
+if (!fs.existsSync(resolvedPath)) {
+  console.error(`ERROR: File not found: ${resolvedPath}`);
+  process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// Parse CSV
+// ---------------------------------------------------------------------------
+function parseCSV(raw: string): Array<{ team_id: string; team_name: string }> {
+  const lines = raw
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    throw new Error("CSV must have a header row and at least one data row.");
+  }
+
+  // Determine column indices from header
+  const header = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
+  const teamidIdx = header.findIndex((h) => h === "team_id" || h === "teamid");
+  const teamNameIdx = header.findIndex((h) => h === "team_name" || h === "teamname" || h === "name");
+
+  if (teamidIdx === -1) throw new Error("CSV header must include a 'team_id' (or 'teamid') column.");
+  if (teamNameIdx === -1) throw new Error("CSV header must include a 'team_name' (or 'name') column.");
+
+  const rows: Array<{ team_id: string; team_name: string }> = [];
+  for (let i = 1; i < lines.length; i++) {
+    // Simple CSV split — handles quoted fields
+    const cols = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g) || [];
+    const team_id = (cols[teamidIdx] || "").replace(/^"|"$/g, "").trim();
+    const team_name = (cols[teamNameIdx] || "").replace(/^"|"$/g, "").trim();
+    if (team_id && team_name) {
+      rows.push({ team_id, team_name });
+    }
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+async function main() {
+  const raw = fs.readFileSync(resolvedPath, "utf-8");
+  const rows = parseCSV(raw);
+  console.log(`Parsed ${rows.length} team rows from ${resolvedPath}`);
+
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  try {
+    // Ensure the table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS teams (
+        team_id   TEXT PRIMARY KEY,
+        team_name TEXT NOT NULL
+      )
+    `);
+
+    // Upsert in batches of 100
+    let inserted = 0;
+    const BATCH = 100;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH);
+      const values = batch
+        .map((_, j) => `($${j * 2 + 1}, $${j * 2 + 2})`)
+        .join(", ");
+      const params = batch.flatMap((r) => [r.team_id, r.team_name]);
+      await pool.query(
+        `INSERT INTO teams (team_id, team_name)
+         VALUES ${values}
+         ON CONFLICT (team_id) DO UPDATE SET team_name = EXCLUDED.team_name`,
+        params
+      );
+      inserted += batch.length;
+      process.stdout.write(`\rUpserted ${inserted}/${rows.length}...`);
+    }
+    console.log(`\nDone — ${inserted} team names loaded.`);
+  } finally {
+    await pool.end();
+  }
+}
+
+main().catch((err) => {
+  console.error("FATAL:", err);
+  process.exit(1);
+});
