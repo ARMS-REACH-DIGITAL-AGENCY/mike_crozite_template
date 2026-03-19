@@ -34,8 +34,8 @@ export default function SharedShell({ children, hsid }: { children: ReactNode, h
 
       <main>
         {/* Row 3 and 4 are part of the page content, not the sticky shell */}
-        <InteractionStrip isPlayerProfile={isPlayerProfile} isGallery={isGallery} isNews={isNews} />
-        <MetadataRow isPlayerProfile={isPlayerProfile} isGallery={isGallery} />
+        <InteractionStrip />
+        <MetadataRow />
 
         {/* Row 5: The actual page content */}
         <div className="yat-page-content-row">
