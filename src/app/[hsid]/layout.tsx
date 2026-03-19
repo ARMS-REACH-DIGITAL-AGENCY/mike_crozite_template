@@ -102,58 +102,58 @@ export default async function HsidLayout({
       </aside>
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
-        <button className="yat-icon-btn yat-close-btn" id="closeFilters">
-          <i className="ri-close-line" />
-        </button>
-        <h3>FILTERS</h3>
-        <div className="yat-drawer-content" id="filters">
-          <details className="yat-filter-group" open>
-            <summary>By Name</summary>
-            <div className="yat-filter-options">
-              <input id="filterName" type="text" placeholder="Type a name…" />
-            </div>
-          </details>
-          <details className="yat-filter-group">
-            <summary>By Level</summary>
-            <div className="yat-filter-options" id="filterLevels">
-              {['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'INDY', 'INTL', 'D1', 'D2', 'D3', 'NAIA', 'JUCO'].map((l) => (
-                <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
-                </label>
-              ))}
-            </div>
-          </details>
-          <details className="yat-filter-group">
-            <summary>By Graduating Class</summary>
-            <div className="yat-filter-options" id="filterGradClass">
-              {['PRE-1980', '1980-1989', '1990-1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'].map((year) => (
-                <label key={year}>
-                  <input type="checkbox" value={year} /> {year}
-                </label>
-              ))}
-            </div>
-          </details>
-          <details className="yat-filter-group">
-            <summary>By Status</summary>
-            <div className="yat-filter-options" id="filterStatus">
-              { .map((s) => (
-                <label key={s}>
-                  <input type="checkbox" value={s} /> {s}
-                </label>
-              ))}
-            </div>
-          </details>
-        </div>
-        <div className="yat-drawer-footer">
-          <button
-            id="filtersReset"
-            className="yat-icon-btn"
-            style={{ padding: '10px 14px', border: '1px solid var(--line)', borderRadius: '12px' }}
-          >
-            <i className="ri-restart-line" /> Reset Filters
-          </button>
-        </div>
-      </aside>
+  <button className="yat-icon-btn yat-close-btn" id="closeFilters">
+    <i className="ri-close-line" />
+  </button>
+  <h3>FILTERS</h3>
+  <div className="yat-drawer-content" id="filters">
+    <details className="yat-filter-group" open>
+      <summary>By Name</summary>
+      <div className="yat-filter-options">
+        <input id="filterName" type="text" placeholder="Type a name…" />
+      </div>
+    </details>
+    <details className="yat-filter-group">
+      <summary>By Level</summary>
+      <div className="yat-filter-options" id="filterLevels">
+        {['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'INDY', 'INTL', 'D1', 'D2', 'D3', 'NAIA', 'JUCO'].map((l) => (
+          <label key={l}>
+            <input type="checkbox" value={l} /> {l}
+          </label>
+        ))}
+      </div>
+    </details>
+    <details className="yat-filter-group">
+      <summary>By Graduating Class</summary>
+      <div className="yat-filter-options" id="filterGradClass">
+        {['PRE-1980', '1980-1989', '1990-1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'].map((year) => (
+          <label key={year}>
+            <input type="checkbox" value={year} /> {year}
+          </label>
+        ))}
+      </div>
+    </details>
+    <details className="yat-filter-group">
+      <summary>By Status</summary>
+      <div className="yat-filter-options" id="filterStatus">
+        {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
+          <label key={s}>
+            <input type="checkbox" value={s} /> {s}
+          </label>
+        ))}
+      </div>
+    </details>
+  </div>
+  <div className="yat-drawer-footer">
+    <button
+      id="filtersReset"
+      className="yat-icon-btn"
+      style={{ padding: '10px 14px', border: '1px solid var(--line)', borderRadius: '12px' }}
+    >
+      <i className="ri-restart-line" /> Reset Filters
+    </button>
+  </div>
+</aside>
 
       <GlobalSearchModal />
       <div id="drawerMask" className="yat-drawer-mask" />
