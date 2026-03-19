@@ -1,6 +1,6 @@
 
 // src/components/yatstats/shell/GlobalTopbar.tsx
-// Renders Row 1 of the shared shell.
+// Renders Row 1 of the shared shell
 
 export default function GlobalTopbar() {
   return (
