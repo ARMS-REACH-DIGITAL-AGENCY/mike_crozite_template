@@ -1,5 +1,5 @@
 // src/components/yatstats/profile/PlayerMetadataBand.tsx
-// Compact metadata band below the filmstrip, above tabs.
+// ROW 4 - Compact metadata band below the filmstrip, above body (Row 5).
 // Left: class year / team / status-level
 // Right: B/T / college / draft
 
