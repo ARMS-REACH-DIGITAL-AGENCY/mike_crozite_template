@@ -1,4 +1,4 @@
-// src/app/[hsid]/layout.tsx
+// src/app/ /layout.tsx
 // STRICT 6-ROW SHARED SHELL — THIS IS LAW
 
 import { ReactNode } from 'react';
@@ -116,7 +116,7 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
-              {['MLB', 'AAA', 'AA', 'A+', 'A', 'INDY', 'NCAA', 'JUCO', 'NAIA'].map((l) => (
+              {['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'INDY', 'INTL', 'D1', 'D2', 'D3', 'NAIA', 'JUCO'].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}
                 </label>
@@ -126,13 +126,17 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
-              {/* Will be populated dynamically once grad_class data is available */}
+              {['PRE-1980', '1980-1989', '1990-1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'].map((year) => (
+                <label key={year}>
+                  <input type="checkbox" value={year} /> {year}
+                </label>
+              ))}
             </div>
           </details>
           <details className="yat-filter-group">
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
-              {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
+              { .map((s) => (
                 <label key={s}>
                   <input type="checkbox" value={s} /> {s}
                 </label>
