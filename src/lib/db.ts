@@ -756,8 +756,24 @@ export async function getDesignatedPlayerImage(
     );
     return rows[0] || null;
   } catch {
-    // Table or columns don't exist yet — degrade gracefully
-    return null;
+    // Fallback for environments where schema uses playerid (not player_id)
+    try {
+      const { rows } = await query(
+        `SELECT *
+           FROM player_photos
+          WHERE playerid::text = $1
+            AND image_role = $2
+            AND approval_status = 'APPROVED'
+            AND (is_active IS NULL OR is_active = TRUE)
+          ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC
+          LIMIT 1`,
+        [imageId, role]
+      );
+      return rows[0] || null;
+    } catch {
+      // Table or columns don't exist yet — degrade gracefully
+      return null;
+    }
   }
 }
 
@@ -793,8 +809,27 @@ export async function getBatchDesignatedPlayerImages(
     }
     return map;
   } catch {
-    // Table or columns don't exist yet — degrade gracefully
-    return new Map();
+    // Fallback for environments where schema uses playerid (not player_id)
+    try {
+      const { rows } = await query(
+        `SELECT DISTINCT ON (playerid::text) playerid AS player_id, image_url
+           FROM player_photos
+          WHERE playerid::text = ANY($1::text[])
+            AND image_role = $2
+            AND approval_status = 'APPROVED'
+            AND (is_active IS NULL OR is_active = TRUE)
+          ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC`,
+        [imageIds, role]
+      );
+      const map = new Map<string, any>();
+      for (const row of rows) {
+        map.set(String(row.player_id), row);
+      }
+      return map;
+    } catch {
+      // Table or columns don't exist yet — degrade gracefully
+      return new Map();
+    }
   }
 }
 
@@ -837,16 +872,40 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     );
     return rows;
   } catch {
-    // Table or new columns don't exist yet — try simpler fallback query
+    // Fallback for environments where schema uses playerid (not player_id)
     try {
       const { rows } = await query(
-        `SELECT * FROM player_photos WHERE player_id::text = $1
+        `SELECT * FROM player_photos WHERE playerid::text = $1
+         AND (
+           (show_on_pp_timeline = TRUE AND approval_status = 'APPROVED')
+         )
+         AND (image_role IS NULL OR image_role = 'TIMELINE')
+         AND (is_active IS NULL OR is_active = TRUE)
          ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
         [imageId]
       );
       return rows;
     } catch {
-      return [];
+      // Table or new columns don't exist yet — try simpler fallback query
+      try {
+        const { rows } = await query(
+          `SELECT * FROM player_photos WHERE player_id::text = $1
+         ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+          [imageId]
+        );
+        return rows;
+      } catch {
+        try {
+          const { rows } = await query(
+            `SELECT * FROM player_photos WHERE playerid::text = $1
+         ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+            [imageId]
+          );
+          return rows;
+        } catch {
+          return [];
+        }
+      }
     }
   }
 }

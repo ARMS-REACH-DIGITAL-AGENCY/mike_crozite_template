@@ -5,7 +5,7 @@
 
 'use client';
 
-import { ReactNode, useContext } from 'react';
+import { ReactNode, isValidElement, useContext } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -25,6 +25,37 @@ export default function SharedShell({ children, hsid }: { children: ReactNode, h
   const isNews = pathname.includes('/news');
   const isGallery = !isPlayerProfile && !isNews; // Default
 
+  const childList = Array.isArray(children) ? children : [children];
+  let row3Content: ReactNode = null;
+  let row4Content: ReactNode = null;
+  let row5Content: ReactNode[] = [];
+  const unassigned: ReactNode[] = [];
+
+  for (const child of childList) {
+    if (isValidElement(child)) {
+      const row = (child.props as Record<string, unknown>)['data-row'];
+      if (row === '3' || row === 3) {
+        row3Content = child;
+        continue;
+      }
+      if (row === '4' || row === 4) {
+        row4Content = child;
+        continue;
+      }
+      if (row === '5' || row === 5) {
+        row5Content.push(child);
+        continue;
+      }
+    }
+    unassigned.push(child);
+  }
+
+  if (row5Content.length === 0) {
+    row5Content = unassigned;
+  } else {
+    row5Content = [...row5Content, ...unassigned];
+  }
+
   return (
     <>
       <header className="yat-header">
@@ -33,13 +64,23 @@ export default function SharedShell({ children, hsid }: { children: ReactNode, h
       </header>
 
       <main>
-        {/* Row 3 and 4 are part of the page content, not the sticky shell */}
-        <InteractionStrip isPlayerProfile={isPlayerProfile} isGallery={isGallery} isNews={isNews} />
-        <MetadataRow isPlayerProfile={isPlayerProfile} isGallery={isGallery} />
+        {/* Row 3 */}
+        {isPlayerProfile && row3Content ? (
+          <div className="yat-row3">{row3Content}</div>
+        ) : (
+          <InteractionStrip isPlayerProfile={isPlayerProfile} isGallery={isGallery} isNews={isNews} />
+        )}
+
+        {/* Row 4 */}
+        {isPlayerProfile && row4Content ? (
+          <div className="yat-row4">{row4Content}</div>
+        ) : (
+          <MetadataRow isPlayerProfile={isPlayerProfile} isGallery={isGallery} />
+        )}
 
         {/* Row 5: The actual page content */}
         <div className="yat-page-content-row">
-          {children}
+          {row5Content}
         </div>
       </main>
 
