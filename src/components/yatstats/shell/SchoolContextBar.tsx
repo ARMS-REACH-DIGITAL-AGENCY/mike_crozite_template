@@ -5,6 +5,7 @@
 'use client';
 
 import { useContext } from 'react';
+import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 
@@ -14,14 +15,32 @@ interface SchoolContextBarProps {
   isNews: boolean;
 }
 
-export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }: SchoolContextBarProps) {
-  const schoolData = useContext(SchoolContext);
+function formatSlugToLabel(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.toUpperCase())
+    .join(' ');
+}
 
-  // This will be replaced with dynamic data from the page context later
+export default function SchoolContextBar({
+  isPlayerProfile,
+  isGallery,
+  isNews,
+}: SchoolContextBarProps) {
+  const schoolData = useContext(SchoolContext);
+  const pathname = usePathname();
+
   const getPageLabel = () => {
-    if (isPlayerProfile) return 'PLAYER PROFILE'; // Placeholder, will be player name
+    if (isPlayerProfile) {
+      const segments = pathname.split('/').filter(Boolean);
+      const slug = segments[segments.length - 1] || '';
+      return slug ? formatSlugToLabel(slug) : 'PLAYER PROFILE';
+    }
+
     if (isNews) return 'ACTIVE ALUMNI NEWS';
     if (isGallery) return 'ACTIVE BASEBALL ALUMNI';
+
     return '';
   };
 
@@ -31,13 +50,17 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
         <img
           src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
           alt={`${schoolData?.hsName || 'School'} crest`}
-          className="yat-school-crest"
-          onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }}
+          className="yat-crest"
+          onError={(e) => {
+            e.currentTarget.src = CREST_FALLBACK_PATH;
+          }}
         />
-        <div className="yat-school-text">
-          <div className="yat-school-loc">{schoolData?.hsLocation || '...'}</div>
-          <div className="yat-school-name">{schoolData?.hsName || '...'}</div>
-          <div id="yatSectionLabel" className="yat-school-page-label">{getPageLabel()}</div>
+        <div className="yat-schooltext">
+          <div className="small">{schoolData?.hsLocation || '...'}</div>
+          <div className="big1">{schoolData?.hsName || '...'}</div>
+          <div id="yatSectionLabel" className="big2">
+            {getPageLabel()}
+          </div>
         </div>
       </div>
 
@@ -45,6 +68,7 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
+
         {isGallery && (
           <>
             <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
@@ -55,10 +79,11 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
             </button>
           </>
         )}
+
         {isPlayerProfile && (
-            <button id="btnFanFav" className="yat-icon-btn" aria-label="Favorite this player">
-                <i className="ri-heart-add-line" />
-            </button>
+          <button id="btnFanFav" className="yat-icon-btn" aria-label="Favorite this player">
+            <i className="ri-heart-add-line" />
+          </button>
         )}
       </div>
     </div>
