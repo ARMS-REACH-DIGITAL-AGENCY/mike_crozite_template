@@ -45,26 +45,24 @@ export default function SchoolContextBar({
   };
 
   return (
-    <div className="yat-school-row">
-      <div className="yat-school-info">
-        <img
-          src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
-          alt={`${schoolData?.hsName || 'School'} crest`}
-          className="yat-crest"
-          onError={(e) => {
-            e.currentTarget.src = CREST_FALLBACK_PATH;
-          }}
-        />
-        <div className="yat-schooltext">
-          <div className="small">{schoolData?.hsLocation || '...'}</div>
-          <div className="big1">{schoolData?.hsName || '...'}</div>
-          <div id="yatSectionLabel" className="big2">
-            {getPageLabel()}
-          </div>
+    <div className="yat-schoolrow">
+      <img
+        src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
+        alt={`${schoolData?.hsName || 'School'} crest`}
+        className="yat-crest"
+        onError={(e) => {
+          e.currentTarget.src = CREST_FALLBACK_PATH;
+        }}
+      />
+      <div className="yat-schooltext">
+        <div className="small">{schoolData?.hsLocation || '...'}</div>
+        <div className="big1">{schoolData?.hsName || '...'}</div>
+        <div id="yatSectionLabel" className="big2">
+          {getPageLabel()}
         </div>
       </div>
 
-      <div className="yat-school-actions">
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
