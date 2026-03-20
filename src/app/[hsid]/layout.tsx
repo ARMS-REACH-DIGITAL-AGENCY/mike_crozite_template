@@ -73,18 +73,52 @@ export default async function HsidLayout({
         {children}
       </SharedShell>
 
-      {/* Left Drawer */}
-      <aside className="yat-drawer yat-drawer-left" id="drawerMenu">
-        <button className="yat-icon-btn yat-close-btn" id="closeMenu" aria-label="Close menu">
-          <i className="ri-close-line" />
-        </button>
-        <h3>MENU</h3>
-        <div className="yat-drawer-content">
-          <a href={`/${resolvedHsid}`}>HOME</a>
-          <a href={`/${resolvedHsid}/news`}>ALUMNI NEWS</a>
-        </div>
-      </aside>
+    {/* Left Drawer */}
+<aside className="yat-drawer yat-drawer-left" id="drawerMenu">
+  <button className="yat-icon-btn yat-close-btn" id="closeMenu" aria-label="Close navigation">
+    <i className="ri-close-line" />
+  </button>
 
+  <h3>NAVIGATION</h3>
+
+  <div className="yat-drawer-content yat-drawer-nav">
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>
+      WHERE THEY YAT?
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>
+      ACTIVE ALUMNI NEWS
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#alltime`}>
+      NEXT-LEVEL ALL-TIME LIST
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#current-team`}>
+      2026 HIGH SCHOOL TEAM
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#fantasy-bracket`}>
+      FANTASY BRACKET TOURNEY
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#mentor`}>
+      MENTORSHIP MARKETPLACE
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#partner`}>
+      PARTNERSHIP PROGRAM
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#about`}>
+      ABOUT US
+    </a>
+
+    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#faq`}>
+      FAQ’S
+    </a>
+  </div>
+</aside>
       {/* Right Drawers */}
       <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
         <button className="yat-icon-btn yat-close-btn" id="closeAccount">
@@ -136,36 +170,36 @@ export default async function HsidLayout({
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
               {[
-                'PRE-1980',
-                '1980-1989',
-                '1990-1999',
-                '2000',
-                '2001',
-                '2002',
-                '2003',
-                '2004',
-                '2005',
-                '2006',
-                '2007',
-                '2008',
-                '2009',
-                '2010',
-                '2011',
-                '2012',
-                '2013',
-                '2014',
-                '2015',
-                '2016',
-                '2017',
-                '2018',
-                '2019',
-                '2020',
-                '2021',
-                '2022',
-                '2023',
-                '2024',
-                '2025',
-              ].map((year) => (
+  '2025',
+  '2024',
+  '2023',
+  '2022',
+  '2021',
+  '2020',
+  '2019',
+  '2018',
+  '2017',
+  '2016',
+  '2015',
+  '2014',
+  '2013',
+  '2012',
+  '2011',
+  '2010',
+  '2009',
+  '2008',
+  '2007',
+  '2006',
+  '2005',
+  '2004',
+  '2003',
+  '2002',
+  '2001',
+  '2000',
+  '1990-1999',
+  '1980-1989',
+  'PRE-1980',
+].map((year) => (
                 <label key={year}>
                   <input type="checkbox" value={year} /> {year}
                 </label>
