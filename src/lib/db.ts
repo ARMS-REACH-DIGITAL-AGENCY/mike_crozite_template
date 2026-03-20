@@ -746,7 +746,7 @@ export async function getDesignatedPlayerImage(
     const { rows } = await query(
       `SELECT *
          FROM player_photos
-        WHERE player_id::text = $1
+        WHERE playerid::text = $1
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
@@ -778,18 +778,18 @@ export async function getBatchDesignatedPlayerImages(
   if (imageIds.length === 0) return new Map();
   try {
     const { rows } = await query(
-      `SELECT DISTINCT ON (player_id::text) player_id, image_url
+      `SELECT DISTINCT ON (playerid::text) playerid, image_url
          FROM player_photos
-        WHERE player_id::text = ANY($1::text[])
+        WHERE playerid::text = ANY($1::text[])
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY player_id::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC`,
+        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC`,
       [imageIds, role]
     );
     const map = new Map<string, any>();
     for (const row of rows) {
-      map.set(String(row.player_id), row);
+      map.set(String(row.playerid), row);
     }
     return map;
   } catch {
@@ -824,7 +824,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     const { rows } = await query(
       `SELECT *
          FROM player_photos
-        WHERE player_id::text = $1
+        WHERE playerid::text = $1
           AND (
             -- Post-migration: explicit timeline role + approved + timeline flag
             (show_on_pp_timeline = TRUE AND approval_status = 'APPROVED')
