@@ -109,11 +109,29 @@ window.__firebase_config = ${firebaseConfigJSON};
     showSection(tab);
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
   });
-  var btnMenu=document.getElementById('btnMenu');
-  var closeLeft=document.getElementById('closeLeft');
-  if(btnMenu)btnMenu.addEventListener('click',function(){document.body.classList.toggle('drawer-left-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-right-open','drawer-account-open');});
-  if(closeLeft)closeLeft.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-open');});
-  var openFilters=document.getElementById('openFilters');
+  var btnMenu=document.getElementById('btnMenu') || document.getElementById('openMenu');
+var closeLeft=document.getElementById('closeLeft');
+var mask=document.getElementById('drawerMask');
+
+if(btnMenu){
+  btnMenu.addEventListener('click',function(){
+    document.body.classList.add('drawer-left-open');
+    document.body.classList.add('drawer-open');
+    document.body.classList.remove('drawer-right-open','drawer-account-open');
+  });
+}
+
+if(closeLeft){
+  closeLeft.addEventListener('click',function(){
+    document.body.classList.remove('drawer-left-open','drawer-open');
+  });
+}
+
+if(mask){
+  mask.addEventListener('click',function(){
+    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+  });
+}var openFilters=document.getElementById('openFilters');
   var closeFilters=document.getElementById('closeFilters');
   var filtersReset=document.getElementById('filtersReset');
   var filtersReset2=document.getElementById('filtersReset2');
