@@ -226,15 +226,23 @@ export default function YatStyles() {
         gap:14px
       }
 
-      .yat-drawer-content a{
-        display:block;
-        padding:12px 14px;
-        border:1px solid var(--line);
-        border-radius:12px;
-        text-decoration:none;
-        color:inherit;
-        background:rgba(255,255,255,.03)
-      }
+      .yat-drawer-nav{
+  display:flex;
+  flex-direction:column;
+  gap:12px
+}
+
+.yat-drawer-nav-item{
+  font:400 14px Oswald,sans-serif;
+  padding:8px 0;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+  color:var(--ink)
+}
+
+.yat-drawer-nav-item:hover{
+  color:var(--fg)
+}
 
       .yat-drawer-footer{
         flex-shrink:0;
