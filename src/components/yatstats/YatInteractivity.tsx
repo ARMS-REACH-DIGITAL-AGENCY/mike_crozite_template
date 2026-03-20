@@ -131,6 +131,11 @@ if(mask){
   mask.addEventListener('click',function(){
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
   });
+}
+if(mask){
+  mask.addEventListener('click',function(){
+    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+  });
 }var openFilters=document.getElementById('openFilters');
   var closeFilters=document.getElementById('closeFilters');
   var filtersReset=document.getElementById('filtersReset');
