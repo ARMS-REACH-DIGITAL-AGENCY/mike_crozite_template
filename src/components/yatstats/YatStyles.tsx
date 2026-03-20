@@ -200,7 +200,7 @@ export default function YatStyles() {
         border-left:1px solid var(--line)
       }
 
-      body.drawer-left-open #drawerMenu{transform:translateX(0)}
+      body.drawer-left-open #drawerLeft{transform:translateX(0)}
       body.drawer-right-open #drawerFilters{transform:translateX(0)}
       body.drawer-account-open #drawerAccount{transform:translateX(0)}
 
