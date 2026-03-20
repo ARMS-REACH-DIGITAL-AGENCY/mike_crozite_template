@@ -73,7 +73,19 @@ export default async function HsidLayout({
         {children}
       </SharedShell>
 
-      {/* Shared Drawers & Modals */}
+      {/* Left Drawer */}
+      <aside className="yat-drawer yat-drawer-left" id="drawerMenu">
+        <button className="yat-icon-btn yat-close-btn" id="closeMenu" aria-label="Close menu">
+          <i className="ri-close-line" />
+        </button>
+        <h3>MENU</h3>
+        <div className="yat-drawer-content">
+          <a href={`/${resolvedHsid}`}>HOME</a>
+          <a href={`/${resolvedHsid}/news`}>ALUMNI NEWS</a>
+        </div>
+      </aside>
+
+      {/* Right Drawers */}
       <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
         <button className="yat-icon-btn yat-close-btn" id="closeAccount">
           <i className="ri-close-line" />
@@ -94,56 +106,73 @@ export default async function HsidLayout({
               <input id="filterName" type="text" placeholder="Type a name…" />
             </div>
           </details>
+
           <details className="yat-filter-group">
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
-              {['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'INDY', 'INTL', 'D1', 'D2', 'D3', 'NAIA', 'JUCO'].map((l) => (
+              {[
+                'MLB',
+                'TRIPLE-A',
+                'DOUBLE-A',
+                'HIGH-A',
+                'LOW-A',
+                'ROOKIE',
+                'INDY',
+                'INTL',
+                'D1',
+                'D2',
+                'D3',
+                'NAIA',
+                'JUCO',
+              ].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}
                 </label>
               ))}
             </div>
           </details>
+
           <details className="yat-filter-group">
-  <summary>By Graduating Class</summary>
-  <div className="yat-filter-options" id="filterGradClass">
-    {[
-      'PRE-1980',
-      '1980-1989',
-      '1990-1999',
-      '2000',
-      '2001',
-      '2002',
-      '2003',
-      '2004',
-      '2005',
-      '2006',
-      '2007',
-      '2008',
-      '2009',
-      '2010',
-      '2011',
-      '2012',
-      '2013',
-      '2014',
-      '2015',
-      '2016',
-      '2017',
-      '2018',
-      '2019',
-      '2020',
-      '2021',
-      '2022',
-      '2023',
-      '2024',
-      '2025',
-    ].map((year) => (
-      <label key={year}>
-        <input type="checkbox" value={year} /> {year}
-      </label>
-    ))}
-  </div>
-</details>
+            <summary>By Graduating Class</summary>
+            <div className="yat-filter-options" id="filterGradClass">
+              {[
+                'PRE-1980',
+                '1980-1989',
+                '1990-1999',
+                '2000',
+                '2001',
+                '2002',
+                '2003',
+                '2004',
+                '2005',
+                '2006',
+                '2007',
+                '2008',
+                '2009',
+                '2010',
+                '2011',
+                '2012',
+                '2013',
+                '2014',
+                '2015',
+                '2016',
+                '2017',
+                '2018',
+                '2019',
+                '2020',
+                '2021',
+                '2022',
+                '2023',
+                '2024',
+                '2025',
+              ].map((year) => (
+                <label key={year}>
+                  <input type="checkbox" value={year} /> {year}
+                </label>
+              ))}
+            </div>
+          </details>
+
           <details className="yat-filter-group">
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
@@ -155,6 +184,7 @@ export default async function HsidLayout({
             </div>
           </details>
         </div>
+
         <div className="yat-drawer-footer">
           <button
             id="filtersReset"
@@ -171,7 +201,13 @@ export default async function HsidLayout({
 
       {/* Article detail overlay + modal drawer */}
       <div className="yat-article-overlay" id="articleOverlay" />
-      <aside className="yat-article-modal" id="articleModal" role="dialog" aria-modal="true" aria-label="Article detail">
+      <aside
+        className="yat-article-modal"
+        id="articleModal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Article detail"
+      >
         <div className="yat-article-modal-top">
           <span className="yat-article-modal-label">ALUMNI NEWS</span>
           <button className="yat-article-modal-close" id="articleModalClose" aria-label="Close">
@@ -183,7 +219,10 @@ export default async function HsidLayout({
       </aside>
 
       {/* Shared Interactivity — must be rendered last */}
-      <YatInteractivity resolvedHsid={resolvedHsid} firebaseConfigJSON={getFirebaseConfigJSON()} />
+      <YatInteractivity
+        resolvedHsid={resolvedHsid}
+        firebaseConfigJSON={getFirebaseConfigJSON()}
+      />
     </SchoolContextProvider>
   );
 }
