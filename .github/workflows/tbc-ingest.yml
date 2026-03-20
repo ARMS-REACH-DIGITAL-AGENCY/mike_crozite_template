@@ -1,20 +1,7 @@
-name: TBC Daily Ingest v1
+# DISABLED AFTER INCIDENT ON 2026-03-20
+# Preserved for postmortem/reference only.
+# Do not re-enable without staging-table loader and validation.
 
-on:
-  schedule:
-    - cron: '0 8,20 * * *'
-  workflow_dispatch:
+name: TBC Daily Ingest v1 (DISABLED)
 
-jobs:
-  ingest:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install pandas psycopg2-binary cloudscraper
-      - name: Run ingest
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/ingest_tbc_daily_v1.py
+on: {}
