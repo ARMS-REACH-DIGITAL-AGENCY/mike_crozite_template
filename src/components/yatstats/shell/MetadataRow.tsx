@@ -1,7 +1,5 @@
-
 // src/components/yatstats/shell/MetadataRow.tsx
-// Renders Row 4 of the shared shell.
-// This component is a placeholder and will be built out later
+'use client';
 
 interface MetadataRowProps {
   isPlayerProfile: boolean;
@@ -9,22 +7,29 @@ interface MetadataRowProps {
 }
 
 export default function MetadataRow({ isPlayerProfile, isGallery }: MetadataRowProps) {
-  // This component will conditionally render the Gallery Metadata Row or Profile Metadata Row.
-  // For now, it's a placeholder.
   if (isGallery) {
-      return (
-        <div className="yat-meta-row-placeholder" style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid var(--line)' }}>
-          <h2 style={{fontFamily: '"Bebas Neue"', fontSize: '24px', letterSpacing: '0.1em'}}>WHERE THEY YAT? FLIP FOR STATS!</h2>
-        </div>
-      );
-  }
-  
-  if (isPlayerProfile) {
     return (
-        <div className="yat-meta-row-placeholder" style={{ height: '80px', borderBottom: '1px solid var(--line)' }}>
-            {/* Placeholder for Player Metadata Row */}
+      <div className="yat-hero">
+        <div className="yat-container yat-hero-grid">
+          <div className="yat-hero-left">
+            <div className="yat-tag-duo">
+              <div className="yat-tag-swap">
+                <span className="yat-tag-grey">FLIP FOR </span>
+                <span className="yat-tag-bold">STATS!</span>
+              </div>
+              <div className="yat-tag-swap">
+                <span className="yat-tag-grey">WHERE THEY </span>
+                <span className="yat-tag-bold">YAT?</span>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     );
+  }
+
+  if (isPlayerProfile) {
+    return <div className="yat-profile-meta-row" aria-hidden="true" />;
   }
 
   return null;
