@@ -73,50 +73,26 @@ export default async function HsidLayout({
         {children}
       </SharedShell>
 
-    {/* Left Drawer */}
-<aside className="yat-drawer yat-drawer-left" id="drawerMenu">
-  <button className="yat-icon-btn yat-close-btn" id="closeMenu" aria-label="Close navigation">
+    {/* LEFT DRAWER */}
+<aside className="yat-drawer" id="drawerLeft">
+  <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
     <i className="ri-close-line" />
   </button>
 
-  <h3>NAVIGATION</h3>
+  <div className="yat-drawer-content">
+    <h3>NAVIGATION</h3>
 
-  <div className="yat-drawer-content yat-drawer-nav">
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>
-      WHERE THEY YAT?
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>
-      ACTIVE ALUMNI NEWS
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#alltime`}>
-      NEXT-LEVEL ALL-TIME LIST
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#current-team`}>
-      2026 HIGH SCHOOL TEAM
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#fantasy-bracket`}>
-      FANTASY BRACKET TOURNEY
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#mentor`}>
-      MENTORSHIP MARKETPLACE
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#partner`}>
-      PARTNERSHIP PROGRAM
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#about`}>
-      ABOUT US
-    </a>
-
-    <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#faq`}>
-      FAQ’S
-    </a>
+    <div className="yat-drawer-nav">
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#current-team`}>2026 HIGH SCHOOL TEAM</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#fantasy-bracket`}>FANTASY BRACKET TOURNEY</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#mentor`}>MENTORSHIP MARKETPLACE</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#partner`}>PARTNERSHIP PROGRAM</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#about`}>ABOUT US</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#faq`}>FAQ’S</a>
+    </div>
   </div>
 </aside>
       {/* Right Drawers */}
