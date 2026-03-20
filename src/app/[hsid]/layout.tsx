@@ -22,6 +22,41 @@ import SharedShell from '@/components/yatstats/SharedShell';
 
 export const runtime = 'nodejs';
 
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ hsid: string }>;
+}): Promise<Metadata> {
+  const { hsid } = await params;
+
+  let school: Record<string, unknown> | null = null;
+
+  try {
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+  } catch {
+    school = null;
+  }
+
+  const resolvedHsid = String(school?.hsid ?? hsid);
+  const schoolName = formatSchoolName(String(school?.hsname || 'YAT?STATS'));
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
+
+  return {
+    title: `${schoolName} | YAT?STATS`,
+    icons: {
+      icon: crestUrl,
+      apple: crestUrl,
+      shortcut: crestUrl,
+    },
+    appleWebApp: {
+      capable: true,
+      title: schoolName,
+    },
+  };
+}
+
 export default async function HsidLayout({
   children,
   params,
