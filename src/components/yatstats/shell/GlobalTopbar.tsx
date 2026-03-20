@@ -16,11 +16,14 @@ export default function GlobalTopbar() {
           <i className="ri-sun-line" />
         </button>
       </div>
-      <div className="yat-topbar-logo">
-        <a href="/">
-          <img src="/img/yatstats-logo.svg" alt="YAT?STATS" />
-        </a>
-      </div>
+      <div className="yat-wordmark-wrap">
+  <img
+  src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+  alt="YAT?STATS"
+  className="yat-wordmark-img"
+  style={{ height: '28px', width: 'auto', display: 'block' }}
+/>
+</div>
       {/* The right side is empty in this design, but the container is here for balance */}
       <div className="yat-topbar-right"></div>
     </div>
