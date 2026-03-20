@@ -74,7 +74,7 @@ export default async function HsidLayout({
       </SharedShell>
 
     {/* LEFT DRAWER */}
-<aside className="yat-drawer" id="drawerLeft">
+<aside className="yat-drawer yat-drawer-left" id="drawerLeft">
   <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
     <i className="ri-close-line" />
   </button>
