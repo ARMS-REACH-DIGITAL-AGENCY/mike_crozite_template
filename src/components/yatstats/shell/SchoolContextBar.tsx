@@ -1,4 +1,3 @@
-
 // src/components/yatstats/shell/SchoolContextBar.tsx
 // Renders Row 2 of the shared shell
 
@@ -62,7 +61,14 @@ export default function SchoolContextBar({
         </div>
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div
+        style={{
+          marginLeft: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
