@@ -264,8 +264,6 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     WITH school_players AS (
       SELECT
         ph.playerid,
-        md.player_grad_year,
-        md.hs_varsity_years,
         tp.firstname,
         tp.lastname,
         tp.highlevel    AS career_highlevel,
@@ -274,15 +272,12 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         tp.bats,
         tp.throws,
         tp.posit        AS position
-      FROM public.player_hsids ph
-      JOIN public.tbc_players_raw tp
-        ON ph.playerid::text = tp.playerid::text
-      LEFT JOIN public.player_hsid_metadata md
-  ON md.hsid::text = ph.hsid::text
- AND md.playerid = ph.playerid::text
-WHERE ph.hsid::text = $1
+      FROM player_hsids ph
+      JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
+      WHERE ph.hsid = $1
     ),
 
+    -- Career batting totals (all years combined via most recent year for display)
     latest_batting AS (
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
@@ -316,22 +311,19 @@ WHERE ph.hsid::text = $1
       ORDER BY playerid, year DESC
     ),
 
+    -- Was player active in 2025?
     active_2025 AS (
       SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_batting_raw
-      WHERE year = '2025'
+      FROM tbc_batting_raw WHERE year = '2025'
         AND playerid::text IN (SELECT playerid::text FROM school_players)
       UNION
       SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_pitching_raw
-      WHERE year = '2025'
+      FROM tbc_pitching_raw WHERE year = '2025'
         AND playerid::text IN (SELECT playerid::text FROM school_players)
     )
 
     SELECT
       sp.playerid,
-      sp.player_grad_year,
-      sp.hs_varsity_years,
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
@@ -363,7 +355,6 @@ WHERE ph.hsid::text = $1
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
     LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
     ORDER BY
-      sp.player_grad_year ASC NULLS LAST,
       CASE sp.career_highlevel
         WHEN 'MLB'        THEN 1
         WHEN 'TRIPLE-A'   THEN 2
@@ -374,22 +365,12 @@ WHERE ph.hsid::text = $1
         WHEN 'A+'         THEN 4
         WHEN 'LOW-A'      THEN 5
         WHEN 'A'          THEN 5
-        WHEN 'INTL'       THEN 6
-        WHEN 'Indy'       THEN 7
-        WHEN 'PARTNER'    THEN 8
-        WHEN 'SPONSOR'    THEN 8
-        WHEN 'NCAA-D1'    THEN 9
-        WHEN 'D1'         THEN 9
-        WHEN 'NCAA-D2'    THEN 10
-        WHEN 'D2'         THEN 10
-        WHEN 'NCAA-D3'    THEN 11
-        WHEN 'D3'         THEN 11
-        WHEN 'NAIA'       THEN 12
-        WHEN 'JrCollege'  THEN 13
-        WHEN 'JUCO'       THEN 13
-        ELSE 99
+        WHEN 'Indy'       THEN 6
+        WHEN 'NCAA'       THEN 7
+        WHEN 'JrCollege'  THEN 8
+        WHEN 'NAIA'       THEN 9
+        ELSE 10
       END,
-      sp.hs_varsity_years DESC NULLS LAST,
       sp.lastname,
       sp.firstname
   `;
