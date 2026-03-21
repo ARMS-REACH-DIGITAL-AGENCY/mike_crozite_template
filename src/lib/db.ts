@@ -261,29 +261,28 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
-   WITH school_players AS (
-  SELECT
-    ph.playerid,
-    md.player_grad_year,
-    md.hs_varsity_years,
-    tp.firstname,
-    tp.lastname,
-    tp.highlevel AS career_highlevel,
-    tp.ht AS height,
-    tp.wt AS weight,
-    tp.bats,
-    tp.throws,
-    tp.posit AS position
-  FROM public.player_hsids ph
-  JOIN public.tbc_players_raw tp
-    ON ph.playerid::text = tp.playerid::text
-  LEFT JOIN public.player_hsid_metadata md
-    ON md.hsid = ph.hsid
-   AND md.playerid::text = ph.playerid::text
-  WHERE ph.hsid = $1
-),
+    WITH school_players AS (
+      SELECT
+        ph.playerid,
+        md.player_grad_year,
+        md.hs_varsity_years,
+        tp.firstname,
+        tp.lastname,
+        tp.highlevel    AS career_highlevel,
+        tp.ht           AS height,
+        tp.wt           AS weight,
+        tp.bats,
+        tp.throws,
+        tp.posit        AS position
+      FROM public.player_hsids ph
+      JOIN public.tbc_players_raw tp
+        ON ph.playerid::text = tp.playerid::text
+      LEFT JOIN public.player_hsid_metadata md
+        ON md.hsid = ph.hsid
+       AND md.playerid = ph.playerid::text
+      WHERE ph.hsid = $1
+    ),
 
-    -- Career batting totals (all years combined via most recent year for display)
     latest_batting AS (
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
@@ -317,19 +316,22 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       ORDER BY playerid, year DESC
     ),
 
-    -- Was player active in 2025?
     active_2025 AS (
       SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_batting_raw WHERE year = '2025'
+      FROM tbc_batting_raw
+      WHERE year = '2025'
         AND playerid::text IN (SELECT playerid::text FROM school_players)
       UNION
       SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_pitching_raw WHERE year = '2025'
+      FROM tbc_pitching_raw
+      WHERE year = '2025'
         AND playerid::text IN (SELECT playerid::text FROM school_players)
     )
 
     SELECT
       sp.playerid,
+      sp.player_grad_year,
+      sp.hs_varsity_years,
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
@@ -361,8 +363,8 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
     LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
     ORDER BY
-  ph.player_grad_year ASC NULLS LAST,
-  CASE sp.career_highlevel
+      sp.player_grad_year ASC NULLS LAST,
+      CASE sp.career_highlevel
         WHEN 'MLB'        THEN 1
         WHEN 'TRIPLE-A'   THEN 2
         WHEN 'AAA'        THEN 2
@@ -385,11 +387,11 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'NAIA'       THEN 12
         WHEN 'JrCollege'  THEN 13
         WHEN 'JUCO'       THEN 13
-    ELSE 99
-  END,
-  ph.hs_varsity_years DESC NULLS LAST,
-  sp.lastname,
-  sp.firstname
+        ELSE 99
+      END,
+      sp.hs_varsity_years DESC NULLS LAST,
+      sp.lastname,
+      sp.firstname
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
