@@ -11,12 +11,20 @@ import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 
+type StripPlayer = {
+  id: string;
+  name: string;
+  image?: string;
+};
+
 export default function SharedShell({
   children,
   hsid,
+  players = [],
 }: {
   children: ReactNode;
   hsid: string;
+  players?: StripPlayer[];
 }) {
   const pathname = usePathname();
 
@@ -42,6 +50,7 @@ export default function SharedShell({
           isPlayerProfile={isPlayerProfile}
           isGallery={isGallery}
           isNews={isNews}
+          players={players}
         />
         <MetadataRow
           isPlayerProfile={isPlayerProfile}
