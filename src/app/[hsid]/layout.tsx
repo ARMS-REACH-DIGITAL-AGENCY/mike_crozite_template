@@ -118,15 +118,15 @@ export default async function HsidLayout({
     <h3>NAVIGATION</h3>
 
     <div className="yat-drawer-nav">
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#current-team`}>2026 HIGH SCHOOL TEAM</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#fantasy-bracket`}>FANTASY BRACKET TOURNEY</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#mentor`}>MENTORSHIP MARKETPLACE</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#partner`}>PARTNERSHIP PROGRAM</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#about`}>ABOUT US</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#faq`}>FAQ’S</a>
+      <a className="yat-drawer-nav-item" data-tab="active" href="#">WHERE THEY YAT?</a>
+      <a className="yat-drawer-nav-item" data-tab="news" href="#">ACTIVE ALUMNI NEWS</a>
+      <a className="yat-drawer-nav-item" data-tab="alltime" href="#">NEXT-LEVEL ALL-TIME LIST</a>
+      <a className="yat-drawer-nav-item" data-tab="team" href="#">2026 HIGH SCHOOL TEAM</a>
+      <a className="yat-drawer-nav-item" data-tab="fantasy" href="#">FANTASY BRACKET TOURNEY</a>
+      <a className="yat-drawer-nav-item" data-tab="mentor" href="#">MENTORSHIP MARKETPLACE</a>
+      <a className="yat-drawer-nav-item" data-tab="partner" href="#">PARTNERSHIP PROGRAM</a>
+      <a className="yat-drawer-nav-item" data-tab="about" href="#">ABOUT US</a>
+      <a className="yat-drawer-nav-item" data-tab="faq" href="#">FAQ’S</a>
     </div>
   </div>
 </aside>
