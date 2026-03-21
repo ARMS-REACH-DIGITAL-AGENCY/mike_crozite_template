@@ -34,18 +34,22 @@ export default function SharedShell({
 
   return (
     <>
-      {/* ROW 1 + ROW 2 */}
-      <header id="site-header" className="yat-header">
+      {/* ROW 1 */}
+      <div className="yat-row1-shell">
         <GlobalTopbar />
+      </div>
+
+      {/* ROW 2 */}
+      <div className="yat-row2-shell">
         <SchoolContextBar
           isPlayerProfile={isPlayerProfile}
           isGallery={isGallery}
           isNews={isNews}
         />
-      </header>
+      </div>
 
       <main>
-        {/* ROW 3 — sticky interaction strip */}
+        {/* ROW 3 */}
         <div className="yat-row3-shell">
           <InteractionStrip
             isPlayerProfile={isPlayerProfile}
@@ -55,7 +59,7 @@ export default function SharedShell({
           />
         </div>
 
-        {/* ROW 4 — non-sticky metadata / CTA row */}
+        {/* ROW 4 */}
         <div className="yat-row4-shell">
           <MetadataRow
             isPlayerProfile={isPlayerProfile}
@@ -64,13 +68,13 @@ export default function SharedShell({
         </div>
 
         {/* ROW 5 */}
-        <div className="yat-page-content-row">
+        <div className="yat-row5-shell">
           {children}
         </div>
       </main>
 
       {/* ROW 6 */}
-      <footer className="yat-footer">
+      <footer className="yat-row6-shell yat-footer">
         <a
           href="https://www.armsreachdigital.com/"
           target="_blank"
