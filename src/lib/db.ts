@@ -232,8 +232,10 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'A'          THEN 5
         WHEN 'Indy'       THEN 6
         WHEN 'NCAA'       THEN 7
-        WHEN 'JrCollege'  THEN 8
-        WHEN 'NAIA'       THEN 9
+        WHEN 'NAIA'       THEN 8
+        WHEN 'JrCollege'  THEN 9
+        WHEN 'JUCO'       THEN 9
+        
         ELSE 10
       END,
       sp.lastname,
@@ -750,13 +752,12 @@ export async function getDesignatedPlayerImage(
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC
+        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, photo_asset_id DESC
         LIMIT 1`,
       [imageId, role]
     );
     return rows[0] || null;
   } catch {
-    // Table or columns don't exist yet — degrade gracefully
     return null;
   }
 }
@@ -784,7 +785,7 @@ export async function getBatchDesignatedPlayerImages(
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC`,
+        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, photo_asset_id DESC`,
       [imageIds, role]
     );
     const map = new Map<string, any>();
@@ -793,7 +794,6 @@ export async function getBatchDesignatedPlayerImages(
     }
     return map;
   } catch {
-    // Table or columns don't exist yet — degrade gracefully
     return new Map();
   }
 }
