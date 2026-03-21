@@ -709,7 +709,7 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
 // PLAYER PHOTOS — uploaded career-progression photos for the filmstrip.
 //
 // Table columns (after migration 006):
-//   player_id         TEXT / INT  — matches player imageId
+//   playerid         TEXT / INT  — matches player imageId
 //   image_url         TEXT        — full URL or S3 key for the photo
 //   image_role        TEXT NULL   — display slot: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR
 //                                   | HEADSHOT | TIMELINE
@@ -752,7 +752,10 @@ export async function getDesignatedPlayerImage(
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, photo_asset_id DESC
+        ORDER BY is_primary DESC NULLS LAST,
+                 date_taken DESC NULLS LAST,
+                 updated_at DESC NULLS LAST,
+                 created_at DESC NULLS LAST
         LIMIT 1`,
       [imageId, role]
     );
@@ -785,7 +788,11 @@ export async function getBatchDesignatedPlayerImages(
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, photo_asset_id DESC`,
+        ORDER BY playerid::text,
+                 is_primary DESC NULLS LAST,
+                 date_taken DESC NULLS LAST,
+                 updated_at DESC NULLS LAST,
+                 created_at DESC NULLS LAST`,
       [imageIds, role]
     );
     const map = new Map<string, any>();
