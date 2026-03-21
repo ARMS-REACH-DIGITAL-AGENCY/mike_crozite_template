@@ -840,7 +840,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     // Table or new columns don't exist yet — try simpler fallback query
     try {
       const { rows } = await query(
-        `SELECT * FROM player_photos WHERE player_id::text = $1
+        `SELECT * FROM player_photos WHERE playerid::text = $1
          ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
         [imageId]
       );
