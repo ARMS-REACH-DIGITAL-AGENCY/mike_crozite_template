@@ -71,7 +71,7 @@ export async function getSchoolByHsid(hsid: string) {
   // like "co" or "az" routed here by the middleware). Return null early.
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
-    'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
+    'SELECT * FROM school_success WHERE hsid::text = $1 LIMIT 1',
     [hsid]
   );
   return rows[0] || null;
@@ -115,7 +115,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         tp.posit        AS position
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
+      WHERE ph.hsid::text = $1
     ),
 
     -- Most recent batting season for each player
@@ -707,7 +707,7 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
            AND  playerid::text = na.playerid::text
          LIMIT  1
        ) a25 ON true
-       WHERE na.hsid = $1
+       WHERE na.hsid::text = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,
       [hsid, limit]
