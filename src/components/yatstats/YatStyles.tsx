@@ -13,6 +13,94 @@ export default function YatStyles() {
       a{color:inherit;text-decoration:none}
       .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
       .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);transition:background-color .3s}
+
+      .yat-row3-shell{
+        position:sticky;
+        top:calc(56px + var(--crestH) + 14px);
+        z-index:45;
+        background:var(--header-bg);
+        border-top:1px solid var(--line);
+        border-bottom:1px solid var(--line);
+      }
+      .yat-row4-shell{
+        position:relative;
+        z-index:5;
+        background:var(--bg);
+        border-bottom:1px solid var(--line);
+      }
+      .gallery-strip{
+        position:relative;
+        max-width:1400px;
+        margin:0 auto;
+        padding:8px 44px;
+        min-height:74px;
+        display:flex;
+        align-items:center;
+      }
+
+      .gallery-strip-inner{
+        width:100%;
+        display:flex;
+        gap:10px;
+        overflow-x:auto;
+        overflow-y:hidden;
+        scroll-behavior:smooth;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:none;
+        align-items:center;
+      }
+
+      .gallery-strip-inner::-webkit-scrollbar{
+        display:none;
+      }
+
+      .gallery-slot{
+        flex:0 0 auto;
+        width:52px;
+        height:52px;
+        border-radius:8px;
+        overflow:hidden;
+        border:1px solid var(--line);
+        background:rgba(255,255,255,.04);
+        display:block;
+      }
+
+      .gallery-slot-img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        display:block;
+      }
+
+      .gallery-strip-arrow{
+        position:absolute;
+        top:50%;
+        transform:translateY(-50%);
+        width:28px;
+        height:28px;
+        border:none;
+        border-radius:999px;
+        background:rgba(0,0,0,.65);
+        color:#fff;
+        cursor:pointer;
+        display:grid;
+        place-items:center;
+        z-index:2;
+      }
+
+      .gallery-strip-arrow.left{left:8px}
+      .gallery-strip-arrow.right{right:8px}
+      .gallery-strip-arrow.hidden{opacity:0;pointer-events:none}
+
+      .profile-strip-placeholder{
+        min-height:56px;
+      }
+      @media(max-width:640px){
+        .yat-row3-shell{
+          top:calc(52px + var(--crestH) + 10px);
+        }
+      }
+      
       .yat-topbar{
         display:flex;
         align-items:center;
