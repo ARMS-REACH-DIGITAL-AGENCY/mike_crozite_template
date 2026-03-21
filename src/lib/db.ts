@@ -261,21 +261,22 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
-    WITH school_players AS (
-      SELECT
-        ph.playerid,
-        tp.firstname,
-        tp.lastname,
-        tp.highlevel    AS career_highlevel,
-        tp.ht           AS height,
-        tp.wt           AS weight,
-        tp.bats,
-        tp.throws,
-        tp.posit        AS position
-      FROM player_hsids ph
-      JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
-    ),
+   WITH school_players AS (
+  SELECT
+    ph.playerid,
+    tp.firstname,
+    tp.lastname,
+    tp.highlevel AS career_highlevel,
+    tp.ht AS height,
+    tp.wt AS weight,
+    tp.bats,
+    tp.throws,
+    tp.posit AS position
+  FROM public.player_hsids ph
+  JOIN public.tbc_players_raw tp
+    ON ph.playerid::text = tp.playerid::text
+  WHERE ph.hsid = $1
+),
 
     -- Career batting totals (all years combined via most recent year for display)
     latest_batting AS (
