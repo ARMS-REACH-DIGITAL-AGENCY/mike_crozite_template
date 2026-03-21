@@ -230,11 +230,19 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'A+'         THEN 4
         WHEN 'LOW-A'      THEN 5
         WHEN 'A'          THEN 5
-        WHEN 'Indy'       THEN 6
-        WHEN 'NCAA'       THEN 7
-        WHEN 'NAIA'       THEN 8
-        WHEN 'JrCollege'  THEN 9
-        WHEN 'JUCO'       THEN 9
+        WHEN 'INTL'       THEN 6
+        WHEN 'Indy'       THEN 7
+        WHEN 'PARTNER'    THEN 8
+        WHEN 'SPONSOR'    THEN 8
+        WHEN 'NCAA-D1'    THEN 9
+        WHEN 'D1'         THEN 9
+        WHEN 'NCAA-D2'    THEN 10
+        WHEN 'D2'         THEN 10
+        WHEN 'NCAA-D3'    THEN 11
+        WHEN 'D3'         THEN 11
+        WHEN 'NAIA'       THEN 12
+        WHEN 'JrCollege'  THEN 13
+        WHEN 'JUCO'       THEN 13
         
         ELSE 10
       END,
@@ -349,20 +357,28 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     ORDER BY
   ph.player_grad_year ASC NULLS LAST,
   CASE sp.career_highlevel
-    WHEN 'MLB'        THEN 1
-    WHEN 'AAA'        THEN 2
-    WHEN 'AA'         THEN 3
-    WHEN 'A+'         THEN 4
-    WHEN 'A'          THEN 5
-    WHEN 'PARTNER'    THEN 6
-    WHEN 'SPONSOR'    THEN 6
-    WHEN 'INDY'       THEN 7
-    WHEN 'INTL'       THEN 8
-    WHEN 'D1'         THEN 9
-    WHEN 'D2'         THEN 1O
-    WHEN 'D3'         THEN 11
-    WHEN 'NAIA'       THEN 12
-    WHEN 'JUCO'       THEN 13
+        WHEN 'MLB'        THEN 1
+        WHEN 'TRIPLE-A'   THEN 2
+        WHEN 'AAA'        THEN 2
+        WHEN 'DOUBLE-A'   THEN 3
+        WHEN 'AA'         THEN 3
+        WHEN 'HIGH-A'     THEN 4
+        WHEN 'A+'         THEN 4
+        WHEN 'LOW-A'      THEN 5
+        WHEN 'A'          THEN 5
+        WHEN 'INTL'       THEN 6
+        WHEN 'Indy'       THEN 7
+        WHEN 'PARTNER'    THEN 8
+        WHEN 'SPONSOR'    THEN 8
+        WHEN 'NCAA-D1'    THEN 9
+        WHEN 'D1'         THEN 9
+        WHEN 'NCAA-D2'    THEN 10
+        WHEN 'D2'         THEN 10
+        WHEN 'NCAA-D3'    THEN 11
+        WHEN 'D3'         THEN 11
+        WHEN 'NAIA'       THEN 12
+        WHEN 'JrCollege'  THEN 13
+        WHEN 'JUCO'       THEN 13
     ELSE 99
   END,
   ph.hs_varsity_years DESC NULLS LAST,
