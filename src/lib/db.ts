@@ -264,6 +264,8 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
    WITH school_players AS (
   SELECT
     ph.playerid,
+    md.player_grad_year,
+    md.hs_varsity_years,
     tp.firstname,
     tp.lastname,
     tp.highlevel AS career_highlevel,
@@ -275,6 +277,9 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   FROM public.player_hsids ph
   JOIN public.tbc_players_raw tp
     ON ph.playerid::text = tp.playerid::text
+  LEFT JOIN public.player_hsid_metadata md
+    ON md.hsid = ph.hsid
+   AND md.playerid::text = ph.playerid::text
   WHERE ph.hsid = $1
 ),
 
