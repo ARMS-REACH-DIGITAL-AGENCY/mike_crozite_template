@@ -125,12 +125,12 @@ export default function YatStyles() {
         background:var(--bg);
         border-bottom:1px solid var(--line);
       }
-      .gallery-strip{
+           .gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
-        padding:8px 44px;
-        min-height:74px;
+        padding:6px 28px;
+        min-height:62px;
         display:flex;
         align-items:center;
       }
@@ -138,7 +138,7 @@ export default function YatStyles() {
       .gallery-strip-inner{
         width:100%;
         display:flex;
-        gap:10px;
+        gap:0;
         overflow-x:auto;
         overflow-y:hidden;
         scroll-behavior:smooth;
@@ -153,13 +153,34 @@ export default function YatStyles() {
 
       .gallery-slot{
         flex:0 0 auto;
-        width:52px;
-        height:52px;
-        border-radius:8px;
+        width:54px;
+        height:54px;
+        min-width:54px;
         overflow:hidden;
-        border:1px solid var(--line);
-        background:rgba(255,255,255,.04);
+        border:none;
+        border-radius:0;
+        background:#111;
         display:block;
+        position:relative;
+        transform:translateY(0) scale(1);
+        transition:transform .16s ease, filter .16s ease, box-shadow .16s ease, opacity .16s ease;
+      }
+
+      .gallery-slot + .gallery-slot{
+        margin-left:1px;
+      }
+
+      .gallery-slot:hover,
+      .gallery-slot:focus,
+      .gallery-slot.is-active{
+        transform:translateY(-2px) scale(1.05);
+        z-index:3;
+        box-shadow:0 0 0 1px rgba(255,255,255,.2);
+        filter:brightness(1.08);
+      }
+
+      .gallery-slot:active{
+        transform:translateY(0) scale(0.98);
       }
 
       .gallery-slot-img{
@@ -173,22 +194,27 @@ export default function YatStyles() {
         position:absolute;
         top:50%;
         transform:translateY(-50%);
-        width:28px;
-        height:28px;
+        width:22px;
+        height:22px;
         border:none;
-        border-radius:999px;
-        background:rgba(0,0,0,.65);
+        border-radius:0;
+        background:rgba(0,0,0,.8);
         color:#fff;
         cursor:pointer;
         display:grid;
         place-items:center;
-        z-index:2;
+        z-index:4;
+        font-size:20px;
+        line-height:1;
       }
 
-      .gallery-strip-arrow.left{left:8px}
-      .gallery-strip-arrow.right{right:8px}
+      .gallery-strip-arrow.left{left:2px}
+      .gallery-strip-arrow.right{right:2px}
       .gallery-strip-arrow.hidden{opacity:0;pointer-events:none}
 
+      .profile-strip-placeholder{
+        min-height:56px;
+      }
       .profile-strip-placeholder{
         min-height:56px;
       }
