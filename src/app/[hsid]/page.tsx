@@ -170,6 +170,17 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </div>
       </section>
+     
+      {/* FANTASY BRACKET */}
+      <section id="sec-fantasy" className="yat-section">
+        <div className="yat-placeholder">
+          <div className="yat-placeholder-icon">🏆</div>
+          <div className="yat-placeholder-title">Fantasy Bracket Tournament</div>
+          <div className="yat-placeholder-body">
+            School-vs-school bracket gameplay and alumni performance tournament experience. Coming soon.
+          </div>
+        </div>
+      </section>
 
       {/* MENTOR */}
       <section id="sec-mentor" className="yat-section">
@@ -209,6 +220,17 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
         </div>
       </section>
 
+      {/* ABOUT */}
+      <section id="sec-about" className="yat-section">
+        <div className="yat-placeholder">
+          <div className="yat-placeholder-icon">ℹ️</div>
+          <div className="yat-placeholder-title">About YAT?STATS</div>
+          <div className="yat-placeholder-body">
+            YAT?STATS helps schools, families, fans, and sponsors follow where players go after high school and celebrate their next-level journeys.
+          </div>
+        </div>
+      </section>
+      
       {/* FAQ */}
       <section id="sec-faq" className="yat-section">
         <div className="yat-placeholder">
