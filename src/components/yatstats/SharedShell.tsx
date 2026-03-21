@@ -5,7 +5,6 @@
 import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
-// Import sub-components for each row
 import GlobalTopbar from './shell/GlobalTopbar';
 import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
@@ -28,7 +27,6 @@ export default function SharedShell({
 }) {
   const pathname = usePathname();
 
-  // Treat BOTH /player/ and /profile/ as player profile pages
   const isPlayerProfile =
     pathname.includes('/player/') || pathname.includes('/profile/');
   const isNews = pathname.includes('/news');
@@ -36,6 +34,7 @@ export default function SharedShell({
 
   return (
     <>
+      {/* ROW 1 + ROW 2 */}
       <header id="site-header" className="yat-header">
         <GlobalTopbar />
         <SchoolContextBar
@@ -46,22 +45,31 @@ export default function SharedShell({
       </header>
 
       <main>
-        <InteractionStrip
-          isPlayerProfile={isPlayerProfile}
-          isGallery={isGallery}
-          isNews={isNews}
-          players={players}
-        />
-        <MetadataRow
-          isPlayerProfile={isPlayerProfile}
-          isGallery={isGallery}
-        />
+        {/* ROW 3 — sticky interaction strip */}
+        <div className="yat-row3-shell">
+          <InteractionStrip
+            isPlayerProfile={isPlayerProfile}
+            isGallery={isGallery}
+            isNews={isNews}
+            players={players}
+          />
+        </div>
 
+        {/* ROW 4 — non-sticky metadata / CTA row */}
+        <div className="yat-row4-shell">
+          <MetadataRow
+            isPlayerProfile={isPlayerProfile}
+            isGallery={isGallery}
+          />
+        </div>
+
+        {/* ROW 5 */}
         <div className="yat-page-content-row">
           {children}
         </div>
       </main>
 
+      {/* ROW 6 */}
       <footer className="yat-footer">
         <a
           href="https://www.armsreachdigital.com/"
