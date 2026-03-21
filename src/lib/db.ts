@@ -278,9 +278,9 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       JOIN public.tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
       LEFT JOIN public.player_hsid_metadata md
-        ON md.hsid = ph.hsid
-       AND md.playerid = ph.playerid::text
-      WHERE ph.hsid = $1
+  ON md.hsid::text = ph.hsid::text
+ AND md.playerid = ph.playerid::text
+WHERE ph.hsid::text = $1
     ),
 
     latest_batting AS (
