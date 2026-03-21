@@ -5,7 +5,12 @@
 // All internal pages (gallery, player profile, news) render as {children} inside this shell.
 
 import { ReactNode } from 'react';
-import { getSchoolByHsid, getSchoolByUrl } from '@/lib/db';
+import {
+  getSchoolByHsid,
+  getSchoolByUrl,
+  getActiveRosterByHsid,
+  getBatchDesignatedPlayerImages,
+} from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName } from '@/lib/playerUtils';
@@ -89,7 +94,7 @@ export default async function HsidLayout({
   const subdomain = subdomainPart.split('.')[0] || hsid || 'unknown';
 
   // Build school data for the context provider
-  const schoolData = {
+      const schoolData = {
     hsid: resolvedHsid,
     hsName: schoolName,
     hsLocation: location,
@@ -98,13 +103,24 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
+  // Row 3 interaction strip data (homepage / gallery mode)
+  const activeRoster = await getActiveRosterByHsid(resolvedHsid);
+  const activeIds = (activeRoster as Record<string, unknown>[]).map((p) => String(p.playerid));
+  const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
+
+  const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => ({
+    id: String(p.playerid),
+    name: `${String(p.firstname || '')} ${String(p.lastname || '')}`.trim(),
+    image: headshotMap.get(String(p.playerid))?.image_url ?? '/placeholder.png',
+  }));
+
   return (
     <SchoolContextProvider schoolData={schoolData}>
       {/* Shared Styles — must be rendered before any visual content */}
       <YatStyles />
 
       {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5 */}
-      <SharedShell hsid={resolvedHsid}>
+            <SharedShell hsid={resolvedHsid} players={stripPlayers}>
         {children}
       </SharedShell>
 
