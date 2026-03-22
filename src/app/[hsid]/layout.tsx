@@ -124,7 +124,7 @@ export default async function HsidLayout({
         {children}
       </SharedShell>
 
-    {/* LEFT DRAWER */}
+{/* LEFT DRAWER */}
 <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
   <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
     <i className="ri-close-line" />
@@ -133,17 +133,18 @@ export default async function HsidLayout({
   <div className="yat-drawer-content">
     <h3>NAVIGATION</h3>
 
-<div className="yat-drawer-nav">
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-team`}>2026 HIGH SCHOOL TEAM</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-fantasy`}>FANTASY BRACKET TOURNEY</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-mentor`}>MENTORSHIP MARKETPLACE</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-partner`}>PARTNERSHIP PROGRAM</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-about`}>ABOUT US</a>
-  <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-faq`}>FAQ’S</a>
-</div>
+    <div className="yat-drawer-nav">
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-team`}>2026 HIGH SCHOOL TEAM</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-fantasy`}>FANTASY BRACKET TOURNEY</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-mentor`}>MENTORSHIP MARKETPLACE</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-partner`}>PARTNERSHIP PROGRAM</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-about`}>ABOUT US</a>
+      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-faq`}>FAQ’S</a>
+    </div>
+  </div>
 </aside>
       {/* Right Drawers */}
       <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
