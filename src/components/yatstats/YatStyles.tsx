@@ -211,10 +211,39 @@ export default function YatStyles() {
         .yat-schooltext .big1{font-size:14px}
         .yat-schooltext .big2{font-size:16px}
       }
-      .yat-hero{padding:2px 0;position:relative}
-      .yat-hero-grid{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:4px 0}
-      .yat-hero-left{display:flex;flex-direction:column;gap:4px;padding-left:10px}
-      .yat-hero-right{display:flex;gap:10px;padding-top:2px;}
+            .yat-hero{
+        padding:4px 0;
+        position:relative;
+      }
+
+      .yat-hero-grid{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:16px;
+        padding:2px 0;
+        min-height:30px;
+      }
+
+      .yat-hero-left{
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+        padding-left:0;
+        align-items:center;
+      }
+
+      .yat-hero-right{
+        display:none;
+      }
+
+      .yat-tag-duo{
+        position:relative;
+        height:1.35em;
+        font-size:16px;
+        min-width:180px;
+        text-align:center;
+      }
       .yat-tag-duo{position:relative;height:1.8em;font-size:var(--hamBig)}
       .yat-tag-swap{position:absolute;left:0;top:0;right:0;opacity:0;animation:yatswap 6s infinite;white-space:nowrap}
       .yat-tag-swap:nth-child(1){animation-delay:0s}
