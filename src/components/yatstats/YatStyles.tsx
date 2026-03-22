@@ -56,9 +56,9 @@ export default function YatStyles() {
         z-index:40;
       }
 
-      [id^="player-"]{
-        scroll-margin-top:200px;
-      }
+     [id^="player-"]{
+  scroll-margin-top: 190px;
+}
 
       .yat-topbar{
         display:grid;
@@ -241,11 +241,11 @@ export default function YatStyles() {
       .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
       @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-      .gallery-strip{
+     .gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
-        padding:0;
+        padding:0 16px;
         min-height:100px;
         display:flex;
         align-items:center;
@@ -264,7 +264,7 @@ export default function YatStyles() {
         scrollbar-width:none;
         -ms-overflow-style:none;
         align-items:stretch;
-        padding:0 18px;
+        padding:0;
         min-height:100px;
       }
 
