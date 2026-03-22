@@ -1276,7 +1276,6 @@ export default async function PlayerProfilePage({
     });
   }());
 
-  }
   /* Favorites */
   var playerId='${safePlayerId}';
   var playerName='${displayName.replace(/'/g, "\\'")}';
