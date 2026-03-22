@@ -23,6 +23,11 @@ const USER_AGENT =
 const SEARCH_DELAY_MS = 1500;
 const FETCH_TIMEOUT_MS = 15000;
 
+const args = process.argv.slice(2);
+const teamIdIdx = args.indexOf("--teamid");
+const onlyTeamId = teamIdIdx >= 0 ? args[teamIdIdx + 1] : null;
+
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -294,16 +299,26 @@ async function main() {
 
   await client.connect();
 
-  const { rows } = await client.query<TeamRow>(`
-    select teamid, team
-    from college_team_sources
-    where ingest_enabled = true
-      and (
-        discovery_status = 'pending'
-        or team_site_url is null
-      )
-    order by teamid
-  `);
+  const params: string[] = [];
+  const where = [
+    "ingest_enabled = true",
+    "(discovery_status = 'pending' or team_site_url is null)",
+  ];
+
+  if (onlyTeamId) {
+    params.push(onlyTeamId);
+    where.push(`teamid = $${params.length}`);
+  }
+
+  const { rows } = await client.query<TeamRow>(
+    `
+      select teamid, team
+      from college_team_sources
+      where ${where.join(" and ")}
+      order by teamid
+    `,
+    params
+  );
 
   console.log(`Found ${rows.length} teams to discover`);
 
