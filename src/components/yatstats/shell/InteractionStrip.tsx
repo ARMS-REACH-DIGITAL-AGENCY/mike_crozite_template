@@ -58,7 +58,7 @@ export default function InteractionStrip({
   };
 
   if (isPlayerProfile) {
-    return <div className="gallery-strip profile-strip-placeholder" />;
+    return null;
   }
 
   if (!isGallery && !isNews) {
@@ -78,9 +78,9 @@ export default function InteractionStrip({
 
       <div ref={scrollRef} className="gallery-strip-inner">
         {players.map((p) => (
-          <a key={p.id} href={`#player-${p.id}`} className="gallery-slot">
+          <a key={p.id} href={`#player-${p.id}`} className="gallery-slot" title={p.name}>
             <img
-              src={p.image || '/placeholder.png'}
+              src={p.image || '/img/headshot-silhouette.png'}
               alt={p.name}
               className="gallery-slot-img"
             />
