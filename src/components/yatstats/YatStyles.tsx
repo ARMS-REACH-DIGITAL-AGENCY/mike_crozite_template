@@ -4,7 +4,7 @@
 export default function YatStyles() {
   return (
     <style>{`
-      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:50px;--row2-h:calc(var(--crestH) + 8px)}
+      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:42px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:50px;--row2-h:54px}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
@@ -124,15 +124,16 @@ export default function YatStyles() {
       .yat-schoolrow{
         display:flex;
         align-items:center;
-        gap:0px;
-        padding:6px 12px;
+        gap:0;
+        min-height:var(--row2-h);
+        padding:4px 12px;
         max-width:1400px;
         margin:0 auto;
         background:var(--header-bg);
       }
 
       .yat-crest{
-        height:calc(var(--crestH) - 4px);
+        height:var(--crestH);
         width:auto;
         object-fit:contain;
         display:block;
@@ -156,7 +157,7 @@ export default function YatStyles() {
       }
 
       @media(max-width:640px){
-        :root{--crestH:40px;--row1-h:50px;--row2-h:calc(var(--crestH) + 6px)}
+        :root{--crestH:36px;--row1-h:50px;--row2-h:48px}
 
         .yat-row2-shell{
           top:var(--row1-h);
@@ -167,9 +168,10 @@ export default function YatStyles() {
         }
 
         .yat-schoolrow{
-          padding:5px 10px;
-          gap:0px;
-          background: var(--header-bg);
+          min-height:var(--row2-h);
+          padding:4px 10px;
+          gap:0;
+          background:var(--header-bg);
         }
 
         .yat-schooltext .small{
@@ -561,7 +563,6 @@ export default function YatStyles() {
       .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px}
       .yat-footer a:hover{opacity:.8}
 
-      /* ── Global Search Modal ─────────────────────────────────────────── */
       .yat-gs-modal{display:none;position:fixed;inset:0;z-index:90;align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
       .yat-gs-modal.open{display:flex}
       .yat-gs-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
@@ -610,7 +611,6 @@ export default function YatStyles() {
       .yat-gs-msg{padding:28px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
       .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
 
-      /* ── News Section ─────────────────────────────────────────────── */
       .yat-news-wrap{max-width:1400px;margin:0 auto;padding:16px 20px}
       .yat-news-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
       .yat-news-title{font:700 clamp(20px,2.8vw,28px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
