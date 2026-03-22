@@ -1,6 +1,5 @@
-
 // src/components/yatstats/shell/GlobalTopbar.tsx
-// Renders Row 1 of the shared shell - top navigation bar
+// Renders Row 1 of the shared shell
 
 export default function GlobalTopbar() {
   return (
@@ -16,16 +15,16 @@ export default function GlobalTopbar() {
           <i className="ri-sun-line" />
         </button>
       </div>
+
       <div className="yat-wordmark-wrap">
-  <img
-  src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-  alt="YAT?STATS"
-  className="yat-wordmark-img"
-  style={{ height: '28px', width: 'auto', display: 'block' }}
-/>
-</div>
-      {/* The right side is empty in this design, but the container is here for balance */}
-      <div className="yat-topbar-right"></div>
+        <img
+          src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+          alt="YAT?STATS"
+          className="yat-wordmark-img"
+        />
+      </div>
+
+      <div className="yat-topbar-right" />
     </div>
   );
 }
