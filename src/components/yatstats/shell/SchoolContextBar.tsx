@@ -45,14 +45,16 @@ export default function SchoolContextBar({
 
   return (
     <div className="yat-schoolrow">
-      <img
-        src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
-        alt={`${schoolData?.hsName || 'School'} crest`}
-        className="yat-crest"
-        onError={(e) => {
-          e.currentTarget.src = CREST_FALLBACK_PATH;
-        }}
-      />
+      <a href={`/${schoolData?.hsid || ''}`} aria-label="Go to school microsite homepage">
+  <img
+    src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
+    alt={`${schoolData?.hsName || 'School'} crest`}
+    className="yat-crest"
+    onError={(e) => {
+      e.currentTarget.src = CREST_FALLBACK_PATH;
+    }}
+  />
+</a>
       <div className="yat-schooltext">
         <div className="small">{schoolData?.hsLocation || '...'}</div>
         <div className="big1">{schoolData?.hsName || '...'}</div>
