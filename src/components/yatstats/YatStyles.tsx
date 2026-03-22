@@ -212,13 +212,8 @@ export default function YatStyles() {
         align-items:center;
       }
 
-      .yat-hero-right{
-        display:flex;
-        gap:0;
-        padding-top:0;
-        margin-left:auto;
-        flex-shrink:0;
-        align-items:center;
+         .yat-hero-right{
+        display:none !important;
       }
 
       .yat-hero-right .yat-icon-btn{
