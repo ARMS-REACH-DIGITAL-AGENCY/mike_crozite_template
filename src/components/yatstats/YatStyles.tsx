@@ -24,7 +24,7 @@ export default function YatStyles() {
 
      .yat-row2-shell{
   position:sticky;
-  top:44px;
+  top:48px;
   z-index:65;
   background:var(--header-bg);
   border-top:1px solid var(--line);
@@ -64,7 +64,7 @@ export default function YatStyles() {
         display:grid;
         grid-template-columns:auto 1fr auto;
         align-items:center;
-        min-height:42px;
+        min-height:44px;
         padding:3px 8px;
         column-gap:8px;
         background:var(--header-bg);
@@ -159,7 +159,7 @@ export default function YatStyles() {
         :root{--crestH:40px}
 
         .yat-row2-shell{
-          top:44px;
+          top:48px;
         }
 
         .yat-row3-shell{
