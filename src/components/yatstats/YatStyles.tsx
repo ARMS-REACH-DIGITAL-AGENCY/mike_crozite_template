@@ -24,7 +24,7 @@ export default function YatStyles() {
 
      .yat-row2-shell{
   position:sticky;
-  top:52px;
+  top:44px;
   z-index:65;
   background:var(--header-bg);
   border-top:1px solid var(--line);
@@ -64,8 +64,8 @@ export default function YatStyles() {
         display:grid;
         grid-template-columns:auto 1fr auto;
         align-items:center;
-        min-height:52px;
-        padding:6px 8px;
+        min-height:42px;
+        padding:3px 8px;
         column-gap:8px;
         background:var(--header-bg);
       }
@@ -90,15 +90,15 @@ export default function YatStyles() {
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        width:30px;
-        height:30px;
+        width:28px;
+        height:28px;
         padding:0;
         margin:0;
         cursor:pointer;
         flex:0 0 auto;
       }
 
-      .yat-icon-btn i{font-size:17px}
+      .yat-icon-btn i{font-size:15px}
       .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
 
       .yat-wordmark-wrap{
@@ -125,7 +125,7 @@ export default function YatStyles() {
         display:flex;
         align-items:center;
         gap:8px;
-        padding:4px 10px;
+        padding:6px 12px;
         max-width:1400px;
         margin:0 auto;
         background:var(--header-bg);
@@ -159,7 +159,7 @@ export default function YatStyles() {
         :root{--crestH:40px}
 
         .yat-row2-shell{
-          top:52px;
+          top:44px;
         }
 
         .yat-row3-shell{
@@ -167,7 +167,7 @@ export default function YatStyles() {
 } 
 
        .yat-schoolrow{
-  padding:3px 8px;
+  padding:5px 10px;
   gap:6px;
   background: var(--header-bg);
 }
