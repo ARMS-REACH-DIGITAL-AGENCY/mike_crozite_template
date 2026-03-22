@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "discover:college-sources": "tsx scripts/discover-college-team-sources.ts",
+    "ingest:college-rosters": "tsx scripts/ingest-college-rosters.ts",
+    "match:college-rosters": "tsx scripts/match-college-roster-players.ts",
+    "orchestrate:college-pipeline": "tsx scripts/run-college-pipeline.ts"
   },
   "dependencies": {
     "firebase": "^12.10.0",
@@ -14,7 +18,8 @@
     "pg": "^8.16.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "stripe": "^20.4.1"
+    "stripe": "^20.4.1",
+    "cheerio": "^1.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
@@ -25,6 +30,8 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "latest",
     "tailwindcss": "^4.0.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6"
   }
 }
