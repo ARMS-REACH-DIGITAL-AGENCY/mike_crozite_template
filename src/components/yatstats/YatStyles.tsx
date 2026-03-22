@@ -447,9 +447,6 @@ export default function YatStyles() {
       .yat-filter-group summary{font:600 12px Oswald,sans-serif;letter-spacing:.06em;cursor:pointer;padding:4px 0;text-transform:uppercase;color:var(--muted)}
       .yat-filter-options{padding:8px 0;display:flex;flex-direction:column;gap:6px}
       .yat-filter-options label{display:flex;align-items:center;gap:8px;font:400 12px Oswald,sans-serif;cursor:pointer}
-      .yat-drawer-nav{display:flex;flex-direction:column;gap:12px}
-      .yat-drawer-nav-item{font:400 14px Oswald,sans-serif;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink)}
-      .yat-drawer-nav-item:hover{color:var(--fg)}
       #liveResults{margin:10px 4px 18px;max-height:55vh;overflow:auto}
       .yat-live-hit{padding:10px 12px;display:flex;align-items:center;gap:10px;border-radius:10px;cursor:pointer}
       .yat-live-hit:hover{background:var(--line)}
