@@ -164,10 +164,11 @@ export default function YatStyles() {
   top:calc(52px + var(--crestH) + 8px);
 } 
 
-        .yat-schoolrow{
-          padding:3px 8px;
-          gap:6px;
-        }
+       .yat-schoolrow{
+  padding:3px 8px;
+  gap:6px;
+  background: var(--header-bg);
+}
 
         .yat-schooltext .small{
           font-size:8px;
