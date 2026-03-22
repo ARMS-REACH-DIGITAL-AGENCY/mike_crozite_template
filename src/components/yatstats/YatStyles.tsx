@@ -241,15 +241,16 @@ export default function YatStyles() {
       .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
       @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-      .gallery-strip{
+      ..gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
         padding:0;
-        min-height:76px;
+        min-height:100px;
         display:flex;
         align-items:center;
         overflow:hidden;
+        background:var(--header-bg);
       }
 
       .gallery-strip-inner{
@@ -262,8 +263,9 @@ export default function YatStyles() {
         -webkit-overflow-scrolling:touch;
         scrollbar-width:none;
         -ms-overflow-style:none;
-        align-items:center;
-        padding:6px 18px;
+        align-items:stretch;
+        padding:0 18px;
+        min-height:100px;
       }
 
       .gallery-strip-inner::-webkit-scrollbar{
@@ -275,9 +277,9 @@ export default function YatStyles() {
 
       .gallery-slot{
         flex:0 0 auto;
-        width:64px;
-        height:64px;
-        min-width:64px;
+        width:72px;
+        height:100px;
+        min-width:72px;
         overflow:hidden;
         border:none;
         border-radius:0;
