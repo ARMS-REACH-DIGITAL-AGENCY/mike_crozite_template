@@ -79,10 +79,16 @@ export default function InteractionStrip({
       <div ref={scrollRef} className="gallery-strip-inner">
         {players.map((p) => (
           <a key={p.id} href={`#player-${p.id}`} className="gallery-slot" title={p.name}>
-            <img
+                       <img
               src={p.image || '/img/headshot-silhouette.png'}
               alt={p.name}
               className="gallery-slot-img"
+              onError={(e) => {
+                const fallback = '/img/headshot-silhouette.png';
+                if (e.currentTarget.src !== window.location.origin + fallback) {
+                  e.currentTarget.src = fallback;
+                }
+              }}
             />
           </a>
         ))}
