@@ -308,11 +308,13 @@ export default function YatStyles() {
       }
 
       .gallery-slot-img{
-        width:100%;
-        height:100%;
-        object-fit:cover;
-        display:block;
-      }
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center top;
+  display:block;
+  background:#000;
+}
 
       .gallery-strip-arrow{
         position:absolute;
