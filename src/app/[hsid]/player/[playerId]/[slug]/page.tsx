@@ -653,20 +653,10 @@ export default async function PlayerProfilePage({
         .player-id-line .dim{color:var(--muted);font-weight:300}
         .player-id-line .sep{color:var(--muted);margin:0 5px}
         .player-id-label{font-weight:600;color:var(--fg)}
-        /* DRAWERS */
-        .yat-drawer{position:fixed;top:0;width:290px;height:100vh;background:var(--header-bg);z-index:100;padding:24px 20px;overflow-y:auto;transition:transform .3s cubic-bezier(.4,0,.2,1);border-right:1px solid var(--line)}
-        .yat-drawer-left{left:0;transform:translateX(-100%)}
-        .yat-drawer-right{right:0;transform:translateX(100%);border-right:none;border-left:1px solid var(--line)}
-        body.drawer-left-open .yat-drawer-left{transform:translateX(0)}
-        body.drawer-account-open #drawerAccount{transform:translateX(0)}
-        body.drawer-open{overflow:hidden}
-        .yat-close-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--fg);cursor:pointer;font-size:22px;display:flex;align-items:center;opacity:.7}
-        .yat-close-btn:hover{opacity:1}
-        .drawer-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90}
-        body.drawer-left-open .drawer-mask,body.drawer-account-open .drawer-mask{display:block}
-        .drawer-nav-link{display:block;font:300 14px/1 Oswald,sans-serif;padding:10px 0;border-bottom:1px solid var(--line);transition:color .2s}
-        .drawer-nav-link:hover{color:gold}
-        .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
+              /* DRAWERS
+           Shared shell owns drawer layout/z-index.
+           Keep only profile-specific helper styles that do not override shell behavior. */
+        .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--fg);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
         body.light-theme .drawer-search-input{background:rgba(0,0,0,.06)}
         .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
         .drawer-live-hit:hover{background:var(--line)}
