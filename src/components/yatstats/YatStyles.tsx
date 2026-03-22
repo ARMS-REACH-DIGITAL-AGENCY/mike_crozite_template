@@ -163,7 +163,7 @@ export default function YatStyles() {
         }
 
         .yat-row3-shell{
-  top:calc(52px + var(--crestH) + 8px);
+  top:calc(52px + var(--crestH));
 } 
 
        .yat-schoolrow{
