@@ -60,14 +60,15 @@ export default function YatStyles() {
         scroll-margin-top:200px;
       }
 
-      ..yat-topbar{
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  align-items:center;
-  min-height:52px;
-  padding:6px 8px;
-  column-gap:8px;
-}
+      .yat-topbar{
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        align-items:center;
+        min-height:52px;
+        padding:6px 8px;
+        column-gap:8px;
+        background:var(--header-bg);
+      }
 
       .yat-topbar-left{
         display:flex;
@@ -127,6 +128,7 @@ export default function YatStyles() {
         padding:4px 10px;
         max-width:1400px;
         margin:0 auto;
+        background:var(--header-bg);
       }
 
       .yat-crest{
@@ -242,7 +244,7 @@ export default function YatStyles() {
       .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
       @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-      ..gallery-strip{
+      .gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
