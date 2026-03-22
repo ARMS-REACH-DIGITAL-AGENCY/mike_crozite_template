@@ -11,8 +11,9 @@ export default function YatStyles() {
       body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
       body.drawer-open{overflow:hidden}
       a{color:inherit;text-decoration:none}
-      .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
-                  .yat-row1-shell{
+            .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;}
+
+      .yat-row1-shell{
         position:sticky;
         top:0;
         z-index:70;
@@ -65,67 +66,10 @@ export default function YatStyles() {
       }
 
       [id^="player-"]{
-        scroll-margin-top: 180px;
+        scroll-margin-top:180px;
       }
 
-      .yat-row2-shell{
-        position:sticky;
-        top:56px;
-        z-index:55;
-        background:var(--header-bg);
-        border-top:1px solid var(--line);
-        border-bottom:1px solid var(--line);
-      }
-
-      .yat-row3-shell{
-        position:sticky;
-        top:calc(56px + var(--crestH) + 14px);
-        z-index:45;
-        background:var(--header-bg);
-        border-bottom:1px solid var(--line);
-      }
-
-      .yat-row4-shell{
-        position:relative;
-        z-index:5;
-        background:var(--bg);
-        border-bottom:1px solid var(--line);
-      }
-
-      .yat-row5-shell{
-        position:relative;
-        z-index:1;
-      }
-
-      .yat-row6-shell{
-        z-index:40;
-      }
-
-      @media(max-width:640px){
-        .yat-row2-shell{
-          top:52px;
-        }
-
-        .yat-row3-shell{
-          top:calc(52px + var(--crestH) + 10px);
-        }
-      }
-
-      .yat-row3-shell{
-        position:sticky;
-        top:calc(56px + var(--crestH) + 14px);
-        z-index:45;
-        background:var(--header-bg);
-        border-top:1px solid var(--line);
-        border-bottom:1px solid var(--line);
-      }
-      .yat-row4-shell{
-        position:relative;
-        z-index:5;
-        background:var(--bg);
-        border-bottom:1px solid var(--line);
-      }
-           .gallery-strip{
+      .gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
@@ -214,17 +158,7 @@ export default function YatStyles() {
 
       .profile-strip-placeholder{
         min-height:56px;
-      }
-      .profile-strip-placeholder{
-        min-height:56px;
-      }
-      @media(max-width:640px){
-        .yat-row3-shell{
-          top:calc(52px + var(--crestH) + 10px);
-        }
-      }
-      
-      .yat-topbar{
+      }{
         display:flex;
         align-items:center;
         justify-content:space-between;
