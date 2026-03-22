@@ -17,12 +17,14 @@ export default function GlobalTopbar() {
       </div>
 
       <div className="yat-wordmark-wrap">
-        <img
-          src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-          alt="YAT?STATS"
-          className="yat-wordmark-img"
-        />
-      </div>
+  <a href="https://yatstats.com" aria-label="Go to YAT?STATS homepage">
+    <img
+      src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+      alt="YAT?STATS"
+      className="yat-wordmark-img"
+    />
+  </a>
+</div>
 
       <div className="yat-topbar-right" />
     </div>
