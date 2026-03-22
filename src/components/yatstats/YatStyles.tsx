@@ -64,8 +64,8 @@ export default function YatStyles() {
         display:grid;
         grid-template-columns:auto 1fr auto;
         align-items:center;
-        min-height:44px;
-        padding:3px 8px;
+        min-height:36px;
+        padding:1px 8px 0;
         column-gap:8px;
         background:var(--header-bg);
       }
@@ -167,10 +167,10 @@ export default function YatStyles() {
           top:calc(var(--row1-h) + var(--row2-h));
         }
 
-        .yat-schoolrow{
+       .yat-schoolrow{
           min-height:var(--row2-h);
           padding:4px 10px;
-          gap:0;
+          gap:4px;
           background:var(--header-bg);
         }
 
