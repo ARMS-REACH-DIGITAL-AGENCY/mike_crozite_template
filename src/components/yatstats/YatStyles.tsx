@@ -22,22 +22,22 @@ export default function YatStyles() {
         transition:background-color .3s;
       }
 
-      .yat-row2-shell{
-        position:sticky;
-        top:44px;
-        z-index:65;
-        background:var(--header-bg);
-        border-top:1px solid var(--line);
-        border-bottom:1px solid var(--line);
-      }
+     .yat-row2-shell{
+  position:sticky;
+  top:44px;
+  z-index:65;
+  background:var(--header-bg);
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+} what are you doing
 
-      .yat-row3-shell{
-        position:sticky;
-        top:calc(52px + var(--crestH) + 8px);
-        z-index:60;
-        background:var(--header-bg);
-        border-bottom:1px solid var(--line);
-      }
+     .yat-row3-shell{
+  position:sticky;
+  top:calc(44px + var(--crestH));
+  z-index:60;
+  background:var(--header-bg);
+  border-bottom:1px solid var(--line);
+} you go poopy you go poopy and go outside
 
       .yat-row4-shell{
         position:relative;
@@ -60,14 +60,14 @@ export default function YatStyles() {
         scroll-margin-top:200px;
       }
 
-      .yat-topbar{
-        display:grid;
-        grid-template-columns:auto 1fr auto;
-        align-items:center;
-        min-height:44px;
-        padding:2px 8px;
-        column-gap:8px;
-      }
+      ..yat-topbar{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  min-height:44px;
+  padding:2px 8px;
+  column-gap:8px;
+}
 
       .yat-topbar-left{
         display:flex;
@@ -145,13 +145,13 @@ export default function YatStyles() {
         text-transform:uppercase;
         white-space:nowrap;
       }
-      .yat-schooltext .big2{
-        font:700 15px/1 "Bebas Neue",sans-serif;
-        letter-spacing:.02em;
-        text-transform:uppercase;
-        margin-top:0;
-        white-space:nowrap;
-      }
+     .yat-schooltext .big2{
+  font:700 13px/1 "Bebas Neue",sans-serif;
+  letter-spacing:.01em;
+  text-transform:uppercase;
+  margin-top:0;
+  white-space:nowrap;
+}
 
       @media(max-width:640px){
         :root{--crestH:40px}
@@ -161,8 +161,8 @@ export default function YatStyles() {
         }
 
         .yat-row3-shell{
-          top:calc(52px + var(--crestH) + 8px);
-        }
+  top:calc(44px + var(--crestH));
+} 
 
         .yat-schoolrow{
           padding:3px 8px;
@@ -179,10 +179,10 @@ export default function YatStyles() {
           line-height:1;
         }
 
-        .yat-schooltext .big2{
-          font-size:12px;
-          line-height:1;
-        }
+       .yat-schooltext .big2{
+  font-size:11px;
+  line-height:1;
+}
       }
 
       .yat-hero{
