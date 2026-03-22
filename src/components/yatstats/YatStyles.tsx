@@ -4,7 +4,7 @@
 export default function YatStyles() {
   return (
     <style>{`
-  :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:50px;--row2-h:calc(var(--crestH) + 8px)}
+      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:clamp(42px,6.3vw,74px);--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:50px;--row2-h:calc(var(--crestH) + 8px)}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
@@ -14,7 +14,7 @@ export default function YatStyles() {
 
       .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px}
 
-      .yat-row1-shell{you ended yours with a
+      .yat-row1-shell{
         position:sticky;
         top:0;
         z-index:70;
@@ -22,22 +22,22 @@ export default function YatStyles() {
         transition:background-color .3s;
       }
 
-     .yat-row2-shell{
-  position:sticky;
-  top:48px;
-  z-index:65;
-  background:var(--header-bg);
-  border-top:1px solid var(--line);
-  border-bottom:1px solid var(--line);
-} 
+      .yat-row2-shell{
+        position:sticky;
+        top:var(--row1-h);
+        z-index:65;
+        background:var(--header-bg);
+        border-top:1px solid var(--line);
+        border-bottom:1px solid var(--line);
+      }
 
-     .yat-row3-shell{
-  position:sticky;
-  top:calc(52px + var(--crestH));
-  z-index:60;
-  background:var(--header-bg);
-  border-bottom:1px solid var(--line);
-} 
+      .yat-row3-shell{
+        position:sticky;
+        top:calc(var(--row1-h) + var(--row2-h));
+        z-index:60;
+        background:var(--header-bg);
+        border-bottom:1px solid var(--line);
+      }
 
       .yat-row4-shell{
         position:relative;
@@ -147,30 +147,30 @@ export default function YatStyles() {
         text-transform:uppercase;
         white-space:nowrap;
       }
-     .yat-schooltext .big2{
-  font:700 15px/1 "Bebas Neue",sans-serif;
-  letter-spacing:.02em;
-  text-transform:uppercase;
-  margin-top:0;
-  white-space:nowrap;
-}
+      .yat-schooltext .big2{
+        font:700 15px/1 "Bebas Neue",sans-serif;
+        letter-spacing:.02em;
+        text-transform:uppercase;
+        margin-top:0;
+        white-space:nowrap;
+      }
 
       @media(max-width:640px){
-        :root{--crestH:40px}
+        :root{--crestH:40px;--row1-h:50px;--row2-h:calc(var(--crestH) + 6px)}
 
         .yat-row2-shell{
-          top:48px;
+          top:var(--row1-h);
         }
 
         .yat-row3-shell{
-  top:calc(52px + var(--crestH));
-} 
+          top:calc(var(--row1-h) + var(--row2-h));
+        }
 
-       .yat-schoolrow{
-  padding:5px 10px;
-  gap:0px;
-  background: var(--header-bg);
-}
+        .yat-schoolrow{
+          padding:5px 10px;
+          gap:0px;
+          background: var(--header-bg);
+        }
 
         .yat-schooltext .small{
           font-size:8px;
@@ -182,10 +182,10 @@ export default function YatStyles() {
           line-height:1;
         }
 
-       .yat-schooltext .big2{
-  font-size:12px;
-  line-height:1;
-}
+        .yat-schooltext .big2{
+          font-size:12px;
+          line-height:1;
+        }
       }
 
       .yat-hero{
@@ -311,13 +311,13 @@ export default function YatStyles() {
       }
 
       .gallery-slot-img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  object-position:center top;
-  display:block;
-  background:#000;
-}
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        object-position:center top;
+        display:block;
+        background:#000;
+      }
 
       .gallery-strip-arrow{
         position:absolute;
