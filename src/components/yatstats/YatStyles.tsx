@@ -57,7 +57,7 @@ export default function YatStyles() {
       }
 
       [id^="player-"]{
-        scroll-margin-top:170px;
+        scroll-margin-top:240px;
       }
 
       .yat-topbar{
