@@ -124,7 +124,7 @@ export default function YatStyles() {
       .yat-schoolrow{
         display:flex;
         align-items:center;
-        gap:8px;
+        gap:0px;
         padding:6px 12px;
         max-width:1400px;
         margin:0 auto;
@@ -168,7 +168,7 @@ export default function YatStyles() {
 
        .yat-schoolrow{
   padding:5px 10px;
-  gap:6px;
+  gap:0px;
   background: var(--header-bg);
 }
 
