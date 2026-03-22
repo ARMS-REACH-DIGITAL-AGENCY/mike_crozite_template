@@ -69,12 +69,12 @@ export default function YatStyles() {
         scroll-margin-top:180px;
       }
 
-      .gallery-strip{
+           .gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
-        padding:6px 28px;
-        min-height:62px;
+        padding:6px 24px;
+        min-height:80px;
         display:flex;
         align-items:center;
       }
@@ -95,11 +95,11 @@ export default function YatStyles() {
         display:none;
       }
 
-      .gallery-slot{
+           .gallery-slot{
         flex:0 0 auto;
-        width:54px;
-        height:54px;
-        min-width:54px;
+        width:72px;
+        height:72px;
+        min-width:72px;
         overflow:hidden;
         border:none;
         border-radius:0;
@@ -152,8 +152,8 @@ export default function YatStyles() {
         line-height:1;
       }
 
-      .gallery-strip-arrow.left{left:2px}
-      .gallery-strip-arrow.right{right:2px}
+      .gallery-strip-arrow.left{left:0}
+      .gallery-strip-arrow.right{right:0}
       .gallery-strip-arrow.hidden{opacity:0;pointer-events:none}
 
       .profile-strip-placeholder{
@@ -192,9 +192,27 @@ export default function YatStyles() {
       .yat-nav-pair .thin{font:300 var(--hamSmall) Oswald,sans-serif;letter-spacing:.02em;color:#cfd2d6;margin-right:2px}
       body.light-theme .yat-nav-pair .thin{color:var(--muted)}
       .yat-nav-pair .bold{font:400 var(--hamSmall) "Bebas Neue",sans-serif}
-      .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
+      .yat-wordmark-wrap
+        {display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        min-width:120px}
+        margin-left:auto;
+      }
+      .yat-wordmark-wrap{
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        min-width:100px;
+        margin-left:auto;
+      }
       .yat-wordmark-img{filter:var(--logo-filter)}
-      .yat-wordmark{font:400 clamp(18px,3.2vw,26px) "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg);white-space:nowrap}
+      .yat-wordmark{
+        font:400 clamp(16px,2.7vw,22px) "Bebas Neue",sans-serif;
+        letter-spacing:.05em;
+        color:var(--fg);
+        white-space:nowrap;
+      }
       body.light-theme .yat-wordmark{color:#000}
       @media(max-width:1200px){.yat-topnav{display:none!important}}
       .yat-hr{border-top:1px solid var(--line)}
