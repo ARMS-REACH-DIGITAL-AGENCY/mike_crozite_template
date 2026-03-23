@@ -767,55 +767,6 @@ export default async function PlayerProfilePage({
         .yat-hero-right{display:none!important}
       `}</style>
 
-      {/* CAREER FILMSTRIP — LEFT_ANCHOR → TIMELINE frames → RIGHT_ANCHOR */}
-      <section className="career-strip" id="playerHeroMeta">
-        <div className="career-strip-inner">
-          {careerSlots.map((slot, idx) => (
-            <div key={`${slot.role}-${idx}-${slot.img}`} className={`career-slot ${slot.role}`}>
-              <SafeImage
-                className="career-slot-img"
-                src={slot.img}
-                alt={slot.label}
-                fallbackSrc={slot.altSrc || SILHOUETTE_URL}
-                placeholderSrc={SILHOUETTE_URL}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* COMPACT METADATA BAND — left: class/team/status, right: B/T/college/draft */}
-      <div className="player-meta-band">
-        {/* LEFT: ~60% — class year / team line / status-level */}
-        <div className="pmb-left">
-          {gradClass !== '--' && (
-            <div className="pmb-line"><strong>Class of {gradClass}</strong></div>
-          )}
-          <div className="pmb-line">
-            {[ctxTeam, ctxSecondary, pos !== '--' ? pos : null].filter(Boolean).map((part, i, arr) => (
-              <span key={i}>{part}{i < arr.length - 1 ? <span className="sep">|</span> : null}</span>
-            ))}
-          </div>
-          <div className="pmb-line dim">{statusLabel}{ctxLevel ? ` — ${ctxLevel}` : ''}</div>
-        </div>
-        {/* RIGHT: ~40% — B/T height weight / college / draft */}
-        <div className="pmb-right">
-          <div className="pmb-line dim">
-            {[
-              bt !== '-/-' ? `B/T: ${bt}` : null,
-              ht !== '--' ? ht : null,
-              wt !== '--' ? `${wt} LB` : null,
-            ].filter(Boolean).join(' | ')}
-          </div>
-          {mostRecentCollege && (
-            <div className="pmb-line">{mostRecentCollege}</div>
-          )}
-          {draftMetaLine && (
-            <div className="pmb-line dim">{draftMetaLine}</div>
-          )}
-        </div>
-      </div>
-
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
         <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>GAME LOG</div>
