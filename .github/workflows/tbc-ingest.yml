@@ -1,7 +1,0 @@
-# DISABLED AFTER INCIDENT ON 2026-03-20
-# Preserved for postmortem/reference only.
-# Do not re-enable without staging-table loader and validation.
-
-name: TBC Daily Ingest v1 (DISABLED)
-
-on: {}
