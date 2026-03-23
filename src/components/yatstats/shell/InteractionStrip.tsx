@@ -56,11 +56,23 @@ export default function InteractionStrip({
       behavior: 'smooth',
     });
   };
+if (isPlayerProfile) {
+  return (
+    <div className="gallery-strip profile-strip">
+      <div className="profile-strip-inner">
+        {/* LEFT ANCHOR (HS IMAGE) */}
+        <div className="profile-anchor">
+          <img src="/img/card-front-placeholder.png" alt="HS Card" />
+        </div>
 
-  if (isPlayerProfile) {
-    return null;
-  }
-
+        {/* RIGHT ANCHOR (HEADSHOT) */}
+        <div className="profile-anchor">
+          <img src="/img/headshot-silhouette.png" alt="Headshot" />
+        </div>
+      </div>
+    </div>
+  );
+}
   if (!isGallery && !isNews) {
     return null;
   }
