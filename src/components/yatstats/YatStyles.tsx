@@ -4,7 +4,7 @@
 export default function YatStyles() {
   return (
     <style>{`
-    :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:42px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:36px;--row2-h:54px}
+      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:44px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:40px;--row2-h:58px}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
@@ -56,16 +56,16 @@ export default function YatStyles() {
         z-index:40;
       }
 
-     [id^="player-"]{
-  scroll-margin-top: 190px;
-}
+      [id^="player-"]{
+        scroll-margin-top:190px;
+      }
 
       .yat-topbar{
         display:grid;
         grid-template-columns:auto 1fr auto;
         align-items:center;
-        min-height:36px;
-        padding:1px 8px 0;
+        min-height:40px;
+        padding:2px 10px 0;
         column-gap:8px;
         background:var(--header-bg);
       }
@@ -90,15 +90,15 @@ export default function YatStyles() {
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        width:28px;
-        height:28px;
+        width:30px;
+        height:30px;
         padding:0;
         margin:0;
         cursor:pointer;
         flex:0 0 auto;
       }
 
-      .yat-icon-btn i{font-size:15px}
+      .yat-icon-btn i{font-size:16px}
       .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
 
       .yat-wordmark-wrap{
@@ -112,7 +112,7 @@ export default function YatStyles() {
 
       .yat-wordmark-img{
         filter:var(--logo-filter);
-        height:20px;
+        height:22px;
         width:auto;
         display:block;
         max-width:100%;
@@ -124,9 +124,9 @@ export default function YatStyles() {
       .yat-schoolrow{
         display:flex;
         align-items:center;
-        gap:0;
+        gap:8px;
         min-height:var(--row2-h);
-        padding:4px 12px;
+        padding:6px 14px;
         max-width:1400px;
         margin:0 auto;
         background:var(--header-bg);
@@ -138,56 +138,38 @@ export default function YatStyles() {
         object-fit:contain;
         display:block;
         flex-shrink:0;
+        align-self:center;
       }
 
-      .yat-schooltext{line-height:1;min-width:0}
-      .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+      .yat-schooltext{
+        line-height:1;
+        min-width:0;
+        height:var(--crestH);
+        display:flex;
+        flex-direction:column;
+        justify-content:space-between;
+      }
+
+      .yat-schooltext .small{
+        font:300 10px/1 Oswald,sans-serif;
+        letter-spacing:.10em;
+        color:var(--muted);
+        text-transform:uppercase
+      }
+
       .yat-schooltext .big1{
-        font:700 16px/1.02 "Bebas Neue",sans-serif;
+        font:700 16px/1 "Bebas Neue",sans-serif;
         letter-spacing:.02em;
         text-transform:uppercase;
         white-space:nowrap;
       }
+
       .yat-schooltext .big2{
         font:700 15px/1 "Bebas Neue",sans-serif;
         letter-spacing:.02em;
         text-transform:uppercase;
         margin-top:0;
         white-space:nowrap;
-      }
-
-      @media(max-width:640px){
-      :root{--crestH:36px;--row1-h:34px;--row2-h:48px}
-
-        .yat-row2-shell{
-          top:var(--row1-h);
-        }
-
-        .yat-row3-shell{
-          top:calc(var(--row1-h) + var(--row2-h));
-        }
-
-       .yat-schoolrow{
-          min-height:var(--row2-h);
-          padding:4px 10px;
-          gap:4px;
-          background:var(--header-bg);
-        }
-
-        .yat-schooltext .small{
-          font-size:8px;
-          letter-spacing:.05em;
-        }
-
-        .yat-schooltext .big1{
-          font-size:12px;
-          line-height:1;
-        }
-
-        .yat-schooltext .big2{
-          font-size:12px;
-          line-height:1;
-        }
       }
 
       .yat-hero{
@@ -212,7 +194,7 @@ export default function YatStyles() {
         align-items:center;
       }
 
-         .yat-hero-right{
+      .yat-hero-right{
         display:none !important;
       }
 
@@ -241,7 +223,7 @@ export default function YatStyles() {
       .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
       @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
-     .gallery-strip{
+      .gallery-strip{
         position:relative;
         max-width:1400px;
         margin:0 auto;
@@ -338,6 +320,38 @@ export default function YatStyles() {
       .gallery-strip-arrow.right{right:0}
       .gallery-strip-arrow.hidden{opacity:0;pointer-events:none}
 
+      @media (min-width:900px){
+        .gallery-strip{
+          min-height:116px;
+        }
+
+        .gallery-strip-inner{
+          min-height:116px;
+        }
+
+        .gallery-slot{
+          width:84px;
+          min-width:84px;
+          height:116px;
+        }
+      }
+
+      @media (min-width:1200px){
+        .gallery-strip{
+          min-height:128px;
+        }
+
+        .gallery-strip-inner{
+          min-height:128px;
+        }
+
+        .gallery-slot{
+          width:92px;
+          min-width:92px;
+          height:128px;
+        }
+      }
+
       .profile-strip-placeholder{
         min-height:56px;
       }
@@ -415,7 +429,8 @@ export default function YatStyles() {
       .yat-profile-player-sub{
         font:300 11px/1.2 Oswald,sans-serif;
         letter-spacing:.06em;
-        color:
+        color:var(--muted);
+      }
 
       .yat-chip{display:inline-block;font:700 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff}
       body.light-theme .yat-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.08);color:#222}
@@ -767,6 +782,58 @@ export default function YatStyles() {
       body.light-theme .yat-share-btn:hover{border-color:rgba(0,0,0,.25);background:rgba(0,0,0,.04)}
       .yat-share-btn i{font-size:14px}
       .yat-share-btn.copied{color:var(--green);border-color:var(--green)}
+
+      @media(max-width:640px){
+        :root{--crestH:38px;--row1-h:36px;--row2-h:52px}
+
+        .yat-row2-shell{
+          top:var(--row1-h);
+        }
+
+        .yat-row3-shell{
+          top:calc(var(--row1-h) + var(--row2-h));
+        }
+
+        .yat-topbar{
+          min-height:36px;
+          padding:1px 8px 0;
+        }
+
+        .yat-icon-btn{
+          width:28px;
+          height:28px;
+        }
+
+        .yat-icon-btn i{
+          font-size:16px;
+        }
+
+        .yat-wordmark-img{
+          height:20px;
+        }
+
+        .yat-schoolrow{
+          min-height:var(--row2-h);
+          padding:5px 10px;
+          gap:6px;
+          background:var(--header-bg);
+        }
+
+        .yat-schooltext .small{
+          font-size:8px;
+          letter-spacing:.05em;
+        }
+
+        .yat-schooltext .big1{
+          font-size:13px;
+          line-height:1;
+        }
+
+        .yat-schooltext .big2{
+          font-size:13px;
+          line-height:1;
+        }
+      }
     `}</style>
   );
 }
