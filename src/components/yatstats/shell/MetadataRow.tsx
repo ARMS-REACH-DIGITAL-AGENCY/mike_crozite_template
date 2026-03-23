@@ -28,21 +28,7 @@ export default function MetadataRow({ isPlayerProfile, isGallery }: MetadataRowP
   }
 
   if (isPlayerProfile) {
-    return (
-      <div className="yat-profile-meta-row">
-        <div className="yat-container yat-profile-meta-inner">
-          <div className="yat-profile-meta-left">
-            <div className="yat-profile-player-name">PLAYER NAME</div>
-            <div className="yat-profile-player-sub">TEAM · STATUS · POSITION</div>
-          </div>
-          <div className="yat-profile-meta-right">
-            <button id="btnFanFav" className="yat-icon-btn" aria-label="Favorite this player">
-              <i className="ri-heart-add-line" />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="yat-profile-meta-row" aria-hidden="true" />;
   }
 
   return null;
