@@ -57,7 +57,7 @@ export default function YatStyles() {
       }
 
       [id^="player-"]{
-  scroll-margin-top: calc(var(--row1-h) + var(--row2-h) + 130px);
+  scroll-margin-top: calc(var(--row1-h) + var(--row2-h) + 110px);
 }
 
       .yat-topbar{
