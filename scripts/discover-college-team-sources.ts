@@ -13,8 +13,14 @@ type DiscoveryResult = {
   teamSiteUrl: string | null;
   rosterUrl: string | null;
   scheduleUrl: string | null;
+  calendarFeedUrl: string | null;
   discoveryStatus: "discovered" | "manual_review" | "failed";
   discoveryNotes: string | null;
+};
+
+type DiscoveryOptions = {
+  dryRun?: boolean;
+  teamId?: string;
 };
 
 const USER_AGENT =
@@ -101,7 +107,6 @@ async function searchDuckDuckGo(query: string): Promise<string[]> {
     const href = $(el).attr("href");
     if (!href) return;
 
-    // DuckDuckGo result links often come through /l/?uddg=
     try {
       const u = new URL(href, "https://html.duckduckgo.com");
       const uddg = u.searchParams.get("uddg");
@@ -110,7 +115,7 @@ async function searchDuckDuckGo(query: string): Promise<string[]> {
         urls.add(normalizeUrl(finalUrl));
       }
     } catch {
-      // ignore
+      // ignore malformed links
     }
   });
 
@@ -137,6 +142,10 @@ function detectSourceSystem(html: string, url: string): string | null {
     lowerUrl.includes("prestosports")
   ) {
     return "presto";
+  }
+
+  if (lower.includes("wmt") || lowerUrl.includes("wmt.digital")) {
+    return "wmt";
   }
 
   if (lower.includes("statbroadcast")) {
@@ -266,6 +275,7 @@ async function discoverTeam(team: TeamRow): Promise<DiscoveryResult> {
       teamSiteUrl: null,
       rosterUrl: null,
       scheduleUrl: null,
+      calendarFeedUrl: null,
       discoveryStatus: "failed",
       discoveryNotes: "No viable candidate URLs found",
     };
@@ -281,12 +291,29 @@ async function discoverTeam(team: TeamRow): Promise<DiscoveryResult> {
     teamSiteUrl: best.url,
     rosterUrl: links.rosterUrl,
     scheduleUrl: links.scheduleUrl,
+    calendarFeedUrl: null,
     discoveryStatus: enoughToTrust ? "discovered" : "manual_review",
     discoveryNotes: `Best candidate score=${best.score}`,
   };
 }
 
-async function main() {
+function parseArgs(): DiscoveryOptions {
+  const args = process.argv.slice(2);
+  const opts: DiscoveryOptions = {};
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === "--dry-run") opts.dryRun = true;
+    if (arg === "--teamid" && args[i + 1]) {
+      opts.teamId = args[i + 1];
+      i += 1;
+    }
+  }
+  return opts;
+}
+
+export async function runDiscovery(options: DiscoveryOptions = {}) {
+  const { dryRun = false, teamId } = options;
+
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
@@ -294,18 +321,39 @@ async function main() {
 
   await client.connect();
 
-  const { rows } = await client.query<TeamRow>(`
-    select teamid, team
-    from college_team_sources
-    where ingest_enabled = true
-      and (
-        discovery_status = 'pending'
-        or team_site_url is null
-      )
-    order by teamid
-  `);
+  const values: string[] = [];
+  let where: string;
 
-  console.log(`Found ${rows.length} teams to discover`);
+  if (teamId) {
+    // Targeted run: query directly by teamid, bypassing bulk-pending predicates
+    // so a manually seeded or already-discovered team is not silently excluded.
+    values.push(teamId);
+    where = `
+      where ingest_enabled = true
+        and teamid = $1
+    `;
+  } else {
+    // Bulk run: only process teams still pending discovery or missing a site URL.
+    where = `
+      where ingest_enabled = true
+        and (
+          discovery_status = 'pending'
+          or team_site_url is null
+        )
+    `;
+  }
+
+  const { rows } = await client.query<TeamRow>(
+    `
+      select teamid, team
+      from college_team_sources
+      ${where}
+      order by teamid
+    `,
+    values
+  );
+
+  console.log(`Found ${rows.length} teams to discover${dryRun ? " (dry-run)" : ""}`);
 
   for (const team of rows) {
     console.log(`\nDiscovering ${team.team} (${team.teamid})...`);
@@ -313,30 +361,49 @@ async function main() {
     try {
       const result = await discoverTeam(team);
 
-      await client.query(
-        `
-        update college_team_sources
-        set
-          source_system = $2,
-          team_site_url = $3,
-          roster_url = $4,
-          schedule_url = $5,
-          discovery_status = $6,
-          discovery_notes = $7,
-          last_discovered_at = now(),
-          updated_at = now()
-        where teamid = $1
-        `,
-        [
-          team.teamid,
-          result.sourceSystem,
-          result.teamSiteUrl,
-          result.rosterUrl,
-          result.scheduleUrl,
-          result.discoveryStatus,
-          result.discoveryNotes,
-        ]
-      );
+      if (dryRun) {
+        console.log({ teamid: team.teamid, team: team.team, ...result, write: "skipped (dry-run)" });
+      } else if (result.discoveryStatus === "failed") {
+        await client.query(
+          `
+            update college_team_sources
+            set
+              discovery_status = $2,
+              discovery_notes = $3,
+              last_discovered_at = now(),
+              updated_at = now()
+            where teamid = $1
+          `,
+          [team.teamid, result.discoveryStatus, result.discoveryNotes]
+        );
+      } else {
+        await client.query(
+          `
+            update college_team_sources
+            set
+              source_system = coalesce($2, source_system),
+              team_site_url = coalesce(team_site_url, $3),
+              roster_url = coalesce(roster_url, $4),
+              schedule_url = coalesce(schedule_url, $5),
+              calendar_feed_url = coalesce(calendar_feed_url, $6),
+              discovery_status = $7,
+              discovery_notes = $8,
+              last_discovered_at = now(),
+              updated_at = now()
+            where teamid = $1
+          `,
+          [
+            team.teamid,
+            result.sourceSystem,
+            result.teamSiteUrl,
+            result.rosterUrl,
+            result.scheduleUrl,
+            result.calendarFeedUrl,
+            result.discoveryStatus,
+            result.discoveryNotes,
+          ]
+        );
+      }
 
       console.log({
         teamid: team.teamid,
@@ -347,18 +414,22 @@ async function main() {
       const message =
         err instanceof Error ? err.message : "Unknown discovery error";
 
-      await client.query(
-        `
-        update college_team_sources
-        set
-          discovery_status = 'failed',
-          discovery_notes = $2,
-          last_discovered_at = now(),
-          updated_at = now()
-        where teamid = $1
-        `,
-        [team.teamid, message]
-      );
+      if (dryRun) {
+        console.error(`Dry-run failure for ${team.team}: ${message}`);
+      } else {
+        await client.query(
+          `
+            update college_team_sources
+            set
+              discovery_status = 'failed',
+              discovery_notes = $2,
+              last_discovered_at = now(),
+              updated_at = now()
+            where teamid = $1
+          `,
+          [team.teamid, message]
+        );
+      }
 
       console.error(`Failed for ${team.team}: ${message}`);
     }
@@ -369,7 +440,9 @@ async function main() {
   await client.end();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  runDiscovery(parseArgs()).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
