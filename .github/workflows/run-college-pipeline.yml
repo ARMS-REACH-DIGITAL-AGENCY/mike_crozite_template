@@ -1,0 +1,59 @@
+name: Run College Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      teamid:
+        description: "Optional real college_team_sources.teamid (example: 20054 for UCLA). Leave blank to run all ingest_enabled teams."
+        required: false
+        default: ""
+      dry_run:
+        description: "Run in dry-run mode"
+        required: true
+        default: true
+        type: boolean
+      discover:
+        description: "Run source discovery before ingest/match"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  run-college-pipeline:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run college pipeline
+        shell: bash
+        run: |
+          CMD=(npm run orchestrate:college-pipeline --)
+
+          if [ -n "${{ inputs.teamid }}" ]; then
+            CMD+=(--teamid "${{ inputs.teamid }}")
+          fi
+
+          if [ "${{ inputs.discover }}" = "true" ]; then
+            CMD+=(--discover)
+          fi
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            CMD+=(--dry-run)
+          fi
+
+          echo "Running: ${CMD[*]}"
+          "${CMD[@]}"
