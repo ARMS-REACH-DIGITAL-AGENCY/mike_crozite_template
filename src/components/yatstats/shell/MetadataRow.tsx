@@ -28,9 +28,23 @@ export default function MetadataRow({ isPlayerProfile, isGallery }: MetadataRowP
     );
   }
 
-  if (isPlayerProfile) {
-    return <div className="yat-profile-meta-row" aria-hidden="true" />;
-  }
+ if (isPlayerProfile) {
+  return (
+    <div className="yat-profile-meta-row">
+      <div className="profile-meta-inner">
+
+        <div className="profile-name">
+          PLAYER NAME
+        </div>
+
+        <div className="profile-sub">
+          POSITION • TEAM • STATUS
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
   return null;
 }
