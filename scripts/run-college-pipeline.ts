@@ -44,14 +44,10 @@ function parseMetric(output: string, regex: RegExp): number {
 
 function runScript(scriptPath: string, scriptArgs: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
-    const child = spawn(
-      process.execPath,
-      ["--loader", "ts-node/esm", scriptPath, ...scriptArgs],
-      {
-        env: process.env,
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
+    const child = spawn("tsx", [scriptPath, ...scriptArgs], {
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
     let stdout = "";
     let stderr = "";
