@@ -1,7 +1,32 @@
-# DISABLED AFTER INCIDENT ON 2026-03-20
-# Preserved for postmortem/reference only.
-# Do not re-enable without staging-table loader and validation.
+name: TBC Safe Ingest v2
 
-name: TBC Daily Ingest v1 (DISABLED)
+on:
+  workflow_dispatch:
+    inputs:
+      feeds:
+        description: "Comma-separated feeds to ingest (players,batting,pitching). Leave blank for all."
+        required: false
+        default: "players,batting,pitching"
 
-on: {}
+jobs:
+  ingest-tbc-safe-v2:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TBC_FEED_PASSWORD: ${{ secrets.TBC_FEED_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests psycopg[binary]
+
+      - name: Run safe TBC ingest
+        run: |
+          python scripts/ingest_tbc_safe_v2.py --feeds "${{ inputs.feeds }}"
