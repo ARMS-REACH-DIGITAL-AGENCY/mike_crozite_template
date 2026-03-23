@@ -95,15 +95,6 @@ function fmtAvg(v: any): string {
   return n.toFixed(3).replace(/^0/, "");
 }
 
-// ---------------------------------------------------------------------------
-// Sponsor banner resolver — returns a per-player banner or null for the default.
-// Future: replace this with a DB lookup keyed by playerId.
-// ---------------------------------------------------------------------------
-type SponsorBanner = { name: string; url: string; label?: string };
-function resolveSponsorBanner(_playerId: string): SponsorBanner | null {
-  return null;
-}
-
 type BattingSeason = {
   year: string | number;
   team_name?: string;
@@ -345,12 +336,6 @@ export default async function PlayerProfilePage({
     const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
     if (d) pitStatsByDate.set(d, row);
   }
-
-  // Sponsor banner — null = default site sponsor.
-  // Future: query a sponsor_banners table by playerId to allow per-player sponsor overrides.
-  // Using `let` so TypeScript doesn't narrow to `never` in the JSX truthy branch.
-  // eslint-disable-next-line prefer-const
-  const sponsorBanner = resolveSponsorBanner(safePlayerId);
 
   // Extract subdomain for GHL tagging
   const ROOT_DOMAIN = "yatstats.com";
@@ -636,14 +621,7 @@ export default async function PlayerProfilePage({
         body.light-theme .fav-modal-actions button{background:rgba(0,0,0,.04)}
         .fav-modal-actions button.cta{background:gold;color:#000;border-color:gold}
         .fav-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1}
-        /* FOOTER — fixed at bottom */
-        .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:var(--bg);border-top:1px solid var(--line);z-index:40;display:flex;align-items:center;justify-content:center;gap:20px;padding:0 16px}
-        .yat-footer .sponsor-text{font:300 10px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-        .yat-footer .sponsor-name{font:400 16px "Bebas Neue",sans-serif;letter-spacing:.06em;color:var(--fg)}
-        .yat-footer a{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none}
-        .yat-footer a:hover{opacity:.8}
-        .yat-footer .sponsor-cta-link{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:4px 10px}
-        .yat-footer .sponsor-cta-link:hover{color:gold;border-color:rgba(255,209,102,.5)}
+      
         /* PLAYER CONTEXT LINE */
         .player-context-line{font:300 11px/1.3 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
         .player-context-line .ctx-team{color:var(--fg);font-weight:500}
@@ -1156,24 +1134,6 @@ export default async function PlayerProfilePage({
 
       {/* FAVORITE CONFIRMATION TOAST */}
       <div className="fav-toast" id="favToast" role="status" aria-live="polite" />
-
-      {/* FOOTER — fixed sticky bar matching school page */}
-      <footer className="yat-footer" data-player-id={safePlayerId}>
-        {sponsorBanner ? (
-          <a href={sponsorBanner.url} target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">{sponsorBanner.label || "PRESENTED BY"}</span>
-            <span className="sponsor-name">{sponsorBanner.name}</span>
-          </a>
-        ) : (
-          <a href="https://peteismyagent.com/products" target="_blank" rel="noopener noreferrer">
-            <span className="sponsor-text">Presented by</span>
-            <span className="sponsor-name">AMERICAN SOLUTIONS FOR BUSINESS</span>
-          </a>
-        )}
-        <a href="mailto:sponsor@yatstats.com" className="sponsor-cta-link">
-          Sponsor This Page
-        </a>
-      </footer>
 
       {/* CLIENT INTERACTIVITY */}
       <script dangerouslySetInnerHTML={{__html:`
