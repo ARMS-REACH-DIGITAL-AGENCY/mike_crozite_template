@@ -322,17 +322,25 @@ export async function runDiscovery(options: DiscoveryOptions = {}) {
   await client.connect();
 
   const values: string[] = [];
-  let where = `
-    where ingest_enabled = true
-      and (
-        discovery_status = 'pending'
-        or team_site_url is null
-      )
-  `;
+  let where: string;
 
   if (teamId) {
+    // Targeted run: query directly by teamid, bypassing bulk-pending predicates
+    // so a manually seeded or already-discovered team is not silently excluded.
     values.push(teamId);
-    where += ` and teamid = $${values.length}`;
+    where = `
+      where ingest_enabled = true
+        and teamid = $1
+    `;
+  } else {
+    // Bulk run: only process teams still pending discovery or missing a site URL.
+    where = `
+      where ingest_enabled = true
+        and (
+          discovery_status = 'pending'
+          or team_site_url is null
+        )
+    `;
   }
 
   const { rows } = await client.query<TeamRow>(
@@ -374,10 +382,10 @@ export async function runDiscovery(options: DiscoveryOptions = {}) {
             update college_team_sources
             set
               source_system = coalesce($2, source_system),
-              team_site_url = coalesce($3, team_site_url),
-              roster_url = coalesce($4, roster_url),
-              schedule_url = coalesce($5, schedule_url),
-              calendar_feed_url = coalesce($6, calendar_feed_url),
+              team_site_url = coalesce(team_site_url, $3),
+              roster_url = coalesce(roster_url, $4),
+              schedule_url = coalesce(schedule_url, $5),
+              calendar_feed_url = coalesce(calendar_feed_url, $6),
               discovery_status = $7,
               discovery_notes = $8,
               last_discovered_at = now(),
