@@ -56,23 +56,31 @@ export default function InteractionStrip({
       behavior: 'smooth',
     });
   };
-if (isPlayerProfile) {
-  return (
-    <div className="gallery-strip profile-strip">
-      <div className="profile-strip-inner">
-        {/* LEFT ANCHOR (HS IMAGE) */}
-        <div className="profile-anchor">
-          <img src="/img/card-front-placeholder.png" alt="HS Card" />
-        </div>
 
-        {/* RIGHT ANCHOR (HEADSHOT) */}
-        <div className="profile-anchor">
-          <img src="/img/headshot-silhouette.png" alt="Headshot" />
+  if (isPlayerProfile) {
+    return (
+      <div className="gallery-strip profile-strip">
+        <div className="profile-strip-inner">
+          <div className="profile-anchor">
+            <img
+              src="/img/headshot-silhouette.png"
+              alt="High school anchor"
+              className="profile-anchor-img"
+            />
+          </div>
+
+          <div className="profile-anchor profile-anchor-right">
+            <img
+              src="/img/headshot-silhouette.png"
+              alt="Current player anchor"
+              className="profile-anchor-img"
+            />
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+
   if (!isGallery && !isNews) {
     return null;
   }
@@ -91,7 +99,7 @@ if (isPlayerProfile) {
       <div ref={scrollRef} className="gallery-strip-inner">
         {players.map((p) => (
           <a key={p.id} href={`#player-${p.id}`} className="gallery-slot" title={p.name}>
-                       <img
+            <img
               src={p.image || '/img/headshot-silhouette.png'}
               alt={p.name}
               className="gallery-slot-img"
