@@ -317,13 +317,13 @@ export async function runIngestCollegeRosters(options: IngestOptions = {}) {
       } else {
         // No profile URL — build a stronger fingerprint from available discriminators
         // so two real players with the same name are not collapsed.
-        const r = p.raw as Record<string, unknown>;
+        const r = p.raw;
         const jersey = String(r["no."] ?? r["#"] ?? r["jersey"] ?? r["number"] ?? "");
         const pos = String(r["pos"] ?? r["position"] ?? "");
         const yr = String(r["yr"] ?? r["year"] ?? r["class"] ?? r["cl"] ?? "");
         const hs = String(p.highSchool ?? r["high school"] ?? r["highschool"] ?? r["hs"] ?? "");
         const cardText = String(r["cardText"] ?? "");
-        key = `${p.name.toLowerCase()}|${jersey}|${pos}|${yr}|${hs}|${cardText}`.toLowerCase();
+        key = `${p.name.toLowerCase()}|${jersey}|${pos}|${yr}|${hs}|${cardText}`;
       }
       if (!dedup.has(key)) dedup.set(key, p);
     }
