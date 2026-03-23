@@ -579,12 +579,16 @@ export default async function PlayerProfilePage({
         .pmb-line.dim{color:var(--muted)}
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
+
+
+        
         /* TABS — sticky under header */
         .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
         .profile-tab:hover:not(.active){color:var(--fg)}
+       
         /* STATS */
         .stats-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .stats-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;text-align:center;padding:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase}
@@ -597,6 +601,7 @@ export default async function PlayerProfilePage({
         .stat-label{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
         .stat-value{font:700 22px/1 "Bebas Neue",sans-serif;margin-top:6px}
         .season-note{text-align:center;font:300 12px/1.3 Oswald,sans-serif;color:var(--muted);margin:8px 0}
+       
         /* TABLES */
         .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;margin-top:4px}
         .season-table{width:100%;border-collapse:collapse;font:300 12px/1.4 Oswald,sans-serif}
@@ -606,11 +611,13 @@ export default async function PlayerProfilePage({
         .season-table td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
         .season-table tr:last-child td{border-bottom:none}
         .season-table tbody tr:hover{background:rgba(255,209,102,.05)}
+       
         /* TAB CONTENT — ensure enough height for sparse tabs to allow full scroll collapse */
         .tab-content{display:none;scroll-margin-top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px) + var(--tabBarH,42px) + 8px)}
         .tab-content.active{display:block;min-height:calc(100svh - var(--stickyHeaderH,120px) - var(--metaBandH,60px) - var(--tabBarH,42px) - var(--footerH))}
         .coming-soon{text-align:center;padding:48px 20px;color:var(--muted);font:300 14px/1.5 Oswald,sans-serif}
         .coming-soon i{font-size:36px;display:block;margin-bottom:12px;opacity:.4}
+       
         /* FAVORITES MODAL */
         .fav-modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
         .fav-modal{background:var(--card-bg);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:380px;width:90%;color:var(--fg);box-shadow:0 20px 40px rgba(0,0,0,.4);position:relative}
@@ -631,13 +638,15 @@ export default async function PlayerProfilePage({
         .player-id-line .dim{color:var(--muted);font-weight:300}
         .player-id-line .sep{color:var(--muted);margin:0 5px}
         .player-id-label{font-weight:600;color:var(--fg)}
-              /* DRAWERS
+      
+       /* DRAWERS
            Shared shell owns drawer layout/z-index.
            Keep only profile-specific helper styles that do not override shell behavior. */
         .drawer-search-input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--fg);font-family:Oswald,sans-serif;font-size:13px;box-sizing:border-box}
         body.light-theme .drawer-search-input{background:rgba(0,0,0,.06)}
         .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
         .drawer-live-hit:hover{background:var(--line)}
+      
         /* OVERVIEW TAB */
         .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
@@ -649,6 +658,7 @@ export default async function PlayerProfilePage({
         .ov-bio-row:last-child{border-bottom:none}
         .ov-bio-key{font:300 11px/1 Oswald,sans-serif;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;flex-shrink:0;margin-right:8px}
         .ov-bio-val{font:500 13px/1 Oswald,sans-serif;text-align:right}
+        
         /* CAREER LOG TABLE */
         .career-log-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:8px}
         body.light-theme .career-log-title{background:rgba(0,0,0,.03)}
@@ -667,6 +677,7 @@ export default async function PlayerProfilePage({
         .career-log tbody .career-totals-row td{font:700 12px/1.4 Oswald,sans-serif;border-top:2px solid rgba(255,209,102,.3)}
         .career-log tbody .career-totals-row .year-cell{color:gold}
         .log-section{margin-bottom:20px}
+      
         /* RECENT GAME LOG (overview) */
         .recent-log-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;overflow:hidden}
         .recent-log-grid{display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--line)}
@@ -675,6 +686,7 @@ export default async function PlayerProfilePage({
         .recent-log-cell:last-child{border-right:none}
         .recent-log-label{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
         .recent-log-val{font:700 18px/1 "Bebas Neue",sans-serif;margin-top:4px}
+        
         /* GAME LOG FEED */
         .gl-feed{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:16px}
         .gl-feed-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.04)}
@@ -748,6 +760,7 @@ export default async function PlayerProfilePage({
         .yat-gs-chip-lbl{font:300 8px Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);line-height:1;white-space:nowrap}
         .yat-gs-msg{padding:28px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
         .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
+       
         /* MOBILE */
         @media(max-width:640px){
           /* Shrink sticky header crest/text */
@@ -767,6 +780,54 @@ export default async function PlayerProfilePage({
         .yat-hero-right{display:none!important}
       `}</style>
 
+      {/* PLAYER HERO (MATCHES FLIP CARD FRONT) */}
+<section id="playerHeroMeta" style={{padding:'12px 16px', borderBottom:'1px solid var(--line)'}}>
+  
+  {/* ROW 1 — NAME + STATUS */}
+  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+    <div style={{fontFamily:'Bebas Neue', fontSize:'28px', letterSpacing:'.05em'}}>
+      {displayName.toUpperCase()}
+    </div>
+
+    <div style={{
+      fontFamily:'Bebas Neue',
+      fontSize:'12px',
+      letterSpacing:'.1em',
+      color: statusLabel === 'ACTIVE' ? '#00e676' : 'var(--muted)'
+    }}>
+      {statusLabel}
+    </div>
+  </div>
+
+  {/* ROW 2 — TEAM + CONTEXT */}
+  <div className="player-context-line" style={{marginTop:'4px'}}>
+    <span className="ctx-team">{ctxTeam || '--'}</span>
+    {ctxLevel && <span> · {ctxLevel}</span>}
+    {ctxSecondary && <span> · {ctxSecondary}</span>}
+  </div>
+
+  {/* ROW 3 — PLAYER META */}
+  <div className="player-id-block" style={{marginTop:'6px'}}>
+    <div className="player-id-line">
+      <span className="player-id-label">{pos}</span>
+      <span className="sep">|</span>
+      {ht} / {wt}
+      <span className="sep">|</span>
+      {bt}
+    </div>
+
+    {(mostRecentCollege || draftMetaLine) && (
+      <div className="player-id-line dim">
+        {mostRecentCollege && <span>{mostRecentCollege}</span>}
+        {mostRecentCollege && draftMetaLine && <span className="sep">|</span>}
+        {draftMetaLine && <span>{draftMetaLine}</span>}
+      </div>
+    )}
+  </div>
+
+</section>
+
+      
       {/* TABS */}
       <div className="profile-tabs" role="tablist">
         <div role="tab" className="profile-tab active" data-profile-tab="overview" tabIndex={0}>GAME LOG</div>
