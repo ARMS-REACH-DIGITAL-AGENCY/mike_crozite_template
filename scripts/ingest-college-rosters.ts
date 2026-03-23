@@ -311,7 +311,20 @@ export async function runIngestCollegeRosters(options: IngestOptions = {}) {
 
     const dedup = new Map<string, ParsedPlayer>();
     for (const p of players) {
-      const key = `${p.name.toLowerCase()}|${p.profileUrl || ""}`;
+      let key: string;
+      if (p.profileUrl) {
+        key = `${p.name.toLowerCase()}|${p.profileUrl}`;
+      } else {
+        // No profile URL — build a stronger fingerprint from available discriminators
+        // so two real players with the same name are not collapsed.
+        const r = p.raw as Record<string, unknown>;
+        const jersey = String(r["no."] ?? r["#"] ?? r["jersey"] ?? r["number"] ?? "");
+        const pos = String(r["pos"] ?? r["position"] ?? "");
+        const yr = String(r["yr"] ?? r["year"] ?? r["class"] ?? r["cl"] ?? "");
+        const hs = String(p.highSchool ?? r["high school"] ?? r["highschool"] ?? r["hs"] ?? "");
+        const cardText = String(r["cardText"] ?? "");
+        key = `${p.name.toLowerCase()}|${jersey}|${pos}|${yr}|${hs}|${cardText}`.toLowerCase();
+      }
       if (!dedup.has(key)) dedup.set(key, p);
     }
 
