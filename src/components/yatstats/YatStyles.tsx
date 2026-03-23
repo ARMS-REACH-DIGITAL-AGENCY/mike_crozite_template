@@ -342,6 +342,81 @@ export default function YatStyles() {
         min-height:56px;
       }
 
+      .profile-strip{
+        background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);
+        border-bottom:3px solid transparent;
+        border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;
+        min-height:120px;
+        overflow:hidden;
+      }
+
+      .profile-strip-inner{
+        width:100%;
+        max-width:1400px;
+        margin:0 auto;
+        display:flex;
+        align-items:stretch;
+        min-height:120px;
+      }
+
+      .profile-anchor{
+        flex:0 0 110px;
+        width:110px;
+        min-width:110px;
+        border-right:1px solid var(--line);
+        background:#0a0a0a;
+        overflow:hidden;
+        display:flex;
+        align-items:stretch;
+      }
+
+      .profile-anchor-right{
+        margin-left:auto;
+        border-right:none;
+        border-left:1px solid var(--line);
+      }
+
+      .profile-anchor-img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        object-position:center top;
+        display:block;
+        background:#000;
+      }
+
+      .yat-profile-meta-row{
+        background:var(--header-bg);
+        border-bottom:1px solid var(--line);
+      }
+
+      .yat-profile-meta-inner{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        min-height:52px;
+        padding:8px 0;
+      }
+
+      .yat-profile-meta-left{
+        min-width:0;
+      }
+
+      .yat-profile-player-name{
+        font:700 20px/1 "Bebas Neue",sans-serif;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .yat-profile-player-sub{
+        font:300 11px/1.2 Oswald,sans-serif;
+        letter-spacing:.06em;
+        color:
+
       .yat-chip{display:inline-block;font:700 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff}
       body.light-theme .yat-chip{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.08);color:#222}
       .chip-mlb{background:rgba(0,230,118,.15);border-color:#00e676;color:#00e676}
