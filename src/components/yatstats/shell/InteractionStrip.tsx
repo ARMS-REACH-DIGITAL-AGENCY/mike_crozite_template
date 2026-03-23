@@ -58,27 +58,7 @@ export default function InteractionStrip({
   };
 
   if (isPlayerProfile) {
-    return (
-      <div className="gallery-strip profile-strip">
-        <div className="profile-strip-inner">
-          <div className="profile-anchor">
-            <img
-              src="/img/headshot-silhouette.png"
-              alt="High school anchor"
-              className="profile-anchor-img"
-            />
-          </div>
-
-          <div className="profile-anchor profile-anchor-right">
-            <img
-              src="/img/headshot-silhouette.png"
-              alt="Current player anchor"
-              className="profile-anchor-img"
-            />
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (!isGallery && !isNews) {
