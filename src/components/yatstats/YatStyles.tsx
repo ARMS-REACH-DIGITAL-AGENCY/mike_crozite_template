@@ -12,7 +12,7 @@ export default function YatStyles() {
       body.drawer-open{overflow:hidden}
       a{color:inherit;text-decoration:none}
 
-      .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px}
+      .yat-container{width:100%;max-width:1280px;margin:0 auto;padding:0 16px}id^
 
       .yat-row1-shell{
         position:sticky;
@@ -57,7 +57,7 @@ export default function YatStyles() {
       }
 
       [id^="player-"]{
-  scroll-margin-top: calc(var(--row1-h) + var(--row2-h) + 90px);
+  scroll-margin-top: calc(var(--row1-h) + var(--row2-h) + 110px);
 }
 
       .yat-topbar{
