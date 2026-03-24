@@ -25,7 +25,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-  run: pip install requests psycopg[binary] cloudscraper
+  run: "pip install requests psycopg[binary] cloudscraper"
 
       - name: Run safe TBC ingest
         run: |
