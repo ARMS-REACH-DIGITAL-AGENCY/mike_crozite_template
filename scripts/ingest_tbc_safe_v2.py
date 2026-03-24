@@ -17,11 +17,28 @@ from typing import Iterable
 import psycopg
 import requests
 
+try:
+    import cloudscraper
+except ImportError:
+    cloudscraper = None
+
 BASE_URL = "https://thebaseballcube.com/data/feed/yatstats"
 VALID_FEEDS = ("players", "batting", "pitching")
 HEADER_RENAMES = {
     "2b": "dbl",
     "3b": "tpl",
+}
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/csv,application/json;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Referer": "https://thebaseballcube.com/",
 }
 
 
@@ -205,6 +222,44 @@ def append_snapshot_rows(
     return len(row_values)
 
 
+def fetch_feed_response(feed_type: str, source_url: str) -> requests.Response:
+    try:
+        response = requests.get(source_url, headers=REQUEST_HEADERS, timeout=60)
+        response.raise_for_status()
+        if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+            raise IngestError(f"{feed_type}: feed returned HTML/challenge content via requests")
+        return response
+    except (requests.HTTPError, requests.RequestException, IngestError) as exc:
+        should_retry = False
+
+        if isinstance(exc, requests.HTTPError):
+            if exc.response is not None and exc.response.status_code == 403:
+                should_retry = True
+        elif isinstance(exc, IngestError):
+            should_retry = True
+        else:
+            should_retry = True
+
+        if not should_retry:
+            raise
+
+        if cloudscraper is None:
+            raise IngestError(
+                f"{feed_type}: requests fetch failed ({exc}) and cloudscraper is not installed"
+            ) from exc
+
+        scraper = cloudscraper.create_scraper(
+            browser={"browser": "chrome", "platform": "windows", "mobile": False}
+        )
+        response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
+        response.raise_for_status()
+
+        if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+            raise IngestError(f"{feed_type}: feed returned HTML/challenge content via cloudscraper")
+
+        return response
+
+
 def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str) -> int:
     feed_cfg = FEED_TABLES[feed_type]
     ingest_run_id = str(uuid.uuid4())
@@ -216,11 +271,7 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
     conn.commit()
 
     try:
-        response = requests.get(source_url, timeout=60)
-        response.raise_for_status()
-
-        if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
-            raise IngestError(f"{feed_type}: feed returned HTML/challenge content")
+        response = fetch_feed_response(feed_type, source_url)
 
         _, rows = parse_csv_rows(feed_type, response.text)
 
