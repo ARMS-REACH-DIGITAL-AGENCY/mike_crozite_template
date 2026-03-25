@@ -608,16 +608,16 @@ export default function YatStyles() {
         letter-spacing:.02em;
       }
 
-      .yat-back-iconnav{
-        display:grid;
-        grid-template-columns:repeat(6,1fr);
-        background:#f3f3f3;
-        color:#111;
-        border-top:1px solid rgba(255,255,255,.06);
-        border-bottom:1px solid rgba(255,255,255,.08);
-        margin-top:4px;
-        flex-shrink:0;
-      }
+.yat-back-iconnav{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  background:#f3f3f3;
+  color:#111;
+  border-top:1px solid rgba(255,255,255,.06);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  margin-top:0;
+  flex-shrink:0;
+}
 
       .yat-back-iconnav-item{
         position:relative;
