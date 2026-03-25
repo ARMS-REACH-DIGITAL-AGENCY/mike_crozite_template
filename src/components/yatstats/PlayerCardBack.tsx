@@ -34,20 +34,39 @@ export default function PlayerCardBack({
     ? "CAREER STATS"
     : `${statYear ? `${statYear} ` : ""}SEASON STATS`;
 
-  const team = String(p.current_team || p.team_name || p.level || "").trim();
-  const level = String(p.level || "").trim();
-  const status = isAllTime
-    ? (!!p.is_active_2025 ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED"))
-    : "ACTIVE 2025";
+ const team = String(
+  p.current_team ||
+  p.team_name ||
+  p.org_name ||
+  p.team ||
+  p.school_name ||
+  ""
+).trim();
 
-  const position = String(p.position || "").trim();
-  const height = String(p.height || "").trim();
-  const weight = String(p.weight || "").trim();
-  const bats = String(p.bats || "").trim();
-  const throwsHand = String(p.throws || "").trim();
-  const college = String(p.college || "").trim() || "N/A";
+const level = String(p.level || "").trim().toUpperCase();
 
-  const line1 = [team, level ? level.toUpperCase() : null, status].filter(Boolean).join(" - ");
+const status = isAllTime
+  ? !!p.is_active_2025
+    ? "ACTIVE 2025"
+    : p.draft_info
+      ? "RETIRED-DRAFTED"
+      : "RETIRED"
+  : "ACTIVE 2025";
+
+const position = String(p.position || "").trim();
+const height = String(p.height || "").trim();
+const weight = String(p.weight || "").trim();
+const bats = String(p.bats || "").trim();
+const throwsHand = String(p.throws || "").trim();
+const college = String(p.college || "").trim() || "N/A";
+
+const line1Parts = [
+  team || null,
+  level && level !== team.toUpperCase() ? level : null,
+  status,
+].filter(Boolean);
+
+const line1 = line1Parts.join(" - ");
   const line2 = [
     position ? position.replace(/-/g, "-") : null,
     height ? `H: ${height}` : null,
