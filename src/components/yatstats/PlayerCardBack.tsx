@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCardBack.tsx
-// Back face of the flip card: HEADSHOT image, CTA bubble, player identity, nav row, stats grid, fun zone
+// Back face of the flip card: HEADSHOT image, CTA, icon nav, stats grid, fun zone
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -9,13 +9,7 @@ import { getNowSilhouetteUrl } from "@/lib/playerImage";
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
-  /**
-   * Explicitly designated HEADSHOT image URL from player_photos (image_role='HEADSHOT').
-   * Pass null when no designated HEADSHOT exists — the silhouette will be shown.
-   * Do NOT pass the legacy players/now/{id}.jpg path here.
-   */
   headshotUrl: string | null;
-  /** When true, shows "CAREER STATS" label instead of the season year */
   isAllTime?: boolean;
 }
 
@@ -31,28 +25,31 @@ export default function PlayerCardBack({
   const slug = String(p.slug || "");
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
 
-  const displayName = String(p.display_name || `${p.firstname} ${p.lastname}`).trim();
-  const firstName = String(p.firstname || displayName.split(" ")[0] || "this player");
-  const photoSrc = headshotUrl;
+  const displayName = String(p.display_name || `${p.firstname} ${p.lastname}`);
+  const firstName = String(p.firstname || displayName.split(" ")[0] || "PLAYER").toUpperCase();
   const nowSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
   const statBarLabel = isAllTime
     ? "CAREER STATS"
-    : `${statYear ? `${statYear} ` : ""}${isPitcher ? "SEASON STATS" : "SEASON STATS"}`;
+    : `${statYear ? `${statYear} ` : ""}SEASON STATS`;
 
-  const bats = p.bats ? String(p.bats) : null;
-  const throwsHand = p.throws ? String(p.throws) : null;
-  const position = p.position ? String(p.position).replace(/-/g, "/") : null;
-  const team = p.current_team ? String(p.current_team) : null;
-  const level = p.level ? String(p.level) : null;
-  const status = p.status ? String(p.status) : null;
-  const height = p.height ? String(p.height) : null;
-  const weight = p.weight ? String(p.weight) : null;
+  const team = String(p.current_team || p.team_name || p.level || "").trim();
+  const level = String(p.level || "").trim();
+  const status = isAllTime
+    ? (!!p.is_active_2025 ? "ACTIVE 2025" : (p.draft_info ? "RETIRED-DRAFTED" : "RETIRED"))
+    : "ACTIVE 2025";
 
-  const detailLine1 = [team, level, status].filter(Boolean).join(" | ");
-  const detailLine2 = [
-    position,
+  const position = String(p.position || "").trim();
+  const height = String(p.height || "").trim();
+  const weight = String(p.weight || "").trim();
+  const bats = String(p.bats || "").trim();
+  const throwsHand = String(p.throws || "").trim();
+  const college = String(p.college || "").trim() || "N/A";
+
+  const line1 = [team, level ? level.toUpperCase() : null, status].filter(Boolean).join(" - ");
+  const line2 = [
+    position ? position.replace(/-/g, "-") : null,
     height ? `H: ${height}` : null,
     weight ? `W: ${weight}` : null,
     bats && throwsHand ? `B/T: ${bats}/${throwsHand}` : null,
@@ -60,8 +57,8 @@ export default function PlayerCardBack({
     .filter(Boolean)
     .join(" | ");
 
-  const draftLine = draft ? `Drafted: ${draft}` : null;
-  const collegeLine = p.college ? `College: ${String(p.college)}` : "College: N/A";
+  const draftLine = draft ? `Draft: ${draft}` : null;
+  const collegeLine = `Colleges: ${college}`;
 
   const batterStats = [
     { k: "AVG", v: p.avg },
@@ -98,77 +95,101 @@ export default function PlayerCardBack({
   return (
     <div className="yat-face yat-back">
       <div className="yat-back-content">
-        <div className="yat-back-top">
-          <div className="yat-back-top-left">
-            <div className="yat-back-name-banner">{displayName}</div>
+        <div className="yat-back-panel">
+          <div className="yat-back-top">
+            <div className="yat-back-left">
+              <div className="yat-back-name-banner">{displayName}</div>
 
-            <a
-              href={profileHref}
-              className="yat-back-headshot-link"
-              aria-label={`Open ${displayName}'s player profile page`}
-            >
-              <div className="yat-back-headshot-frame">
-                <SafeImage
-                  src={photoSrc}
-                  alt={displayName}
-                  className="yat-back-headshot"
-                  placeholderSrc={nowSilhouetteUrl}
-                />
+              <a
+                href={profileHref}
+                className="yat-back-headshot-link"
+                aria-label={`Open ${displayName}'s player profile page`}
+              >
+                <div className="yat-back-headshot-wrap">
+                  <SafeImage
+                    src={headshotUrl}
+                    alt={displayName}
+                    className="yat-back-headshot"
+                    placeholderSrc={nowSilhouetteUrl}
+                  />
+                </div>
+              </a>
+
+              <div className="yat-back-bio">
+                {line1 && <div className="yat-back-bio-line">{line1}</div>}
+                {line2 && <div className="yat-back-bio-line">{line2}</div>}
+                {draftLine && <div className="yat-back-bio-line">{draftLine}</div>}
+                <div className="yat-back-bio-line">{collegeLine}</div>
               </div>
-            </a>
+            </div>
 
-            <div className="yat-back-bio">
-              {detailLine1 && <div className="yat-back-bio-line">{detailLine1}</div>}
-              {detailLine2 && <div className="yat-back-bio-line">{detailLine2}</div>}
-              {draftLine && <div className="yat-back-bio-line yat-back-bio-line-strong">{draftLine}</div>}
-              <div className="yat-back-bio-line">{collegeLine}</div>
+            <div className="yat-back-right">
+              <a
+                href={profileHref}
+                className="yat-back-cta"
+                aria-label={`Connect with ${displayName} on his player profile page`}
+              >
+                <span>
+                  CONNECT
+                  <br />
+                  WITH {firstName}
+                  <br />
+                  ON HIS
+                  <br />
+                  PLAYER
+                  <br />
+                  PROFILE
+                  <br />
+                  PAGE
+                  <br />
+                  AND SHARE
+                  <br />
+                  YOUR
+                  <br />
+                  MEMORIES!
+                </span>
+              </a>
             </div>
           </div>
 
-          <div className="yat-back-top-right">
-            <a
-              href={profileHref}
-              className="yat-profile-cta"
-              aria-label={`Go to ${displayName}'s profile page`}
-            >
-              <span className="yat-profile-cta-text">
-                CONNECT WITH {firstName.toUpperCase()} ON HIS
-                <br />
-                PLAYER PROFILE PAGE
-                <br />
-                AND SHARE YOUR MEMORIES!
-              </span>
-            </a>
-
-            <div className="yat-yachty-wrap" aria-hidden="true">
-              <img
-                src="/images/yachty/yachty-card-guide.png"
-                alt=""
-                className="yat-yachty-img"
-              />
+          <div className="yat-back-iconnav" aria-hidden="true">
+            <div className="yat-back-iconnav-item">
+              <i className="ri-calendar-event-line" />
+              <span>Schedule</span>
+            </div>
+            <div className="yat-back-iconnav-item is-active">
+              <i className="ri-bar-chart-box-line" />
+              <span>Stats</span>
+            </div>
+            <div className="yat-back-iconnav-item">
+              <i className="ri-newspaper-line" />
+              <span>News</span>
+            </div>
+            <div className="yat-back-iconnav-item">
+              <i className="ri-share-line" />
+              <span>Social</span>
+            </div>
+            <div className="yat-back-iconnav-item">
+              <i className="ri-team-line" />
+              <span>Connect</span>
+            </div>
+            <div className="yat-back-iconnav-item">
+              <i className="ri-image-add-line" />
+              <span>Upload</span>
             </div>
           </div>
-        </div>
 
-        <div className="yat-back-nav" aria-hidden="true">
-          <div className="yat-back-nav-item">Schedule</div>
-          <div className="yat-back-nav-item is-active">Stats</div>
-          <div className="yat-back-nav-item">News</div>
-          <div className="yat-back-nav-item">Social</div>
-          <div className="yat-back-nav-item">Connect</div>
-          <div className="yat-back-nav-item">Upload</div>
-        </div>
+          <div className="yat-back-stats">
+            <div className="yat-stats-bar yat-stats-bar-target">{statBarLabel}</div>
 
-        <div className="yat-back-stats">
-          <div className="yat-stats-bar yat-stats-bar-large">{statBarLabel}</div>
-
-          <div className={`yat-stats-grid ${isPitcher ? "yat-stats-grid-3" : "yat-stats-grid-4"}`}>
-            {stats.map(({ k, v }) => (
-              <div key={k} className="yat-stat yat-stat-large">
-                <div className="yat-stat-label yat-stat-label-large">{k}</div>
-                <div className="yat-stat-val yat-stat-val-large">{fmt(k, v)}</div>
-              </div>
-            ))}
+            <div className={`yat-stats-grid ${isPitcher ? "yat-stats-grid-3" : "yat-stats-grid-4"}`}>
+              {stats.map(({ k, v }) => (
+                <div key={k} className="yat-stat yat-stat-target">
+                  <div className="yat-stat-label yat-stat-label-target">{k}</div>
+                  <div className="yat-stat-val yat-stat-val-target">{fmt(k, v)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
