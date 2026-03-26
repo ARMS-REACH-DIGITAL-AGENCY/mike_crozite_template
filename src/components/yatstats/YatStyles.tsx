@@ -4,7 +4,29 @@
 export default function YatStyles() {
   return (
     <style>{`
-      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:44px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:40px;--row2-h:58px;--back-bg:#0a0a0a;--back-fg:#f2f2f2;--back-muted:#9e9e9e;--back-line:rgba(255,255,255,.10);--back-card:#1a1a1a;--back-tab-bg:rgba(255,255,255,.06);--back-tab-fg:#f2f2f2;--back-tile-bg:#1d1d1f;--back-cta-bg:#ffffff;--back-cta-fg:#000000}
+     :root{
+  --back-bg:#0a0a0a;
+  --back-fg:#f2f2f2;
+  --back-muted:#9e9e9e;
+  --back-line:rgba(255,255,255,.10);
+  --back-tab-bg:rgba(255,255,255,.06);
+  --back-tab-fg:#f2f2f2;
+  --back-tile-bg:#1d1d1f;
+  --back-cta-bg:#ffffff;
+  --back-cta-fg:#000000;
+}
+
+body.light-theme{
+  --back-bg:#f7f7f7;
+  --back-fg:#121212;
+  --back-muted:#555;
+  --back-line:rgba(0,0,0,.10);
+  --back-tab-bg:rgba(0,0,0,.05);
+  --back-tab-fg:#222;
+  --back-tile-bg:#e7e7e7;
+  --back-cta-bg:#ffffff;
+  --back-cta-fg:#000000;
+}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none;--back-bg:#f7f7f7;--back-fg:#121212;--back-muted:#555;--back-line:rgba(0,0,0,.10);--back-card:#ececec;--back-tab-bg:rgba(0,0,0,.05);--back-tab-fg:#222;--back-tile-bg:#e7e7e7;--back-cta-bg:#ffffff;--back-cta-fg:#000000}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
@@ -766,7 +788,7 @@ export default function YatStyles() {
   }
 }
 
-     @media(max-width:768px){
+   @media(max-width:768px){
   .yat-back-top{
     min-height:108px;
     padding:6px 6px 0 6px;
