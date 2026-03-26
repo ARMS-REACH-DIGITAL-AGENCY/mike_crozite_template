@@ -41,7 +41,6 @@ body.light-theme{
         top:0;
         z-index:70;
         background:var(--header-bg);
-        transition:background-color .3s;
       }
 
       .yat-row2-shell{
@@ -475,13 +474,38 @@ body.light-theme{
       @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
       .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
       .yat-card::before{content:"";display:block;padding-top:140%}
-      .yat-card-inner{position:absolute;inset:0;perspective:1200px}
-      .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
-      .yat-card.is-flipped .yat-flip{transform:rotateY(180deg)}
-      .yat-face{position:absolute;inset:0;backface-visibility:hidden}
-      .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
-      .yat-card.is-flipped .yat-front{pointer-events:none}
-      .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
+      .yat-card-inner{
+  position:absolute;
+  inset:0;
+  perspective:1200px;
+}
+
+.yat-flip{
+  position:absolute;
+  inset:0;
+  transform-style:preserve-3d;
+  transition:transform .6s cubic-bezier(.2,.7,.2,1);
+}
+
+.yat-card.is-flipped .yat-flip{
+  transform:rotateY(180deg);
+}
+
+.yat-face{
+  position:absolute;
+  inset:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+}
+
+.yat-face.yat-front{
+  transform:rotateY(0deg);
+  z-index:2;
+}
+
+.yat-face.yat-back{
+  transform:rotateY(180deg);
+}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
