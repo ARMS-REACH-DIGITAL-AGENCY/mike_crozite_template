@@ -4,8 +4,8 @@
 export default function YatStyles() {
   return (
     <style>{`
-      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:44px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:40px;--row2-h:58px}
-      body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
+      :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:44px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:40px;--row2-h:58px;--back-bg:#0a0a0a;--back-fg:#f2f2f2;--back-muted:#9e9e9e;--back-line:rgba(255,255,255,.10);--back-card:#1a1a1a;--back-tab-bg:rgba(255,255,255,.06);--back-tab-fg:#f2f2f2;--back-tile-bg:#1d1d1f;--back-cta-bg:#ffffff;--back-cta-fg:#000000}
+      body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none;--back-bg:#f7f7f7;--back-fg:#121212;--back-muted:#555;--back-line:rgba(0,0,0,.10);--back-card:#ececec;--back-tab-bg:rgba(0,0,0,.05);--back-tab-fg:#222;--back-tile-bg:#e7e7e7;--back-cta-bg:#ffffff;--back-cta-fg:#000000}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
       body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
@@ -481,24 +481,21 @@ export default function YatStyles() {
       .yat-game-text span{display:block}
       .yat-log{font-family:system-ui,sans-serif;white-space:normal;line-height:1.2;letter-spacing:-.5px;display:block;font-size:10px}
            .yat-face.yat-back{
-        transform:rotateY(180deg);
-        background:#0a0a0a;
-        color:var(--fg);
-        --fg:#f2f2f2;
-        --muted:#9e9e9e;
-        --line:rgba(255,255,255,.1);
-        --card-bg:#1a1a1a;
-      }
+     .yat-face.yat-back{
+  transform:rotateY(180deg);
+  background:var(--back-bg);
+  color:var(--back-fg);
+}
 
-      .yat-back-content{
-        position:absolute;
-        inset:0;
-        display:flex;
-        flex-direction:column;
-        z-index:1;
-        overflow:hidden;
-        background:#0a0a0a;
-      }
+    .yat-back-content{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  z-index:1;
+  overflow:hidden;
+  background:var(--back-bg);
+}
 
       .yat-back-panel{
         flex:1 1 auto;
@@ -509,48 +506,45 @@ export default function YatStyles() {
       }
 
       .yat-back-top{
-        display:grid;
-        grid-template-columns:1.05fr .95fr;
-        gap:8px;
-        padding:6px 6px 0;
-        flex-shrink:0;
-      }
+  position:relative;
+  display:block;
+  padding:8px 8px 0 8px;
+  min-height:124px;
+  flex-shrink:0;
+}
 
-      .yat-back-left{
-        min-width:0;
-      }
-
+    .yat-back-left{
+  min-width:0;
+  padding-right:138px;
+}
       .yat-back-right{
-        display:flex;
-        justify-content:flex-end;
-        align-items:flex-start;
-        min-width:0;
-      }
+  min-width:0;
+}
 
       .yat-back-name-banner{
-        font:700 18px/0.95 "Bebas Neue",sans-serif;
-        letter-spacing:.03em;
-        text-transform:uppercase;
-        color:#fff;
-        margin-bottom:4px;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-      }
+  font:700 18px/0.95 "Bebas Neue",sans-serif;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  color:var(--back-fg);
+  margin-bottom:4px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
-      .yat-back-headshot-link{
-        display:block;
-        width:100%;
-        max-width:88px;
-      }
+     .yat-back-headshot-link{
+  display:block;
+  width:100%;
+  max-width:74px;
+}
 
-      .yat-back-headshot-wrap{
-        position:relative;
-        width:100%;
-        aspect-ratio:1 / 1.1;
-        overflow:hidden;
-        background:#111;
-      }
+     .yat-back-headshot-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:1 / 1.08;
+  overflow:hidden;
+  background:#111;
+}
 
       .yat-back-headshot{
         position:absolute;
@@ -569,67 +563,72 @@ export default function YatStyles() {
         gap:2px;
       }
 
-      .yat-back-bio-line{
-        font:300 8px/1.15 Oswald,sans-serif;
-        color:#d3d3d3;
-        letter-spacing:.01em;
-      }
+     .yat-back-bio-line{
+  font:300 8px/1.15 Oswald,sans-serif;
+  color:var(--back-muted);
+  letter-spacing:.01em;
+}
 
-      .yat-back-cta{
-        position:relative;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        width:108px;
-        min-height:116px;
-        padding:10px 8px 16px;
-        background:#fff;
-        color:#000;
-        border-radius:12px;
-        text-align:center;
-        text-decoration:none;
-        box-shadow:0 4px 14px rgba(0,0,0,.28);
-      }
+.yat-back-cta{
+  position:absolute;
+  top:6px;
+  right:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:128px;
+  min-height:78px;
+  padding:9px 10px 14px;
+  background:var(--back-cta-bg);
+  color:var(--back-cta-fg);
+  border-radius:12px;
+  text-align:center;
+  text-decoration:none;
+  box-shadow:0 4px 14px rgba(0,0,0,.28);
+  z-index:3;
+}
 
       .yat-back-cta::after{
-        content:"";
-        position:absolute;
-        left:18px;
-        bottom:-9px;
-        width:16px;
-        height:16px;
-        background:#fff;
-        clip-path:polygon(0 0,100% 0,50% 100%);
-      }
+  content:"";
+  position:absolute;
+  left:18px;
+  bottom:-9px;
+  width:16px;
+  height:16px;
+  background:var(--back-cta-bg);
+  clip-path:polygon(0 0,100% 0,50% 100%);
+}
 
-      .yat-back-cta span{
-        font:700 8px/1.15 Oswald,sans-serif;
-        text-transform:uppercase;
-        letter-spacing:.02em;
-      }
+     .yat-back-cta span{
+  font:700 8px/1.08 Oswald,sans-serif;
+  text-transform:uppercase;
+  letter-spacing:.015em;
+}
 
 .yat-back-iconnav{
   display:grid;
   grid-template-columns:repeat(6,1fr);
-  background:#f3f3f3;
-  color:#111;
-  border-top:1px solid rgba(255,255,255,.06);
-  border-bottom:1px solid rgba(255,255,255,.08);
+  background:var(--back-tab-bg);
+  color:var(--back-tab-fg);
+  border-top:1px solid var(--back-line);
+  border-bottom:1px solid var(--back-line);
   margin-top:0;
   flex-shrink:0;
 }
 
       .yat-back-iconnav-item{
-        position:relative;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center;
-        gap:2px;
-        min-height:38px;
-        padding:5px 2px 6px;
-        border-right:1px solid rgba(0,0,0,.08);
-      }
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  min-height:38px;
+  padding:5px 2px 6px;
+  border-right:1px solid var(--back-line);
+  background:transparent;
+  color:inherit;
+}
 
       .yat-back-iconnav-item:last-child{
         border-right:none;
@@ -657,24 +656,24 @@ export default function YatStyles() {
       }
 
       .yat-back-stats{
-        flex:1 1 auto;
-        min-height:0;
-        padding:7px 6px 6px;
-        overflow:hidden;
-        display:flex;
-        flex-direction:column;
-      }
+  flex:1 1 auto;
+  min-height:0;
+  padding:5px 6px 6px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
 
-      .yat-stats-bar{
-        background:rgba(255,255,255,.08);
-        color:#fff;
-        text-align:center;
-        padding:4px 6px;
-        font:700 10px/1 "Bebas Neue",sans-serif;
-        margin:0 0 6px;
-        border-radius:8px;
-        flex-shrink:0;
-      }
+     .yat-stats-bar{
+  background:var(--back-tab-bg);
+  color:var(--back-fg);
+  text-align:center;
+  padding:4px 6px;
+  font:700 10px/1 "Bebas Neue",sans-serif;
+  margin:0 0 6px;
+  border-radius:8px;
+  flex-shrink:0;
+}
 
       .yat-stats-bar-target{
         font-size:11px;
@@ -695,51 +694,51 @@ export default function YatStyles() {
         grid-template-columns:repeat(3,1fr);
       }
 
-      .yat-stat{
-        background:#1d1d1f;
-        border-radius:10px;
-        padding:7px 3px 6px;
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        min-height:48px;
-      }
+     .yat-stat{
+  background:var(--back-tile-bg);
+  border-radius:10px;
+  padding:7px 3px 6px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-height:48px;
+}
 
       .yat-stat-target{
         box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
       }
 
-      .yat-stat-label{
-        font-size:7px;
-        text-transform:uppercase;
-        opacity:.78;
-        color:#bfbfbf;
-      }
+    .yat-stat-label{
+  font-size:7px;
+  text-transform:uppercase;
+  opacity:.78;
+  color:var(--back-muted);
+}
 
       .yat-stat-label-target{
         font:300 7px/1 Oswald,sans-serif;
         letter-spacing:.04em;
       }
 
-      .yat-stat-val{
-        font-size:16px;
-        font-weight:700;
-        line-height:1;
-        margin-top:4px;
-        color:#fff;
-      }
+    .yat-stat-val{
+  font-size:16px;
+  font-weight:700;
+  line-height:1;
+  margin-top:4px;
+  color:var(--back-fg);
+}
 
       .yat-stat-val-target{
         font:700 16px/1 "Bebas Neue",sans-serif;
         letter-spacing:.02em;
       }
 
-      .yat-fun-zone{
-        border-top:1px solid var(--line);
-        padding:4px 8px;
-        flex-shrink:0;
-        background:rgba(0,0,0,.3);
-      }
+     .yat-fun-zone{
+  border-top:1px solid var(--back-line);
+  padding:4px 8px;
+  flex-shrink:0;
+  background:var(--back-tab-bg);
+}
 
       .yat-fun-label{
         font:700 8px "Bebas Neue",sans-serif;
@@ -748,71 +747,145 @@ export default function YatStyles() {
         text-align:center;
         text-transform:uppercase;
       }
-      @media(max-width:1100px){
-        .yat-back-top{
-          grid-template-columns:1fr;
-          gap:8px;
-        }
+  @media(max-width:1100px){
+  .yat-back-top{
+    min-height:118px;
+    padding:7px 7px 0 7px;
+  }
 
-        .yat-back-top-right{
-          align-items:stretch;
-        }
+  .yat-back-left{
+    padding-right:124px;
+  }
 
-        .yat-yachty-wrap{
-          justify-content:center;
-          min-height:64px;
-        }
+  .yat-back-headshot-link{
+    max-width:68px;
+  }
 
-        .yat-yachty-img{
-          max-width:92px;
-          max-height:96px;
-        }
+  .yat-stats-grid-4{
+    grid-template-columns:repeat(3,1fr);
+  }
+}
 
-        .yat-stats-grid-4{
-          grid-template-columns:repeat(3,1fr);
-        }
-      }
+     @media(max-width:768px){
+  .yat-back-top{
+    min-height:108px;
+    padding:6px 6px 0 6px;
+  }
 
-      @media(max-width:768px){
-        .yat-back-name-banner{
-          font-size:24px;
-        }
+  .yat-back-left{
+    padding-right:96px;
+  }
 
-        .yat-profile-cta{
-          min-height:82px;
-          padding:12px 12px 18px;
-        }
+  .yat-back-name-banner{
+    font-size:15px;
+    margin-bottom:3px;
+  }
 
-        .yat-profile-cta-text{
-          font-size:11px;
-        }
+  .yat-back-headshot-link{
+    max-width:58px;
+  }
 
-        .yat-back-bio-line{
-          font-size:10px;
-        }
+  .yat-back-bio{
+    margin-top:3px;
+    gap:1px;
+  }
 
-        .yat-back-nav-item{
-          min-height:34px;
-          font-size:8px;
-          padding:6px 2px 7px;
-        }
+  .yat-back-bio-line{
+    font-size:6.5px;
+    line-height:1.08;
+  }
 
-        .yat-stats-grid-4{
-          grid-template-columns:repeat(4,1fr);
-          gap:8px;
-        }
+  .yat-back-cta{
+    top:6px;
+    right:6px;
+    width:88px;
+    min-height:72px;
+    padding:8px 7px 12px;
+    border-radius:10px;
+  }
 
-        .yat-stat{
-          min-height:68px;
-          border-radius:12px;
-          padding:10px 4px 8px;
-        }
+  .yat-back-cta span{
+    font-size:6.3px;
+    line-height:1.04;
+    letter-spacing:.01em;
+  }
 
-        .yat-stat-val{
-          font-size:22px;
-          margin-top:6px;
-        }
-      }
+  .yat-back-iconnav-item{
+    min-height:32px;
+    padding:3px 1px 4px;
+    gap:1px;
+  }
+
+  .yat-back-iconnav-item i{
+    font-size:10px;
+  }
+
+  .yat-back-iconnav-item span{
+    font-size:5px;
+  }
+
+  .yat-back-stats{
+    padding:4px 4px 4px;
+  }
+
+  .yat-stats-bar{
+    padding:4px 5px;
+    margin-bottom:5px;
+  }
+
+  .yat-stats-bar-target{
+    font-size:10px;
+  }
+
+  .yat-stats-grid{
+    gap:4px;
+  }
+
+  .yat-stat{
+    min-height:38px;
+    padding:5px 2px 4px;
+    border-radius:8px;
+  }
+
+  .yat-stat-label-target{
+    font-size:6px;
+  }
+
+  .yat-stat-val{
+    font-size:13px;
+    margin-top:2px;
+  }
+
+  .yat-fun-zone{
+    padding:3px 6px;
+  }
+}
+@media(max-width:520px){
+  .yat-back-top{
+    min-height:102px;
+  }
+
+  .yat-back-left{
+    padding-right:90px;
+  }
+
+  .yat-back-headshot-link{
+    max-width:54px;
+  }
+
+  .yat-back-cta{
+    width:82px;
+    min-height:66px;
+    padding:7px 6px 10px;
+  }
+
+  .yat-back-cta span{
+    font-size:5.8px;
+  }
+}
+
+
+
       .yat-table-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;overflow-x:auto}
       .yat-table{width:100%;border-collapse:collapse;font:400 12px/1.4 Oswald,sans-serif}
       .yat-table th{font:600 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--card-bg)}
