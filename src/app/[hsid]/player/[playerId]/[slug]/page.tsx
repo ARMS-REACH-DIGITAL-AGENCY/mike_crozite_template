@@ -544,34 +544,7 @@ export default async function PlayerProfilePage({
         body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .3s,color .3s;padding-bottom:var(--footerH)}
         a{color:inherit;text-decoration:none}
         .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
-        /* HEADER */
-        .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);backdrop-filter:blur(8px);transition:background-color .3s}
-        .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
-        .yat-left-icons{display:flex;align-items:center;gap:8px;margin-left:4px}
-        .yat-icon-btn{background:none;border:none;color:var(--fg);opacity:.9;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0 2px;cursor:pointer}
-        .yat-icon-btn i{font-size:20px}
-        .yat-topnav{display:flex;gap:18px;align-items:center}
-        .yat-nav-pair{white-space:nowrap;cursor:pointer;text-decoration:none}
-        .yat-nav-pair .thin{font:300 11px Oswald,sans-serif;letter-spacing:.02em;color:var(--muted);margin-right:2px}
-        .yat-nav-pair .bold{font:400 11px "Bebas Neue",sans-serif}
-        .yat-wordmark-wrap{display:flex;align-items:center;justify-content:flex-end;min-width:120px}
-        @media(max-width:1200px){.yat-topnav{display:none!important}}
-        .yat-hr{border-top:1px solid var(--line)}
-        /* Sticky identity band: two-part layout */
-        .yat-schoolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1400px;margin:0 auto}
-        .yat-schoolrow-id{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
-        .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
-        .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
-        .yat-schooltext{line-height:1}
-        .yat-schooltext .small{font:300 11px/1 Oswald;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-        .yat-schooltext .big1{font:700 18px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        .yat-schooltext .big2{font:700 22px/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;text-transform:uppercase}
-        .fav-btn-hero{display:inline-flex;align-items:center;gap:5px;padding:0;border:none;background:none;color:var(--fg);font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:opacity .2s}
-        .fav-btn-hero i{font-size:15px;transition:color .2s}
-        .fav-btn-hero:hover{opacity:.7}
-        .fav-btn-hero.active i{color:gold}
-        .fav-toast{position:fixed;bottom:calc(var(--footerH,48px) + 12px);left:50%;transform:translateX(-50%) translateY(12px);background:rgba(22,163,74,.95);color:#fff;padding:10px 20px;border-radius:8px;font:600 13px Oswald,sans-serif;letter-spacing:.05em;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
-        .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+       
         /* CAREER PROGRESSION FILMSTRIP — chronological visual montage, no captions */
         .career-strip{background:linear-gradient(160deg,#07071a 0%,#0d0d1f 50%,#07071a 100%);padding:0;position:relative;border-bottom:3px solid transparent;border-image:linear-gradient(90deg,#ffd166,#ff9800,#ffd166) 1;height:clamp(100px,12vw,140px);overflow:hidden}
         body.light-theme .career-strip{background:linear-gradient(160deg,#dde0f5 0%,#e8eaf6 50%,#dde0f5 100%)}
@@ -773,13 +746,7 @@ export default async function PlayerProfilePage({
         /* MOBILE */
         @media(max-width:640px){
           /* Shrink sticky header crest/text */
-          :root{--crestH:44px}
-          .yat-schoolrow{padding:4px 10px;gap:6px}
-          .yat-schoolrow-id{gap:8px}
-          .yat-schooltext .small{font-size:9px;letter-spacing:.08em}
-          .yat-schooltext .big1{font-size:14px}
-          .yat-schooltext .big2{font-size:16px}
-          .fav-btn-hero{font-size:10px}
+          
           /* Career strip: smaller height on mobile */
           .career-strip{height:100px}
           /* Recent game log grid on mobile */
