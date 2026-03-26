@@ -543,7 +543,7 @@ export default async function PlayerProfilePage({
         html{scroll-behavior:smooth}
         body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .3s,color .3s;padding-bottom:var(--footerH)}
         a{color:inherit;text-decoration:none}
-        .yat-container{max-width:1100px;margin:0 auto;padding:0 16px}
+        .yat-container{max-width:1400px;margin:0 auto;padding:0 16px}
         /* HEADER */
         .yat-header{position:sticky;top:0;z-index:50;background:var(--header-bg);backdrop-filter:blur(8px);transition:background-color .3s}
         .yat-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
@@ -558,7 +558,7 @@ export default async function PlayerProfilePage({
         @media(max-width:1200px){.yat-topnav{display:none!important}}
         .yat-hr{border-top:1px solid var(--line)}
         /* Sticky identity band: two-part layout */
-        .yat-schoolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1100px;margin:0 auto}
+        .yat-schoolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;max-width:1400px;margin:0 auto}
         .yat-schoolrow-id{display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
         .yat-crest{height:var(--crestH);width:auto;object-fit:contain;display:block;flex-shrink:0;transition:border-radius .2s,object-fit .2s}
         .yat-crest.is-headshot{width:var(--crestH);object-fit:cover;object-position:top center;border-radius:4px}
@@ -587,7 +587,7 @@ export default async function PlayerProfilePage({
         .career-slot.timeline{width:clamp(60px,8vw,90px);border-right:1px solid var(--line)}
         .career-slot.timeline .career-slot-img{object-fit:contain;object-position:top center;width:100%;flex:1;min-height:0;height:0;display:block}
         /* PLAYER METADATA BAND — below filmstrip, above tabs */
-        .player-meta-band{max-width:1100px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
+        .player-meta-band{max-width:1400px;margin:0 auto;padding:7px 16px;display:flex;gap:0;align-items:flex-start;border-bottom:1px solid var(--line);position:sticky;top:var(--stickyHeaderH,120px);z-index:45;background:var(--header-bg);backdrop-filter:blur(8px)}
         .pmb-left{flex:0 0 60%;display:flex;flex-direction:column;gap:2px;padding-right:8px}
         .pmb-right{flex:0 0 40%;display:flex;flex-direction:column;gap:2px;text-align:right}
         .pmb-line{font:300 11px/1.15 Oswald,sans-serif;letter-spacing:.04em;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -595,13 +595,13 @@ export default async function PlayerProfilePage({
         .pmb-line .sep{color:var(--muted);margin:0 4px;font-weight:300}
         .pmb-line strong{font-weight:500}
         /* TABS — sticky under header */
-        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1100px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
+        .profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);max-width:1400px;margin:12px auto 0;padding:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:calc(var(--stickyHeaderH,120px) + var(--metaBandH,60px));z-index:40;background:var(--header-bg);backdrop-filter:blur(8px)}
         .profile-tabs::-webkit-scrollbar{display:none}
         .profile-tab{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.08em;padding:10px 18px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s;white-space:nowrap;flex-shrink:0}
         .profile-tab.active{color:var(--fg);border-bottom-color:gold}
         .profile-tab:hover:not(.active){color:var(--fg)}
         /* STATS */
-        .stats-section{max-width:1100px;margin:0 auto;padding:20px 16px}
+        .stats-section{max-width:1400px;margin:0 auto;padding:20px 16px}
         .stats-title{font:700 12px/1 "Bebas Neue",sans-serif;letter-spacing:.1em;text-align:center;padding:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px 6px 0 0;color:var(--muted);text-transform:uppercase}
         body.light-theme .stats-title{background:rgba(0,0,0,.03)}
         .stats-grid{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line);border-top:none;margin-bottom:16px}
@@ -661,7 +661,7 @@ export default async function PlayerProfilePage({
         .drawer-live-hit{display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line);font:400 14px Oswald,sans-serif;letter-spacing:.04em}
         .drawer-live-hit:hover{background:var(--line)}
         /* OVERVIEW TAB */
-        .overview-section{max-width:1100px;margin:0 auto;padding:20px 16px}
+        .overview-section{max-width:1400px;margin:0 auto;padding:20px 16px}
         .ov-card{background:var(--card-bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
         .ov-card-title{font:700 11px/1 "Bebas Neue",sans-serif;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
         .overview-grid{display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:16px}
