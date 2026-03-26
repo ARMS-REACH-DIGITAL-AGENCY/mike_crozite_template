@@ -34,41 +34,42 @@ export default function PlayerCardBack({
     ? "CAREER STATS"
     : `${statYear ? `${statYear} ` : ""}SEASON STATS`;
 
- const team = String(
-  p.current_team ||
-  p.team_name ||
-  p.org_name ||
-  p.team ||
-  p.school_name ||
-  ""
-).trim();
+  const team = String(
+    p.current_team ||
+      p.team_name ||
+      p.org_name ||
+      p.team ||
+      p.school_name ||
+      ""
+  ).trim();
 
-const level = String(p.level || "").trim().toUpperCase();
+  const level = String(p.level || "").trim().toUpperCase();
 
-const status = isAllTime
-  ? !!p.is_active_2025
-    ? "ACTIVE 2025"
-    : p.draft_info
-      ? "RETIRED-DRAFTED"
-      : "RETIRED"
-  : "ACTIVE 2025";
+  const status = isAllTime
+    ? !!p.is_active_2025
+      ? "ACTIVE 2025"
+      : p.draft_info
+        ? "RETIRED-DRAFTED"
+        : "RETIRED"
+    : "ACTIVE 2025";
 
-const position = String(p.position || "").trim();
-const height = String(p.height || "").trim();
-const weight = String(p.weight || "").trim();
-const bats = String(p.bats || "").trim();
-const throwsHand = String(p.throws || "").trim();
-const college = String(p.college || "").trim() || "N/A";
+  const position = String(p.position || "").trim();
+  const height = String(p.height || "").trim();
+  const weight = String(p.weight || "").trim();
+  const bats = String(p.bats || "").trim();
+  const throwsHand = String(p.throws || "").trim();
+  const college = String(p.college || "").trim() || "N/A";
 
-const line1Parts = [
-  team || null,
-  level && level !== team.toUpperCase() ? level : null,
-  status,
-].filter(Boolean);
+  const line1Parts = [
+    team || null,
+    level && level !== team.toUpperCase() ? level : null,
+    status,
+  ].filter(Boolean);
 
-const line1 = line1Parts.join(" - ");
+  const line1 = line1Parts.join(" - ");
+
   const line2 = [
-    position ? position.replace(/-/g, "-") : null,
+    position || null,
     height ? `H: ${height}` : null,
     weight ? `W: ${weight}` : null,
     bats && throwsHand ? `B/T: ${bats}/${throwsHand}` : null,
@@ -142,33 +143,19 @@ const line1 = line1Parts.join(" - ");
               </div>
             </div>
 
-            <div className="yat-back-right">
-              <a
-                href={profileHref}
-                className="yat-back-cta"
-                aria-label={`Connect with ${displayName} on his player profile page`}
-              >
-                <span>
-                  CONNECT
-                  <br />
-                  WITH {firstName}
-                  <br />
-                  ON HIS
-                  <br />
-                  PLAYER
-                  <br />
-                  PROFILE
-                  <br />
-                  PAGE
-                  <br />
-                  AND SHARE
-                  <br />
-                  YOUR
-                  <br />
-                  MEMORIES!
-                </span>
-              </a>
-            </div>
+            <a
+              href={profileHref}
+              className="yat-back-cta"
+              aria-label={`Connect with ${displayName} on his player profile page`}
+            >
+              <span>
+                CONNECT WITH {firstName}
+                <br />
+                ON HIS PLAYER PROFILE PAGE
+                <br />
+                AND SHARE YOUR MEMORIES!
+              </span>
+            </a>
           </div>
 
           <div className="yat-back-iconnav" aria-hidden="true">
