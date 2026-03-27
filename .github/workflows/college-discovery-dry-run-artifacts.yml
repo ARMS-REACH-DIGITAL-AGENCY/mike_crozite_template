@@ -1,0 +1,33 @@
+name: College discovery dry run
+
+on:
+  workflow_dispatch:
+
+jobs:
+  college-discovery-dry-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run college discovery dry run
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npx tsx scripts/discover-college-team-sources.ts --dry-run > college-discovery-output.txt
+
+      - name: Upload discovery output
+        uses: actions/upload-artifact@v4
+        with:
+          name: college-discovery-dry-run-artifacts
+          path: college-discovery-output.txt
+
