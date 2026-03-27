@@ -7,7 +7,7 @@ const APPLY = process.argv.includes("--apply");
 const WITH_ROSTERS = process.argv.includes("--with-rosters");
 
 const PRESTO_DIR = process.env.PRESTO_DIR || "./presto_xmls";
-const MAPPING_PATH = process.env.MAPPING_PATH || "./hamilton-mapping.json";
+const MAPPING_PATH = process.env.MAPPING_PATH || "./pilot-mapping.json";
 
 const OUTPUT_PARSED_GAMES = "./parsed-games.json";
 const OUTPUT_PARSED_ROSTERS = "./parsed-rosters.json";
