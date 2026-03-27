@@ -25,14 +25,19 @@ export default function InteractionStrip({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  const showActiveStrip = isGallery || isNews;
+  const showProfilePlaceholder = isPlayerProfile;
+
   const updateScrollState = () => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || !showActiveStrip) return;
     setCanScrollLeft(el.scrollLeft > 0);
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth);
   };
 
   useEffect(() => {
+    if (!showActiveStrip) return;
+
     updateScrollState();
     const el = scrollRef.current;
     if (!el) return;
@@ -44,11 +49,11 @@ export default function InteractionStrip({
       el.removeEventListener('scroll', updateScrollState);
       window.removeEventListener('resize', updateScrollState);
     };
-  }, [players.length, isPlayerProfile, isGallery, isNews]);
+  }, [players.length, showActiveStrip]);
 
   const scrollByAmount = (dir: 'left' | 'right') => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || !showActiveStrip) return;
 
     const amount = el.clientWidth * 0.8;
     el.scrollBy({
@@ -57,51 +62,55 @@ export default function InteractionStrip({
     });
   };
 
-  if (isPlayerProfile) {
-    return null;
-  }
-
-  if (!isGallery && !isNews) {
+  if (!showActiveStrip && !showProfilePlaceholder) {
     return null;
   }
 
   return (
     <div className="gallery-strip">
-      <button
-        type="button"
-        className={`gallery-strip-arrow left ${!canScrollLeft ? 'hidden' : ''}`}
-        onClick={() => scrollByAmount('left')}
-        aria-label="Scroll left"
-      >
-        ‹
-      </button>
+      {showActiveStrip && (
+        <button
+          type="button"
+          className={`gallery-strip-arrow left ${!canScrollLeft ? 'hidden' : ''}`}
+          onClick={() => scrollByAmount('left')}
+          aria-label="Scroll left"
+        >
+          ‹
+        </button>
+      )}
 
-      <div ref={scrollRef} className="gallery-strip-inner">
-        {players.map((p) => (
-          <a key={p.id} href={`#player-${p.id}`} className="gallery-slot" title={p.name}>
-                       <img
-              src={p.image || '/img/headshot-silhouette.png'}
-              alt={p.name}
-              className="gallery-slot-img"
-              onError={(e) => {
-                const fallback = '/img/headshot-silhouette.png';
-                if (e.currentTarget.src !== window.location.origin + fallback) {
-                  e.currentTarget.src = fallback;
-                }
-              }}
-            />
-          </a>
-        ))}
+      <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
+        {showActiveStrip ? (
+          players.map((p) => (
+            <a key={p.id} href={`#player-${p.id}`} className="gallery-slot" title={p.name}>
+              <img
+                src={p.image || '/img/headshot-silhouette.png'}
+                alt={p.name}
+                className="gallery-slot-img"
+                onError={(e) => {
+                  const fallback = '/img/headshot-silhouette.png';
+                  if (e.currentTarget.src !== window.location.origin + fallback) {
+                    e.currentTarget.src = fallback;
+                  }
+                }}
+              />
+            </a>
+          ))
+        ) : (
+          <div aria-hidden="true" style={{ width: '100%', minHeight: '100%' }} />
+        )}
       </div>
 
-      <button
-        type="button"
-        className={`gallery-strip-arrow right ${!canScrollRight ? 'hidden' : ''}`}
-        onClick={() => scrollByAmount('right')}
-        aria-label="Scroll right"
-      >
-        ›
-      </button>
+      {showActiveStrip && (
+        <button
+          type="button"
+          className={`gallery-strip-arrow right ${!canScrollRight ? 'hidden' : ''}`}
+          onClick={() => scrollByAmount('right')}
+          aria-label="Scroll right"
+        >
+          ›
+        </button>
+      )}
     </div>
   );
 }
