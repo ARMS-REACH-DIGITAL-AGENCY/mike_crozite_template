@@ -1,0 +1,1145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<bsgame source="PrestoSports" version="7.4.94" generated="04/19/2025"> 
+  <venue visid="MBU" homeid="WWU" visname="Missouri Baptist" homename="William Woods (MO)" date="4/18/2025" location="Fulton, Mo." stadium="Owls Field" duration="1:48" delay="" attend="135" leaguegame="Y" dhgame="2" start="3:15 PM" schedinn="7" weather="77, Overcast, Windy"> 
+    <umpires hp="Bob Coons" first="Andrew Hein" third="Neal Sidebottom"></umpires>  
+    <notes> 
+      <note text=""></note> 
+    </notes>  
+    <rules batters="9,9" usedh="Y"></rules> 
+  </venue>  
+  <team vh="V" confrecord="29-5" code="NAIA1324" id="MBU" name="Missouri Baptist" record="35-9"> 
+    <linescore line="6,1,1,0,0,2,0,0" runs="10" hits="9" errs="2" lob="4"> 
+      <lineinn inn="1" score="6"></lineinn>  
+      <lineinn inn="2" score="1"></lineinn>  
+      <lineinn inn="3" score="1"></lineinn>  
+      <lineinn inn="4" score="0"></lineinn>  
+      <lineinn inn="5" score="0"></lineinn>  
+      <lineinn inn="6" score="2"></lineinn>  
+      <lineinn inn="7" score="0"></lineinn>  
+      <lineinn inn="8" score="0"></lineinn> 
+    </linescore>  
+    <starters> 
+      <starter spot="1" name="D. Palma" uni="2" pos="ss"></starter>  
+      <starter spot="2" name="B. Yarger" uni="11" pos="cf"></starter>  
+      <starter spot="3" name="J. Jett" uni="23" pos="rf"></starter>  
+      <starter spot="4" name="C. Robinson" uni="5" pos="1b"></starter>  
+      <starter spot="5" name="J. Kouneski" uni="7" pos="c"></starter>  
+      <starter spot="6" name="J. Orozco" uni="1" pos="3b"></starter>  
+      <starter spot="7" name="C. Hidalgo" uni="18" pos="lf"></starter>  
+      <starter spot="8" name="L. Lefebvre" uni="6" pos="dh"></starter>  
+      <starter spot="9" name="T. Ludwig" uni="3" pos="2b"></starter>  
+      <starter spot="10" name="G. Lucas" uni="35" pos="p"></starter> 
+    </starters>  
+    <batords> 
+      <batord spot="1" name="D. Palma" uni="2" pos="ss"></batord>  
+      <batord spot="2" name="B. Yarger" uni="11" pos="cf"></batord>  
+      <batord spot="3" name="J. Jett" uni="23" pos="rf"></batord>  
+      <batord spot="4" name="C. Robinson" uni="5" pos="1b"></batord>  
+      <batord spot="5" name="J. Kouneski" uni="7" pos="c"></batord>  
+      <batord spot="6" name="J. Orozco" uni="1" pos="3b"></batord>  
+      <batord spot="7" name="C. Hidalgo" uni="18" pos="lf"></batord>  
+      <batord spot="8" name="L. Lefebvre" uni="6" pos="dh"></batord>  
+      <batord spot="9" name="T. Ludwig" uni="3" pos="2b"></batord>  
+      <batord spot="10" name="J. Whitter" uni="51" pos="p"></batord> 
+    </batords>  
+    <totals> 
+      <hitting ab="31" r="10" h="9" rbi="9" double="1" triple="0" hr="4" bb="3" sb="2" cs="0" hbp="1" sh="0" sf="0" so="4" gdp="0" ibb="0" picked="0" ground="4" fly="13" kl="0" hitdp="0" hittp="0"></hitting>  
+      <fielding po="21" a="13" e="2" pb="0" ci="0" indp="2"></fielding>  
+      <hsitsummary fly="13" ground="4" lob="4" rcherr="1" rchfc="1" rbi-2out="4" vsleft="0,0" advops="5,17" leadoff="3,7" pinchhit="0,0" w2outs="3,10" wloaded="0,0" wrbiops="4,9" wrunners="5,17" rbi3rd="0,3"></hsitsummary>  
+      <pitching ip="7.0" ab="26" bb="3" bf="31" bk="0" double="1" er="3" fly="3" ground="10" h="7" hbp="2" hr="0" ibb="0" kl="3" r="3" so="6" triple="0" wp="1" picked="0" sha="0" sfa="0" gdp="0" pitches="116" strikes="78"></pitching>  
+      <psitsummary fly="3" ground="10" leadoff="3,7" wrunners="2,12" vsleft="3,10" w2outs="1,8" pitches="116" strikes="78"></psitsummary> 
+    </totals>  
+    <player name="D. Palma" shortname="D. Palma" uni="2" gp="1" gs="1" spot="1" code="1" bats="R" throws="R" class="Jr." pos="ss" atpos="ss" playerId="mt4q71jnqojn224y"> 
+      <hitting r="0" h="0" ab="4" rbi="0" so="1" ground="1" fly="2" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="1" a="4" e="0" indp="1"></fielding>  
+      <hsitsummary fly="2" ground="1" lob="1" advops="0,2" leadoff="0,2" w2outs="0,1" wrbiops="0,1" wrunners="0,2"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="leadoff" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <hsituation spot="1" context="byspot" ab="4" r="0" fly="2" h="0" rbi="0" ground="1" so="1" out="4"></hsituation>  
+      <hsituation context="vsright" ab="4" r="0" fly="2" h="0" rbi="0" ground="1" so="1" out="4"></hsituation>  
+      <hsituation context="runners" ab="2" r="0" fly="1" h="0" rbi="0" ground="1" out="2"></hsituation>  
+      <hsituation pitcher="W. Fischer" context="vspitcher" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <hsituation pos="ss" context="bypos" ab="4" r="0" fly="2" h="0" rbi="0" ground="1" so="1" out="4"></hsituation>  
+      <hsituation context="runners2" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="empty" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <fsituation pos="ss" context="bypos" indp="1" a="4" e="0" po="1"></fsituation> 
+    </player>  
+    <player name="B. Yarger" shortname="B. Yarger" uni="11" gp="1" gs="1" spot="2" code="2" bats="L" throws="L" class="Gr." pos="cf" atpos="cf" playerId="k4ur6lwomjbq23bs"> 
+      <hitting r="3" h="2" ab="3" rbi="3" hr="2" bb="1" ground="1" slg="2.667" obp=".750" ops="3.417"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary ground="1" advops="1,1" leadoff="0,1" wrbiops="1,1" wrunners="1,1"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="1" h="1" rbi="2" hr="1" out="0"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="1" r="1" h="1" rbi="2" hr="1" out="0"></hsituation>  
+      <hsituation context="leadoff" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="vsright" bb="1" ab="3" r="3" h="2" rbi="3" hr="2" ground="1" out="1"></hsituation>  
+      <hsituation pos="cf" context="bypos" bb="1" ab="3" r="3" h="2" rbi="3" hr="2" ground="1" out="1"></hsituation>  
+      <hsituation spot="2" context="byspot" bb="1" ab="3" r="3" h="2" rbi="3" hr="2" ground="1" out="1"></hsituation>  
+      <hsituation pitcher="W. Fischer" context="vspitcher" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="runners" ab="1" r="1" h="1" rbi="2" hr="1" out="0"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" bb="1" ab="1" r="1" h="1" rbi="1" hr="1" out="0"></hsituation>  
+      <hsituation context="empty" bb="1" ab="2" r="1" h="1" rbi="1" hr="1" ground="1" out="1"></hsituation> 
+    </player>  
+    <player name="J. Jett" shortname="J. Jett" uni="23" gp="1" gs="1" spot="3" code="3" bats="R" throws="R" class="Sr." pos="rf" atpos="rf" playerId="6zwek2ti8cg1uveb"> 
+      <hitting r="1" h="2" ab="4" rbi="0" fly="2" slg=".500" obp=".500" ops="1.000"></hitting>  
+      <fielding po="1" a="0" e="0"></fielding>  
+      <hsitsummary fly="2" advops="1,1" wrunners="1,1"></hsitsummary>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="vsright" ue="1" ab="4" r="1" fly="2" h="2" rbi="0" out="3"></hsituation>  
+      <hsituation context="runners" ab="1" r="0" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation pitcher="W. Fischer" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pos="rf" context="bypos" ue="1" ab="4" r="1" fly="2" h="2" rbi="0" out="3"></hsituation>  
+      <hsituation spot="3" context="byspot" ue="1" ab="4" r="1" fly="2" h="2" rbi="0" out="3"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="2" r="0" h="2" rbi="0" out="0"></hsituation>  
+      <hsituation context="empty" ab="3" r="0" fly="2" h="1" rbi="0" out="2"></hsituation>  
+      <fsituation pos="rf" context="bypos" a="0" e="0" po="1"></fsituation> 
+    </player>  
+    <player name="C. Robinson" shortname="C. Robinson" uni="5" gp="1" gs="1" spot="4" code="4" bats="R" throws="R" class="Sr." pos="1b" atpos="1b" playerId="23yj7yc2f1xp576i"> 
+      <hitting r="0" h="0" ab="4" rbi="0" so="1" fly="3" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="12" a="0" e="0" indp="2"></fielding>  
+      <hsitsummary fly="3" advops="0,2" w2outs="0,2" wrbiops="0,1" wrunners="0,2" rbi3rd="0,1"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pos="1b" context="bypos" ab="4" r="0" fly="3" h="0" rbi="0" so="1" out="4"></hsituation>  
+      <hsituation context="vsright" ab="4" r="0" fly="3" h="0" rbi="0" so="1" out="4"></hsituation>  
+      <hsituation context="runners" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <hsituation pitcher="W. Fischer" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <hsituation spot="4" context="byspot" ab="4" r="0" fly="3" h="0" rbi="0" so="1" out="4"></hsituation>  
+      <hsituation context="empty" ab="2" r="0" fly="2" h="0" rbi="0" out="2"></hsituation>  
+      <fsituation pos="1b" context="bypos" indp="2" a="0" e="0" po="12"></fsituation> 
+    </player>  
+    <player name="J. Kouneski" shortname="J. Kouneski" uni="7" gp="1" gs="1" spot="5" code="5" bats="R" throws="R" class="Gr." pos="c" atpos="c" playerId="vqr91wdoy5e21dfp"> 
+      <hitting r="1" h="1" ab="4" rbi="1" sb="1" so="1" ground="1" slg=".250" obp=".250" ops=".500"></hitting>  
+      <fielding po="5" a="1" e="1"></fielding>  
+      <hsitsummary rcherr="1" rchfc="1" ground="1" lob="1" rbi-2out="2" advops="1,2" leadoff="1,2" w2outs="1,2" wrbiops="1,1" wrunners="1,2"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="0" h="1" rbi="1" out="0"></hsituation>  
+      <hsituation context="scorepos2" ab="1" r="0" h="1" rbi="1" out="0"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="2" r="0" rcherr="1" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="leadoff" ab="2" r="0" rcherr="1" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation pos="c" context="bypos" ab="4" rchfc="1" r="1" rcherr="1" h="1" rbi="1" ground="1" so="1" out="1" sb="1"></hsituation>  
+      <hsituation context="vsright" ab="4" rchfc="1" r="1" rcherr="1" h="1" rbi="1" ground="1" so="1" out="1" sb="1"></hsituation>  
+      <hsituation context="runners" ab="2" rchfc="1" r="0" h="1" rbi="1" ground="1" out="0"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="2" rchfc="1" r="0" h="1" rbi="1" ground="1" out="0"></hsituation>  
+      <hsituation context="runners2" ab="2" rchfc="1" r="0" h="1" rbi="1" ground="1" out="0"></hsituation>  
+      <hsituation spot="5" context="byspot" ab="4" rchfc="1" r="1" rcherr="1" h="1" rbi="1" ground="1" so="1" out="1" sb="1"></hsituation>  
+      <hsituation context="empty" ab="2" r="0" rcherr="1" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <fsituation pos="c" context="bypos" a="1" e="1" po="5"></fsituation> 
+    </player>  
+    <player name="J. Orozco" shortname="J. Orozco" uni="1" gp="1" gs="1" spot="6" code="6" bats="R" throws="R" class="Sr." pos="3b" atpos="3b" playerId="e4vq08617vgu2dvt"> 
+      <hitting r="2" h="0" ab="1" rbi="0" bb="2" sb="1" hbp="1" fly="1" slg=".000" obp=".750" ops=".750"></hitting>  
+      <fielding po="0" a="2" e="0" indp="1"></fielding>  
+      <hsitsummary fly="1" advops="0,1" leadoff="1,1" wrbiops="0,1" wrunners="0,1" rbi3rd="0,1"></hsitsummary>  
+      <hsituation spot="6" context="byspot" bb="2" ab="1" r="2" fly="1" hbp="1" h="0" rbi="0" out="1" sb="1"></hsituation>  
+      <hsituation context="scorepos" bb="1" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="scorepos2" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" bb="1" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="leadoff" ab="0" r="0" hbp="1" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation pos="3b" context="bypos" bb="2" ab="1" r="2" fly="1" hbp="1" h="0" rbi="0" out="1" sb="1"></hsituation>  
+      <hsituation context="vsright" bb="2" ab="1" r="2" fly="1" hbp="1" h="0" rbi="0" out="1" sb="1"></hsituation>  
+      <hsituation context="runners" bb="1" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" bb="1" ab="0" r="0" hbp="1" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="runners2" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="empty" bb="1" ab="0" r="0" hbp="1" h="0" rbi="0" out="0"></hsituation>  
+      <fsituation pos="3b" context="bypos" indp="1" a="2" e="0" po="0"></fsituation> 
+    </player>  
+    <player name="C. Hidalgo" shortname="C. Hidalgo" uni="18" gp="1" gs="1" spot="7" code="7" bats="R" throws="R" class="4" pos="lf" atpos="lf" playerId="pu98dwp8slb2xidn"> 
+      <hitting r="1" h="1" ab="4" rbi="3" hr="1" ground="1" fly="2" slg="1.000" obp=".250" ops="1.250"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary fly="2" ground="1" rbi-2out="2" advops="1,4" w2outs="1,1" wrbiops="1,2" wrunners="1,4" rbi3rd="0,1"></hsitsummary>  
+      <hsituation spot="7" context="byspot" ab="4" r="1" fly="2" h="1" rbi="3" hr="1" ground="1" out="3"></hsituation>  
+      <hsituation context="scorepos" ab="2" r="1" fly="1" h="1" rbi="3" hr="1" out="1"></hsituation>  
+      <hsituation context="scorepos2" ab="1" r="1" h="1" rbi="3" hr="1" out="0"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="2" r="0" fly="1" h="0" rbi="0" ground="1" out="2"></hsituation>  
+      <hsituation context="vsright" ab="4" r="1" fly="2" h="1" rbi="3" hr="1" ground="1" out="3"></hsituation>  
+      <hsituation context="runners" ab="4" r="1" fly="2" h="1" rbi="3" hr="1" ground="1" out="3"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="2" r="1" fly="1" h="1" rbi="3" hr="1" out="1"></hsituation>  
+      <hsituation context="runners2" ab="1" r="1" h="1" rbi="3" hr="1" out="0"></hsituation>  
+      <hsituation pos="lf" context="bypos" ab="4" r="1" fly="2" h="1" rbi="3" hr="1" ground="1" out="3"></hsituation> 
+    </player>  
+    <player name="L. Lefebvre" shortname="L. Lefebvre" uni="6" gp="1" gs="1" spot="8" code="8" bats="R" throws="R" class="Sr." pos="dh" atpos="dh" playerId="olu78435hk7drry6"> 
+      <hitting r="1" h="2" ab="4" rbi="2" hr="1" so="1" fly="1" slg="1.250" obp=".500" ops="1.750"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary fly="1" lob="2" advops="1,3" w2outs="1,3" wrbiops="1,2" wrunners="1,3"></hsitsummary>  
+      <hsituation pos="dh" context="bypos" ab="4" r="1" fly="1" h="2" rbi="2" hr="1" so="1" out="2"></hsituation>  
+      <hsituation spot="8" context="byspot" ab="4" r="1" fly="1" h="2" rbi="2" hr="1" so="1" out="2"></hsituation>  
+      <hsituation context="scorepos" ab="2" r="0" h="1" rbi="1" so="1" out="1"></hsituation>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <hsituation context="scorepos2" ab="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="vsright" ab="4" r="1" fly="1" h="2" rbi="2" hr="1" so="1" out="2"></hsituation>  
+      <hsituation context="runners" ab="3" r="0" fly="1" h="1" rbi="1" so="1" out="2"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="2" r="1" h="2" rbi="2" hr="1" out="0"></hsituation>  
+      <hsituation context="runners2" ab="2" r="0" fly="1" h="0" rbi="0" so="1" out="2"></hsituation>  
+      <hsituation context="empty" ab="1" r="1" h="1" rbi="1" hr="1" out="0"></hsituation> 
+    </player>  
+    <player name="T. Ludwig" shortname="T. Ludwig" uni="3" gp="1" gs="1" spot="9" code="9" bats="R" throws="R" class="5th" pos="2b" atpos="2b" playerId="sb51qd3suh0vscao"> 
+      <hitting r="1" h="1" ab="3" rbi="0" double="1" fly="2" slg=".667" obp=".333" ops="1.000"></hitting>  
+      <fielding po="2" a="5" e="1" indp="2"></fielding>  
+      <hsitsummary fly="2" advops="0,1" leadoff="1,1" w2outs="0,1" wrunners="0,1"></hsitsummary>  
+      <hsituation pitcher="K. Piepmeier" context="vspitcher" ab="1" r="0" double="1" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation spot="9" context="byspot" ab="3" r="1" fly="2" double="1" h="1" rbi="0" out="2"></hsituation>  
+      <hsituation context="leadoff" ab="1" r="0" double="1" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation pos="2b" context="bypos" ab="3" r="1" fly="2" double="1" h="1" rbi="0" out="2"></hsituation>  
+      <hsituation context="vsright" ab="3" r="1" fly="2" double="1" h="1" rbi="0" out="2"></hsituation>  
+      <hsituation context="runners" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="W. Fischer" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="A. Vasquez" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="empty" ab="2" r="0" fly="1" double="1" h="1" rbi="0" out="1"></hsituation>  
+      <fsituation pos="2b" context="bypos" indp="2" a="5" e="0" po="2"></fsituation> 
+    </player>  
+    <player name="G. Lucas" shortname="G. Lucas" uni="35" gp="1" gs="1" spot="10" code="10" bats="L" throws="L" class="4" pos="p" atpos="p" playerId="2kd0ar5a1011z5j9"> 
+      <hitting r="0" h="0" ab="0" rbi="0" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="1" e="0"></fielding>  
+      <hsitsummary></hsitsummary>  
+      <pitching appear="1" ip="4.0" gs="1" ab="16" bb="3" bf="21" er="3" ground="6" h="5" hbp="2" kl="3" r="3" so="5" wp="1" pitches="83" whip="2.00" win="4-0" strikes="52"></pitching>  
+      <psitsummary fly="0" ground="6" picked="0" leadoff="1,4" wrunners="2,8" vsleft="2,7" w2outs="1,5" pitches="83" strikes="52"></psitsummary>  
+      <fsituation pos="p" context="bypos" a="1" e="0" po="0"></fsituation>  
+      <psituation context="scorepos2" bb="2" ab="3" kl="2" r="0" bf="6" ip="1.0" hbp="1" h="0" ground="1" so="2" er="0"></psituation>  
+      <psituation context="vsleft" bb="1" ab="7" kl="1" r="0" bf="8" ip="1.2" h="2" wp="1" ground="2" so="3" er="0"></psituation>  
+      <psituation inn="2" context="byinn" bb="0" ab="4" r="2" bf="5" ip="1.0" hbp="1" h="2" wp="1" ground="1" so="1" er="2"></psituation>  
+      <psituation inn="1" context="byinn" bb="2" ab="4" kl="1" r="1" bf="7" ip="1.0" hbp="1" h="1" ground="1" so="2" er="1"></psituation>  
+      <psituation inn="4" context="byinn" bb="1" ab="4" kl="1" r="0" bf="5" ip="1.0" h="1" ground="2" so="1" er="0"></psituation>  
+      <psituation context="vsright" bb="2" ab="9" kl="2" r="0" bf="13" ip="2.1" hbp="2" h="3" ground="4" so="2" er="0"></psituation>  
+      <psituation inn="3" context="byinn" bb="0" ab="4" kl="1" r="0" bf="4" ip="1.0" h="1" ground="2" so="1" er="0"></psituation>  
+      <psituation context="runners" bb="2" ab="8" kl="3" r="0" bf="12" ip="2.1" hbp="2" h="2" wp="1" ground="3" so="3" er="0"></psituation>  
+      <psituation context="empty" bb="1" ab="8" r="0" bf="9" ip="1.2" h="3" ground="3" so="2" er="0"></psituation>  
+      <psituation context="loaded" bb="0" ab="1" kl="1" r="0" bf="2" ip="0.1" hbp="1" h="0" so="1" er="0"></psituation>  
+      <psituation context="scorepos" bb="2" ab="5" kl="3" r="0" bf="8" ip="1.1" hbp="1" h="1" wp="1" ground="1" so="3" er="0"></psituation>  
+      <psituation context="leadoff" bb="0" ab="4" r="0" bf="4" ip="1.0" h="1" ground="2" so="1" er="0"></psituation>  
+      <psituation context="runners2" bb="2" ab="4" kl="2" r="0" bf="7" ip="1.0" hbp="1" h="1" ground="1" so="2" er="0"></psituation> 
+    </player>  
+    <player name="J. Whitter" shortname="J. Whitter" uni="51" gp="1" sub="1" spot="10" code="10" bats="R" throws="L" class="8" pos="p" atpos="p" playerId="ljtqvvmh13bg0zqb"> 
+      <hitting r="0" h="0" ab="0" rbi="0" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary></hsitsummary>  
+      <pitching appear="2" ip="3.0" ab="10" bf="10" double="1" fly="3" ground="4" h="2" so="1" pitches="33" whip=".67" strikes="26"></pitching>  
+      <psitsummary fly="3" ground="4" picked="0" leadoff="2,3" wrunners="0,4" vsleft="1,3" w2outs="0,3" pitches="33" strikes="26"></psitsummary>  
+      <psituation context="scorepos" bb="0" ab="3" r="0" fly="1" bf="3" ip="1.0" h="0" ground="1" so="1" er="0"></psituation>  
+      <psituation context="scorepos2" bb="0" ab="1" r="0" fly="1" bf="1" ip="0.1" h="0" so="0" er="0"></psituation>  
+      <psituation context="leadoff" bb="0" ab="3" r="0" fly="1" bf="3" double="1" ip="0.1" h="2" so="0" er="0"></psituation>  
+      <psituation inn="6" context="byinn" bb="0" ab="4" r="0" fly="1" bf="4" double="1" ip="1.0" h="1" ground="1" so="1" er="0"></psituation>  
+      <psituation inn="5" context="byinn" bb="0" ab="3" r="0" fly="1" bf="3" ip="1.0" h="1" ground="1" so="0" er="0"></psituation>  
+      <psituation context="vsleft" bb="0" ab="3" r="0" bf="3" ip="0.2" h="1" ground="2" so="0" er="0"></psituation>  
+      <psituation inn="7" context="byinn" bb="0" ab="3" r="0" fly="1" bf="3" ip="1.0" h="0" ground="2" so="0" er="0"></psituation>  
+      <psituation context="vsright" bb="0" ab="7" r="0" fly="3" bf="7" double="1" ip="2.1" h="1" ground="2" so="1" er="0"></psituation>  
+      <psituation context="runners" bb="0" ab="4" r="0" fly="1" bf="4" ip="1.2" h="0" ground="2" so="1" er="0"></psituation>  
+      <psituation context="runners2" bb="0" ab="1" r="0" fly="1" bf="1" ip="0.1" h="0" so="0" er="0"></psituation>  
+      <psituation context="empty" bb="0" ab="6" r="0" fly="2" bf="6" double="1" ip="1.1" h="2" ground="2" so="0" er="0"></psituation> 
+    </player>  
+    <player name="M. Meadows" shortname="M. Meadows" uni="8" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Jr."></player>  
+    <player name="C. Sabol" shortname="C. Sabol" uni="24" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Gr."></player>  
+    <player name="Z. Peters" shortname="Z. Peters" uni="34" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Gr"></player>  
+    <player name="S. Myers" shortname="S. Myers" uni="30" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Sr."></player>  
+    <player name="T. Caldwell" shortname="T. Caldwell" uni="13" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Sr."></player>  
+    <player name="A. Brito" shortname="A. Brito" uni="4" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Sr."></player>  
+    <player name="L. Masloski" shortname="L. Masloski" uni="42" gp="0" pos="" spot="0" code="" bats="R" throws="R"></player>  
+    <player name="M. Graham" shortname="M. Graham" uni="14" gp="0" pos="" spot="0" code="" bats="L" throws="R" class="Jr."></player>  
+    <player name="C. Roll" shortname="C. Roll" uni="15" gp="0" pos="" spot="0" code="" bats="B" throws="R" class="Sr."></player>  
+    <player name="G. Crofoot" shortname="G. Crofoot" uni="38" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player>  
+    <player name="A. Szverra" shortname="A. Szverra" uni="29" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Sr."></player>  
+    <player name="G. Ryun" shortname="G. Ryun" uni="10" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="5th"></player>  
+    <player name="B. Stephan" shortname="B. Stephan" uni="17" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Gr."></player>  
+    <player name="T. Laxson" shortname="T. Laxson" uni="16" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="Jr."></player>  
+    <player name="S. Keene" shortname="S. Keene" uni="31" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="8"></player>  
+    <player name="J. Giunta" shortname="J. Giunta" uni="36" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="4"></player>  
+    <player name="L. Albers" shortname="L. Albers" uni="33" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="4"></player>  
+    <player name="K. Younger" shortname="K. Younger" uni="26" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="8"></player>  
+    <player name="T. Robertson" shortname="T. Robertson" uni="32" gp="0" pos="" spot="0" code="" bats="B" throws="R" class="8"></player>  
+    <player name="K. Gray" shortname="K. Gray" uni="9" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Jr."></player>  
+    <player name="E. Veisauyad" shortname="E. Veisauyad" uni="57" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="4"></player>  
+    <player name="K. Watkins" shortname="K. Watkins" uni="21" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Jr."></player>  
+    <player name="E. Viloria" shortname="E. Viloria" uni="44" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player>  
+    <player name="K. Bermudez" shortname="K. Bermudez" uni="28" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Sr."></player>  
+    <player name="J. Gittemeie" shortname="J. Gittemeie" uni="25" gp="0" pos="" spot="0" code="" bats="R" throws="R"></player>  
+    <player name="J. Cooper" shortname="J. Cooper" uni="0" gp="0" pos="" spot="0" code="" bats="R" throws="R"></player>  
+    <player name="C. Garza" shortname="C. Garza" uni="20" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="Gr."></player>  
+    <player name="S. Rallo" shortname="S. Rallo" uni="22" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="Gr."></player> 
+  </team>  
+  <team vh="H" confrecord="20-14" code="NAIA2313" id="WWU" name="William Woods (MO)" record="28-18"> 
+    <linescore line="1,2,0,0,0,0,0,0" runs="3" hits="7" errs="1" lob="7"> 
+      <lineinn inn="1" score="1"></lineinn>  
+      <lineinn inn="2" score="2"></lineinn>  
+      <lineinn inn="3" score="0"></lineinn>  
+      <lineinn inn="4" score="0"></lineinn>  
+      <lineinn inn="5" score="0"></lineinn>  
+      <lineinn inn="6" score="0"></lineinn>  
+      <lineinn inn="7" score="0"></lineinn>  
+      <lineinn inn="8" score="0"></lineinn> 
+    </linescore>  
+    <starters> 
+      <starter spot="1" name="R. Retone" uni="6" pos="2b"></starter>  
+      <starter spot="2" name="J. Gremillio" uni="18" pos="lf"></starter>  
+      <starter spot="3" name="K. Kinsler" uni="1" pos="cf"></starter>  
+      <starter spot="4" name="J. McWhirter" uni="99" pos="1b"></starter>  
+      <starter spot="5" name="C. Caton" uni="3" pos="dh"></starter>  
+      <starter spot="6" name="J. Bendfeld" uni="15" pos="3b"></starter>  
+      <starter spot="7" name="J. Kirn" uni="2" pos="rf"></starter>  
+      <starter spot="8" name="J. Dameron" uni="28" pos="c"></starter>  
+      <starter spot="9" name="C. Casso" uni="0" pos="ss"></starter>  
+      <starter spot="10" name="A. Vasquez" uni="37" pos="p"></starter> 
+    </starters>  
+    <batords> 
+      <batord spot="1" name="R. Retone" uni="6" pos="2b"></batord>  
+      <batord spot="2" name="J. Gremillio" uni="18" pos="lf"></batord>  
+      <batord spot="3" name="K. Kinsler" uni="1" pos="cf"></batord>  
+      <batord spot="4" name="J. McWhirter" uni="99" pos="1b"></batord>  
+      <batord spot="5" name="C. Caton" uni="3" pos="dh"></batord>  
+      <batord spot="6" name="J. Bendfeld" uni="15" pos="3b"></batord>  
+      <batord spot="7" name="J. Kirn" uni="2" pos="rf"></batord>  
+      <batord spot="8" name="J. Dameron" uni="28" pos="c"></batord>  
+      <batord spot="9" name="C. Casso" uni="0" pos="ss"></batord>  
+      <batord spot="10" name="K. Piepmeier" uni="11" pos="p"></batord> 
+    </batords>  
+    <totals> 
+      <hitting ab="26" r="3" h="7" rbi="2" double="1" triple="0" hr="0" bb="3" sb="0" cs="0" hbp="2" sh="0" sf="0" so="6" gdp="0" ibb="0" picked="0" ground="10" fly="3" kl="3" hitdp="2" hittp="0"></hitting>  
+      <fielding po="21" a="4" e="1" pb="0" ci="0" sba="2"></fielding>  
+      <hsitsummary adv="2" fly="3" ground="10" lob="7" vsleft="7,26" advops="7,15" leadoff="3,7" pinchhit="0,1" w2outs="1,8" wloaded="0,1" wrbiops="1,8" wrunners="2,12" rbi3rd="1,2"></hsitsummary>  
+      <pitching ip="7.0" ab="31" bb="3" bf="35" bk="0" double="1" er="9" fly="13" ground="4" h="9" hbp="1" hr="4" ibb="0" kl="0" r="10" so="4" triple="0" wp="1" picked="0" sha="0" sfa="0" gdp="0" pitches="125" strikes="75"></pitching>  
+      <psitsummary fly="13" ground="4" leadoff="3,7" wrunners="5,17" vsleft="2,3" w2outs="3,10" pitches="125" strikes="75"></psitsummary> 
+    </totals>  
+    <player name="R. Retone" shortname="R. Retone" uni="6" gp="1" gs="1" spot="1" code="1" bats="L" throws="R" class="4" pos="2b" atpos="2b" playerId="2h5fzkvp7fsw3gr2"> 
+      <hitting r="0" h="1" ab="3" rbi="1" so="1" ground="1" slg=".333" obp=".333" ops=".667"></hitting>  
+      <fielding po="2" a="1" e="0"></fielding>  
+      <hsitsummary adv="1" ground="1" vsleft="1,3" advops="2,2" leadoff="0,1" wrbiops="1,1" wrunners="1,2" rbi3rd="1,1"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="0" h="1" rbi="1" out="0"></hsituation>  
+      <hsituation context="leadoff" ab="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="vsleft" ab="3" r="0" h="1" rbi="1" ground="1" so="1" out="3"></hsituation>  
+      <hsituation pos="2b" context="bypos" ab="3" r="0" h="1" rbi="1" ground="1" so="1" out="3"></hsituation>  
+      <hsituation spot="1" context="byspot" ab="3" r="0" h="1" rbi="1" ground="1" so="1" out="3"></hsituation>  
+      <hsituation context="runners" ab="2" r="0" h="1" rbi="1" ground="1" out="1"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" ab="3" r="0" h="1" rbi="1" ground="1" so="1" out="2"></hsituation>  
+      <hsituation context="empty" ab="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <fsituation pos="2b" context="bypos" a="1" e="0" po="2"></fsituation> 
+    </player>  
+    <player name="B. Rochelle" shortname="B. Rochelle" uni="24" gp="1" sub="1" spot="1" code="1" bats="R" throws="R" class="4" pos="ph" atpos="ph" playerId="z1kffj851ktv0qss"> 
+      <hitting r="0" h="0" ab="1" rbi="0" fly="1" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary fly="1" lob="1" vsleft="0,1" advops="0,1" pinchhit="0,1" w2outs="0,1" wrbiops="0,1" wrunners="0,1"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="scorepos2" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pos="ph" context="bypos" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation spot="-1" context="byspot" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="vsleft" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="runners" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="runners2" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation> 
+    </player>  
+    <player name="J. Gremillio" shortname="J. Gremillio" uni="18" gp="1" gs="1" spot="2" code="2" bats="R" throws="R" class="4" pos="lf" atpos="lf" playerId="3hw4mj6io1yfeisr"> 
+      <hitting r="0" h="0" ab="3" rbi="0" bb="1" ground="2" fly="1" hitdp="1" slg=".000" obp=".250" ops=".250"></hitting>  
+      <fielding po="4" a="0" e="0"></fielding>  
+      <hsitsummary fly="1" ground="2" vsleft="0,3" advops="0,1" leadoff="0,1" wrunners="0,1"></hsitsummary>  
+      <hsituation context="scorepos" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="scorepos2" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="leadoff" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation context="vsleft" bb="1" ab="3" r="0" fly="1" h="0" rbi="0" ground="2" out="3"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation spot="2" context="byspot" bb="1" ab="3" r="0" fly="1" h="0" rbi="0" ground="2" out="3"></hsituation>  
+      <hsituation context="runners" bb="1" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" bb="1" ab="2" r="0" h="0" rbi="0" ground="2" out="2"></hsituation>  
+      <hsituation context="runners2" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation pos="lf" context="bypos" bb="1" ab="3" r="0" fly="1" h="0" rbi="0" ground="2" out="3"></hsituation>  
+      <hsituation context="empty" ab="2" r="0" fly="1" h="0" rbi="0" ground="1" out="2"></hsituation>  
+      <fsituation pos="lf" context="bypos" a="0" e="0" po="4"></fsituation> 
+    </player>  
+    <player name="K. Kinsler" shortname="K. Kinsler" uni="1" gp="1" gs="1" spot="3" code="3" bats="L" throws="R" class="2" pos="cf" atpos="cf" playerId="udm2z1wrsyy4musv"> 
+      <hitting r="1" h="0" ab="3" rbi="0" bb="1" so="2" ground="1" kl="1" slg=".000" obp=".250" ops=".250"></hitting>  
+      <fielding po="4" a="0" e="0"></fielding>  
+      <hsitsummary ground="1" lob="2" vsleft="0,3" advops="0,1" w2outs="0,2" wrbiops="0,1" wrunners="0,1"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" kl="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="scorepos2" ab="1" kl="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="vsleft" bb="1" ab="3" kl="1" r="1" h="0" rbi="0" ground="1" so="2" out="3"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pos="cf" context="bypos" bb="1" ab="3" kl="1" r="1" h="0" rbi="0" ground="1" so="2" out="3"></hsituation>  
+      <hsituation context="runners" ab="1" kl="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation spot="3" context="byspot" bb="1" ab="3" kl="1" r="1" h="0" rbi="0" ground="1" so="2" out="3"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" bb="1" ab="2" kl="1" r="0" h="0" rbi="0" so="2" out="2"></hsituation>  
+      <hsituation context="runners2" ab="1" kl="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="empty" bb="1" ab="2" r="0" h="0" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <fsituation pos="cf" context="bypos" a="0" e="0" po="4"></fsituation> 
+    </player>  
+    <player name="J. McWhirter" shortname="J. McWhirter" uni="99" gp="1" gs="1" spot="4" code="4" bats="L" throws="R" class="8" pos="1b" atpos="1b" playerId="v5xbocyr3nb098e4"> 
+      <hitting r="0" h="2" ab="4" rbi="0" ground="2" slg=".500" obp=".500" ops="1.000"></hitting>  
+      <fielding po="3" a="0" e="0"></fielding>  
+      <hsitsummary ground="2" vsleft="2,4" advops="1,1" leadoff="1,2" w2outs="1,2" wrunners="1,1"></hsitsummary>  
+      <hsituation context="leadoff" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="vsleft" ab="4" r="0" h="2" rbi="0" ground="2" out="3"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pos="1b" context="bypos" ab="4" r="0" h="2" rbi="0" ground="2" out="3"></hsituation>  
+      <hsituation context="runners" ab="1" r="0" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation spot="4" context="byspot" ab="4" r="0" h="2" rbi="0" ground="2" out="3"></hsituation>  
+      <hsituation context="runners2" ab="1" r="0" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="empty" ab="3" r="0" h="1" rbi="0" ground="2" out="2"></hsituation>  
+      <fsituation pos="1b" context="bypos" a="0" e="0" po="3"></fsituation> 
+    </player>  
+    <player name="C. Caton" shortname="C. Caton" uni="3" gp="1" gs="1" spot="5" code="5" bats="R" throws="R" class="2" pos="dh" atpos="dh" playerId="bpxo148m3sjnf3un"> 
+      <hitting r="0" h="1" ab="2" rbi="0" bb="1" ground="1" hitdp="1" slg=".500" obp=".667" ops="1.167"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary ground="1" vsleft="1,2" advops="1,2" wrunners="0,1"></hsitsummary>  
+      <hsituation pos="dh" context="bypos" bb="1" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="scorepos" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="scorepos2" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="vsleft" bb="1" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="runners" bb="1" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="runners2" bb="1" ab="0" r="0" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" bb="1" ab="1" r="0" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation spot="5" context="byspot" bb="1" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="empty" ab="1" r="0" h="1" rbi="0" out="0"></hsituation> 
+    </player>  
+    <player name="J. Bendfeld" shortname="J. Bendfeld" uni="15" gp="1" gs="1" spot="6" code="6" bats="R" throws="R" class="2" pos="3b" atpos="3b" playerId="6xj716dl2i9bx7em"> 
+      <hitting r="0" h="0" ab="2" rbi="1" hbp="1" so="1" fly="1" kl="1" slg=".000" obp=".333" ops=".333"></hitting>  
+      <fielding po="0" a="0" e="1"></fielding>  
+      <hsitsummary fly="1" vsleft="0,2" advops="1,2" w2outs="0,1" wrbiops="0,1" wrunners="0,1"></hsitsummary>  
+      <hsituation spot="6" context="byspot" ab="2" kl="1" r="0" fly="1" hbp="1" h="0" rbi="1" so="1" out="2"></hsituation>  
+      <hsituation context="loaded" ab="0" r="0" hbp="1" h="0" rbi="1" out="0"></hsituation>  
+      <hsituation context="scorepos" ab="1" kl="1" r="0" hbp="1" h="0" rbi="1" so="1" out="1"></hsituation>  
+      <hsituation context="scorepos2" ab="0" r="0" hbp="1" h="0" rbi="1" out="0"></hsituation>  
+      <hsituation context="vsleft" ab="2" kl="1" r="0" fly="1" hbp="1" h="0" rbi="1" so="1" out="2"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <hsituation pos="3b" context="bypos" ab="2" kl="1" r="0" fly="1" hbp="1" h="0" rbi="1" so="1" out="2"></hsituation>  
+      <hsituation context="runners" ab="1" kl="1" r="0" hbp="1" h="0" rbi="1" so="1" out="1"></hsituation>  
+      <hsituation context="runners2" ab="0" r="0" hbp="1" h="0" rbi="1" out="0"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" ab="1" kl="1" r="0" hbp="1" h="0" rbi="1" so="1" out="1"></hsituation>  
+      <hsituation context="empty" ab="1" r="0" fly="1" h="0" rbi="0" out="1"></hsituation>  
+      <fsituation pos="3b" context="bypos" a="0" e="1" po="0"></fsituation> 
+    </player>  
+    <player name="J. Kirn" shortname="J. Kirn" uni="2" gp="1" gs="1" spot="7" code="7" bats="R" throws="R" class="4" pos="rf" atpos="rf" playerId="3u4ohc7bng62x4nd"> 
+      <hitting r="0" h="1" ab="3" rbi="0" double="1" so="1" ground="1" kl="1" slg=".667" obp=".333" ops="1.000"></hitting>  
+      <fielding po="3" a="0" e="0"></fielding>  
+      <hsitsummary ground="1" lob="4" vsleft="1,3" advops="0,2" leadoff="1,1" w2outs="0,2" wloaded="0,1" wrbiops="0,2" wrunners="0,2"></hsitsummary>  
+      <hsituation context="loaded" ab="1" kl="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation spot="7" context="byspot" ab="3" kl="1" r="0" double="1" h="1" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation context="scorepos" ab="2" kl="1" r="0" h="0" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation context="scorepos2" ab="2" kl="1" r="0" h="0" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation context="leadoff" ab="1" r="0" double="1" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation context="vsleft" ab="3" kl="1" r="0" double="1" h="1" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" double="1" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation context="runners" ab="2" kl="1" r="0" h="0" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation pos="rf" context="bypos" ab="3" kl="1" r="0" double="1" h="1" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation context="runners2" ab="2" kl="1" r="0" h="0" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" ab="2" kl="1" r="0" h="0" rbi="0" ground="1" so="1" out="2"></hsituation>  
+      <hsituation context="empty" ab="1" r="0" double="1" h="1" rbi="0" out="0"></hsituation>  
+      <fsituation pos="rf" context="bypos" a="0" e="0" po="3"></fsituation> 
+    </player>  
+    <player name="J. Dameron" shortname="J. Dameron" uni="28" gp="1" gs="1" spot="8" code="8" bats="R" throws="R" class="4" pos="c" atpos="c" playerId="etz9xecv36cvkl3f"> 
+      <hitting r="0" h="1" ab="3" rbi="0" ground="2" slg=".333" obp=".333" ops=".667"></hitting>  
+      <fielding po="5" a="0" e="0" sba="2"></fielding>  
+      <hsitsummary adv="1" ground="2" vsleft="1,3" advops="1,1" leadoff="1,2" wrbiops="0,1" wrunners="0,1"></hsitsummary>  
+      <hsituation spot="8" context="byspot" ab="3" r="0" h="1" rbi="0" ground="2" out="2"></hsituation>  
+      <hsituation context="scorepos" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="leadoff" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="vsleft" ab="3" r="0" h="1" rbi="0" ground="2" out="2"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pos="c" context="bypos" ab="3" r="0" h="1" rbi="0" ground="2" out="2"></hsituation>  
+      <hsituation context="runners" ab="1" r="0" h="0" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <hsituation context="empty" ab="2" r="0" h="1" rbi="0" ground="1" out="1"></hsituation>  
+      <fsituation pos="c" context="bypos" a="0" sba="2" e="0" po="5"></fsituation> 
+    </player>  
+    <player name="V. Pyeatt" shortname="V. Pyeatt" uni="7" gp="1" sub="1" spot="8" code="8" bats="R" throws="R" class="8" pos="pr" atpos="pr" playerId="15snr8kxkl9zk24s"> 
+      <hitting r="1" h="0" ab="0" rbi="0" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="0" e="0"></fielding>  
+      <hsitsummary></hsitsummary>  
+      <hsituation pos="pr" context="bypos" ab="0" r="1" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation spot="-1" context="byspot" ab="0" r="1" h="0" rbi="0" out="0"></hsituation>  
+      <hsituation context="vsleft" ab="0" r="1" h="0" rbi="0" out="0"></hsituation> 
+    </player>  
+    <player name="C. Casso" shortname="C. Casso" uni="0" gp="1" gs="1" spot="9" code="9" bats="R" throws="R" class="1" pos="ss" atpos="ss" playerId="at60214tmitolpyf"> 
+      <hitting r="1" h="1" ab="2" rbi="0" hbp="1" so="1" slg=".500" obp=".667" ops="1.167"></hitting>  
+      <fielding po="0" a="2" e="0"></fielding>  
+      <hsitsummary vsleft="1,2" advops="1,2" wrbiops="0,1" wrunners="0,1" rbi3rd="0,1"></hsitsummary>  
+      <hsituation context="scorepos" ab="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation spot="9" context="byspot" ab="2" r="1" hbp="1" h="1" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="vsleft" ab="2" r="1" hbp="1" h="1" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation pitcher="J. Whitter" context="vspitcher" ab="1" r="0" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation context="runners" ab="1" r="0" hbp="1" h="0" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation pos="ss" context="bypos" ab="2" r="1" hbp="1" h="1" rbi="0" so="1" out="1"></hsituation>  
+      <hsituation pitcher="G. Lucas" context="vspitcher" ab="1" r="0" hbp="1" h="1" rbi="0" out="0"></hsituation>  
+      <hsituation context="empty" ab="1" r="0" h="1" rbi="0" out="0"></hsituation>  
+      <fsituation pos="ss" context="bypos" a="2" e="0" po="0"></fsituation> 
+    </player>  
+    <player name="A. Vasquez" shortname="A. Vasquez" uni="37" gp="1" gs="1" spot="10" code="10" bats="R" throws="R" class="1" pos="p" atpos="p" playerId="qjfs8xns1pfq2oa0"> 
+      <hitting r="0" h="0" ab="0" rbi="0" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="0" e="0" sba="1"></fielding>  
+      <hsitsummary></hsitsummary>  
+      <pitching appear="1" ip="2.1" gs="1" ab="14" bb="2" bf="17" er="7" fly="4" ground="1" h="7" hbp="1" hr="3" r="8" so="2" pitches="68" whip="4.29" loss="3-4" strikes="40"></pitching>  
+      <psitsummary fly="4" ground="1" picked="0" leadoff="1,3" wrunners="4,8" vsleft="1,1" w2outs="3,5" pitches="68" strikes="40"></psitsummary>  
+      <fsituation pos="p" context="bypos" a="0" sba="1" e="0" po="0"></fsituation>  
+      <psituation context="scorepos" bb="1" ab="4" r="0" fly="1" bf="5" ip="0.1" h="3" hr="1" so="0" er="0"></psituation>  
+      <psituation context="scorepos2" bb="1" ab="2" r="0" bf="3" ip="0.0" h="2" hr="1" so="0" er="0"></psituation>  
+      <psituation context="leadoff" bb="0" ab="2" r="0" fly="1" bf="3" ip="0.2" hbp="1" h="0" so="1" er="0"></psituation>  
+      <psituation context="vsleft" bb="1" ab="1" r="0" bf="2" ip="0.0" h="1" hr="1" so="0" er="0"></psituation>  
+      <psituation inn="2" context="byinn" bb="0" ab="5" r="1" fly="1" bf="5" ip="1.0" h="2" hr="1" ground="1" so="1" er="1"></psituation>  
+      <psituation inn="1" context="byinn" bb="2" ab="7" r="6" fly="2" bf="9" ip="1.0" h="4" hr="2" so="1" er="5"></psituation>  
+      <psituation context="vsright" bb="1" ab="13" r="0" fly="4" bf="15" ip="2.1" hbp="1" h="6" hr="2" ground="1" so="2" er="0"></psituation>  
+      <psituation inn="3" context="byinn" bb="0" ab="2" r="1" fly="1" bf="3" ip="0.1" hbp="1" h="1" so="0" er="1"></psituation>  
+      <psituation context="runners" bb="1" ab="8" r="0" fly="2" bf="9" ip="1.1" h="4" hr="1" ground="1" so="1" er="0"></psituation>  
+      <psituation context="runners2" bb="1" ab="3" r="0" bf="4" ip="0.1" h="2" hr="1" ground="1" so="0" er="0"></psituation>  
+      <psituation context="empty" bb="1" ab="6" r="0" fly="2" bf="8" ip="1.0" hbp="1" h="3" hr="2" so="1" er="0"></psituation> 
+    </player>  
+    <player name="W. Fischer" shortname="W. Fischer" uni="9" gp="1" sub="1" spot="10" code="10" bats="R" throws="R" class="8" pos="p" atpos="p" playerId="ukzywzmnxxn9sruo"> 
+      <hitting r="0" h="0" ab="0" rbi="0" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="1" e="0"></fielding>  
+      <hsitsummary></hsitsummary>  
+      <pitching appear="2" ip="1.2" ab="5" bf="5" fly="3" ground="2" pitches="14" whip=".00" strikes="8"></pitching>  
+      <psitsummary fly="3" ground="2" picked="0" leadoff="0,1" wrunners="0,2" vsleft="0,1" w2outs="0,2" pitches="14" strikes="8"></psitsummary>  
+      <fsituation pos="p" context="bypos" a="1" e="0" po="0"></fsituation>  
+      <psituation context="leadoff" bb="0" ab="1" r="0" bf="1" ip="0.1" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation context="vsleft" bb="0" ab="1" r="0" bf="1" ip="0.1" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation inn="4" context="byinn" bb="0" ab="3" r="0" fly="2" bf="3" ip="1.0" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation inn="3" context="byinn" bb="0" ab="2" r="0" fly="1" bf="2" ip="0.2" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation context="vsright" bb="0" ab="4" r="0" fly="3" bf="4" ip="1.1" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation context="runners" bb="0" ab="2" r="0" fly="1" bf="2" ip="0.2" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation context="runners2" bb="0" ab="1" r="0" bf="1" ip="0.1" h="0" ground="1" so="0" er="0"></psituation>  
+      <psituation context="empty" bb="0" ab="3" r="0" fly="2" bf="3" ip="1.0" h="0" ground="1" so="0" er="0"></psituation> 
+    </player>  
+    <player name="K. Piepmeier" shortname="K. Piepmeier" uni="11" gp="1" sub="2" spot="10" code="10" bats="R" throws="R" class="4" pos="p" atpos="p" playerId="scn315n009uhhurv"> 
+      <hitting r="0" h="0" ab="0" rbi="0" slg=".000" obp=".000" ops=".000"></hitting>  
+      <fielding po="0" a="0" e="0" sba="1"></fielding>  
+      <hsitsummary></hsitsummary>  
+      <pitching appear="3" ip="3.0" ab="12" bb="1" bf="13" double="1" er="2" fly="6" ground="1" h="2" hr="1" r="2" so="2" wp="1" pitches="43" whip="1.00" strikes="27"></pitching>  
+      <psitsummary fly="6" ground="1" picked="0" leadoff="2,3" wrunners="1,7" vsleft="1,1" w2outs="0,3" pitches="43" strikes="27"></psitsummary>  
+      <fsituation pos="p" context="bypos" a="0" sba="1" e="0" po="0"></fsituation>  
+      <psituation context="scorepos" bb="0" ab="5" r="0" fly="3" bf="5" ip="1.1" h="1" wp="1" hr="1" so="1" er="0"></psituation>  
+      <psituation context="scorepos2" bb="0" ab="1" r="0" bf="1" ip="0.1" h="0" so="1" er="0"></psituation>  
+      <psituation context="leadoff" bb="0" ab="3" r="0" bf="3" double="1" ip="0.1" h="1" so="1" er="0"></psituation>  
+      <psituation inn="6" context="byinn" bb="0" ab="5" r="2" fly="3" bf="5" double="1" ip="1.0" h="2" hr="1" so="0" er="2"></psituation>  
+      <psituation inn="5" context="byinn" bb="1" ab="3" r="0" fly="1" bf="4" ip="1.0" h="0" ground="1" so="1" er="0"></psituation>  
+      <psituation context="vsleft" bb="0" ab="1" r="0" bf="1" ip="0.0" h="1" hr="1" so="0" er="0"></psituation>  
+      <psituation inn="7" context="byinn" bb="0" ab="4" r="0" fly="2" bf="4" ip="1.0" h="0" wp="1" so="1" er="0"></psituation>  
+      <psituation context="vsright" bb="1" ab="11" r="0" fly="6" bf="12" double="1" ip="3.0" h="1" wp="1" ground="1" so="2" er="0"></psituation>  
+      <psituation context="runners" bb="0" ab="7" r="0" fly="4" bf="7" ip="2.0" h="1" wp="1" ground="1" hr="1" so="1" er="0"></psituation>  
+      <psituation context="runners2" bb="0" ab="2" r="0" fly="1" bf="2" ip="0.2" h="0" so="1" er="0"></psituation>  
+      <psituation context="empty" bb="1" ab="5" r="0" fly="2" bf="6" double="1" ip="1.0" h="1" so="1" er="0"></psituation> 
+    </player>  
+    <player name="N. Riechers" shortname="N. Riechers" uni="13" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player>  
+    <player name="G. O'Haver" shortname="G. O'Haver" uni="29" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="2"></player>  
+    <player name="P. Austin" shortname="P. Austin" uni="10" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="2"></player>  
+    <player name="M. Silverwoo" shortname="M. Silverwoo" uni="23" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="8"></player>  
+    <player name="G. Allen" shortname="G. Allen" uni="27" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="1"></player>  
+    <player name="S. Goings" shortname="S. Goings" uni="41" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player>  
+    <player name="C. Hartwick" shortname="C. Hartwick" uni="8" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="2"></player>  
+    <player name="K. Andersen" shortname="K. Andersen" uni="36" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="4"></player>  
+    <player name="N. Shepherd" shortname="N. Shepherd" uni="26" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="4"></player>  
+    <player name="A. Willenber" shortname="A. Willenber" uni="5" gp="0" pos="" spot="0" code="" bats="L" throws="R" class="8"></player>  
+    <player name="H. Steelman" shortname="H. Steelman" uni="21" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="4"></player>  
+    <player name="C. Prescott" shortname="C. Prescott" uni="35" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="8"></player>  
+    <player name="S. Christie" shortname="S. Christie" uni="19" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="2"></player>  
+    <player name="T. Horton" shortname="T. Horton" uni="14" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="8"></player>  
+    <player name="B. Brickey" shortname="B. Brickey" uni="55" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="2"></player>  
+    <player name="C. Burns" shortname="C. Burns" uni="38" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="2"></player>  
+    <player name="L. Fritts" shortname="L. Fritts" uni="34" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="2"></player>  
+    <player name="E. Rose" shortname="E. Rose" uni="32" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="1"></player>  
+    <player name="Benton III" shortname="Benton III" uni="20" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="8"></player>  
+    <player name="E. Rainey" shortname="E. Rainey" uni="31" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="1"></player>  
+    <player name="P. Clampitt" shortname="P. Clampitt" uni="22" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player>  
+    <player name="E. Johnston" shortname="E. Johnston" uni="33" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player>  
+    <player name="B. Kern" shortname="B. Kern" uni="39" gp="0" pos="" spot="0" code="" bats="R" throws="L" class="2"></player>  
+    <player name="W. Brown" shortname="W. Brown" uni="47" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="4"></player>  
+    <player name="Celeste III" shortname="Celeste III" uni="40" gp="0" pos="" spot="0" code="" bats="R" throws="R" class="2"></player>  
+    <player name="C. Irwin" shortname="C. Irwin" uni="17" gp="0" pos="" spot="0" code="" bats="L" throws="L" class="8"></player> 
+  </team>  
+  <plays format="summary"> 
+    <inning number="1"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="1" outs="0" batter="D. Palma" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="D. Palma" action="KS" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="A. Vasquez" ip="1" bf="1" ab="1" so="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KFBS" b="1" s="3"></pitches>  
+          <fielder pos="c" name="J. Dameron" po="1"></fielder>  
+          <narrative text="D. Palma struck out swinging."></narrative> 
+        </play>  
+        <play seq="2" outs="1" batter="B. Yarger" batprof="L" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="B. Yarger" action="BB" out="0" adv="1" tobase="1" bb="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" bb="1"></pitcher>  
+          <pitches name="A. Vasquez" text="BKFBFBB" b="4" s="3"></pitches>  
+          <narrative text="B. Yarger walked."></narrative> 
+        </play>  
+        <play seq="3" outs="1" batter="J. Jett" batprof="R" pchprof="R" pitcher="A. Vasquez" first="B. Yarger"> 
+          <batter name="J. Jett" action="1B 9" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <runner base="1" name="B. Yarger" action="++" out="0" adv="2" tobase="3"></runner>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KBBFP" b="2" s="3"></pitches>  
+          <narrative text="J. Jett singled to right field; B. Yarger advanced to third."></narrative> 
+        </play>  
+        <play seq="4" outs="1" batter="C. Robinson" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Jett" third="B. Yarger"> 
+          <batter name="C. Robinson" action="F7" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="A. Vasquez" text="P" b="0" s="1"></pitches>  
+          <fielder pos="lf" name="J. Gremillio" po="1"></fielder>  
+          <narrative text="C. Robinson flied out to lf."></narrative> 
+        </play>  
+        <play seq="5" outs="2" batter="J. Kouneski" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Jett" third="B. Yarger"> 
+          <batter name="J. Kouneski" action="1B 7 +E RBI1" out="0" adv="2" tobase="2" ab="1" h="1" rbi="1"></batter>  
+          <runner base="1" name="J. Jett" action="+ ++E UE" out="0" adv="3" tobase="4" scored="1" ue="1"></runner>  
+          <runner base="3" name="B. Yarger" action="+" out="0" adv="1" tobase="4" scored="1"></runner>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1" r="2" er="1"></pitcher>  
+          <pitches name="A. Vasquez" text="P" b="0" s="1"></pitches>  
+          <narrative text="J. Kouneski singled to left field, advanced to second on the error, RBI; J. Jett advanced to second, scored on the error, unearned; B. Yarger scored."></narrative> 
+        </play>  
+        <play seq="6" outs="2" batter="J. Orozco" batprof="R" pchprof="R" pitcher="A. Vasquez" second="J. Kouneski"> 
+          <batter name="J. Orozco" action="BB" out="0" adv="1" tobase="1" bb="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" bb="1"></pitcher>  
+          <pitches name="A. Vasquez" text="BSBBB" b="4" s="1"></pitches>  
+          <narrative text="J. Orozco walked."></narrative> 
+        </play>  
+        <play seq="7" outs="2" batter="C. Hidalgo" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Orozco" second="J. Kouneski"> 
+          <batter name="C. Hidalgo" action="HR RBI3" out="0" adv="4" tobase="4" por="A. Vasquez" ab="1" h="1" hr="1" scored="1" rbi="3"></batter>  
+          <runner base="1" name="J. Orozco" action="+++" out="0" adv="3" tobase="4" scored="1"></runner>  
+          <runner base="2" name="J. Kouneski" action="++" out="0" adv="2" tobase="4" scored="1"></runner>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1" er="3" r="3" hr="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KKP" b="0" s="3"></pitches>  
+          <narrative text="C. Hidalgo homered, 3 RBI; J. Orozco scored; J. Kouneski scored."></narrative> 
+        </play>  
+        <play seq="8" outs="2" batter="L. Lefebvre" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="L. Lefebvre" action="HR RBI1" out="0" adv="4" tobase="4" por="A. Vasquez" ab="1" h="1" hr="1" scored="1" rbi="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1" er="1" r="1" hr="1"></pitcher>  
+          <pitches name="A. Vasquez" text="BSBBP" b="3" s="2"></pitches>  
+          <narrative text="L. Lefebvre homered, RBI."></narrative> 
+        </play>  
+        <play seq="9" outs="2" batter="T. Ludwig" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="T. Ludwig" action="F8" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KKBBBP" b="3" s="3"></pitches>  
+          <fielder pos="cf" name="K. Kinsler" po="1"></fielder>  
+          <narrative text="T. Ludwig flied out to cf."></narrative> 
+        </play>  
+        <innsummary r="6" h="4" e="0" lob="0"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="10" outs="0" batter="R. Retone" batprof="L" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="R. Retone" action="KS" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="G. Lucas" ip="1" bf="1" ab="1" so="1"></pitcher>  
+          <pitches name="G. Lucas" text="BSBFBS" b="3" s="3"></pitches>  
+          <fielder pos="c" name="J. Kouneski" po="1"></fielder>  
+          <narrative text="R. Retone struck out swinging."></narrative> 
+        </play>  
+        <play seq="11" outs="1" batter="J. Gremillio" batprof="R" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="J. Gremillio" action="13" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="G. Lucas" text="KSP" b="0" s="3"></pitches>  
+          <fielder pos="p" name="G. Lucas" po="0" a="1"></fielder>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <narrative text="J. Gremillio grounded out to p."></narrative> 
+        </play>  
+        <play seq="12" outs="2" batter="K. Kinsler" batprof="L" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="K. Kinsler" action="BB" out="0" adv="1" tobase="1" bb="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" bb="1"></pitcher>  
+          <pitches name="G. Lucas" text="KBBBB" b="4" s="1"></pitches>  
+          <narrative text="K. Kinsler walked."></narrative> 
+        </play>  
+        <play seq="13" outs="2" batter="J. McWhirter" batprof="L" pchprof="L" pitcher="G. Lucas" first="K. Kinsler"> 
+          <batter name="J. McWhirter" action="1B 8" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <runner base="1" name="K. Kinsler" action="+" out="0" adv="1" tobase="2"></runner>  
+          <pitcher name="G. Lucas" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="G. Lucas" text="SBP" b="1" s="2"></pitches>  
+          <narrative text="J. McWhirter singled to center field; K. Kinsler advanced to second."></narrative> 
+        </play>  
+        <play seq="14" outs="2" batter="C. Caton" batprof="R" pchprof="L" pitcher="G. Lucas" first="J. McWhirter" second="K. Kinsler"> 
+          <batter name="C. Caton" action="BB" out="0" adv="1" tobase="1" bb="1"></batter>  
+          <runner base="1" name="J. McWhirter" action="+" out="0" adv="1" tobase="2"></runner>  
+          <runner base="2" name="K. Kinsler" action="+" out="0" adv="1" tobase="3"></runner>  
+          <pitcher name="G. Lucas" bf="1" bb="1"></pitcher>  
+          <pitches name="G. Lucas" text="BBBKB" b="4" s="1"></pitches>  
+          <narrative text="C. Caton walked; J. McWhirter advanced to second; K. Kinsler advanced to third."></narrative> 
+        </play>  
+        <play seq="15" outs="2" batter="J. Bendfeld" batprof="R" pchprof="L" pitcher="G. Lucas" first="C. Caton" second="J. McWhirter" third="K. Kinsler"> 
+          <batter name="J. Bendfeld" action="HP RBI1" out="0" adv="1" tobase="1" hbp="1" rbi="1"></batter>  
+          <runner base="1" name="C. Caton" action="+" out="0" adv="1" tobase="2"></runner>  
+          <runner base="2" name="J. McWhirter" action="+" out="0" adv="1" tobase="3"></runner>  
+          <runner base="3" name="K. Kinsler" action="+" out="0" adv="1" tobase="4" scored="1"></runner>  
+          <pitcher name="G. Lucas" bf="1" hbp="1" r="1" er="1"></pitcher>  
+          <pitches name="G. Lucas" text="BSKH" b="2" s="2"></pitches>  
+          <narrative text="J. Bendfeld hit by pitch, RBI; C. Caton advanced to second; J. McWhirter advanced to third; K. Kinsler scored."></narrative> 
+        </play>  
+        <play seq="16" outs="2" batter="J. Kirn" batprof="R" pchprof="L" pitcher="G. Lucas" first="J. Bendfeld" second="C. Caton" third="J. McWhirter"> 
+          <batter name="J. Kirn" action="KL" out="1" adv="0" tobase="0" ab="1" so="1" kl="1"></batter>  
+          <pitcher name="G. Lucas" ip="1" bf="1" ab="1" so="1" kl="1"></pitcher>  
+          <pitches name="G. Lucas" text="FFBK" b="1" s="3"></pitches>  
+          <fielder pos="c" name="J. Kouneski" po="1"></fielder>  
+          <narrative text="J. Kirn struck out looking."></narrative> 
+        </play>  
+        <innsummary r="1" h="1" e="0" lob="3"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="2"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="17" outs="0" batter="D. Palma" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="D. Palma" action="F7" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="A. Vasquez" text="BKBBP" b="3" s="2"></pitches>  
+          <fielder pos="lf" name="J. Gremillio" po="1"></fielder>  
+          <narrative text="D. Palma flied out to lf."></narrative> 
+        </play>  
+        <play seq="18" outs="1" batter="B. Yarger" batprof="L" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="B. Yarger" action="HR RBI1" out="0" adv="4" tobase="4" por="A. Vasquez" ab="1" h="1" hr="1" scored="1" rbi="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1" er="1" r="1" hr="1"></pitcher>  
+          <pitches name="A. Vasquez" text="BP" b="1" s="1"></pitches>  
+          <narrative text="B. Yarger homered, RBI."></narrative> 
+        </play>  
+        <play seq="19" outs="1" batter="J. Jett" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="J. Jett" action="1B 8" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KBP" b="1" s="2"></pitches>  
+          <narrative text="J. Jett singled to center field."></narrative> 
+        </play>  
+        <play seq="20" outs="1" batter="C. Robinson" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Jett"> 
+          <batter name="C. Robinson" action="KS" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="A. Vasquez" ip="1" bf="1" ab="1" so="1"></pitcher>  
+          <pitches name="A. Vasquez" text="BKSS" b="1" s="3"></pitches>  
+          <fielder pos="c" name="J. Dameron" po="1"></fielder>  
+          <narrative text="C. Robinson struck out swinging."></narrative> 
+        </play>  
+        <play seq="21" outs="2" batter="J. Kouneski" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Jett"> 
+          <batter name="J. Kouneski" action="FC" out="0" adv="1" tobase="1" ab="1" rchfc="1" gndout="1"></batter>  
+          <runner base="1" name="J. Jett" action="64" out="1" adv="0" tobase="1"></runner>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" gndout="1" ip="1"></pitcher>  
+          <pitches name="A. Vasquez" text="P" b="0" s="1"></pitches>  
+          <fielder pos="2b" name="R. Retone" po="1"></fielder>  
+          <fielder pos="ss" name="C. Casso" po="0" a="1"></fielder>  
+          <narrative text="J. Kouneski reached on a fielder's choice; J. Jett out at second ss to 2b."></narrative> 
+        </play>  
+        <innsummary r="1" h="2" e="0" lob="1"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="22" outs="0" batter="J. Dameron" batprof="R" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="J. Dameron" action="1B 8" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="G. Lucas" text="KBBKFP" b="2" s="4"></pitches>  
+          <narrative text="J. Dameron singled to center field."></narrative> 
+        </play>  
+        <play seq="23" outs="0" batter="C. Casso" batprof="R" pchprof="L" pitcher="G. Lucas" first="J. Dameron"> 
+          <sub vh="H" spot="8" who="V. Pyeatt" for="J. Dameron" pos="pr"></sub>  
+          <narrative text="V. Pyeatt pinch ran for J. Dameron."></narrative> 
+        </play>  
+        <play seq="24" outs="0" batter="C. Casso" batprof="R" pchprof="L" pitcher="G. Lucas" first="V. Pyeatt"> 
+          <batter name="C. Casso" action="HP" out="0" adv="1" tobase="1" hbp="1"></batter>  
+          <runner base="1" name="V. Pyeatt" action="+" out="0" adv="1" tobase="2"></runner>  
+          <pitcher name="G. Lucas" bf="1" hbp="1"></pitcher>  
+          <pitches name="G. Lucas" text="KFH" b="1" s="2"></pitches>  
+          <narrative text="C. Casso hit by pitch; V. Pyeatt advanced to second."></narrative> 
+        </play>  
+        <play seq="25" outs="0" batter="R. Retone" batprof="L" pchprof="L" pitcher="G. Lucas" first="C. Casso" second="V. Pyeatt"> 
+          <runner base="1" name="C. Casso" action="+" out="0" adv="1" tobase="2"></runner>  
+          <runner base="2" name="V. Pyeatt" action="E2" out="0" adv="1" tobase="3"></runner>  
+          <pitcher name="G. Lucas"></pitcher>  
+          <fielder pos="c" name="J. Kouneski" e="1"></fielder>  
+          <narrative text="C. Casso advanced to second; V. Pyeatt advanced to third on an error by c."></narrative> 
+        </play>  
+        <play seq="26" outs="0" batter="R. Retone" batprof="L" pchprof="L" pitcher="G. Lucas" second="C. Casso" third="V. Pyeatt"> 
+          <runner base="2" name="C. Casso" action="+" out="0" adv="1" tobase="3"></runner>  
+          <runner base="3" name="V. Pyeatt" action="WP" out="0" adv="1" tobase="4" por="G. Lucas" scored="1"></runner>  
+          <pitcher name="G. Lucas" wp="1" r="1" er="1"></pitcher>  
+          <narrative text="C. Casso advanced to third; V. Pyeatt scored on a wild pitch."></narrative> 
+        </play>  
+        <play seq="27" outs="0" batter="R. Retone" batprof="L" pchprof="L" pitcher="G. Lucas" third="C. Casso"> 
+          <batter name="R. Retone" action="1B 7 RBI1" out="0" adv="1" tobase="1" ab="1" h="1" rbi="1"></batter>  
+          <runner base="3" name="C. Casso" action="+" out="0" adv="1" tobase="4" scored="1"></runner>  
+          <pitcher name="G. Lucas" bf="1" ab="1" h="1" r="1" er="1"></pitcher>  
+          <pitches name="G. Lucas" text="KBP" b="1" s="2"></pitches>  
+          <narrative text="R. Retone singled to left field, RBI; C. Casso scored."></narrative> 
+        </play>  
+        <play seq="28" outs="0" batter="J. Gremillio" batprof="R" pchprof="L" pitcher="G. Lucas" first="R. Retone"> 
+          <batter name="J. Gremillio" action="463 DP" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <runner base="1" name="R. Retone" action="X" out="1" adv="0" tobase="1"></runner>  
+          <pitcher name="G. Lucas" bf="1" ip="2" ab="1" gndout="1"></pitcher>  
+          <pitches name="G. Lucas" text="KBKFP" b="1" s="4"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1" indp="1"></fielder>  
+          <fielder pos="2b" name="T. Ludwig" po="0" indp="1" a="1"></fielder>  
+          <fielder pos="ss" name="D. Palma" po="1" indp="1" a="1"></fielder>  
+          <narrative text="J. Gremillio grounded into double play 2b to ss to 1b; R. Retone out on the play."></narrative> 
+        </play>  
+        <play seq="29" outs="2" batter="K. Kinsler" batprof="L" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="K. Kinsler" action="KS" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="G. Lucas" ip="1" bf="1" ab="1" so="1"></pitcher>  
+          <pitches name="G. Lucas" text="KSBFS" b="1" s="4"></pitches>  
+          <fielder pos="c" name="J. Kouneski" po="1"></fielder>  
+          <narrative text="K. Kinsler struck out swinging."></narrative> 
+        </play>  
+        <innsummary r="2" h="2" e="1" lob="0"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="3"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="30" outs="0" batter="J. Orozco" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <sub vh="H" spot="8" who="J. Dameron" for="V. Pyeatt" pos="c"></sub>  
+          <narrative text="J. Dameron to c for V. Pyeatt."></narrative> 
+        </play>  
+        <play seq="31" outs="0" batter="J. Orozco" batprof="R" pchprof="R" pitcher="A. Vasquez"> 
+          <batter name="J. Orozco" action="HP" out="0" adv="1" tobase="1" hbp="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" hbp="1"></pitcher>  
+          <pitches name="A. Vasquez" text="SSH" b="1" s="2"></pitches>  
+          <narrative text="J. Orozco hit by pitch."></narrative> 
+        </play>  
+        <play seq="32" outs="0" batter="C. Hidalgo" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Orozco"> 
+          <batter name="C. Hidalgo" action="F9" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="A. Vasquez" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="A. Vasquez" text="FBKFP" b="1" s="4"></pitches>  
+          <fielder pos="rf" name="J. Kirn" po="1"></fielder>  
+          <narrative text="C. Hidalgo flied out to rf."></narrative> 
+        </play>  
+        <play seq="33" outs="1" batter="L. Lefebvre" batprof="R" pchprof="R" pitcher="A. Vasquez" first="J. Orozco"> 
+          <runner base="1" name="J. Orozco" action="SB" out="0" adv="1" tobase="2" sb="1"></runner>  
+          <pitcher name="A. Vasquez" sba="1"></pitcher>  
+          <fielder pos="p" name="A. Vasquez" sba="1"></fielder>  
+          <fielder pos="c" name="J. Dameron" sba="1"></fielder>  
+          <narrative text="J. Orozco stole second."></narrative> 
+        </play>  
+        <play seq="34" outs="1" batter="L. Lefebvre" batprof="R" pchprof="R" pitcher="A. Vasquez" second="J. Orozco"> 
+          <batter name="L. Lefebvre" action="1B 9 RBI1" out="0" adv="1" tobase="1" ab="1" h="1" rbi="1"></batter>  
+          <runner base="2" name="J. Orozco" action="++" out="0" adv="2" tobase="4" scored="1"></runner>  
+          <pitcher name="A. Vasquez" bf="1" ab="1" h="1" r="1" er="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KBP" b="1" s="2"></pitches>  
+          <narrative text="L. Lefebvre singled to right field, RBI; J. Orozco scored."></narrative> 
+        </play>  
+        <play seq="35" outs="1" batter="T. Ludwig" batprof="R" pchprof="R" pitcher="A. Vasquez" first="L. Lefebvre"> 
+          <sub vh="H" spot="10" who="W. Fischer" for="A. Vasquez" pos="p"></sub>  
+          <narrative text="W. Fischer to p for A. Vasquez."></narrative> 
+        </play>  
+        <play seq="36" outs="1" batter="T. Ludwig" batprof="R" pchprof="R" pitcher="W. Fischer" first="L. Lefebvre"> 
+          <batter name="T. Ludwig" action="F8" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="W. Fischer" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="A. Vasquez" text="KFBBP" b="2" s="3"></pitches>  
+          <fielder pos="cf" name="K. Kinsler" po="1"></fielder>  
+          <narrative text="T. Ludwig flied out to cf."></narrative> 
+        </play>  
+        <play seq="37" outs="2" batter="D. Palma" batprof="R" pchprof="R" pitcher="W. Fischer" first="L. Lefebvre"> 
+          <batter name="D. Palma" action="163" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="W. Fischer" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="W. Fischer" text="P" b="0" s="1"></pitches>  
+          <fielder pos="p" name="W. Fischer" po="0" a="1"></fielder>  
+          <fielder pos="1b" name="J. McWhirter" po="1"></fielder>  
+          <fielder pos="ss" name="C. Casso" po="0" a="1"></fielder>  
+          <narrative text="D. Palma grounded out p to ss to 1b."></narrative> 
+        </play>  
+        <innsummary r="1" h="1" e="0" lob="1"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="38" outs="0" batter="J. McWhirter" batprof="L" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="J. McWhirter" action="43" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="G. Lucas" text="BFSBP" b="2" s="3"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="2b" name="T. Ludwig" po="0" a="1"></fielder>  
+          <narrative text="J. McWhirter grounded out to 2b."></narrative> 
+        </play>  
+        <play seq="39" outs="1" batter="C. Caton" batprof="R" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="C. Caton" action="1B 4" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="G. Lucas" text="KKP" b="0" s="3"></pitches>  
+          <narrative text="C. Caton singled to second base."></narrative> 
+        </play>  
+        <play seq="40" outs="1" batter="J. Bendfeld" batprof="R" pchprof="L" pitcher="G. Lucas" first="C. Caton"> 
+          <runner base="1" name="C. Caton" action="+E4" out="0" adv="1" tobase="2"></runner>  
+          <pitcher name="G. Lucas"></pitcher>  
+          <narrative text="C. Caton advanced to second on an error by 2b."></narrative> 
+        </play>  
+        <play seq="41" outs="1" batter="J. Bendfeld" batprof="R" pchprof="L" pitcher="G. Lucas" second="C. Caton"> 
+          <batter name="J. Bendfeld" action="KL" out="1" adv="0" tobase="0" ab="1" so="1" kl="1"></batter>  
+          <pitcher name="G. Lucas" ip="1" bf="1" ab="1" so="1" kl="1"></pitcher>  
+          <pitches name="G. Lucas" text="KFFFK" b="0" s="5"></pitches>  
+          <fielder pos="c" name="J. Kouneski" po="1"></fielder>  
+          <narrative text="J. Bendfeld struck out looking."></narrative> 
+        </play>  
+        <play seq="42" outs="2" batter="J. Kirn" batprof="R" pchprof="L" pitcher="G. Lucas" second="C. Caton"> 
+          <batter name="J. Kirn" action="63" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="G. Lucas" text="P" b="0" s="1"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="ss" name="D. Palma" po="0" a="1"></fielder>  
+          <narrative text="J. Kirn grounded out to ss."></narrative> 
+        </play>  
+        <innsummary r="0" h="1" e="0" lob="1"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="4"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="43" outs="0" batter="B. Yarger" batprof="L" pchprof="R" pitcher="W. Fischer"> 
+          <batter name="B. Yarger" action="43" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="W. Fischer" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="W. Fischer" text="BP" b="1" s="1"></pitches>  
+          <fielder pos="1b" name="J. McWhirter" po="1"></fielder>  
+          <fielder pos="2b" name="R. Retone" po="0" a="1"></fielder>  
+          <narrative text="B. Yarger grounded out to 2b."></narrative> 
+        </play>  
+        <play seq="44" outs="1" batter="J. Jett" batprof="R" pchprof="R" pitcher="W. Fischer"> 
+          <batter name="J. Jett" action="F7" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="W. Fischer" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="W. Fischer" text="FKFBBBP" b="3" s="4"></pitches>  
+          <fielder pos="lf" name="J. Gremillio" po="1"></fielder>  
+          <narrative text="J. Jett flied out to lf."></narrative> 
+        </play>  
+        <play seq="45" outs="2" batter="C. Robinson" batprof="R" pchprof="R" pitcher="W. Fischer"> 
+          <batter name="C. Robinson" action="F7" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="W. Fischer" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="W. Fischer" text="FBBP" b="2" s="2"></pitches>  
+          <fielder pos="lf" name="J. Gremillio" po="1"></fielder>  
+          <narrative text="C. Robinson flied out to lf."></narrative> 
+        </play>  
+        <innsummary r="0" h="0" e="0" lob="0"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="46" outs="0" batter="J. Dameron" batprof="R" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="J. Dameron" action="43" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="G. Lucas" text="P" b="0" s="1"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="2b" name="T. Ludwig" po="0" a="1"></fielder>  
+          <narrative text="J. Dameron grounded out to 2b."></narrative> 
+        </play>  
+        <play seq="47" outs="1" batter="C. Casso" batprof="R" pchprof="L" pitcher="G. Lucas"> 
+          <batter name="C. Casso" action="1B 7" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="G. Lucas" text="FBSP" b="1" s="3"></pitches>  
+          <narrative text="C. Casso singled to left field."></narrative> 
+        </play>  
+        <play seq="48" outs="1" batter="R. Retone" batprof="L" pchprof="L" pitcher="G. Lucas" first="C. Casso"> 
+          <batter name="R. Retone" action="53" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <runner base="1" name="C. Casso" action="+" out="0" adv="1" tobase="2"></runner>  
+          <pitcher name="G. Lucas" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="G. Lucas" text="BBP" b="2" s="1"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="3b" name="J. Orozco" po="0" a="1"></fielder>  
+          <narrative text="R. Retone grounded out to 3b; C. Casso advanced to second."></narrative> 
+        </play>  
+        <play seq="49" outs="2" batter="J. Gremillio" batprof="R" pchprof="L" pitcher="G. Lucas" second="C. Casso"> 
+          <batter name="J. Gremillio" action="BB" out="0" adv="1" tobase="1" bb="1"></batter>  
+          <pitcher name="G. Lucas" bf="1" bb="1"></pitcher>  
+          <pitches name="G. Lucas" text="BFBBB" b="4" s="1"></pitches>  
+          <narrative text="J. Gremillio walked."></narrative> 
+        </play>  
+        <play seq="50" outs="2" batter="K. Kinsler" batprof="L" pchprof="L" pitcher="G. Lucas" first="J. Gremillio" second="C. Casso"> 
+          <batter name="K. Kinsler" action="KL" out="1" adv="0" tobase="0" ab="1" so="1" kl="1"></batter>  
+          <pitcher name="G. Lucas" ip="1" bf="1" ab="1" so="1" kl="1"></pitcher>  
+          <pitches name="G. Lucas" text="KFBK" b="1" s="3"></pitches>  
+          <fielder pos="c" name="J. Kouneski" po="1"></fielder>  
+          <narrative text="K. Kinsler struck out looking."></narrative> 
+        </play>  
+        <innsummary r="0" h="1" e="0" lob="2"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="5"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="51" outs="0" batter="J. Kouneski" batprof="R" pchprof="R" pitcher="W. Fischer"> 
+          <sub vh="H" spot="10" who="K. Piepmeier" for="W. Fischer" pos="p"></sub>  
+          <narrative text="K. Piepmeier to p for W. Fischer."></narrative> 
+        </play>  
+        <play seq="52" outs="0" batter="J. Kouneski" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <batter name="J. Kouneski" action="KS 2U" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ab="1" so="1" ip="1"></pitcher>  
+          <pitches name="K. Piepmeier" order="2" text="FBSS" b="1" s="3"></pitches>  
+          <fielder pos="c" name="J. Dameron" po="1"></fielder>  
+          <narrative text="J. Kouneski struck out swinging, out at first c unassisted."></narrative> 
+        </play>  
+        <play seq="53" outs="1" batter="J. Orozco" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <batter name="J. Orozco" action="BB" out="0" adv="1" tobase="1" bb="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" bb="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="BKSBBB" b="4" s="2"></pitches>  
+          <narrative text="J. Orozco walked."></narrative> 
+        </play>  
+        <play seq="54" outs="1" batter="C. Hidalgo" batprof="R" pchprof="R" pitcher="K. Piepmeier" first="J. Orozco"> 
+          <batter name="C. Hidalgo" action="2U" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="FS" b="0" s="2"></pitches>  
+          <fielder pos="c" name="J. Dameron" po="1"></fielder>  
+          <narrative text="C. Hidalgo grounded out to c unassisted."></narrative> 
+        </play>  
+        <play seq="55" outs="2" batter="L. Lefebvre" batprof="R" pchprof="R" pitcher="K. Piepmeier" first="J. Orozco"> 
+          <batter name="L. Lefebvre" action="F9" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="KFFFP" b="0" s="5"></pitches>  
+          <fielder pos="rf" name="J. Kirn" po="1"></fielder>  
+          <narrative text="L. Lefebvre flied out to rf."></narrative> 
+        </play>  
+        <innsummary r="0" h="0" e="0" lob="1"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="56" outs="0" batter="J. McWhirter" batprof="L" pchprof="L" pitcher="G. Lucas"> 
+          <sub vh="V" spot="10" who="J. Whitter" for="G. Lucas" pos="p"></sub>  
+          <narrative text="J. Whitter to p for G. Lucas."></narrative> 
+        </play>  
+        <play seq="57" outs="0" batter="J. McWhirter" batprof="L" pchprof="L" pitcher="J. Whitter"> 
+          <batter name="J. McWhirter" action="1B 8" out="0" adv="1" tobase="1" ab="1" h="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ab="1" h="1"></pitcher>  
+          <pitches name="J. Whitter" text="FBBP" b="2" s="2"></pitches>  
+          <narrative text="J. McWhirter singled to center field."></narrative> 
+        </play>  
+        <play seq="58" outs="0" batter="C. Caton" batprof="R" pchprof="L" pitcher="J. Whitter" first="J. McWhirter"> 
+          <batter name="C. Caton" action="543 DP" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <runner base="1" name="J. McWhirter" action="X" out="1" adv="0" tobase="1"></runner>  
+          <pitcher name="J. Whitter" bf="1" ip="2" ab="1" gndout="1"></pitcher>  
+          <pitches name="J. Whitter" text="BFKP" b="1" s="3"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1" indp="1"></fielder>  
+          <fielder pos="2b" name="T. Ludwig" po="1" indp="1" a="1"></fielder>  
+          <fielder pos="3b" name="J. Orozco" po="0" indp="1" a="1"></fielder>  
+          <narrative text="C. Caton grounded into double play 3b to 2b to 1b; J. McWhirter out on the play."></narrative> 
+        </play>  
+        <play seq="59" outs="2" batter="J. Bendfeld" batprof="R" pchprof="L" pitcher="J. Whitter"> 
+          <batter name="J. Bendfeld" action="F9" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="J. Whitter" text="KBFP" b="1" s="3"></pitches>  
+          <fielder pos="rf" name="J. Jett" po="1"></fielder>  
+          <narrative text="J. Bendfeld flied out to rf."></narrative> 
+        </play>  
+        <innsummary r="0" h="1" e="0" lob="0"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="6"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="60" outs="0" batter="T. Ludwig" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <batter name="T. Ludwig" action="2B 7" out="0" adv="2" tobase="2" ab="1" h="1" double="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ab="1" h="1" double="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="FBBP" b="2" s="2"></pitches>  
+          <narrative text="T. Ludwig doubled to left field."></narrative> 
+        </play>  
+        <play seq="61" outs="0" batter="D. Palma" batprof="R" pchprof="R" pitcher="K. Piepmeier" second="T. Ludwig"> 
+          <batter name="D. Palma" action="F8" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="KP" b="0" s="2"></pitches>  
+          <fielder pos="cf" name="K. Kinsler" po="1"></fielder>  
+          <narrative text="D. Palma flied out to cf."></narrative> 
+        </play>  
+        <play seq="62" outs="1" batter="B. Yarger" batprof="L" pchprof="R" pitcher="K. Piepmeier" second="T. Ludwig"> 
+          <batter name="B. Yarger" action="HR RBI2" out="0" adv="4" tobase="4" por="K. Piepmeier" ab="1" h="1" hr="1" scored="1" rbi="2"></batter>  
+          <runner base="2" name="T. Ludwig" action="++" out="0" adv="2" tobase="4" scored="1"></runner>  
+          <pitcher name="K. Piepmeier" bf="1" ab="1" h="1" er="2" r="2" hr="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="BP" b="1" s="1"></pitches>  
+          <narrative text="B. Yarger homered, 2 RBI; T. Ludwig scored."></narrative> 
+        </play>  
+        <play seq="63" outs="1" batter="J. Jett" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <batter name="J. Jett" action="FF3" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="BBBKP" b="3" s="2"></pitches>  
+          <fielder pos="1b" name="J. McWhirter" po="1"></fielder>  
+          <narrative text="J. Jett fouled out to 1b."></narrative> 
+        </play>  
+        <play seq="64" outs="2" batter="C. Robinson" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <batter name="C. Robinson" action="F8" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="P" b="0" s="1"></pitches>  
+          <fielder pos="cf" name="K. Kinsler" po="1"></fielder>  
+          <narrative text="C. Robinson flied out to cf."></narrative> 
+        </play>  
+        <innsummary r="2" h="2" e="0" lob="0"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="65" outs="0" batter="J. Kirn" batprof="R" pchprof="L" pitcher="J. Whitter"> 
+          <batter name="J. Kirn" action="2B 7" out="0" adv="2" tobase="2" ab="1" h="1" double="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ab="1" h="1" double="1"></pitcher>  
+          <pitches name="J. Whitter" text="KP" b="0" s="2"></pitches>  
+          <narrative text="J. Kirn doubled to left field."></narrative> 
+        </play>  
+        <play seq="66" outs="0" batter="J. Dameron" batprof="R" pchprof="L" pitcher="J. Whitter" second="J. Kirn"> 
+          <batter name="J. Dameron" action="43" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <runner base="2" name="J. Kirn" action="+" out="0" adv="1" tobase="3"></runner>  
+          <pitcher name="J. Whitter" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="J. Whitter" text="KP" b="0" s="2"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="2b" name="T. Ludwig" po="0" a="1"></fielder>  
+          <narrative text="J. Dameron grounded out to 2b; J. Kirn advanced to third."></narrative> 
+        </play>  
+        <play seq="67" outs="1" batter="C. Casso" batprof="R" pchprof="L" pitcher="J. Whitter" third="J. Kirn"> 
+          <batter name="C. Casso" action="KS 23" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ab="1" so="1" ip="1"></pitcher>  
+          <pitches name="J. Whitter" text="KBFS" b="1" s="3"></pitches>  
+          <fielder pos="c" name="J. Kouneski" po="0" a="1"></fielder>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <narrative text="C. Casso struck out swinging, out at first c to 1b."></narrative> 
+        </play>  
+        <play seq="68" outs="2" batter="R. Retone" batprof="L" pchprof="L" pitcher="J. Whitter" third="J. Kirn"> 
+          <sub vh="H" spot="1" who="B. Rochelle" for="R. Retone" pos="ph"></sub>  
+          <narrative text="B. Rochelle pinch hit for R. Retone."></narrative> 
+        </play>  
+        <play seq="69" outs="2" batter="B. Rochelle" batprof="R" pchprof="L" pitcher="J. Whitter" third="J. Kirn"> 
+          <batter name="B. Rochelle" action="FF3" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="J. Whitter" text="SP" b="0" s="2"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <narrative text="B. Rochelle fouled out to 1b."></narrative> 
+        </play>  
+        <innsummary r="0" h="1" e="0" lob="1"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="7"> 
+      <batting vh="V" id="MBU"> 
+        <play seq="70" outs="0" batter="J. Kouneski" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <sub vh="H" spot="1" who="R. Retone" for="B. Rochelle" pos="2b"></sub>  
+          <narrative text="R. Retone to 2b for B. Rochelle."></narrative> 
+        </play>  
+        <play seq="71" outs="0" batter="J. Kouneski" batprof="R" pchprof="R" pitcher="K. Piepmeier"> 
+          <batter name="J. Kouneski" action="E5" out="0" adv="1" tobase="1" rcherr="1" ab="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ab="1"></pitcher>  
+          <fielder pos="3b" name="J. Bendfeld" e="1"></fielder>  
+          <narrative text="J. Kouneski reached first on an error by 3b."></narrative> 
+        </play>  
+        <play seq="72" outs="0" batter="J. Orozco" batprof="R" pchprof="R" pitcher="K. Piepmeier" first="J. Kouneski"> 
+          <runner base="1" name="J. Kouneski" action="SB" out="0" adv="1" tobase="2" sb="1"></runner>  
+          <pitcher name="K. Piepmeier" sba="1"></pitcher>  
+          <fielder pos="p" name="K. Piepmeier" sba="1"></fielder>  
+          <fielder pos="c" name="J. Dameron" sba="1"></fielder>  
+          <narrative text="J. Kouneski stole second."></narrative> 
+        </play>  
+        <play seq="73" outs="0" batter="J. Orozco" batprof="R" pchprof="R" pitcher="K. Piepmeier" second="J. Kouneski"> 
+          <runner base="2" name="J. Kouneski" action="WP" out="0" adv="1" tobase="3"></runner>  
+          <pitcher name="K. Piepmeier" wp="1"></pitcher>  
+          <narrative text="J. Kouneski advanced to third on a wild pitch."></narrative> 
+        </play>  
+        <play seq="74" outs="0" batter="J. Orozco" batprof="R" pchprof="R" pitcher="K. Piepmeier" third="J. Kouneski"> 
+          <batter name="J. Orozco" action="P4" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="KBBBSP" b="3" s="3"></pitches>  
+          <fielder pos="2b" name="R. Retone" po="1"></fielder>  
+          <narrative text="J. Orozco popped up to 2b."></narrative> 
+        </play>  
+        <play seq="75" outs="1" batter="C. Hidalgo" batprof="R" pchprof="R" pitcher="K. Piepmeier" third="J. Kouneski"> 
+          <batter name="C. Hidalgo" action="F9" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="K. Piepmeier" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="P" b="0" s="1"></pitches>  
+          <fielder pos="rf" name="J. Kirn" po="1"></fielder>  
+          <narrative text="C. Hidalgo flied out to rf."></narrative> 
+        </play>  
+        <play seq="76" outs="2" batter="L. Lefebvre" batprof="R" pchprof="R" pitcher="K. Piepmeier" third="J. Kouneski"> 
+          <batter name="L. Lefebvre" action="KS" out="1" adv="0" tobase="0" ab="1" so="1"></batter>  
+          <pitcher name="K. Piepmeier" ip="1" bf="1" ab="1" so="1"></pitcher>  
+          <pitches name="K. Piepmeier" text="KFBBS" b="2" s="3"></pitches>  
+          <fielder pos="c" name="J. Dameron" po="1"></fielder>  
+          <narrative text="L. Lefebvre struck out swinging."></narrative> 
+        </play>  
+        <innsummary r="0" h="0" e="1" lob="1"></innsummary> 
+      </batting>  
+      <batting vh="H" id="WWU"> 
+        <play seq="77" outs="0" batter="J. Gremillio" batprof="R" pchprof="L" pitcher="J. Whitter"> 
+          <batter name="J. Gremillio" action="P4" out="1" adv="0" tobase="0" ab="1" flyout="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ip="1" ab="1" flyout="1"></pitcher>  
+          <pitches name="J. Whitter" text="KP" b="0" s="2"></pitches>  
+          <fielder pos="2b" name="T. Ludwig" po="1"></fielder>  
+          <narrative text="J. Gremillio popped up to 2b."></narrative> 
+        </play>  
+        <play seq="78" outs="1" batter="K. Kinsler" batprof="L" pchprof="L" pitcher="J. Whitter"> 
+          <batter name="K. Kinsler" action="63" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="J. Whitter" text="KKBBFP" b="2" s="4"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="ss" name="D. Palma" po="0" a="1"></fielder>  
+          <narrative text="K. Kinsler grounded out to ss."></narrative> 
+        </play>  
+        <play seq="79" outs="2" batter="J. McWhirter" batprof="L" pchprof="L" pitcher="J. Whitter"> 
+          <batter name="J. McWhirter" action="63" out="1" adv="0" tobase="0" ab="1" gndout="1"></batter>  
+          <pitcher name="J. Whitter" bf="1" ip="1" ab="1" gndout="1"></pitcher>  
+          <pitches name="J. Whitter" text="SSP" b="0" s="3"></pitches>  
+          <fielder pos="1b" name="C. Robinson" po="1"></fielder>  
+          <fielder pos="ss" name="D. Palma" po="0" a="1"></fielder>  
+          <narrative text="J. McWhirter grounded out to ss."></narrative> 
+        </play>  
+        <innsummary r="0" h="0" e="0" lob="0"></innsummary> 
+      </batting> 
+    </inning>  
+    <inning number="8"></inning> 
+  </plays>  
+  <status complete="Y"></status> 
+</bsgame>
+
+
