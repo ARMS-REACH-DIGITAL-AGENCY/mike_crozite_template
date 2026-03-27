@@ -1,3 +1,5 @@
+import { findPlayersBySlug } from "@/lib/db";
+
 type Props = {
   params: {
     hsid: string;
@@ -9,12 +11,25 @@ type Props = {
 export default async function ProfilePage({ params }: Props) {
   const { hsid, playerid, slug } = params;
 
+  let player = null;
+
+  try {
+    const matches = await findPlayersBySlug(slug, hsid);
+    player = matches?.find(p => String(p.playerid) === playerid);
+  } catch (e) {
+    console.error("DB ERROR:", e);
+  }
+
   return (
     <div style={{ padding: '20px' }}>
-      <h1>WORKING</h1>
-      <p>{hsid}</p>
-      <p>{playerid}</p>
-      <p>{slug}</p>
+      {!player ? (
+        <h1>No player</h1>
+      ) : (
+        <>
+          <h1>{player.firstname} {player.lastname}</h1>
+          <p>{player.playerid}</p>
+        </>
+      )}
     </div>
   );
 }
