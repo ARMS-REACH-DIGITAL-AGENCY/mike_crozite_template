@@ -91,7 +91,85 @@ export async function getSchoolByUrl(hostOrUrl: string) {
   const { rows } = await query(sql, [candidates]);
   return rows[0] || null;
 }
+export type SponsorBanner = {
+  sponsor_name: string;
+  sponsor_image_url: string | null;
+  sponsor_link_url: string | null;
+  sponsor_label: string | null;
+};
 
+export async function getActiveMicrositeSponsor(
+  hsid: string
+): Promise<SponsorBanner | null> {
+  try {
+    const { rows } = await query<SponsorBanner>(
+      `
+      SELECT
+        sponsor_name,
+        sponsor_image_url,
+        sponsor_link_url,
+        sponsor_label
+      FROM microsite_sponsors
+      WHERE hsid::text = $1
+        AND is_active = TRUE
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at >= NOW())
+      ORDER BY display_order ASC NULLS LAST, id DESC
+      LIMIT 1
+      `,
+      [hsid]
+    );
+
+    return rows[0] ?? null;
+  } catch (error) {
+    console.error("getActiveMicrositeSponsor error:", error);
+    return null;
+  }
+}
+
+export async function getActivePlayerProfileSponsor(
+  playerId: string
+): Promise<SponsorBanner | null> {
+  try {
+    const { rows } = await query<SponsorBanner>(
+      `
+      SELECT
+        sponsor_name,
+        sponsor_image_url,
+        sponsor_link_url,
+        sponsor_label
+      FROM player_profile_sponsors
+      WHERE playerid::text = $1
+        AND is_active = TRUE
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at >= NOW())
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [playerId]
+    );
+
+    return rows[0] ?? null;
+  } catch (error) {
+    console.error("getActivePlayerProfileSponsor error:", error);
+    return null;
+  }
+}
+
+export async function getEffectiveSponsorBanner(args: {
+  hsid: string;
+  playerId?: string | null;
+}): Promise<SponsorBanner | null> {
+  if (args.playerId) {
+    const playerSponsor = await getActivePlayerProfileSponsor(args.playerId);
+    if (playerSponsor) return playerSponsor;
+  }
+
+  const micrositeSponsor = await getActiveMicrositeSponsor(args.hsid);
+  if (micrositeSponsor) return micrositeSponsor;
+
+  return null;
+}
 // ---------------------------------------------------------------------------
 // ACTIVE ROSTER — players with 2025 stats (homepage)
 //
