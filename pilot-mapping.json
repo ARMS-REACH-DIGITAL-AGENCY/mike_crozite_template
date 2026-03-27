@@ -1,0 +1,26 @@
+{
+  "presto_to_team": {},
+  "hamilton_targets": [
+    { "teamid": "20021", "team": "Arizona State" },
+    { "teamid": "20026", "team": "Arizona" },
+    { "teamid": "20037", "team": "Northwestern" },
+    { "teamid": "20054", "team": "UCLA" },
+    { "teamid": "20057", "team": "Washington State" },
+    { "teamid": "20124", "team": "Georgia Tech" },
+    { "teamid": "20125", "team": "Grand Canyon" },
+    { "teamid": "20222", "team": "Central Arizona" },
+    { "teamid": "20252", "team": "Yavapai" },
+    { "teamid": "20255", "team": "UNLV" },
+    { "teamid": "20257", "team": "Harvard" },
+    { "teamid": "20266", "team": "New Mexico" },
+    { "teamid": "20272", "team": "Oregon State" },
+    { "teamid": "20433", "team": "TCU" },
+    { "teamid": "20908", "team": "Chandler-Gilbert" },
+    { "teamid": "21135", "team": "VERIFY_21135" },
+    { "teamid": "21264", "team": "Adams State" },
+    { "teamid": "21405", "team": "Colorado School of Mines" },
+    { "teamid": "21995", "team": "Gateway CC" },
+    { "teamid": "22004", "team": "Hannibal-LaGrange" },
+    { "teamid": "22426", "team": "Georgia Gwinnett" }
+  ]
+}
