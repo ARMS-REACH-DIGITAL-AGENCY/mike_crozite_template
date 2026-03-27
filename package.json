@@ -17,17 +17,15 @@
     "stripe": "^20.4.1",
     "cheerio": "^1.1.2"
   },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4.0.0",
-    "@types/node": "^20.19.0",
-    "@types/pg": "^8.11.10",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "latest",
-    "tailwindcss": "^4.0.0",
-    "typescript": "5.9.3"
-  }
-"tsx": "^4.19.2"
-  
+"devDependencies": {
+  "@tailwindcss/postcss": "^4.0.0",
+  "@types/node": "^20.19.0",
+  "@types/pg": "^8.11.10",
+  "@types/react": "^19.2.7",
+  "@types/react-dom": "^19.2.3",
+  "eslint": "^9.0.0",
+  "eslint-config-next": "latest",
+  "tailwindcss": "^4.0.0",
+  "typescript": "5.9.3",
+  "tsx": "^4.19.2"
 }
