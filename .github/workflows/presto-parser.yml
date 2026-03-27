@@ -1,0 +1,45 @@
+name: Presto dry run
+
+on:
+  workflow_dispatch:
+
+jobs:
+  presto-dry-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install parser dependencies
+        run: npm install fast-xml-parser pg
+
+      - name: Show repo files
+        run: |
+          echo "Repo root:"
+          ls -la
+          echo ""
+          echo "scripts:"
+          ls -la scripts || true
+          echo ""
+          echo "presto_xmls:"
+          ls -la presto_xmls || true
+
+      - name: Run Presto parser (dry run)
+        run: node scripts/presto-parser.js
+
+      - name: Upload parser artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-dry-run-artifacts
+          path: |
+            parsed-games.json
+            parsed-rosters.json
+            unmatched-teams.json
+            mapping-suggestions.json
+          if-no-files-found: warn
