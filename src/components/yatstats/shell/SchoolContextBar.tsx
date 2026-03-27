@@ -4,7 +4,6 @@
 'use client';
 
 import { useContext } from 'react';
-import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 
@@ -14,47 +13,30 @@ interface SchoolContextBarProps {
   isNews: boolean;
 }
 
-function formatSlugToLabel(slug: string): string {
-  return slug
-    .split('-')
-    .filter(Boolean)
-    .map((part) => part.toUpperCase())
-    .join(' ');
-}
-
 export default function SchoolContextBar({
-  isPlayerProfile,
   isGallery,
   isNews,
 }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
-  const pathname = usePathname();
 
   const getPageLabel = () => {
-    if (isPlayerProfile) {
-      const segments = pathname.split('/').filter(Boolean);
-      const slug = segments[segments.length - 1] || '';
-      return slug ? formatSlugToLabel(slug) : 'PLAYER PROFILE';
-    }
-
     if (isNews) return 'ACTIVE ALUMNI NEWS';
-    if (isGallery) return 'ACTIVE BASEBALL ALUMNI';
-
-    return '';
+    return 'ACTIVE BASEBALL ALUMNI';
   };
 
   return (
     <div className="yat-schoolrow">
       <a href={`/${schoolData?.hsid || ''}`} aria-label="Go to school microsite homepage">
-  <img
-    src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
-    alt={`${schoolData?.hsName || 'School'} crest`}
-    className="yat-crest"
-    onError={(e) => {
-      e.currentTarget.src = CREST_FALLBACK_PATH;
-    }}
-  />
-</a>
+        <img
+          src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
+          alt={`${schoolData?.hsName || 'School'} crest`}
+          className="yat-crest"
+          onError={(e) => {
+            e.currentTarget.src = CREST_FALLBACK_PATH;
+          }}
+        />
+      </a>
+
       <div className="yat-schooltext">
         <div className="small">{schoolData?.hsLocation || '...'}</div>
         <div className="big1">{schoolData?.hsName || '...'}</div>
@@ -84,12 +66,6 @@ export default function SchoolContextBar({
               <i className="ri-restart-line" />
             </button>
           </>
-        )}
-
-        {isPlayerProfile && (
-          <button id="btnFanFav" className="yat-icon-btn" aria-label="Favorite this player">
-            <i className="ri-heart-add-line" />
-          </button>
         )}
       </div>
     </div>
