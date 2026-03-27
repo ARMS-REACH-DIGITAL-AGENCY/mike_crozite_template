@@ -4,6 +4,7 @@
 'use client';
 
 import { useContext } from 'react';
+import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 
@@ -13,15 +14,33 @@ interface SchoolContextBarProps {
   isNews: boolean;
 }
 
+function formatSlugToLabel(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.toUpperCase())
+    .join(' ');
+}
+
 export default function SchoolContextBar({
+  isPlayerProfile,
   isGallery,
   isNews,
 }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
+  const pathname = usePathname();
 
   const getPageLabel = () => {
+    if (isPlayerProfile) {
+      const segments = pathname.split('/').filter(Boolean);
+      const slug = segments[segments.length - 1] || '';
+      return slug ? formatSlugToLabel(slug) : 'PLAYER PROFILE';
+    }
+
     if (isNews) return 'ACTIVE ALUMNI NEWS';
-    return 'ACTIVE BASEBALL ALUMNI';
+    if (isGallery) return 'ACTIVE BASEBALL ALUMNI';
+
+    return '';
   };
 
   return (
