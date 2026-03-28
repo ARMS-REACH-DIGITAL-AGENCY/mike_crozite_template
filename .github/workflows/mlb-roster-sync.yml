@@ -25,4 +25,4 @@ jobs:
         run: npm install
 
       - name: Run MLB roster sync
-        run: npx tsx ./scripts/sync-mlb-org-rosters.ts
+       run: npx tsx ./scripts/sync-mlb-full-org-rosters.ts
