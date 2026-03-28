@@ -296,23 +296,63 @@ async function upsertFullSeasonTeam(
   assignedTeamId: number,
   assignedTeamName: string,
   level: LevelLabel,
-  rosterStatus: string
+  rosterStatus: string,
+  orgSourceTeamId: number,
+  orgName: string,
+  orgAbbr: string
 ): Promise<void> {
   await pool.query(
     `INSERT INTO player_current_team
-       (playerid, teamid, team_name, level, source, source_team_id, roster_status,
-        last_verified, updated_at)
-     VALUES ($1, NULL, $2, $3, 'mlb_api', $4, $5, NOW(), NOW())
+       (
+         playerid,
+         teamid,
+         team_name,
+         level,
+         source,
+         source_team_id,
+         roster_status,
+         org_name,
+         org_abbr,
+         org_source_team_id,
+         last_verified,
+         updated_at
+       )
+     VALUES (
+         $1,
+         NULL,
+         $2,
+         $3,
+         'mlb_api',
+         $4,
+         $5,
+         $6,
+         $7,
+         $8,
+         NOW(),
+         NOW()
+       )
      ON CONFLICT (playerid) DO UPDATE SET
-       teamid         = NULL,
-       team_name      = EXCLUDED.team_name,
-       level          = EXCLUDED.level,
-       source         = EXCLUDED.source,
-       source_team_id = EXCLUDED.source_team_id,
-       roster_status  = EXCLUDED.roster_status,
-       last_verified  = EXCLUDED.last_verified,
-       updated_at     = EXCLUDED.updated_at`,
-    [playerid, assignedTeamName, level, String(assignedTeamId), rosterStatus]
+       teamid             = NULL,
+       team_name          = EXCLUDED.team_name,
+       level              = EXCLUDED.level,
+       source             = EXCLUDED.source,
+       source_team_id     = EXCLUDED.source_team_id,
+       roster_status      = EXCLUDED.roster_status,
+       org_name           = EXCLUDED.org_name,
+       org_abbr           = EXCLUDED.org_abbr,
+       org_source_team_id = EXCLUDED.org_source_team_id,
+       last_verified      = EXCLUDED.last_verified,
+       updated_at         = EXCLUDED.updated_at`,
+    [
+      playerid,
+      assignedTeamName,
+      level,
+      String(assignedTeamId),
+      rosterStatus,
+      orgName,
+      orgAbbr,
+      String(orgSourceTeamId),
+    ]
   );
 }
 
@@ -460,12 +500,15 @@ if (String(p.id) === "701762" || displayName.toLowerCase().includes("hamel")) {
         resolvedViaSourceMap++;
         if (!dryRun) {
           await upsertFullSeasonTeam(
-            resolvedId,
-            assignedTeamId,
-            assignedTeamName,
-            level,
-            rosterStatus
-          );
+  resolvedId,
+  assignedTeamId,
+  assignedTeamName,
+  level,
+  rosterStatus,
+  org.id,
+  org.name,
+  org.abbreviation
+);
           rowsWritten++;
         }
         continue;
@@ -492,13 +535,16 @@ if (String(p.id) === "701762" || displayName.toLowerCase().includes("hamel")) {
       const dbPlayer = matches[0];
       resolvedViaName++;
       if (!dryRun) {
-        await upsertFullSeasonTeam(
-          dbPlayer.playerid,
-          assignedTeamId,
-          assignedTeamName,
-          level,
-          rosterStatus
-        );
+   await upsertFullSeasonTeam(
+  dbPlayer.playerid,
+  assignedTeamId,
+  assignedTeamName,
+  level,
+  rosterStatus,
+  org.id,
+  org.name,
+  org.abbreviation
+);
         await saveSourceMap(dbPlayer.playerid, p.id, displayName);
         rowsWritten++;
       } else {
