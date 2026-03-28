@@ -3,28 +3,21 @@
 // YAT?STATS — MLB Full-Season Org Roster Sync
 //
 // Pulls the fullSeason roster for all 30 MLB organizations from the MLB Stats
-// API, capturing MLB and MiLB affiliate assignments for each player.  Each
-// entry is matched to a canonical YAT?STATS playerid (via player_source_map
-// first, then conservative exact-name fallback) and upserted into
-// player_current_team with the assigned team name, level, and MLB API team id.
+// API, capturing MLB and MiLB affiliate assignments for each player. Each
+// entry is matched to a canonical YAT?STATS playerid via:
+//   1) player_source_map
+//   2) normalized exact first+last
+//   3) normalized full name
+//   4) nickname-aware fallback
+// and upserts into player_current_team.
 //
 // Usage:
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts               # all orgs, current season
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --season 2024 # specific season
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --dry-run     # preview, no writes
-//
-// Required env vars:
-//   DATABASE_URL  — Neon Postgres connection string
+//   npx tsx ./scripts/sync-mlb-full-org-rosters.ts
+//   npx tsx ./scripts/sync-mlb-full-org-rosters.ts --season 2025
+//   npx tsx ./scripts/sync-mlb-full-org-rosters.ts --dry-run
 
 import { Pool } from "pg";
-import {
-  resolvePlayerFromSourceMap,
-  upsertSourceMap,
-} from "./lib/player-source-map";
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error("ERROR: DATABASE_URL environment variable is not set.");
@@ -33,11 +26,8 @@ if (!DATABASE_URL) {
 
 const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
 const DELAY_MS = 250;
-
-// All sport IDs covered by fullSeason rosters (MLB through Rookie ball).
 const ALL_SPORT_IDS = "1,11,12,13,14,15,16";
 
-// Parse CLI args
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const seasonIdx = args.indexOf("--season");
@@ -48,9 +38,6 @@ if (seasonIdx !== -1 && !args[seasonIdx + 1]) {
 const SEASON =
   seasonIdx !== -1 ? args[seasonIdx + 1] : String(new Date().getFullYear());
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 interface MlbTeam {
   id: number;
   name: string;
@@ -71,7 +58,6 @@ interface MlbRosterEntry {
   };
   position?: { name?: string; abbreviation?: string };
   status?: { code?: string; description?: string };
-  /** The specific affiliate team the player is assigned to. */
   team?: { id?: number; name?: string };
   parentTeamId?: number;
 }
@@ -91,7 +77,6 @@ interface DbPlayerRow {
   lastname: string;
 }
 
-// Level label derived from the MLB API sport name.
 type LevelLabel =
   | "MLB"
   | "AAA"
@@ -101,17 +86,11 @@ type LevelLabel =
   | "Rookie"
   | "Unknown";
 
-// ---------------------------------------------------------------------------
-// Database pool
-// ---------------------------------------------------------------------------
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 function safePlayerName(p: MlbRosterEntry["person"]): string {
   return (
     p.fullName ??
@@ -119,58 +98,117 @@ function safePlayerName(p: MlbRosterEntry["person"]): string {
   );
 }
 
-/** Map an MLB API sport name to a short level label. */
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[.'`’\-]/g, "")
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeFirstName(value: string): string {
+  return normalizeText(value);
+}
+
+function normalizeLastName(value: string): string {
+  return normalizeText(value);
+}
+
+function buildNameKey(firstName: string, lastName: string): string {
+  return `${normalizeFirstName(firstName)} ${normalizeLastName(lastName)}`.trim();
+}
+
+function buildFullNameKey(fullName: string): string {
+  return normalizeText(fullName);
+}
+
+function parseFullName(fullName?: string): { firstName: string; lastName: string } {
+  const cleaned = normalizeText(fullName ?? "");
+  if (!cleaned) return { firstName: "", lastName: "" };
+  const parts = cleaned.split(" ").filter(Boolean);
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts[parts.length - 1],
+  };
+}
+
+const nicknameMap: Record<string, string[]> = {
+  dom: ["dominic"],
+  dominic: ["dom"],
+  nick: ["nicholas", "nicolas"],
+  nicholas: ["nick"],
+  nicolas: ["nick"],
+  mike: ["michael"],
+  michael: ["mike"],
+  matt: ["matthew"],
+  matthew: ["matt"],
+  josh: ["joshua"],
+  joshua: ["josh"],
+  will: ["william"],
+  william: ["will"],
+  alex: ["alexander"],
+  alexander: ["alex"],
+  ben: ["benjamin"],
+  benjamin: ["ben"],
+  jake: ["jacob"],
+  jacob: ["jake"],
+  joe: ["joseph"],
+  joseph: ["joe"],
+  jon: ["john", "jonathan"],
+  john: ["jon"],
+  jonathan: ["jon"],
+  kike: ["enrique"],
+  enrique: ["kike"],
+};
+
+function expandFirstNameVariants(firstName: string): string[] {
+  const normalized = normalizeFirstName(firstName);
+  const variants = new Set<string>();
+  if (!normalized) return [];
+  variants.add(normalized);
+  for (const alt of nicknameMap[normalized] ?? []) {
+    variants.add(normalizeFirstName(alt));
+  }
+  return Array.from(variants);
+}
+
 function sportNameToLevel(sportName?: string): LevelLabel {
   if (!sportName) return "Unknown";
   const s = sportName.toLowerCase();
   if (s.includes("major")) return "MLB";
-  if (s.includes("triple") || s.includes("triple-a") || s === "aaa")
-    return "AAA";
-  if (s.includes("double") || s.includes("double-a") || s === "aa")
-    return "AA";
+  if (s.includes("triple")) return "AAA";
+  if (s.includes("double")) return "AA";
   if (s.includes("high")) return "High-A";
   if (s.includes("single") || s.includes("class a")) return "Single-A";
   if (s.includes("rookie")) return "Rookie";
   return "Unknown";
 }
 
-// ---------------------------------------------------------------------------
-// MLB Stats API helpers
-// ---------------------------------------------------------------------------
 async function fetchMlbTeams(): Promise<MlbTeam[]> {
   const url = `${MLB_API_BASE}/teams?sportId=1&season=${SEASON}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    const data = (await res.json()) as MlbTeamsResponse;
-    return data.teams ?? [];
-  } catch (err) {
-    console.error("fetchMlbTeams error:", err);
-    return [];
-  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`fetchMlbTeams HTTP ${res.status} ${res.statusText}`);
+  const data = (await res.json()) as MlbTeamsResponse;
+  return data.teams ?? [];
 }
 
-/**
- * Fetch all teams across all sport levels so we can resolve the level label
- * for any affiliated team encountered in a fullSeason roster.
- */
 async function fetchAllTeamsWithSport(): Promise<
   Map<number, { name: string; level: LevelLabel }>
 > {
   const url = `${MLB_API_BASE}/teams?sportIds=${ALL_SPORT_IDS}&season=${SEASON}&hydrate=sport`;
   const map = new Map<number, { name: string; level: LevelLabel }>();
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    const data = (await res.json()) as MlbTeamsResponse;
-    for (const t of data.teams ?? []) {
-      map.set(t.id, {
-        name: t.name,
-        level: sportNameToLevel(t.sport?.name),
-      });
-    }
-  } catch (err) {
-    console.error("fetchAllTeamsWithSport error:", err);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`fetchAllTeamsWithSport HTTP ${res.status} ${res.statusText}`);
+  const data = (await res.json()) as MlbTeamsResponse;
+  for (const t of data.teams ?? []) {
+    map.set(t.id, {
+      name: t.name,
+      level: sportNameToLevel(t.sport?.name),
+    });
   }
   return map;
 }
@@ -189,9 +227,6 @@ async function fetchFullSeasonRoster(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Database helpers
-// ---------------------------------------------------------------------------
 async function getAllDbPlayers(): Promise<DbPlayerRow[]> {
   const { rows } = await pool.query<DbPlayerRow>(`
     SELECT
@@ -199,13 +234,9 @@ async function getAllDbPlayers(): Promise<DbPlayerRow[]> {
       TRIM(firstname) AS firstname,
       TRIM(lastname)  AS lastname
     FROM tbc_players_raw
-    WHERE TRIM(firstname) != '' AND TRIM(lastname) != ''
+    WHERE TRIM(firstname) <> '' AND TRIM(lastname) <> ''
   `);
   return rows;
-}
-
-function buildNameKey(firstName: string, lastName: string): string {
-  return `${firstName.toLowerCase()} ${lastName.toLowerCase()}`.trim();
 }
 
 function buildNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
@@ -219,10 +250,28 @@ function buildNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
   return index;
 }
 
+function buildFullNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
+  const index = new Map<string, DbPlayerRow[]>();
+  for (const p of players) {
+    const key = buildFullNameKey(`${p.firstname} ${p.lastname}`);
+    const bucket = index.get(key) ?? [];
+    bucket.push(p);
+    index.set(key, bucket);
+  }
+  return index;
+}
+
 async function resolveFromSourceMap(
   mlbPersonId: number
 ): Promise<string | null> {
-  return resolvePlayerFromSourceMap(pool, "mlb_api", String(mlbPersonId));
+  const { rows } = await pool.query<{ playerid: string }>(
+    `SELECT playerid
+     FROM player_source_map
+     WHERE source = 'mlb_api' AND source_player_id = $1
+     LIMIT 1`,
+    [String(mlbPersonId)]
+  );
+  return rows[0]?.playerid ?? null;
 }
 
 async function saveSourceMap(
@@ -230,22 +279,18 @@ async function saveSourceMap(
   mlbPersonId: number,
   fullName: string
 ): Promise<void> {
-  return upsertSourceMap(
-    pool,
-    playerid,
-    "mlb_api",
-    String(mlbPersonId),
-    fullName
+  await pool.query(
+    `INSERT INTO player_source_map
+       (playerid, source, source_player_id, source_player_name, updated_at)
+     VALUES ($1, 'mlb_api', $2, $3, NOW())
+     ON CONFLICT (source, source_player_id) DO UPDATE SET
+       playerid           = EXCLUDED.playerid,
+       source_player_name = EXCLUDED.source_player_name,
+       updated_at         = EXCLUDED.updated_at`,
+    [playerid, String(mlbPersonId), fullName]
   );
 }
 
-/**
- * Upsert a fullSeason assignment into player_current_team.
- *
- * teamid is intentionally set to NULL — we do not have a canonical YAT/TBC
- * team identifier for affiliate teams. MLB abbreviations must never be stored
- * in teamid.
- */
 async function upsertFullSeasonTeam(
   playerid: string,
   assignedTeamId: number,
@@ -271,21 +316,75 @@ async function upsertFullSeasonTeam(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
+function findCandidateMatches(
+  entry: MlbRosterEntry,
+  nameIndex: Map<string, DbPlayerRow[]>,
+  fullNameIndex: Map<string, DbPlayerRow[]>
+): DbPlayerRow[] {
+  const p = entry.person;
+  const candidates = new Map<string, DbPlayerRow>();
+
+  const firstName = p.firstName ?? "";
+  const lastName = p.lastName ?? "";
+  const fullName = safePlayerName(p);
+
+  const exactKey = buildNameKey(firstName, lastName);
+  for (const row of nameIndex.get(exactKey) ?? []) {
+    candidates.set(row.playerid, row);
+  }
+
+  const parsed = parseFullName(fullName);
+  if (parsed.firstName && parsed.lastName) {
+    const parsedKey = buildNameKey(parsed.firstName, parsed.lastName);
+    for (const row of nameIndex.get(parsedKey) ?? []) {
+      candidates.set(row.playerid, row);
+    }
+  }
+
+  const fullNameKey = buildFullNameKey(fullName);
+  for (const row of fullNameIndex.get(fullNameKey) ?? []) {
+    candidates.set(row.playerid, row);
+  }
+
+  const lastNameNorm = normalizeLastName(lastName || parsed.lastName);
+  const variantBases = [
+    ...(firstName ? [firstName] : []),
+    ...(parsed.firstName ? [parsed.firstName] : []),
+  ];
+
+  const variants = new Set<string>();
+  for (const base of variantBases) {
+    for (const v of expandFirstNameVariants(base)) {
+      variants.add(v);
+    }
+  }
+
+  for (const variant of variants) {
+    const key = `${variant} ${lastNameNorm}`.trim();
+    for (const row of nameIndex.get(key) ?? []) {
+      candidates.set(row.playerid, row);
+    }
+  }
+
+  const all = Array.from(candidates.values());
+  if (all.length <= 1) return all;
+
+  const exactFullNameMatches = all.filter(
+    (row) => buildFullNameKey(`${row.firstname} ${row.lastname}`) === fullNameKey
+  );
+  if (exactFullNameMatches.length === 1) return exactFullNameMatches;
+
+  return all;
+}
+
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-// ---------------------------------------------------------------------------
-// Main pipeline
-// ---------------------------------------------------------------------------
 async function main() {
   console.log("=== YAT?STATS MLB Full-Season Org Roster Sync ===");
   console.log(`Season: ${SEASON}`);
   console.log(`Mode:   ${dryRun ? "DRY RUN" : "LIVE"}`);
   console.log("");
 
-  // --- Fetch MLB organizations (30 teams, sportId=1) -----------------------
   const mlbOrgs = await fetchMlbTeams();
   if (mlbOrgs.length === 0) {
     console.error("No MLB teams returned from MLB Stats API. Aborting.");
@@ -293,20 +392,19 @@ async function main() {
   }
   console.log(`✓ Fetched ${mlbOrgs.length} MLB organizations`);
 
-  // --- Fetch all teams (all levels) to resolve affiliate levels -------------
   const allTeamInfo = await fetchAllTeamsWithSport();
   console.log(
     `✓ Fetched affiliate team info (${allTeamInfo.size} teams across all levels)`
   );
 
-  // --- Load player DB for name-fallback matching ----------------------------
   const dbPlayers = await getAllDbPlayers();
   console.log(`✓ Loaded ${dbPlayers.length} players from DB`);
   const nameIndex = buildNameIndex(dbPlayers);
-  console.log(`✓ Name index built (${nameIndex.size} unique name keys)`);
+  const fullNameIndex = buildFullNameIndex(dbPlayers);
+  console.log(`✓ Name index built (${nameIndex.size} unique normalized name keys)`);
+  console.log(`✓ Full-name index built (${fullNameIndex.size} unique normalized full-name keys)`);
   console.log("");
 
-  // --- Per-run counters ------------------------------------------------------
   let orgsProcessed = 0;
   let totalEntries = 0;
   let resolvedViaSourceMap = 0;
@@ -315,7 +413,6 @@ async function main() {
   let unmatchedSkipped = 0;
   let rowsWritten = 0;
 
-  // --- Process each MLB organization ----------------------------------------
   for (const org of mlbOrgs) {
     console.log(`── ${org.name} (id=${org.id}, abbr=${org.abbreviation}) ──`);
 
@@ -335,7 +432,6 @@ async function main() {
       const p = entry.person;
       const displayName = safePlayerName(p);
 
-      // Determine assigned team / level from the entry or the all-teams map.
       const assignedTeamId: number =
         entry.team?.id ?? entry.parentTeamId ?? org.id;
       const teamLookup = allTeamInfo.get(assignedTeamId);
@@ -344,7 +440,6 @@ async function main() {
       const level: LevelLabel = teamLookup?.level ?? "Unknown";
       const rosterStatus = entry.status?.description ?? "Active";
 
-      // ----- Step 1: resolve via player_source_map --------------------------
       let resolvedId: string | null = null;
       if (!dryRun) {
         resolvedId = await resolveFromSourceMap(p.id);
@@ -361,17 +456,11 @@ async function main() {
             rosterStatus
           );
           rowsWritten++;
-        } else {
-          console.log(
-            `  [DRY RUN] source-map: ${displayName} → ${assignedTeamName} (${level}) playerid=${resolvedId}`
-          );
         }
         continue;
       }
 
-      // ----- Step 2: conservative exact-name fallback -----------------------
-      const nameKey = buildNameKey(p.firstName ?? "", p.lastName ?? "");
-      const matches = nameIndex.get(nameKey) ?? [];
+      const matches = findCandidateMatches(entry, nameIndex, fullNameIndex);
 
       if (matches.length === 0) {
         unmatchedSkipped++;
@@ -389,7 +478,6 @@ async function main() {
         continue;
       }
 
-      // Exactly one match — safe to use.
       const dbPlayer = matches[0];
       resolvedViaName++;
       if (!dryRun) {
@@ -412,7 +500,6 @@ async function main() {
     await delay(DELAY_MS);
   }
 
-  // --- Summary ---------------------------------------------------------------
   console.log("");
   console.log("=== Full-Season Org Roster Sync Complete ===");
   console.log(`Organizations processed:      ${orgsProcessed}`);
