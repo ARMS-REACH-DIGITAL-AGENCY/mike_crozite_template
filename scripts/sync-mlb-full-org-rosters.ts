@@ -431,7 +431,18 @@ async function main() {
     for (const entry of roster) {
       const p = entry.person;
       const displayName = safePlayerName(p);
-
+      
+if (String(p.id) === "701762" || displayName.toLowerCase().includes("hamel")) {
+  console.log("DEBUG PLAYER", {
+    mlbId: p.id,
+    fullName: p.fullName,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    displayName,
+    exactKey: buildNameKey(p.firstName ?? "", p.lastName ?? ""),
+    parsed: parseFullName(displayName),
+  });
+}
       const assignedTeamId: number =
         entry.team?.id ?? entry.parentTeamId ?? org.id;
       const teamLookup = allTeamInfo.get(assignedTeamId);
