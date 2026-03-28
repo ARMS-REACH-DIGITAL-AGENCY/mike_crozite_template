@@ -65,6 +65,32 @@ ON CONFLICT (game_pk) DO UPDATE SET
     updated_at = NOW();
 """
 
+def should_run_schedule_sync() -> bool:
+    today = date.today()
+    url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={today}"
+
+    res = requests.get(url, timeout=30)
+    res.raise_for_status()
+    payload = res.json()
+
+    dates = payload.get("dates", [])
+    if not dates:
+        print("No games today -> skipping sync")
+        return False
+
+    games = dates[0].get("games", [])
+    if not games:
+        print("No games today -> skipping sync")
+        return False
+
+    for game in games:
+        status = (game.get("status") or {}).get("detailedState")
+        if status not in ("Final", "Game Over", "Completed Early"):
+            return True
+
+    print("All games finished -> skipping sync")
+    return False
+
 def fetch_schedule() -> list[dict]:
     res = requests.get(SCHEDULE_URL, timeout=60)
     res.raise_for_status()
@@ -91,7 +117,7 @@ def fetch_schedule() -> list[dict]:
                     "away_team_id": (away.get("team") or {}).get("id"),
                     "away_team_name": (away.get("team") or {}).get("name"),
                     "venue_name": venue.get("name"),
-                    "sport_id": ((game.get("gameType") and 1) or 1),
+                    "sport_id": 1,
                     "level": "MLB",
                     "home_score": home.get("score"),
                     "away_score": away.get("score"),
@@ -101,6 +127,9 @@ def fetch_schedule() -> list[dict]:
     return rows
 
 def main() -> None:
+    if not should_run_schedule_sync():
+        return
+
     rows = fetch_schedule()
     print(f"Fetched {len(rows)} MLB games from {START_DATE} to {END_DATE}")
 
