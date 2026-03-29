@@ -21,7 +21,7 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: '0px' }}>
       {!player ? (
         <h1>No player</h1>
       ) : (
