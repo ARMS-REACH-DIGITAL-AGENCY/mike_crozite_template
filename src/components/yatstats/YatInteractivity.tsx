@@ -92,7 +92,7 @@ window.__firebase_config = ${firebaseConfigJSON};
         alltime:'NEXT-LEVEL ALL-TIME LIST',
         team:'CURRENT TEAM',
         mentor:'MENTORSHIP MARKETPLACE',
-        partner:'PCD ACTION PARTNER PROGRAM',
+        partner:'PARTNERSHIP PROGRAM',
         faq:"FAQ'S"
       };
       var label=labels[tabId]||tabId.toUpperCase();
