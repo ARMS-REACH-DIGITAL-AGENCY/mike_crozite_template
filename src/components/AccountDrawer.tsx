@@ -437,7 +437,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 marginBottom: '10px',
               }}
             >
-              ⭐ Become a Superfan — $9.99/mo
+              ⭐ Become a Superfan — $2.99/mo
             </button>
           )}
           <button
@@ -690,7 +690,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           <div style={{ padding: '16px', borderTop: '1px solid var(--line)', marginTop: '8px' }}>
             <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: '1.6', margin: 0 }}>
               Sign in or register to save favorites from this school.{' '}
-              Want to favorite players from other schools too? Upgrade to Superfan for global access — $9.99/month.
+              Want to favorite players from other schools too? Upgrade to Superfan for global access — $2.99/month.
             </p>
           </div>
         </>
