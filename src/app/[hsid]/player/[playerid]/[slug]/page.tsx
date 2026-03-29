@@ -1,16 +1,3 @@
-The 
-integrate/final-shell-profile
-
- branch of 
-mike_crozite_template
-
- does not contain the path 
-src/app/[hsid]/player/[playerid]/[slug]/page.tsx.
-
-src/app/[hsid]/player/[playerid]/[slug]/page.tsx
-src/app/[hsid]/player/[playerId]/[slug]/page.tsx
-
-
 import { findPlayersBySlug } from "@/lib/db";
 
 type Props = {
