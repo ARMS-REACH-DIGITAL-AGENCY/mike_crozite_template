@@ -13,6 +13,7 @@ import {
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
+import { getPlayerNowImageUrl } from '@/lib/playerImage';
 import { formatSchoolName } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -108,11 +109,14 @@ export default async function HsidLayout({
   const activeIds = (activeRoster as Record<string, unknown>[]).map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
 
-  const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => ({
-    id: String(p.playerid),
+  const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => {
+  const playerId = String(p.playerid);
+  return {
+    id: playerId,
     name: `${String(p.firstname || '')} ${String(p.lastname || '')}`.trim(),
-    image: headshotMap.get(String(p.playerid))?.image_url ?? '/placeholder.png',
-  }));
+    image: headshotMap.get(playerId)?.image_url ?? getPlayerNowImageUrl(playerId) ?? '/placeholder.png',
+  };
+});
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
