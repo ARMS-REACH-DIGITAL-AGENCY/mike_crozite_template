@@ -81,21 +81,33 @@ export default function InteractionStrip({
 
       <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
         {showActiveStrip ? (
-          players.map((p) => (
-            <a key={p.id} href={`#player-${p.id}`} className="gallery-slot" title={p.name}>
-              <img
-                src={p.image || '/img/headshot-silhouette.png'}
-                alt={p.name}
-                className="gallery-slot-img"
-                onError={(e) => {
-                  const fallback = '/img/headshot-silhouette.png';
-                  if (e.currentTarget.src !== window.location.origin + fallback) {
-                    e.currentTarget.src = fallback;
-                  }
-                }}
-              />
-            </a>
-          ))
+         players.map((p) => (
+  <a
+    key={p.id}
+    href={`#player-${p.id}`}
+    className="gallery-slot"
+    title={p.name}
+    onClick={(e) => {
+      e.preventDefault();
+      const el = document.getElementById(`player-${p.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }}
+  >
+    <img
+      src={p.image || '/img/headshot-silhouette.png'}
+      alt={p.name}
+      className="gallery-slot-img"
+      onError={(e) => {
+        const fallback = '/img/headshot-silhouette.png';
+        if (e.currentTarget.src !== window.location.origin + fallback) {
+          e.currentTarget.src = fallback;
+        }
+      }}
+    />
+  </a>
+))
         ) : (
           <div aria-hidden="true" style={{ width: '100%', minHeight: '100%' }} />
         )}
