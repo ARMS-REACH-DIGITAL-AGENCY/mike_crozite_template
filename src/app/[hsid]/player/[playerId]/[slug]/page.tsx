@@ -114,10 +114,10 @@ const safePlayerId = String(playerId);
 const firstName = (player.firstname || "").trim();
 const lastName = (player.lastname || "").trim();
 const displayName = `${firstName} ${lastName}`.trim() || safePlayerId;
-const pos = player.position || "--";
-const ht = player.height || "--";
-const wt = player.weight || "--";
-const bt = `${player.bats || "-"}/${player.throws || "-"}`;
+const pos = "--";
+const ht = "--";
+const wt = "--";
+const bt = "-/-";
 
 const [
   battingSeasons,
