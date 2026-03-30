@@ -15,6 +15,18 @@ type InteractionStripProps = {
   players?: Player[];
 };
 
+const STRIP_FALLBACK = '/img/headshot-silhouette.png';
+
+function getLastName(name: string): string {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return '';
+  return parts[parts.length - 1].toUpperCase();
+}
+
 export default function InteractionStrip({
   isPlayerProfile = false,
   isGallery = false,
@@ -67,62 +79,111 @@ export default function InteractionStrip({
   }
 
   return (
-    <div className="gallery-strip">
-      {showActiveStrip && (
-        <button
-          type="button"
-          className={`gallery-strip-arrow left ${!canScrollLeft ? 'hidden' : ''}`}
-          onClick={() => scrollByAmount('left')}
-          aria-label="Scroll left"
-        >
-          ‹
-        </button>
-      )}
-
-      <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
-        {showActiveStrip ? (
-         players.map((p) => (
-  <a
-    key={p.id}
-    href={`#player-${p.id}`}
-    className="gallery-slot"
-    title={p.name}
-    onClick={(e) => {
-      e.preventDefault();
-      const el = document.getElementById(`player-${p.id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }}
-  >
-    <img
-      src={p.image || '/img/headshot-silhouette.png'}
-      alt={p.name}
-      className="gallery-slot-img"
-      onError={(e) => {
-        const fallback = '/img/headshot-silhouette.png';
-        if (e.currentTarget.src !== window.location.origin + fallback) {
-          e.currentTarget.src = fallback;
+    <>
+      <style jsx>{`
+        .gallery-slot-link {
+          display: block;
+          text-decoration: none;
+          color: inherit;
         }
-      }}
-    />
-  </a>
-))
-        ) : (
-          <div aria-hidden="true" style={{ width: '100%', minHeight: '100%' }} />
+
+        .gallery-slot-media {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #000;
+        }
+
+        .gallery-slot-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .gallery-slot-name-overlay {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 4px;
+          z-index: 2;
+          text-align: center;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #fff;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+          pointer-events: none;
+          padding: 0 4px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      `}</style>
+
+      <div className="gallery-strip">
+        {showActiveStrip && (
+          <button
+            type="button"
+            className={`gallery-strip-arrow left ${!canScrollLeft ? 'hidden' : ''}`}
+            onClick={() => scrollByAmount('left')}
+            aria-label="Scroll left"
+          >
+            ‹
+          </button>
+        )}
+
+        <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
+          {showActiveStrip ? (
+            players.map((p) => {
+              const lastName = getLastName(p.name);
+              const initialSrc =
+                p.image && p.image.trim() !== '' ? p.image : STRIP_FALLBACK;
+
+              return (
+                <a
+                  key={p.id}
+                  href={`#player-${p.id}`}
+                  className="gallery-slot gallery-slot-link"
+                  title={p.name}
+                >
+                  <div className="gallery-slot-media">
+                    <img
+                      src={initialSrc}
+                      alt={p.name}
+                      className="gallery-slot-img"
+                      onError={(e) => {
+                        if (!e.currentTarget.src.endsWith(STRIP_FALLBACK)) {
+                          e.currentTarget.src = STRIP_FALLBACK;
+                        }
+                      }}
+                    />
+                    {lastName ? (
+                      <div className="gallery-slot-name-overlay">{lastName}</div>
+                    ) : null}
+                  </div>
+                </a>
+              );
+            })
+          ) : (
+            <div aria-hidden="true" style={{ width: '100%', minHeight: '100%' }} />
+          )}
+        </div>
+
+        {showActiveStrip && (
+          <button
+            type="button"
+            className={`gallery-strip-arrow right ${!canScrollRight ? 'hidden' : ''}`}
+            onClick={() => scrollByAmount('right')}
+            aria-label="Scroll right"
+          >
+            ›
+          </button>
         )}
       </div>
-
-      {showActiveStrip && (
-        <button
-          type="button"
-          className={`gallery-strip-arrow right ${!canScrollRight ? 'hidden' : ''}`}
-          onClick={() => scrollByAmount('right')}
-          aria-label="Scroll right"
-        >
-          ›
-        </button>
-      )}
-    </div>
+    </>
   );
 }
