@@ -382,9 +382,46 @@ export default function YatStyles() {
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
-      .yat-front-content{position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between}
-      .yat-chips-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-      .yat-info-block{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+      .yat-front-content{
+  position:absolute;
+  inset:0;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+
+.yat-front-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  width:100%;
+}
+
+.yat-front-top-spacer{
+  flex:1;
+}
+
+.yat-front-top-right{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+}
+
+.yat-info-block{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+}
+
+.yat-front-badge-row{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
     .yat-name{
   font-family:"Indigo", "Bebas Neue", sans-serif;
   letter-spacing:.01em;
