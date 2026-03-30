@@ -110,10 +110,9 @@ function showSection(tabId, updateHash){
   }
 
   if(updateHash){
-    history.replaceState(null, '', '#sec-' + key);
-  }
-
+  history.replaceState(null, '', '#sec-' + key);
   window.scrollTo({ top: 0, behavior: 'auto' });
+}
 }
 
 document.addEventListener('click', function(e){
