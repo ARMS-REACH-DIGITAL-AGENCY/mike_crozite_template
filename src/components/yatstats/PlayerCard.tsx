@@ -36,14 +36,15 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   return (
     <article
-      className="yat-card"
-      data-name={`${p.firstname} ${p.lastname}`.toLowerCase()}
-      data-playerid={String(p.playerid)}
-      data-level={lvl}
-      data-gradclass={gc}
-      data-slug={slug}
-      data-dots={dots.join(",")}
-    >
+  id={`player-${String(p.playerid)}`}
+  className="yat-card"
+  data-name={`${p.firstname} ${p.lastname}`.toLowerCase()}
+  data-playerid={String(p.playerid)}
+  data-level={lvl}
+  data-gradclass={gc}
+  data-slug={slug}
+  data-dots={dots.join(",")}
+>
       <div className="yat-card-inner">
         <div className="yat-flip">
           <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} />
