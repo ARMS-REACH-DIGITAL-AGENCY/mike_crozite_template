@@ -1,4 +1,4 @@
-name: TBC Safe Ingest v2
+name: TBC Safe Ingest v3
 
 on:
   workflow_dispatch:
