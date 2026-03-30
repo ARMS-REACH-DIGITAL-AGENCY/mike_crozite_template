@@ -12,6 +12,7 @@ import {
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
+import { getPlayerNowImageUrl } from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
@@ -108,12 +109,16 @@ export default async function HsidLayout({
   const activeIds = (activeRoster as Record<string, unknown>[]).map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
 
-  const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => ({
-    id: String(p.playerid),
+ const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => {
+  const playerId = String(p.playerid);
+  return {
+    id: playerId,
     name: `${String(p.firstname || '')} ${String(p.lastname || '')}`.trim(),
-    image: headshotMap.get(String(p.playerid))?.image_url ?? null,
-    isPitcher: p.is_pitcher === true,
-  }));
+    image:
+      headshotMap.get(playerId)?.image_url ||
+      getPlayerNowImageUrl(playerId),
+  };
+});
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
