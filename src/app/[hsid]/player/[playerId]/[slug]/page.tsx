@@ -92,11 +92,11 @@ function levelClass(lv: string): string {
 export default async function ProfilePage({ params }: Props) {
   const { hsid, playerId, slug } = params;
 
-let player = null;
+let player: any = null;
 
 try {
   const matches = await findPlayersBySlug(slug, hsid);
-  player = matches?.find((p: any) => String(p.playerid) === playerId);
+  player = matches?.find((p: any) => String(p.playerid) === playerId) as any;
 } catch (e) {
   console.error("DB ERROR:", e);
 }
