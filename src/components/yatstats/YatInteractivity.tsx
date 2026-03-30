@@ -77,40 +77,76 @@ window.__firebase_config = ${firebaseConfigJSON};
     card.classList.toggle('is-flipped');
   });
 
-  function showSection(tabId){
-    document.querySelectorAll('.yat-section').forEach(function(s){
-      s.classList.remove('visible');
-    });
-    var sec=document.getElementById('sec-'+tabId);
-    if(sec)sec.classList.add('visible');
-    /* update section label in school row (serves as breadcrumb) */
-    var sectionLabel=document.getElementById('yatSectionLabel');
-    if(sectionLabel){
-      var labels={
-        active:'ACTIVE BASEBALL ALUMNI',
-        news:'ACTIVE ALUMNI NEWS',
-        alltime:'NEXT-LEVEL ALL-TIME LIST',
-        current:'2026 HIGH SCHOOL TEAM',
-        fantasy:'FANTASY BRACKET TOURNEY',
-        mentor:'MENTORSHIP MARKETPLACE',
-        partner:'PARTNERSHIP PROGRAM',
-        about:'ABOUT US',
-        faq:"FAQ'S"
-      };
-      var label=labels[tabId]||tabId.toUpperCase();
-      sectionLabel.textContent=label;
-    }
+ function normalizeTab(tabId){
+  if(tabId === 'team') return 'current';
+  return tabId;
+}
+
+function showSection(tabId, updateHash){
+  var key = normalizeTab(tabId);
+
+  document.querySelectorAll('.yat-section').forEach(function(s){
+    s.classList.remove('visible');
+  });
+
+  var sec = document.getElementById('sec-' + key);
+  if(sec) sec.classList.add('visible');
+
+  var sectionLabel = document.getElementById('yatSectionLabel');
+  if(sectionLabel){
+    var labels = {
+      active:'ACTIVE BASEBALL ALUMNI',
+      news:'ACTIVE ALUMNI NEWS',
+      alltime:'NEXT-LEVEL ALL-TIME LIST',
+      current:'2026 HIGH SCHOOL TEAM',
+      fantasy:'FANTASY BRACKET TOURNEY',
+      mentor:'MENTORSHIP MARKETPLACE',
+      partner:'PARTNERSHIP PROGRAM',
+      about:'ABOUT US',
+      faq:"FAQ'S"
+    };
+    var label = labels[key] || key.toUpperCase();
+    sectionLabel.textContent = label;
   }
 
-  document.addEventListener('click',function(e){
-    var pair=e.target.closest('[data-tab]');
-    if(!pair)return;
-    var tab=pair.dataset.tab;
-    if(!tab)return;
-    e.preventDefault();
-    showSection(tab);
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
-  });
+  if(updateHash){
+    history.replaceState(null, '', '#sec-' + key);
+  }
+
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+document.addEventListener('click', function(e){
+  var pair = e.target.closest('[data-tab]');
+  if(!pair) return;
+
+  var tab = pair.dataset.tab;
+  if(!tab) return;
+
+  e.preventDefault();
+  showSection(tab, true);
+  document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+});
+
+(function initSectionFromHash(){
+  var hash = window.location.hash || '';
+  var tab = '';
+
+  if(hash.indexOf('#sec-') === 0){
+    tab = hash.replace('#sec-', '');
+  }
+
+  if(!tab) tab = 'active';
+  showSection(tab, false);
+})();
+
+window.addEventListener('hashchange', function(){
+  var hash = window.location.hash || '';
+  var tab = hash.indexOf('#sec-') === 0 ? hash.replace('#sec-', '') : 'active';
+  showSection(tab, false);
+});
+
+  
   var btnMenu=document.getElementById('btnMenu') || document.getElementById('openMenu');
 var closeLeft=document.getElementById('closeLeft');
 var mask=document.getElementById('drawerMask');
@@ -138,12 +174,16 @@ if(mask){
   mask.addEventListener('click',function(){
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
   });
+
+  
 }var openFilters=document.getElementById('openFilters');
   var closeFilters=document.getElementById('closeFilters');
   var filtersReset=document.getElementById('filtersReset');
   var filtersReset2=document.getElementById('filtersReset2');
   if(openFilters)openFilters.addEventListener('click',function(){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');});
   if(closeFilters)closeFilters.addEventListener('click',function(){document.body.classList.remove('drawer-right-open','drawer-open');});
+  
+  
   var btnAccount=document.getElementById('btnAccount');
   var closeAccount=document.getElementById('closeAccount');
   if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
