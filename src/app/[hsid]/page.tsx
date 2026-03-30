@@ -13,6 +13,7 @@ import {
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
 } from "@/lib/db";
+import { getFlipCardFrontStageByHsid } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
@@ -73,10 +74,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ""));
 
-  const [activeRoster, allTimeRoster] = await Promise.all([
-    getActiveRosterByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
-  ]);
+  const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
+  getActiveRosterByHsid(resolvedHsid),
+  getAllTimeRosterByHsid(resolvedHsid),
+  getFlipCardFrontStageByHsid(resolvedHsid),
+]);
 
   // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players.
   const allRosterIds = Array.from(new Set([
@@ -87,7 +89,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getBatchDesignatedPlayerImages(allRosterIds, 'YATSTATS_FRONT'),
     getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT'),
   ]);
+const flipFrontStageMap = new Map(
+  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
+    String(row.playerid),
+    row,
+  ])
+);
 
+const activeFrontRoster = (activeRoster as Record<string, unknown>[]).map((p) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
+
+const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
@@ -99,15 +116,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               <div className="yat-empty-title">No active players found</div>
               <div className="yat-empty-sub">Check back once the 2026 season begins</div>
             </div>
-          ) : (activeRoster as Record<string, unknown>[]).map((p) => (
-            <PlayerCard
-              key={String(p.playerid)}
-              player={p}
-              resolvedHsid={resolvedHsid}
-              frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-              headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-            />
-          ))}
+          ) : activeFrontRoster.map((p) => (
+  <PlayerCard
+    key={String(p.playerid)}
+    player={p}
+    resolvedHsid={resolvedHsid}
+    frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+    headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+  />
+))}
         </div>
       </section>
 
@@ -120,7 +137,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               <div className="yat-empty-title">No alumni found</div>
               <div className="yat-empty-sub">Check back as we continue building the database</div>
             </div>
-          ) : (allTimeRoster as Record<string, unknown>[]).map((p) => (
+          ) : allTimeFrontRoster.map((p) => (
             <PlayerCard
               key={String(p.playerid)}
               player={p}
