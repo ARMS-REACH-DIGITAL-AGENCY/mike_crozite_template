@@ -4,6 +4,15 @@
 export default function YatStyles() {
   return (
     <style>{`
+
+    @font-face{
+  font-family:"Indigo";
+  src:url("/fonts/Indigo.otf") format("opentype");
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
+    
     :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:42px;--footerH:clamp(56px,8vh,77px);--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:36px;--row2-h:54px}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -376,7 +385,14 @@ export default function YatStyles() {
       .yat-front-content{position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between}
       .yat-chips-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
       .yat-info-block{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
-      .yat-name{font-family:"Bebas Neue",sans-serif;letter-spacing:.02em;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5);text-transform:uppercase;font-size:28px}
+    .yat-name{
+  font-family:"Indigo", "Bebas Neue", sans-serif;
+  letter-spacing:.01em;
+  color:#fff;
+  text-shadow:1px 1px 3px rgba(0,0,0,.5);
+  text-transform:uppercase;
+  font-size:28px;
+}
       .yat-name span{display:block;line-height:.9}
       @media(max-width:1400px){.yat-name{font-size:26px}}
       @media(max-width:1100px){.yat-name{font-size:24px}}
