@@ -158,7 +158,7 @@ export default function InteractionStrip({
           {showActiveStrip ? (
             players.map((p) => {
               const lastName = getLastName(p.name);
-              const fallbackSrc = getNowSilhouetteUrl(Boolean(p.isPitcher));
+             const fallbackSrc = '/img/headshot-silhouette.png';
               const initialSrc =
                 p.image && p.image.trim() !== '' ? p.image : fallbackSrc;
 
