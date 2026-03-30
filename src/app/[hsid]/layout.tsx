@@ -13,10 +13,11 @@ import {
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { getPlayerNowImageUrl } from '@/lib/playerImage';
 import { formatSchoolName } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
+
+import type { Metadata } from 'next';
 
 // Shared Components
 import YatStyles from '@/components/yatstats/YatStyles';
@@ -27,8 +28,6 @@ import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 
 export const runtime = 'nodejs';
-
-import type { Metadata } from 'next';
 
 export async function generateMetadata({
   params,
@@ -95,7 +94,7 @@ export default async function HsidLayout({
   const subdomain = subdomainPart.split('.')[0] || hsid || 'unknown';
 
   // Build school data for the context provider
-      const schoolData = {
+  const schoolData = {
     hsid: resolvedHsid,
     hsName: schoolName,
     hsLocation: location,
@@ -109,14 +108,12 @@ export default async function HsidLayout({
   const activeIds = (activeRoster as Record<string, unknown>[]).map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
 
-  const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => {
-  const playerId = String(p.playerid);
-  return {
-    id: playerId,
+  const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => ({
+    id: String(p.playerid),
     name: `${String(p.firstname || '')} ${String(p.lastname || '')}`.trim(),
-    image: headshotMap.get(playerId)?.image_url ?? getPlayerNowImageUrl(playerId) ?? '/placeholder.png',
-  };
-});
+    image: headshotMap.get(String(p.playerid))?.image_url ?? null,
+    isPitcher: p.is_pitcher === true,
+  }));
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
@@ -124,32 +121,33 @@ export default async function HsidLayout({
       <YatStyles />
 
       {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5 */}
-            <SharedShell hsid={resolvedHsid} players={stripPlayers}>
+      <SharedShell hsid={resolvedHsid} players={stripPlayers}>
         {children}
       </SharedShell>
 
-{/* LEFT DRAWER */}
-<aside className="yat-drawer yat-drawer-left" id="drawerLeft">
-  <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
-    <i className="ri-close-line" />
-  </button>
+      {/* LEFT DRAWER */}
+      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
+        <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
+          <i className="ri-close-line" />
+        </button>
 
-  <div className="yat-drawer-content">
-    <h3>NAVIGATION</h3>
+        <div className="yat-drawer-content">
+          <h3>NAVIGATION</h3>
 
-    <div className="yat-drawer-nav">
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-current`}>2026 HIGH SCHOOL TEAM</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-fantasy`}>FANTASY BRACKET TOURNEY</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-mentor`}>MENTORSHIP MARKETPLACE</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-partner`}>PARTNERSHIP PROGRAM</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-about`}>ABOUT US</a>
-      <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-faq`}>FAQ’S</a>
-    </div>
-  </div>
-</aside>
+          <div className="yat-drawer-nav">
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-current`}>2026 HIGH SCHOOL TEAM</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-fantasy`}>FANTASY BRACKET TOURNEY</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-mentor`}>MENTORSHIP MARKETPLACE</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-partner`}>PARTNERSHIP PROGRAM</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-about`}>ABOUT US</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-faq`}>FAQ’S</a>
+          </div>
+        </div>
+      </aside>
+
       {/* Right Drawers */}
       <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
         <button className="yat-icon-btn yat-close-btn" id="closeAccount">
@@ -201,36 +199,36 @@ export default async function HsidLayout({
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
               {[
-  '2025',
-  '2024',
-  '2023',
-  '2022',
-  '2021',
-  '2020',
-  '2019',
-  '2018',
-  '2017',
-  '2016',
-  '2015',
-  '2014',
-  '2013',
-  '2012',
-  '2011',
-  '2010',
-  '2009',
-  '2008',
-  '2007',
-  '2006',
-  '2005',
-  '2004',
-  '2003',
-  '2002',
-  '2001',
-  '2000',
-  '1990-1999',
-  '1980-1989',
-  'PRE-1980',
-].map((year) => (
+                '2025',
+                '2024',
+                '2023',
+                '2022',
+                '2021',
+                '2020',
+                '2019',
+                '2018',
+                '2017',
+                '2016',
+                '2015',
+                '2014',
+                '2013',
+                '2012',
+                '2011',
+                '2010',
+                '2009',
+                '2008',
+                '2007',
+                '2006',
+                '2005',
+                '2004',
+                '2003',
+                '2002',
+                '2001',
+                '2000',
+                '1990-1999',
+                '1980-1989',
+                'PRE-1980',
+              ].map((year) => (
                 <label key={year}>
                   <input type="checkbox" value={year} /> {year}
                 </label>
