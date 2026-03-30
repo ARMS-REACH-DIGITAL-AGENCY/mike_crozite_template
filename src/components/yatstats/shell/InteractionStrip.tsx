@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { getNowSilhouetteUrl } from '@/lib/playerImage';
 
 type Player = {
   id: string;
   name: string;
-  image?: string;
+  image?: string | null;
+  isPitcher?: boolean;
 };
 
 type InteractionStripProps = {
@@ -14,8 +16,6 @@ type InteractionStripProps = {
   isNews?: boolean;
   players?: Player[];
 };
-
-const STRIP_FALLBACK = '/img/headshot-silhouette.png';
 
 function getLastName(name: string): string {
   const parts = String(name || '')
@@ -102,6 +102,24 @@ export default function InteractionStrip({
           display: block;
         }
 
+        .gallery-slot-gradient {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 50%;
+          z-index: 1;
+          pointer-events: none;
+          background: linear-gradient(
+            to top,
+            rgba(0, 0, 0, 0.8) 0%,
+            rgba(0, 0, 0, 0.65) 18%,
+            rgba(0, 0, 0, 0.45) 34%,
+            rgba(0, 0, 0, 0.2) 44%,
+            rgba(0, 0, 0, 0) 100%
+          );
+        }
+
         .gallery-slot-name-overlay {
           position: absolute;
           left: 0;
@@ -140,8 +158,9 @@ export default function InteractionStrip({
           {showActiveStrip ? (
             players.map((p) => {
               const lastName = getLastName(p.name);
+              const fallbackSrc = getNowSilhouetteUrl(Boolean(p.isPitcher));
               const initialSrc =
-                p.image && p.image.trim() !== '' ? p.image : STRIP_FALLBACK;
+                p.image && p.image.trim() !== '' ? p.image : fallbackSrc;
 
               return (
                 <a
@@ -156,11 +175,12 @@ export default function InteractionStrip({
                       alt={p.name}
                       className="gallery-slot-img"
                       onError={(e) => {
-                        if (!e.currentTarget.src.endsWith(STRIP_FALLBACK)) {
-                          e.currentTarget.src = STRIP_FALLBACK;
+                        if (!e.currentTarget.src.endsWith(fallbackSrc)) {
+                          e.currentTarget.src = fallbackSrc;
                         }
                       }}
                     />
+                    <div className="gallery-slot-gradient" />
                     {lastName ? (
                       <div className="gallery-slot-name-overlay">{lastName}</div>
                     ) : null}
