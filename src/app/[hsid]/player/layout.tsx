@@ -77,10 +77,9 @@ export default async function PlayerLayout({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={crestUrl} alt={`${schoolName} crest`} className="yat-crest" id="school-crest" />
             <div className="yat-schooltext">
-              <div className="...line1...">{location}</div>
-              <div className="...line2...">{schoolName}</div>
-              <div className="...line3...">{firstname} {lastname}</div>
-            </div>
+  <div className="...line1...">{location}</div>
+  <div className="...line2...">{schoolName}</div>
+</div>
           </div>
           <button id="btnFanFav" className="fav-btn-hero" aria-label="Favorite">
             <i className="ri-star-line" /> FAVORITE
