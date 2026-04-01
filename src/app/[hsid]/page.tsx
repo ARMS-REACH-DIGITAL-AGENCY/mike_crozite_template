@@ -76,10 +76,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   }
 
   const resolvedHsid = String(school.hsid ?? hsid);
-  const [activeRoster, allTimeRoster] = await Promise.all([
-    getActiveRosterByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
-  ]);
+ const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
+  getActiveRosterByHsid(resolvedHsid),
+  getAllTimeRosterByHsid(resolvedHsid),
+  getFlipCardFrontStageByHsid(resolvedHsid),
+]);
 
   // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players (one query each).
   // Players without a designated row fall back to legacy players/then/{imageId}.jpg in PlayerCardFront.
@@ -92,7 +93,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getBatchDesignatedPlayerImages(allRosterIds, 'YATSTATS_FRONT'),
     getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT'),
   ]);
+const flipFrontStageMap = new Map(
+  flipFrontStageRows.map((row: any) => [
+    String(row.playerid),
+    row,
+  ])
+);
 
+const activeFrontRoster = activeFrontRoster.map((p) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
+
+const allTimeFrontRoster = allTimeFrontRoster.map((p) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
   const schoolName = formatSchoolName(String(school.hsname || ""));
   const location = (String(school.hslocation || "")).toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
