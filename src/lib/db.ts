@@ -19,7 +19,7 @@
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 
-const pool = new Pool({
+const pool = new Pool({f
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
@@ -849,6 +849,19 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
       return [];
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// FLIP CARD FRONT STAGE — staging table for UI rendering
+// ---------------------------------------------------------------------------
+export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+  const sql = `
+    SELECT *
+    FROM flip_card_front_stage
+    WHERE hsid = $1
+  `;
+  const { rows } = await query(sql, [hsid]);
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
