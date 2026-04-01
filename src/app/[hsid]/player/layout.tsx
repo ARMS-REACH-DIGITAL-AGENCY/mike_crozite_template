@@ -79,7 +79,7 @@ export default async function PlayerLayout({
             <div className="yat-schooltext">
               <div className="...line1...">{location}</div>
               <div className="...line2...">{schoolName}</div>
-              <div className="...line3...">{playerName}</div>
+              <div className="...line3...">{firstname} {lastname}</div>
             </div>
           </div>
           <button id="btnFanFav" className="fav-btn-hero" aria-label="Favorite">
