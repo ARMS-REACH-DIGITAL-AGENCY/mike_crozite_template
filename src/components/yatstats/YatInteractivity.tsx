@@ -547,7 +547,7 @@ function applyFilters(){
     var org=card.getAttribute('data-org')||'';
     var g=card.getAttribute('data-gradclass')||'';
     var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
-    var status=card.getAttribute('data-status')||'';
+    var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
 
     var show=true;
 
@@ -556,9 +556,9 @@ function applyFilters(){
     if(oc.length&&!oc.includes(org))show=false;
     if(gc.length&&!gc.includes(g))show=false;
     if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
-    if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status.toUpperCase()))show=false;
+    if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
 
-    if((isActivePage || isNewsPage) && !sc.length && status.toUpperCase() !== 'ACTIVE') show=false;
+    if((isActivePage || isNewsPage) && !sc.length && status !== 'ACTIVE') show=false;
 
     card.style.display=show?'':'none';
   });
