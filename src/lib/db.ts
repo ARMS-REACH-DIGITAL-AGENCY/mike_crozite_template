@@ -178,57 +178,14 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
       -- Use level from most recent stat row (current level), fall back to career peak
-      -- Normalize to fan-facing display labels matching filter checkboxes
-      CASE COALESCE(
+      COALESCE(
         CASE
           WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
           THEN lp.pit_level
           ELSE lb.bat_level
         END,
         sp.career_highlevel
-      )
-        WHEN 'MLB'        THEN 'MLB'
-        WHEN 'TRIPLE-A'   THEN 'TRIPLE-A'
-        WHEN 'AAA'        THEN 'TRIPLE-A'
-        WHEN 'DOUBLE-A'   THEN 'DOUBLE-A'
-        WHEN 'AA'         THEN 'DOUBLE-A'
-        WHEN 'HIGH-A'     THEN 'HIGH-A'
-        WHEN 'A+'         THEN 'HIGH-A'
-        WHEN 'HIGH A'     THEN 'HIGH-A'
-        WHEN 'LOW-A'      THEN 'LOW-A'
-        WHEN 'A'          THEN 'LOW-A'
-        WHEN 'Single-A'   THEN 'LOW-A'
-        WHEN 'SINGLE-A'   THEN 'LOW-A'
-        WHEN 'ROOKIE'     THEN 'ROOKIE'
-        WHEN 'Rookie'     THEN 'ROOKIE'
-        WHEN 'Indy'       THEN 'INDY'
-        WHEN 'INDY'       THEN 'INDY'
-        WHEN 'Intl'       THEN 'INT''L'
-        WHEN 'INTL'       THEN 'INT''L'
-        WHEN 'INT''L'     THEN 'INT''L'
-        WHEN 'NCAA'       THEN 'NCAA-D1'
-        WHEN 'NCAA-D1'    THEN 'NCAA-D1'
-        WHEN 'D1'         THEN 'NCAA-D1'
-        WHEN 'NCAA-D2'    THEN 'NCAA-D2'
-        WHEN 'D2'         THEN 'NCAA-D2'
-        WHEN 'NCAA-D3'    THEN 'NCAA-D3'
-        WHEN 'D3'         THEN 'NCAA-D3'
-        WHEN 'NAIA'       THEN 'NAIA'
-        WHEN 'Naia'       THEN 'NAIA'
-        WHEN 'JrCollege'  THEN 'JUCO'
-        WHEN 'JUCO'       THEN 'JUCO'
-        WHEN 'JC'         THEN 'JUCO'
-        WHEN 'HS'         THEN 'HIGH SCHOOL'
-        WHEN 'HIGH SCHOOL' THEN 'HIGH SCHOOL'
-        ELSE COALESCE(
-          CASE
-            WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
-            THEN lp.pit_level
-            ELSE lb.bat_level
-          END,
-          sp.career_highlevel
-        )
-      END                                   AS level,
+      )                                     AS level,
       sp.height,
       sp.weight,
       sp.bats,

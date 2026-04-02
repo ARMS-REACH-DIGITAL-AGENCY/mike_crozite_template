@@ -36,8 +36,10 @@ export default function PlayerCardFront({
   const classOf = asText(p.class_of);
   const rosterYears = asTextArray(p.roster_years);
 
-  const statusLabel = asText(p.status_label) || "--";
-  const levelLabel = asText(p.level_label) || "--";
+  // status_label: stage rows have it explicitly; TBC active roster rows are always ACTIVE
+  const statusLabel = asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
+  // level_label: stage rows use level_label; TBC rows use level (already normalized in db.ts)
+  const levelLabel = asText(p.level_label) || asText(p.level) || "--";
 
   const currentTeamName = asText(p.current_team_name);
   const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);

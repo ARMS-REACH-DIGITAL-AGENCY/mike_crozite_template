@@ -80,65 +80,11 @@ const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
   getFlipCardFrontStageByHsid(resolvedHsid),
 ]);
 
-// Level sort rank — higher level = lower number = appears first
-const LEVEL_RANK: Record<string, number> = {
-  'MLB': 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
-  'ROOKIE': 6, 'INDY': 7, "INT'L": 8,
-  'NCAA-D1': 9, 'NCAA-D2': 10, 'NCAA-D3': 11, 'NAIA': 12, 'JUCO': 13,
-  'HIGH SCHOOL': 14,
-};
-
-function sortPlayers(players: Record<string, unknown>[]): Record<string, unknown>[] {
-  return [...players].sort((a, b) => {
-    // 1. Level (high → low)
-    const la = LEVEL_RANK[String(a.level_label || a.level || '')] ?? 99;
-    const lb = LEVEL_RANK[String(b.level_label || b.level || '')] ?? 99;
-    if (la !== lb) return la - lb;
-    // 2. Grad class (oldest first — lower number first)
-    const ga = parseInt(String(a.class_of || a.gradyear || '9999'), 10);
-    const gb = parseInt(String(b.class_of || b.gradyear || '9999'), 10);
-    if (ga !== gb) return ga - gb;
-    // 3. Roster years count (most first)
-    const ra = Array.isArray(a.roster_years) ? a.roster_years.length : 0;
-    const rb = Array.isArray(b.roster_years) ? b.roster_years.length : 0;
-    if (ra !== rb) return rb - ra;
-    // 4. Last name A→Z
-    const nameA = String(a.last_name || a.lastname || '');
-    const nameB = String(b.last_name || b.lastname || '');
-    return nameA.localeCompare(nameB);
-  });
-}
-
-// Build the active roster as a union of:
-// 1. flip_card_front_stage ACTIVE rows (primary — includes YAT temp players)
-// 2. TBC activeRoster rows for players NOT already in flip_card_front_stage
-// This ensures schools without stage rows still show their TBC players
-const flipFrontStageMap = new Map(
-  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
-    String(row.playerid),
-    row,
-  ])
-);
-
-const stageActiveRows = (flipFrontStageRows as Record<string, unknown>[]).filter(
-  (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
-);
-
-// TBC players not already covered by flip_card_front_stage, merged with any stage data
-const tbcOnlyRows = (activeRoster as Record<string, unknown>[]).filter(
-  (p) => !flipFrontStageMap.has(String(p.playerid))
-).map((p) => ({
-  ...p,
-  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-}));
-
-const activeFrontRoster = sortPlayers([...stageActiveRows, ...tbcOnlyRows]);
-
-// Batch-fetch images for all players
+// Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players.
 const allRosterIds = Array.from(
   new Set(
     [
-      ...activeFrontRoster,
+      ...(activeRoster as Record<string, unknown>[]),
       ...(allTimeRoster as Record<string, unknown>[]),
     ].map((p) => String(p.playerid))
   )
@@ -148,6 +94,18 @@ const [frontImageMap, headshotMap] = await Promise.all([
   getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
   getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
 ]);
+
+const flipFrontStageMap = new Map(
+  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
+    String(row.playerid),
+    row,
+  ])
+);
+
+const activeFrontRoster = (activeRoster as Record<string, unknown>[]).map((p) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
 
 const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
   ...p,
@@ -159,7 +117,7 @@ const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) 
       {/* ACTIVE ALUMNI — Row 5 content */}
       <section id="sec-active" className="yat-section visible">
         <div className="yat-grid" id="active-grid">
-          {activeFrontRoster.length === 0 ? (
+          {(activeRoster as Record<string, unknown>[]).length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No active players found</div>
