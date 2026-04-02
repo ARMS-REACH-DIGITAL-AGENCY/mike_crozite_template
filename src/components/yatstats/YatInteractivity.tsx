@@ -92,6 +92,8 @@ function showSection(tabId, updateHash){
   var sec = document.getElementById('sec-' + key);
   if(sec) sec.classList.add('visible');
 
+  resetFiltersForCurrentSection();
+
   var sectionLabel = document.getElementById('yatSectionLabel');
   if(sectionLabel){
     var labels = {
@@ -1053,11 +1055,11 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
   }
 
   /* Hook into section switching to trigger news load */
-  var origShowSection=showSection;
-  showSection=function(tabId){
-    origShowSection(tabId);
-    if(tabId==='news')loadNews();
-  };
+ var origShowSection=showSection;
+showSection=function(tabId, updateHash){
+  origShowSection(tabId, updateHash);
+  if(tabId==='news')loadNews();
+};
   /* Also load if news section is already visible on page load */
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
