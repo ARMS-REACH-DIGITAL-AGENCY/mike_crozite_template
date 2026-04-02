@@ -111,27 +111,7 @@ const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) 
   ...p,
   ...(flipFrontStageMap.get(String(p.playerid)) || {}),
 }));
-const allTimeFrontRoster = allTimeRoster.map((p: any) => ({
-  ...p,
-  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-}));
-  
-const flipFrontStageMap = new Map(
-  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
-    String(row.playerid),
-    row,
-  ])
-);
 
-const activeFrontRoster = (activeFrontRoster.map((p) => ({
-  ...p,
-  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-}));
-
-const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
-  ...p,
-  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-}));
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
