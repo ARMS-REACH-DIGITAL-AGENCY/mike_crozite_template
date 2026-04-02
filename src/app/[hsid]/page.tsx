@@ -12,6 +12,7 @@ import {
   getAllTimeRosterByHsid,
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
+  getFlipCardFrontStageByHsid,
 } from "@/lib/db";
 import { getFlipCardFrontStageByHsid } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
@@ -74,12 +75,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ""));
 
-  const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
+const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
   getActiveRosterByHsid(resolvedHsid),
   getAllTimeRosterByHsid(resolvedHsid),
   getFlipCardFrontStageByHsid(resolvedHsid),
 ]);
-
   // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players.
   const allRosterIds = Array.from(new Set([
     ...(activeRoster as Record<string, unknown>[]),
