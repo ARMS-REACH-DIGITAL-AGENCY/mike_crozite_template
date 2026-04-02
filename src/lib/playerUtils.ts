@@ -46,7 +46,9 @@ export function levelLabel(level: string): string {
     // High school
     "HIGH SCHOOL": "HIGH SCHOOL", "HS": "HIGH SCHOOL",
   };
-  return map[level] || (level ? level.toUpperCase() : "");
+  // Treat dash, empty, or unknown as empty string (card will show -- for level)
+  if (!level || level === '-' || level === '--') return "";
+  return map[level] || level.toUpperCase();
 }
 
 export function levelClass(lvl: string): string {
