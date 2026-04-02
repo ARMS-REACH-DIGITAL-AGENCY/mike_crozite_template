@@ -363,6 +363,7 @@ export default function YatStyles() {
       .chip-other{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:#888}
       .chip-sm{font-size:8px;padding:2px 5px}
       .front-chip{background:rgba(0,0,0,.55);color:#fff;border-radius:6px;padding:2px 6px;font-weight:700;font-family:Oswald,sans-serif;border:1px solid rgba(255,255,255,.2);text-transform:uppercase;font-size:10px}
+      .front-chip--estimated{background:rgba(0,0,0,.25);color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.1);font-weight:400}
       .yat-section{display:none}
       .yat-section.visible{display:block}
       .yat-grid{max-width:1400px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}

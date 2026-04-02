@@ -4,6 +4,8 @@ interface PlayerCardFrontProps {
   player: Record<string, unknown>;
   frontImageUrl?: string | null;
   isAllTime?: boolean;
+  /** When true, the grad class year is estimated (derived from TBC playyears), not verified by school. */
+  gradClassEstimated?: boolean;
 }
 
 function asText(value: unknown): string {
@@ -22,6 +24,7 @@ function asTextArray(value: unknown): string[] {
 export default function PlayerCardFront({
   player: p,
   frontImageUrl = null,
+  gradClassEstimated = false,
 }: PlayerCardFrontProps) {
   const imageId = String(p.playerid || "");
   const isPitcher = p.is_pitcher === true;
@@ -76,7 +79,11 @@ export default function PlayerCardFront({
 
       <div className="yat-front-content">
         <div className="yat-chips-col">
-          {classOf && <span className="front-chip">CLASS OF {classOf}</span>}
+          {classOf && (
+            <span className={gradClassEstimated ? "front-chip front-chip--estimated" : "front-chip"}>
+              CLASS OF {classOf}
+            </span>
+          )}
 
           {rosterYears.length > 0 && (
             <div className="yat-dots">

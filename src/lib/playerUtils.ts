@@ -62,22 +62,48 @@ export function levelClass(lvl: string): string {
   return "chip-other";
 }
 
-export function gradClass(p: Record<string, unknown>): string {
-  // draft_info is a reliable known year (e.g. "2021-05-15" → "2021").
-  if (p.draft_info) { const yr = String(p.draft_info).split("-")[0]; if (yr && /^\d{4}$/.test(yr)) return yr; }
-  // playyears in TBC is stored as a hyphenated range e.g. "2021-2025" — this is a calculated
-  // guess, not a known graduation year. Discard it entirely. Blank is honest; a wrong range is not.
-  // Only use playyears if it is a comma-separated list of individual years (legacy format).
+/**
+ * Returns the grad class year and whether it is estimated.
+ * - verified: class_of from flip_card_front_stage (set by school or curator)
+ * - estimated: first statistical year - 1 (derived from playyears start year)
+ * - blank: no data available
+ */
+export function gradClassInfo(p: Record<string, unknown>): { year: string; estimated: boolean } {
+  // 1. Verified: class_of from flip_card_front_stage — set by school or curator, never inferred.
+  if (p.class_of) {
+    const yr = String(p.class_of).trim();
+    if (/^\d{4}$/.test(yr)) return { year: yr, estimated: false };
+  }
+  // 2. Estimated: first statistical year minus 1.
+  //    playyears from TBC is stored as a hyphenated range "YYYY-YYYY" where the start year
+  //    is the first year the player had recorded stats. Subtracting 1 gives a defensible
+  //    estimate of high school graduation year (player typically graduates the year before
+  //    their first pro/college season).
+  //    NOTE: draft_info is intentionally NOT used — draft year can occur out of HS, after
+  //    junior year, after senior year, or after transfers. It is not a reliable HS class proxy.
   if (p.playyears) {
     const raw = String(p.playyears).trim();
-    if (!raw.includes("-")) {
-      // Comma-separated individual years e.g. "2021,2022,2023"
-      const years = raw.split(",").map((y: string) => y.trim()).filter(Boolean);
-      if (years.length) return years[0];
+    // Hyphenated range: "2021-2025" → start year "2021" → estimated grad "2020"
+    if (raw.includes("-")) {
+      const startYr = raw.split("-")[0].trim();
+      if (/^\d{4}$/.test(startYr)) {
+        return { year: String(parseInt(startYr, 10) - 1), estimated: true };
+      }
+    } else {
+      // Comma-separated individual years (legacy format): take the earliest year
+      const years = raw.split(",").map((y: string) => y.trim()).filter((y: string) => /^\d{4}$/.test(y)).sort();
+      if (years.length) {
+        return { year: String(parseInt(years[0], 10) - 1), estimated: true };
+      }
     }
-    // Hyphenated range ("2021-2025") → discard, return blank
   }
-  return "";
+  // 3. Blank — no data available. Blank is honest.
+  return { year: "", estimated: false };
+}
+
+/** Returns just the grad class year string (for backward compat / data-gradclass). */
+export function gradClass(p: Record<string, unknown>): string {
+  return gradClassInfo(p).year;
 }
 
 export function varsityDots(p: Record<string, unknown>): string[] {

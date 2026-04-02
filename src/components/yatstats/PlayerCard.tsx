@@ -1,7 +1,7 @@
 // src/components/yatstats/PlayerCard.tsx
 // Full flip card container: article element with front and back faces
 
-import { levelLabel, gradClass, varsityDots } from "@/lib/playerUtils";
+import { levelLabel, gradClassInfo, varsityDots } from "@/lib/playerUtils";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
@@ -31,10 +31,11 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // levelLabel() maps raw TBC values to the canonical filter values ("JUCO", "INDY", etc.)
   // so data-level always matches the FiltersDrawer checkbox values for every school.
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
-  // gradClass(p) reads playyears (TBC raw) and returns the first year e.g. "2021".
-  // p.class_of may be a range like "2021-2025" for TBC rows — never use it raw for filter matching.
-  // Stage rows that have no playyears will have a clean single-year class_of (e.g. "2021").
-  const gc = String(gradClass(p) || p.class_of || "");
+  // gradClassInfo() returns { year, estimated }.
+  // year: verified class_of from stage (human-set) OR estimated from first stat year - 1.
+  // estimated: true when derived from TBC playyears, false when set by school/curator.
+  // data-gradclass uses the bare year so the filter matches both verified and estimated.
+  const { year: gc, estimated: gcEstimated } = gradClassInfo(p);
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
   const org = String(p.current_org_or_conference_name || "");
   const status = String(
@@ -62,7 +63,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
     >
       <div className="yat-card-inner">
         <div className="yat-flip">
-          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} />
+          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} gradClassEstimated={gcEstimated} />
           <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} headshotUrl={headshotUrl} isAllTime={isAllTime} />
         </div>
       </div>
