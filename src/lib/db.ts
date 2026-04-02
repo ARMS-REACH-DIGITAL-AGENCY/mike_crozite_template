@@ -855,7 +855,26 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `
     SELECT *,
-      UPPER(status_label) AS status_label
+      UPPER(status_label) AS status_label,
+      CASE level_label
+        WHEN 'AAA'       THEN 'TRIPLE-A'
+        WHEN 'High-A'    THEN 'HIGH-A'
+        WHEN 'Single-A'  THEN 'LOW-A'
+        WHEN 'A+'        THEN 'HIGH-A'
+        WHEN 'A'         THEN 'LOW-A'
+        WHEN 'A-'        THEN 'LOW-A'
+        WHEN 'AA'        THEN 'DOUBLE-A'
+        WHEN 'NCAA-D1'   THEN 'D1'
+        WHEN 'NCAA-D2'   THEN 'D2'
+        WHEN 'NCAA-D3'   THEN 'D3'
+        WHEN 'NCAA'      THEN 'D1'
+        WHEN 'Rk'        THEN 'ROOKIE'
+        WHEN 'RK'        THEN 'ROOKIE'
+        WHEN 'Rookie'    THEN 'ROOKIE'
+        WHEN 'Indy'      THEN 'INDY'
+        WHEN 'JrCollege' THEN 'JUCO'
+        ELSE COALESCE(UPPER(level_label), '')
+      END AS level_label
     FROM flip_card_front_stage
     WHERE hsid = $1
   `;
