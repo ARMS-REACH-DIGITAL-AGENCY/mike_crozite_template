@@ -854,7 +854,8 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `
-    SELECT *
+    SELECT *,
+      UPPER(status_label) AS status_label
     FROM flip_card_front_stage
     WHERE hsid = $1
   `;

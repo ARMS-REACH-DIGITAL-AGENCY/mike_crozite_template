@@ -556,9 +556,9 @@ function applyFilters(){
     if(oc.length&&!oc.includes(org))show=false;
     if(gc.length&&!gc.includes(g))show=false;
     if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
-    if(sc.length&&!sc.includes(status))show=false;
+    if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status.toUpperCase()))show=false;
 
-    if((isActivePage || isNewsPage) && !sc.length && status !== 'ACTIVE') show=false;
+    if((isActivePage || isNewsPage) && !sc.length && status.toUpperCase() !== 'ACTIVE') show=false;
 
     card.style.display=show?'':'none';
   });
@@ -605,8 +605,9 @@ function resetFiltersForCurrentSection(){
   });
 
   if(isActivePage||isNewsPage){
-    document.querySelectorAll('#filterStatus input[value="ACTIVE"]').forEach(function(i){
-      i.checked=true;
+    /* Case-insensitive: check both 'ACTIVE' and 'Active' checkbox values */
+    document.querySelectorAll('#filterStatus input').forEach(function(i){
+      if(i.value&&i.value.toUpperCase()==='ACTIVE') i.checked=true;
     });
   }
 
