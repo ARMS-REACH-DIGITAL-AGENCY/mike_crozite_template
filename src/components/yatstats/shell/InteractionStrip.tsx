@@ -167,6 +167,7 @@ export default function InteractionStrip({
                   key={p.id}
                   href={`#player-${p.id}`}
                   className="gallery-slot gallery-slot-link"
+                  data-playerid={p.id}
                   title={p.name}
                 >
                   <div className="gallery-slot-media">

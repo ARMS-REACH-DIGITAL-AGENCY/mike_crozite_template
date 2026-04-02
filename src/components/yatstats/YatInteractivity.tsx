@@ -561,6 +561,12 @@ function applyFilters(){
     if((isActivePage || isNewsPage) && !sc.length && status !== 'ACTIVE') show=false;
 
     card.style.display=show?'':'none';
+    /* Sync the Row 3 thumbnail strip slot for this player */
+    var pid=card.getAttribute('data-playerid')||'';
+    if(pid){
+      var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
+      if(slot)slot.style.display=show?'':'none';
+    }
   });
 }
   document.addEventListener('change',function(e){

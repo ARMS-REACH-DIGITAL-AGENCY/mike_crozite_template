@@ -8,7 +8,7 @@ import { ReactNode } from 'react';
 import {
   getSchoolByHsid,
   getSchoolByUrl,
-  getActiveRosterByHsid,
+  getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
@@ -104,21 +104,24 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  // Row 3 interaction strip data (homepage / gallery mode)
-  const activeRoster = await getActiveRosterByHsid(resolvedHsid);
-  const activeIds = (activeRoster as Record<string, unknown>[]).map((p) => String(p.playerid));
+  // Row 3 interaction strip data — use flip_card_front_stage ACTIVE players only
+  // so the strip exactly matches the flip card grid
+  const allStageRows = await getFlipCardFrontStageByHsid(resolvedHsid);
+  const activeStageRows = (allStageRows as Record<string, unknown>[]).filter(
+    (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
+  );
+  const activeIds = activeStageRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
-
- const stripPlayers = (activeRoster as Record<string, unknown>[]).map((p) => {
-  const playerId = String(p.playerid);
-  return {
-    id: playerId,
-    name: `${String(p.firstname || '')} ${String(p.lastname || '')}`.trim(),
-    image:
-      headshotMap.get(playerId)?.image_url ||
-      getPlayerNowImageUrl(playerId),
-  };
-});
+  const stripPlayers = activeStageRows.map((p) => {
+    const playerId = String(p.playerid);
+    return {
+      id: playerId,
+      name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+      image:
+        headshotMap.get(playerId)?.image_url ||
+        getPlayerNowImageUrl(playerId),
+    };
+  });
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
