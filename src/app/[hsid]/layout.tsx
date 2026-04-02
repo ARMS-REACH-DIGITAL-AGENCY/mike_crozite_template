@@ -9,7 +9,6 @@ import {
   getSchoolByHsid,
   getSchoolByUrl,
   getFlipCardFrontStageByHsid,
-  getActiveRosterByHsid,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
@@ -105,42 +104,17 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  // Row 3 interaction strip data.
-  // Primary source: flip_card_front_stage ACTIVE rows (manually curated, includes YAT temp players).
-  // Fallback: TBC active roster rows for schools with no stage data at all.
-  // This union ensures every school — whether stage-heavy or TBC-only — shows a populated strip.
+  // Row 3 interaction strip data — use flip_card_front_stage ACTIVE players only
+  // sorted to match the flip card grid order exactly
   const STRIP_LEVEL_RANK: Record<string, number> = {
     'MLB': 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
     'ROOKIE': 6, 'INDY': 7, "INT'L": 8,
     'NCAA-D1': 9, 'NCAA-D2': 10, 'NCAA-D3': 11, 'NAIA': 12, 'JUCO': 13,
     'HIGH SCHOOL': 14,
   };
-
-  const [allStageRows, tbcActiveRows] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid),
-    getActiveRosterByHsid(resolvedHsid),
-  ]);
-
-  const stageActiveRows = (allStageRows as Record<string, unknown>[])
-    .filter((p) => String(p.status_label || '').toUpperCase() === 'ACTIVE');
-
-  // Build a set of playerids already covered by stage rows
-  const stagePlayerIds = new Set(stageActiveRows.map((p) => String(p.playerid)));
-
-  // For TBC-only schools: add TBC active players not already in stage
-  // Normalize field names to match the strip's expected shape
-  const tbcStripRows = (tbcActiveRows as Record<string, unknown>[])
-    .filter((p) => !stagePlayerIds.has(String(p.playerid)))
-    .map((p) => ({
-      ...p,
-      // Strip reads level_label and last_name — provide from TBC equivalents
-      level_label: p.level_label ?? p.level ?? '',
-      last_name:   p.last_name   ?? p.lastname  ?? '',
-      first_name:  p.first_name  ?? p.firstname ?? '',
-    }));
-
-  // Union: stage rows take precedence; TBC rows fill the gap
-  const allStripRows = ([...stageActiveRows, ...tbcStripRows] as Record<string, unknown>[])
+  const allStageRows = await getFlipCardFrontStageByHsid(resolvedHsid);
+  const activeStageRows = (allStageRows as Record<string, unknown>[])
+    .filter((p) => String(p.status_label || '').toUpperCase() === 'ACTIVE')
     .sort((a, b) => {
       const la = STRIP_LEVEL_RANK[String(a.level_label || '')] ?? 99;
       const lb = STRIP_LEVEL_RANK[String(b.level_label || '')] ?? 99;
@@ -153,10 +127,9 @@ export default async function HsidLayout({
       if (ra !== rb) return rb - ra;
       return String(a.last_name || '').localeCompare(String(b.last_name || ''));
     });
-
-  const activeIds = allStripRows.map((p) => String(p.playerid));
+  const activeIds = activeStageRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
-  const stripPlayers = allStripRows.map((p) => {
+  const stripPlayers = activeStageRows.map((p) => {
     const playerId = String(p.playerid);
     return {
       id: playerId,
