@@ -129,3 +129,103 @@ export function formatSchoolName(raw: string): string {
   if (/\bACADEMY$/.test(u)) return u;
   return `${u} HIGH SCHOOL`;
 }
+
+// ---------------------------------------------------------------------------
+// ACTIVE ALUMNI SORT — canonical 4-tier comparator
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical level sort order for active alumni display.
+ * Pro levels first (MLB → Rookie), then independent/international,
+ * then college tiers, then high school.
+ * Any unrecognised value sorts to the end (rank 99).
+ */
+export const LEVEL_RANK: Record<string, number> = {
+  "MLB":          1,
+  "TRIPLE-A":     2,
+  "DOUBLE-A":     3,
+  "HIGH-A":       4,
+  "LOW-A":        5,
+  "ROOKIE":       6,
+  "INDY":         7,
+  "INT'L":        8,
+  "NCAA-D1":      9,
+  "NCAA-D2":      10,
+  "NCAA-D3":      11,
+  "NAIA":         12,
+  "JUCO":         13,
+  "HIGH SCHOOL":  14,
+};
+
+/**
+ * Derive the canonical level string from a merged player row.
+ * Prefers level_label (stage, already normalised) over raw TBC level.
+ */
+function resolvedLevel(p: Record<string, unknown>): string {
+  return String(p.level_label || levelLabel(String(p.level || "")) || "");
+}
+
+/**
+ * Derive the grad year integer for sorting (9999 = unknown → sorts last).
+ * Prefers verified class_of from stage, falls back to estimated from playyears.
+ */
+function resolvedGradYear(p: Record<string, unknown>): number {
+  const { year } = gradClassInfo(p);
+  const n = parseInt(year, 10);
+  return isNaN(n) ? 9999 : n;
+}
+
+/**
+ * Derive roster years count for sorting (more years → higher priority).
+ * Reads the hyphenated or comma-separated playyears field (TBC format).
+ */
+function resolvedRosterYearsCount(p: Record<string, unknown>): number {
+  if (p.playyears) {
+    const raw = String(p.playyears).trim();
+    if (raw.includes("-")) {
+      // Hyphenated range "2018-2024" → 2024 - 2018 + 1 = 7 years
+      const parts = raw.split("-");
+      const start = parseInt(parts[0], 10);
+      const end   = parseInt(parts[1], 10);
+      if (!isNaN(start) && !isNaN(end)) return end - start + 1;
+    } else {
+      // Comma-separated individual years
+      return raw.split(",").filter((y) => /^\d{4}$/.test(y.trim())).length;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Sort a merged active-alumni player array in-place using the 4-tier rule:
+ *   1. Level (MLB first → HIGH SCHOOL last, unknowns at end)
+ *   2. Grad year (oldest class first — lowest year number)
+ *   3. Roster years count (most years first — descending)
+ *   4. Last name A → Z
+ *
+ * Mutates the array and returns it for convenience.
+ */
+export function sortActivePlayers(players: Record<string, unknown>[]): Record<string, unknown>[] {
+  players.sort((a, b) => {
+    // Tier 1 — level
+    const rankA = LEVEL_RANK[resolvedLevel(a)] ?? 99;
+    const rankB = LEVEL_RANK[resolvedLevel(b)] ?? 99;
+    if (rankA !== rankB) return rankA - rankB;
+
+    // Tier 2 — grad year (oldest first)
+    const yearA = resolvedGradYear(a);
+    const yearB = resolvedGradYear(b);
+    if (yearA !== yearB) return yearA - yearB;
+
+    // Tier 3 — roster years count (most first)
+    const ryA = resolvedRosterYearsCount(a);
+    const ryB = resolvedRosterYearsCount(b);
+    if (ryA !== ryB) return ryB - ryA;
+
+    // Tier 4 — last name A→Z
+    const lnA = String(a.lastname || a.last_name || "").toUpperCase();
+    const lnB = String(b.lastname || b.last_name || "").toUpperCase();
+    return lnA.localeCompare(lnB);
+  });
+  return players;
+}

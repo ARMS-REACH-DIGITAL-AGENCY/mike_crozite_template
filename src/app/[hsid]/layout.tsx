@@ -15,7 +15,7 @@ import {
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getPlayerNowImageUrl } from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName } from '@/lib/playerUtils';
+import { formatSchoolName, sortActivePlayers } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 
@@ -126,11 +126,13 @@ export default async function HsidLayout({
     (p) => !stagePlayerIds.has(String(p.playerid))
   );
 
-  // Union: stage players first (sorted by stage order), then TBC-only players
-  const allStripRows = [
+  // Union: stage-active players + TBC-only players, then apply the canonical
+  // 4-tier sort (Level → Grad Year → Roster Years → Last Name) so the strip
+  // order always mirrors the card gallery order in page.tsx.
+  const allStripRows = sortActivePlayers([
     ...activeStageRows,
     ...tbcOnlyRows,
-  ];
+  ]);
 
   const allStripIds = allStripRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');

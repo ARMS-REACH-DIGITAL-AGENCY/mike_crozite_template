@@ -16,7 +16,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, type NavItem } from "@/lib/playerUtils";
+import { gradClass, formatSchoolName, sortActivePlayers, type NavItem } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
@@ -74,64 +74,101 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ""));
 
-const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
-  getActiveRosterByHsid(resolvedHsid),
-  getAllTimeRosterByHsid(resolvedHsid),
-  getFlipCardFrontStageByHsid(resolvedHsid),
-]);
+  const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
+    getActiveRosterByHsid(resolvedHsid),
+    getAllTimeRosterByHsid(resolvedHsid),
+    getFlipCardFrontStageByHsid(resolvedHsid),
+  ]);
 
-// Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players.
-const allRosterIds = Array.from(
-  new Set(
-    [
-      ...(activeRoster as Record<string, unknown>[]),
-      ...(allTimeRoster as Record<string, unknown>[]),
-    ].map((p) => String(p.playerid))
-  )
-);
+  // ---------------------------------------------------------------------------
+  // Active alumni union — mirrors the strip logic in layout.tsx so cards and
+  // strip are always 1:1.
+  //
+  // 1. Stage-active rows: players curated in flip_card_front_stage with
+  //    status_label = ACTIVE. These may have no TBC active-roster entry
+  //    (stage-only players like recent 2025 grads who haven't appeared in
+  //    TBC's active feed yet).
+  //
+  // 2. TBC-only rows: players in getActiveRosterByHsid that have no stage entry.
+  //
+  // Stage data always wins for shared players: TBC provides stats, stage
+  // provides display labels (level_label, status_label, class_of, etc.).
+  // ---------------------------------------------------------------------------
+  const activeStageRows = (flipFrontStageRows as Record<string, unknown>[]).filter(
+    (p) => String(p.status_label || "").toUpperCase() === "ACTIVE"
+  );
+  const stageActiveIds = new Set(activeStageRows.map((p) => String(p.playerid)));
 
-const [frontImageMap, headshotMap] = await Promise.all([
-  getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
-  getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
-]);
+  // Build a lookup from TBC active roster for fast merge
+  const tbcActiveMap = new Map(
+    (activeRoster as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+  );
 
-const flipFrontStageMap = new Map(
-  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
-    String(row.playerid),
-    row,
-  ])
-);
+  // Merge TBC stats into stage rows (TBC base + stage overlay)
+  const stageMergedRows = activeStageRows.map((stageRow) => {
+    const tbcRow = tbcActiveMap.get(String(stageRow.playerid));
+    return tbcRow ? { ...tbcRow, ...stageRow } : { ...stageRow };
+  });
 
-const activeFrontRoster = (activeRoster as Record<string, unknown>[]).map((p) => ({
-  ...p,
-  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-}));
+  // TBC-only rows: active in TBC but not in stage at all
+  const tbcOnlyRows = (activeRoster as Record<string, unknown>[])
+    .filter((p) => !stageActiveIds.has(String(p.playerid)));
 
-const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
-  ...p,
-  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-}));
+  // Union and apply 4-tier sort: Level → Grad Year → Roster Years → Last Name
+  const activeFrontRoster = sortActivePlayers([...stageMergedRows, ...tbcOnlyRows]);
+
+  // ---------------------------------------------------------------------------
+  // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all players.
+  // Include stage-only IDs (players not in TBC active roster) so their images
+  // are fetched even when they have no TBC row.
+  // ---------------------------------------------------------------------------
+  const allRosterIds = Array.from(
+    new Set(
+      [
+        ...(activeRoster as Record<string, unknown>[]),
+        ...(allTimeRoster as Record<string, unknown>[]),
+        ...(flipFrontStageRows as Record<string, unknown>[]),
+      ].map((p) => String(p.playerid))
+    )
+  );
+
+  const [frontImageMap, headshotMap] = await Promise.all([
+    getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
+    getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
+  ]);
+
+  const flipFrontStageMap = new Map(
+    (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
+      String(row.playerid),
+      row,
+    ])
+  );
+
+  const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
+    ...p,
+    ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+  }));
 
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
       <section id="sec-active" className="yat-section visible">
         <div className="yat-grid" id="active-grid">
-          {(activeRoster as Record<string, unknown>[]).length === 0 ? (
+          {activeFrontRoster.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No active players found</div>
               <div className="yat-empty-sub">Check back once the 2026 season begins</div>
             </div>
           ) : activeFrontRoster.map((p) => (
-  <PlayerCard
-    key={String(p.playerid)}
-    player={p}
-    resolvedHsid={resolvedHsid}
-    frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-    headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-  />
-))}
+            <PlayerCard
+              key={String(p.playerid)}
+              player={p}
+              resolvedHsid={resolvedHsid}
+              frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+              headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+            />
+          ))}
         </div>
       </section>
 
