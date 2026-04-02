@@ -63,14 +63,29 @@ export function levelClass(lvl: string): string {
 }
 
 export function gradClass(p: Record<string, unknown>): string {
+  // draft_info is a reliable known year (e.g. "2021-05-15" → "2021").
   if (p.draft_info) { const yr = String(p.draft_info).split("-")[0]; if (yr && /^\d{4}$/.test(yr)) return yr; }
-  if (p.playyears) { const years = String(p.playyears).split(",").map((y: string) => y.trim()).filter(Boolean); if (years.length) return years[0]; }
+  // playyears in TBC is stored as a hyphenated range e.g. "2021-2025" — this is a calculated
+  // guess, not a known graduation year. Discard it entirely. Blank is honest; a wrong range is not.
+  // Only use playyears if it is a comma-separated list of individual years (legacy format).
+  if (p.playyears) {
+    const raw = String(p.playyears).trim();
+    if (!raw.includes("-")) {
+      // Comma-separated individual years e.g. "2021,2022,2023"
+      const years = raw.split(",").map((y: string) => y.trim()).filter(Boolean);
+      if (years.length) return years[0];
+    }
+    // Hyphenated range ("2021-2025") → discard, return blank
+  }
   return "";
 }
 
 export function varsityDots(p: Record<string, unknown>): string[] {
   if (!p.playyears) return [];
-  return String(p.playyears).split(",").map((y: string) => y.trim().slice(-2)).filter(Boolean).slice(0, 6);
+  const raw = String(p.playyears).trim();
+  // Hyphenated range format — no individual years to extract as varsity dots
+  if (raw.includes("-")) return [];
+  return raw.split(",").map((y: string) => y.trim().slice(-2)).filter(Boolean).slice(0, 6);
 }
 
 export type NavItem = { thin: string; bold: string; tab: string };
