@@ -26,7 +26,11 @@ interface PlayerCardProps {
 }
 
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
-  const lvl = String(p.level_label || p.level || "");
+  // level_label comes from flip_card_front_stage (already normalized).
+  // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
+  // levelLabel() maps raw TBC values to the canonical filter values ("JUCO", "INDY", etc.)
+  // so data-level always matches the FiltersDrawer checkbox values for every school.
+  const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
   const gc = String(p.class_of || gradClass(p) || "");
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
   const org = String(p.current_org_or_conference_name || "");
