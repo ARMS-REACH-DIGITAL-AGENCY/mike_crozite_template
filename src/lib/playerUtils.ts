@@ -25,10 +25,26 @@ export function parseDraft(raw: string | null): string {
 }
 
 export function levelLabel(level: string): string {
+  // Maps raw TBC DB values to the canonical level strings used in layout.tsx filter checkboxes.
+  // MUST stay in sync with the filterLevels array in src/app/[hsid]/layout.tsx.
   const map: Record<string, string> = {
-    "MLB":"MLB","TRIPLE-A":"AAA","AAA":"AAA","DOUBLE-A":"AA","AA":"AA",
-    "HIGH-A":"A+","A+":"A+","LOW-A":"A","A":"A","A-":"A-","Indy":"INDY",
-    "NCAA":"NCAA","JrCollege":"JUCO","NAIA":"NAIA","Rk":"RK",
+    // Pro
+    "MLB":       "MLB",
+    "TRIPLE-A":  "TRIPLE-A",  "AAA":       "TRIPLE-A",
+    "DOUBLE-A":  "DOUBLE-A",  "AA":        "DOUBLE-A",
+    "HIGH-A":    "HIGH-A",    "A+":        "HIGH-A",
+    "LOW-A":     "LOW-A",     "A":         "LOW-A",     "A-":       "LOW-A",
+    "ROOKIE":    "ROOKIE",    "Rk":        "ROOKIE",    "RK":       "ROOKIE",
+    "INDY":      "INDY",      "Indy":      "INDY",
+    "INT'L":     "INT'L",     "INTL":      "INT'L",     "Intl":     "INT'L",
+    // College
+    "NCAA-D1":   "NCAA-D1",   "D1":        "NCAA-D1",   "NCAA":     "NCAA-D1",
+    "NCAA-D2":   "NCAA-D2",   "D2":        "NCAA-D2",
+    "NCAA-D3":   "NCAA-D3",   "D3":        "NCAA-D3",
+    "NAIA":      "NAIA",
+    "JUCO":      "JUCO",      "JrCollege": "JUCO",
+    // High school
+    "HIGH SCHOOL": "HIGH SCHOOL", "HS": "HIGH SCHOOL",
   };
   return map[level] || (level ? level.toUpperCase() : "");
 }
