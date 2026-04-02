@@ -555,10 +555,10 @@ function applyFilters(){
     if(lc.length&&!lc.includes(level))show=false;
     if(oc.length&&!oc.includes(org))show=false;
     if(gc.length&&!gc.includes(g))show=false;
-    if(rc.length&&!rosterYears.some(function(y){return rc.includes(y);} ))show=false;
+    if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
     if(sc.length&&!sc.includes(status))show=false;
 
-    if(isActivePage && !sc.length && status!=='ACTIVE')show=false;
+    if((isActivePage || isNewsPage) && !sc.length && status !== 'ACTIVE') show=false;
 
     card.style.display=show?'':'none';
   });
@@ -587,6 +587,22 @@ function resetFiltersForCurrentSection(){
   var isActivePage=activeSection&&activeSection.classList.contains('visible');
   var isNewsPage=newsSection&&newsSection.classList.contains('visible');
   var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
+
+  document.querySelectorAll('#filterLevels input').forEach(function(i){
+    i.checked=true;
+  });
+
+  document.querySelectorAll('#filterGradClass input').forEach(function(i){
+    i.checked=true;
+  });
+
+  document.querySelectorAll('#filterRosterYears input').forEach(function(i){
+    i.checked=true;
+  });
+
+  document.querySelectorAll('#filterOrgs input').forEach(function(i){
+    i.checked=true;
+  });
 
   if(isActivePage||isNewsPage){
     document.querySelectorAll('#filterStatus input[value="ACTIVE"]').forEach(function(i){
