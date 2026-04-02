@@ -99,6 +99,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   );
   const stageActiveIds = new Set(activeStageRows.map((p) => String(p.playerid)));
 
+  // Stage veto map: any player with an explicit non-ACTIVE status in stage
+  // (RETIRED, FREE AGENT, INJURED, etc.) must NOT appear in the active gallery,
+  // even if TBC still has 2025 stats for them. Stage status always wins.
+  const stageStatusMap = new Map(
+    (flipFrontStageRows as Record<string, unknown>[]).map((p) => [
+      String(p.playerid),
+      String(p.status_label || "").toUpperCase(),
+    ])
+  );
+
   // Build a lookup from TBC active roster for fast merge
   const tbcActiveMap = new Map(
     (activeRoster as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
@@ -110,9 +120,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     return tbcRow ? { ...tbcRow, ...stageRow } : { ...stageRow };
   });
 
-  // TBC-only rows: active in TBC but not in stage at all
+  // TBC-only rows: active in TBC but NOT in stage at all (no stage row = no veto).
+  // If a player has a stage row with any non-ACTIVE status, exclude them —
+  // stage verdict overrides TBC's 2025-stats-based active classification.
   const tbcOnlyRows = (activeRoster as Record<string, unknown>[])
-    .filter((p) => !stageActiveIds.has(String(p.playerid)));
+    .filter((p) => {
+      const stageStatus = stageStatusMap.get(String(p.playerid));
+      // No stage row at all → TBC active verdict stands → include
+      if (!stageStatus) return true;
+      // Stage row exists but status is empty/null → TBC verdict stands → include
+      if (stageStatus === "") return true;
+      // Stage row explicitly marks ACTIVE → already in stageMergedRows → exclude here
+      if (stageStatus === "ACTIVE") return false;
+      // Stage row explicitly marks anything else (RETIRED, FREE AGENT, INJURED, etc.)
+      // → stage veto → exclude from active gallery
+      return false;
+    });
 
   // Union and apply 4-tier sort: Level → Grad Year → Roster Years → Last Name
   const activeFrontRoster = sortActivePlayers([...stageMergedRows, ...tbcOnlyRows]);

@@ -118,13 +118,26 @@ export default async function HsidLayout({
     (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
   );
 
-  // Build a set of playerids already covered by stage rows
+  // Build a set of playerids already covered by stage ACTIVE rows
   const stagePlayerIds = new Set(activeStageRows.map((p) => String(p.playerid)));
 
-  // TBC-only players: in active roster but not in stage
-  const tbcOnlyRows = (rawActiveRoster as Record<string, unknown>[]).filter(
-    (p) => !stagePlayerIds.has(String(p.playerid))
+  // Stage veto map: players with an explicit non-ACTIVE status in stage must not
+  // appear in the strip even if TBC has 2025 stats for them. Stage status wins.
+  const stageStatusMap = new Map(
+    (allStageRows as Record<string, unknown>[]).map((p) => [
+      String(p.playerid),
+      String(p.status_label || '').toUpperCase(),
+    ])
   );
+
+  // TBC-only players: in active roster, not already in stage ACTIVE set,
+  // and NOT vetoed by an explicit non-ACTIVE stage status.
+  const tbcOnlyRows = (rawActiveRoster as Record<string, unknown>[]).filter((p) => {
+    const stageStatus = stageStatusMap.get(String(p.playerid));
+    if (!stageStatus || stageStatus === '') return true;   // no stage row → TBC wins
+    if (stageStatus === 'ACTIVE') return false;             // already in activeStageRows
+    return false;                                           // RETIRED/INJURED/etc → veto
+  });
 
   // Union: stage-active players + TBC-only players, then apply the canonical
   // 4-tier sort (Level → Grad Year → Roster Years → Last Name) so the strip
