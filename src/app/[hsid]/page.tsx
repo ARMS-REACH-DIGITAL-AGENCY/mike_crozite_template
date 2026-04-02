@@ -89,6 +89,23 @@ const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
     getBatchDesignatedPlayerImages(allRosterIds, 'YATSTATS_FRONT'),
     getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT'),
   ]);
+  const flipFrontStageMap = new Map(
+  flipFrontStageRows.map((row: any) => [
+    String(row.playerid),
+    row,
+  ])
+);
+
+const activeFrontRoster = activeRoster.map((p: any) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
+
+const allTimeFrontRoster = allTimeRoster.map((p: any) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
+  
 const flipFrontStageMap = new Map(
   (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
     String(row.playerid),
