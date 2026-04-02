@@ -186,12 +186,13 @@ export default async function HsidLayout({
                 'LOW-A',
                 'ROOKIE',
                 'INDY',
-                'INTL',
-                'D1',
-                'D2',
-                'D3',
+                "INT'L",
+                'NCAA-D1',
+                'NCAA-D2',
+                'NCAA-D3',
                 'NAIA',
                 'JUCO',
+                'HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}
