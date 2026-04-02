@@ -39,19 +39,6 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     throw error;
   }
 }
-export async function getFlipCardFrontStageByHsid(hsid: string) {
-  const { data, error } = await supabase
-    .from("flip_card_front_stage")
-    .select("*")
-    .eq("hsid", hsid);
-
-  if (error) {
-    console.error("getFlipCardFrontStageByHsid error", error);
-    return [];
-  }
-
-  return data || [];
-}
 // ---------------------------------------------------------------------------
 // Normalize host/URL input -> { hostOnly, httpsUrl }
 // ---------------------------------------------------------------------------
