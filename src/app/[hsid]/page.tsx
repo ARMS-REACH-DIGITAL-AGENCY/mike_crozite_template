@@ -8,6 +8,7 @@ import { permanentRedirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import {
   getSchoolByHsid,
+  getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
@@ -73,7 +74,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ""));
 
-const [allTimeRoster, flipFrontStageRows] = await Promise.all([
+const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
+  getActiveRosterByHsid(resolvedHsid),
   getAllTimeRosterByHsid(resolvedHsid),
   getFlipCardFrontStageByHsid(resolvedHsid),
 ]);
@@ -89,29 +91,48 @@ const LEVEL_RANK: Record<string, number> = {
 function sortPlayers(players: Record<string, unknown>[]): Record<string, unknown>[] {
   return [...players].sort((a, b) => {
     // 1. Level (high → low)
-    const la = LEVEL_RANK[String(a.level_label || '')] ?? 99;
-    const lb = LEVEL_RANK[String(b.level_label || '')] ?? 99;
+    const la = LEVEL_RANK[String(a.level_label || a.level || '')] ?? 99;
+    const lb = LEVEL_RANK[String(b.level_label || b.level || '')] ?? 99;
     if (la !== lb) return la - lb;
     // 2. Grad class (oldest first — lower number first)
-    const ga = parseInt(String(a.class_of || '9999'), 10);
-    const gb = parseInt(String(b.class_of || '9999'), 10);
+    const ga = parseInt(String(a.class_of || a.gradyear || '9999'), 10);
+    const gb = parseInt(String(b.class_of || b.gradyear || '9999'), 10);
     if (ga !== gb) return ga - gb;
     // 3. Roster years count (most first)
     const ra = Array.isArray(a.roster_years) ? a.roster_years.length : 0;
     const rb = Array.isArray(b.roster_years) ? b.roster_years.length : 0;
     if (ra !== rb) return rb - ra;
     // 4. Last name A→Z
-    return String(a.last_name || '').localeCompare(String(b.last_name || ''));
+    const nameA = String(a.last_name || a.lastname || '');
+    const nameB = String(b.last_name || b.lastname || '');
+    return nameA.localeCompare(nameB);
   });
 }
 
-// Active section: render directly from flip_card_front_stage (ACTIVE only)
-// This includes YAT?STATS temp players who have no TBC record
-const activeFrontRoster = sortPlayers(
-  (flipFrontStageRows as Record<string, unknown>[]).filter(
-    (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
-  )
+// Build the active roster as a union of:
+// 1. flip_card_front_stage ACTIVE rows (primary — includes YAT temp players)
+// 2. TBC activeRoster rows for players NOT already in flip_card_front_stage
+// This ensures schools without stage rows still show their TBC players
+const flipFrontStageMap = new Map(
+  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
+    String(row.playerid),
+    row,
+  ])
 );
+
+const stageActiveRows = (flipFrontStageRows as Record<string, unknown>[]).filter(
+  (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
+);
+
+// TBC players not already covered by flip_card_front_stage, merged with any stage data
+const tbcOnlyRows = (activeRoster as Record<string, unknown>[]).filter(
+  (p) => !flipFrontStageMap.has(String(p.playerid))
+).map((p) => ({
+  ...p,
+  ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+}));
+
+const activeFrontRoster = sortPlayers([...stageActiveRows, ...tbcOnlyRows]);
 
 // Batch-fetch images for all players
 const allRosterIds = Array.from(
