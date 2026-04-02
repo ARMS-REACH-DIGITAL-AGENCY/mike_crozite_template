@@ -541,7 +541,25 @@ function applyFilters(){
   var rc=Array.from(document.querySelectorAll('#filterRosterYears input:checked')).map(function(i){return i.value;});
   var sc=Array.from(document.querySelectorAll('#filterStatus input:checked')).map(function(i){return i.value;});
 
-  document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
+  /* Only filter cards in the currently visible section.
+     Cards in hidden sections are left untouched so they render
+     correctly when the user switches tabs. */
+  var visibleSection = isActivePage ? activeSection
+    : isAllTimePage ? allTimeSection
+    : isNewsPage ? newsSection
+    : null;
+  var cardScope = visibleSection
+    ? visibleSection.querySelectorAll('.yat-card[data-name]')
+    : document.querySelectorAll('.yat-card[data-name]');
+
+  /* Reset all strip slots to visible before applying active-section filter */
+  if(isActivePage){
+    document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
+      slot.style.display='';
+    });
+  }
+
+  cardScope.forEach(function(card){
     var name=(card.getAttribute('data-name')||'').toLowerCase();
     var level=card.getAttribute('data-level')||'';
     var org=card.getAttribute('data-org')||'';
@@ -561,11 +579,13 @@ function applyFilters(){
     if((isActivePage || isNewsPage) && !sc.length && status !== 'ACTIVE') show=false;
 
     card.style.display=show?'':'none';
-    /* Sync the Row 3 thumbnail strip slot for this player */
-    var pid=card.getAttribute('data-playerid')||'';
-    if(pid){
-      var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
-      if(slot)slot.style.display=show?'':'none';
+    /* Sync the Row 3 thumbnail strip slot — only from active section cards */
+    if(isActivePage){
+      var pid=card.getAttribute('data-playerid')||'';
+      if(pid){
+        var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
+        if(slot)slot.style.display=show?'':'none';
+      }
     }
   });
 }
