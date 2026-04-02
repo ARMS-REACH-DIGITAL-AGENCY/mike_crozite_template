@@ -149,13 +149,6 @@ const [frontImageMap, headshotMap] = await Promise.all([
   getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
 ]);
 
-const flipFrontStageMap = new Map(
-  (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
-    String(row.playerid),
-    row,
-  ])
-);
-
 const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
   ...p,
   ...(flipFrontStageMap.get(String(p.playerid)) || {}),
