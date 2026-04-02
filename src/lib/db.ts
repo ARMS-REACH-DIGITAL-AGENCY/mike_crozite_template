@@ -862,7 +862,18 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     }
   }
 }
-
+// ---------------------------------------------------------------------------
+// FLIP CARD FRONT STAGE — staging table for UI rendering
+// ---------------------------------------------------------------------------
+export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+  const sql = `
+    SELECT *
+    FROM flip_card_front_stage
+    WHERE hsid = $1
+  `;
+  const { rows } = await query(sql, [hsid]);
+  return rows;
+}
 // ---------------------------------------------------------------------------
 // ROSTER TRUTH — resolved current team + transactions
 // ---------------------------------------------------------------------------
