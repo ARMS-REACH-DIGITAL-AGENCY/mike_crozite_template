@@ -26,25 +26,33 @@ interface PlayerCardProps {
 }
 
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
-  const lvl = levelLabel(String(p.level || ""));
-  const gc = gradClass(p);
-  const dots = varsityDots(p);
-  const slug = toPlayerSlug(String(p.firstname || ""), String(p.lastname || ""));
+  const lvl = String(p.level_label || p.level || "");
+  const gc = String(p.class_of || gradClass(p) || "");
+  const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
+  const org = String(p.current_org_or_conference_name || "");
+  const status = String(
+    p.status_label || (isAllTime ? (p.is_active_2025 ? "ACTIVE" : "RETIRED") : "ACTIVE")
+  );
+  const slug = toPlayerSlug(
+    String(p.firstname || p.first_name || ""),
+    String(p.lastname || p.last_name || "")
+  );
 
-  // Attach computed slug to the player object so PlayerCardBack can use it
   const playerWithSlug = { ...p, slug };
 
   return (
-    <article
-  id={`player-${String(p.playerid)}`}
-  className="yat-card"
-  data-name={`${p.firstname} ${p.lastname}`.toLowerCase()}
-  data-playerid={String(p.playerid)}
-  data-level={lvl}
-  data-gradclass={gc}
-  data-slug={slug}
-  data-dots={dots.join(",")}
->
+       <article
+      id={`player-${String(p.playerid)}`}
+      className="yat-card"
+      data-name={`${String(p.firstname || p.first_name || "")} ${String(p.lastname || p.last_name || "")}`.toLowerCase()}
+      data-playerid={String(p.playerid)}
+      data-level={lvl}
+      data-org={org}
+      data-gradclass={gc}
+      data-rosteryears={Array.isArray(rosterYears) ? rosterYears.join(",") : ""}
+      data-status={status}
+      data-slug={slug}
+    >
       <div className="yat-card-inner">
         <div className="yat-flip">
           <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} />
