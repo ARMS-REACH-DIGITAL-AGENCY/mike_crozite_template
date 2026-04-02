@@ -105,11 +105,28 @@ export default async function HsidLayout({
   };
 
   // Row 3 interaction strip data — use flip_card_front_stage ACTIVE players only
-  // so the strip exactly matches the flip card grid
+  // sorted to match the flip card grid order exactly
+  const STRIP_LEVEL_RANK: Record<string, number> = {
+    'MLB': 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
+    'ROOKIE': 6, 'INDY': 7, "INT'L": 8,
+    'NCAA-D1': 9, 'NCAA-D2': 10, 'NCAA-D3': 11, 'NAIA': 12, 'JUCO': 13,
+    'HIGH SCHOOL': 14,
+  };
   const allStageRows = await getFlipCardFrontStageByHsid(resolvedHsid);
-  const activeStageRows = (allStageRows as Record<string, unknown>[]).filter(
-    (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
-  );
+  const activeStageRows = (allStageRows as Record<string, unknown>[])
+    .filter((p) => String(p.status_label || '').toUpperCase() === 'ACTIVE')
+    .sort((a, b) => {
+      const la = STRIP_LEVEL_RANK[String(a.level_label || '')] ?? 99;
+      const lb = STRIP_LEVEL_RANK[String(b.level_label || '')] ?? 99;
+      if (la !== lb) return la - lb;
+      const ga = parseInt(String(a.class_of || '9999'), 10);
+      const gb = parseInt(String(b.class_of || '9999'), 10);
+      if (ga !== gb) return ga - gb;
+      const ra = Array.isArray(a.roster_years) ? a.roster_years.length : 0;
+      const rb = Array.isArray(b.roster_years) ? b.roster_years.length : 0;
+      if (ra !== rb) return rb - ra;
+      return String(a.last_name || '').localeCompare(String(b.last_name || ''));
+    });
   const activeIds = activeStageRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(activeIds, 'HEADSHOT');
   const stripPlayers = activeStageRows.map((p) => {
