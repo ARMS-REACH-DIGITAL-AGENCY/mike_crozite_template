@@ -522,25 +522,87 @@ if(mask){
       liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
     });
   }
-  function applyFilters(){
-    var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
-    var lc=Array.from(document.querySelectorAll('#filterLevels input:checked')).map(function(i){return i.value;});
-    var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked')).map(function(i){return i.value;});
-    document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-      var name=card.getAttribute('data-name')||'';
-      var level=card.getAttribute('data-level')||'';
-      var g=card.getAttribute('data-gradclass')||'';
-      var show=true;
-      if(nf&&!name.includes(nf))show=false;
-      if(lc.length&&!lc.includes(level))show=false;
-      if(gc.length&&!gc.includes(g))show=false;
-      card.style.display=show?'':'none';
+function applyFilters(){
+  var activeSection=document.getElementById('sec-active');
+  var allTimeSection=document.getElementById('sec-alltime');
+  var newsSection=document.getElementById('sec-news');
+
+  var isActivePage=activeSection&&activeSection.classList.contains('visible');
+  var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
+  var isNewsPage=newsSection&&newsSection.classList.contains('visible');
+
+  var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
+
+  var lc=Array.from(document.querySelectorAll('#filterLevels input:checked')).map(function(i){return i.value;});
+  var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked')).map(function(i){return i.value;});
+  var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked')).map(function(i){return i.value;});
+  var rc=Array.from(document.querySelectorAll('#filterRosterYears input:checked')).map(function(i){return i.value;});
+  var sc=Array.from(document.querySelectorAll('#filterStatus input:checked')).map(function(i){return i.value;});
+
+  document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
+    var name=(card.getAttribute('data-name')||'').toLowerCase();
+    var level=card.getAttribute('data-level')||'';
+    var org=card.getAttribute('data-org')||'';
+    var g=card.getAttribute('data-gradclass')||'';
+    var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
+    var status=card.getAttribute('data-status')||'';
+
+    var show=true;
+
+    if(nf&&!name.includes(nf))show=false;
+    if(lc.length&&!lc.includes(level))show=false;
+    if(oc.length&&!oc.includes(org))show=false;
+    if(gc.length&&!gc.includes(g))show=false;
+    if(rc.length&&!rosterYears.some(function(y){return rc.includes(y);} ))show=false;
+    if(sc.length&&!sc.includes(status))show=false;
+
+    if(isActivePage && !sc.length && status!=='ACTIVE')show=false;
+
+    card.style.display=show?'':'none';
+  });
+}
+  document.addEventListener('change',function(e){
+  if(e.target.closest('#filters')) applyFilters();
+});
+
+document.addEventListener('input',function(e){
+  if(e.target.id==='filterName') applyFilters();
+});
+
+function resetFiltersForCurrentSection(){
+  document.querySelectorAll('#filters input').forEach(function(i){
+    if(i.type==='checkbox'){
+      i.checked=false;
+    }else{
+      i.value='';
+    }
+  });
+
+  var activeSection=document.getElementById('sec-active');
+  var newsSection=document.getElementById('sec-news');
+  var allTimeSection=document.getElementById('sec-alltime');
+
+  var isActivePage=activeSection&&activeSection.classList.contains('visible');
+  var isNewsPage=newsSection&&newsSection.classList.contains('visible');
+  var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
+
+  if(isActivePage||isNewsPage){
+    document.querySelectorAll('#filterStatus input[value="ACTIVE"]').forEach(function(i){
+      i.checked=true;
     });
   }
-  document.addEventListener('change',function(e){if(e.target.closest('#filters'))applyFilters();});
-  document.addEventListener('input',function(e){if(e.target.id==='filterName')applyFilters();});
-  if(filtersReset)filtersReset.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
-  if(filtersReset2)filtersReset2.addEventListener('click',function(){document.querySelectorAll('#filters input').forEach(function(i){if(i.type==='checkbox')i.checked=false;else i.value='';});applyFilters();});
+
+  if(isAllTimePage){
+    document.querySelectorAll('#filterStatus input').forEach(function(i){
+      i.checked=true;
+    });
+  }
+
+  applyFilters();
+}
+
+if(filtersReset)filtersReset.addEventListener('click',resetFiltersForCurrentSection);
+if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSection);
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
   /* ====================================================================
