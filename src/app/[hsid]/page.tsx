@@ -109,6 +109,25 @@ function sortPlayers(players: Record<string, unknown>[]): Record<string, unknown
   });
 }
 
+// ---------------------------------------------------------------------------
+// tbcToStageSchema — maps a raw TBC activeRoster row to the stage-compatible
+// field set that PlayerCardFront and the filter system expect.
+// This is the single adapter between TBC data and the display layer.
+// It MUST NOT be applied to rows that already came from flip_card_front_stage.
+// ---------------------------------------------------------------------------
+function tbcToStageSchema(p: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...p,
+    // level_label: TBC rows expose `level` (already normalized by getActiveRosterByHsid CASE)
+    level_label: p.level_label ?? p.level ?? '',
+    // status_label: TBC active roster rows are always ACTIVE by definition
+    status_label: p.status_label ?? 'ACTIVE',
+    // first_name / last_name aliases (PlayerCardFront reads both variants)
+    first_name: p.first_name ?? p.firstname ?? '',
+    last_name:  p.last_name  ?? p.lastname  ?? '',
+  };
+}
+
 // Build the active roster as a union of:
 // 1. flip_card_front_stage ACTIVE rows (primary — includes YAT temp players)
 // 2. TBC activeRoster rows for players NOT already in flip_card_front_stage
@@ -124,10 +143,11 @@ const stageActiveRows = (flipFrontStageRows as Record<string, unknown>[]).filter
   (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
 );
 
-// TBC players not already covered by flip_card_front_stage, merged with any stage data
+// TBC players not already covered by flip_card_front_stage:
+// adapt to stage schema so PlayerCardFront renders correctly
 const tbcOnlyRows = (activeRoster as Record<string, unknown>[]).filter(
   (p) => !flipFrontStageMap.has(String(p.playerid))
-).map((p) => ({
+).map((p) => tbcToStageSchema({
   ...p,
   ...(flipFrontStageMap.get(String(p.playerid)) || {}),
 }));
