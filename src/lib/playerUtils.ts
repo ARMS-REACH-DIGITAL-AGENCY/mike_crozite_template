@@ -221,10 +221,10 @@ export function sortActivePlayers(players: Record<string, unknown>[]): Record<st
     const rankB = LEVEL_RANK[resolvedLevel(b)] ?? 99;
     if (rankA !== rankB) return rankA - rankB;
 
-    // Tier 2 — grad year (most recent first: 2025 → 1999, unknowns last)
+    // Tier 2 — grad year (oldest first: 1999 → 2025, unknowns last)
     const yearA = resolvedGradYear(a);
     const yearB = resolvedGradYear(b);
-    if (yearA !== yearB) return yearB - yearA;
+    if (yearA !== yearB) return yearA - yearB;
 
     // Tier 3 — roster years count (most first)
     const ryA = resolvedRosterYearsCount(a);
