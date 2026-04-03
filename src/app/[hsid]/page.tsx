@@ -16,7 +16,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, sortActivePlayers, type NavItem } from "@/lib/playerUtils";
+import { gradClass, formatSchoolName, sortActivePlayers, sortAllTimePlayers, type NavItem } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
@@ -167,10 +167,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     ])
   );
 
-  const allTimeFrontRoster = (allTimeRoster as Record<string, unknown>[]).map((p) => ({
-    ...p,
-    ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-  }));
+  const allTimeFrontRoster = sortAllTimePlayers(
+    (allTimeRoster as Record<string, unknown>[]).map((p) => ({
+      ...p,
+      ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+    }))
+  );
 
   return (
     <>

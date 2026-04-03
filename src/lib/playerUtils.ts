@@ -238,3 +238,41 @@ export function sortActivePlayers(players: Record<string, unknown>[]): Record<st
   });
   return players;
 }
+
+// ---------------------------------------------------------------------------
+// ALL-TIME ALUMNI SORT — canonical 4-tier comparator
+// ---------------------------------------------------------------------------
+
+/**
+ * Sort an all-time alumni player array in-place using the 4-tier rule:
+ *   1. Grad year (oldest first: 1999 → 2025, unknowns at end)
+ *   2. Level (MLB first → HIGH SCHOOL last, unknowns at end)
+ *   3. Roster years count (most years first — descending)
+ *   4. Last name A → Z
+ *
+ * Mutates the array and returns it for convenience.
+ */
+export function sortAllTimePlayers(players: Record<string, unknown>[]): Record<string, unknown>[] {
+  players.sort((a, b) => {
+    // Tier 1 — grad year (oldest first: 1999 → 2025, unknowns last)
+    const yearA = resolvedGradYear(a);
+    const yearB = resolvedGradYear(b);
+    if (yearA !== yearB) return yearA - yearB;
+
+    // Tier 2 — level (highest first)
+    const rankA = LEVEL_RANK[resolvedLevel(a)] ?? 99;
+    const rankB = LEVEL_RANK[resolvedLevel(b)] ?? 99;
+    if (rankA !== rankB) return rankA - rankB;
+
+    // Tier 3 — roster years count (most first)
+    const ryA = resolvedRosterYearsCount(a);
+    const ryB = resolvedRosterYearsCount(b);
+    if (ryA !== ryB) return ryB - ryA;
+
+    // Tier 4 — last name A→Z
+    const lnA = String(a.lastname || a.last_name || "").toUpperCase();
+    const lnB = String(b.lastname || b.last_name || "").toUpperCase();
+    return lnA.localeCompare(lnB);
+  });
+  return players;
+}
