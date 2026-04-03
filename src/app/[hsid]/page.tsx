@@ -197,7 +197,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             </div>
           ) : fullRosterForActiveSection.map((p) => (
             <PlayerCard
-              key={String(p.playerid)}
+              key={`active-${String(p.playerid)}`}
               player={p}
               resolvedHsid={resolvedHsid}
               frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
@@ -218,7 +218,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
             </div>
           ) : allTimeFrontRoster.map((p) => (
             <PlayerCard
-              key={String(p.playerid)}
+              key={`alltime-${String(p.playerid)}`}
               player={p}
               resolvedHsid={resolvedHsid}
               frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
