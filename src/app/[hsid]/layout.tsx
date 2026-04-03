@@ -112,38 +112,45 @@ export default async function HsidLayout({
   // after filters change. Default visibility is controlled by applyFilters() on load.
   // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
   // so it matches the default Active-page card order in Block 5.
-  const [allStageRows, rawAllTimeRoster] = await Promise.all([
+   const [allStageRows, rawActiveRoster] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
+    getActiveRosterByHsid(resolvedHsid),
   ]);
 
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // TBC all-time rows, enriched with stage overlay
   const stripSeenIds = new Set<string>();
   const stripMerged: Record<string, unknown>[] = [];
-  for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
+
+  for (const p of rawActiveRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
     const stageRow = stripStageMap.get(id);
     stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
     stripSeenIds.add(id);
   }
-  // Stage-only rows not in TBC all-time (includes YAT00001–YAT00008)
+
   for (const p of allStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
-    if (!stripSeenIds.has(id)) {
+    if (!stripSeenIds.has(id) && String(p.status_label || '').toUpperCase() === 'ACTIVE') {
       stripMerged.push({ ...p });
     }
   }
-  // Sort with Active sort so strip order matches Block 5 Active-page card order
-  const allStripRows = sortActivePlayers(stripMerged);
 
-  const allStripIds = allStripRows.map((p) => String(p.playerid));
-  const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
+  const stripActiveRows = sortActivePlayers(
+    stripMerged.filter((p: Record<string, unknown>) => {
+      const status = String(
+        p.status_label ?? ((p.is_active_2025 as boolean) ? 'ACTIVE' : 'RETIRED')
+      ).toUpperCase().trim();
+      return status === 'ACTIVE';
+    })
+  );
 
-  const stripPlayers = allStripRows.map((p) => {
+  const stripIds = stripActiveRows.map((p) => String(p.playerid));
+  const headshotMap = await getBatchDesignatedPlayerImages(stripIds, 'HEADSHOT');
+
+  const stripPlayers = stripActiveRows.map((p) => {
     const playerId = String(p.playerid);
     return {
       id: playerId,
@@ -153,7 +160,6 @@ export default async function HsidLayout({
         getPlayerNowImageUrl(playerId),
     };
   });
-
   return (
     <SchoolContextProvider schoolData={schoolData}>
       {/* Shared Styles — must be rendered before any visual content */}
