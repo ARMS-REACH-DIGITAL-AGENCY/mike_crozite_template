@@ -1,7 +1,7 @@
 // src/components/yatstats/PlayerCard.tsx
 // Full flip card container: article element with front and back faces
 
-import { levelLabel, gradClassInfo, varsityDots } from "@/lib/playerUtils";
+import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
@@ -37,7 +37,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // data-gradclass uses the bare year so the filter matches both verified and estimated.
   const { year: gc, estimated: gcEstimated } = gradClassInfo(p);
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
-  const org = String(p.current_org_or_conference_name || "").toUpperCase();
+  const org = normalizeOrg(String(p.current_org_or_conference_name || ""));
   const status = String(
     p.status_label || (isAllTime ? (p.is_active_2025 ? "ACTIVE" : "RETIRED") : "ACTIVE")
   );

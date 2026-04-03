@@ -276,3 +276,233 @@ export function sortAllTimePlayers(players: Record<string, unknown>[]): Record<s
   });
   return players;
 }
+
+// ---------------------------------------------------------------------------
+// ORG / CONFERENCE NORMALIZATION
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical org/conference names used as filter checkbox values.
+ * All data-org attributes on player cards are normalized to these values
+ * so the filter always works regardless of the data source's casing or
+ * abbreviation style.
+ *
+ * Rule: strip whitespace, uppercase, then match against the lookup table.
+ * Unknown values pass through uppercased (so they still appear on cards).
+ */
+const ORG_NORM: Record<string, string> = {
+  // ── MLB Organizations ────────────────────────────────────────────────────
+  "ARIZONA DIAMONDBACKS": "ARIZONA DIAMONDBACKS",
+  "ARI": "ARIZONA DIAMONDBACKS", "AZ DIAMONDBACKS": "ARIZONA DIAMONDBACKS",
+  "ATLANTA BRAVES": "ATLANTA BRAVES", "ATL": "ATLANTA BRAVES",
+  "BALTIMORE ORIOLES": "BALTIMORE ORIOLES", "BAL": "BALTIMORE ORIOLES",
+  "BOSTON RED SOX": "BOSTON RED SOX", "BOS": "BOSTON RED SOX",
+  "CHICAGO CUBS": "CHICAGO CUBS", "CHC": "CHICAGO CUBS",
+  "CHICAGO WHITE SOX": "CHICAGO WHITE SOX", "CHA": "CHICAGO WHITE SOX", "CHW": "CHICAGO WHITE SOX",
+  "CINCINNATI REDS": "CINCINNATI REDS", "CIN": "CINCINNATI REDS",
+  "CLEVELAND GUARDIANS": "CLEVELAND GUARDIANS", "CLE": "CLEVELAND GUARDIANS",
+  "COLORADO ROCKIES": "COLORADO ROCKIES", "COL": "COLORADO ROCKIES",
+  "DETROIT TIGERS": "DETROIT TIGERS", "DET": "DETROIT TIGERS",
+  "HOUSTON ASTROS": "HOUSTON ASTROS", "HOU": "HOUSTON ASTROS",
+  "KANSAS CITY ROYALS": "KANSAS CITY ROYALS", "KC": "KANSAS CITY ROYALS", "KCR": "KANSAS CITY ROYALS",
+  "LOS ANGELES ANGELS": "LOS ANGELES ANGELS", "LAA": "LOS ANGELES ANGELS", "LA ANGELS": "LOS ANGELES ANGELS",
+  "LOS ANGELES DODGERS": "LOS ANGELES DODGERS", "LAD": "LOS ANGELES DODGERS", "LA DODGERS": "LOS ANGELES DODGERS",
+  "MIAMI MARLINS": "MIAMI MARLINS", "MIA": "MIAMI MARLINS",
+  "MILWAUKEE BREWERS": "MILWAUKEE BREWERS", "MIL": "MILWAUKEE BREWERS",
+  "MINNESOTA TWINS": "MINNESOTA TWINS", "MIN": "MINNESOTA TWINS",
+  "NEW YORK METS": "NEW YORK METS", "NYM": "NEW YORK METS", "NY METS": "NEW YORK METS",
+  "NEW YORK YANKEES": "NEW YORK YANKEES", "NYY": "NEW YORK YANKEES", "NY YANKEES": "NEW YORK YANKEES",
+  // Athletics — stored as just "Athletics" in TBC
+  "ATHLETICS": "ATHLETICS", "OAKLAND ATHLETICS": "ATHLETICS", "OAK": "ATHLETICS",
+  "LAS VEGAS ATHLETICS": "ATHLETICS", "SACRAMENTO ATHLETICS": "ATHLETICS",
+  "PHILADELPHIA PHILLIES": "PHILADELPHIA PHILLIES", "PHI": "PHILADELPHIA PHILLIES",
+  "PITTSBURGH PIRATES": "PITTSBURGH PIRATES", "PIT": "PITTSBURGH PIRATES",
+  "SAN DIEGO PADRES": "SAN DIEGO PADRES", "SD": "SAN DIEGO PADRES", "SDP": "SAN DIEGO PADRES",
+  "SAN FRANCISCO GIANTS": "SAN FRANCISCO GIANTS", "SF": "SAN FRANCISCO GIANTS", "SFG": "SAN FRANCISCO GIANTS",
+  "SEATTLE MARINERS": "SEATTLE MARINERS", "SEA": "SEATTLE MARINERS",
+  "ST. LOUIS CARDINALS": "ST. LOUIS CARDINALS", "STL": "ST. LOUIS CARDINALS", "ST LOUIS CARDINALS": "ST. LOUIS CARDINALS",
+  "TAMPA BAY RAYS": "TAMPA BAY RAYS", "TB": "TAMPA BAY RAYS", "TBR": "TAMPA BAY RAYS",
+  "TEXAS RANGERS": "TEXAS RANGERS", "TEX": "TEXAS RANGERS",
+  "TORONTO BLUE JAYS": "TORONTO BLUE JAYS", "TOR": "TORONTO BLUE JAYS",
+  "WASHINGTON NATIONALS": "WASHINGTON NATIONALS", "WSH": "WASHINGTON NATIONALS", "WAS": "WASHINGTON NATIONALS",
+
+  // ── Independent / Pro ────────────────────────────────────────────────────
+  "ATLANTIC LEAGUE": "ATLANTIC LEAGUE",
+  "INDY": "INDY",
+
+  // ── College Conferences ──────────────────────────────────────────────────
+  // ACC
+  "ACC": "ACC", "ATLANTIC COAST CONFERENCE": "ACC", "ATLANTIC COAST": "ACC",
+
+  // Big Ten  (TBC uses "Big 10 Conference")
+  "BIG TEN": "BIG TEN", "BIG TEN CONFERENCE": "BIG TEN",
+  "BIG 10": "BIG TEN", "BIG 10 CONFERENCE": "BIG TEN",
+  "BIG10": "BIG TEN", "B1G": "BIG TEN",
+
+  // Big 12  (TBC uses "Big 12 Conference")
+  "BIG 12": "BIG 12", "BIG 12 CONFERENCE": "BIG 12",
+  "BIG12": "BIG 12",
+
+  // Big East
+  "BIG EAST": "BIG EAST", "BIG EAST CONFERENCE": "BIG EAST",
+
+  // Big West
+  "BIG WEST": "BIG WEST", "BIG WEST CONFERENCE": "BIG WEST",
+
+  // Big South
+  "BIG SOUTH": "BIG SOUTH", "BIG SOUTH CONFERENCE": "BIG SOUTH",
+
+  // Pac-12  (TBC uses "Pac 12 Conference")
+  "PAC-12": "PAC-12", "PAC 12": "PAC-12", "PAC 12 CONFERENCE": "PAC-12",
+  "PAC12": "PAC-12", "PAC-12 CONFERENCE": "PAC-12",
+
+  // SEC
+  "SEC": "SEC", "SOUTHEASTERN CONFERENCE": "SEC",
+
+  // American Athletic Conference
+  "AMERICAN": "AMERICAN", "AMERICAN ATHLETIC CONFERENCE": "AMERICAN",
+  "AAC": "AMERICAN",
+
+  // Mountain West
+  "MOUNTAIN WEST": "MOUNTAIN WEST", "MOUNTAIN WEST CONFERENCE": "MOUNTAIN WEST",
+  "MWC": "MOUNTAIN WEST",
+
+  // MAC (Mid-American Conference)
+  "MAC": "MAC", "MID-AMERICAN CONFERENCE": "MAC", "MID AMERICAN CONFERENCE": "MAC",
+
+  // WCC (West Coast Conference)
+  "WCC": "WCC", "WEST COAST CONFERENCE": "WCC",
+
+  // WAC (Western Athletic Conference)
+  "WAC": "WAC", "WESTERN ATHLETIC CONFERENCE": "WAC",
+
+  // Atlantic Sun
+  "ATLANTIC SUN": "ATLANTIC SUN", "ASUN": "ATLANTIC SUN", "A-SUN": "ATLANTIC SUN",
+
+  // C-USA (Conference USA)
+  "C-USA": "C-USA", "CONFERENCE USA": "C-USA", "CUSA": "C-USA",
+
+  // Horizon League
+  "HORIZON": "HORIZON", "HORIZON LEAGUE": "HORIZON",
+
+  // Ivy League
+  "IVY LEAGUE": "IVY LEAGUE", "IVY": "IVY LEAGUE",
+
+  // MAAC
+  "MAAC": "MAAC", "METRO ATLANTIC ATHLETIC CONFERENCE": "MAAC",
+
+  // MEAC
+  "MEAC": "MEAC", "MID-EASTERN ATHLETIC CONFERENCE": "MEAC",
+
+  // Missouri Valley
+  "MISSOURI VALLEY": "MISSOURI VALLEY", "MISSOURI VALLEY CONFERENCE": "MISSOURI VALLEY", "MVC": "MISSOURI VALLEY",
+
+  // NEC (Northeast Conference)
+  "NEC": "NEC", "NORTHEAST CONFERENCE": "NEC",
+
+  // OVC (Ohio Valley Conference)
+  "OVC": "OVC", "OHIO VALLEY CONFERENCE": "OVC",
+
+  // Patriot League
+  "PATRIOT": "PATRIOT", "PATRIOT LEAGUE": "PATRIOT",
+
+  // Southern Conference
+  "SOUTHERN": "SOUTHERN", "SOUTHERN CONFERENCE": "SOUTHERN", "SOCON": "SOUTHERN",
+
+  // Southland Conference
+  "SOUTHLAND": "SOUTHLAND", "SOUTHLAND CONFERENCE": "SOUTHLAND",
+
+  // Summit League
+  "SUMMIT": "SUMMIT", "SUMMIT LEAGUE": "SUMMIT",
+
+  // Sun Belt
+  "SUN BELT": "SUN BELT", "SUN BELT CONFERENCE": "SUN BELT",
+
+  // SWAC
+  "SWAC": "SWAC", "SOUTHWESTERN ATHLETIC CONFERENCE": "SWAC",
+
+  // Colonial Athletic Association
+  "COLONIAL": "COLONIAL", "COLONIAL ATHLETIC ASSOCIATION": "COLONIAL", "CAA": "COLONIAL",
+
+  // Independent
+  "INDEPENDENT": "INDEPENDENT",
+
+  // NAIA
+  "NAIA": "NAIA",
+
+  // JUCO
+  "JUCO": "JUCO", "JUNIOR COLLEGE": "JUCO",
+
+  // ACCAC (Arizona Community College Athletic Conference)
+  "ACCAC": "ACCAC",
+
+  // Rocky Mountain Athletic Conference
+  "RMAC": "RMAC", "ROCKY MOUNTAIN ATHLETIC CONFERENCE": "RMAC",
+
+  // Great American Conference
+  "GAC": "GAC", "GREAT AMERICAN CONFERENCE": "GAC",
+
+  // Mid-American Intercollegiate Athletics Association
+  "MIAA": "MIAA",
+
+  // Conference Carolinas
+  "CONFERENCE CAROLINAS": "CONFERENCE CAROLINAS",
+
+  // Continental Athletic Conference
+  "CONTINENTAL ATHLETIC CONFERENCE": "CONTINENTAL ATHLETIC CONFERENCE",
+
+  // Northern Athletics Collegiate Conference
+  "NACC": "NACC", "NORTHERN ATHLETICS COLLEGIATE CONFERENCE": "NACC",
+
+  // Northwest Conference
+  "NORTHWEST CONFERENCE": "NORTHWEST CONFERENCE",
+
+  // Midwest Conference
+  "MIDWEST CONFERENCE": "MIDWEST CONFERENCE",
+
+  // Big 8 - CCCAA (California Community College)
+  "BIG 8 - CCCAA": "BIG 8 - CCCAA", "BIG 8": "BIG 8 - CCCAA",
+};
+
+/**
+ * Normalize an org/conference name to a canonical filter key.
+ * Strips extra whitespace, uppercases, then looks up in ORG_NORM.
+ * Falls back to the uppercased raw value if no mapping is found.
+ */
+export function normalizeOrg(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const key = raw.trim().toUpperCase();
+  return ORG_NORM[key] ?? key;
+}
+
+/**
+ * Canonical list of org/conference filter checkbox values.
+ * These are the display labels AND the values used in the filter comparison.
+ * Must stay in sync with ORG_NORM canonical values above.
+ */
+export const ORG_FILTER_LIST: string[] = [
+  // MLB Organizations
+  "ARIZONA DIAMONDBACKS","ATLANTA BRAVES","BALTIMORE ORIOLES","BOSTON RED SOX",
+  "CHICAGO CUBS","CHICAGO WHITE SOX","CINCINNATI REDS","CLEVELAND GUARDIANS",
+  "COLORADO ROCKIES","DETROIT TIGERS","HOUSTON ASTROS","KANSAS CITY ROYALS",
+  "LOS ANGELES ANGELS","LOS ANGELES DODGERS","MIAMI MARLINS","MILWAUKEE BREWERS",
+  "MINNESOTA TWINS","NEW YORK METS","NEW YORK YANKEES","ATHLETICS",
+  "PHILADELPHIA PHILLIES","PITTSBURGH PIRATES","SAN DIEGO PADRES","SAN FRANCISCO GIANTS",
+  "SEATTLE MARINERS","ST. LOUIS CARDINALS","TAMPA BAY RAYS","TEXAS RANGERS",
+  "TORONTO BLUE JAYS","WASHINGTON NATIONALS",
+  // Independent / Pro
+  "ATLANTIC LEAGUE","INDY",
+  // Power conferences
+  "ACC","BIG TEN","BIG 12","BIG EAST","BIG WEST","PAC-12","SEC",
+  // Mid-major conferences
+  "AMERICAN","ATLANTIC SUN","C-USA","HORIZON","IVY LEAGUE","MAC","MAAC",
+  "MEAC","MISSOURI VALLEY","MOUNTAIN WEST","NEC","OVC","PATRIOT",
+  "SOUTHERN","SOUTHLAND","SUMMIT","SUN BELT","SWAC","WAC","WCC",
+  "COLONIAL",
+  // Regional / smaller conferences
+  "ACCAC","BIG 8 - CCCAA","BIG SOUTH","CONFERENCE CAROLINAS",
+  "CONTINENTAL ATHLETIC CONFERENCE","GAC","MIDWEST CONFERENCE",
+  "NACC","NORTHWEST CONFERENCE","RMAC",
+  // Independent / Other
+  "INDEPENDENT","NAIA","JUCO",
+];

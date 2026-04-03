@@ -15,7 +15,7 @@ import {
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getPlayerNowImageUrl } from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, sortActivePlayers } from '@/lib/playerUtils';
+import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 
@@ -322,30 +322,7 @@ export default async function HsidLayout({
             <summary>By Organization / Conference</summary>
             <div className="yat-filter-options" id="filterOrgs">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" defaultChecked /> Select All</label>
-              {[
-                // MLB Organizations
-                'ARIZONA DIAMONDBACKS','ATLANTA BRAVES','BALTIMORE ORIOLES','BOSTON RED SOX',
-                'CHICAGO CUBS','CHICAGO WHITE SOX','CINCINNATI REDS','CLEVELAND GUARDIANS',
-                'COLORADO ROCKIES','DETROIT TIGERS','HOUSTON ASTROS','KANSAS CITY ROYALS',
-                'LOS ANGELES ANGELS','LOS ANGELES DODGERS','MIAMI MARLINS','MILWAUKEE BREWERS',
-                'MINNESOTA TWINS','NEW YORK METS','NEW YORK YANKEES','ATHLETICS',
-                'PHILADELPHIA PHILLIES','PITTSBURGH PIRATES','SAN DIEGO PADRES','SAN FRANCISCO GIANTS',
-                'SEATTLE MARINERS','ST. LOUIS CARDINALS','TAMPA BAY RAYS','TEXAS RANGERS',
-                'TORONTO BLUE JAYS','WASHINGTON NATIONALS',
-                // Independent / Pro
-                'ATLANTIC LEAGUE','INDY',
-                // College Conferences — values must match UPPER(current_org_or_conference_name) in DB
-                'ACCAC','AMERICAN ATHLETIC CONFERENCE','ATLANTIC COAST CONFERENCE',
-                'BIG 10 CONFERENCE','BIG 12 CONFERENCE','BIG 8 - CCCAA','BIG SOUTH CONFERENCE',
-                'CONFERENCE CAROLINAS','CONTINENTAL ATHLETIC CONFERENCE',
-                'GREAT AMERICAN CONFERENCE','IVY LEAGUE','MID-AMERICAN CONFERENCE',
-                'MIDWEST CONFERENCE','MOUNTAIN WEST CONFERENCE',
-                'NORTHERN ATHLETICS COLLEGIATE CONFERENCE','NORTHWEST CONFERENCE',
-                'PAC 12 CONFERENCE','ROCKY MOUNTAIN ATHLETIC CONFERENCE',
-                'SEC','WEST COAST CONFERENCE','WESTERN ATHLETIC CONFERENCE',
-                // Independent / Other
-                'INDEPENDENT','NAIA','JUCO',
-              ].map((org) => (
+              {ORG_FILTER_LIST.map((org) => (
                 <label key={org}>
                   <input type="checkbox" value={org} defaultChecked /> {org}
                 </label>
