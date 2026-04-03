@@ -590,7 +590,25 @@ function applyFilters(){
   });
 }
   document.addEventListener('change',function(e){
-  if(e.target.closest('#filters')) applyFilters();
+  if(!e.target.closest('#filters')) return;
+  /* Handle Select All checkboxes */
+  var saGroup=e.target.getAttribute&&e.target.getAttribute('data-select-all');
+  if(saGroup){
+    var saChecked=e.target.checked;
+    document.querySelectorAll('#'+saGroup+' input[type="checkbox"]:not([data-select-all])').forEach(function(i){
+      i.checked=saChecked;
+    });
+  } else {
+    /* When a regular checkbox changes, sync the Select All state for its group */
+    var groupEl=e.target.closest('[id^="filter"]');
+    if(groupEl){
+      var allInGroup=Array.from(groupEl.querySelectorAll('input[type="checkbox"]:not([data-select-all])'));
+      var allChecked=allInGroup.length>0&&allInGroup.every(function(i){return i.checked;});
+      var saEl=groupEl.querySelector('input[data-select-all]');
+      if(saEl) saEl.checked=allChecked;
+    }
+  }
+  applyFilters();
 });
 
 document.addEventListener('input',function(e){

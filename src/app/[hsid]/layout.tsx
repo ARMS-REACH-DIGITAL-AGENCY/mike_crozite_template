@@ -228,6 +228,7 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" defaultChecked /> Select All</label>
               {[
                 'MLB',
                 'TRIPLE-A',
@@ -245,7 +246,7 @@ export default async function HsidLayout({
                 'HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
+                  <input type="checkbox" value={l} defaultChecked /> {l}
                 </label>
               ))}
             </div>
@@ -254,6 +255,7 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" defaultChecked /> Select All</label>
               {[
                 '2025',
                 '2024',
@@ -286,7 +288,7 @@ export default async function HsidLayout({
                 'PRE-1980',
               ].map((year) => (
                 <label key={year}>
-                  <input type="checkbox" value={year} /> {year}
+                  <input type="checkbox" value={year} defaultChecked /> {year}
                 </label>
               ))}
             </div>
@@ -295,9 +297,51 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" defaultChecked /> Select All</label>
               {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
                 <label key={s}>
-                  <input type="checkbox" value={s} /> {s}
+                  <input type="checkbox" value={s} defaultChecked /> {s}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          <details className="yat-filter-group">
+            <summary>By Roster Year</summary>
+            <div className="yat-filter-options" id="filterRosterYears">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" defaultChecked /> Select All</label>
+              {Array.from({length: 27}, (_, i) => String(2025 - i)).map((yr) => (
+                <label key={yr}>
+                  <input type="checkbox" value={yr} defaultChecked /> {yr}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          <details className="yat-filter-group">
+            <summary>By Organization / Conference</summary>
+            <div className="yat-filter-options" id="filterOrgs">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" defaultChecked /> Select All</label>
+              {[
+                // MLB Organizations
+                'ARIZONA DIAMONDBACKS','ATLANTA BRAVES','BALTIMORE ORIOLES','BOSTON RED SOX',
+                'CHICAGO CUBS','CHICAGO WHITE SOX','CINCINNATI REDS','CLEVELAND GUARDIANS',
+                'COLORADO ROCKIES','DETROIT TIGERS','HOUSTON ASTROS','KANSAS CITY ROYALS',
+                'LOS ANGELES ANGELS','LOS ANGELES DODGERS','MIAMI MARLINS','MILWAUKEE BREWERS',
+                'MINNESOTA TWINS','NEW YORK METS','NEW YORK YANKEES','OAKLAND ATHLETICS',
+                'PHILADELPHIA PHILLIES','PITTSBURGH PIRATES','SAN DIEGO PADRES','SAN FRANCISCO GIANTS',
+                'SEATTLE MARINERS','ST. LOUIS CARDINALS','TAMPA BAY RAYS','TEXAS RANGERS',
+                'TORONTO BLUE JAYS','WASHINGTON NATIONALS',
+                // College Conferences
+                'ACC','BIG 12','BIG TEN','PAC-12','SEC','AMERICAN','ATLANTIC SUN','BIG EAST',
+                'BIG WEST','C-USA','HORIZON','IVY LEAGUE','MAC','MAAC','MEAC','MISSOURI VALLEY',
+                'MOUNTAIN WEST','NEC','OVC','PATRIOT','SOUTHERN','SOUTHLAND','SUMMIT',
+                'SUN BELT','SWAC','WAC','WCC','ATLANTIC COAST','COLONIAL',
+                // Independent / Other
+                'INDEPENDENT','NAIA','JUCO',
+              ].map((org) => (
+                <label key={org}>
+                  <input type="checkbox" value={org} defaultChecked /> {org}
                 </label>
               ))}
             </div>
