@@ -249,24 +249,83 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 // Used for the "All-Time Next Level List" page.
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  // Primary source: flip_card_front_stage — contains EVERY player (active + retired,
+  // TBC-linked + YAT#-only) that went to this school and played at the next level.
+  // TBC tables are LEFT-JOINed only for stats enrichment; missing TBC data never
+  // excludes a player from the all-time list.
   const sql = `
-    WITH school_players AS (
+    WITH
+    -- ── 1. Every player for this school from the stage table ─────────────────
+    stage AS (
       SELECT
-        ph.playerid,
-        tp.firstname,
-        tp.lastname,
-        tp.highlevel    AS career_highlevel,
-        tp.ht           AS height,
-        tp.wt           AS weight,
+        s.playerid,
+        s.first_name                          AS firstname,
+        s.last_name                           AS lastname,
+        s.display_name,
+        s.class_of,
+        s.roster_years,
+        s.roster_years_count,
+        s.position,
+        s.status_label,
+        -- Normalise level label to canonical values
+        CASE s.level_label
+          WHEN 'AAA'         THEN 'TRIPLE-A'
+          WHEN 'TRIPLE-A'    THEN 'TRIPLE-A'
+          WHEN 'AA'          THEN 'DOUBLE-A'
+          WHEN 'DOUBLE-A'    THEN 'DOUBLE-A'
+          WHEN 'High-A'      THEN 'HIGH-A'
+          WHEN 'HIGH-A'      THEN 'HIGH-A'
+          WHEN 'A+'          THEN 'HIGH-A'
+          WHEN 'Single-A'    THEN 'LOW-A'
+          WHEN 'LOW-A'       THEN 'LOW-A'
+          WHEN 'A'           THEN 'LOW-A'
+          WHEN 'A-'          THEN 'LOW-A'
+          WHEN 'Rk'          THEN 'ROOKIE'
+          WHEN 'RK'          THEN 'ROOKIE'
+          WHEN 'Rookie'      THEN 'ROOKIE'
+          WHEN 'ROOKIE'      THEN 'ROOKIE'
+          WHEN 'Indy'        THEN 'INDY'
+          WHEN 'INDY'        THEN 'INDY'
+          WHEN 'INTL'        THEN 'INT''L'
+          WHEN 'Intl'        THEN 'INT''L'
+          WHEN 'NCAA-D1'     THEN 'NCAA-D1'
+          WHEN 'D1'          THEN 'NCAA-D1'
+          WHEN 'NCAA'        THEN 'NCAA-D1'
+          WHEN 'NCAA-D2'     THEN 'NCAA-D2'
+          WHEN 'D2'          THEN 'NCAA-D2'
+          WHEN 'NCAA-D3'     THEN 'NCAA-D3'
+          WHEN 'D3'          THEN 'NCAA-D3'
+          WHEN 'NAIA'        THEN 'NAIA'
+          WHEN 'JrCollege'   THEN 'JUCO'
+          WHEN 'JUCO'        THEN 'JUCO'
+          WHEN 'HS'          THEN 'HIGH SCHOOL'
+          WHEN 'HIGH SCHOOL' THEN 'HIGH SCHOOL'
+          ELSE COALESCE(UPPER(s.level_label), '')
+        END                                   AS level_label,
+        s.current_team_name,
+        s.current_org_or_conference_name,
+        s.next_game_date,
+        s.next_game_home_away,
+        s.next_game_opponent
+      FROM flip_card_front_stage s
+      WHERE s.hsid = $1
+    ),
+
+    -- ── 2. TBC identity (optional — only for players that have a TBC record) ─
+    tbc_identity AS (
+      SELECT
+        tp.playerid::text AS playerid,
+        tp.highlevel      AS career_highlevel,
+        tp.ht             AS height,
+        tp.wt             AS weight,
         tp.bats,
-        tp.throws,
-        tp.posit        AS position
+        tp.throws
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
       WHERE ph.hsid = $1
     ),
 
-    -- Career batting totals (all years combined via most recent year for display)
+    -- ── 3. Most-recent batting season (optional) ─────────────────────────────
     latest_batting AS (
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
@@ -280,9 +339,11 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         draft_info,
         playyears
       FROM tbc_batting_raw
+      WHERE playerid::text IN (SELECT playerid FROM tbc_identity)
       ORDER BY playerid, year DESC
     ),
 
+    -- ── 4. Most-recent pitching season (optional) ────────────────────────────
     latest_pitching AS (
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
@@ -297,33 +358,50 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         draft_info      AS pit_draft_info,
         playyears       AS pit_playyears
       FROM tbc_pitching_raw
+      WHERE playerid::text IN (SELECT playerid FROM tbc_identity)
       ORDER BY playerid, year DESC
     ),
 
-    -- Was player active in 2025?
+    -- ── 5. Active in 2025? ────────────────────────────────────────────────────
     active_2025 AS (
       SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_batting_raw WHERE year = '2025'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
+      FROM tbc_batting_raw
+      WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid FROM tbc_identity)
       UNION
       SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_pitching_raw WHERE year = '2025'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
+      FROM tbc_pitching_raw
+      WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid FROM tbc_identity)
     )
 
+    -- ── Final SELECT — every stage row, TBC data merged where available ──────
     SELECT
-      sp.playerid,
-      sp.firstname,
-      sp.lastname,
-      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
-      sp.career_highlevel                   AS level,
-      sp.height,
-      sp.weight,
-      sp.bats,
-      sp.throws,
-      sp.position,
+      st.playerid,
+      st.firstname,
+      st.lastname,
+      COALESCE(NULLIF(TRIM(st.display_name), ''),
+               NULLIF(TRIM(st.firstname || ' ' || st.lastname), ''),
+               st.playerid)                   AS display_name,
+      -- Level: prefer stage (curated) over TBC highlevel
+      COALESCE(NULLIF(st.level_label, ''), ti.career_highlevel, '') AS level,
+      ti.career_highlevel,
+      ti.height,
+      ti.weight,
+      ti.bats,
+      ti.throws,
+      st.position,
+      st.class_of,
+      st.roster_years,
+      st.roster_years_count,
+      st.current_team_name,
+      st.current_org_or_conference_name,
+      st.next_game_date,
+      st.next_game_home_away,
+      st.next_game_opponent,
+      UPPER(st.status_label)                  AS status_label,
       lb.stat_year,
-      lb.bat_level                          AS current_level,
+      lb.bat_level                            AS current_level,
       lb.g, lb.ab, lb.r, lb.h,
       lb."2b", lb.hr, lb.rbi, lb.sb, lb.bb,
       lb.avg, lb.obp, lb.slg, lb.ops,
@@ -332,36 +410,47 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       lp.pitch_year,
       lp.pg, lp.w, lp.l, lp.saves,
       lp.ip, lp.ko, lp.era, lp.whip,
-      CASE WHEN a25.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
+      -- is_active_2025: true if TBC has 2025 stats OR stage status is ACTIVE
+      CASE
+        WHEN a25.playerid IS NOT NULL THEN true
+        WHEN UPPER(st.status_label) = 'ACTIVE' THEN true
+        ELSE false
+      END AS is_active_2025,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
           lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
         ) THEN true
         ELSE false
       END AS is_pitcher
-    FROM school_players sp
-    LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
-    LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
-    LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
+    FROM stage st
+    LEFT JOIN tbc_identity    ti  ON st.playerid = ti.playerid
+    LEFT JOIN latest_batting  lb  ON st.playerid = lb.playerid
+    LEFT JOIN latest_pitching lp  ON st.playerid = lp.playerid
+    LEFT JOIN active_2025     a25 ON st.playerid = a25.playerid
     ORDER BY
-      CASE sp.career_highlevel
-        WHEN 'MLB'        THEN 1
-        WHEN 'TRIPLE-A'   THEN 2
-        WHEN 'AAA'        THEN 2
-        WHEN 'DOUBLE-A'   THEN 3
-        WHEN 'AA'         THEN 3
-        WHEN 'HIGH-A'     THEN 4
-        WHEN 'A+'         THEN 4
-        WHEN 'LOW-A'      THEN 5
-        WHEN 'A'          THEN 5
-        WHEN 'Indy'       THEN 6
-        WHEN 'NCAA'       THEN 7
-        WHEN 'JrCollege'  THEN 8
-        WHEN 'NAIA'       THEN 9
-        ELSE 10
+      -- Tier 1: level rank (highest first)
+      CASE COALESCE(NULLIF(st.level_label,''), ti.career_highlevel)
+        WHEN 'MLB'         THEN 1
+        WHEN 'TRIPLE-A'    THEN 2
+        WHEN 'DOUBLE-A'    THEN 3
+        WHEN 'HIGH-A'      THEN 4
+        WHEN 'LOW-A'       THEN 5
+        WHEN 'ROOKIE'      THEN 6
+        WHEN 'INDY'        THEN 7
+        WHEN 'INT''L'      THEN 8
+        WHEN 'NCAA-D1'     THEN 9
+        WHEN 'NCAA-D2'     THEN 10
+        WHEN 'NCAA-D3'     THEN 11
+        WHEN 'NAIA'        THEN 12
+        WHEN 'JUCO'        THEN 13
+        WHEN 'HIGH SCHOOL' THEN 14
+        ELSE 15
       END,
-      sp.lastname,
-      sp.firstname
+      -- Tier 2: roster years count (most first)
+      COALESCE(st.roster_years_count, 0) DESC,
+      -- Tier 3: last name A→Z
+      st.lastname,
+      st.firstname
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
