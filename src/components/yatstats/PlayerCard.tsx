@@ -37,7 +37,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // data-gradclass uses the bare year so the filter matches both verified and estimated.
   const { year: gc, estimated: gcEstimated } = gradClassInfo(p);
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
-  const org = String(p.current_org_or_conference_name || "");
+  const org = String(p.current_org_or_conference_name || "").toUpperCase();
   const status = String(
     p.status_label || (isAllTime ? (p.is_active_2025 ? "ACTIVE" : "RETIRED") : "ACTIVE")
   );

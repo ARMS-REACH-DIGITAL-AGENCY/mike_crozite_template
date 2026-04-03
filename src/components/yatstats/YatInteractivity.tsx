@@ -562,7 +562,7 @@ function applyFilters(){
   cardScope.forEach(function(card){
     var name=(card.getAttribute('data-name')||'').toLowerCase();
     var level=card.getAttribute('data-level')||'';
-    var org=card.getAttribute('data-org')||'';
+    var org=(card.getAttribute('data-org')||'').toUpperCase();
     var g=card.getAttribute('data-gradclass')||'';
     var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
     var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
@@ -571,7 +571,7 @@ function applyFilters(){
 
     if(nf&&!name.includes(nf))show=false;
     if(lc.length&&!lc.includes(level))show=false;
-    if(oc.length&&!oc.includes(org))show=false;
+    if(oc.length&&!oc.map(function(v){return v.toUpperCase();}).includes(org))show=false;
     if(gc.length&&!gc.includes(g))show=false;
     if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
     if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
