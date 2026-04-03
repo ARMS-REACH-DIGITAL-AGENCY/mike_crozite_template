@@ -257,14 +257,6 @@ if(mask){
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
 
-  /* Initialise section from URL hash — runs AFTER all button bindings so a throw
-     in resetFiltersForCurrentSection cannot prevent buttons from getting listeners */
-  (function initSectionFromHash(){
-    var hash=window.location.hash||'';
-    var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
-    try{showSection(tab,false);}catch(e){console.warn('initSectionFromHash error',e);}
-  })();
-
   /* ====================================================================
      GLOBAL SEARCH MODAL
      Opens #gsModal on #openSearch click.
@@ -739,6 +731,14 @@ function resetFiltersForCurrentSection(){
 
 if(filtersReset)filtersReset.addEventListener('click',resetFiltersForCurrentSection);
 if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSection);
+
+  /* Initialise section from URL hash — runs AFTER applyFilters and resetFiltersForCurrentSection
+     are both defined so the initial filter state is correctly applied on load */
+  (function initSectionFromHash(){
+    var hash=window.location.hash||'';
+    var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
+    showSection(tab,false);
+  })();
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
   /* ====================================================================
