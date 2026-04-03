@@ -31,15 +31,18 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // levelLabel() maps raw TBC values to the canonical filter values ("JUCO", "INDY", etc.)
   // so data-level always matches the FiltersDrawer checkbox values for every school.
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
-  // gradClassInfo() returns { year, estimated }.
-  // year: verified class_of from stage (human-set) OR estimated from first stat year - 1.
-  // estimated: true when derived from TBC playyears, false when set by school/curator.
-  // data-gradclass uses the bare year so the filter matches both verified and estimated.
-  const { year: gc, estimated: gcEstimated } = gradClassInfo(p);
+  // data-gradclass uses only the verified class_of — never a playyears estimate.
+  // Blank class_of means the filter attribute is empty (sorts/filters as unknown).
+  // gradClassInfo is still used for the estimated badge display on the card face.
+  const gc = String(p.class_of || "").trim();
+  const { estimated: gcEstimated } = gradClassInfo(p);
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
   const org = normalizeOrg(String(p.current_org_or_conference_name || ""));
+  // FIX: Always derive status from p.status_label or p.is_active_2025 — never hardcode "ACTIVE".
+  // Previously the isAllTime=false branch hardcoded "ACTIVE" for every card, which prevented
+  // the status filter from distinguishing RETIRED / FREE AGENT / INJURED players on the homepage.
   const status = String(
-    p.status_label || (isAllTime ? (p.is_active_2025 ? "ACTIVE" : "RETIRED") : "ACTIVE")
+    p.status_label || (p.is_active_2025 ? "ACTIVE" : "RETIRED")
   );
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),

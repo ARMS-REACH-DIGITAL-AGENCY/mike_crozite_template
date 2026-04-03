@@ -709,22 +709,6 @@ function resetFiltersForCurrentSection(){
   var isNewsPage=newsSection&&newsSection.classList.contains('visible');
   var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
 
-  document.querySelectorAll('#filterLevels input').forEach(function(i){
-    i.checked=true;
-  });
-
-  document.querySelectorAll('#filterGradClass input').forEach(function(i){
-    i.checked=true;
-  });
-
-  document.querySelectorAll('#filterRosterYears input').forEach(function(i){
-    i.checked=true;
-  });
-
-  document.querySelectorAll('#filterOrgs input').forEach(function(i){
-    i.checked=true;
-  });
-
   if(isActivePage||isNewsPage){
     /* Case-insensitive: check both 'ACTIVE' and 'Active' checkbox values */
     document.querySelectorAll('#filterStatus input').forEach(function(i){

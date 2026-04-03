@@ -105,56 +105,30 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  // Row 3 interaction strip — must be 1:1 with the active flip card grid.
-  // Primary source: flip_card_front_stage ACTIVE rows (curated photos, display fields).
-  // Fallback: getActiveRosterByHsid for any player not in stage (TBC-only schools).
-  // Stage rows win when a player appears in both.
+  // Row 3 strip — must reflect the same dataset as Block 5 (active section in page.tsx).
+  // Source: rawActiveRoster merged with stage enrichment (same logic as page.tsx).
+  // activeStageRows is NOT used as an existence gate — missing stage rows do not
+  // prevent a player from appearing in the strip.
   const [allStageRows, rawActiveRoster] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid),
     getActiveRosterByHsid(resolvedHsid),
   ]);
 
-  const activeStageRows = (allStageRows as Record<string, unknown>[]).filter(
-    (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
-  );
-
-  // Stage veto map: players with an explicit non-ACTIVE status in stage must not
-  // appear in the strip even if TBC has 2025 stats for them. Stage status wins.
-  const stageStatusMap = new Map(
+  const stageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [
       String(p.playerid),
-      String(p.status_label || '').toUpperCase(),
+      p,
     ])
   );
 
-  // Build TBC lookup for fast merge — identical to page.tsx so sort inputs match.
-  const tbcActiveMap = new Map(
-    (rawActiveRoster as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+  // Merge stage enrichment into each TBC active row (TBC base + stage overlay).
+  // Players with no stage row are included as-is — stage completeness is not required.
+  const allStripRows = sortActivePlayers(
+    (rawActiveRoster as Record<string, unknown>[]).map((p) => ({
+      ...p,
+      ...(stageMap.get(String(p.playerid)) || {}),
+    }))
   );
-
-  // Merge TBC stats into stage rows (TBC base + stage overlay) so sortActivePlayers
-  // has playyears and level for all 4 sort tiers — same merge as page.tsx.
-  const stageMergedRows = activeStageRows.map((stageRow) => {
-    const tbcRow = tbcActiveMap.get(String(stageRow.playerid));
-    return tbcRow ? { ...tbcRow, ...stageRow } : { ...stageRow };
-  });
-
-  // TBC-only players: in active roster, not already in stage ACTIVE set,
-  // and NOT vetoed by an explicit non-ACTIVE stage status.
-  const tbcOnlyRows = (rawActiveRoster as Record<string, unknown>[]).filter((p) => {
-    const stageStatus = stageStatusMap.get(String(p.playerid));
-    if (!stageStatus || stageStatus === '') return true;   // no stage row → TBC wins
-    if (stageStatus === 'ACTIVE') return false;             // already in stageMergedRows
-    return false;                                           // RETIRED/INJURED/etc → veto
-  });
-
-  // Union: merged stage-active players + TBC-only players, then apply the canonical
-  // 4-tier sort (Level → Grad Year → Roster Years → Last Name) so the strip
-  // order always mirrors the card gallery order in page.tsx.
-  const allStripRows = sortActivePlayers([
-    ...stageMergedRows,
-    ...tbcOnlyRows,
-  ]);
 
   const allStripIds = allStripRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
@@ -297,10 +271,10 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" defaultChecked /> Select All</label>
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" /> Select All</label>
               {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
                 <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked /> {s}
+                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
                 </label>
               ))}
             </div>
