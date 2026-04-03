@@ -107,9 +107,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       activeMerged.push({ ...p });
     }
   }
-  const activeFrontRoster = sortActivePlayers(
+ const activeFrontRoster = sortActivePlayers(
   activeMerged.filter((p: Record<string, unknown>) => {
-    const status = String(p.status_label ?? "ACTIVE").toUpperCase().trim();
+    const status = String(
+      p.status_label ?? ((p.is_active_2025 as boolean) ? "ACTIVE" : "RETIRED")
+    ).toUpperCase().trim();
     return status === "ACTIVE";
   })
 );
