@@ -129,11 +129,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   }
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
+  // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
+  // allTimeMerged is the full universe; we sort a copy so allTimeFrontRoster is unaffected.
+  const activeSortedRoster = sortActivePlayers([...allTimeMerged]);
+
   // ---------------------------------------------------------------------------
-  // Batch-fetch images — include all IDs from both union sets.
+  // Batch-fetch images — include all IDs from the full universe.
   // ---------------------------------------------------------------------------
   const allRosterIds = Array.from(
-    new Set([...activeFrontRoster, ...allTimeFrontRoster].map((p) => String(p.playerid)))
+    new Set(allTimeMerged.map((p) => String(p.playerid)))
   );
 
   const [frontImageMap, headshotMap] = await Promise.all([
@@ -144,15 +148,18 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
+      {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
+      {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
+      {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
       <section id="sec-active" className="yat-section visible">
         <div className="yat-grid" id="active-grid">
-          {allTimeFrontRoster.length === 0 ? (
+          {activeSortedRoster.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No players found</div>
               <div className="yat-empty-sub">Check back as we continue building the database</div>
             </div>
-          ) : allTimeFrontRoster.map((p) => (
+          ) : activeSortedRoster.map((p) => (
             <PlayerCard
               key={`active-${String(p.playerid)}`}
               player={p}

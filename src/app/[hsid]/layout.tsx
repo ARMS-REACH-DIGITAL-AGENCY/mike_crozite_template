@@ -9,13 +9,14 @@ import {
   getSchoolByHsid,
   getSchoolByUrl,
   getActiveRosterByHsid,
+  getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getPlayerNowImageUrl } from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
+import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 
@@ -105,34 +106,38 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  // Row 3 strip — same union logic as activeFrontRoster in page.tsx.
-  // TBC active rows enriched with stage, plus stage-only ACTIVE rows.
-  // This keeps Block 3 and Block 5 sourced from the same dataset.
-  const [allStageRows, rawActiveRoster] = await Promise.all([
+  // Row 3 strip — full school player universe, same source as Block 5.
+  // TBC all-time rows enriched with stage overlay + stage-only rows (YAT00001–YAT00008 etc.).
+  // All players included regardless of status so Block 3 can stay in sync with Block 5
+  // after filters change. Default visibility is controlled by applyFilters() on load.
+  // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
+  // so it matches the default Active-page card order in Block 5.
+  const [allStageRows, rawAllTimeRoster] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid),
-    getActiveRosterByHsid(resolvedHsid),
+    getAllTimeRosterByHsid(resolvedHsid),
   ]);
 
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // TBC active rows, enriched with stage overlay
+  // TBC all-time rows, enriched with stage overlay
   const stripSeenIds = new Set<string>();
   const stripMerged: Record<string, unknown>[] = [];
-  for (const p of rawActiveRoster as Record<string, unknown>[]) {
+  for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
     const stageRow = stripStageMap.get(id);
     stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
     stripSeenIds.add(id);
   }
-  // Stage-only ACTIVE rows not in TBC active
+  // Stage-only rows not in TBC all-time (includes YAT00001–YAT00008)
   for (const p of allStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
-    if (!stripSeenIds.has(id) && String(p.status_label || '').toUpperCase() === 'ACTIVE') {
+    if (!stripSeenIds.has(id)) {
       stripMerged.push({ ...p });
     }
   }
+  // Sort with Active sort so strip order matches Block 5 Active-page card order
   const allStripRows = sortActivePlayers(stripMerged);
 
   const allStripIds = allStripRows.map((p) => String(p.playerid));
@@ -207,7 +212,7 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" defaultChecked /> Select All</label>
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
               {[
                 'MLB',
                 'TRIPLE-A',
@@ -225,7 +230,7 @@ export default async function HsidLayout({
                 'HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
-                  <input type="checkbox" value={l} defaultChecked /> {l}
+                  <input type="checkbox" value={l} /> {l}
                 </label>
               ))}
             </div>
@@ -234,7 +239,7 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" defaultChecked /> Select All</label>
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
               {[
                 '2025',
                 '2024',
@@ -267,7 +272,7 @@ export default async function HsidLayout({
                 'PRE-1980',
               ].map((year) => (
                 <label key={year}>
-                  <input type="checkbox" value={year} defaultChecked /> {year}
+                  <input type="checkbox" value={year} /> {year}
                 </label>
               ))}
             </div>
@@ -288,10 +293,10 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" defaultChecked /> Select All</label>
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
               {Array.from({length: 27}, (_, i) => String(2025 - i)).map((yr) => (
                 <label key={yr}>
-                  <input type="checkbox" value={yr} defaultChecked /> {yr}
+                  <input type="checkbox" value={yr} /> {yr}
                 </label>
               ))}
             </div>
@@ -300,10 +305,10 @@ export default async function HsidLayout({
           <details className="yat-filter-group">
             <summary>By Organization / Conference</summary>
             <div className="yat-filter-options" id="filterOrgs">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" defaultChecked /> Select All</label>
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" /> Select All</label>
               {ORG_FILTER_LIST.map((org) => (
                 <label key={org}>
-                  <input type="checkbox" value={org} defaultChecked /> {org}
+                  <input type="checkbox" value={org} /> {org}
                 </label>
               ))}
             </div>
