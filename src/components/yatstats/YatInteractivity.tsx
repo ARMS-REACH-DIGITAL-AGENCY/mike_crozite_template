@@ -612,11 +612,12 @@ function applyFilters(){
 
   var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
 
-  var lc=Array.from(document.querySelectorAll('#filterLevels input:checked')).map(function(i){return i.value;});
-  var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked')).map(function(i){return i.value;});
-  var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked')).map(function(i){return i.value;});
-  var rc=Array.from(document.querySelectorAll('#filterRosterYears input:checked')).map(function(i){return i.value;});
-  var sc=Array.from(document.querySelectorAll('#filterStatus input:checked')).map(function(i){return i.value;});
+  /* Exclude Select All checkboxes from filter arrays — they are UI helpers only */
+  var lc=Array.from(document.querySelectorAll('#filterLevels input:checked:not([data-select-all])')).map(function(i){return i.value;});
+  var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked:not([data-select-all])')).map(function(i){return i.value;});
+  var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked:not([data-select-all])')).map(function(i){return i.value;});
+  var rc=Array.from(document.querySelectorAll('#filterRosterYears input:checked:not([data-select-all])')).map(function(i){return i.value;});
+  var sc=Array.from(document.querySelectorAll('#filterStatus input:checked:not([data-select-all])')).map(function(i){return i.value;});
 
   /* Only filter cards in the currently visible section.
      Cards in hidden sections are left untouched so they render
@@ -653,7 +654,6 @@ function applyFilters(){
     if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
     if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
 
-    if((isActivePage || isNewsPage) && !sc.length && status !== 'ACTIVE') show=false;
 
     card.style.display=show?'':'none';
     /* Sync the Row 3 thumbnail strip slot — only from active section cards */
