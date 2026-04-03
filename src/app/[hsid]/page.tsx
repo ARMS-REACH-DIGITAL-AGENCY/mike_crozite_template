@@ -167,10 +167,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     ])
   );
 
-  // getAllTimeRosterByHsid now uses flip_card_front_stage as primary source,
-  // so stage data is already embedded — no extra merge needed.
   const allTimeFrontRoster = sortAllTimePlayers(
-    allTimeRoster as Record<string, unknown>[]
+    (allTimeRoster as Record<string, unknown>[]).map((p) => ({
+      ...p,
+      ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+    }))
   );
 
   return (
