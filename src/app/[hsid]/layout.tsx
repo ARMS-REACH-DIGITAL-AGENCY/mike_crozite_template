@@ -118,9 +118,6 @@ export default async function HsidLayout({
     (p) => String(p.status_label || '').toUpperCase() === 'ACTIVE'
   );
 
-  // Build a set of playerids already covered by stage ACTIVE rows
-  const stagePlayerIds = new Set(activeStageRows.map((p) => String(p.playerid)));
-
   // Stage veto map: players with an explicit non-ACTIVE status in stage must not
   // appear in the strip even if TBC has 2025 stats for them. Stage status wins.
   const stageStatusMap = new Map(
@@ -130,20 +127,32 @@ export default async function HsidLayout({
     ])
   );
 
+  // Build TBC lookup for fast merge — identical to page.tsx so sort inputs match.
+  const tbcActiveMap = new Map(
+    (rawActiveRoster as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+  );
+
+  // Merge TBC stats into stage rows (TBC base + stage overlay) so sortActivePlayers
+  // has playyears and level for all 4 sort tiers — same merge as page.tsx.
+  const stageMergedRows = activeStageRows.map((stageRow) => {
+    const tbcRow = tbcActiveMap.get(String(stageRow.playerid));
+    return tbcRow ? { ...tbcRow, ...stageRow } : { ...stageRow };
+  });
+
   // TBC-only players: in active roster, not already in stage ACTIVE set,
   // and NOT vetoed by an explicit non-ACTIVE stage status.
   const tbcOnlyRows = (rawActiveRoster as Record<string, unknown>[]).filter((p) => {
     const stageStatus = stageStatusMap.get(String(p.playerid));
     if (!stageStatus || stageStatus === '') return true;   // no stage row → TBC wins
-    if (stageStatus === 'ACTIVE') return false;             // already in activeStageRows
+    if (stageStatus === 'ACTIVE') return false;             // already in stageMergedRows
     return false;                                           // RETIRED/INJURED/etc → veto
   });
 
-  // Union: stage-active players + TBC-only players, then apply the canonical
+  // Union: merged stage-active players + TBC-only players, then apply the canonical
   // 4-tier sort (Level → Grad Year → Roster Years → Last Name) so the strip
   // order always mirrors the card gallery order in page.tsx.
   const allStripRows = sortActivePlayers([
-    ...activeStageRows,
+    ...stageMergedRows,
     ...tbcOnlyRows,
   ]);
 
