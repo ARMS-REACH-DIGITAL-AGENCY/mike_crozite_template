@@ -146,13 +146,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* ACTIVE ALUMNI — Row 5 content */}
       <section id="sec-active" className="yat-section visible">
         <div className="yat-grid" id="active-grid">
-          {activeFrontRoster.length === 0 ? (
+          {allTimeFrontRoster.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
-              <div className="yat-empty-title">No active players found</div>
-              <div className="yat-empty-sub">Check back once the 2026 season begins</div>
+              <div className="yat-empty-title">No players found</div>
+              <div className="yat-empty-sub">Check back as we continue building the database</div>
             </div>
-          ) : activeFrontRoster.map((p) => (
+          ) : allTimeFrontRoster.map((p) => (
             <PlayerCard
               key={`active-${String(p.playerid)}`}
               player={p}
