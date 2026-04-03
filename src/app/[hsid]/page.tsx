@@ -107,8 +107,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       activeMerged.push({ ...p });
     }
   }
-  const activeFrontRoster = sortActivePlayers(activeMerged);
-
+  const activeFrontRoster = sortActivePlayers(
+  activeMerged.filter((p: Record<string, unknown>) => {
+    const status = String(p.status_label ?? "ACTIVE").toUpperCase().trim();
+    return status === "ACTIVE";
+  })
+);
   // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
   // TBC base first, stage overlay on top. Stage-only players included.
   const allTimeSeenIds = new Set<string>();
