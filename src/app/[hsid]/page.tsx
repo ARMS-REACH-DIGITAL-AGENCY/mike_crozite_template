@@ -174,18 +174,28 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     }))
   );
 
+  // Full roster for the active section — all players loaded into DOM,
+  // default display is ACTIVE only (enforced by initial filter state in JS).
+  // This allows filters to reveal retired, free agent, injured players too.
+  const fullRosterForActiveSection = sortActivePlayers(
+    (allTimeRoster as Record<string, unknown>[]).map((p) => ({
+      ...p,
+      ...(flipFrontStageMap.get(String(p.playerid)) || {}),
+    }))
+  );
+
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
       <section id="sec-active" className="yat-section visible">
         <div className="yat-grid" id="active-grid">
-          {activeFrontRoster.length === 0 ? (
+          {fullRosterForActiveSection.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No active players found</div>
               <div className="yat-empty-sub">Check back once the 2026 season begins</div>
             </div>
-          ) : activeFrontRoster.map((p) => (
+          ) : fullRosterForActiveSection.map((p) => (
             <PlayerCard
               key={String(p.playerid)}
               player={p}
