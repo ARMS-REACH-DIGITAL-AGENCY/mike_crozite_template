@@ -105,30 +105,35 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  // Row 3 strip — must reflect the same dataset as Block 5 (active section in page.tsx).
-  // Source: rawActiveRoster merged with stage enrichment (same logic as page.tsx).
-  // activeStageRows is NOT used as an existence gate — missing stage rows do not
-  // prevent a player from appearing in the strip.
+  // Row 3 strip — same union logic as activeFrontRoster in page.tsx.
+  // TBC active rows enriched with stage, plus stage-only ACTIVE rows.
+  // This keeps Block 3 and Block 5 sourced from the same dataset.
   const [allStageRows, rawActiveRoster] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid),
     getActiveRosterByHsid(resolvedHsid),
   ]);
 
-  const stageMap = new Map(
-    (allStageRows as Record<string, unknown>[]).map((p) => [
-      String(p.playerid),
-      p,
-    ])
+  const stripStageMap = new Map(
+    (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // Merge stage enrichment into each TBC active row (TBC base + stage overlay).
-  // Players with no stage row are included as-is — stage completeness is not required.
-  const allStripRows = sortActivePlayers(
-    (rawActiveRoster as Record<string, unknown>[]).map((p) => ({
-      ...p,
-      ...(stageMap.get(String(p.playerid)) || {}),
-    }))
-  );
+  // TBC active rows, enriched with stage overlay
+  const stripSeenIds = new Set<string>();
+  const stripMerged: Record<string, unknown>[] = [];
+  for (const p of rawActiveRoster as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    const stageRow = stripStageMap.get(id);
+    stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    stripSeenIds.add(id);
+  }
+  // Stage-only ACTIVE rows not in TBC active
+  for (const p of allStageRows as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    if (!stripSeenIds.has(id) && String(p.status_label || '').toUpperCase() === 'ACTIVE') {
+      stripMerged.push({ ...p });
+    }
+  }
+  const allStripRows = sortActivePlayers(stripMerged);
 
   const allStripIds = allStripRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');

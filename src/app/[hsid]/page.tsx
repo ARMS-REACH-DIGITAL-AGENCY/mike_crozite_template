@@ -16,7 +16,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { gradClass, formatSchoolName, sortActivePlayers, sortAllTimePlayers, type NavItem } from "@/lib/playerUtils";
+import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, type NavItem } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
@@ -81,78 +81,59 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   ]);
 
   // ---------------------------------------------------------------------------
-  // Active alumni union — mirrors the strip logic in layout.tsx so cards and
-  // strip are always 1:1.
-  //
-  // 1. Stage-active rows: players curated in flip_card_front_stage with
-  //    status_label = ACTIVE. These may have no TBC active-roster entry
-  //    (stage-only players like recent 2025 grads who haven't appeared in
-  //    TBC's active feed yet).
-  //
-  // 2. TBC-only rows: players in getActiveRosterByHsid that have no stage entry.
-  //
-  // Stage data always wins for shared players: TBC provides stats, stage
-  // provides display labels (level_label, status_label, class_of, etc.).
+  // Build union datasets — TBC rows + stage-only rows, merged by playerid.
+  // Stage-only players (YAT00001–YAT00008 etc.) are included even with no TBC row.
+  // Stage fields overlay TBC fields when both exist.
   // ---------------------------------------------------------------------------
-  const activeStageRows = (flipFrontStageRows as Record<string, unknown>[]).filter(
-    (p) => String(p.status_label || "").toUpperCase() === "ACTIVE"
-  );
-  const stageActiveIds = new Set(activeStageRows.map((p) => String(p.playerid)));
-
-  // Stage veto map: any player with an explicit non-ACTIVE status in stage
-  // (RETIRED, FREE AGENT, INJURED, etc.) must NOT appear in the active gallery,
-  // even if TBC still has 2025 stats for them. Stage status always wins.
-  const stageStatusMap = new Map(
-    (flipFrontStageRows as Record<string, unknown>[]).map((p) => [
-      String(p.playerid),
-      String(p.status_label || "").toUpperCase(),
-    ])
+  const stageMap = new Map(
+    (flipFrontStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // Build a lookup from TBC active roster for fast merge
-  const tbcActiveMap = new Map(
-    (activeRoster as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
-  );
+  // activeFrontRoster: union of TBC active + stage-ACTIVE rows, merged by playerid.
+  // TBC base first, stage overlay on top. Stage-only ACTIVE players included.
+  const activeSeenIds = new Set<string>();
+  const activeMerged: Record<string, unknown>[] = [];
+  // TBC active rows, enriched with stage if present
+  for (const p of activeRoster as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    const stageRow = stageMap.get(id);
+    activeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    activeSeenIds.add(id);
+  }
+  // Stage-only ACTIVE rows not already in TBC active
+  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE") {
+      activeMerged.push({ ...p });
+    }
+  }
+  const activeFrontRoster = sortActivePlayers(activeMerged);
 
-  // Merge TBC stats into stage rows (TBC base + stage overlay)
-  const stageMergedRows = activeStageRows.map((stageRow) => {
-    const tbcRow = tbcActiveMap.get(String(stageRow.playerid));
-    return tbcRow ? { ...tbcRow, ...stageRow } : { ...stageRow };
-  });
-
-  // TBC-only rows: active in TBC but NOT in stage at all (no stage row = no veto).
-  // If a player has a stage row with any non-ACTIVE status, exclude them —
-  // stage verdict overrides TBC's 2025-stats-based active classification.
-  const tbcOnlyRows = (activeRoster as Record<string, unknown>[])
-    .filter((p) => {
-      const stageStatus = stageStatusMap.get(String(p.playerid));
-      // No stage row at all → TBC active verdict stands → include
-      if (!stageStatus) return true;
-      // Stage row exists but status is empty/null → TBC verdict stands → include
-      if (stageStatus === "") return true;
-      // Stage row explicitly marks ACTIVE → already in stageMergedRows → exclude here
-      if (stageStatus === "ACTIVE") return false;
-      // Stage row explicitly marks anything else (RETIRED, FREE AGENT, INJURED, etc.)
-      // → stage veto → exclude from active gallery
-      return false;
-    });
-
-  // Union and apply 4-tier sort: Level → Grad Year → Roster Years → Last Name
-  const activeFrontRoster = sortActivePlayers([...stageMergedRows, ...tbcOnlyRows]);
+  // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
+  // TBC base first, stage overlay on top. Stage-only players included.
+  const allTimeSeenIds = new Set<string>();
+  const allTimeMerged: Record<string, unknown>[] = [];
+  // TBC all-time rows, enriched with stage if present
+  for (const p of allTimeRoster as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    const stageRow = stageMap.get(id);
+    allTimeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    allTimeSeenIds.add(id);
+  }
+  // Stage-only rows not already in TBC all-time
+  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    if (!allTimeSeenIds.has(id)) {
+      allTimeMerged.push({ ...p });
+    }
+  }
+  const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
   // ---------------------------------------------------------------------------
-  // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all players.
-  // Include stage-only IDs (players not in TBC active roster) so their images
-  // are fetched even when they have no TBC row.
+  // Batch-fetch images — include all IDs from both union sets.
   // ---------------------------------------------------------------------------
   const allRosterIds = Array.from(
-    new Set(
-      [
-        ...(activeRoster as Record<string, unknown>[]),
-        ...(allTimeRoster as Record<string, unknown>[]),
-        ...(flipFrontStageRows as Record<string, unknown>[]),
-      ].map((p) => String(p.playerid))
-    )
+    new Set([...activeFrontRoster, ...allTimeFrontRoster].map((p) => String(p.playerid)))
   );
 
   const [frontImageMap, headshotMap] = await Promise.all([
@@ -160,42 +141,18 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
   ]);
 
-  const flipFrontStageMap = new Map(
-    (flipFrontStageRows as Record<string, unknown>[]).map((row) => [
-      String(row.playerid),
-      row,
-    ])
-  );
-
-  const allTimeFrontRoster = sortAllTimePlayers(
-    (allTimeRoster as Record<string, unknown>[]).map((p) => ({
-      ...p,
-      ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-    }))
-  );
-
-  // Full roster for the active section — all players loaded into DOM,
-  // default display is ACTIVE only (enforced by initial filter state in JS).
-  // This allows filters to reveal retired, free agent, injured players too.
-  const fullRosterForActiveSection = sortActivePlayers(
-    (allTimeRoster as Record<string, unknown>[]).map((p) => ({
-      ...p,
-      ...(flipFrontStageMap.get(String(p.playerid)) || {}),
-    }))
-  );
-
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
       <section id="sec-active" className="yat-section visible">
         <div className="yat-grid" id="active-grid">
-          {fullRosterForActiveSection.length === 0 ? (
+          {activeFrontRoster.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No active players found</div>
               <div className="yat-empty-sub">Check back once the 2026 season begins</div>
             </div>
-          ) : fullRosterForActiveSection.map((p) => (
+          ) : activeFrontRoster.map((p) => (
             <PlayerCard
               key={`active-${String(p.playerid)}`}
               player={p}
@@ -210,7 +167,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* ALL-TIME LIST */}
       <section id="sec-alltime" className="yat-section visible">
         <div className="yat-grid" id="alltime-grid">
-          {(allTimeRoster as Record<string, unknown>[]).length === 0 ? (
+          {allTimeFrontRoster.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No alumni found</div>
