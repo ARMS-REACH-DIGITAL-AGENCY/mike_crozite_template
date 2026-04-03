@@ -177,9 +177,18 @@ function resolvedGradYear(p: Record<string, unknown>): number {
 
 /**
  * Derive roster years count for sorting (more years → higher priority).
- * Reads the hyphenated or comma-separated playyears field (TBC format).
+ * Prefers roster_years from stage (array of individual years, most accurate).
+ * Falls back to playyears from TBC (hyphenated range or comma-separated).
  */
 function resolvedRosterYearsCount(p: Record<string, unknown>): number {
+  // Stage field: roster_years is a Postgres text[] stored as ["2024","2023",...]
+  if (p.roster_years) {
+    const raw = String(p.roster_years).trim();
+    // Count individual 4-digit year tokens regardless of delimiter
+    const count = (raw.match(/\b\d{4}\b/g) || []).length;
+    if (count > 0) return count;
+  }
+  // TBC fallback: playyears as hyphenated range or comma-separated
   if (p.playyears) {
     const raw = String(p.playyears).trim();
     if (raw.includes("-")) {
@@ -212,10 +221,10 @@ export function sortActivePlayers(players: Record<string, unknown>[]): Record<st
     const rankB = LEVEL_RANK[resolvedLevel(b)] ?? 99;
     if (rankA !== rankB) return rankA - rankB;
 
-    // Tier 2 — grad year (oldest first)
+    // Tier 2 — grad year (most recent first: 2025 → 1999, unknowns last)
     const yearA = resolvedGradYear(a);
     const yearB = resolvedGradYear(b);
-    if (yearA !== yearB) return yearA - yearB;
+    if (yearA !== yearB) return yearB - yearA;
 
     // Tier 3 — roster years count (most first)
     const ryA = resolvedRosterYearsCount(a);
