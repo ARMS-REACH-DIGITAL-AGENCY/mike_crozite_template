@@ -113,7 +113,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     var src=el.getAttribute('data-src');
     var placeholder=el.getAttribute('data-placeholder');
     var img=new Image();
-    img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
+    img.onload=function(){el.style.backgroundImage="url('"+src+"')";el.style.backgroundSize='';el.style.backgroundPosition='';el.style.backgroundColor='';};
     img.onerror=function(){
       /* Extension-flip: legacy THEN objects may be .jpg or .png depending on upload era.
          Try the alternate extension before falling back to the silhouette placeholder. */
@@ -122,7 +122,7 @@ window.__firebase_config = ${firebaseConfigJSON};
       else if(src&&src.endsWith('.png'))altsrc=src.slice(0,-4)+'.jpg';
       if(altsrc){
         var altimg=new Image();
-        altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";};
+        altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";el.style.backgroundSize='';el.style.backgroundPosition='';el.style.backgroundColor='';};
         altimg.onerror=function(){
           if(placeholder){el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';}
         };
@@ -206,18 +206,6 @@ document.addEventListener('click', function(e){
   document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
 });
 
-(function initSectionFromHash(){
-  var hash = window.location.hash || '';
-  var tab = '';
-
-  if(hash.indexOf('#sec-') === 0){
-    tab = hash.replace('#sec-', '');
-  }
-
-  if(!tab) tab = 'active';
-  showSection(tab, false);
-})();
-
 window.addEventListener('hashchange', function(){
   var hash = window.location.hash || '';
   var tab = hash.indexOf('#sec-') === 0 ? hash.replace('#sec-', '') : 'active';
@@ -268,6 +256,14 @@ if(mask){
   if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
+
+  /* Initialise section from URL hash — runs AFTER all button bindings so a throw
+     in resetFiltersForCurrentSection cannot prevent buttons from getting listeners */
+  (function initSectionFromHash(){
+    var hash=window.location.hash||'';
+    var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
+    try{showSection(tab,false);}catch(e){console.warn('initSectionFromHash error',e);}
+  })();
 
   /* ====================================================================
      GLOBAL SEARCH MODAL
@@ -630,12 +626,16 @@ function applyFilters(){
     ? visibleSection.querySelectorAll('.yat-card[data-name]')
     : document.querySelectorAll('.yat-card[data-name]');
 
-  /* Reset all strip slots to visible before applying active-section filter */
-  if(isActivePage){
-    document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
+  /* Reset all strip slots to visible before applying filter */
+  var stripContainer=document.querySelector('.gallery-strip-inner')||document.querySelector('.gallery-strip');
+  if(stripContainer){
+    Array.from(stripContainer.querySelectorAll('.gallery-slot-link[data-playerid]')).forEach(function(slot){
       slot.style.display='';
     });
   }
+
+  /* Track visible card order for strip reordering */
+  var visiblePids=[];
 
   cardScope.forEach(function(card){
     var name=(card.getAttribute('data-name')||'').toLowerCase();
@@ -654,17 +654,29 @@ function applyFilters(){
     if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
     if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
 
-
     card.style.display=show?'':'none';
-    /* Sync the Row 3 thumbnail strip slot — only from active section cards */
-    if(isActivePage){
-      var pid=card.getAttribute('data-playerid')||'';
-      if(pid){
-        var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
-        if(slot)slot.style.display=show?'':'none';
-      }
-    }
+
+    var pid=card.getAttribute('data-playerid')||'';
+    if(show&&pid) visiblePids.push(pid);
   });
+
+  /* Sync Block 3 strip: reorder slots to match visible card order, hide the rest */
+  if(stripContainer){
+    var visibleSet={};
+    visiblePids.forEach(function(p){visibleSet[p]=true;});
+
+    /* Hide slots not in visible set */
+    Array.from(stripContainer.querySelectorAll('.gallery-slot-link[data-playerid]')).forEach(function(slot){
+      var pid=slot.getAttribute('data-playerid')||'';
+      slot.style.display=visibleSet[pid]?'':'none';
+    });
+
+    /* Reorder visible slots to match card order */
+    visiblePids.forEach(function(pid){
+      var slot=stripContainer.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
+      if(slot) stripContainer.appendChild(slot);
+    });
+  }
 }
   document.addEventListener('change',function(e){
   if(!e.target.closest('#filters')) return;

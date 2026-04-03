@@ -1,4 +1,5 @@
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { levelLabel as normalizeLevelLabel } from "@/lib/playerUtils";
 
 interface PlayerCardFrontProps {
   player: Record<string, unknown>;
@@ -41,8 +42,8 @@ export default function PlayerCardFront({
 
   // status_label: stage rows have it explicitly; TBC active roster rows are always ACTIVE
   const statusLabel = asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
-  // level_label: stage rows use level_label; TBC rows use level (already normalized in db.ts)
-  const levelLabel = asText(p.level_label) || asText(p.level) || "--";
+  // level_label: stage rows have it pre-normalized; TBC rows use level which must be normalized.
+  const levelLabel = asText(p.level_label) || normalizeLevelLabel(asText(p.level)) || "--";
 
   const currentTeamName = asText(p.current_team_name);
   const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
@@ -73,7 +74,12 @@ export default function PlayerCardFront({
         className="yat-bg"
         data-src={photoUrl}
         data-placeholder={thenSilhouetteUrl}
-        style={{ backgroundImage: `url('${photoUrl}')` }}
+        style={{
+          backgroundImage: `url('${thenSilhouetteUrl}')`,
+          backgroundSize: "contain",
+          backgroundPosition: "center bottom",
+          backgroundColor: "#1a1a1a",
+        }}
       />
       <div className="yat-shade" />
 
