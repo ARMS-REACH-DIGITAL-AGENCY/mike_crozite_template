@@ -131,7 +131,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
 
   // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
   // allTimeMerged is the full universe; we sort a copy so allTimeFrontRoster is unaffected.
-  const activeSortedRoster = sortActivePlayers([...allTimeMerged]);
+  
 
   // ---------------------------------------------------------------------------
   // Batch-fetch images — include all IDs from the full universe.
@@ -151,28 +151,30 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
       {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
       {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
-      <section id="sec-active" className="yat-section visible">
-        <div className="yat-grid" id="active-grid">
-          {activeSortedRoster.length === 0 ? (
-            <div className="yat-empty">
-              <div className="yat-empty-icon">⚾</div>
-              <div className="yat-empty-title">No players found</div>
-              <div className="yat-empty-sub">Check back as we continue building the database</div>
-            </div>
-          ) : activeSortedRoster.map((p) => (
-            <PlayerCard
-              key={`active-${String(p.playerid)}`}
-              player={p}
-              resolvedHsid={resolvedHsid}
-              frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-              headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-            />
-          ))}
-        </div>
-      </section>
+    <section id="sec-active" className="yat-section visible">
+
+  {activeFrontRoster.length === 0 ? (
+    <div className="yat-empty">
+      <div className="yat-empty-title">No Active Players Found</div>
+    </div>
+  ) : (
+    <div className="yat-grid">
+      {activeFrontRoster.map((p) => (
+        <PlayerCard
+          key={p.playerid}
+          p={p}
+          frontImageMap={frontImageMap}
+          headshotMap={headshotMap}
+          isAllTime={false}
+        />
+      ))}
+    </div>
+  )}
+
+</section>
 
       {/* ALL-TIME LIST */}
-      <section id="sec-alltime" className="yat-section visible">
+      <section id="sec-alltime" className="yat-section">
         <div className="yat-grid" id="alltime-grid">
           {allTimeFrontRoster.length === 0 ? (
             <div className="yat-empty">
@@ -194,7 +196,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* NEWS */}
-      <section id="sec-news" className="yat-section visible">
+      <section id="sec-news" className="yat-section">
         <div className="yat-news-wrap">
           <div className="yat-news-header">
             <div>
@@ -221,7 +223,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* CURRENT TEAM */}
-      <section id="sec-current" className="yat-section visible">
+      <section id="sec-current" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🏟️</div>
           <div className="yat-placeholder-title">Current Team Roster</div>
@@ -232,7 +234,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
      
       {/* FANTASY BRACKET */}
-      <section id="sec-fantasy" className="yat-section visible">
+      <section id="sec-fantasy" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🏆</div>
           <div className="yat-placeholder-title">Fantasy Bracket Tournament</div>
@@ -243,7 +245,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* MENTOR */}
-      <section id="sec-mentor" className="yat-section visible">
+      <section id="sec-mentor" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🤝</div>
           <div className="yat-placeholder-title">Mentorship Marketplace</div>
@@ -254,7 +256,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* PARTNER */}
-      <section id="sec-partner" className="yat-section visible">
+      <section id="sec-partner" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🤝</div>
           <div className="yat-placeholder-title">PCD Action Partner Program</div>
@@ -281,7 +283,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* ABOUT */}
-      <section id="sec-about" className="yat-section visible">
+      <section id="sec-about" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">ℹ️</div>
           <div className="yat-placeholder-title">About YAT?STATS</div>
@@ -292,7 +294,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
       
       {/* FAQ */}
-      <section id="sec-faq" className="yat-section visible">
+      <section id="sec-faq" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">❓</div>
           <div className="yat-placeholder-title">FAQ&apos;s</div>
