@@ -8,7 +8,6 @@ import { ReactNode } from 'react';
 import {
   getSchoolByHsid,
   getSchoolByUrl,
-  getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
@@ -106,16 +105,14 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  // Row 3 strip — full school player universe, same source as Block 5.
-  // TBC all-time rows enriched with stage overlay + stage-only rows (YAT00001–YAT00008 etc.).
-  // All players included regardless of status so Block 3 can stay in sync with Block 5
-  // after filters change. Default visibility is controlled by applyFilters() on load.
-  // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
-  // so it matches the default Active-page card order in Block 5.
-   const [allStageRows, rawActiveRoster] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid),
-    getActiveRosterByHsid(resolvedHsid),
-  ]);
+  // Row 3 strip — canonical player universe for this hsid.
+// Create from TBC/all-time school roster plus YAT-only players not already in TBC.
+// Stage rows only enrich existing players and must never gate whether a strip tile exists.
+// Visibility and mirroring are controlled later by the shared filter/sync logic.
+const [allStageRows, allTimeRoster] = await Promise.all([
+  getFlipCardFrontStageByHsid(resolvedHsid),
+  getAllTimeRosterByHsid(resolvedHsid),
+]);
 
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
@@ -124,42 +121,35 @@ export default async function HsidLayout({
   const stripSeenIds = new Set<string>();
   const stripMerged: Record<string, unknown>[] = [];
 
-  for (const p of rawActiveRoster as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    const stageRow = stripStageMap.get(id);
-    stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-    stripSeenIds.add(id);
+for (const p of allTimeRoster as Record<string, unknown>[]) {
+  const id = String(p.playerid);
+  const stageRow = stripStageMap.get(id);
+  stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+  stripSeenIds.add(id);
+}
+
+ for (const p of allStageRows as Record<string, unknown>[]) {
+  const id = String(p.playerid);
+  if (!stripSeenIds.has(id)) {
+    stripMerged.push({ ...p });
   }
+}
 
-  for (const p of allStageRows as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    if (!stripSeenIds.has(id) && String(p.status_label || '').toUpperCase() === 'ACTIVE') {
-      stripMerged.push({ ...p });
-    }
-  }
+  const stripRows = sortActivePlayers(stripMerged);
 
-  const stripActiveRows = sortActivePlayers(
-    stripMerged.filter((p: Record<string, unknown>) => {
-      const status = String(
-        p.status_label ?? ((p.is_active_2025 as boolean) ? 'ACTIVE' : 'RETIRED')
-      ).toUpperCase().trim();
-      return status === 'ACTIVE';
-    })
-  );
+const stripIds = stripRows.map((p) => String(p.playerid));
+const headshotMap = await getBatchDesignatedPlayerImages(stripIds, 'HEADSHOT');
 
-  const stripIds = stripActiveRows.map((p) => String(p.playerid));
-  const headshotMap = await getBatchDesignatedPlayerImages(stripIds, 'HEADSHOT');
-
-  const stripPlayers = stripActiveRows.map((p) => {
-    const playerId = String(p.playerid);
-    return {
-      id: playerId,
-      name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-      image:
-        headshotMap.get(playerId)?.image_url ||
-        getPlayerNowImageUrl(playerId),
-    };
-  });
+const stripPlayers = stripRows.map((p) => {
+  const playerId = String(p.playerid);
+  return {
+    id: playerId,
+    name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+    image:
+      headshotMap.get(playerId)?.image_url ||
+      getPlayerNowImageUrl(playerId),
+  };
+});
   return (
     <SchoolContextProvider schoolData={schoolData}>
       {/* Shared Styles — must be rendered before any visual content */}
