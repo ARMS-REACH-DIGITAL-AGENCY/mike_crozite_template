@@ -15,7 +15,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { formatSchoolName, sortAllTimePlayers, sortActivePlayers } from "@/lib/playerUtils";
+import { sortAllTimePlayers, sortActivePlayers } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
