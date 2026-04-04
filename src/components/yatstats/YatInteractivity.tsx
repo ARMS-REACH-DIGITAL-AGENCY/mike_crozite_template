@@ -740,6 +740,11 @@ function resetFiltersForCurrentSection(){
 if(filtersReset)filtersReset.addEventListener('click',resetFiltersForCurrentSection);
 if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSection);
 
+window.__yatApplyFilters = applyFilters;
+window.addEventListener('yat:strip-ready', function(){
+  applyFilters();
+});
+
  /* Initialise section from URL hash — runs AFTER applyFilters and resetFiltersForCurrentSection
    are both defined so the initial filter state is correctly applied on load */
 (function initSectionFromHash(){
