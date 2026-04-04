@@ -21,8 +21,10 @@ interface PlayerCardProps {
    * Do NOT pass the legacy players/now/{id}.jpg path here.
    */
   headshotUrl?: string | null;
-  /** When true, applies all-time display differences (CAREER STATS label, etc.) */
+    /** When true, applies all-time display differences (CAREER STATS label, etc.) */
   isAllTime?: boolean;
+  /** When true, card starts hidden on initial render */
+  initiallyHidden?: boolean;
 }
 
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
