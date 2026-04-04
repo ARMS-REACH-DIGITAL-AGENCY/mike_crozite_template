@@ -48,16 +48,26 @@ export default function InteractionStrip({
   };
 
   useEffect(() => {
+      useEffect(() => {
     if (!showActiveStrip) return;
 
     updateScrollState();
     const el = scrollRef.current;
     if (!el) return;
 
+    const fireStripReady = () => {
+      window.dispatchEvent(new Event('yat:strip-ready'));
+    };
+
+    const rafId = window.requestAnimationFrame(fireStripReady);
+    const timerId = window.setTimeout(fireStripReady, 120);
+
     el.addEventListener('scroll', updateScrollState);
     window.addEventListener('resize', updateScrollState);
 
     return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
       el.removeEventListener('scroll', updateScrollState);
       window.removeEventListener('resize', updateScrollState);
     };
