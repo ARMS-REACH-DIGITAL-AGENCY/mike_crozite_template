@@ -27,7 +27,7 @@ interface PlayerCardProps {
   initiallyHidden?: boolean;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl =export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, initiallyHidden = false }: PlayerCardProps) {null, headshotUrl = null, isAllTime }: PlayerCardProps) {
   // level_label comes from flip_card_front_stage (already normalized).
   // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
   // levelLabel() maps raw TBC values to the canonical filter values ("JUCO", "INDY", etc.)
@@ -54,9 +54,10 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const playerWithSlug = { ...p, slug };
 
   return (
-       <article
+        <article
       id={`player-${String(p.playerid)}`}
       className="yat-card"
+      style={initiallyHidden ? { display: "none" } : undefined}
       data-name={`${String(p.firstname || p.first_name || "")} ${String(p.lastname || p.last_name || "")}`.toLowerCase()}
       data-playerid={String(p.playerid)}
       data-level={lvl}
