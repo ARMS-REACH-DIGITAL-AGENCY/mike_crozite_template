@@ -165,15 +165,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     </div>
   ) : (
     <div className="yat-grid">
-      {allTimeFrontRoster.map((p: Record<string, unknown>) => (
-        <PlayerCard
-          key={`active-${String(p.playerid)}`}
-          player={p}
-          resolvedHsid={resolvedHsid}
-          frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-          headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-        />
-      ))}
+      {allTimeFrontRoster.map((p: Record<string, unknown>) => {
+  const initialStatus = String(
+    p.status_label ?? ((p.is_active_2025 as boolean) ? "ACTIVE" : "RETIRED")
+  ).toUpperCase().trim();
+
+  return (
+    <PlayerCard
+      key={`active-${String(p.playerid)}`}
+      player={p}
+      resolvedHsid={resolvedHsid}
+      frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+      headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+      initiallyHidden={initialStatus !== "ACTIVE"}
+    />
+  );
+})}
     </div>
   )}
 </section>
