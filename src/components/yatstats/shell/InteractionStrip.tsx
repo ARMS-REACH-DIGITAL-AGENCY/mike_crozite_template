@@ -47,8 +47,7 @@ export default function InteractionStrip({
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth);
   };
 
-  useEffect(() => {
-      useEffect(() => {
+    useEffect(() => {
     if (!showActiveStrip) return;
 
     updateScrollState();
