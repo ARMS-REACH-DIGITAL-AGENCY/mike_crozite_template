@@ -8,7 +8,6 @@ import { permanentRedirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import {
   getSchoolByHsid,
-  getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
@@ -16,7 +15,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, type NavItem } from "@/lib/playerUtils";
+import { formatSchoolName, sortAllTimePlayers } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
@@ -74,11 +73,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ""));
 
-  const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
-    getActiveRosterByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
-    getFlipCardFrontStageByHsid(resolvedHsid),
-  ]);
+const [allTimeRoster, flipFrontStageRows] = await Promise.all([
+  getAllTimeRosterByHsid(resolvedHsid),
+  getFlipCardFrontStageByHsid(resolvedHsid),
+]);
 
   // ---------------------------------------------------------------------------
   // Build union datasets — TBC rows + stage-only rows, merged by playerid.
@@ -89,32 +87,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     (flipFrontStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // activeFrontRoster: union of TBC active + stage-ACTIVE rows, merged by playerid.
-  // TBC base first, stage overlay on top. Stage-only ACTIVE players included.
-  const activeSeenIds = new Set<string>();
-  const activeMerged: Record<string, unknown>[] = [];
-  // TBC active rows, enriched with stage if present
-  for (const p of activeRoster as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    activeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-    activeSeenIds.add(id);
-  }
-  // Stage-only ACTIVE rows not already in TBC active
-  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE") {
-      activeMerged.push({ ...p });
-    }
-  }
- const activeFrontRoster = sortActivePlayers(
-  activeMerged.filter((p: Record<string, unknown>) => {
-    const status = String(
-      p.status_label ?? ((p.is_active_2025 as boolean) ? "ACTIVE" : "RETIRED")
-    ).toUpperCase().trim();
-    return status === "ACTIVE";
-  })
-);
   // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
   // TBC base first, stage overlay on top. Stage-only players included.
   const allTimeSeenIds = new Set<string>();
@@ -155,8 +127,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
       {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
-      {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
-      {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
+{/* by initiallyHidden on non-active PlayerCard instances. */}
  
 <section id="sec-active" className="yat-section visible">
   {allTimeFrontRoster.length === 0 ? (
