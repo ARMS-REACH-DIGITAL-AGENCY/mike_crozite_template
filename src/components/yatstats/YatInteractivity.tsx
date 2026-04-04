@@ -732,12 +732,18 @@ function resetFiltersForCurrentSection(){
 if(filtersReset)filtersReset.addEventListener('click',resetFiltersForCurrentSection);
 if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSection);
 
-  /* Initialise section from URL hash — runs AFTER applyFilters and resetFiltersForCurrentSection
-     are both defined so the initial filter state is correctly applied on load */
+ /* Initialise section from URL hash — runs AFTER applyFilters and resetFiltersForCurrentSection
+   are both defined so the initial filter state is correctly applied on load */
 (function initSectionFromHash(){
   var hash=window.location.hash||'';
   var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
   showSection(tab,false);
+
+  /* Re-run once after initial render so Row 3 strip visibility/order matches
+     Row 5 on first paint, especially on the Active page. */
+  setTimeout(function(){
+    applyFilters();
+  }, 0);
 })();
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
