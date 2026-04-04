@@ -264,10 +264,8 @@ if(mask){
   mask.addEventListener('click', closeAllDrawers);
 }
 
-  
-}
-
   /* ====================================================================
+     GLOBAL SEARCH MODAL
      GLOBAL SEARCH MODAL
      Opens #gsModal on #openSearch click.
      Results show players first, then schools (grouped by region).
