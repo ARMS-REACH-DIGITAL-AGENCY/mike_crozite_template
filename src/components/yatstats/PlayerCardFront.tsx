@@ -75,11 +75,8 @@ export default function PlayerCardFront({
         data-src={photoUrl}
         data-placeholder={thenSilhouetteUrl}
         style={{
-          backgroundImage: `url('${thenSilhouetteUrl}')`,
-          backgroundSize: "contain",
-          backgroundPosition: "center bottom",
-          backgroundColor: "#1a1a1a",
-        }}
+  backgroundImage: `url('${photoUrl}')`,
+}}
       />
       <div className="yat-shade" />
 
