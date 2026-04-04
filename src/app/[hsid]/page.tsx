@@ -71,7 +71,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   }
 
   const resolvedHsid = String(school.hsid ?? hsid);
-  const schoolName = formatSchoolName(String(school.hsname || ""));
+ const schoolName = String(school.hsname || "");
 
 const [allTimeRoster, flipFrontStageRows] = await Promise.all([
   getAllTimeRosterByHsid(resolvedHsid),
