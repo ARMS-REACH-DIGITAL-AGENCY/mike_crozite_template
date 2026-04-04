@@ -1,313 +1,364 @@
-// src/app/[hsid]/page.tsx
-// YAT?STATS — Dynamic school microsite — Gallery Page (Row 5 content only)
-// The shared shell (Rows 1-4, drawers, styles, scripts) is provided by [hsid]/layout.tsx.
-// This page ONLY renders the gallery content that goes inside {children}.
+// src/app/[hsid]/layout.tsx
+// THE UNIFIED SHARED SHELL
+// This is the single source of truth for the 5-row system.
+// It owns Rows 1-2, the drawers, the footer, and all shared styles/scripts.
+// All internal pages (gallery, player profile, news) render as {children} inside this shell.
 
-import type { Metadata } from "next";
-import { permanentRedirect, notFound } from "next/navigation";
-import { headers } from "next/headers";
+import { ReactNode } from 'react';
 import {
   getSchoolByHsid,
+  getSchoolByUrl,
   getActiveRosterByHsid,
   getAllTimeRosterByHsid,
-  getSchoolByUrl,
-  getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
-} from "@/lib/db";
-import { getSchoolCrestUrl } from "@/lib/schoolAssets";
-import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, type NavItem } from "@/lib/playerUtils";
+  getBatchDesignatedPlayerImages,
+} from '@/lib/db';
+import { getSchoolCrestUrl } from '@/lib/schoolAssets';
+import { getPlayerNowImageUrl } from '@/lib/playerImage';
+import { getFirebaseConfigJSON } from '@/lib/firebase-config';
+import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
+import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 
-import PlayerCard from "@/components/yatstats/PlayerCard";
+import type { Metadata } from 'next';
 
-export const runtime = "nodejs";
+// Shared Components
+import YatStyles from '@/components/yatstats/YatStyles';
+import YatInteractivity from '@/components/yatstats/YatInteractivity';
+import AccountDrawerContent from '@/components/AccountDrawer';
+import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
+import SchoolContextProvider from '@/context/SchoolContext';
+import SharedShell from '@/components/yatstats/SharedShell';
 
-export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
+export const runtime = 'nodejs';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ hsid: string }>;
+}): Promise<Metadata> {
   const { hsid } = await params;
-  const headersList = await headers();
-  const host = headersList.get("host") || "";
-  const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
-  const school = hostSchool || await getSchoolByHsid(hsid);
-  const name = (school as Record<string, unknown>)?.hsname as string || "Your School";
-  const loc = (school as Record<string, unknown>)?.hslocation as string || "";
-  const locParts = loc.split(",").map((s: string) => s.trim());
-  const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
-  const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
-  const schoolHsid = (school as Record<string, unknown>)?.hsid as string || hsid;
-  const crestUrl = getSchoolCrestUrl(schoolHsid);
-  const canonicalUrl = getCanonicalBaseUrl(school as Record<string, unknown> | null, schoolHsid);
+
+  let school: Record<string, unknown> | null = null;
+
+  try {
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+  } catch {
+    school = null;
+  }
+
+  const resolvedHsid = String(school?.hsid ?? hsid);
+  const schoolName = formatSchoolName(String(school?.hsname || 'YAT?STATS'));
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
+
   return {
-    title: titleParts.join(" | "),
-    description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
-    alternates: { canonical: canonicalUrl },
+    title: `${schoolName} | YAT?STATS`,
     icons: {
-      icon: [
-        { url: crestUrl, type: "image/png" },
-        { url: "/favicon.ico", type: "image/x-icon" },
-      ],
+      icon: crestUrl,
       apple: crestUrl,
+      shortcut: crestUrl,
+    },
+    appleWebApp: {
+      capable: true,
+      title: schoolName,
     },
   };
 }
 
-export default async function SchoolPage({ params }: { params: Promise<{ hsid: string }> }) {
+export default async function HsidLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: Promise<{ hsid: string }>;
+}) {
   const { hsid } = await params;
   const headersList = await headers();
-  const host = headersList.get("host") || "";
+  const host = headersList.get('host') || '';
+
+  // Resolve school data — same logic as the gallery page
   let school: Record<string, unknown> | null = null;
   try {
     school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
-    if (!school) school = await getSchoolByHsid(hsid) as Record<string, unknown> | null;
+    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
   } catch {
     notFound();
   }
   if (!school) notFound();
 
-  // Redirect numeric hsid paths to the school's custom domain (skip on preview deployments)
-  const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
-  const isNumericHsid = /^\d+$/.test(hsid);
-  const isPreview = host.includes("vercel.app") || host.includes("localhost");
-  if (micrositeUrl && isNumericHsid && !isPreview) {
-    permanentRedirect(micrositeUrl.replace(/\/$/, ""));
-  }
-
   const resolvedHsid = String(school.hsid ?? hsid);
-  const schoolName = formatSchoolName(String(school.hsname || ""));
+  const schoolName = formatSchoolName(String(school.hsname || ''));
+  const location = String(school.hslocation || '').toUpperCase();
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
 
-  const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
-    getActiveRosterByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
+  // Extract subdomain for GHL tagging
+  const ROOT_DOMAIN = 'yatstats.com';
+  const subdomainPart = host === ROOT_DOMAIN ? '' : host.slice(0, -(ROOT_DOMAIN.length + 1));
+  const subdomain = subdomainPart.split('.')[0] || hsid || 'unknown';
+
+  // Build school data for the context provider
+  const schoolData = {
+    hsid: resolvedHsid,
+    hsName: schoolName,
+    hsLocation: location,
+    crestUrl,
+    primaryColor: String(school.primary_color || '#000000'),
+    secondaryColor: String(school.secondary_color || '#FFFFFF'),
+  };
+
+  // Row 3 strip — full school player universe, same source as Block 5.
+  // TBC all-time rows enriched with stage overlay + stage-only rows (YAT00001–YAT00008 etc.).
+  // All players included regardless of status so Block 3 can stay in sync with Block 5
+  // after filters change. Default visibility is controlled by applyFilters() on load.
+  // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
+  // so it matches the default Active-page card order in Block 5.
+   const [allStageRows, rawActiveRoster] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid),
+    getActiveRosterByHsid(resolvedHsid),
   ]);
 
-  // ---------------------------------------------------------------------------
-  // Build union datasets — TBC rows + stage-only rows, merged by playerid.
-  // Stage-only players (YAT00001–YAT00008 etc.) are included even with no TBC row.
-  // Stage fields overlay TBC fields when both exist.
-  // ---------------------------------------------------------------------------
-  const stageMap = new Map(
-    (flipFrontStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+  const stripStageMap = new Map(
+    (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // activeFrontRoster: union of TBC active + stage-ACTIVE rows, merged by playerid.
-  // TBC base first, stage overlay on top. Stage-only ACTIVE players included.
-  const activeSeenIds = new Set<string>();
-  const activeMerged: Record<string, unknown>[] = [];
-  // TBC active rows, enriched with stage if present
-  for (const p of activeRoster as Record<string, unknown>[]) {
+  const stripSeenIds = new Set<string>();
+  const stripMerged: Record<string, unknown>[] = [];
+
+  for (const p of rawActiveRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    activeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-    activeSeenIds.add(id);
+    const stageRow = stripStageMap.get(id);
+    stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    stripSeenIds.add(id);
   }
-  // Stage-only ACTIVE rows not already in TBC active
-  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
+
+  for (const p of allStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
-    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE") {
-      activeMerged.push({ ...p });
+    if (!stripSeenIds.has(id) && String(p.status_label || '').toUpperCase() === 'ACTIVE') {
+      stripMerged.push({ ...p });
     }
   }
- const activeFrontRoster = sortActivePlayers(
-  activeMerged.filter((p: Record<string, unknown>) => {
-    const status = String(
-      p.status_label ?? ((p.is_active_2025 as boolean) ? "ACTIVE" : "RETIRED")
-    ).toUpperCase().trim();
-    return status === "ACTIVE";
-  })
-);
-  // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
-  // TBC base first, stage overlay on top. Stage-only players included.
-  const allTimeSeenIds = new Set<string>();
-  const allTimeMerged: Record<string, unknown>[] = [];
-  // TBC all-time rows, enriched with stage if present
-  for (const p of allTimeRoster as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    allTimeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-    allTimeSeenIds.add(id);
-  }
-  // Stage-only rows not already in TBC all-time
-  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    if (!allTimeSeenIds.has(id)) {
-      allTimeMerged.push({ ...p });
-    }
-  }
-  const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
-  // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
-  // allTimeMerged is the full universe; we sort a copy so allTimeFrontRoster is unaffected.
-  
-
-  // ---------------------------------------------------------------------------
-  // Batch-fetch images — include all IDs from the full universe.
-  // ---------------------------------------------------------------------------
-  const allRosterIds = Array.from(
-    new Set(allTimeMerged.map((p) => String(p.playerid)))
+  const stripActiveRows = sortActivePlayers(
+    stripMerged.filter((p: Record<string, unknown>) => {
+      const status = String(
+        p.status_label ?? ((p.is_active_2025 as boolean) ? 'ACTIVE' : 'RETIRED')
+      ).toUpperCase().trim();
+      return status === 'ACTIVE';
+    })
   );
 
-  const [frontImageMap, headshotMap] = await Promise.all([
-    getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
-    getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
-  ]);
+  const stripIds = stripActiveRows.map((p) => String(p.playerid));
+  const headshotMap = await getBatchDesignatedPlayerImages(stripIds, 'HEADSHOT');
 
+  const stripPlayers = stripActiveRows.map((p) => {
+    const playerId = String(p.playerid);
+    return {
+      id: playerId,
+      name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+      image:
+        headshotMap.get(playerId)?.image_url ||
+        getPlayerNowImageUrl(playerId),
+    };
+  });
   return (
-    <>
-      {/* ACTIVE ALUMNI — Row 5 content */}
-      {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
-      {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
-      {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
-    <section id="sec-active" className="yat-section visible">
-  {activeFrontRoster.length === 0 ? (
-    <div className="yat-empty">
-      <div className="yat-empty-title">No Active Players Found</div>
-    </div>
-  ) : (
-    <div className="yat-grid">
-      {activeFrontRoster.map((p: Record<string, unknown>) => (
-        <PlayerCard
-          key={`active-${String(p.playerid)}`}
-          player={p}
-          resolvedHsid={resolvedHsid}
-          frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-          headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-        />
-      ))}
-    </div>
-  )}
+    <SchoolContextProvider schoolData={schoolData}>
+      {/* Shared Styles — must be rendered before any visual content */}
+      <YatStyles />
 
-</section>
+      {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5 */}
+      <SharedShell hsid={resolvedHsid} players={stripPlayers}>
+        {children}
+      </SharedShell>
 
-      {/* ALL-TIME LIST */}
-      <section id="sec-alltime" className="yat-section">
-        <div className="yat-grid" id="alltime-grid">
-          {allTimeFrontRoster.length === 0 ? (
-            <div className="yat-empty">
-              <div className="yat-empty-icon">⚾</div>
-              <div className="yat-empty-title">No alumni found</div>
-              <div className="yat-empty-sub">Check back as we continue building the database</div>
+      {/* LEFT DRAWER */}
+      <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
+        <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
+          <i className="ri-close-line" />
+        </button>
+
+        <div className="yat-drawer-content">
+          <h3>NAVIGATION</h3>
+
+          <div className="yat-drawer-nav">
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-alltime`}>NEXT-LEVEL ALL-TIME LIST</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-current`}>2026 HIGH SCHOOL TEAM</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-fantasy`}>FANTASY BRACKET TOURNEY</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-mentor`}>MENTORSHIP MARKETPLACE</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-partner`}>PARTNERSHIP PROGRAM</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-about`}>ABOUT US</a>
+            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}#sec-faq`}>FAQ’S</a>
+          </div>
+        </div>
+      </aside>
+
+      {/* Right Drawers */}
+      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
+        <button className="yat-icon-btn yat-close-btn" id="closeAccount">
+          <i className="ri-close-line" />
+        </button>
+        <h3>ACCOUNT</h3>
+        <AccountDrawerContent subdomain={subdomain} />
+      </aside>
+
+      <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
+        <button className="yat-icon-btn yat-close-btn" id="closeFilters">
+          <i className="ri-close-line" />
+        </button>
+        <h3>FILTERS</h3>
+        <div className="yat-drawer-content" id="filters">
+          <details className="yat-filter-group" open>
+            <summary>By Name</summary>
+            <div className="yat-filter-options">
+              <input id="filterName" type="text" placeholder="Type a name…" />
             </div>
-          ) : allTimeFrontRoster.map((p) => (
-            <PlayerCard
-              key={`alltime-${String(p.playerid)}`}
-              player={p}
-              resolvedHsid={resolvedHsid}
-              frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-              headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-              isAllTime
-            />
-          ))}
-        </div>
-      </section>
+          </details>
 
-      {/* NEWS */}
-      <section id="sec-news" className="yat-section">
-        <div className="yat-news-wrap">
-          <div className="yat-news-header">
-            <div>
-              <div className="yat-news-title">ACTIVE ALUMNI NEWS</div>
-              <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
+          <details className="yat-filter-group">
+            <summary>By Level</summary>
+            <div className="yat-filter-options" id="filterLevels">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
+              {[
+                'MLB',
+                'TRIPLE-A',
+                'DOUBLE-A',
+                'HIGH-A',
+                'LOW-A',
+                'ROOKIE',
+                'INDY',
+                "INT'L",
+                'NCAA-D1',
+                'NCAA-D2',
+                'NCAA-D3',
+                'NAIA',
+                'JUCO',
+                'HIGH SCHOOL',
+              ].map((l) => (
+                <label key={l}>
+                  <input type="checkbox" value={l} /> {l}
+                </label>
+              ))}
             </div>
-          </div>
-          <div className="yat-news-filters" id="newsFilters">
-            <input id="newsFilterName" className="yat-news-filter-input" type="search" placeholder="Filter by player name…" />
-            <span className="yat-news-filter-label">Level:</span>
-            <div className="yat-news-filter-chips" id="newsFilterLevels" />
-            <span className="yat-news-filter-label">Class:</span>
-            <div className="yat-news-filter-chips" id="newsFilterGradClass" />
-            <button id="newsFilterActive" className="yat-news-chip" type="button">Active Only</button>
-            <button id="newsFilterReset" className="yat-news-filter-reset" type="button">Reset</button>
-          </div>
-          <div className="yat-news-grid" id="news-grid">
-            <div className="yat-news-loading">
-              <div className="yat-news-loading-spinner" />
-              <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
+          </details>
+
+          <details className="yat-filter-group">
+            <summary>By Graduating Class</summary>
+            <div className="yat-filter-options" id="filterGradClass">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
+              {[
+                '2025',
+                '2024',
+                '2023',
+                '2022',
+                '2021',
+                '2020',
+                '2019',
+                '2018',
+                '2017',
+                '2016',
+                '2015',
+                '2014',
+                '2013',
+                '2012',
+                '2011',
+                '2010',
+                '2009',
+                '2008',
+                '2007',
+                '2006',
+                '2005',
+                '2004',
+                '2003',
+                '2002',
+                '2001',
+                '2000',
+                '1990-1999',
+                '1980-1989',
+                'PRE-1980',
+              ].map((year) => (
+                <label key={year}>
+                  <input type="checkbox" value={year} /> {year}
+                </label>
+              ))}
             </div>
-          </div>
-        </div>
-      </section>
+          </details>
 
-      {/* CURRENT TEAM */}
-      <section id="sec-current" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🏟️</div>
-          <div className="yat-placeholder-title">Current Team Roster</div>
-          <div className="yat-placeholder-body">
-            The current {schoolName} varsity roster will appear here once the season begins.
-          </div>
-        </div>
-      </section>
-     
-      {/* FANTASY BRACKET */}
-      <section id="sec-fantasy" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🏆</div>
-          <div className="yat-placeholder-title">Fantasy Bracket Tournament</div>
-          <div className="yat-placeholder-body">
-            School-vs-school bracket gameplay and alumni performance tournament experience. Coming soon.
-          </div>
-        </div>
-      </section>
+          <details className="yat-filter-group">
+            <summary>By Status</summary>
+            <div className="yat-filter-options" id="filterStatus">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" /> Select All</label>
+              {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
+                <label key={s}>
+                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
+                </label>
+              ))}
+            </div>
+          </details>
 
-      {/* MENTOR */}
-      <section id="sec-mentor" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🤝</div>
-          <div className="yat-placeholder-title">Mentorship Marketplace</div>
-          <div className="yat-placeholder-body">
-            Connect with {schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.
-          </div>
-        </div>
-      </section>
+          <details className="yat-filter-group">
+            <summary>By Roster Year</summary>
+            <div className="yat-filter-options" id="filterRosterYears">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
+              {Array.from({length: 27}, (_, i) => String(2025 - i)).map((yr) => (
+                <label key={yr}>
+                  <input type="checkbox" value={yr} /> {yr}
+                </label>
+              ))}
+            </div>
+          </details>
 
-      {/* PARTNER */}
-      <section id="sec-partner" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🤝</div>
-          <div className="yat-placeholder-title">PCD Action Partner Program</div>
-          <div className="yat-placeholder-body">
-            Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
-            <br /><br />
-            <a
-              href="mailto:sponsor@yatstats.com"
-              style={{
-                display: "inline-block",
-                background: "#00e676",
-                color: "#000",
-                fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                fontSize: "14px",
-                letterSpacing: ".1em",
-                padding: "10px 24px",
-                borderRadius: "4px",
-              }}
-            >
-              Get In Touch
-            </a>
-          </div>
+          <details className="yat-filter-group">
+            <summary>By Organization / Conference</summary>
+            <div className="yat-filter-options" id="filterOrgs">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" /> Select All</label>
+              {ORG_FILTER_LIST.map((org) => (
+                <label key={org}>
+                  <input type="checkbox" value={org} /> {org}
+                </label>
+              ))}
+            </div>
+          </details>
         </div>
-      </section>
 
-      {/* ABOUT */}
-      <section id="sec-about" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">ℹ️</div>
-          <div className="yat-placeholder-title">About YAT?STATS</div>
-          <div className="yat-placeholder-body">
-            YAT?STATS helps schools, families, fans, and sponsors follow where players go after high school and celebrate their next-level journeys.
-          </div>
+        <div className="yat-drawer-footer">
+          <button
+            id="filtersReset"
+            className="yat-icon-btn"
+            style={{ padding: '10px 14px', border: '1px solid var(--line)', borderRadius: '12px' }}
+          >
+            <i className="ri-restart-line" /> Reset Filters
+          </button>
         </div>
-      </section>
-      
-      {/* FAQ */}
-      <section id="sec-faq" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">❓</div>
-          <div className="yat-placeholder-title">FAQ&apos;s</div>
-          <div className="yat-placeholder-body">
-            Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon.
-          </div>
+      </aside>
+
+      <GlobalSearchModal />
+      <div id="drawerMask" className="yat-drawer-mask" />
+
+      {/* Article detail overlay + modal drawer */}
+      <div className="yat-article-overlay" id="articleOverlay" />
+      <aside
+        className="yat-article-modal"
+        id="articleModal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Article detail"
+      >
+        <div className="yat-article-modal-top">
+          <span className="yat-article-modal-label">ALUMNI NEWS</span>
+          <button className="yat-article-modal-close" id="articleModalClose" aria-label="Close">
+            <i className="ri-close-line" />
+          </button>
         </div>
-      </section>
-    </>
+        <div id="articleModalImg" />
+        <div className="yat-article-modal-body" id="articleModalBody" />
+      </aside>
+
+      {/* Shared Interactivity — must be rendered last */}
+      <YatInteractivity
+        resolvedHsid={resolvedHsid}
+        firebaseConfigJSON={getFirebaseConfigJSON()}
+      />
+    </SchoolContextProvider>
   );
 }
