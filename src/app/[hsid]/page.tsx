@@ -107,12 +107,37 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       activeMerged.push({ ...p });
     }
   }
+ const activeFrontRoster = sortActivePlayers(
+  activeMerged.filter((p: Record<string, unknown>) => {
+    const status = String(
+      p.status_label ?? ((p.is_active_2025 as boolean) ? "ACTIVE" : "RETIRED")
+    ).toUpperCase().trim();
+    return status === "ACTIVE";
+  })
+);
+  // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
+  // TBC base first, stage overlay on top. Stage-only players included.
+  const allTimeSeenIds = new Set<string>();
+  const allTimeMerged: Record<string, unknown>[] = [];
+  // TBC all-time rows, enriched with stage if present
+  for (const p of allTimeRoster as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    const stageRow = stageMap.get(id);
+    allTimeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    allTimeSeenIds.add(id);
+  }
+  // Stage-only rows not already in TBC all-time
+  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    if (!allTimeSeenIds.has(id)) {
+      allTimeMerged.push({ ...p });
+    }
+  }
+  const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
-    const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
-
-  // Active section uses the full universe too.
-  // Default ACTIVE-only visibility is controlled by client-side filters on load.
-  const activeFrontRoster = sortActivePlayers(allTimeMerged);
+  // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
+  // allTimeMerged is the full universe; we sort a copy so allTimeFrontRoster is unaffected.
+  
 
   // ---------------------------------------------------------------------------
   // Batch-fetch images — include all IDs from the full universe.
@@ -132,14 +157,14 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
       {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
       {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
-  <section id="sec-active" className="yat-section visible">
+    <section id="sec-active" className="yat-section visible">
   {activeFrontRoster.length === 0 ? (
     <div className="yat-empty">
       <div className="yat-empty-title">No Active Players Found</div>
     </div>
   ) : (
     <div className="yat-grid">
-      {activeFrontRoster.map((p) => (
+      {activeFrontRoster.map((p: Record<string, unknown>) => (
         <PlayerCard
           key={`active-${String(p.playerid)}`}
           player={p}
