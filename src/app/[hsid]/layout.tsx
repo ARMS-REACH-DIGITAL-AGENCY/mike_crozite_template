@@ -107,53 +107,50 @@ export default async function HsidLayout({
   };
 
   // Row 3 strip — full school player universe, same source as Block 5.
-  // TBC all-time rows enriched with stage overlay + stage-only rows (YAT00001–YAT00008 etc.).
-  // All players included regardless of status so Block 3 can stay in sync with Block 5
-  // after filters change. Default visibility is controlled by applyFilters() on load.
-  // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
-  // so it matches the default Active-page card order in Block 5.
+  // TBC all-time rows enriched with stage overlay + stage-only rows.
+  // Full universe stays available so filters can expand beyond ACTIVE on the gallery page.
+  // Default ACTIVE-only visibility is controlled client-side on load.
   const [allStageRows, rawAllTimeRoster] = await Promise.all([
-  getFlipCardFrontStageByHsid(resolvedHsid),
-  getAllTimeRosterByHsid(resolvedHsid),
-]);
+    getFlipCardFrontStageByHsid(resolvedHsid),
+    getAllTimeRosterByHsid(resolvedHsid),
+  ]);
 
-const stripStageMap = new Map(
-  (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
-);
+  const stripStageMap = new Map(
+    (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+  );
 
-const stripSeenIds = new Set<string>();
-const stripMerged: Record<string, unknown>[] = [];
+  const stripSeenIds = new Set<string>();
+  const stripMerged: Record<string, unknown>[] = [];
 
-for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
-  const id = String(p.playerid);
-  const stageRow = stripStageMap.get(id);
-  stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-  stripSeenIds.add(id);
-}
-
-for (const p of allStageRows as Record<string, unknown>[]) {
-  const id = String(p.playerid);
-  if (!stripSeenIds.has(id)) {
-    stripMerged.push({ ...p });
+  for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    const stageRow = stripStageMap.get(id);
+    stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    stripSeenIds.add(id);
   }
-}
 
-const allStripRows = sortActivePlayers(stripMerged);
+  for (const p of allStageRows as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    if (!stripSeenIds.has(id)) {
+      stripMerged.push({ ...p });
+    }
+  }
 
-const allStripIds = allStripRows.map((p) => String(p.playerid));
-const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
+  const allStripRows = sortActivePlayers(stripMerged);
 
-const stripPlayers = allStripRows.map((p) => {
-  const playerId = String(p.playerid);
-  return {
-    id: playerId,
-    name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-    image:
-      headshotMap.get(playerId)?.image_url ||
-      getPlayerNowImageUrl(playerId),
-  };
-});
+  const allStripIds = allStripRows.map((p) => String(p.playerid));
+  const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
 
+  const stripPlayers = allStripRows.map((p) => {
+    const playerId = String(p.playerid);
+    return {
+      id: playerId,
+      name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+      image:
+        headshotMap.get(playerId)?.image_url ||
+        getPlayerNowImageUrl(playerId),
+    };
+  });
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
