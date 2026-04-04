@@ -143,7 +143,7 @@ const [allTimeRoster, flipFrontStageRows] = await Promise.all([
     </div>
   ) : (
     <div className="yat-grid">
-    {activeFrontRoster.map((p: Record<string, unknown>) => (
+   {activeFrontRoster.map((p: Record<string, unknown>) => (
   <PlayerCard
     key={`active-${String(p.playerid)}`}
     player={p}
@@ -159,7 +159,7 @@ const [allTimeRoster, flipFrontStageRows] = await Promise.all([
       {/* ALL-TIME LIST */}
       <section id="sec-alltime" className="yat-section">
         <div className="yat-grid" id="alltime-grid">
-          {allTimeFrontRoster.length === 0 ? (
+        {allTimeFrontRoster.length === 0 ? (
             <div className="yat-empty">
               <div className="yat-empty-icon">⚾</div>
               <div className="yat-empty-title">No alumni found</div>
