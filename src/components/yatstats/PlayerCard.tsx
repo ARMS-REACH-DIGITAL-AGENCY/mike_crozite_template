@@ -27,7 +27,7 @@ interface PlayerCardProps {
   initiallyHidden?: boolean;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl =export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, initiallyHidden = false }: PlayerCardProps) {null, headshotUrl = null, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, initiallyHidden = false }: PlayerCardProps) {
   // level_label comes from flip_card_front_stage (already normalized).
   // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
   // levelLabel() maps raw TBC values to the canonical filter values ("JUCO", "INDY", etc.)
