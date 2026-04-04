@@ -739,11 +739,18 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
   var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
   showSection(tab,false);
 
-  /* Force one more filter pass after the DOM is fully painted.
-     This keeps all players in the DOM, but makes the first visible view
-     on the Active page show ACTIVE players only. */
   setTimeout(function(){
     resetFiltersForCurrentSection();
+
+    /* Hard-force ACTIVE-only visibility on first load of the Active page.
+       Keep all players in the DOM so later filter changes can reveal them. */
+    var activeSection=document.getElementById('sec-active');
+    if(activeSection && activeSection.classList.contains('visible')){
+      activeSection.querySelectorAll('.yat-card[data-status]').forEach(function(card){
+        var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
+        card.style.display=(status==='ACTIVE')?'':'none';
+      });
+    }
   }, 0);
 })();
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
