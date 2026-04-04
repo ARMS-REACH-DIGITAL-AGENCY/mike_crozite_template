@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCard.tsx
-// Full flip card container: article element with front and back faces
+// Full flip card  container: article element with front and back faces
 
 import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
 import { toPlayerSlug } from "@/lib/slug";
