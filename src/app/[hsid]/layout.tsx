@@ -112,10 +112,47 @@ export default async function HsidLayout({
   // after filters change. Default visibility is controlled by applyFilters() on load.
   // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
   // so it matches the default Active-page card order in Block 5.
-   const [allStageRows, rawActiveRoster] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid),
-    getActiveRosterByHsid(resolvedHsid),
-  ]);
+  const [allStageRows, rawAllTimeRoster] = await Promise.all([
+  getFlipCardFrontStageByHsid(resolvedHsid),
+  getAllTimeRosterByHsid(resolvedHsid),
+]);
+
+const stripStageMap = new Map(
+  (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+);
+
+const stripSeenIds = new Set<string>();
+const stripMerged: Record<string, unknown>[] = [];
+
+for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
+  const id = String(p.playerid);
+  const stageRow = stripStageMap.get(id);
+  stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+  stripSeenIds.add(id);
+}
+
+for (const p of allStageRows as Record<string, unknown>[]) {
+  const id = String(p.playerid);
+  if (!stripSeenIds.has(id)) {
+    stripMerged.push({ ...p });
+  }
+}
+
+const allStripRows = sortActivePlayers(stripMerged);
+
+const allStripIds = allStripRows.map((p) => String(p.playerid));
+const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
+
+const stripPlayers = allStripRows.map((p) => {
+  const playerId = String(p.playerid);
+  return {
+    id: playerId,
+    name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+    image:
+      headshotMap.get(playerId)?.image_url ||
+      getPlayerNowImageUrl(playerId),
+  };
+});
 
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
