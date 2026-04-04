@@ -739,11 +739,14 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
   var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
   showSection(tab,false);
 
-  /* Re-run once after initial render so Row 3 strip visibility/order matches
-     Row 5 on first paint, especially on the Active page. */
-  setTimeout(function(){
+  /* Re-run after initial render and again after a short delay so Row 3 strip
+     catches up to any late DOM/render work on first page load. */
+  requestAnimationFrame(function(){
     applyFilters();
-  }, 0);
+    setTimeout(function(){
+      applyFilters();
+    }, 100);
+  });
 })();
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
