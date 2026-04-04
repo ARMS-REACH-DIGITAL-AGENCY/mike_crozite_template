@@ -157,14 +157,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
       {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
       {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
-    <section id="sec-active" className="yat-section visible">
-  {activeFrontRoster.length === 0 ? (
+ 
+<section id="sec-active" className="yat-section visible">
+  {allTimeFrontRoster.length === 0 ? (
     <div className="yat-empty">
-      <div className="yat-empty-title">No Active Players Found</div>
+      <div className="yat-empty-title">No Players Found</div>
     </div>
   ) : (
     <div className="yat-grid">
-      {activeFrontRoster.map((p: Record<string, unknown>) => (
+      {allTimeFrontRoster.map((p: Record<string, unknown>) => (
         <PlayerCard
           key={`active-${String(p.playerid)}`}
           player={p}
@@ -175,7 +176,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       ))}
     </div>
   )}
-
 </section>
 
       {/* ALL-TIME LIST */}
