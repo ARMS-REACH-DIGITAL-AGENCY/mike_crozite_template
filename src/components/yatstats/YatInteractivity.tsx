@@ -213,49 +213,59 @@ window.addEventListener('hashchange', function(){
 });
 
   
-  var btnMenu=document.getElementById('btnMenu') || document.getElementById('openMenu');
-var closeLeft=document.getElementById('closeLeft');
-var mask=document.getElementById('drawerMask');
+var btnMenu = document.getElementById('btnMenu') || document.getElementById('openMenu');
+var closeLeft = document.getElementById('closeLeft');
+var openFilters = document.getElementById('openFilters');
+var closeFilters = document.getElementById('closeFilters');
+var btnAccount = document.getElementById('btnAccount');
+var closeAccount = document.getElementById('closeAccount');
+var filtersReset = document.getElementById('filtersReset');
+var filtersReset2 = document.getElementById('filtersReset2');
+var mask = document.getElementById('drawerMask');
+
+function closeAllDrawers(){
+  document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+}
 
 if(btnMenu){
-  btnMenu.addEventListener('click',function(){
-    document.body.classList.add('drawer-left-open');
-    document.body.classList.add('drawer-open');
+  btnMenu.addEventListener('click', function(){
+    document.body.classList.add('drawer-left-open','drawer-open');
     document.body.classList.remove('drawer-right-open','drawer-account-open');
   });
 }
 
 if(closeLeft){
-  closeLeft.addEventListener('click',function(){
-    document.body.classList.remove('drawer-left-open','drawer-open');
+  closeLeft.addEventListener('click', closeAllDrawers);
+}
+
+if(openFilters){
+  openFilters.addEventListener('click', function(){
+    document.body.classList.add('drawer-right-open','drawer-open');
+    document.body.classList.remove('drawer-left-open','drawer-account-open');
   });
 }
 
-if(mask){
-  mask.addEventListener('click',function(){
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+if(closeFilters){
+  closeFilters.addEventListener('click', closeAllDrawers);
+}
+
+if(btnAccount){
+  btnAccount.addEventListener('click', function(){
+    document.body.classList.add('drawer-account-open','drawer-open');
+    document.body.classList.remove('drawer-left-open','drawer-right-open');
   });
 }
+
+if(closeAccount){
+  closeAccount.addEventListener('click', closeAllDrawers);
+}
+
 if(mask){
-  mask.addEventListener('click',function(){
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
-  });
+  mask.addEventListener('click', closeAllDrawers);
+}
 
   
-}var openFilters=document.getElementById('openFilters');
-  var closeFilters=document.getElementById('closeFilters');
-  var filtersReset=document.getElementById('filtersReset');
-  var filtersReset2=document.getElementById('filtersReset2');
-  if(openFilters)openFilters.addEventListener('click',function(){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');});
-  if(closeFilters)closeFilters.addEventListener('click',function(){document.body.classList.remove('drawer-right-open','drawer-open');});
-  
-  
-  var btnAccount=document.getElementById('btnAccount');
-  var closeAccount=document.getElementById('closeAccount');
-  if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
-  if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
-  var mask=document.getElementById('drawerMask');
-  if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
+}
 
   /* ====================================================================
      GLOBAL SEARCH MODAL
