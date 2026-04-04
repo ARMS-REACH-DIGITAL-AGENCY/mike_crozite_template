@@ -734,11 +734,18 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
 
   /* Initialise section from URL hash — runs AFTER applyFilters and resetFiltersForCurrentSection
      are both defined so the initial filter state is correctly applied on load */
-  (function initSectionFromHash(){
-    var hash=window.location.hash||'';
-    var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
-    showSection(tab,false);
-  })();
+(function initSectionFromHash(){
+  var hash=window.location.hash||'';
+  var tab=hash.indexOf('#sec-')===0?hash.replace('#sec-',''):'active';
+  showSection(tab,false);
+
+  /* Force one more filter pass after the DOM is fully painted.
+     This keeps all players in the DOM, but makes the first visible view
+     on the Active page show ACTIVE players only. */
+  setTimeout(function(){
+    resetFiltersForCurrentSection();
+  }, 0);
+})();
   document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
 
   /* ====================================================================
