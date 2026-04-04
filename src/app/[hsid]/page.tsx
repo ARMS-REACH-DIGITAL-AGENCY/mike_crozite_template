@@ -15,7 +15,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { formatSchoolName, sortAllTimePlayers } from "@/lib/playerUtils";
+import { formatSchoolName, sortAllTimePlayers, sortActivePlayers } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
@@ -107,6 +107,13 @@ const [allTimeRoster, flipFrontStageRows] = await Promise.all([
   }
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
+  const activeFrontRoster = sortActivePlayers([...allTimeMerged]).filter((p) => {
+  const status = String(
+    p.status_label ?? ((p.is_active_2025 as boolean) ? "ACTIVE" : "RETIRED")
+  ).toUpperCase().trim();
+  return status === "ACTIVE";
+});
+  
   // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
   // allTimeMerged is the full universe; we sort a copy so allTimeFrontRoster is unaffected.
   
@@ -130,7 +137,7 @@ const [allTimeRoster, flipFrontStageRows] = await Promise.all([
 {/* by initiallyHidden on non-active PlayerCard instances. */}
  
 <section id="sec-active" className="yat-section visible">
-  {allTimeFrontRoster.length === 0 ? (
+{activeFrontRoster.length === 0 ? (
     <div className="yat-empty">
       <div className="yat-empty-title">No Players Found</div>
     </div>
