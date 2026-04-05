@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getNowSilhouetteUrl } from '@/lib/playerImage';
 
 type Player = {
@@ -16,64 +16,7 @@ type InteractionStripProps = {
   isNews?: boolean;
   players?: Player[];
 };
-function buildImageCandidates(src?: string | null): string[] {
-  if (!src || !src.trim()) return ['/img/headshot-silhouette.png'];
 
-  const base = src.trim();
-  const candidates = [base];
-
-  if (/\.jpg$/i.test(base)) {
-    candidates.push(base.replace(/\.jpg$/i, '.png'));
-    candidates.push(base.replace(/\.jpg$/i, '.jpeg'));
-    candidates.push(base.replace(/\.jpg$/i, '.webp'));
-  } else if (/\.jpeg$/i.test(base)) {
-    candidates.push(base.replace(/\.jpeg$/i, '.jpg'));
-    candidates.push(base.replace(/\.jpeg$/i, '.png'));
-    candidates.push(base.replace(/\.jpeg$/i, '.webp'));
-  } else if (/\.png$/i.test(base)) {
-    candidates.push(base.replace(/\.png$/i, '.jpg'));
-    candidates.push(base.replace(/\.png$/i, '.jpeg'));
-    candidates.push(base.replace(/\.png$/i, '.webp'));
-  } else if (/\.webp$/i.test(base)) {
-    candidates.push(base.replace(/\.webp$/i, '.jpg'));
-    candidates.push(base.replace(/\.webp$/i, '.jpeg'));
-    candidates.push(base.replace(/\.webp$/i, '.png'));
-  }
-
-  return [...new Set(candidates)];
-}
-
-function StripHeadshot({
-  src,
-  alt,
-}: {
-  src?: string | null;
-  alt: string;
-}) {
-  const fallbackSrc = '/img/headshot-silhouette.png';
-  const candidates = useMemo(() => buildImageCandidates(src), [src]);
-  const [candidateIndex, setCandidateIndex] = useState(0);
-
-  useEffect(() => {
-    setCandidateIndex(0);
-  }, [src]);
-
-  const currentSrc = candidates[candidateIndex] || fallbackSrc;
-
-  return (
-    <img
-      src={currentSrc}
-      alt={alt}
-      className="gallery-slot-img"
-      onError={() => {
-        setCandidateIndex((prev) => {
-          const next = prev + 1;
-          return next < candidates.length ? next : candidates.length;
-        });
-      }}
-    />
-  );
-}
 function getLastName(name: string): string {
   const parts = String(name || '')
     .trim()
