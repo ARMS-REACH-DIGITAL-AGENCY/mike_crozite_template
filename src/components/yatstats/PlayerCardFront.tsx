@@ -30,7 +30,7 @@ export default function PlayerCardFront({
   const imageId = String(p.playerid || "");
   const isPitcher = p.is_pitcher === true;
 
-  const photoUrl = frontImageUrl || getPlayerThenImageUrl(imageId);
+ const photoUrl = getPlayerThenImageUrl(imageId);
   const thenSilhouetteUrl = getThenSilhouetteUrl(isPitcher);
 
   const displayName = asText(p.display_name);
