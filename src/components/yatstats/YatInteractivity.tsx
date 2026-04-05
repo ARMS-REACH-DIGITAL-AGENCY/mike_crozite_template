@@ -108,32 +108,74 @@ window.__firebase_config = ${firebaseConfigJSON};
     };
     favImg.src=favLink.href;
   }
-  /* Background image fallback for player cards — silhouette is the only allowed fallback */
+/* Background image fallback for player cards — silhouette is the only allowed fallback */
+try{
   document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
-    var src=el.getAttribute('data-src');
-    var placeholder=el.getAttribute('data-placeholder');
-    var img=new Image();
-    img.onload=function(){el.style.backgroundImage="url('"+src+"')";el.style.backgroundSize='';el.style.backgroundPosition='';el.style.backgroundColor='';};
-    img.onerror=function(){
-      /* Extension-flip: legacy THEN objects may be .jpg or .png depending on upload era.
-         Try the alternate extension before falling back to the silhouette placeholder. */
-      var altsrc=null;
-      if(src&&src.endsWith('.jpg'))altsrc=src.slice(0,-4)+'.png';
-      else if(src&&src.endsWith('.png'))altsrc=src.slice(0,-4)+'.jpg';
-      if(altsrc){
-        var altimg=new Image();
-        altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";el.style.backgroundSize='';el.style.backgroundPosition='';el.style.backgroundColor='';};
-        altimg.onerror=function(){
-          if(placeholder){el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';}
-        };
-        altimg.src=altsrc;
-      } else if(placeholder){
+    var src=el.getAttribute('data-src')||'';
+    var placeholder=el.getAttribute('data-placeholder')||'';
+
+    function applyBg(url){
+      el.style.backgroundImage="url('"+url+"')";
+      el.style.backgroundSize='';
+      el.style.backgroundPosition='';
+      el.style.backgroundColor='';
+    }
+
+    function applyPlaceholder(){
+      if(placeholder){
         el.style.backgroundImage="url('"+placeholder+"')";
-        el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
+        el.style.backgroundSize='contain';
+        el.style.backgroundPosition='center bottom';
+        el.style.backgroundColor='#1a1a1a';
       }
-    };
-    img.src=src;
+    }
+
+    if(!src){
+      applyPlaceholder();
+      return;
+    }
+
+    var candidates=[src];
+    if(/\.jpg$/i.test(src)){
+      candidates.push(src.replace(/\.jpg$/i,'.png'));
+      candidates.push(src.replace(/\.jpg$/i,'.jpeg'));
+      candidates.push(src.replace(/\.jpg$/i,'.webp'));
+    }else if(/\.jpeg$/i.test(src)){
+      candidates.push(src.replace(/\.jpeg$/i,'.jpg'));
+      candidates.push(src.replace(/\.jpeg$/i,'.png'));
+      candidates.push(src.replace(/\.jpeg$/i,'.webp'));
+    }else if(/\.png$/i.test(src)){
+      candidates.push(src.replace(/\.png$/i,'.jpg'));
+      candidates.push(src.replace(/\.png$/i,'.jpeg'));
+      candidates.push(src.replace(/\.png$/i,'.webp'));
+    }else if(/\.webp$/i.test(src)){
+      candidates.push(src.replace(/\.webp$/i,'.jpg'));
+      candidates.push(src.replace(/\.webp$/i,'.jpeg'));
+      candidates.push(src.replace(/\.webp$/i,'.png'));
+    }
+
+    var seen={};
+    candidates=candidates.filter(function(url){
+      if(!url||seen[url]) return false;
+      seen[url]=true;
+      return true;
+    });
+
+    (function tryNext(i){
+      if(i>=candidates.length){
+        applyPlaceholder();
+        return;
+      }
+      var url=candidates[i];
+      var img=new Image();
+      img.onload=function(){ applyBg(url); };
+      img.onerror=function(){ tryNext(i+1); };
+      img.src=url;
+    })(0);
   });
+}catch(err){
+  console.error('YAT image fallback init failed', err);
+}
 
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
