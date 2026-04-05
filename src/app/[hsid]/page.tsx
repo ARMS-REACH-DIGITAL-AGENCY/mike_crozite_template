@@ -80,24 +80,16 @@ const [activeRoster, allTimeRoster] = await Promise.all([
   getActiveRosterByHsid(resolvedHsid),
   getAllTimeRosterByHsid(resolvedHsid),
 ]);
-const mergedRosterMap = new Map<string, Record<string, unknown>>();
 
-for (const p of allTimeRoster as Record<string, unknown>[]) {
-  mergedRosterMap.set(String(p.playerid), p);
-}
-
-for (const p of activeRoster as Record<string, unknown>[]) {
-  mergedRosterMap.set(String(p.playerid), {
-    ...(mergedRosterMap.get(String(p.playerid)) || {}),
-    ...p,
-  });
-}
-
-const fullRoster = Array.from(mergedRosterMap.values());
+  const allRosterIds = Array.from(new Set([
+    ...(activeRoster as Record<string, unknown>[]),
+    ...(allTimeRoster as Record<string, unknown>[]),
+  ].map((p) => String(p.playerid))));
+  
   // Batch-fetch YATSTATS_FRONT and HEADSHOT designated images for all roster players (one query each).
   // Players without a designated row fall back to legacy players/then/{imageId}.jpg in PlayerCardFront.
   // Deduplicate IDs in case a player appears in both active and all-time rosters.
- const allRosterIds = fullRoster.map((p) => String(p.playerid));
+ 
   const [frontImageMap, headshotMap] = await Promise.all([
     getBatchDesignatedPlayerImages(allRosterIds, 'YATSTATS_FRONT'),
     getBatchDesignatedPlayerImages(allRosterIds, 'HEADSHOT'),
@@ -123,9 +115,10 @@ const fullRoster = Array.from(mergedRosterMap.values());
   const subdomainPart = host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1));
   const subdomain = subdomainPart.split(".")[0] || hsid || "unknown";
 
- const gradClasses = Array.from(
-  new Set(fullRoster.map((p) => gradClass(p)).filter(Boolean))
-).sort().reverse();
+ 
+  const gradClasses = Array.from(new Set(
+    [...(activeRoster as Record<string, unknown>[]), ...(allTimeRoster as Record<string, unknown>[])].map((p) => gradClass(p)).filter(Boolean)
+  )).sort().reverse();
 
   return (
     <>
@@ -173,21 +166,22 @@ const fullRoster = Array.from(mergedRosterMap.values());
         {/* ACTIVE ALUMNI */}
         <section id="sec-active" className="yat-section visible">
           <div className="yat-grid" id="active-grid">
-           {fullRoster.length === 0 ? (
-  <div className="yat-empty">
-    <div className="yat-empty-icon">⚾</div>
-    <div className="yat-empty-title">No players found</div>
-    <div className="yat-empty-sub">Check back as we continue building the database</div>
-  </div>
-) : fullRoster.map((p) => (
-  <PlayerCard
-    key={String(p.playerid)}
-    player={p}
-    resolvedHsid={resolvedHsid}
-    frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-    headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-  />
-))}
+         
+            {(activeRoster as Record<string, unknown>[]).length === 0 ? (
+              <div className="yat-empty">
+                <div className="yat-empty-icon">⚾</div>
+                <div className="yat-empty-title">No active players found</div>
+                <div className="yat-empty-sub">Check back once the 2026 season begins</div>
+              </div>
+            ) : (activeRoster as Record<string, unknown>[]).map((p) => (
+              <PlayerCard
+                key={String(p.playerid)}
+                player={p}
+                resolvedHsid={resolvedHsid}
+                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+              />
+            ))}
           </div>
         </section>
 
