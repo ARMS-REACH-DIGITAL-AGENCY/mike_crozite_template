@@ -74,3 +74,94 @@ video {
   height: auto;
   display: block;
 }
+
+/* =========================================================
+   BLOCK 4 SCHOOL META ROW
+   Prevent overflow and keep six equal stat cells inside viewport
+   ========================================================= */
+.yat-row4-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.yat-shell-meta-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: #111;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yat-shell-meta-stats {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+}
+
+.yat-shell-meta-chip {
+  min-width: 0;
+  padding: 10px 8px 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border-radius: 0;
+  text-align: center;
+}
+
+.yat-shell-meta-chip:first-child {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yat-shell-meta-chip .yat-gs-chip-val,
+.yat-shell-meta-chip .yat-gs-chip-lbl {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yat-shell-meta-chip .yat-gs-chip-val {
+  display: block;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #f4f4f4;
+}
+
+.yat-shell-meta-chip .yat-gs-chip-val.hi {
+  color: #20d67b;
+}
+
+.yat-shell-meta-chip .yat-gs-chip-lbl {
+  display: block;
+  margin-top: 4px;
+  font-family: "Oswald", sans-serif;
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 768px) {
+  .yat-shell-meta-stats {
+    grid-template-columns: repeat(6, minmax(86px, 1fr));
+  }
+
+  .yat-shell-meta-chip {
+    padding: 8px 6px 7px;
+  }
+
+  .yat-shell-meta-chip .yat-gs-chip-val {
+    font-size: 24px;
+  }
+
+  .yat-shell-meta-chip .yat-gs-chip-lbl {
+    font-size: 10px;
+  }
+}
