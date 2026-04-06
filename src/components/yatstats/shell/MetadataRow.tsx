@@ -16,12 +16,12 @@ interface MetadataRowProps {
   schoolMeta: SchoolMeta;
 }
 
-function formatValue(value: string | number | null, prefix = '') {
+function chipValue(value: string | number | null, prefix = '') {
   if (value == null || value === '') return '—';
   return `${prefix}${value}`;
 }
 
-function MetaCell({
+function MetaChip({
   value,
   label,
   highlight = false,
@@ -31,11 +31,11 @@ function MetaCell({
   highlight?: boolean;
 }) {
   return (
-    <div className="yat-school-meta-cell">
-      <span className={`yat-school-meta-value${highlight ? ' is-highlight' : ''}`}>
+    <div className="yat-gs-chip yat-shell-meta-chip">
+      <span className={`yat-gs-chip-val${highlight ? ' hi' : ''}`}>
         {value == null || value === '' ? '—' : String(value)}
       </span>
-      <span className="yat-school-meta-label">{label}</span>
+      <span className="yat-gs-chip-lbl">{label}</span>
     </div>
   );
 }
@@ -47,13 +47,19 @@ export default function MetadataRow({
 }: MetadataRowProps) {
   if (isGallery) {
     return (
-      <div className="yat-school-meta-bar" role="group" aria-label="School metadata">
-        <MetaCell value={schoolMeta.activeAlumni} label="ACTIVE" highlight />
-        <MetaCell value={schoolMeta.mlb} label="MLB" />
-        <MetaCell value={formatValue(schoolMeta.natRank, '#')} label="NAT'L" />
-        <MetaCell value={formatValue(schoolMeta.stateRank, '#')} label="STATE" />
-        <MetaCell value={schoolMeta.allTime} label="ALL-TIME" />
-        <MetaCell value={schoolMeta.draftedRatio} label="DRAFTED" />
+      <div className="yat-shell-meta-wrap">
+        <div
+          className="yat-gs-stats yat-shell-meta-stats"
+          role="group"
+          aria-label="School metadata"
+        >
+          <MetaChip value={schoolMeta.activeAlumni} label="ACTIVE" highlight />
+          <MetaChip value={schoolMeta.mlb} label="MLB" />
+          <MetaChip value={chipValue(schoolMeta.natRank, '#')} label="NAT'L" />
+          <MetaChip value={chipValue(schoolMeta.stateRank, '#')} label="STATE" />
+          <MetaChip value={schoolMeta.allTime} label="ALL-TIME" />
+          <MetaChip value={schoolMeta.draftedRatio} label="DRAFTED" />
+        </div>
       </div>
     );
   }
