@@ -128,7 +128,7 @@ video {
 .yat-shell-meta-chip .yat-gs-chip-val {
   display: block;
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(28px, 4vw, 38px);
+  font-size: clamp(20px, 2.2vw, 30px);
   line-height: 1;
   letter-spacing: 0.01em;
   color: #f4f4f4;
