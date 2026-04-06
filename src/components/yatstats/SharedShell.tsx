@@ -16,14 +16,25 @@ type StripPlayer = {
   image?: string;
 };
 
+type SchoolMeta = {
+  activeAlumni: number | null;
+  mlb: number | null;
+  natRank: number | null;
+  stateRank: number | null;
+  allTime: number | null;
+  draftedRatio: string | null;
+};
+
 export default function SharedShell({
   children,
   hsid,
   players = [],
+  schoolMeta,
 }: {
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
+  schoolMeta: SchoolMeta;
 }) {
   const pathname = usePathname();
 
@@ -64,6 +75,7 @@ export default function SharedShell({
           <MetadataRow
             isPlayerProfile={isPlayerProfile}
             isGallery={isGallery}
+            schoolMeta={schoolMeta}
           />
         </div>
 
