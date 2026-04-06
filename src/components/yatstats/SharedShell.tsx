@@ -20,7 +20,7 @@ type SchoolMeta = {
   activeAlumni: number | null;
   mlb: number | null;
   natRank: number | null;
-  stateRank: number | null;
+  stateRank: string | null;
   allTime: number | null;
   draftedRatio: string | null;
 };
