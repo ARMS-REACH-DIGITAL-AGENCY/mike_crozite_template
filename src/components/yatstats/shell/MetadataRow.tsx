@@ -3,12 +3,9 @@
 
 type SchoolMeta = {
   activeAlumni: number | null;
-  mlb: number | null;<MetaChip
-  value={schoolMeta.stateRank ? `#${schoolMeta.stateRank}` : '—'}
-  label="STATE"
-/>
+  mlb: number | null;
   natRank: number | null;
-  stateRank: number | null;
+  stateRank: string | null;
   allTime: number | null;
   draftedRatio: string | null;
 };
@@ -59,7 +56,10 @@ export default function MetadataRow({
           <MetaChip value={schoolMeta.activeAlumni} label="ACTIVE" highlight />
           <MetaChip value={schoolMeta.mlb} label="MLB" />
           <MetaChip value={chipValue(schoolMeta.natRank, '#')} label="NAT'L" />
-          <MetaChip value={schoolMeta.stateRank ? `#${schoolMeta.stateRank}` : '—'} label="STATE" />
+          <MetaChip
+            value={schoolMeta.stateRank ? `#${schoolMeta.stateRank}` : '—'}
+            label="STATE"
+          />
           <MetaChip value={schoolMeta.allTime} label="ALL-TIME" />
           <MetaChip value={schoolMeta.draftedRatio} label="DRAFTED" />
         </div>
