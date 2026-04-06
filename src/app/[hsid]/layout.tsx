@@ -128,12 +128,10 @@ export default async function HsidLayout({
           ? Number(school.yatstats_national_rank)
           : null,
 
-    stateRank:
-      typeof school.yatstats_state_rank === 'number'
-        ? school.yatstats_state_rank
-        : school.yatstats_state_rank != null
-          ? Number(school.yatstats_state_rank)
-          : null,
+ stateRank:
+  school.yatstats_state_rank != null
+    ? String(school.yatstats_state_rank).trim()
+    : null,
 
     allTime:
       typeof school.atnla === 'number'
