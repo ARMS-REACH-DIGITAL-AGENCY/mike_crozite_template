@@ -97,13 +97,55 @@ export default async function HsidLayout({
   const subdomain = subdomainPart.split('.')[0] || hsid || 'unknown';
 
   // Build school data for the context provider
-  const schoolData = {
+    const schoolData = {
     hsid: resolvedHsid,
     hsName: schoolName,
     hsLocation: location,
     crestUrl,
     primaryColor: String(school.primary_color || '#000000'),
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
+  };
+
+  const schoolMeta = {
+    activeAlumni:
+      typeof school.current_aa === 'number'
+        ? school.current_aa
+        : school.current_aa != null
+          ? Number(school.current_aa)
+          : null,
+
+    mlb:
+      typeof school.mlb === 'number'
+        ? school.mlb
+        : school.mlb != null
+          ? Number(school.mlb)
+          : null,
+
+    natRank:
+      typeof school.yatstats_national_rank === 'number'
+        ? school.yatstats_national_rank
+        : school.yatstats_national_rank != null
+          ? Number(school.yatstats_national_rank)
+          : null,
+
+    stateRank:
+      typeof school.yatstats_state_rank === 'number'
+        ? school.yatstats_state_rank
+        : school.yatstats_state_rank != null
+          ? Number(school.yatstats_state_rank)
+          : null,
+
+    allTime:
+      typeof school.atnla === 'number'
+        ? school.atnla
+        : school.atnla != null
+          ? Number(school.atnla)
+          : null,
+
+    draftedRatio:
+      school.drafted_hs != null && school.drafted != null
+        ? `${school.drafted_hs}/${school.drafted}`
+        : null,
   };
 
   // Row 3 strip — full school player universe, same source as Block 5.
@@ -160,7 +202,11 @@ export default async function HsidLayout({
       <YatStyles />
 
       {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5 */}
-      <SharedShell hsid={resolvedHsid} players={stripPlayers}>
+            <SharedShell
+        hsid={resolvedHsid}
+        players={stripPlayers}
+        schoolMeta={schoolMeta}
+      >
         {children}
       </SharedShell>
 
