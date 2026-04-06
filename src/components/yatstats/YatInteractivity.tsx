@@ -250,8 +250,14 @@ document.addEventListener('click', function(e){
 
 window.addEventListener('hashchange', function(){
   var hash = window.location.hash || '';
-  var tab = hash.indexOf('#sec-') === 0 ? hash.replace('#sec-', '') : 'active';
-  showSection(tab, false);
+
+  if (hash.indexOf('#sec-') === 0) {
+    var tab = hash.replace('#sec-', '');
+    showSection(tab, false);
+    return;
+  }
+
+  // Ignore player anchors and any other non-section hashes.
 });
 
   
