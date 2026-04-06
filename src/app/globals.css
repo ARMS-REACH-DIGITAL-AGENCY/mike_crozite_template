@@ -163,3 +163,10 @@ video {
     font-size: 9px;
   }
 }
+/* =========================================================
+   BLOCK 5 TOP SPACING
+   Reduce the gap above the flip-card grid
+   ========================================================= */
+.yat-row5-shell {
+  padding-top: 12px;
+}
