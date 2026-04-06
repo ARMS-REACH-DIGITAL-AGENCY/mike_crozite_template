@@ -56,10 +56,7 @@ export default function MetadataRow({
           <MetaChip value={schoolMeta.activeAlumni} label="ACTIVE" highlight />
           <MetaChip value={schoolMeta.mlb} label="MLB" />
           <MetaChip value={chipValue(schoolMeta.natRank, '#')} label="NAT'L" />
-          <MetaChip
-            value={schoolMeta.stateRank ? `#${schoolMeta.stateRank}` : '—'}
-            label="STATE"
-          />
+          <MetaChip value={schoolMeta.stateRank ? `#${schoolMeta.stateRank}` : '—'} label="STATE" />
           <MetaChip value={schoolMeta.allTime} label="ALL-TIME" />
           <MetaChip value={schoolMeta.draftedRatio} label="DRAFTED" />
         </div>
