@@ -337,13 +337,14 @@ export default function FunZone({
           cqi = % of card width — ensures proportional sizing at any card width. */}
       <style>{`
         /* ── Root ─────────────────────────────────────────────────────── */
+        /* background:transparent — lets the cardboard texture from yat-back-content show through */
         .fz-root{
           display:flex;
           flex-direction:column;
           flex:1;
           min-height:0;
-          background:var(--card-bg,#1a1a1a);
-          border-top:1px solid var(--line,rgba(255,255,255,.1));
+          background:transparent;
+          border-top:1px solid rgba(0,0,0,0.15);
         }
 
         /* ── CTA strip ────────────────────────────────────────────────── */
@@ -353,8 +354,8 @@ export default function FunZone({
           align-items:center;
           gap:clamp(3px,1.5cqi,8px);
           padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px) clamp(3px,1.2cqi,7px) clamp(4px,1.5cqi,8px);
-          border-bottom:1px solid var(--line,rgba(255,255,255,.1));
-          background:var(--card-bg,#1a1a1a);
+          border-bottom:1px solid rgba(0,0,0,0.12);
+          background:rgba(0,0,0,0.55);
           flex-shrink:1;
         }
         .fz-yati-img{
@@ -410,9 +411,9 @@ export default function FunZone({
           display:flex;
           justify-content:space-around;
           align-items:stretch;
-          border-bottom:2px solid var(--line,rgba(255,255,255,.1));
+          border-bottom:2px solid rgba(0,0,0,0.18);
           flex-shrink:1;
-          background:var(--card-bg,#1a1a1a);
+          background:rgba(0,0,0,0.45);
         }
         .fz-tab-btn{
           flex:1;
@@ -443,10 +444,10 @@ export default function FunZone({
           white-space:nowrap;
         }
         .fz-tab-btn.fz-tab-active{
-          color:var(--fg,#f2f2f2);
-          border-bottom-color:var(--fg,#f2f2f2);
+          color:#fff;
+          border-bottom-color:#fff;
         }
-        .fz-tab-btn:hover:not(.fz-tab-active){color:var(--fg,#f2f2f2)}
+        .fz-tab-btn:hover:not(.fz-tab-active){color:#fff}
 
         /* ── Content panel ────────────────────────────────────────────── */
         /* flex:1 min-height:0 — gets all remaining space after CTA + tab strips.
@@ -455,7 +456,7 @@ export default function FunZone({
           flex:1;
           min-height:0;
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.5cqi,12px) clamp(5px,2.5cqi,14px);
-          background:var(--card-bg,#1a1a1a);
+          background:rgba(0,0,0,0.42);
         }
 
         /* ── Stats panel ──────────────────────────────────────────────── */
