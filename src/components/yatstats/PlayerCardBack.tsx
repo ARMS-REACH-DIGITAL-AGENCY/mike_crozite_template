@@ -1,42 +1,37 @@
 // src/components/yatstats/PlayerCardBack.tsx
 // Back face of the flip card.
 //
-// APPROVED LAYOUT (matches screenshot 51586):
-//   ┌─────────────────────────────────────┐
-//   │  HERO IMAGE BAND                    │
-//   │  ┌─ metadata overlay (bottom-left) ─┤
-//   │  │  PLAYER NAME                     │
-//   │  │  Team · Org                      │
-//   │  │  Position · Level · Status       │
-//   │  │  B/T · H/W                       │
-//   │  └──────────────────────────────────┤
-//   ├─────────────────────────────────────┤
-//   │  FUNZONE (CTA + tabs + panel)       │  ← flex:1, cardboard texture
+// APPROVED LAYOUT (matches printed card aesthetic from screenshot 51578):
+//   ┌─────────────────────────────────────┐  ← cardboard texture, full card
+//   │ ┌───────────────────────────────┐   │  ← inset dark border all around
+//   │ │  HERO IMAGE (action photo)    │   │
+//   │ │  ┌── metadata overlay ──────┐ │   │
+//   │ │  │ PLAYER NAME              │ │   │
+//   │ │  │ Team · Org               │ │   │
+//   │ │  │ Position · Level         │ │   │
+//   │ │  │ B/T · H/W                │ │   │
+//   │ │  └──────────────────────────┘ │   │
+//   │ ├───────────────────────────────┤   │
+//   │ │  FUNZONE (CTA + tabs + panel) │   │  ← dark text on cardboard
+//   │ └───────────────────────────────┘   │
 //   └─────────────────────────────────────┘
 //
-// IMAGE ROLE RULES:
-//   - players/back/{playerid}.jpg  → back-card hero ACTION image (dedicated slot)
-//   - players/now/{playerid}.jpg   → NOT used here
-//   - players/then/{playerid}.jpg  → front-card only — NOT used here
-//   - headshotUrl prop             → HEADSHOT role — NOT used as back hero
-//   Falls back to silhouette if players/back/ image is missing.
+// KEY DESIGN DECISIONS:
+//   - Cardboard texture covers the ENTIRE card face (top to bottom, edge to edge)
+//   - A dark inset border frames the inner content area like a real printed card
+//   - Hero image sits inside the border as an inset panel
+//   - FunZone uses dark text directly on the cardboard (no dark overlay)
+//   - The texture is pure CSS: SVG feTurbulence + fibre lines + solid base
 //
-// METADATA: overlaid bottom-left of hero image with gradient scrim for legibility.
-//   1. PLAYER NAME (large, bold)
-//   2. Current Team · Pro Organization
-//   3. POSITION · LEVEL · STATUS
-//   4. B/T · H/W
-//   (Draft and college lines omitted from overlay to keep it compact)
+// IMAGE ROLE RULES:
+//   - players/back/{playerid}.jpg  → back-card hero ACTION image
+//   - players/now/{playerid}.jpg   → NOT used here
+//   - players/then/{playerid}.jpg  → front-card only
+//   - headshotUrl prop             → NOT used as back hero
 //
 // RESPONSIVE SYSTEM:
-//   container-type:inline-size on the card back establishes a CQ context.
-//   All sizing uses cqi so values are relative to CARD WIDTH, not viewport.
-//   Yield order: hero → CTA strip → tab strip → content panel (protected last).
-//
-// CARDBOARD TEXTURE:
-//   Pure CSS — no image assets required.
-//   Warm stone/grey tone (proof-of-concept; will become player-context-driven).
-//   Applied to yat-back-content as the base; FunZone uses semi-transparent overlays.
+//   container-type:inline-size on .yat-back-cq.
+//   All sizing uses cqi (card-width-relative), not vw.
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -57,7 +52,7 @@ function asText(value: unknown): string {
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
-  headshotUrl: string | null; // accepted for API compat; NOT used as back hero
+  headshotUrl: string | null;
   isAllTime?: boolean;
 }
 
@@ -66,11 +61,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const draft = parseDraft(p.draft_info as string | null);
   const imageId = String(p.playerid || "");
   const slug = String(p.slug || "");
-
-  // suppress unused warning — draft kept for future use
   void draft;
 
-  // ── Hero image ─────────────────────────────────────────────────────────────
   const backImageSrc = getPlayerBackImageUrl(imageId);
   const backSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
@@ -101,22 +93,14 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const stats = isPitcher ? pitcherStats : batterStats;
 
   // ── Metadata overlay lines ─────────────────────────────────────────────────
-
-  // Line 1: Player Name
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
-
-  // Line 2: Current Team · Pro Organization
   const teamLine = [asText(p.current_team_name), asText(p.current_org_or_conference_name)]
     .filter(Boolean).join(" · ");
-
-  // Line 3: POSITION · LEVEL · STATUS
   const posLevelStatus = [
     asText(p.position),
     asText(p.level_label) || asText(p.level),
     asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
   ].filter(Boolean).join(" · ");
-
-  // Line 4: B/T · H/W
   const bats = asText(p.bats);
   const throws_ = asText(p.throws);
   const height = asText(p.height);
@@ -127,104 +111,85 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
 
-  // ── Cardboard texture: SVG noise filter encoded as data URI ───────────────
-  // feTurbulence generates organic grain composited via ::before pseudo-element.
+  // ── Cardboard texture noise SVG ────────────────────────────────────────────
   const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72 0.68' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.18'/></filter><rect width='200' height='200' filter='url(#n)' opacity='0.55'/></svg>`;
   const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
 
   return (
     <div className="yat-face yat-back yat-back-cq">
-      <div className="yat-back-content">
+      {/*
+        yat-back-texture: full-card cardboard base (texture + border)
+        yat-back-inner:   inset content column (hero + FunZone)
+      */}
+      <div className="yat-back-texture">
+        <div className="yat-back-inner">
 
-        {/*
-          ── Hero image band with metadata overlay ────────────────────────
-          Image fills the band. Metadata overlaid bottom-left with gradient scrim.
-          flex-shrink:1 — yields vertical space first.
-        */}
-        <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
-          <SafeImage
-            src={backImageSrc}
-            alt={displayName}
-            className="yat-back-img"
-            placeholderSrc={backSilhouetteUrl}
+          {/* Hero image with metadata overlay */}
+          <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
+            <SafeImage
+              src={backImageSrc}
+              alt={displayName}
+              className="yat-back-img"
+              placeholderSrc={backSilhouetteUrl}
+            />
+            <div className="yat-back-scrim" aria-hidden="true" />
+            <div className="yat-back-meta">
+              {displayName && <div className="ybm-name">{displayName}</div>}
+              {teamLine && <div className="ybm-team">{teamLine}</div>}
+              {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
+              {btHw && <div className="ybm-bthw">{btHw}</div>}
+            </div>
+          </a>
+
+          {/* FunZone — dark text on cardboard */}
+          <FunZone
+            player={p}
+            isPitcher={isPitcher}
+            isAllTime={isAllTime ?? false}
+            resolvedHsid={resolvedHsid}
+            stats={stats}
+            statBarLabel={statBarLabel}
+            displayName={displayName}
           />
-          {/* Gradient scrim for text legibility */}
-          <div className="yat-back-scrim" aria-hidden="true" />
-          {/* Metadata overlay — bottom-left of hero */}
-          <div className="yat-back-meta">
-            {displayName && <div className="ybm-name">{displayName}</div>}
-            {teamLine && <div className="ybm-team">{teamLine}</div>}
-            {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
-            {btHw && <div className="ybm-bthw">{btHw}</div>}
-          </div>
-        </a>
 
-        {/*
-          ── FunZone ──────────────────────────────────────────────────────
-          CTA strip + six-tab interactive area.
-          flex:1 min-height:0 — gets all remaining vertical space.
-          Cardboard texture shows through FunZone's semi-transparent overlays.
-        */}
-        <FunZone
-          player={p}
-          isPitcher={isPitcher}
-          isAllTime={isAllTime ?? false}
-          resolvedHsid={resolvedHsid}
-          stats={stats}
-          statBarLabel={statBarLabel}
-          displayName={displayName}
-        />
+        </div>
       </div>
 
-      {/* ── Styles scoped to back-card shell ── */}
       <style>{`
-        /* Container query context — cqi units relative to card width */
+        /* ── Container query context ─────────────────────────────────── */
         .yat-back-cq{
           container-type:inline-size;
           container-name:yat-back;
         }
 
-        /* ─────────────────────────────────────────────────────────────────
-           CARDBOARD TEXTURE SYSTEM (warm stone/grey proof-of-concept)
-           Three CSS layers on yat-back-content:
-             1. SVG feTurbulence noise via ::before (organic grain)
-             2. Repeating diagonal fibre lines (directional paper texture)
-             3. Solid warm stone base colour
-           Hero band paints over this with its own image.
-           FunZone uses semi-transparent overlays so texture bleeds through.
-        ───────────────────────────────────────────────────────────────── */
-
-        /* Card face shell — flex column, fills full card height */
-        .yat-back-content{
-          display:flex;
-          flex-direction:column;
+        /* ── Full-card cardboard texture layer ───────────────────────── */
+        /* Covers the entire card face edge-to-edge, top to bottom.
+           Three CSS layers: solid base + fibre lines + SVG noise (::before). */
+        .yat-back-texture{
+          width:100%;
           height:100%;
-          overflow:hidden;
           position:relative;
+          overflow:hidden;
 
-          /* Cardboard base colour: warm stone grey */
-          background-color:#b8b0a4;
+          /* Warm stone/grey cardboard base */
+          background-color:#c2b9ae;
 
-          /* Fibre lines: two sets simulate pressed paper grain */
+          /* Directional fibre lines */
           background-image:
             repeating-linear-gradient(
               168deg,
-              transparent 0px,
-              transparent 3px,
-              rgba(255,255,255,0.04) 3px,
-              rgba(255,255,255,0.04) 4px
+              transparent 0px, transparent 3px,
+              rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 4px
             ),
             repeating-linear-gradient(
               78deg,
-              transparent 0px,
-              transparent 5px,
-              rgba(0,0,0,0.03) 5px,
-              rgba(0,0,0,0.03) 6px
+              transparent 0px, transparent 5px,
+              rgba(0,0,0,0.04) 5px, rgba(0,0,0,0.04) 6px
             );
         }
 
-        /* Noise overlay via pseudo-element */
-        .yat-back-content::before{
+        /* SVG noise grain via pseudo-element */
+        .yat-back-texture::before{
           content:"";
           position:absolute;
           inset:0;
@@ -232,15 +197,27 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           background-size:200px 200px;
           background-repeat:repeat;
           mix-blend-mode:multiply;
-          opacity:0.45;
+          opacity:0.5;
           pointer-events:none;
           z-index:0;
         }
 
+        /* ── Inset content column ────────────────────────────────────── */
+        /* Dark border all the way around — like a real printed card frame.
+           Sits above the noise layer (z-index:1). */
+        .yat-back-inner{
+          position:relative;
+          z-index:1;
+          display:flex;
+          flex-direction:column;
+          height:100%;
+          margin:clamp(4px,2cqi,10px);
+          border:clamp(1.5px,0.7cqi,3px) solid rgba(30,22,14,0.65);
+          border-radius:clamp(2px,1cqi,5px);
+          overflow:hidden;
+        }
+
         /* ── Hero image band ─────────────────────────────────────────── */
-        /* Tall enough to show the action image + hold the metadata overlay.
-           flex-shrink:1 — yields vertical space first.
-           aspect-ratio keeps height proportional to card width. */
         .yat-back-hero{
           display:block;
           text-decoration:none;
@@ -252,7 +229,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           width:100%;
           background:#0a0a0a;
           position:relative;
-          z-index:1;
         }
         .yat-back-img{
           position:absolute;
@@ -264,53 +240,47 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           display:block;
         }
 
-        /* Gradient scrim — bottom 60% of hero, dark-to-transparent */
+        /* Gradient scrim for text legibility */
         .yat-back-scrim{
           position:absolute;
           inset:0;
           background:linear-gradient(
             to top,
-            rgba(0,0,0,0.82) 0%,
-            rgba(0,0,0,0.55) 35%,
+            rgba(0,0,0,0.80) 0%,
+            rgba(0,0,0,0.50) 35%,
             rgba(0,0,0,0.0) 65%
           );
           pointer-events:none;
         }
 
-        /* Metadata overlay — bottom-left of hero image */
+        /* Metadata overlay — bottom-left of hero */
         .yat-back-meta{
           position:absolute;
-          bottom:0;
-          left:0;
-          right:0;
+          bottom:0; left:0; right:0;
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.2cqi,12px) clamp(5px,2cqi,10px);
           display:flex;
           flex-direction:column;
           gap:clamp(0px,.4cqi,2px);
         }
-
-        /* Line 1: Player Name */
         .ybm-name{
           font:700 clamp(11px,5cqi,22px)/1.1 "Bebas Neue",sans-serif;
           letter-spacing:.04em;
           color:#fff;
           text-transform:uppercase;
-          text-shadow:0 1px 4px rgba(0,0,0,.6);
+          text-shadow:0 1px 4px rgba(0,0,0,.7);
         }
-        /* Line 2: Team / Org */
         .ybm-team{
           font:600 clamp(6px,2.6cqi,12px)/1.3 Oswald,sans-serif;
           letter-spacing:.05em;
           color:rgba(255,255,255,.95);
           text-transform:uppercase;
-          text-shadow:0 1px 3px rgba(0,0,0,.5);
+          text-shadow:0 1px 3px rgba(0,0,0,.6);
         }
-        /* Lines 3–4: secondary meta */
         .ybm-pos,
         .ybm-bthw{
           font:400 clamp(5px,2.1cqi,9px)/1.35 Oswald,sans-serif;
           letter-spacing:.04em;
-          color:rgba(255,255,255,.75);
+          color:rgba(255,255,255,.80);
           text-transform:uppercase;
           text-shadow:0 1px 2px rgba(0,0,0,.5);
         }

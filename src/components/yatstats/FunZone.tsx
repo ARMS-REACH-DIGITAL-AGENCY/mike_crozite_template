@@ -337,14 +337,15 @@ export default function FunZone({
           cqi = % of card width — ensures proportional sizing at any card width. */}
       <style>{`
         /* ── Root ─────────────────────────────────────────────────────── */
-        /* background:transparent — lets the cardboard texture from yat-back-content show through */
+        /* Fully transparent — cardboard texture from yat-back-texture shows through.
+           All text uses dark colours for legibility on the light cardboard. */
         .fz-root{
           display:flex;
           flex-direction:column;
           flex:1;
           min-height:0;
           background:transparent;
-          border-top:1px solid rgba(0,0,0,0.15);
+          border-top:1px solid rgba(30,22,14,0.25);
         }
 
         /* ── CTA strip ────────────────────────────────────────────────── */
@@ -354,8 +355,8 @@ export default function FunZone({
           align-items:center;
           gap:clamp(3px,1.5cqi,8px);
           padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px) clamp(3px,1.2cqi,7px) clamp(4px,1.5cqi,8px);
-          border-bottom:1px solid rgba(0,0,0,0.12);
-          background:rgba(0,0,0,0.55);
+          border-bottom:1px solid rgba(30,22,14,0.2);
+          background:rgba(30,22,14,0.08);
           flex-shrink:1;
         }
         .fz-yati-img{
@@ -365,6 +366,7 @@ export default function FunZone({
           flex-shrink:0;
           display:block;
           align-self:flex-end;
+          filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));
         }
 
         /* Speech bubble */
@@ -377,13 +379,14 @@ export default function FunZone({
         }
         .fz-bubble{
           position:relative;
-          background:#fff;
-          color:#111;
+          background:rgba(255,255,255,0.88);
+          color:#1a1208;
           border-radius:8px;
           padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px);
           flex:1;
           min-width:0;
           margin-left:clamp(4px,1.5cqi,9px);
+          border:1px solid rgba(30,22,14,0.15);
         }
         .fz-bubble-text{
           font:700 clamp(6px,2.2cqi,9px)/1.4 Oswald,sans-serif;
@@ -391,7 +394,7 @@ export default function FunZone({
           text-transform:uppercase;
           display:block;
           word-break:break-word;
-          color:#111;
+          color:#1a1208;
         }
         /* Tail: left-pointing triangle on the left edge of the bubble */
         .fz-bubble-tail{
@@ -411,9 +414,9 @@ export default function FunZone({
           display:flex;
           justify-content:space-around;
           align-items:stretch;
-          border-bottom:2px solid rgba(0,0,0,0.18);
+          border-bottom:2px solid rgba(30,22,14,0.2);
           flex-shrink:1;
-          background:rgba(0,0,0,0.45);
+          background:rgba(30,22,14,0.07);
         }
         .fz-tab-btn{
           flex:1;
@@ -427,7 +430,7 @@ export default function FunZone({
           border:none;
           border-bottom:2px solid transparent;
           margin-bottom:-2px;
-          color:var(--muted,#9e9e9e);
+          color:rgba(30,22,14,0.45);
           cursor:pointer;
           transition:color .15s,border-color .15s;
           min-width:0;
@@ -444,10 +447,10 @@ export default function FunZone({
           white-space:nowrap;
         }
         .fz-tab-btn.fz-tab-active{
-          color:#fff;
-          border-bottom-color:#fff;
+          color:rgba(30,22,14,0.9);
+          border-bottom-color:rgba(30,22,14,0.8);
         }
-        .fz-tab-btn:hover:not(.fz-tab-active){color:#fff}
+        .fz-tab-btn:hover:not(.fz-tab-active){color:rgba(30,22,14,0.7)}
 
         /* ── Content panel ────────────────────────────────────────────── */
         /* flex:1 min-height:0 — gets all remaining space after CTA + tab strips.
@@ -456,7 +459,7 @@ export default function FunZone({
           flex:1;
           min-height:0;
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.5cqi,12px) clamp(5px,2.5cqi,14px);
-          background:rgba(0,0,0,0.42);
+          background:transparent;
         }
 
         /* ── Stats panel ──────────────────────────────────────────────── */
@@ -467,19 +470,19 @@ export default function FunZone({
         .fz-sched-block{display:flex;flex-direction:column;gap:3px}
         .fz-sched-pill{
           display:inline-block;
-          background:rgba(255,255,255,.06);
-          border:1px solid rgba(255,255,255,.12);
+          background:rgba(30,22,14,0.08);
+          border:1px solid rgba(30,22,14,0.18);
           border-radius:10px;
           padding:2px 8px;
           font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
           letter-spacing:.08em;
           text-transform:uppercase;
-          color:var(--muted,#9e9e9e);
+          color:rgba(30,22,14,0.55);
           margin-bottom:1px;
         }
         .fz-sched-val{
           font:300 clamp(8px,2.5cqi,11px)/1.3 Oswald,sans-serif;
-          color:var(--fg,#f2f2f2);
+          color:rgba(30,22,14,0.85);
           padding-left:2px;
         }
 
@@ -489,12 +492,12 @@ export default function FunZone({
           font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
           letter-spacing:.1em;
           text-transform:uppercase;
-          color:var(--muted,#9e9e9e);
+          color:rgba(30,22,14,0.5);
         }
         .fz-news-title{
           font:700 clamp(9px,3cqi,12px)/1.3 "Bebas Neue",sans-serif;
           letter-spacing:.03em;
-          color:var(--fg,#f2f2f2);
+          color:rgba(30,22,14,0.9);
         }
 
         /* ── Social panel ─────────────────────────────────────────────── */
@@ -502,11 +505,11 @@ export default function FunZone({
         .fz-social-tag{
           font:700 clamp(12px,4.5cqi,18px) "Bebas Neue",sans-serif;
           letter-spacing:.06em;
-          color:var(--fg,#f2f2f2);
+          color:rgba(30,22,14,0.9);
         }
         .fz-social-sub{
           font:300 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
-          color:var(--muted,#9e9e9e);
+          color:rgba(30,22,14,0.6);
         }
         .fz-social-links{display:flex;flex-direction:column;gap:5px;margin-top:2px}
         .fz-social-link{
@@ -514,13 +517,13 @@ export default function FunZone({
           align-items:center;
           gap:6px;
           font:400 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
-          color:var(--muted,#9e9e9e);
+          color:rgba(30,22,14,0.65);
           text-decoration:none;
           padding:5px 8px;
           border-radius:6px;
-          border:1px solid var(--line,rgba(255,255,255,.1));
+          border:1px solid rgba(30,22,14,0.2);
         }
-        .fz-social-link:hover{color:var(--fg,#f2f2f2);border-color:rgba(255,255,255,.25)}
+        .fz-social-link:hover{color:rgba(30,22,14,0.9);border-color:rgba(30,22,14,0.4)}
         .fz-social-link i{font-size:clamp(9px,3cqi,13px)}
 
         /* ── Placeholder (fallback for empty tabs) ────────────────────── */
@@ -533,13 +536,13 @@ export default function FunZone({
           padding:clamp(6px,3cqi,18px) 8px;
           text-align:center;
         }
-        .fz-ph-icon{font-size:clamp(14px,5cqi,26px);opacity:.2}
+        .fz-ph-icon{font-size:clamp(14px,5cqi,26px);opacity:.25;color:rgba(30,22,14,0.7)}
         .fz-ph-text{
           font:300 clamp(7px,2.2cqi,10px)/1.45 Oswald,sans-serif;
-          color:var(--muted,#9e9e9e);
+          color:rgba(30,22,14,0.6);
           max-width:180px;
         }
-        .fz-ph-text strong{font-weight:600;color:var(--fg,#f2f2f2)}
+        .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
       `}</style>
     </div>
   );
