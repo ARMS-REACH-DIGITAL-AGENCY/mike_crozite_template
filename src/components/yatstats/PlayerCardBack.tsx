@@ -79,34 +79,52 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   // stats is now { k: string, v: string }[] — fully serializable
   const stats = isPitcher ? pitcherStats : batterStats;
 
+  // Player identity strings — pre-computed here (Server Component) for serialization safety
+  const displayName = String(p.display_name || `${p.firstname} ${p.lastname}`);
+  const teamName = String(
+    p.current_team_name ||
+    p.current_org_or_conference_name ||
+    p.level_label ||
+    ""
+  );
+  const positionLine = [
+    p.position,
+    p.bats && p.throws ? `B/T ${p.bats}/${p.throws}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="yat-face yat-back">
       <div className="yat-back-content">
-        {/* Hero: back-card ACTION image + name/position/draft — entire section links to profile */}
-        <a href={`/${resolvedHsid}/player/${imageId}/${slug}`} className="yat-back-hero">
+        {/*
+          Hero band: action image fills the band.
+          Player identity text is overlaid in the bottom-left of the image area.
+          The entire band links to the player profile page.
+        */}
+        <a
+          href={`/${resolvedHsid}/player/${imageId}/${slug}`}
+          className="yat-back-hero"
+          style={{ position: "relative", display: "block", textDecoration: "none" }}
+        >
           <div className="yat-back-img-wrap">
             <SafeImage
               src={backImageSrc}
-              alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
+              alt={displayName}
               className="yat-back-img"
               placeholderSrc={backSilhouetteUrl}
             />
           </div>
-          <div className="yat-back-info">
-            <div className="yat-back-name">
-              {String(p.display_name || `${p.firstname} ${p.lastname}`)}
-            </div>
-            {/* Spec: show Position and B/T only — height/weight omitted intentionally */}
-            <div className="yat-back-details">
-              {[p.position, p.bats && p.throws ? `B/T ${p.bats}/${p.throws}` : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </div>
+          {/* Identity overlay — bottom-left of hero image, matching approved layout */}
+          <div className="yat-back-overlay">
+            <div className="yat-back-name">{displayName}</div>
+            {teamName && <div className="yat-back-team">{teamName}</div>}
+            {positionLine && <div className="yat-back-details">{positionLine}</div>}
             {draft && <div className="yat-back-draft">{draft}</div>}
           </div>
         </a>
 
-        {/* FunZone: six-tab interactive area (Stats, Schedule, News, Social, Connect, Upload) */}
+        {/* FunZone: CTA strip + six-tab interactive area */}
         <FunZone
           player={p}
           isPitcher={isPitcher}
@@ -114,8 +132,24 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           resolvedHsid={resolvedHsid}
           stats={stats}
           statBarLabel={statBarLabel}
+          displayName={displayName}
         />
       </div>
+
+      {/* Styles scoped to back-card shell — overlay positioning only */}
+      <style>{`
+        .yat-back-hero{position:relative;display:block;text-decoration:none;overflow:hidden;border-radius:0}
+        .yat-back-img-wrap{position:relative;width:100%;padding-bottom:56%;overflow:hidden;background:#0a0a0a}
+        .yat-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
+        /* Gradient scrim so text is readable over any image */
+        .yat-back-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.35) 45%,transparent 100%);pointer-events:none}
+        /* Identity overlay — sits above the scrim */
+        .yat-back-overlay{position:absolute;bottom:0;left:0;right:0;padding:8px 10px 7px;z-index:1;pointer-events:none}
+        .yat-back-name{font:700 clamp(14px,4vw,18px)/1.1 "Bebas Neue",sans-serif;letter-spacing:.04em;color:#fff;text-transform:uppercase}
+        .yat-back-team{font:400 10px/1.3 Oswald,sans-serif;letter-spacing:.04em;color:rgba(255,255,255,.8);text-transform:uppercase;margin-top:1px}
+        .yat-back-details{font:300 9px/1.3 Oswald,sans-serif;color:rgba(255,255,255,.65);margin-top:1px}
+        .yat-back-draft{font:300 9px/1.3 Oswald,sans-serif;color:rgba(255,255,255,.5);margin-top:1px}
+      `}</style>
     </div>
   );
 }
