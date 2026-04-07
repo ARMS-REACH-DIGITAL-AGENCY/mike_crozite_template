@@ -265,16 +265,18 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           opacity:0.22;
         }
 
-        /* Gradient scrim — top-heavy so name text at top stays legible */
+        /* Gradient scrim — left-side only so text pops on left,
+           player's face/action shows in full colour on the right */
         .yat-back-scrim{
           position:absolute;
           inset:0;
           z-index:2;
           background:linear-gradient(
-            to bottom,
+            to right,
             rgba(0,0,0,0.72) 0%,
-            rgba(0,0,0,0.45) 40%,
-            rgba(0,0,0,0.0) 75%
+            rgba(0,0,0,0.55) 35%,
+            rgba(0,0,0,0.20) 60%,
+            rgba(0,0,0,0.0) 80%
           );
           pointer-events:none;
         }
