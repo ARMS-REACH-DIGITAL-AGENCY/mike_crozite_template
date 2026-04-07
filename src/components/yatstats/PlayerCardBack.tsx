@@ -56,18 +56,27 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
     ? "CAREER STATS"
     : `${statYear ? `${statYear} ` : ""}${isPitcher ? "PITCHING" : "BATTING"}`;
 
+  // Pre-format all stat values here (Server Component) so only serializable strings
+  // are passed into FunZone ("use client"). Functions cannot cross the RSC boundary.
   const batterStats = [
-    { k: "AVG", v: p.avg }, { k: "OBP", v: p.obp }, { k: "SLG", v: p.slg }, { k: "OPS", v: p.ops },
-    { k: "HR", v: p.hr }, { k: "RBI", v: p.rbi }, { k: "H", v: p.h }, { k: "AB", v: p.ab },
-    { k: "R", v: p.r }, { k: "SB", v: p.sb }, { k: "2B", v: p["2b"] }, { k: "BB", v: p.bb },
+    { k: "AVG", v: fmt("AVG", p.avg) }, { k: "OBP", v: fmt("OBP", p.obp) },
+    { k: "SLG", v: fmt("SLG", p.slg) }, { k: "OPS", v: fmt("OPS", p.ops) },
+    { k: "HR", v: fmt("HR", p.hr) }, { k: "RBI", v: fmt("RBI", p.rbi) },
+    { k: "H", v: fmt("H", p.h) }, { k: "AB", v: fmt("AB", p.ab) },
+    { k: "R", v: fmt("R", p.r) }, { k: "SB", v: fmt("SB", p.sb) },
+    { k: "2B", v: fmt("2B", p["2b"]) }, { k: "BB", v: fmt("BB", p.bb) },
   ];
   const pitcherStats = [
-    { k: "ERA", v: p.era }, { k: "WHIP", v: p.whip }, { k: "IP", v: p.ip },
+    { k: "ERA", v: fmt("ERA", p.era) }, { k: "WHIP", v: fmt("WHIP", p.whip) },
+    { k: "IP", v: fmt("IP", p.ip) },
     { k: "W-L", v: (p.w !== null && p.l !== null) ? `${p.w}-${p.l}` : "--" },
-    { k: "K", v: p.ko }, { k: "BB", v: isAllTime ? (p.pbb ?? p.bb) : p.pbb },
-    { k: "K/9", v: p.k9 }, { k: "K/BB", v: p.kbb },
-    { k: "H/9", v: p.h9 }, { k: "BB/9", v: p.bb9 }, { k: "SV", v: p.saves }, { k: "G", v: p.pg },
+    { k: "K", v: fmt("K", p.ko) },
+    { k: "BB", v: fmt("BB", isAllTime ? (p.pbb ?? p.bb) : p.pbb) },
+    { k: "K/9", v: fmt("K/9", p.k9) }, { k: "K/BB", v: fmt("K/BB", p.kbb) },
+    { k: "H/9", v: fmt("H/9", p.h9) }, { k: "BB/9", v: fmt("BB/9", p.bb9) },
+    { k: "SV", v: fmt("SV", p.saves) }, { k: "G", v: fmt("G", p.pg) },
   ];
+  // stats is now { k: string, v: string }[] — fully serializable
   const stats = isPitcher ? pitcherStats : batterStats;
 
   return (
@@ -105,7 +114,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           resolvedHsid={resolvedHsid}
           stats={stats}
           statBarLabel={statBarLabel}
-          fmt={fmt}
         />
       </div>
     </div>

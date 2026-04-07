@@ -26,7 +26,7 @@ const YATI_MASCOT_URL = "https://yatstats-assets.s3.us-west-2.amazonaws.com/yats
 
 interface StatItem {
   k: string;
-  v: unknown;
+  v: string; // pre-formatted by PlayerCardBack (Server Component)
 }
 
 interface FunZoneProps {
@@ -34,9 +34,8 @@ interface FunZoneProps {
   isPitcher: boolean;
   isAllTime: boolean;
   resolvedHsid: string;
-  stats: StatItem[];
+  stats: StatItem[]; // values are pre-formatted strings — no fmt function needed
   statBarLabel: string;
-  fmt: (key: string, value: unknown) => string;
 }
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
@@ -151,11 +150,9 @@ function SchedulePanel({ player }: { player: Record<string, unknown> }) {
 function StatsPanel({
   stats,
   statBarLabel,
-  fmt,
 }: {
   stats: StatItem[];
   statBarLabel: string;
-  fmt: (key: string, value: unknown) => string;
 }) {
   return (
     <div className="fz-stats">
@@ -164,7 +161,7 @@ function StatsPanel({
         {stats.map(({ k, v }) => (
           <div key={k} className="yat-stat">
             <div className="yat-stat-label">{k}</div>
-            <div className="yat-stat-val">{fmt(k, v)}</div>
+            <div className="yat-stat-val">{v}</div>
           </div>
         ))}
       </div>
@@ -265,7 +262,6 @@ export default function FunZone({
   resolvedHsid,
   stats,
   statBarLabel,
-  fmt,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
 
@@ -303,7 +299,7 @@ export default function FunZone({
       {/* Dynamic lower panel */}
       <div className="fz-panel">
         {activeTab === "schedule" && <SchedulePanel player={player} />}
-        {activeTab === "stats"    && <StatsPanel stats={stats} statBarLabel={statBarLabel} fmt={fmt} />}
+        {activeTab === "stats"    && <StatsPanel stats={stats} statBarLabel={statBarLabel} />}
         {activeTab === "news"     && <NewsPanel player={player} />}
         {activeTab === "social"   && <SocialPanel player={player} />}
         {activeTab === "connect"  && <ConnectPanel player={player} />}
