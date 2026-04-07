@@ -23,11 +23,14 @@
 //   6. Previous Colleges Attended (rendered only when field is present)
 //
 // RESPONSIVE VERTICAL SYSTEM:
+//   All sizing uses cqi (container query inline-size) units so values are relative
+//   to the CARD WIDTH, not the viewport. This ensures the 230px mobile card and
+//   the 360px desktop card both get proportionally correct sizing.
 //   Priority order (who yields space first):
-//     1. Hero image band (shrinks with width via aspect-ratio)
-//     2. Hero text overlay (font scales down via clamp)
-//     3. CTA strip (padding tightens via clamp)
-//     4. Tab strip (padding tightens via clamp)
+//     1. Hero image band (shrinks with card width via aspect-ratio + cqi max-height)
+//     2. Hero text overlay (font scales down via clamp with cqi)
+//     3. CTA strip (padding tightens via clamp with cqi)
+//     4. Tab strip (padding tightens via clamp with cqi)
 //     5. FunZone content panel — protected last
 
 import SafeImage from "@/components/SafeImage";
@@ -154,7 +157,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   })();
 
   return (
-    <div className="yat-face yat-back">
+    <div className="yat-face yat-back yat-back-cq">
       {/*
         yat-back-content is a flex column that fills the full card face height.
         The hero band is flex-shrink:1 (yields first).
@@ -162,16 +165,16 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
       */}
       <div className="yat-back-content">
         {/*
-          Hero band: aspect-ratio:20/7 with max-height clamp.
+          Hero band: aspect-ratio:20/7 with max-height clamp using cqi.
           Shrinks naturally with card width — yields vertical space first.
-          Metadata overlay anchored top-left with clamp() font sizes.
+          Metadata overlay anchored top-left with clamp() font sizes using cqi.
           Entire band links to the player profile page.
         */}
         <a
           href={`/${resolvedHsid}/player/${imageId}/${slug}`}
           className="yat-back-hero"
         >
-          {/* Aspect-ratio container — 20:7, shrinks with width */}
+          {/* Aspect-ratio container — 20:7, shrinks with card width */}
           <div className="yat-back-img-wrap">
             <SafeImage
               src={backImageSrc}
@@ -184,7 +187,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           {/* Gradient scrim — top-heavy so top-left text is always readable */}
           <div className="yat-back-scrim" aria-hidden="true" />
 
-          {/* Metadata overlay — top-left, 6 lines, font sizes clamp down with width */}
+          {/* Metadata overlay — top-left, 6 lines, font sizes clamp with cqi */}
           <div className="yat-back-overlay">
             {/* Line 1: Player Name */}
             {displayName && (
@@ -227,10 +230,16 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
       {/* ── Styles scoped to back-card shell only — no global changes ── */}
       <style>{`
+        /* ── Container query context ────────────────────────────────── */
+        /* Establishes inline-size container so cqi units are relative
+           to the CARD WIDTH, not the viewport. This means a 230px card
+           and a 360px card both get proportionally correct sizing. */
+        .yat-back-cq{
+          container-type:inline-size;
+          container-name:yat-back;
+        }
+
         /* ── Card face shell ────────────────────────────────────────── */
-        /* yat-face yat-back is already positioned absolute/full by the
-           flip-card system. We make yat-back-content a flex column that
-           fills it completely so the vertical budget is shared. */
         .yat-back-content{
           display:flex;
           flex-direction:column;
@@ -240,20 +249,18 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
         /* ── Hero band ──────────────────────────────────────────────── */
         /* flex-shrink:1 — hero yields vertical space before FunZone does.
-           aspect-ratio:20/7 means height = width * 7/20 = 35% of width.
-           max-height clamp prevents it from being too tall on wide cards. */
+           aspect-ratio:20/7 means height = card-width * 35%.
+           max-height uses cqi so it scales with card width, not viewport. */
         .yat-back-hero{
           position:relative;
           display:block;
           text-decoration:none;
           overflow:hidden;
           flex-shrink:1;
-          /* aspect-ratio drives height; falls back gracefully */
           aspect-ratio:20/7;
-          /* Hard floor so hero never collapses to zero */
-          min-height:60px;
-          /* Hard ceiling so hero never dominates on wide viewports */
-          max-height:clamp(80px,28vw,160px);
+          min-height:50px;
+          /* cqi = % of container (card) inline-size */
+          max-height:clamp(55px,30cqi,140px);
           width:100%;
           background:#0a0a0a;
         }
@@ -275,39 +282,38 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         }
 
         /* ── Gradient scrim ─────────────────────────────────────────── */
-        /* Top-heavy: strong at top-left for text, fades toward bottom-right */
         .yat-back-scrim{
           position:absolute;
           inset:0;
           background:
             linear-gradient(
               to bottom right,
-              rgba(0,0,0,.75) 0%,
-              rgba(0,0,0,.48) 40%,
-              rgba(0,0,0,.12) 100%
+              rgba(0,0,0,.78) 0%,
+              rgba(0,0,0,.50) 40%,
+              rgba(0,0,0,.14) 100%
             );
           pointer-events:none;
           z-index:1;
         }
 
         /* ── Metadata overlay — top-left ────────────────────────────── */
-        /* Padding and gap clamp down with width so text yields before hero does */
+        /* All padding/gap/font use cqi so they scale with card width */
         .yat-back-overlay{
           position:absolute;
           top:0;
           left:0;
           right:0;
-          padding:clamp(4px,1.5vw,8px) clamp(6px,2vw,12px) clamp(4px,1.5vw,8px);
+          padding:clamp(3px,1.5cqi,8px) clamp(4px,2cqi,12px) clamp(3px,1.5cqi,8px);
           z-index:2;
           pointer-events:none;
           display:flex;
           flex-direction:column;
-          gap:clamp(0px,.3vw,2px);
+          gap:clamp(0px,.4cqi,2px);
         }
 
-        /* Line 1: Player Name — largest, bold, uppercase */
+        /* Line 1: Player Name — cqi-based font size */
         .ybo-name{
-          font:700 clamp(11px,3.2vw,16px)/1.1 "Bebas Neue",sans-serif;
+          font:700 clamp(9px,4.2cqi,17px)/1.1 "Bebas Neue",sans-serif;
           letter-spacing:.05em;
           color:#fff;
           text-transform:uppercase;
@@ -315,18 +321,18 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         }
         /* Line 2: Team / Org */
         .ybo-team{
-          font:600 clamp(7px,1.9vw,10px)/1.25 Oswald,sans-serif;
+          font:600 clamp(6px,2.4cqi,11px)/1.25 Oswald,sans-serif;
           letter-spacing:.06em;
           color:rgba(255,255,255,.9);
           text-transform:uppercase;
           text-shadow:0 1px 2px rgba(0,0,0,.5);
         }
-        /* Lines 3–6: secondary meta — smaller, lighter */
+        /* Lines 3–6: secondary meta */
         .ybo-pos,
         .ybo-bthw,
         .ybo-draft,
         .ybo-college{
-          font:400 clamp(6px,1.6vw,9px)/1.3 Oswald,sans-serif;
+          font:400 clamp(5px,2cqi,9px)/1.3 Oswald,sans-serif;
           letter-spacing:.04em;
           color:rgba(255,255,255,.75);
           text-shadow:0 1px 2px rgba(0,0,0,.5);

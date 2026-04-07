@@ -24,10 +24,12 @@
 //   - Content expands naturally; page scrolls if needed.
 //
 // RESPONSIVE VERTICAL SYSTEM:
-//   fz-root is flex:1 min-height:0 — it fills remaining card height after the hero.
-//   CTA strip and tab strip use flex-shrink:1 with clamp() padding — they tighten first.
-//   fz-panel is flex:1 min-height:0 — it gets whatever space remains after CTA + tabs.
-//   No band has a fixed pixel height that would cause clipping.
+//   All sizing uses cqi (container query inline-size) units — the container is
+//   established on .yat-back-cq in PlayerCardBack.tsx. This means all sizing
+//   is relative to the CARD WIDTH, not the viewport.
+//   fz-root is flex:1 min-height:0 — fills remaining card height after the hero.
+//   CTA strip and tab strip use flex-shrink:1 with clamp(cqi) — they tighten first.
+//   fz-panel is flex:1 min-height:0 — gets whatever space remains after CTA + tabs.
 
 import { useState } from "react";
 
@@ -92,9 +94,6 @@ function getCta(tab: TabId, firstName: string): string {
 }
 
 // ─── YaTi CTA strip ───────────────────────────────────────────────────────────
-// Structure: [YaTi image] [speech bubble → links to profile]
-// The speech bubble is rendered in code; the image is the exact S3 production asset.
-// flex-shrink:1 — this band yields padding before the content panel loses space.
 
 function YatiCta({
   ctaText,
@@ -295,7 +294,7 @@ export default function FunZone({
     <div className="fz-root">
       {/*
         1. CTA strip — YaTi (left) + speech bubble (right)
-           flex-shrink:1 — yields padding/height before content panel does.
+           flex-shrink:1 — yields padding before the content panel.
       */}
       <YatiCta ctaText={ctaText} profileHref={profileHref} />
 
@@ -333,10 +332,11 @@ export default function FunZone({
       </div>
 
       {/* Inline styles scoped to FunZone — no global stylesheet changes */}
+      {/* All sizing uses cqi (container query inline-size) units.
+          The container is .yat-back-cq established in PlayerCardBack.tsx.
+          cqi = % of card width — ensures proportional sizing at any card width. */}
       <style>{`
         /* ── Root ─────────────────────────────────────────────────────── */
-        /* flex:1 min-height:0 — fills all remaining card height after the hero band.
-           display:flex flex-direction:column so children can flex-grow/shrink. */
         .fz-root{
           display:flex;
           flex-direction:column;
@@ -347,19 +347,18 @@ export default function FunZone({
         }
 
         /* ── CTA strip ────────────────────────────────────────────────── */
-        /* flex-shrink:1 — yields padding/height before the content panel.
-           Padding uses clamp() so it tightens at narrow widths. */
+        /* All padding/gap/font use cqi so they scale with card width */
         .fz-cta-strip{
           display:flex;
           align-items:center;
-          gap:clamp(4px,1.5vw,8px);
-          padding:clamp(4px,1.2vw,7px) clamp(6px,2vw,10px) clamp(4px,1.2vw,7px) clamp(5px,1.5vw,8px);
+          gap:clamp(3px,1.5cqi,8px);
+          padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px) clamp(3px,1.2cqi,7px) clamp(4px,1.5cqi,8px);
           border-bottom:1px solid var(--line,rgba(255,255,255,.1));
           background:var(--card-bg,#1a1a1a);
           flex-shrink:1;
         }
         .fz-yati-img{
-          width:clamp(30px,7vw,44px);
+          width:clamp(24px,8cqi,44px);
           height:auto;
           object-fit:contain;
           flex-shrink:0;
@@ -380,13 +379,13 @@ export default function FunZone({
           background:#fff;
           color:#111;
           border-radius:8px;
-          padding:clamp(4px,1.2vw,7px) clamp(6px,2vw,10px);
+          padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px);
           flex:1;
           min-width:0;
-          margin-left:clamp(5px,1.5vw,9px);
+          margin-left:clamp(4px,1.5cqi,9px);
         }
         .fz-bubble-text{
-          font:700 clamp(7px,1.9vw,9px)/1.4 Oswald,sans-serif;
+          font:700 clamp(6px,2.2cqi,9px)/1.4 Oswald,sans-serif;
           letter-spacing:.03em;
           text-transform:uppercase;
           display:block;
@@ -407,8 +406,6 @@ export default function FunZone({
         }
 
         /* ── Tab strip ────────────────────────────────────────────────── */
-        /* flex-shrink:1 — yields padding before content panel.
-           Padding uses clamp() so it tightens at narrow widths. */
         .fz-tab-strip{
           display:flex;
           justify-content:space-around;
@@ -423,8 +420,8 @@ export default function FunZone({
           flex-direction:column;
           align-items:center;
           justify-content:center;
-          gap:clamp(1px,.5vw,3px);
-          padding:clamp(4px,1.2vw,7px) 2px clamp(3px,1vw,5px);
+          gap:clamp(1px,.5cqi,3px);
+          padding:clamp(3px,1.2cqi,7px) 1px clamp(2px,1cqi,5px);
           background:none;
           border:none;
           border-bottom:2px solid transparent;
@@ -435,11 +432,11 @@ export default function FunZone({
           min-width:0;
         }
         .fz-tab-btn i{
-          font-size:clamp(11px,2.8vw,14px);
+          font-size:clamp(9px,3.2cqi,14px);
           line-height:1;
         }
         .fz-tab-label{
-          font:700 clamp(6px,1.6vw,7.5px) "Bebas Neue",sans-serif;
+          font:700 clamp(5px,1.8cqi,7.5px) "Bebas Neue",sans-serif;
           letter-spacing:.07em;
           text-transform:uppercase;
           line-height:1;
@@ -457,12 +454,11 @@ export default function FunZone({
         .fz-panel{
           flex:1;
           min-height:0;
-          padding:clamp(6px,1.8vw,10px) clamp(8px,2.5vw,12px) clamp(8px,2.5vw,14px);
+          padding:clamp(4px,1.8cqi,10px) clamp(5px,2.5cqi,12px) clamp(5px,2.5cqi,14px);
           background:var(--card-bg,#1a1a1a);
         }
 
         /* ── Stats panel ──────────────────────────────────────────────── */
-        /* Reuses existing yat-stats-bar / yat-stats-grid / yat-stat classes */
         .fz-stats{display:flex;flex-direction:column;gap:0}
 
         /* ── Schedule panel ───────────────────────────────────────────── */
@@ -474,14 +470,14 @@ export default function FunZone({
           border:1px solid rgba(255,255,255,.12);
           border-radius:10px;
           padding:2px 8px;
-          font:700 8px Oswald,sans-serif;
+          font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
           letter-spacing:.08em;
           text-transform:uppercase;
           color:var(--muted,#9e9e9e);
           margin-bottom:1px;
         }
         .fz-sched-val{
-          font:300 11px/1.3 Oswald,sans-serif;
+          font:300 clamp(8px,2.5cqi,11px)/1.3 Oswald,sans-serif;
           color:var(--fg,#f2f2f2);
           padding-left:2px;
         }
@@ -489,13 +485,13 @@ export default function FunZone({
         /* ── News teaser ──────────────────────────────────────────────── */
         .fz-news-teaser{display:flex;flex-direction:column;gap:4px}
         .fz-news-label{
-          font:700 8px Oswald,sans-serif;
+          font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
           letter-spacing:.1em;
           text-transform:uppercase;
           color:var(--muted,#9e9e9e);
         }
         .fz-news-title{
-          font:700 12px/1.3 "Bebas Neue",sans-serif;
+          font:700 clamp(9px,3cqi,12px)/1.3 "Bebas Neue",sans-serif;
           letter-spacing:.03em;
           color:var(--fg,#f2f2f2);
         }
@@ -503,12 +499,12 @@ export default function FunZone({
         /* ── Social panel ─────────────────────────────────────────────── */
         .fz-social{display:flex;flex-direction:column;gap:6px}
         .fz-social-tag{
-          font:700 18px "Bebas Neue",sans-serif;
+          font:700 clamp(12px,4.5cqi,18px) "Bebas Neue",sans-serif;
           letter-spacing:.06em;
           color:var(--fg,#f2f2f2);
         }
         .fz-social-sub{
-          font:300 10px Oswald,sans-serif;
+          font:300 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
           color:var(--muted,#9e9e9e);
         }
         .fz-social-links{display:flex;flex-direction:column;gap:5px;margin-top:2px}
@@ -516,7 +512,7 @@ export default function FunZone({
           display:flex;
           align-items:center;
           gap:6px;
-          font:400 10px Oswald,sans-serif;
+          font:400 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
           color:var(--muted,#9e9e9e);
           text-decoration:none;
           padding:5px 8px;
@@ -524,7 +520,7 @@ export default function FunZone({
           border:1px solid var(--line,rgba(255,255,255,.1));
         }
         .fz-social-link:hover{color:var(--fg,#f2f2f2);border-color:rgba(255,255,255,.25)}
-        .fz-social-link i{font-size:13px}
+        .fz-social-link i{font-size:clamp(9px,3cqi,13px)}
 
         /* ── Placeholder (fallback for empty tabs) ────────────────────── */
         .fz-placeholder{
@@ -533,12 +529,12 @@ export default function FunZone({
           align-items:center;
           justify-content:center;
           gap:6px;
-          padding:clamp(10px,3vw,18px) 8px;
+          padding:clamp(6px,3cqi,18px) 8px;
           text-align:center;
         }
-        .fz-ph-icon{font-size:clamp(18px,4.5vw,26px);opacity:.2}
+        .fz-ph-icon{font-size:clamp(14px,5cqi,26px);opacity:.2}
         .fz-ph-text{
-          font:300 clamp(8px,2.2vw,10px)/1.45 Oswald,sans-serif;
+          font:300 clamp(7px,2.2cqi,10px)/1.45 Oswald,sans-serif;
           color:var(--muted,#9e9e9e);
           max-width:180px;
         }
