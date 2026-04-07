@@ -3,25 +3,28 @@
 //
 // APPROVED LAYOUT (matches printed card aesthetic from screenshot 51578):
 //   ┌─────────────────────────────────────┐  ← cardboard texture, full card
-//   │ ┌───────────────────────────────┐   │  ← inset dark border all around
+//   │ ┌───────────────────────────────┐   │  ← 4-sided inset dark border
 //   │ │  HERO IMAGE (action photo)    │   │
-//   │ │  ┌── metadata overlay ──────┐ │   │
+//   │ │  ┌── metadata overlay ──────┐ │   │  ← anchored TOP-LEFT
 //   │ │  │ PLAYER NAME              │ │   │
-//   │ │  │ Team · Org               │ │   │
+//   │ │  │ Team Name                │ │   │
+//   │ │  │ Org / Conference         │ │   │  ← separate line
 //   │ │  │ Position · Level         │ │   │
 //   │ │  │ B/T · H/W                │ │   │
 //   │ │  └──────────────────────────┘ │   │
 //   │ ├───────────────────────────────┤   │
-//   │ │  FUNZONE (CTA + tabs + panel) │   │  ← dark text on cardboard
+//   │ │  FUNZONE (CTA + tabs + panel) │   │  ← black text on light cardboard
 //   │ └───────────────────────────────┘   │
 //   └─────────────────────────────────────┘
 //
 // KEY DESIGN DECISIONS:
 //   - Cardboard texture covers the ENTIRE card face (top to bottom, edge to edge)
-//   - A dark inset border frames the inner content area like a real printed card
+//   - 4-sided dark inset border frames the inner content area (all four sides)
 //   - Hero image sits inside the border as an inset panel
-//   - FunZone uses dark text directly on the cardboard (no dark overlay)
-//   - The texture is pure CSS: SVG feTurbulence + fibre lines + solid base
+//   - Metadata anchored TOP-LEFT of hero image (not bottom)
+//   - Team name on one line; org/conference on the next line
+//   - FunZone: black text, very light backgrounds
+//   - No-image fallback: YatCrest screened back on cardboard (not dark silhouette)
 //
 // IMAGE ROLE RULES:
 //   - players/back/{playerid}.jpg  → back-card hero ACTION image
@@ -36,13 +39,15 @@
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
 import { fmt, parseDraft } from "@/lib/playerUtils";
-import { getNowSilhouetteUrl } from "@/lib/playerImage";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
 function getPlayerBackImageUrl(imageId: string): string {
   return `${S3_BASE}/players/back/${imageId}.jpg`;
 }
+
+// YatCrest used as screened-back placeholder when no back image exists
+const YATCREST_URL = `${S3_BASE}/assets/YatCrest.png`;
 
 function asText(value: unknown): string {
   if (value == null) return "";
@@ -64,7 +69,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   void draft;
 
   const backImageSrc = getPlayerBackImageUrl(imageId);
-  const backSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
   // ── Stats for FunZone ──────────────────────────────────────────────────────
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
@@ -94,13 +98,17 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
   // ── Metadata overlay lines ─────────────────────────────────────────────────
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
-  const teamLine = [asText(p.current_team_name), asText(p.current_org_or_conference_name)]
-    .filter(Boolean).join(" · ");
+
+  // Team and org/conference are now SEPARATE lines
+  const teamName = asText(p.current_team_name);
+  const orgConf = asText(p.current_org_or_conference_name);
+
   const posLevelStatus = [
     asText(p.position),
     asText(p.level_label) || asText(p.level),
     asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
   ].filter(Boolean).join(" · ");
+
   const bats = asText(p.bats);
   const throws_ = asText(p.throws);
   const height = asText(p.height);
@@ -118,30 +126,40 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   return (
     <div className="yat-face yat-back yat-back-cq">
       {/*
-        yat-back-texture: full-card cardboard base (texture + border)
+        yat-back-texture: full-card cardboard base (texture + 4-sided border)
         yat-back-inner:   inset content column (hero + FunZone)
       */}
       <div className="yat-back-texture">
         <div className="yat-back-inner">
 
-          {/* Hero image with metadata overlay */}
+          {/* Hero image with metadata overlay anchored TOP-LEFT */}
           <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
+            {/*
+              SafeImage fallback: YatCrest screened back on cardboard.
+              The hero bg is set to the cardboard colour so the fallback
+              blends naturally — no dark silhouette.
+            */}
             <SafeImage
               src={backImageSrc}
               alt={displayName}
               className="yat-back-img"
-              placeholderSrc={backSilhouetteUrl}
+              placeholderSrc={YATCREST_URL}
             />
+            {/* Cardboard fallback bg — visible only when image fails to load */}
+            <div className="yat-back-hero-fallback" aria-hidden="true" />
+            {/* Gradient scrim — top-to-bottom dark so top text stays legible */}
             <div className="yat-back-scrim" aria-hidden="true" />
+            {/* Metadata overlay — anchored TOP-LEFT */}
             <div className="yat-back-meta">
               {displayName && <div className="ybm-name">{displayName}</div>}
-              {teamLine && <div className="ybm-team">{teamLine}</div>}
+              {teamName && <div className="ybm-team">{teamName}</div>}
+              {orgConf && <div className="ybm-org">{orgConf}</div>}
               {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
               {btHw && <div className="ybm-bthw">{btHw}</div>}
             </div>
           </a>
 
-          {/* FunZone — dark text on cardboard */}
+          {/* FunZone — black text on light cardboard */}
           <FunZone
             player={p}
             isPitcher={isPitcher}
@@ -163,18 +181,12 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         }
 
         /* ── Full-card cardboard texture layer ───────────────────────── */
-        /* Covers the entire card face edge-to-edge, top to bottom.
-           Three CSS layers: solid base + fibre lines + SVG noise (::before). */
         .yat-back-texture{
           width:100%;
           height:100%;
           position:relative;
           overflow:hidden;
-
-          /* Warm stone/grey cardboard base */
           background-color:#c2b9ae;
-
-          /* Directional fibre lines */
           background-image:
             repeating-linear-gradient(
               168deg,
@@ -187,8 +199,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
               rgba(0,0,0,0.04) 5px, rgba(0,0,0,0.04) 6px
             );
         }
-
-        /* SVG noise grain via pseudo-element */
         .yat-back-texture::before{
           content:"";
           position:absolute;
@@ -202,15 +212,14 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           z-index:0;
         }
 
-        /* ── Inset content column ────────────────────────────────────── */
-        /* Dark border all the way around — like a real printed card frame.
-           Sits above the noise layer (z-index:1). */
+        /* ── Inset content column — 4-SIDED border ───────────────────── */
         .yat-back-inner{
           position:relative;
           z-index:1;
           display:flex;
           flex-direction:column;
-          height:100%;
+          /* Use height minus bottom margin so bottom border is visible */
+          height:calc(100% - clamp(4px,2cqi,10px) * 2);
           margin:clamp(4px,2cqi,10px);
           border:clamp(1.5px,0.7cqi,3px) solid rgba(30,22,14,0.65);
           border-radius:clamp(2px,1cqi,5px);
@@ -227,7 +236,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           min-height:clamp(80px,38cqi,200px);
           max-height:clamp(110px,52cqi,280px);
           width:100%;
-          background:#0a0a0a;
+          /* Cardboard colour as bg — shows when image fails */
+          background:#c2b9ae;
           position:relative;
         }
         .yat-back-img{
@@ -238,30 +248,49 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           object-fit:cover;
           object-position:top center;
           display:block;
+          z-index:1;
         }
 
-        /* Gradient scrim for text legibility */
+        /* Fallback layer: YatCrest screened back on cardboard.
+           Visible only when .yat-back-img fails to load (z-index below img). */
+        .yat-back-hero-fallback{
+          position:absolute;
+          inset:0;
+          z-index:0;
+          background-color:#c2b9ae;
+          background-image:url("${YATCREST_URL}");
+          background-repeat:no-repeat;
+          background-position:center center;
+          background-size:55% auto;
+          opacity:0.22;
+        }
+
+        /* Gradient scrim — top-heavy so name text at top stays legible */
         .yat-back-scrim{
           position:absolute;
           inset:0;
+          z-index:2;
           background:linear-gradient(
-            to top,
-            rgba(0,0,0,0.80) 0%,
-            rgba(0,0,0,0.50) 35%,
-            rgba(0,0,0,0.0) 65%
+            to bottom,
+            rgba(0,0,0,0.72) 0%,
+            rgba(0,0,0,0.45) 40%,
+            rgba(0,0,0,0.0) 75%
           );
           pointer-events:none;
         }
 
-        /* Metadata overlay — bottom-left of hero */
+        /* Metadata overlay — anchored TOP-LEFT */
         .yat-back-meta{
           position:absolute;
-          bottom:0; left:0; right:0;
+          top:0; left:0; right:0;
+          z-index:3;
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.2cqi,12px) clamp(5px,2cqi,10px);
           display:flex;
           flex-direction:column;
-          gap:clamp(0px,.4cqi,2px);
+          gap:clamp(0px,.5cqi,3px);
         }
+
+        /* Line 1: Player Name */
         .ybm-name{
           font:700 clamp(11px,5cqi,22px)/1.1 "Bebas Neue",sans-serif;
           letter-spacing:.04em;
@@ -269,13 +298,23 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           text-transform:uppercase;
           text-shadow:0 1px 4px rgba(0,0,0,.7);
         }
+        /* Line 2: Team Name */
         .ybm-team{
-          font:600 clamp(6px,2.6cqi,12px)/1.3 Oswald,sans-serif;
+          font:600 clamp(6px,2.6cqi,12px)/1.25 Oswald,sans-serif;
           letter-spacing:.05em;
           color:rgba(255,255,255,.95);
           text-transform:uppercase;
           text-shadow:0 1px 3px rgba(0,0,0,.6);
         }
+        /* Line 3: Org / Conference (separate line, slightly smaller) */
+        .ybm-org{
+          font:600 clamp(5.5px,2.4cqi,11px)/1.25 Oswald,sans-serif;
+          letter-spacing:.05em;
+          color:rgba(255,255,255,.90);
+          text-transform:uppercase;
+          text-shadow:0 1px 3px rgba(0,0,0,.6);
+        }
+        /* Lines 4–5: secondary meta */
         .ybm-pos,
         .ybm-bthw{
           font:400 clamp(5px,2.1cqi,9px)/1.35 Oswald,sans-serif;
