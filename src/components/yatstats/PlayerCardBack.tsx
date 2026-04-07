@@ -1,37 +1,55 @@
 // src/components/yatstats/PlayerCardBack.tsx
-// Back face of the flip card: HEADSHOT image, name, position, draft info, stats grid, fun zone
+// Back face of the flip card: ACTION image (players/back/), name, position, draft info, FunZone.
 //
-// HEADSHOT RULE: the headshotUrl prop must be explicitly designated (from player_photos WHERE
-// image_role='HEADSHOT'). If the caller has no designated HEADSHOT, pass null.
-// This component will then render the appropriate silhouette.
-// Do NOT pass players/now/{id}.jpg as the headshot — that is a legacy general/timeline path.
+// IMAGE ROLE RULES (enforced here):
+//   - players/back/{playerid}.jpg  → back-card hero ACTION image (new dedicated slot)
+//   - players/now/{playerid}.jpg   → legacy general/timeline path — NOT used here
+//   - players/then/{playerid}.jpg  → front-card / LEFT_ANCHOR path — NOT used here
+//   - headshotUrl prop             → HEADSHOT role from player_photos — NOT used as back hero
+//
+// If players/back/{playerid}.jpg is missing, SafeImage falls back to the silhouette.
+// Do NOT substitute players/now/ or headshotUrl as the back-card hero image.
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 import { getNowSilhouetteUrl } from "@/lib/playerImage";
 
+// S3 base — same constant used in playerImage.ts; inlined here to avoid touching that file.
+const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
+
+/**
+ * Back-card hero ACTION image from the dedicated players/back/ S3 folder.
+ * This is a separate image role from players/now/ (legacy general/timeline)
+ * and from players/then/ (front card / LEFT_ANCHOR).
+ */
+function getPlayerBackImageUrl(imageId: string): string {
+  return `${S3_BASE}/players/back/${imageId}.jpg`;
+}
+
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
   /**
    * Explicitly designated HEADSHOT image URL from player_photos (image_role='HEADSHOT').
-   * Pass null when no designated HEADSHOT exists — the silhouette will be shown.
-   * Do NOT pass the legacy players/now/{id}.jpg path here.
+   * Accepted by this component for API compatibility but NOT used as the back-card hero image.
+   * The back-card hero image always comes from players/back/{playerid}.jpg.
    */
   headshotUrl: string | null;
   /** When true, shows "CAREER STATS" label instead of the season year */
   isAllTime?: boolean;
 }
 
-export default function PlayerCardBack({ player: p, resolvedHsid, headshotUrl, isAllTime }: PlayerCardBackProps) {
+export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: PlayerCardBackProps) {
   const isPitcher = p.is_pitcher === true;
   const draft = parseDraft(p.draft_info as string | null);
   const imageId = String(p.playerid || "");
   const slug = String(p.slug || "");
-  // photoSrc is the designated headshot URL, or null if no HEADSHOT is designated → silhouette.
-  const photoSrc = headshotUrl;
-  const nowSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
+
+  // Back-card hero: players/back/{playerid}.jpg — dedicated action image slot.
+  // Falls back to silhouette only; never substitutes players/now/ or headshotUrl.
+  const backImageSrc = getPlayerBackImageUrl(imageId);
+  const backSilhouetteUrl = getNowSilhouetteUrl(isPitcher);
 
   const statYear = isPitcher ? p.pitch_year : p.stat_year;
   const statBarLabel = isAllTime
@@ -55,14 +73,14 @@ export default function PlayerCardBack({ player: p, resolvedHsid, headshotUrl, i
   return (
     <div className="yat-face yat-back">
       <div className="yat-back-content">
-        {/* Hero: NOW image + name/position/draft — entire section links to profile */}
+        {/* Hero: back-card ACTION image + name/position/draft — entire section links to profile */}
         <a href={`/${resolvedHsid}/player/${imageId}/${slug}`} className="yat-back-hero">
           <div className="yat-back-img-wrap">
             <SafeImage
-              src={photoSrc}
+              src={backImageSrc}
               alt={String(p.display_name || `${p.firstname} ${p.lastname}`)}
               className="yat-back-img"
-              placeholderSrc={nowSilhouetteUrl}
+              placeholderSrc={backSilhouetteUrl}
             />
           </div>
           <div className="yat-back-info">
@@ -78,18 +96,17 @@ export default function PlayerCardBack({ player: p, resolvedHsid, headshotUrl, i
             {draft && <div className="yat-back-draft">{draft}</div>}
           </div>
         </a>
-        <div className="yat-back-stats">
-          <div className="yat-stats-bar">{statBarLabel}</div>
-          <div className="yat-stats-grid">
-            {stats.map(({ k, v }) => (
-              <div key={k} className="yat-stat">
-                <div className="yat-stat-label">{k}</div>
-                <div className="yat-stat-val">{fmt(k, v)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <FunZone />
+
+        {/* FunZone: six-tab interactive area (Stats, Schedule, News, Social, Connect, Upload) */}
+        <FunZone
+          player={p}
+          isPitcher={isPitcher}
+          isAllTime={isAllTime ?? false}
+          resolvedHsid={resolvedHsid}
+          stats={stats}
+          statBarLabel={statBarLabel}
+          fmt={fmt}
+        />
       </div>
     </div>
   );
