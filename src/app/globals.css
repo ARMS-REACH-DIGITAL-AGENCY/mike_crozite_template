@@ -77,7 +77,8 @@ video {
 
 /* =========================================================
    BLOCK 4 SCHOOL META ROW
-   Constrain width and align with content area
+   Default = dark mode
+   body.light-theme = light mode
    ========================================================= */
 .yat-row4-shell {
   width: 100%;
@@ -90,9 +91,9 @@ video {
   max-width: 1180px;
   margin: 0 auto;
   overflow: hidden;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  background: #111;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .yat-shell-meta-stats {
@@ -105,14 +106,14 @@ video {
 .yat-shell-meta-chip {
   min-width: 0;
   padding: 10px 8px 8px;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent;
   border-radius: 0;
   text-align: center;
 }
 
 .yat-shell-meta-chip:first-child {
-  border-left: 1px solid var(--border);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .yat-shell-meta-chip .yat-gs-chip-val,
@@ -129,7 +130,7 @@ video {
   font-size: clamp(20px, 2.2vw, 30px);
   line-height: 1;
   letter-spacing: 0.01em;
-  color: var(--foreground);
+  color: #f4f4f4;
 }
 
 .yat-shell-meta-chip .yat-gs-chip-val.hi {
@@ -143,7 +144,30 @@ video {
   font-size: 10px;
   line-height: 1.1;
   letter-spacing: 0.12em;
-  color: color-mix(in srgb, var(--foreground) 70%, transparent);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Light theme override driven by the actual toggle */
+body.light-theme .yat-shell-meta-wrap {
+  background: #f5f5f5;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .yat-shell-meta-chip {
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .yat-shell-meta-chip:first-child {
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .yat-shell-meta-chip .yat-gs-chip-val {
+  color: #171717;
+}
+
+body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
+  color: rgba(23, 23, 23, 0.7);
 }
 
 @media (max-width: 768px) {
