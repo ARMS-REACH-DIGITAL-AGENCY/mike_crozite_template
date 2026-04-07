@@ -5,12 +5,22 @@
 // Tabs: Schedule | Stats | News | Social | Connect | Upload
 // Default active tab: Stats
 //
+// YATI MASCOT ASSET RULE:
+//   - Use ONLY the production S3 asset: https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png
+//   - Do NOT generate, redraw, crop, or substitute any other image.
+//   - The callout bubble is rendered in CSS/HTML — NOT baked into the image.
+//   - The callout text changes dynamically by active tab.
+//
 // All tab state is local — no navigation occurs on tab click.
 // Stats tab is fully functional from props passed by PlayerCardBack.
 // Schedule, News, Social, Connect, Upload use compact fallback teasers
 // (no new data pipeline or cross-file dependencies).
 
 import { useState } from "react";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const YATI_MASCOT_URL = "https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,6 +75,39 @@ function getCta(tab: TabId, firstName: string): string {
     case "upload":
       return `UPLOAD your favorite memories to ${firstName}'s baseball Career Path timeline`;
   }
+}
+
+// ─── YaTi CTA block ───────────────────────────────────────────────────────────
+// The mascot image is the exact production S3 asset.
+// The speech bubble is rendered entirely in CSS/HTML — not part of the image.
+// The callout text changes dynamically based on the active tab.
+
+function YatiCta({
+  ctaText,
+  profileHref,
+}: {
+  ctaText: string;
+  profileHref: string;
+}) {
+  return (
+    <div className="fz-yati-row">
+      {/* Speech bubble — rendered in code, not baked into the image */}
+      <a href={profileHref} className="fz-bubble-link">
+        <div className="fz-bubble">
+          <span className="fz-bubble-text">{ctaText}</span>
+          {/* Bubble tail pointing toward the mascot (left side) */}
+          <span className="fz-bubble-tail" aria-hidden="true" />
+        </div>
+      </a>
+      {/* YaTi mascot — exact production S3 asset, never substituted */}
+      <img
+        src={YATI_MASCOT_URL}
+        alt="YaTi mascot"
+        className="fz-yati-img"
+        draggable={false}
+      />
+    </div>
+  );
 }
 
 // ─── Tab panel renderers ──────────────────────────────────────────────────────
@@ -238,11 +281,8 @@ export default function FunZone({
 
   return (
     <div className="yat-fun-zone fz-root">
-      {/* YaTi CTA callout — changes with active tab */}
-      <div className="fz-cta-row">
-        <span className="fz-yati-mascot" aria-hidden="true">⚾</span>
-        <a href={profileHref} className="fz-cta-text">{ctaText}</a>
-      </div>
+      {/* YaTi mascot + code-rendered speech bubble — CTA changes with active tab */}
+      <YatiCta ctaText={ctaText} profileHref={profileHref} />
 
       {/* Six-icon tab strip */}
       <nav className="fz-tab-strip" aria-label="FunZone tabs">
@@ -274,11 +314,16 @@ export default function FunZone({
       <style>{`
         .fz-root{display:flex;flex-direction:column;flex:1 1 0;min-height:0;overflow:hidden;background:var(--card-bg,#1a1a1a);border-top:1px solid var(--line,rgba(255,255,255,.1))}
 
-        /* CTA row */
-        .fz-cta-row{display:flex;align-items:flex-start;gap:5px;padding:5px 8px 4px;border-bottom:1px solid var(--line,rgba(255,255,255,.1));flex-shrink:0}
-        .fz-yati-mascot{font-size:14px;flex-shrink:0;margin-top:1px}
-        .fz-cta-text{font:300 9px/1.35 Oswald,sans-serif;letter-spacing:.03em;color:var(--muted,#9e9e9e);text-decoration:none;flex:1}
-        .fz-cta-text:hover{color:var(--fg,#f2f2f2)}
+        /* YaTi mascot row */
+        .fz-yati-row{display:flex;align-items:flex-end;gap:4px;padding:4px 8px 0;border-bottom:1px solid var(--line,rgba(255,255,255,.1));flex-shrink:0;min-height:52px}
+        .fz-yati-img{width:36px;height:auto;object-fit:contain;flex-shrink:0;display:block;margin-bottom:0}
+
+        /* Speech bubble — rendered in code, tail points left toward mascot */
+        .fz-bubble-link{flex:1;text-decoration:none;display:flex;align-items:center;min-width:0}
+        .fz-bubble{position:relative;background:#fff;color:#111;border-radius:8px;padding:5px 8px;flex:1;min-width:0}
+        .fz-bubble-text{font:700 8.5px/1.35 Oswald,sans-serif;letter-spacing:.02em;text-transform:uppercase;display:block;word-break:break-word}
+        /* Tail: right-pointing triangle on the right edge of the bubble, toward the mascot */
+        .fz-bubble-tail{position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid #fff}
 
         /* Tab strip */
         .fz-tab-strip{display:flex;justify-content:space-around;align-items:stretch;border-bottom:1px solid var(--line,rgba(255,255,255,.1));flex-shrink:0}
