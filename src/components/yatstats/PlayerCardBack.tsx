@@ -1,13 +1,17 @@
 // src/components/yatstats/PlayerCardBack.tsx
 // Back face of the flip card.
 //
-// LAYOUT (matches approved screenshot 51574):
+// APPROVED LAYOUT (matches screenshot 51586):
 //   ┌─────────────────────────────────────┐
-//   │  HERO IMAGE BAND (image only)       │  ← aspect-ratio 20:7, no text overlay
+//   │  HERO IMAGE BAND                    │
+//   │  ┌─ metadata overlay (bottom-left) ─┤
+//   │  │  PLAYER NAME                     │
+//   │  │  Team · Org                      │
+//   │  │  Position · Level · Status       │
+//   │  │  B/T · H/W                       │
+//   │  └──────────────────────────────────┤
 //   ├─────────────────────────────────────┤
-//   │  METADATA BAND (dark bg, 6 lines)   │  ← separate band, NOT overlaid on image
-//   ├─────────────────────────────────────┤
-//   │  FUNZONE (CTA + tabs + panel)       │  ← flex:1, protected
+//   │  FUNZONE (CTA + tabs + panel)       │  ← flex:1, cardboard texture
 //   └─────────────────────────────────────┘
 //
 // IMAGE ROLE RULES:
@@ -17,24 +21,22 @@
 //   - headshotUrl prop             → HEADSHOT role — NOT used as back hero
 //   Falls back to silhouette if players/back/ image is missing.
 //
-// METADATA (6 lines, separate band below hero):
-//   1. PLAYER NAME
-//   2. Current Team | Pro Organization
+// METADATA: overlaid bottom-left of hero image with gradient scrim for legibility.
+//   1. PLAYER NAME (large, bold)
+//   2. Current Team · Pro Organization
 //   3. POSITION · LEVEL · STATUS
 //   4. B/T · H/W
-//   5. Draft Information
-//   6. Previous Colleges Attended (only when field is present)
+//   (Draft and college lines omitted from overlay to keep it compact)
 //
 // RESPONSIVE SYSTEM:
 //   container-type:inline-size on the card back establishes a CQ context.
 //   All sizing uses cqi so values are relative to CARD WIDTH, not viewport.
-//   Yield order: hero → meta → CTA strip → tab strip → content panel (protected last).
+//   Yield order: hero → CTA strip → tab strip → content panel (protected last).
 //
-// CARDBOARD TEXTURE (proof-of-concept — warm stone/grey):
-//   Pure CSS + inline SVG noise filter — no image assets required.
-//   Three layers: SVG feTurbulence grain (::before) + diagonal fibre lines + solid base.
-//   Hero and meta bands paint over the texture with their own bg.
-//   FunZone inherits the texture through its transparent background.
+// CARDBOARD TEXTURE:
+//   Pure CSS — no image assets required.
+//   Warm stone/grey tone (proof-of-concept; will become player-context-driven).
+//   Applied to yat-back-content as the base; FunZone uses semi-transparent overlays.
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -64,6 +66,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const draft = parseDraft(p.draft_info as string | null);
   const imageId = String(p.playerid || "");
   const slug = String(p.slug || "");
+
+  // suppress unused warning — draft kept for future use
+  void draft;
 
   // ── Hero image ─────────────────────────────────────────────────────────────
   const backImageSrc = getPlayerBackImageUrl(imageId);
@@ -95,12 +100,12 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   ];
   const stats = isPitcher ? pitcherStats : batterStats;
 
-  // ── Metadata — 6 lines, pre-computed as serializable strings ──────────────
+  // ── Metadata overlay lines ─────────────────────────────────────────────────
 
   // Line 1: Player Name
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
-  // Line 2: Current Team | Pro Organization
+  // Line 2: Current Team · Pro Organization
   const teamLine = [asText(p.current_team_name), asText(p.current_org_or_conference_name)]
     .filter(Boolean).join(" · ");
 
@@ -120,19 +125,10 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const hwPart = height && weight ? `${height} / ${weight}` : height || weight ? `${height}${weight}` : "";
   const btHw = [btPart, hwPart].filter(Boolean).join(" · ");
 
-  // Line 6: Previous Colleges (forward-compatible — renders when field is added)
-  const collegeListRaw = p.college_list || p.prev_colleges || p.college_history || p.colleges_attended || null;
-  const collegeLine: string = (() => {
-    if (!collegeListRaw) return "";
-    if (Array.isArray(collegeListRaw)) return (collegeListRaw as unknown[]).map(asText).filter(Boolean).join(" · ");
-    return asText(collegeListRaw);
-  })();
-
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
 
   // ── Cardboard texture: SVG noise filter encoded as data URI ───────────────
-  // feTurbulence generates organic grain; feColorMatrix desaturates + tints warm stone.
-  // Rendered via ::before pseudo-element with mix-blend-mode:multiply.
+  // feTurbulence generates organic grain composited via ::before pseudo-element.
   const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72 0.68' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.18'/></filter><rect width='200' height='200' filter='url(#n)' opacity='0.55'/></svg>`;
   const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
 
@@ -141,10 +137,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
       <div className="yat-back-content">
 
         {/*
-          ── Band 1: Hero image only ──────────────────────────────────────
-          No text overlay. No scrim. Pure image fill.
-          Links to player profile page.
-          aspect-ratio:20/7 — height = card-width × 35%.
+          ── Hero image band with metadata overlay ────────────────────────
+          Image fills the band. Metadata overlaid bottom-left with gradient scrim.
           flex-shrink:1 — yields vertical space first.
         */}
         <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
@@ -154,27 +148,22 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
             className="yat-back-img"
             placeholderSrc={backSilhouetteUrl}
           />
+          {/* Gradient scrim for text legibility */}
+          <div className="yat-back-scrim" aria-hidden="true" />
+          {/* Metadata overlay — bottom-left of hero */}
+          <div className="yat-back-meta">
+            {displayName && <div className="ybm-name">{displayName}</div>}
+            {teamLine && <div className="ybm-team">{teamLine}</div>}
+            {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
+            {btHw && <div className="ybm-bthw">{btHw}</div>}
+          </div>
         </a>
 
         {/*
-          ── Band 2: Metadata band ────────────────────────────────────────
-          Separate dark-background band below the hero image.
-          All 6 lines. flex-shrink:1 — yields before FunZone does.
-          Font sizes use cqi so they scale with card width.
-        */}
-        <div className="yat-back-meta">
-          {displayName && <div className="ybm-name">{displayName}</div>}
-          {teamLine && <div className="ybm-team">{teamLine}</div>}
-          {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
-          {btHw && <div className="ybm-bthw">{btHw}</div>}
-          {draft && <div className="ybm-draft">{draft}</div>}
-          {collegeLine && <div className="ybm-college">{collegeLine}</div>}
-        </div>
-
-        {/*
-          ── Band 3: FunZone ──────────────────────────────────────────────
+          ── FunZone ──────────────────────────────────────────────────────
           CTA strip + six-tab interactive area.
           flex:1 min-height:0 — gets all remaining vertical space.
+          Cardboard texture shows through FunZone's semi-transparent overlays.
         */}
         <FunZone
           player={p}
@@ -196,14 +185,13 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         }
 
         /* ─────────────────────────────────────────────────────────────────
-           CARDBOARD TEXTURE SYSTEM
-           Proof-of-concept: warm stone / grey (like recycled printed card stock).
-           Three CSS background layers on yat-back-content:
-             1. SVG feTurbulence noise via ::before pseudo-element (organic grain)
+           CARDBOARD TEXTURE SYSTEM (warm stone/grey proof-of-concept)
+           Three CSS layers on yat-back-content:
+             1. SVG feTurbulence noise via ::before (organic grain)
              2. Repeating diagonal fibre lines (directional paper texture)
-             3. Solid cardboard base colour (bottom layer)
-           Hero and meta bands paint over this with their own opaque bg.
-           FunZone sits above the texture via z-index, inheriting the look.
+             3. Solid warm stone base colour
+           Hero band paints over this with its own image.
+           FunZone uses semi-transparent overlays so texture bleeds through.
         ───────────────────────────────────────────────────────────────── */
 
         /* Card face shell — flex column, fills full card height */
@@ -214,11 +202,10 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           overflow:hidden;
           position:relative;
 
-          /* ── Cardboard base colour: warm stone grey ──
-             HSL 38 12% 72% ≈ warm, slightly yellowish grey — recycled card stock */
+          /* Cardboard base colour: warm stone grey */
           background-color:#b8b0a4;
 
-          /* ── Fibre lines: two sets of near-parallel lines simulate pressed paper grain */
+          /* Fibre lines: two sets simulate pressed paper grain */
           background-image:
             repeating-linear-gradient(
               168deg,
@@ -236,9 +223,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
             );
         }
 
-        /* ── Noise overlay via pseudo-element ──
-           SVG feTurbulence grain composited with multiply blend mode.
-           pointer-events:none so it never blocks clicks or taps. */
+        /* Noise overlay via pseudo-element */
         .yat-back-content::before{
           content:"";
           position:absolute;
@@ -252,28 +237,22 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           z-index:0;
         }
 
-        /* Ensure content bands sit above the noise pseudo-element */
-        .yat-back-hero,
-        .yat-back-meta{
-          position:relative;
-          z-index:1;
-        }
-
-        /* ── Band 1: Hero image ──────────────────────────────────────── */
-        /* aspect-ratio:20/7 = height is always 35% of card width.
+        /* ── Hero image band ─────────────────────────────────────────── */
+        /* Tall enough to show the action image + hold the metadata overlay.
            flex-shrink:1 — yields vertical space first.
-           No text, no overlay, no scrim. */
+           aspect-ratio keeps height proportional to card width. */
         .yat-back-hero{
           display:block;
           text-decoration:none;
           overflow:hidden;
           flex-shrink:1;
-          aspect-ratio:20/7;
-          min-height:clamp(44px,22cqi,100px);
-          max-height:clamp(60px,32cqi,150px);
+          aspect-ratio:20/9;
+          min-height:clamp(80px,38cqi,200px);
+          max-height:clamp(110px,52cqi,280px);
           width:100%;
           background:#0a0a0a;
           position:relative;
+          z-index:1;
         }
         .yat-back-img{
           position:absolute;
@@ -285,49 +264,55 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           display:block;
         }
 
-        /* ── Band 2: Metadata band ───────────────────────────────────── */
-        /* Separate dark band below the hero. flex-shrink:1 — yields before FunZone.
-           All font sizes and spacing use cqi for card-relative scaling.
-           Semi-transparent dark bg so a hint of cardboard peeks at the border edge. */
+        /* Gradient scrim — bottom 60% of hero, dark-to-transparent */
+        .yat-back-scrim{
+          position:absolute;
+          inset:0;
+          background:linear-gradient(
+            to top,
+            rgba(0,0,0,0.82) 0%,
+            rgba(0,0,0,0.55) 35%,
+            rgba(0,0,0,0.0) 65%
+          );
+          pointer-events:none;
+        }
+
+        /* Metadata overlay — bottom-left of hero image */
         .yat-back-meta{
+          position:absolute;
+          bottom:0;
+          left:0;
+          right:0;
+          padding:clamp(4px,1.8cqi,10px) clamp(5px,2.2cqi,12px) clamp(5px,2cqi,10px);
           display:flex;
           flex-direction:column;
-          gap:clamp(0px,.5cqi,2px);
-          padding:clamp(4px,1.8cqi,10px) clamp(5px,2.2cqi,12px) clamp(3px,1.5cqi,8px);
-          background:rgba(20,18,16,0.96);
-          border-bottom:1px solid rgba(184,176,164,0.25);
-          flex-shrink:1;
+          gap:clamp(0px,.4cqi,2px);
         }
 
         /* Line 1: Player Name */
         .ybm-name{
-          font:700 clamp(10px,4.5cqi,18px)/1.1 "Bebas Neue",sans-serif;
+          font:700 clamp(11px,5cqi,22px)/1.1 "Bebas Neue",sans-serif;
           letter-spacing:.04em;
           color:#fff;
           text-transform:uppercase;
+          text-shadow:0 1px 4px rgba(0,0,0,.6);
         }
         /* Line 2: Team / Org */
         .ybm-team{
-          font:600 clamp(6px,2.5cqi,11px)/1.3 Oswald,sans-serif;
+          font:600 clamp(6px,2.6cqi,12px)/1.3 Oswald,sans-serif;
           letter-spacing:.05em;
-          color:rgba(255,255,255,.9);
+          color:rgba(255,255,255,.95);
           text-transform:uppercase;
+          text-shadow:0 1px 3px rgba(0,0,0,.5);
         }
-        /* Lines 3–5: secondary meta */
+        /* Lines 3–4: secondary meta */
         .ybm-pos,
-        .ybm-bthw,
-        .ybm-draft{
-          font:400 clamp(5px,2cqi,9px)/1.35 Oswald,sans-serif;
+        .ybm-bthw{
+          font:400 clamp(5px,2.1cqi,9px)/1.35 Oswald,sans-serif;
           letter-spacing:.04em;
-          color:rgba(255,255,255,.65);
+          color:rgba(255,255,255,.75);
           text-transform:uppercase;
-        }
-        /* Line 6: Previous colleges */
-        .ybm-college{
-          font:300 clamp(5px,1.8cqi,8px)/1.3 Oswald,sans-serif;
-          letter-spacing:.03em;
-          color:rgba(255,255,255,.45);
-          font-style:italic;
+          text-shadow:0 1px 2px rgba(0,0,0,.5);
         }
       `}</style>
     </div>
