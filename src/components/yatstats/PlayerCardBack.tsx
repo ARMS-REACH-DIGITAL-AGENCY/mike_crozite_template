@@ -10,8 +10,9 @@
 // If players/back/{playerid}.jpg is missing, SafeImage falls back to the silhouette.
 // Do NOT substitute players/now/ or headshotUrl as the back-card hero image.
 //
-// HERO RATIO: fixed 20:7 (≈ 35% padding-bottom).
-// Image fills the band with object-fit:cover; height never drifts with image dimensions.
+// HERO RATIO: intrinsically responsive — uses aspect-ratio:20/7 with max-height clamp.
+// Image fills the band with object-fit:cover; height shrinks with width (not fixed px).
+// Hero yields vertical space first; FunZone content panel is protected.
 //
 // METADATA OVERLAY (top-left, 6 lines):
 //   1. PLAYER NAME
@@ -20,6 +21,14 @@
 //   4. B/T · H/W
 //   5. Draft Information
 //   6. Previous Colleges Attended (rendered only when field is present)
+//
+// RESPONSIVE VERTICAL SYSTEM:
+//   Priority order (who yields space first):
+//     1. Hero image band (shrinks with width via aspect-ratio)
+//     2. Hero text overlay (font scales down via clamp)
+//     3. CTA strip (padding tightens via clamp)
+//     4. Tab strip (padding tightens via clamp)
+//     5. FunZone content panel — protected last
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -146,18 +155,23 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
   return (
     <div className="yat-face yat-back">
+      {/*
+        yat-back-content is a flex column that fills the full card face height.
+        The hero band is flex-shrink:1 (yields first).
+        FunZone (fz-root) is flex:1 min-height:0 (protected last).
+      */}
       <div className="yat-back-content">
         {/*
-          Hero band: fixed 20:7 ratio (padding-bottom: 35%).
-          Image fills with object-fit:cover — height never drifts.
-          Metadata overlay anchored top-left.
+          Hero band: aspect-ratio:20/7 with max-height clamp.
+          Shrinks naturally with card width — yields vertical space first.
+          Metadata overlay anchored top-left with clamp() font sizes.
           Entire band links to the player profile page.
         */}
         <a
           href={`/${resolvedHsid}/player/${imageId}/${slug}`}
           className="yat-back-hero"
         >
-          {/* Fixed-ratio container — 20:7 = 35% */}
+          {/* Aspect-ratio container — 20:7, shrinks with width */}
           <div className="yat-back-img-wrap">
             <SafeImage
               src={backImageSrc}
@@ -170,7 +184,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           {/* Gradient scrim — top-heavy so top-left text is always readable */}
           <div className="yat-back-scrim" aria-hidden="true" />
 
-          {/* Metadata overlay — top-left, 6 lines */}
+          {/* Metadata overlay — top-left, 6 lines, font sizes clamp down with width */}
           <div className="yat-back-overlay">
             {/* Line 1: Player Name */}
             {displayName && (
@@ -199,7 +213,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           </div>
         </a>
 
-        {/* FunZone: CTA strip + six-tab interactive area */}
+        {/* FunZone: CTA strip + six-tab interactive area — flex:1, protected */}
         <FunZone
           player={p}
           isPitcher={isPitcher}
@@ -211,21 +225,43 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         />
       </div>
 
-      {/* Styles scoped to back-card shell only — no global changes */}
+      {/* ── Styles scoped to back-card shell only — no global changes ── */}
       <style>{`
+        /* ── Card face shell ────────────────────────────────────────── */
+        /* yat-face yat-back is already positioned absolute/full by the
+           flip-card system. We make yat-back-content a flex column that
+           fills it completely so the vertical budget is shared. */
+        .yat-back-content{
+          display:flex;
+          flex-direction:column;
+          height:100%;
+          overflow:hidden;
+        }
+
         /* ── Hero band ──────────────────────────────────────────────── */
+        /* flex-shrink:1 — hero yields vertical space before FunZone does.
+           aspect-ratio:20/7 means height = width * 7/20 = 35% of width.
+           max-height clamp prevents it from being too tall on wide cards. */
         .yat-back-hero{
           position:relative;
           display:block;
           text-decoration:none;
           overflow:hidden;
-        }
-        /* Fixed 20:7 ratio = 35% padding-bottom */
-        .yat-back-img-wrap{
-          position:relative;
+          flex-shrink:1;
+          /* aspect-ratio drives height; falls back gracefully */
+          aspect-ratio:20/7;
+          /* Hard floor so hero never collapses to zero */
+          min-height:60px;
+          /* Hard ceiling so hero never dominates on wide viewports */
+          max-height:clamp(80px,28vw,160px);
           width:100%;
-          padding-bottom:35%;
           background:#0a0a0a;
+        }
+
+        /* Image fills the hero band completely */
+        .yat-back-img-wrap{
+          position:absolute;
+          inset:0;
           overflow:hidden;
         }
         .yat-back-img{
@@ -246,31 +282,32 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           background:
             linear-gradient(
               to bottom right,
-              rgba(0,0,0,.72) 0%,
-              rgba(0,0,0,.45) 40%,
-              rgba(0,0,0,.10) 100%
+              rgba(0,0,0,.75) 0%,
+              rgba(0,0,0,.48) 40%,
+              rgba(0,0,0,.12) 100%
             );
           pointer-events:none;
           z-index:1;
         }
 
         /* ── Metadata overlay — top-left ────────────────────────────── */
+        /* Padding and gap clamp down with width so text yields before hero does */
         .yat-back-overlay{
           position:absolute;
           top:0;
           left:0;
           right:0;
-          padding:7px 10px 6px;
+          padding:clamp(4px,1.5vw,8px) clamp(6px,2vw,12px) clamp(4px,1.5vw,8px);
           z-index:2;
           pointer-events:none;
           display:flex;
           flex-direction:column;
-          gap:1px;
+          gap:clamp(0px,.3vw,2px);
         }
 
         /* Line 1: Player Name — largest, bold, uppercase */
         .ybo-name{
-          font:700 clamp(13px,3.8vw,17px)/1.1 "Bebas Neue",sans-serif;
+          font:700 clamp(11px,3.2vw,16px)/1.1 "Bebas Neue",sans-serif;
           letter-spacing:.05em;
           color:#fff;
           text-transform:uppercase;
@@ -278,19 +315,18 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
         }
         /* Line 2: Team / Org */
         .ybo-team{
-          font:600 clamp(8px,2.2vw,10px)/1.25 Oswald,sans-serif;
+          font:600 clamp(7px,1.9vw,10px)/1.25 Oswald,sans-serif;
           letter-spacing:.06em;
           color:rgba(255,255,255,.9);
           text-transform:uppercase;
           text-shadow:0 1px 2px rgba(0,0,0,.5);
-          margin-top:1px;
         }
         /* Lines 3–6: secondary meta — smaller, lighter */
         .ybo-pos,
         .ybo-bthw,
         .ybo-draft,
         .ybo-college{
-          font:400 clamp(7px,1.9vw,9px)/1.3 Oswald,sans-serif;
+          font:400 clamp(6px,1.6vw,9px)/1.3 Oswald,sans-serif;
           letter-spacing:.04em;
           color:rgba(255,255,255,.75);
           text-shadow:0 1px 2px rgba(0,0,0,.5);

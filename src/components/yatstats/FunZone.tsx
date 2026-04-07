@@ -22,6 +22,12 @@
 // SCROLL RULE:
 //   - No overflow-y:auto or internal scrollbars anywhere in this component.
 //   - Content expands naturally; page scrolls if needed.
+//
+// RESPONSIVE VERTICAL SYSTEM:
+//   fz-root is flex:1 min-height:0 — it fills remaining card height after the hero.
+//   CTA strip and tab strip use flex-shrink:1 with clamp() padding — they tighten first.
+//   fz-panel is flex:1 min-height:0 — it gets whatever space remains after CTA + tabs.
+//   No band has a fixed pixel height that would cause clipping.
 
 import { useState } from "react";
 
@@ -54,7 +60,7 @@ type TabId = "schedule" | "stats" | "news" | "social" | "connect" | "upload";
 interface Tab {
   id: TabId;
   label: string;
-  icon: string; // Unicode / SVG path or remixicon class
+  icon: string; // remixicon class
 }
 
 const TABS: Tab[] = [
@@ -88,6 +94,7 @@ function getCta(tab: TabId, firstName: string): string {
 // ─── YaTi CTA strip ───────────────────────────────────────────────────────────
 // Structure: [YaTi image] [speech bubble → links to profile]
 // The speech bubble is rendered in code; the image is the exact S3 production asset.
+// flex-shrink:1 — this band yields padding before the content panel loses space.
 
 function YatiCta({
   ctaText,
@@ -288,12 +295,13 @@ export default function FunZone({
     <div className="fz-root">
       {/*
         1. CTA strip — YaTi (left) + speech bubble (right)
-           Separate horizontal band below the hero image, above the tab strip.
+           flex-shrink:1 — yields padding/height before content panel does.
       */}
       <YatiCta ctaText={ctaText} profileHref={profileHref} />
 
       {/*
         2. Six-icon tab strip
+           flex-shrink:1 — yields padding before content panel does.
       */}
       <nav className="fz-tab-strip" aria-label="FunZone tabs">
         {TABS.map((tab) => (
@@ -311,7 +319,9 @@ export default function FunZone({
       </nav>
 
       {/*
-        3. Active content panel — no internal scroll; expands naturally
+        3. Active content panel — flex:1 min-height:0
+           Gets all remaining vertical space after CTA + tab strips.
+           No internal scroll; content expands naturally.
       */}
       <div className="fz-panel">
         {activeTab === "schedule" && <SchedulePanel player={player} />}
@@ -325,26 +335,31 @@ export default function FunZone({
       {/* Inline styles scoped to FunZone — no global stylesheet changes */}
       <style>{`
         /* ── Root ─────────────────────────────────────────────────────── */
+        /* flex:1 min-height:0 — fills all remaining card height after the hero band.
+           display:flex flex-direction:column so children can flex-grow/shrink. */
         .fz-root{
           display:flex;
           flex-direction:column;
+          flex:1;
+          min-height:0;
           background:var(--card-bg,#1a1a1a);
           border-top:1px solid var(--line,rgba(255,255,255,.1));
         }
 
         /* ── CTA strip ────────────────────────────────────────────────── */
-        /* YaTi on the left, speech bubble on the right */
+        /* flex-shrink:1 — yields padding/height before the content panel.
+           Padding uses clamp() so it tightens at narrow widths. */
         .fz-cta-strip{
           display:flex;
           align-items:center;
-          gap:8px;
-          padding:6px 10px 6px 8px;
+          gap:clamp(4px,1.5vw,8px);
+          padding:clamp(4px,1.2vw,7px) clamp(6px,2vw,10px) clamp(4px,1.2vw,7px) clamp(5px,1.5vw,8px);
           border-bottom:1px solid var(--line,rgba(255,255,255,.1));
           background:var(--card-bg,#1a1a1a);
-          flex-shrink:0;
+          flex-shrink:1;
         }
         .fz-yati-img{
-          width:42px;
+          width:clamp(30px,7vw,44px);
           height:auto;
           object-fit:contain;
           flex-shrink:0;
@@ -365,14 +380,13 @@ export default function FunZone({
           background:#fff;
           color:#111;
           border-radius:8px;
-          padding:6px 10px;
+          padding:clamp(4px,1.2vw,7px) clamp(6px,2vw,10px);
           flex:1;
           min-width:0;
-          /* Left-pointing tail toward YaTi */
-          margin-left:8px;
+          margin-left:clamp(5px,1.5vw,9px);
         }
         .fz-bubble-text{
-          font:700 9px/1.4 Oswald,sans-serif;
+          font:700 clamp(7px,1.9vw,9px)/1.4 Oswald,sans-serif;
           letter-spacing:.03em;
           text-transform:uppercase;
           display:block;
@@ -393,12 +407,14 @@ export default function FunZone({
         }
 
         /* ── Tab strip ────────────────────────────────────────────────── */
+        /* flex-shrink:1 — yields padding before content panel.
+           Padding uses clamp() so it tightens at narrow widths. */
         .fz-tab-strip{
           display:flex;
           justify-content:space-around;
           align-items:stretch;
           border-bottom:2px solid var(--line,rgba(255,255,255,.1));
-          flex-shrink:0;
+          flex-shrink:1;
           background:var(--card-bg,#1a1a1a);
         }
         .fz-tab-btn{
@@ -407,8 +423,8 @@ export default function FunZone({
           flex-direction:column;
           align-items:center;
           justify-content:center;
-          gap:3px;
-          padding:7px 2px 5px;
+          gap:clamp(1px,.5vw,3px);
+          padding:clamp(4px,1.2vw,7px) 2px clamp(3px,1vw,5px);
           background:none;
           border:none;
           border-bottom:2px solid transparent;
@@ -418,9 +434,12 @@ export default function FunZone({
           transition:color .15s,border-color .15s;
           min-width:0;
         }
-        .fz-tab-btn i{font-size:14px;line-height:1}
+        .fz-tab-btn i{
+          font-size:clamp(11px,2.8vw,14px);
+          line-height:1;
+        }
         .fz-tab-label{
-          font:700 7.5px "Bebas Neue",sans-serif;
+          font:700 clamp(6px,1.6vw,7.5px) "Bebas Neue",sans-serif;
           letter-spacing:.07em;
           text-transform:uppercase;
           line-height:1;
@@ -433,9 +452,12 @@ export default function FunZone({
         .fz-tab-btn:hover:not(.fz-tab-active){color:var(--fg,#f2f2f2)}
 
         /* ── Content panel ────────────────────────────────────────────── */
-        /* NO overflow-y:auto — content expands naturally, page scrolls */
+        /* flex:1 min-height:0 — gets all remaining space after CTA + tab strips.
+           NO overflow-y:auto — content expands naturally, page scrolls if needed. */
         .fz-panel{
-          padding:8px 10px 12px;
+          flex:1;
+          min-height:0;
+          padding:clamp(6px,1.8vw,10px) clamp(8px,2.5vw,12px) clamp(8px,2.5vw,14px);
           background:var(--card-bg,#1a1a1a);
         }
 
@@ -511,12 +533,12 @@ export default function FunZone({
           align-items:center;
           justify-content:center;
           gap:6px;
-          padding:16px 8px;
+          padding:clamp(10px,3vw,18px) 8px;
           text-align:center;
         }
-        .fz-ph-icon{font-size:24px;opacity:.2}
+        .fz-ph-icon{font-size:clamp(18px,4.5vw,26px);opacity:.2}
         .fz-ph-text{
-          font:300 10px/1.45 Oswald,sans-serif;
+          font:300 clamp(8px,2.2vw,10px)/1.45 Oswald,sans-serif;
           color:var(--muted,#9e9e9e);
           max-width:180px;
         }
