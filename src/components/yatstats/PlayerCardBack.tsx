@@ -29,6 +29,12 @@
 //   container-type:inline-size on the card back establishes a CQ context.
 //   All sizing uses cqi so values are relative to CARD WIDTH, not viewport.
 //   Yield order: hero → meta → CTA strip → tab strip → content panel (protected last).
+//
+// CARDBOARD TEXTURE (proof-of-concept — warm stone/grey):
+//   Pure CSS + inline SVG noise filter — no image assets required.
+//   Three layers: SVG feTurbulence grain (::before) + diagonal fibre lines + solid base.
+//   Hero and meta bands paint over the texture with their own bg.
+//   FunZone inherits the texture through its transparent background.
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
@@ -124,6 +130,12 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
 
+  // ── Cardboard texture: SVG noise filter encoded as data URI ───────────────
+  // feTurbulence generates organic grain; feColorMatrix desaturates + tints warm stone.
+  // Rendered via ::before pseudo-element with mix-blend-mode:multiply.
+  const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72 0.68' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.18'/></filter><rect width='200' height='200' filter='url(#n)' opacity='0.55'/></svg>`;
+  const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
+
   return (
     <div className="yat-face yat-back yat-back-cq">
       <div className="yat-back-content">
@@ -183,12 +195,68 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           container-name:yat-back;
         }
 
+        /* ─────────────────────────────────────────────────────────────────
+           CARDBOARD TEXTURE SYSTEM
+           Proof-of-concept: warm stone / grey (like recycled printed card stock).
+           Three CSS background layers on yat-back-content:
+             1. SVG feTurbulence noise via ::before pseudo-element (organic grain)
+             2. Repeating diagonal fibre lines (directional paper texture)
+             3. Solid cardboard base colour (bottom layer)
+           Hero and meta bands paint over this with their own opaque bg.
+           FunZone sits above the texture via z-index, inheriting the look.
+        ───────────────────────────────────────────────────────────────── */
+
         /* Card face shell — flex column, fills full card height */
         .yat-back-content{
           display:flex;
           flex-direction:column;
           height:100%;
           overflow:hidden;
+          position:relative;
+
+          /* ── Cardboard base colour: warm stone grey ──
+             HSL 38 12% 72% ≈ warm, slightly yellowish grey — recycled card stock */
+          background-color:#b8b0a4;
+
+          /* ── Fibre lines: two sets of near-parallel lines simulate pressed paper grain */
+          background-image:
+            repeating-linear-gradient(
+              168deg,
+              transparent 0px,
+              transparent 3px,
+              rgba(255,255,255,0.04) 3px,
+              rgba(255,255,255,0.04) 4px
+            ),
+            repeating-linear-gradient(
+              78deg,
+              transparent 0px,
+              transparent 5px,
+              rgba(0,0,0,0.03) 5px,
+              rgba(0,0,0,0.03) 6px
+            );
+        }
+
+        /* ── Noise overlay via pseudo-element ──
+           SVG feTurbulence grain composited with multiply blend mode.
+           pointer-events:none so it never blocks clicks or taps. */
+        .yat-back-content::before{
+          content:"";
+          position:absolute;
+          inset:0;
+          background-image:${noiseUrl};
+          background-size:200px 200px;
+          background-repeat:repeat;
+          mix-blend-mode:multiply;
+          opacity:0.45;
+          pointer-events:none;
+          z-index:0;
+        }
+
+        /* Ensure content bands sit above the noise pseudo-element */
+        .yat-back-hero,
+        .yat-back-meta{
+          position:relative;
+          z-index:1;
         }
 
         /* ── Band 1: Hero image ──────────────────────────────────────── */
@@ -219,14 +287,15 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
         /* ── Band 2: Metadata band ───────────────────────────────────── */
         /* Separate dark band below the hero. flex-shrink:1 — yields before FunZone.
-           All font sizes and spacing use cqi for card-relative scaling. */
+           All font sizes and spacing use cqi for card-relative scaling.
+           Semi-transparent dark bg so a hint of cardboard peeks at the border edge. */
         .yat-back-meta{
           display:flex;
           flex-direction:column;
           gap:clamp(0px,.5cqi,2px);
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.2cqi,12px) clamp(3px,1.5cqi,8px);
-          background:var(--card-bg,#1a1a1a);
-          border-bottom:1px solid var(--line,rgba(255,255,255,.1));
+          background:rgba(20,18,16,0.96);
+          border-bottom:1px solid rgba(184,176,164,0.25);
           flex-shrink:1;
         }
 
