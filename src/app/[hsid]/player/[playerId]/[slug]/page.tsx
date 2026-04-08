@@ -452,13 +452,14 @@ export default async function ProfilePage({ params }: Props) {
               key={`${slot.role}-${idx}`}
               className={`pp-strip-slot ${slot.role === "anchor" ? "pp-anchor" : "pp-timeline"}`}
             >
-              <SafeImage
-                className="pp-slot-img"
-                src={slot.img}
-                alt={slot.label}
-                fallbackSrc={slot.altSrc || PLAYER_SILHOUETTE_URL}
-                placeholderSrc={PLAYER_SILHOUETTE_URL}
-              />
+              {/* Plain img inside a relative wrapper defeats the global img{height:auto} rule */}
+              <div className="pp-slot-img-wrap">
+                <img
+                  className="pp-slot-img"
+                  src={slot.img}
+                  alt={slot.label}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -808,12 +809,25 @@ export default async function ProfilePage({ params }: Props) {
           flex-shrink: 0;
           height: 100%;
           overflow: hidden;
+          position: relative;
         }
         /* Anchor slots slightly wider than timeline slots */
         .pp-anchor { width: 160px; }
         .pp-timeline { width: 120px; }
 
+        /* Wrapper fills the slot — defeats global img{height:auto} */
+        .pp-slot-img-wrap {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #111;
+        }
+
+        /* Absolute-positioned img fills wrapper regardless of global resets */
         .pp-slot-img {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
