@@ -468,61 +468,30 @@ export default async function ProfilePage({ params }: Props) {
           BLOCK 4 — Two-column player metadata
           ═══════════════════════════════════════════════════════════════════════ */}
       <section className="pp-meta-block" id="playerMeta">
-        <div className="pp-meta-name">{displayName}</div>
-        <div className="pp-meta-cols">
-          {/* LEFT — team / org / level */}
-          <div className="pp-meta-col pp-meta-left">
-            {ctxTeam && (
-              <div className="pp-meta-row">
-                <span className="pp-meta-key">TEAM</span>
-                <span className="pp-meta-val">{ctxTeam}</span>
-              </div>
-            )}
-            {currentOrgOrConference && (
-              <div className="pp-meta-row">
-                <span className="pp-meta-key">ORG / CONF</span>
-                <span className="pp-meta-val">{currentOrgOrConference}</span>
-              </div>
-            )}
-            <div className="pp-meta-row">
-              <span className="pp-meta-key">LEVEL</span>
-              <span className="pp-meta-val">
-                {ctxLevel || "--"}
-                {" · "}
-                <span
-                  className={`pp-status-dot ${isActive ? "pp-active" : "pp-retired"}`}
-                />
-                {statusLabel}
-              </span>
-            </div>
+        <div className="pp-meta-chips">
+          <div className="pp-meta-chip">
+            <span className="pp-mc-val">{ctxLevel || "--"}</span>
+            <span className="pp-mc-lbl">LEVEL</span>
           </div>
-
-          {/* RIGHT — pos / B/T / H/W / draft / colleges */}
-          <div className="pp-meta-col pp-meta-right">
-            <div className="pp-meta-row">
-              <span className="pp-meta-key">POS / B/T</span>
-              <span className="pp-meta-val">
-                {isPitcher ? "P" : "—"} · {player.bats || "—"}/{player.throws || "—"}
-              </span>
-            </div>
-            <div className="pp-meta-row">
-              <span className="pp-meta-key">HT / WT</span>
-              <span className="pp-meta-val">
-                {player.height || "--"} / {player.weight || "--"}
-              </span>
-            </div>
-            {draftInfo && draftInfo !== "N/A" && (
-              <div className="pp-meta-row">
-                <span className="pp-meta-key">DRAFT</span>
-                <span className="pp-meta-val">{draftInfo}</span>
-              </div>
-            )}
-            {uniqueColleges.length > 0 && (
-              <div className="pp-meta-row">
-                <span className="pp-meta-key">COLLEGE</span>
-                <span className="pp-meta-val">{collegesLine}</span>
-              </div>
-            )}
+          <div className="pp-meta-chip">
+            <span className={`pp-mc-val ${isActive ? "pp-mc-active" : "pp-mc-retired"}`}>{statusLabel}</span>
+            <span className="pp-mc-lbl">STATUS</span>
+          </div>
+          <div className="pp-meta-chip">
+            <span className="pp-mc-val">{isPitcher ? "P" : player.position || "—"}</span>
+            <span className="pp-mc-lbl">POS</span>
+          </div>
+          <div className="pp-meta-chip">
+            <span className="pp-mc-val">{player.bats || "—"}/{player.throws || "—"}</span>
+            <span className="pp-mc-lbl">B/T</span>
+          </div>
+          <div className="pp-meta-chip">
+            <span className="pp-mc-val">{player.height || "--"}</span>
+            <span className="pp-mc-lbl">HT</span>
+          </div>
+          <div className="pp-meta-chip">
+            <span className="pp-mc-val">{player.weight || "--"}</span>
+            <span className="pp-mc-lbl">WT</span>
           </div>
         </div>
       </section>
@@ -855,60 +824,59 @@ export default async function ProfilePage({ params }: Props) {
           outline: none;
         }
 
-        /* ── Block 4: Metadata ─────────────────────────────────────────── */
+        /* ── Block 4: Metadata chip row (matches gallery Row 4 height) ── */
         .pp-meta-block {
           width: 100%;
-          padding: 14px 14px 10px;
-          background: var(--card-bg, #1a1a1a);
-          border-top: 1px solid var(--line, rgba(255,255,255,.08));
+          overflow: hidden;
+          background: #111;
+          border-top: 1px solid rgba(255,255,255,.08);
+          border-bottom: 1px solid rgba(255,255,255,.08);
         }
-        .pp-meta-name {
-          font: 700 22px/1 "Bebas Neue", sans-serif;
-          letter-spacing: .04em;
-          color: var(--fg, #f0f0f0);
-          margin-bottom: 10px;
-        }
-        .pp-meta-cols {
+        .pp-meta-chips {
+          width: 100%;
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 6px 16px;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 0;
         }
-        .pp-meta-col {
+        .pp-meta-chip {
           display: flex;
           flex-direction: column;
-          gap: 5px;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 10px 8px 8px;
+          border-right: 1px solid rgba(255,255,255,.08);
+          text-align: center;
+          min-width: 0;
         }
-        .pp-meta-row {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
+        .pp-meta-chip:first-child {
+          border-left: 1px solid rgba(255,255,255,.08);
         }
-        .pp-meta-key {
-          font: 600 8px/1 Oswald, sans-serif;
+        .pp-mc-val {
+          display: block;
+          font: 700 clamp(14px, 2.2vw, 22px)/1 "Bebas Neue", sans-serif;
+          letter-spacing: .04em;
+          color: var(--fg, #f4f4f4);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .pp-mc-lbl {
+          display: block;
+          font: 300 9px/1.1 Oswald, sans-serif;
           letter-spacing: .12em;
           text-transform: uppercase;
-          color: var(--muted, #888);
+          color: rgba(255,255,255,.7);
+          white-space: nowrap;
         }
-        .pp-meta-val {
-          font: 400 11px/1.3 Oswald, sans-serif;
-          color: var(--fg, #f0f0f0);
-        }
-        .pp-status-dot {
-          display: inline-block;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          vertical-align: middle;
-          margin-right: 3px;
-        }
-        .pp-active { background: #00e676; }
-        .pp-retired { background: #888; }
+        .pp-mc-active { color: #20d67b; }
+        .pp-mc-retired { color: #888; }
 
-        /* ── Block 5: FunZone ──────────────────────────────────────────── */
+        /* ── Block 5: FunZone — tab top flush with flip card grid top ─── */
         .pp-funzone {
           width: 100%;
           background: var(--card-bg, #1a1a1a);
-          border-top: 1px solid var(--line, rgba(255,255,255,.08));
           padding-bottom: 24px;
         }
 
