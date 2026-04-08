@@ -252,29 +252,28 @@ export default function YatStyles() {
 
      .gallery-strip{
         position:relative;
-        max-width:1400px;
-        margin:0 auto;
-        padding:0 16px;
-        min-height:100px;
-        display:flex;
-        align-items:center;
-        overflow:hidden;
-        background:var(--header-bg);
-      }
-
-      .gallery-strip-inner{
         width:100%;
-        display:flex;
-        gap:0;
+        margin:0;
+        padding:0;
         overflow-x:auto;
         overflow-y:hidden;
-        scroll-behavior:smooth;
-        -webkit-overflow-scrolling:touch;
         scrollbar-width:none;
         -ms-overflow-style:none;
+        background:var(--header-bg);
+      }
+      .gallery-strip::-webkit-scrollbar{display:none;width:0;height:0}
+
+      .gallery-strip-inner{
+        display:flex;
+        flex-direction:row;
         align-items:stretch;
+        gap:0;
         padding:0;
-        min-height:100px;
+        /* Fixed strip height — each image width scales with its natural ratio */
+        height:200px;
+        /* allow inner row to be wider than viewport */
+        width:max-content;
+        min-width:100%;
       }
 
       .gallery-strip-inner::-webkit-scrollbar{
@@ -284,23 +283,24 @@ export default function YatStyles() {
         background:transparent;
       }
 
-      .gallery-slot{
+      .gallery-slot,
+      .career-slot{
         flex:0 0 auto;
-        width:72px;
-        height:100px;
-        min-width:72px;
+        /* width is auto — determined by the image's natural aspect ratio */
+        width:auto;
+        height:100%;
         overflow:hidden;
         border:none;
         border-radius:0;
         background:#111;
         display:block;
         position:relative;
-        transform:translateY(0) scale(1);
-        transition:transform .16s ease, filter .16s ease, box-shadow .16s ease, opacity .16s ease;
+        line-height:0;
       }
 
-      .gallery-slot + .gallery-slot{
-        margin-left:1px;
+      .gallery-slot + .gallery-slot,
+      .career-slot + .career-slot{
+        margin-left:0;
       }
 
       .gallery-slot:hover,
@@ -317,10 +317,9 @@ export default function YatStyles() {
       }
 
       .gallery-slot-img{
-        width:100%;
+        /* height fills the strip; width auto preserves aspect ratio */
         height:100%;
-        object-fit:cover;
-        object-position:center top;
+        width:auto;
         display:block;
         background:#000;
       }
