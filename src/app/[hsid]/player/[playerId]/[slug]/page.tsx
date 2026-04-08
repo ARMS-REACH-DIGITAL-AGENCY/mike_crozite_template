@@ -96,7 +96,16 @@ let player: any = null;
 
 try {
   const matches = await findPlayersBySlug(slug, hsid);
-  player = matches?.find((p: any) => String(p.playerid) === playerId) as any;
+
+  player = matches?.find((p: any) => {
+    const samePlayerId = String(p.playerid) === String(playerId);
+    const sameHsid =
+      p.hsid === undefined || p.hsid === null
+        ? true
+        : String(p.hsid) === String(hsid);
+
+    return samePlayerId && sameHsid;
+  }) as any;
 } catch (e) {
   console.error("DB ERROR:", e);
 }
