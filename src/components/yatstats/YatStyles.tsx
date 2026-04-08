@@ -270,7 +270,7 @@ export default function YatStyles() {
         align-items:stretch;
         gap:0;
         padding:0;
-        height:200px;
+        height:100px;
         width:max-content;
         min-width:100%;
       }
