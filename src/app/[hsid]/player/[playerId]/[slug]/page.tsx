@@ -11,6 +11,7 @@
 import SafeImage from "@/components/SafeImage";
 import {
   findPlayersBySlug,
+  getPlayerById,
   getPlayerBattingStats,
   getPlayerPitchingStats,
   getPlayerCareerBatting,
@@ -97,11 +98,15 @@ function fmtAvg(v: any): string {
 export default async function ProfilePage({ params }: Props) {
   const { hsid, playerId, slug } = params;
 
-  let player: any = null;
-
+   let player: any = null;
   try {
+    // Primary: slug + hsid lookup (fast, school-scoped)
     const matches = await findPlayersBySlug(slug, hsid);
-    player = matches?.find((p: any) => String(p.playerid) === playerId) as any;
+    player = matches?.find((p: any) => String(p.playerid) === String(playerId)) ?? null;
+    // Fallback: direct playerid lookup (handles slug mismatches or missing player_hsids rows)
+    if (!player) {
+      player = await getPlayerById(String(playerId));
+    }
   } catch (e) {
     console.error("DB ERROR:", e);
   }
