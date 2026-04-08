@@ -7,12 +7,9 @@
 import { ReactNode } from 'react';
 import {
   getSchoolByHsid,
-  getSchoolByUrl,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
-  getPlayerById,
-  getResolvedCurrentTeam,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import {
@@ -21,7 +18,6 @@ import {
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
-import { headers } from 'next/headers';
 
 import type { Metadata } from 'next';
 
@@ -32,7 +28,6 @@ import AccountDrawerContent from '@/components/AccountDrawer';
 import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
-import CareerStrip from '@/components/yatstats/CareerStrip';
 
 export const runtime = 'nodejs';
 
@@ -77,20 +72,10 @@ export default async function HsidLayout({
   params: Promise<{ hsid: string }>;
 }) {
   const { hsid } = await params;
-  const headersList = await headers();
-  const host = headersList.get('host') || '';
-  const pathname = headersList.get('x-pathname') || '';
-
-  // Detect player profile route — extract playerId from path
-  // Pattern: /{hsid}/player/{playerId}/{slug}
-  const playerRouteMatch = pathname.match(/\/player\/([^/]+)\//);
-  const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
-
   // Resolve school data — same logic as the gallery page
   let school: Record<string, unknown> | null = null;
   try {
-    school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
-    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
   } catch {
     notFound();
   }
@@ -100,13 +85,9 @@ export default async function HsidLayout({
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-
-  // Extract subdomain for GHL tagging
-  const ROOT_DOMAIN = 'yatstats.com';
-  const subdomainPart = host === ROOT_DOMAIN ? '' : host.slice(0, -(ROOT_DOMAIN.length + 1));
-  const subdomain = subdomainPart.split('.')[0] || hsid || 'unknown';
-
-  // Build school data for the context provider
+  // Subdomain used for GHL tagging in AccountDrawer
+  const subdomain = hsid || 'unknown';
+  // Build school data for the context providerr
     const schoolData = {
     hsid: resolvedHsid,
     hsName: schoolName,
@@ -204,63 +185,6 @@ export default async function HsidLayout({
     };
   });
 
-  // ── Career strip + metadata chips for player profile pages ─────────────────
-  // When on a player profile route:
-  //   row3Content = career image strip (replaces school gallery strip in Row 3)
-  //   row4Content = player metadata chips (replaces empty placeholder in Row 4)
-  let profileRow3Content: ReactNode | undefined = undefined;
-  let profileRow4Content: ReactNode | undefined = undefined;
-
-  if (profilePlayerId) {
-    // ── Row 3: career timeline strip ──────────────────────────────────────────
-    // CareerStrip is a client component that renders then/back/now S3 images
-    // and hides any that fail to load via onError (no server-side fetch needed).
-    profileRow3Content = <CareerStrip playerId={profilePlayerId} />;
-
-    // Fetch player data for metadata chips (Row 4)
-    const [profilePlayer, currentTeam] = await Promise.all([
-      getPlayerById(profilePlayerId),
-      getResolvedCurrentTeam(profilePlayerId),
-    ]);
-
-
-    // ── Row 4: player metadata chips ────────────────────────────────────────
-    const p = profilePlayer as any;
-    const ct = currentTeam as any;
-    const ctxLevel = ct?.level || p?.career_highlevel || '';
-    const isPitcher = (p?.position || '').toUpperCase().startsWith('P');
-    const posLabel = isPitcher ? 'P' : (p?.position || '—');
-    const statusLabel = ct?.level ? 'ACTIVE' : 'RETIRED';
-    const isActive = !!ct?.level;
-
-    profileRow4Content = (
-      <div className="pp-meta-chips" style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'stretch',
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-      }}>
-        {([
-          { val: ctxLevel || '—', lbl: 'LEVEL' },
-          { val: statusLabel, lbl: 'STATUS', active: isActive },
-          { val: posLabel, lbl: 'POS' },
-          { val: `${p?.bats || '—'}/${p?.throws || '—'}`, lbl: 'B/T' },
-          { val: p?.height || '—', lbl: 'HT' },
-          { val: p?.weight || '—', lbl: 'WT' },
-        ] as { val: string; lbl: string; active?: boolean }[]).map(({ val, lbl, active }) => (
-          <div key={lbl} className="pp-meta-chip">
-            <span className={`pp-mc-val${active === true ? ' pp-mc-active' : active === false ? ' pp-mc-retired' : ''}`}>
-              {val}
-            </span>
-            <span className="pp-mc-lbl">{lbl}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   return (
     <SchoolContextProvider schoolData={schoolData}>
       {/* Shared Styles — must be rendered before any visual content */}
@@ -273,8 +197,6 @@ export default async function HsidLayout({
         hsid={resolvedHsid}
         players={stripPlayers}
         schoolMeta={schoolMeta}
-        row3Content={profileRow3Content}
-        row4Content={profileRow4Content}
       >
         {children}
       </SharedShell>

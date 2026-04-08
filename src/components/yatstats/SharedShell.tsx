@@ -9,6 +9,8 @@ import GlobalTopbar from './shell/GlobalTopbar';
 import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
+import CareerStrip from './CareerStrip';
+import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 type StripPlayer = {
   id: string;
@@ -41,6 +43,8 @@ export default function SharedShell({
   row4Content?: ReactNode;
 }) {
   const pathname = usePathname();
+  const playerProfile = usePlayerProfile();
+  const profilePlayerId = playerProfile?.playerId ?? null;
 
   const isPlayerProfile =
     pathname.includes('/player/') || pathname.includes('/profile/');
@@ -66,14 +70,18 @@ export default function SharedShell({
       <main>
         {/* ROW 3 — career/gallery strip */}
         <div className="yat-row3-shell">
-          {row3Content ? row3Content : (
-            <InteractionStrip
-              isPlayerProfile={isPlayerProfile}
-              isGallery={isGallery}
-              isNews={isNews}
-              players={players}
-            />
-          )}
+          {row3Content
+            ? row3Content
+            : profilePlayerId
+            ? <CareerStrip playerId={profilePlayerId} />
+            : (
+                <InteractionStrip
+                  isPlayerProfile={isPlayerProfile}
+                  isGallery={isGallery}
+                  isNews={isNews}
+                  players={players}
+                />
+              )}
         </div>
 
         {/* ROW 4 — metadata chips */}
