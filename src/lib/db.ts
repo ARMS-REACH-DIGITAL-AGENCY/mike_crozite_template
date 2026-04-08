@@ -501,41 +501,55 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 // CAREER AGGREGATE STATS — totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
+  // Use regexp_replace to safely strip non-numeric chars before casting
+  // This handles dirty data like g='2B' that would otherwise throw a cast error
+  const n = (col: string) =>
+    `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
     SELECT
       COUNT(DISTINCT year) AS seasons,
-      SUM(g::int) AS g, SUM(ab::int) AS ab, SUM(r::int) AS r, SUM(h::int) AS h,
-      SUM(dbl::int) AS "2b", SUM(tpl::int) AS "3b",
-      SUM(hr::int) AS hr, SUM(rbi::int) AS rbi, SUM(sb::int) AS sb,
-      SUM(bb::int) AS bb, SUM(so::int) AS so,
-      CASE WHEN SUM(ab::int) > 0 THEN ROUND(SUM(h::int)::numeric / SUM(ab::int), 3) ELSE NULL END AS avg,
-      CASE WHEN SUM(ab::int) + SUM(bb::int) > 0 THEN ROUND((SUM(h::int) + SUM(bb::int))::numeric / (SUM(ab::int) + SUM(bb::int)), 3) ELSE NULL END AS obp
+      SUM(${n('g')}) AS g, SUM(${n('ab')}) AS ab, SUM(${n('r')}) AS r, SUM(${n('h')}) AS h,
+      SUM(${n('dbl')}) AS "2b", SUM(${n('tpl')}) AS "3b",
+      SUM(${n('hr')}) AS hr, SUM(${n('rbi')}) AS rbi, SUM(${n('sb')}) AS sb,
+      SUM(${n('bb')}) AS bb, SUM(${n('so')}) AS so,
+      CASE WHEN SUM(${n('ab')}) > 0 THEN ROUND(SUM(${n('h')}) / SUM(${n('ab')}), 3) ELSE NULL END AS avg,
+      CASE WHEN SUM(${n('ab')}) + SUM(${n('bb')}) > 0 THEN ROUND((SUM(${n('h')}) + SUM(${n('bb')})) / (SUM(${n('ab')}) + SUM(${n('bb')})), 3) ELSE NULL END AS obp
     FROM tbc_batting_raw
     WHERE playerid::text = $1
   `;
-  const { rows } = await query(sql, [playerId]);
-  return rows[0] || null;
+  try {
+    const { rows } = await query(sql, [playerId]);
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getPlayerCareerPitching(playerId: string): Promise<any | null> {
+  const n = (col: string) =>
+    `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
     SELECT
       COUNT(DISTINCT year) AS seasons,
-      SUM(g::int) AS g, SUM(gs::int) AS gs,
-      SUM(w::int) AS w, SUM(l::int) AS l,
-      SUM(sv::int) AS saves,
-      SUM(ip::numeric) AS ip,
-      SUM(er::int) AS er,
-      SUM(so::int) AS ko, SUM(bb::int) AS bb,
-      CASE WHEN SUM(ip::numeric) > 0 THEN ROUND(SUM(er::int)::numeric * 9 / SUM(ip::numeric), 2) ELSE NULL END AS era,
-      CASE WHEN SUM(ip::numeric) > 0 THEN ROUND((SUM(bb::int) + SUM(h::int))::numeric / SUM(ip::numeric), 2) ELSE NULL END AS whip,
-      CASE WHEN SUM(ip::numeric) > 0 THEN ROUND(SUM(so::int)::numeric * 9 / SUM(ip::numeric), 2) ELSE NULL END AS k9,
-      CASE WHEN SUM(bb::int) > 0 THEN ROUND(SUM(so::int)::numeric / SUM(bb::int), 2) ELSE NULL END AS kbb
+      SUM(${n('g')}) AS g, SUM(${n('gs')}) AS gs,
+      SUM(${n('w')}) AS w, SUM(${n('l')}) AS l,
+      SUM(${n('sv')}) AS saves,
+      SUM(${n('ip')}) AS ip,
+      SUM(${n('er')}) AS er,
+      SUM(${n('so')}) AS ko, SUM(${n('bb')}) AS bb,
+      CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND(SUM(${n('er')}) * 9 / SUM(${n('ip')}), 2) ELSE NULL END AS era,
+      CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND((SUM(${n('bb')}) + SUM(${n('h')})) / SUM(${n('ip')}), 2) ELSE NULL END AS whip,
+      CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND(SUM(${n('so')}) * 9 / SUM(${n('ip')}), 2) ELSE NULL END AS k9,
+      CASE WHEN SUM(${n('bb')}) > 0 THEN ROUND(SUM(${n('so')}) / SUM(${n('bb')}), 2) ELSE NULL END AS kbb
     FROM tbc_pitching_raw
     WHERE playerid::text = $1
   `;
-  const { rows } = await query(sql, [playerId]);
-  return rows[0] || null;
+  try {
+    const { rows } = await query(sql, [playerId]);
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
