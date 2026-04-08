@@ -31,12 +31,14 @@ export default function SharedShell({
   players = [],
   schoolMeta,
   row3Content,
+  row4Content,
 }: {
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
+  row4Content?: ReactNode;
 }) {
   const pathname = usePathname();
 
@@ -62,7 +64,7 @@ export default function SharedShell({
       </div>
 
       <main>
-        {/* ROW 3 */}
+        {/* ROW 3 — career/gallery strip */}
         <div className="yat-row3-shell">
           {row3Content ? row3Content : (
             <InteractionStrip
@@ -74,16 +76,18 @@ export default function SharedShell({
           )}
         </div>
 
-        {/* ROW 4 */}
+        {/* ROW 4 — metadata chips */}
         <div className="yat-row4-shell">
-          <MetadataRow
-            isPlayerProfile={isPlayerProfile}
-            isGallery={isGallery}
-            schoolMeta={schoolMeta}
-          />
+          {row4Content ? row4Content : (
+            <MetadataRow
+              isPlayerProfile={isPlayerProfile}
+              isGallery={isGallery}
+              schoolMeta={schoolMeta}
+            />
+          )}
         </div>
 
-        {/* ROW 5 */}
+        {/* ROW 5 — page body (FunZone on profile pages) */}
         <div className="yat-row5-shell">
           {children}
         </div>

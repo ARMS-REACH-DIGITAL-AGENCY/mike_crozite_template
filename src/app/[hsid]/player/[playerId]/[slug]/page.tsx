@@ -374,39 +374,8 @@ export default async function ProfilePage({ params }: Props) {
   return (
     <>
       {/* ═══════════════════════════════════════════════════════════════════════
-          BLOCK 4 — Two-column player metadata
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="pp-meta-block" id="playerMeta">
-        <div className="pp-meta-chips">
-          <div className="pp-meta-chip">
-            <span className="pp-mc-val">{ctxLevel || "--"}</span>
-            <span className="pp-mc-lbl">LEVEL</span>
-          </div>
-          <div className="pp-meta-chip">
-            <span className={`pp-mc-val ${isActive ? "pp-mc-active" : "pp-mc-retired"}`}>{statusLabel}</span>
-            <span className="pp-mc-lbl">STATUS</span>
-          </div>
-          <div className="pp-meta-chip">
-            <span className="pp-mc-val">{isPitcher ? "P" : player.position || "—"}</span>
-            <span className="pp-mc-lbl">POS</span>
-          </div>
-          <div className="pp-meta-chip">
-            <span className="pp-mc-val">{player.bats || "—"}/{player.throws || "—"}</span>
-            <span className="pp-mc-lbl">B/T</span>
-          </div>
-          <div className="pp-meta-chip">
-            <span className="pp-mc-val">{player.height || "--"}</span>
-            <span className="pp-mc-lbl">HT</span>
-          </div>
-          <div className="pp-meta-chip">
-            <span className="pp-mc-val">{player.weight || "--"}</span>
-            <span className="pp-mc-lbl">WT</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════════
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
+          Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
           ═══════════════════════════════════════════════════════════════════════ */}
       <section className="pp-funzone" id="playerFunZone">
 
@@ -695,14 +664,7 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
-        /* ── Block 4: Metadata chip row (matches gallery Row 4 height) ── */
-        .pp-meta-block {
-          width: 100%;
-          overflow: hidden;
-          background: #111;
-          border-top: 1px solid rgba(255,255,255,.08);
-          border-bottom: 1px solid rgba(255,255,255,.08);
-        }
+        /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
           display: grid;

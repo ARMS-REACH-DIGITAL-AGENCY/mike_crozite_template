@@ -14,6 +14,8 @@ import {
   getBatchDesignatedPlayerImages,
   getPlayerPhotos,
   getDesignatedPlayerImage,
+  getPlayerById,
+  getResolvedCurrentTeam,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import {
@@ -207,18 +209,21 @@ export default async function HsidLayout({
     };
   });
 
-  // ── Career strip for player profile pages ──────────────────────────────────
-  // When on a player profile route, fetch the player's career images and build
-  // the career strip JSX to pass as row3Content to SharedShell.
-  // This replaces the school gallery strip in Row 3 for profile pages only.
+  // ── Career strip + metadata chips for player profile pages ─────────────────
+  // When on a player profile route:
+  //   row3Content = career image strip (replaces school gallery strip in Row 3)
+  //   row4Content = player metadata chips (replaces empty placeholder in Row 4)
   let profileRow3Content: ReactNode | undefined = undefined;
+  let profileRow4Content: ReactNode | undefined = undefined;
 
   if (profilePlayerId) {
-    const [profilePhotos, leftAnchor, rightAnchor, headshot] = await Promise.all([
+    const [profilePhotos, leftAnchor, rightAnchor, headshot, profilePlayer, currentTeam] = await Promise.all([
       getPlayerPhotos(profilePlayerId),
       getDesignatedPlayerImage(profilePlayerId, 'LEFT_ANCHOR'),
       getDesignatedPlayerImage(profilePlayerId, 'RIGHT_ANCHOR'),
       getDesignatedPlayerImage(profilePlayerId, 'HEADSHOT'),
+      getPlayerById(profilePlayerId),
+      getResolvedCurrentTeam(profilePlayerId),
     ]);
 
     const leftImg = (leftAnchor as any)?.image_url || getPlayerThenImageUrl(profilePlayerId);
@@ -258,7 +263,7 @@ export default async function HsidLayout({
                   position: 'absolute',
                   inset: 0,
                   width: '100%',
-                  height: '100%',
+                  height: '100px',
                   objectFit: 'cover',
                   objectPosition: 'top center',
                   display: 'block',
@@ -272,6 +277,42 @@ export default async function HsidLayout({
         </div>
       </div>
     );
+
+    // ── Row 4: player metadata chips ────────────────────────────────────────
+    const p = profilePlayer as any;
+    const ct = currentTeam as any;
+    const ctxLevel = ct?.level || p?.career_highlevel || '';
+    const isPitcher = (p?.position || '').toUpperCase().startsWith('P');
+    const posLabel = isPitcher ? 'P' : (p?.position || '—');
+    const statusLabel = ct?.level ? 'ACTIVE' : 'RETIRED';
+    const isActive = !!ct?.level;
+
+    profileRow4Content = (
+      <div className="pp-meta-chips" style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+      }}>
+        {([
+          { val: ctxLevel || '—', lbl: 'LEVEL' },
+          { val: statusLabel, lbl: 'STATUS', active: isActive },
+          { val: posLabel, lbl: 'POS' },
+          { val: `${p?.bats || '—'}/${p?.throws || '—'}`, lbl: 'B/T' },
+          { val: p?.height || '—', lbl: 'HT' },
+          { val: p?.weight || '—', lbl: 'WT' },
+        ] as { val: string; lbl: string; active?: boolean }[]).map(({ val, lbl, active }) => (
+          <div key={lbl} className="pp-meta-chip">
+            <span className={`pp-mc-val${active === true ? ' pp-mc-active' : active === false ? ' pp-mc-retired' : ''}`}>
+              {val}
+            </span>
+            <span className="pp-mc-lbl">{lbl}</span>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -280,12 +321,14 @@ export default async function HsidLayout({
       <YatStyles />
 
       {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5.
-          On player profile routes, row3Content overrides the gallery strip in Row 3. */}
+          On player profile routes, row3Content overrides the gallery strip in Row 3
+          and row4Content overrides the empty placeholder in Row 4. */}
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
         schoolMeta={schoolMeta}
         row3Content={profileRow3Content}
+        row4Content={profileRow4Content}
       >
         {children}
       </SharedShell>
