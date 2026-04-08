@@ -32,6 +32,7 @@ import AccountDrawerContent from '@/components/AccountDrawer';
 import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
+import CareerStrip from '@/components/yatstats/CareerStrip';
 
 export const runtime = 'nodejs';
 
@@ -211,72 +212,17 @@ export default async function HsidLayout({
   let profileRow4Content: ReactNode | undefined = undefined;
 
   if (profilePlayerId) {
-    // ── S3 image probe helper ────────────────────────────────────────────────
-    // Tries .jpg then .png; returns the first URL that responds 200, else null.
-    // Runs server-side at request time so only real images appear in the strip.
-    async function probeS3Image(folder: string, id: string): Promise<string | null> {
-      const base = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/${folder}/${id}`;
-      for (const ext of ['jpg', 'png']) {
-        try {
-          const res = await fetch(`${base}.${ext}`, { method: 'HEAD', cache: 'force-cache' });
-          if (res.ok) return `${base}.${ext}`;
-        } catch { /* network error — skip */ }
-      }
-      return null;
-    }
+    // ── Row 3: career timeline strip ──────────────────────────────────────────
+    // CareerStrip is a client component that renders then/back/now S3 images
+    // and hides any that fail to load via onError (no server-side fetch needed).
+    profileRow3Content = <CareerStrip playerId={profilePlayerId} />;
 
-    // Probe all three folders in parallel alongside DB fetches
-    const [thenImg, backImg, nowImg, profilePlayer, currentTeam] = await Promise.all([
-      probeS3Image('then', profilePlayerId),
-      probeS3Image('back', profilePlayerId),
-      probeS3Image('now',  profilePlayerId),
+    // Fetch player data for metadata chips (Row 4)
+    const [profilePlayer, currentTeam] = await Promise.all([
       getPlayerById(profilePlayerId),
       getResolvedCurrentTeam(profilePlayerId),
     ]);
 
-    // Build ordered slot list: then → back → now (only include slots that exist)
-    type CareerSlot = { img: string; folder: string };
-    const careerSlots: CareerSlot[] = [];
-    if (thenImg) careerSlots.push({ img: thenImg, folder: 'then' });
-    if (backImg) careerSlots.push({ img: backImg, folder: 'back' });
-    if (nowImg)  careerSlots.push({ img: nowImg,  folder: 'now'  });
-
-    profileRow3Content = (
-      <div className="gallery-strip" id="playerCareerStrip">
-        <div className="gallery-strip-inner">
-          {careerSlots.map((slot, idx) => (
-            <div
-              key={idx}
-              className="gallery-slot"
-              style={{
-                flex: '1 1 0',
-                minWidth: '80px',
-                height: '100px',
-                position: 'relative',
-              }}
-            >
-              {/* Absolute img defeats global img{height:auto} reset */}
-              <img
-                src={slot.img}
-                alt=""
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100px',
-                  objectFit: 'cover',
-                  objectPosition: 'top center',
-                  display: 'block',
-                  borderRadius: 0,
-                  border: 'none',
-                  outline: 'none',
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
 
     // ── Row 4: player metadata chips ────────────────────────────────────────
     const p = profilePlayer as any;
