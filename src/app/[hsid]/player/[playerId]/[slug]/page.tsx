@@ -452,21 +452,13 @@ export default async function ProfilePage({ params }: Props) {
               key={`${slot.role}-${idx}`}
               className={`pp-strip-slot ${slot.role === "anchor" ? "pp-anchor" : "pp-timeline"}`}
             >
-              <div className="pp-slot-img-wrap">
-                <SafeImage
-                  className="pp-slot-img"
-                  src={slot.img}
-                  alt={slot.label}
-                  fallbackSrc={slot.altSrc || PLAYER_SILHOUETTE_URL}
-                  placeholderSrc={PLAYER_SILHOUETTE_URL}
-                />
-              </div>
-              {(slot.label || slot.sub) && (
-                <div className="pp-slot-caption">
-                  {slot.label && <span className="pp-slot-label">{slot.label}</span>}
-                  {slot.sub && <span className="pp-slot-sub">{slot.sub}</span>}
-                </div>
-              )}
+              <SafeImage
+                className="pp-slot-img"
+                src={slot.img}
+                alt={slot.label}
+                fallbackSrc={slot.altSrc || PLAYER_SILHOUETTE_URL}
+                placeholderSrc={PLAYER_SILHOUETTE_URL}
+              />
             </div>
           ))}
         </div>
@@ -828,71 +820,39 @@ export default async function ProfilePage({ params }: Props) {
         /* ── Block 3: Career strip ─────────────────────────────────────── */
         .pp-career-strip {
           width: 100%;
-          background: var(--card-bg, #1a1a1a);
-          padding: 12px 0 0;
           overflow: hidden;
+          background: #000;
+          line-height: 0;
         }
         .pp-strip-scroll {
           display: flex;
           flex-direction: row;
-          gap: 6px;
+          gap: 0;
           overflow-x: auto;
-          padding: 0 12px 12px;
           scrollbar-width: none;
           -ms-overflow-style: none;
+          height: 200px;
         }
         .pp-strip-scroll::-webkit-scrollbar { display: none; }
 
         .pp-strip-slot {
           flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-        }
-        .pp-anchor { width: 120px; }
-        .pp-timeline { width: 90px; }
-
-        .pp-slot-img-wrap {
-          width: 100%;
-          aspect-ratio: 3/4;
+          height: 100%;
           overflow: hidden;
-          border-radius: 6px;
-          background: #111;
-          position: relative;
         }
-        .pp-anchor .pp-slot-img-wrap {
-          border: 2px solid var(--accent, #c8a96e);
-          border-radius: 8px;
-        }
+        /* Anchor slots slightly wider than timeline slots */
+        .pp-anchor { width: 160px; }
+        .pp-timeline { width: 120px; }
+
         .pp-slot-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           object-position: top center;
           display: block;
-        }
-        .pp-slot-caption {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1px;
-          padding: 0 2px;
-          text-align: center;
-        }
-        .pp-slot-label {
-          font: 600 9px/1.2 "Bebas Neue", sans-serif;
-          letter-spacing: .04em;
-          color: var(--fg, #f0f0f0);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-        }
-        .pp-slot-sub {
-          font: 400 8px/1 Oswald, sans-serif;
-          color: var(--muted, #888);
-          white-space: nowrap;
+          border-radius: 0;
+          border: none;
+          outline: none;
         }
 
         /* ── Block 4: Metadata ─────────────────────────────────────────── */
