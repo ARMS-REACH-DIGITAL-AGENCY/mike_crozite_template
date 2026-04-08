@@ -8,24 +8,18 @@ import { ReactNode } from 'react';
 import {
   getSchoolByHsid,
   getSchoolByUrl,
-  getActiveRosterByHsid,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
-  getPlayerPhotos,
-  getDesignatedPlayerImage,
   getPlayerById,
   getResolvedCurrentTeam,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import {
   getPlayerNowImageUrl,
-  getPlayerThenImageUrl,
-  getNowSilhouetteUrl,
-  PLAYER_SILHOUETTE_URL,
 } from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
+import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 
@@ -217,30 +211,35 @@ export default async function HsidLayout({
   let profileRow4Content: ReactNode | undefined = undefined;
 
   if (profilePlayerId) {
-    const [profilePhotos, leftAnchor, rightAnchor, headshot, profilePlayer, currentTeam] = await Promise.all([
-      getPlayerPhotos(profilePlayerId),
-      getDesignatedPlayerImage(profilePlayerId, 'LEFT_ANCHOR'),
-      getDesignatedPlayerImage(profilePlayerId, 'RIGHT_ANCHOR'),
-      getDesignatedPlayerImage(profilePlayerId, 'HEADSHOT'),
+    // ── S3 image probe helper ────────────────────────────────────────────────
+    // Tries .jpg then .png; returns the first URL that responds 200, else null.
+    // Runs server-side at request time so only real images appear in the strip.
+    async function probeS3Image(folder: string, id: string): Promise<string | null> {
+      const base = `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/${folder}/${id}`;
+      for (const ext of ['jpg', 'png']) {
+        try {
+          const res = await fetch(`${base}.${ext}`, { method: 'HEAD', cache: 'force-cache' });
+          if (res.ok) return `${base}.${ext}`;
+        } catch { /* network error — skip */ }
+      }
+      return null;
+    }
+
+    // Probe all three folders in parallel alongside DB fetches
+    const [thenImg, backImg, nowImg, profilePlayer, currentTeam] = await Promise.all([
+      probeS3Image('then', profilePlayerId),
+      probeS3Image('back', profilePlayerId),
+      probeS3Image('now',  profilePlayerId),
       getPlayerById(profilePlayerId),
       getResolvedCurrentTeam(profilePlayerId),
     ]);
 
-    const leftImg = (leftAnchor as any)?.image_url || getPlayerThenImageUrl(profilePlayerId);
-    const rightImg =
-      (rightAnchor as any)?.image_url ||
-      (headshot as any)?.image_url ||
-      getNowSilhouetteUrl(false);
-
-    type CareerSlot = { img: string; isAnchor: boolean };
-    const careerSlots: CareerSlot[] = [
-      { img: leftImg, isAnchor: true },
-      ...(profilePhotos as any[]).map((p) => ({
-        img: p.image_url || PLAYER_SILHOUETTE_URL,
-        isAnchor: false,
-      })),
-      { img: rightImg, isAnchor: true },
-    ];
+    // Build ordered slot list: then → back → now (only include slots that exist)
+    type CareerSlot = { img: string; folder: string };
+    const careerSlots: CareerSlot[] = [];
+    if (thenImg) careerSlots.push({ img: thenImg, folder: 'then' });
+    if (backImg) careerSlots.push({ img: backImg, folder: 'back' });
+    if (nowImg)  careerSlots.push({ img: nowImg,  folder: 'now'  });
 
     profileRow3Content = (
       <div className="gallery-strip" id="playerCareerStrip">
@@ -250,9 +249,10 @@ export default async function HsidLayout({
               key={idx}
               className="gallery-slot"
               style={{
-                width: slot.isAnchor ? '160px' : '120px',
-                minWidth: slot.isAnchor ? '160px' : '120px',
+                flex: '1 1 0',
+                minWidth: '80px',
                 height: '100px',
+                position: 'relative',
               }}
             >
               {/* Absolute img defeats global img{height:auto} reset */}
