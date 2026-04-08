@@ -38,13 +38,13 @@ export async function generateMetadata({
 }: {
   params: Promise<{ hsid: string }>;
 }): Promise<Metadata> {
-   const { hsid } = await params;
+  const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get('host') || '';
   let school: Record<string, unknown> | null = null;
   try {
-    school = host ? (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null : null;
-    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    if (!school && host) school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
   } catch {
     school = null;
   }
@@ -76,11 +76,17 @@ export default async function HsidLayout({
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get('host') || '';
-  // Resolve school — try custom domain first, then numeric hsid
+  // Resolve school:
+  // 1. Always try getSchoolByHsid(hsid) first — this is the player's actual school
+  //    when the URL is /{numericHsid}/player/... (cross-school search result)
+  // 2. If hsid is non-numeric (e.g. 'hamilton' from a custom domain), fall back to
+  //    host-based lookup so custom domains still work.
   let school: Record<string, unknown> | null = null;
   try {
-    school = host ? (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null : null;
-    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    if (!school && host) {
+      school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
+    }
   } catch {
     notFound();
   }
