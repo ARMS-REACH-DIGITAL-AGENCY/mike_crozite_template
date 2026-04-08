@@ -7,10 +7,12 @@
 import { ReactNode } from 'react';
 import {
   getSchoolByHsid,
+  getSchoolByUrl,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
+import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import {
   getPlayerNowImageUrl,
@@ -36,16 +38,16 @@ export async function generateMetadata({
 }: {
   params: Promise<{ hsid: string }>;
 }): Promise<Metadata> {
-  const { hsid } = await params;
-
+   const { hsid } = await params;
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
   let school: Record<string, unknown> | null = null;
-
   try {
-    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    school = host ? (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null : null;
+    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
   } catch {
     school = null;
   }
-
   const resolvedHsid = String(school?.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school?.hsname || 'YAT?STATS'));
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
@@ -72,10 +74,13 @@ export default async function HsidLayout({
   params: Promise<{ hsid: string }>;
 }) {
   const { hsid } = await params;
-  // Resolve school data — same logic as the gallery page
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  // Resolve school — try custom domain first, then numeric hsid
   let school: Record<string, unknown> | null = null;
   try {
-    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    school = host ? (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null : null;
+    if (!school) school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
   } catch {
     notFound();
   }
