@@ -99,22 +99,33 @@ export default async function ProfilePage({ params }: Props) {
   const { hsid, playerId, slug } = params;
 
    let player: any = null;
+  let _diagSlugRows: number | null = null;
+  let _diagFallbackResult: string | null = null;
+  let _diagError: string | null = null;
   try {
     // Primary: slug + hsid lookup (fast, school-scoped)
     const matches = await findPlayersBySlug(slug, hsid);
+    _diagSlugRows = matches?.length ?? 0;
     player = matches?.find((p: any) => String(p.playerid) === String(playerId)) ?? null;
     // Fallback: direct playerid lookup (handles slug mismatches or missing player_hsids rows)
     if (!player) {
-      player = await getPlayerById(String(playerId));
+      const fallback = await getPlayerById(String(playerId));
+      _diagFallbackResult = fallback ? `GOT: ${fallback.firstname} ${fallback.lastname}` : "NULL";
+      player = fallback;
     }
-  } catch (e) {
+  } catch (e: any) {
+    _diagError = String(e?.message ?? e);
     console.error("DB ERROR:", e);
   }
 
   if (!player) {
     return (
-      <div style={{ padding: "20px" }}>
-        <h1>No player</h1>
+      <div style={{ padding: "20px", fontFamily: "monospace" }}>
+        <h1>No player — diagnostic</h1>
+        <p>hsid={hsid} playerId={playerId} slug={slug}</p>
+        <p>findPlayersBySlug rows: {_diagSlugRows ?? "not reached"}</p>
+        <p>getPlayerById result: {_diagFallbackResult ?? "not reached"}</p>
+        <p>exception: {_diagError ?? "none"}</p>
       </div>
     );
   }
