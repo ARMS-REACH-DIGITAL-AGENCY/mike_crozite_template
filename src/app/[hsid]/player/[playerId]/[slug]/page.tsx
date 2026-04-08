@@ -8,7 +8,6 @@
 
 "use client" in (0 as any); // this file is a Server Component — no "use client"
 
-import SafeImage from "@/components/SafeImage";
 import {
   findPlayersBySlug,
   getPlayerById,
@@ -20,15 +19,9 @@ import {
   getPlayerBattingGameLog,
   getPlayerPitchingGameLog,
   getTeamContext,
-  getPlayerPhotos,
-  getDesignatedPlayerImage,
   getResolvedCurrentTeam,
 } from "@/lib/db";
-import {
-  getPlayerThenImageUrl,
-  getNowSilhouetteUrl,
-  PLAYER_SILHOUETTE_URL,
-} from "@/lib/playerImage";
+
 
 type Props = {
   params: Promise<{
@@ -141,21 +134,13 @@ export default async function ProfilePage({ params }: Props) {
     pitchingSeasons,
     careerBatting,
     careerPitching,
-    playerPhotos,
     resolvedCurrentTeam,
-    designatedLeftAnchor,
-    designatedRightAnchor,
-    designatedHeadshot,
   ] = await Promise.all([
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
     getPlayerCareerBatting(safePlayerId),
     getPlayerCareerPitching(safePlayerId),
-    getPlayerPhotos(safePlayerId),
     getResolvedCurrentTeam(safePlayerId),
-    getDesignatedPlayerImage(safePlayerId, "LEFT_ANCHOR"),
-    getDesignatedPlayerImage(safePlayerId, "RIGHT_ANCHOR"),
-    getDesignatedPlayerImage(safePlayerId, "HEADSHOT"),
   ]);
 
   const latestYear = Math.max(
@@ -348,60 +333,6 @@ export default async function ProfilePage({ params }: Props) {
     ? `${CURRENT_SEASON} ${isPitcher ? "PITCHING" : "BATTING"}`
     : `CAREER ${isPitcher ? "PITCHING" : "BATTING"}`;
 
-  // ── Career strip slots ────────────────────────────────────────────────────────
-
-  type FilmSlot = {
-    img: string;
-    altSrc?: string;
-    label: string;
-    sub: string;
-    role: "anchor" | "timeline";
-  };
-
-  const playerThenImg = getPlayerThenImageUrl(safePlayerId);
-  const rightAnchorSilhouette = getNowSilhouetteUrl(isPitcher);
-
-  const leftAnchorImg = designatedLeftAnchor?.image_url || playerThenImg;
-  const leftAnchorAlt = !designatedLeftAnchor?.image_url
-    ? leftAnchorImg.endsWith(".jpg")
-      ? leftAnchorImg.slice(0, -4) + ".png"
-      : leftAnchorImg.endsWith(".png")
-        ? leftAnchorImg.slice(0, -4) + ".jpg"
-        : undefined
-    : undefined;
-
-  const hsBookend: FilmSlot = {
-    img: leftAnchorImg,
-    altSrc: leftAnchorAlt,
-    label: designatedLeftAnchor?.team_name || displayName,
-    sub: designatedLeftAnchor?.season_year
-      ? String(designatedLeftAnchor.season_year)
-      : "",
-    role: "anchor",
-  };
-
-  const currentTeamBookend: FilmSlot = {
-    img:
-      designatedRightAnchor?.image_url ||
-      designatedHeadshot?.image_url ||
-      rightAnchorSilhouette,
-    label:
-      designatedRightAnchor?.team_name || ctxTeam || displayName,
-    sub: designatedRightAnchor?.season_year
-      ? String(designatedRightAnchor.season_year)
-      : ctxLevel || "",
-    role: "anchor",
-  };
-
-  const middleSlots: FilmSlot[] = playerPhotos.map((p: any) => ({
-    img: p.image_url || PLAYER_SILHOUETTE_URL,
-    label: p.caption || p.team_name || "",
-    sub: p.season_year ? String(p.season_year) : "",
-    role: "timeline",
-  }));
-
-  const careerSlots: FilmSlot[] = [hsBookend, ...middleSlots, currentTeamBookend];
-
   // ── Season table rows ─────────────────────────────────────────────────────────
 
   const allSeasons = isPitcher
@@ -442,29 +373,6 @@ export default async function ProfilePage({ params }: Props) {
 
   return (
     <>
-      {/* ═══════════════════════════════════════════════════════════════════════
-          BLOCK 3 — Career-path chronological strip
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="pp-career-strip" id="playerCareerStrip">
-        <div className="pp-strip-scroll">
-          {careerSlots.map((slot, idx) => (
-            <div
-              key={`${slot.role}-${idx}`}
-              className={`pp-strip-slot ${slot.role === "anchor" ? "pp-anchor" : "pp-timeline"}`}
-            >
-              {/* Plain img inside a relative wrapper defeats the global img{height:auto} rule */}
-              <div className="pp-slot-img-wrap">
-                <img
-                  className="pp-slot-img"
-                  src={slot.img}
-                  alt={slot.label}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ═══════════════════════════════════════════════════════════════════════
           BLOCK 4 — Two-column player metadata
           ═══════════════════════════════════════════════════════════════════════ */}
@@ -787,57 +695,6 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
-        /* ── Block 3: Career strip ─────────────────────────────────────── */
-        .pp-career-strip {
-          width: 100%;
-          overflow: hidden;
-          background: #000;
-          line-height: 0;
-        }
-        .pp-strip-scroll {
-          display: flex;
-          flex-direction: row;
-          gap: 0;
-          overflow-x: auto;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-          height: 200px;
-        }
-        .pp-strip-scroll::-webkit-scrollbar { display: none; }
-
-        .pp-strip-slot {
-          flex-shrink: 0;
-          height: 100%;
-          overflow: hidden;
-          position: relative;
-        }
-        /* Anchor slots slightly wider than timeline slots */
-        .pp-anchor { width: 160px; }
-        .pp-timeline { width: 120px; }
-
-        /* Wrapper fills the slot — defeats global img{height:auto} */
-        .pp-slot-img-wrap {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          background: #111;
-        }
-
-        /* Absolute-positioned img fills wrapper regardless of global resets */
-        .pp-slot-img {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: top center;
-          display: block;
-          border-radius: 0;
-          border: none;
-          outline: none;
-        }
-
         /* ── Block 4: Metadata chip row (matches gallery Row 4 height) ── */
         .pp-meta-block {
           width: 100%;

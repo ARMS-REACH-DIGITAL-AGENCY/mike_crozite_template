@@ -12,9 +12,16 @@ import {
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
+  getPlayerPhotos,
+  getDesignatedPlayerImage,
 } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { getPlayerNowImageUrl } from '@/lib/playerImage';
+import {
+  getPlayerNowImageUrl,
+  getPlayerThenImageUrl,
+  getNowSilhouetteUrl,
+  PLAYER_SILHOUETTE_URL,
+} from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
@@ -75,6 +82,12 @@ export default async function HsidLayout({
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get('host') || '';
+  const pathname = headersList.get('x-pathname') || '';
+
+  // Detect player profile route — extract playerId from path
+  // Pattern: /{hsid}/player/{playerId}/{slug}
+  const playerRouteMatch = pathname.match(/\/player\/([^/]+)\//);
+  const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
 
   // Resolve school data — same logic as the gallery page
   let school: Record<string, unknown> | null = null;
@@ -194,16 +207,85 @@ export default async function HsidLayout({
     };
   });
 
+  // ── Career strip for player profile pages ──────────────────────────────────
+  // When on a player profile route, fetch the player's career images and build
+  // the career strip JSX to pass as row3Content to SharedShell.
+  // This replaces the school gallery strip in Row 3 for profile pages only.
+  let profileRow3Content: ReactNode | undefined = undefined;
+
+  if (profilePlayerId) {
+    const [profilePhotos, leftAnchor, rightAnchor, headshot] = await Promise.all([
+      getPlayerPhotos(profilePlayerId),
+      getDesignatedPlayerImage(profilePlayerId, 'LEFT_ANCHOR'),
+      getDesignatedPlayerImage(profilePlayerId, 'RIGHT_ANCHOR'),
+      getDesignatedPlayerImage(profilePlayerId, 'HEADSHOT'),
+    ]);
+
+    const leftImg = (leftAnchor as any)?.image_url || getPlayerThenImageUrl(profilePlayerId);
+    const rightImg =
+      (rightAnchor as any)?.image_url ||
+      (headshot as any)?.image_url ||
+      getNowSilhouetteUrl(false);
+
+    type CareerSlot = { img: string; isAnchor: boolean };
+    const careerSlots: CareerSlot[] = [
+      { img: leftImg, isAnchor: true },
+      ...(profilePhotos as any[]).map((p) => ({
+        img: p.image_url || PLAYER_SILHOUETTE_URL,
+        isAnchor: false,
+      })),
+      { img: rightImg, isAnchor: true },
+    ];
+
+    profileRow3Content = (
+      <div className="gallery-strip" id="playerCareerStrip">
+        <div className="gallery-strip-inner">
+          {careerSlots.map((slot, idx) => (
+            <div
+              key={idx}
+              className="gallery-slot"
+              style={{
+                width: slot.isAnchor ? '160px' : '120px',
+                minWidth: slot.isAnchor ? '160px' : '120px',
+                height: '100px',
+              }}
+            >
+              {/* Absolute img defeats global img{height:auto} reset */}
+              <img
+                src={slot.img}
+                alt=""
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'top center',
+                  display: 'block',
+                  borderRadius: 0,
+                  border: 'none',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <SchoolContextProvider schoolData={schoolData}>
       {/* Shared Styles — must be rendered before any visual content */}
       <YatStyles />
 
-      {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5 */}
-            <SharedShell
+      {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5.
+          On player profile routes, row3Content overrides the gallery strip in Row 3. */}
+      <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
         schoolMeta={schoolMeta}
+        row3Content={profileRow3Content}
       >
         {children}
       </SharedShell>

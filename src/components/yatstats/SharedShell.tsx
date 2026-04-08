@@ -30,11 +30,13 @@ export default function SharedShell({
   hsid,
   players = [],
   schoolMeta,
+  row3Content,
 }: {
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
   schoolMeta: SchoolMeta;
+  row3Content?: ReactNode;
 }) {
   const pathname = usePathname();
 
@@ -62,12 +64,14 @@ export default function SharedShell({
       <main>
         {/* ROW 3 */}
         <div className="yat-row3-shell">
-          <InteractionStrip
-            isPlayerProfile={isPlayerProfile}
-            isGallery={isGallery}
-            isNews={isNews}
-            players={players}
-          />
+          {row3Content ? row3Content : (
+            <InteractionStrip
+              isPlayerProfile={isPlayerProfile}
+              isGallery={isGallery}
+              isNews={isNews}
+              players={players}
+            />
+          )}
         </div>
 
         {/* ROW 4 */}
