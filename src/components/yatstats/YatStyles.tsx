@@ -266,12 +266,11 @@ export default function YatStyles() {
       .gallery-strip-inner{
         display:flex;
         flex-direction:row;
+        /* stretch so every slot fills the full 200px strip height */
         align-items:stretch;
         gap:0;
         padding:0;
-        /* Fixed strip height — each image width scales with its natural ratio */
         height:200px;
-        /* allow inner row to be wider than viewport */
         width:max-content;
         min-width:100%;
       }
