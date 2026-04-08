@@ -283,7 +283,9 @@ export default function FunZone({
   const imageId = String(player.playerid || "");
   const slug = String(player.slug || "");
   const firstName = displayName.split(" ")[0] || "this player";
-  const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
+  // Deep-link to the matching tab on the profile page so the CTA always
+  // opens the same tab the user is currently viewing on the flip card.
+  const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}#ppTab-${activeTab}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels

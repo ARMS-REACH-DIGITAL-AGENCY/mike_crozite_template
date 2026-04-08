@@ -739,8 +739,31 @@ export default async function ProfilePage({ params }: Props) {
           transition: color .15s, border-color .15s;
         }
         .pp-fz-tab i { font-size: 16px; }
-        .pp-fz-tab:hover,
+        .pp-fz-tab:hover {
+          color: var(--fg, #f0f0f0);
+          border-bottom-color: var(--accent, #c8a96e);
+        }
+        /* Default active tab (Stats) — shown when no hash is targeted */
         .pp-fz-tab-default {
+          color: var(--fg, #f0f0f0);
+          border-bottom-color: var(--accent, #c8a96e);
+        }
+        /* When any non-stats tab is targeted, remove active style from default STATS tab */
+        body:has(#ppTab-schedule:target) .pp-fz-tab-default,
+        body:has(#ppTab-news:target) .pp-fz-tab-default,
+        body:has(#ppTab-social:target) .pp-fz-tab-default,
+        body:has(#ppTab-connect:target) .pp-fz-tab-default,
+        body:has(#ppTab-upload:target) .pp-fz-tab-default {
+          color: var(--muted, #888);
+          border-bottom-color: transparent;
+        }
+        /* Active indicator follows the :target tab */
+        body:has(#ppTab-schedule:target) a[href="#ppTab-schedule"],
+        body:has(#ppTab-stats:target) a[href="#ppTab-stats"],
+        body:has(#ppTab-news:target) a[href="#ppTab-news"],
+        body:has(#ppTab-social:target) a[href="#ppTab-social"],
+        body:has(#ppTab-connect:target) a[href="#ppTab-connect"],
+        body:has(#ppTab-upload:target) a[href="#ppTab-upload"] {
           color: var(--fg, #f0f0f0);
           border-bottom-color: var(--accent, #c8a96e);
         }
