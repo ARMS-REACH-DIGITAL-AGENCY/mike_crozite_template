@@ -10,7 +10,6 @@ import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 import CareerStrip from './CareerStrip';
-import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 type StripPlayer = {
   id: string;
@@ -43,8 +42,11 @@ export default function SharedShell({
   row4Content?: ReactNode;
 }) {
   const pathname = usePathname();
-  const playerProfile = usePlayerProfile();
-  const profilePlayerId = playerProfile?.playerId ?? null;
+
+  // Extract playerId directly from the pathname — no middleware or context needed.
+  // Pattern: /{hsid}/player/{playerId}/{slug}
+  const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
+  const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
 
   const isPlayerProfile =
     pathname.includes('/player/') || pathname.includes('/profile/');
