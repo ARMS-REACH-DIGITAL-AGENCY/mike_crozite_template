@@ -31,11 +31,11 @@ import {
 } from "@/lib/playerImage";
 
 type Props = {
-  params: {
+  params: Promise<{
     hsid: string;
     playerId: string;
     slug: string;
-  };
+  }>;
 };
 
 type BattingSeason = {
@@ -96,7 +96,7 @@ function fmtAvg(v: any): string {
 }
 
 export default async function ProfilePage({ params }: Props) {
-  const { hsid, playerId, slug } = params;
+  const { hsid, playerId, slug } = await params;
 
    let player: any = null;
   let _diagSlugRows: number | null = null;
