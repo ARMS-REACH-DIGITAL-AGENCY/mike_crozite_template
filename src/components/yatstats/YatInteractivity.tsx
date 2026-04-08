@@ -171,8 +171,11 @@ function showSection(tabId, updateHash){
 
   resetFiltersForCurrentSection();
 
+  // On player profile pages the breadcrumb label is the player's name (set
+  // server-side). Do not overwrite it when the gallery section hash changes.
+  var isPlayerProfilePage = window.location.pathname.indexOf('/player/') !== -1;
   var sectionLabel = document.getElementById('yatSectionLabel');
-  if(sectionLabel){
+  if(sectionLabel && !isPlayerProfilePage){
     var labels = {
       active:'ACTIVE BASEBALL ALUMNI',
       news:'ACTIVE ALUMNI NEWS',
