@@ -8,7 +8,6 @@
 
 "use client" in (0 as any); // this file is a Server Component — no "use client"
 
-import FavoriteButton from "@/components/yatstats/FavoriteButton";
 import {
   findPlayersBySlug,
   getPlayerById,
@@ -378,15 +377,6 @@ export default async function ProfilePage({ params }: Props) {
           ═══════════════════════════════════════════════════════════════════════ */}
        <section className="pp-funzone" id="playerFunZone">
 
-        {/* ── Sticky favorite bar — always visible above the tab strip ── */}
-        <div className="pp-fav-bar">
-          <span className="pp-fav-bar-name">{firstName} {lastName}</span>
-          <FavoriteButton
-            playerId={String(safePlayerId)}
-            playerName={`${firstName} ${lastName}`.trim()}
-            playerHsid={hsid}
-          />
-        </div>
 
         {/* Tab strip — rendered via CSS :target trick for Server Component */}
         {/* We use anchor links + :target CSS to drive tab switching without JS */}
@@ -673,28 +663,6 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
-        /* ── Favorite button bar ── */
-        .pp-fav-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 10px 16px;
-          border-bottom: 1px solid rgba(255,255,255,.08);
-          background: var(--card-bg, #1a1a1a);
-          position: sticky;
-          top: var(--row2-height, 64px);
-          z-index: 90;
-        }
-        .pp-fav-bar-name {
-          font: 700 clamp(13px, 2vw, 16px)/1.1 "Bebas Neue", sans-serif;
-          letter-spacing: .06em;
-          color: var(--fg, #f4f4f4);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          min-width: 0;
-        }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;

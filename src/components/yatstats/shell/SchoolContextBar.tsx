@@ -1,14 +1,16 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
 // Renders Row 2 of the shared shell (sticky identity bar).
-// The FavoriteButton is rendered in the profile page body (pp-fav-bar),
-// not here — it cannot receive context from the nested player layout.
+// On player profile pages, reads PlayerProfileContext to render FavoriteButton
+// directly in Row 2 next to the search icon — no prop-threading required.
 
 'use client';
 
 import { useContext } from 'react';
 import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
+import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
+import FavoriteButton from '@/components/yatstats/FavoriteButton';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -30,6 +32,7 @@ export default function SchoolContextBar({
   isNews,
 }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
+  const playerProfile = usePlayerProfile();
   const pathname = usePathname();
 
   const getPageLabel = () => {
@@ -77,6 +80,15 @@ export default function SchoolContextBar({
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
+
+        {/* FavoriteButton — rendered in Row 2 on player profile pages only */}
+        {isPlayerProfile && playerProfile && (
+          <FavoriteButton
+            playerId={playerProfile.playerId}
+            playerName={playerProfile.playerName}
+            playerHsid={playerProfile.playerHsid}
+          />
+        )}
 
         {isGallery && (
           <>
