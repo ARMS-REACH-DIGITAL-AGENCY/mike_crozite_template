@@ -159,14 +159,24 @@ window.__firebase_config = ${firebaseConfigJSON};
   return tabId;
 }
 
+// Track the currently active section key so showSection() can detect
+// genuine section changes vs. redundant calls (e.g. from thumbnail clicks).
+// Initialised to null so the very first call (page load) always runs
+// resetFiltersForCurrentSection() to apply the correct default sort order.
+var _activeSection = null;
+
 function showSection(tabId, updateHash){
   var key = normalizeTab(tabId);
 
-  // Detect whether the section is actually changing.
-  // If the target section is already visible, do NOT reset filters —
-  // the user may have active filters they want to keep.
-  var currentlyVisible = document.getElementById('sec-' + key);
-  var isSectionChange = !currentlyVisible || !currentlyVisible.classList.contains('visible');
+  // A genuine section change is: switching to a different section, OR the
+  // initial page load (when _activeSection is null and no section has been
+  // set yet). In both cases we must run resetFiltersForCurrentSection() to
+  // apply the correct default filter/sort for that section.
+  // When the same section is already active (e.g. a strip thumbnail click
+  // fired hashchange → showSection('active') while 'active' is already
+  // showing), we skip the reset so active filters are preserved.
+  var isSectionChange = (_activeSection !== key);
+  _activeSection = key;
 
   document.querySelectorAll('.yat-section').forEach(function(s){
     s.classList.remove('visible');
@@ -175,9 +185,6 @@ function showSection(tabId, updateHash){
   var sec = document.getElementById('sec-' + key);
   if(sec) sec.classList.add('visible');
 
-  // Only reset filters when the user is genuinely switching to a different section.
-  // Thumbnail strip clicks change the hash to #player-{id} which the hashchange
-  // handler maps back to showSection('active') — same section, no reset needed.
   if(isSectionChange){
     resetFiltersForCurrentSection();
   }
