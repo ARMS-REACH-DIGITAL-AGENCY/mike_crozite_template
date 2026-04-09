@@ -375,39 +375,36 @@ export default async function ProfilePage({ params }: Props) {
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
           ═══════════════════════════════════════════════════════════════════════ */}
-       <section className="pp-funzone" id="playerFunZone">
-
-
-        {/* Tab strip — rendered via CSS :target trick for Server Component */}
-        {/* We use anchor links + :target CSS to drive tab switching without JS */}
-        {/* Each tab panel has an id; the active tab is shown via :target */}
-
-        <nav className="pp-fz-tabs" aria-label="Player profile tabs">
-          <a href="#ppTab-schedule" className="pp-fz-tab">
-            <i className="ri-calendar-line" aria-hidden="true" />
-            <span>Schedule</span>
-          </a>
-          <a href="#ppTab-stats" className="pp-fz-tab pp-fz-tab-default">
-            <i className="ri-bar-chart-2-line" aria-hidden="true" />
-            <span>Stats</span>
-          </a>
-          <a href="#ppTab-news" className="pp-fz-tab">
-            <i className="ri-newspaper-line" aria-hidden="true" />
-            <span>News</span>
-          </a>
-          <a href="#ppTab-social" className="pp-fz-tab">
-            <i className="ri-share-line" aria-hidden="true" />
-            <span>Social</span>
-          </a>
-          <a href="#ppTab-connect" className="pp-fz-tab">
-            <i className="ri-group-line" aria-hidden="true" />
-            <span>Connect</span>
-          </a>
-          <a href="#ppTab-upload" className="pp-fz-tab">
-            <i className="ri-upload-cloud-line" aria-hidden="true" />
-            <span>Upload</span>
-          </a>
-        </nav>
+        <section className="pp-funzone" id="playerFunZone">
+        {/* Sticky tab strip shell — spans full viewport width, constrains tabs inside */}
+        <div className="pp-fz-tabs-shell">
+          <nav className="pp-fz-tabs" aria-label="Player profile tabs">
+            <a href="#ppTab-schedule" className="pp-fz-tab">
+              <i className="ri-calendar-line" aria-hidden="true" />
+              <span>Schedule</span>
+            </a>
+            <a href="#ppTab-stats" className="pp-fz-tab pp-fz-tab-default">
+              <i className="ri-bar-chart-2-line" aria-hidden="true" />
+              <span>Stats</span>
+            </a>
+            <a href="#ppTab-news" className="pp-fz-tab">
+              <i className="ri-newspaper-line" aria-hidden="true" />
+              <span>News</span>
+            </a>
+            <a href="#ppTab-social" className="pp-fz-tab">
+              <i className="ri-share-line" aria-hidden="true" />
+              <span>Social</span>
+            </a>
+            <a href="#ppTab-connect" className="pp-fz-tab">
+              <i className="ri-group-line" aria-hidden="true" />
+              <span>Connect</span>
+            </a>
+            <a href="#ppTab-upload" className="pp-fz-tab">
+              <i className="ri-upload-cloud-line" aria-hidden="true" />
+              <span>Upload</span>
+            </a>
+          </nav>
+        </div>
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
@@ -705,25 +702,38 @@ export default async function ProfilePage({ params }: Props) {
         .pp-mc-active { color: #20d67b; }
         .pp-mc-retired { color: #888; }
 
-        /* ── Block 5: FunZone — tab top flush with flip card grid top ─── */
+        /* ── Block 5: FunZone — sticky tab strip, fixed-width tabs ─── */
         .pp-funzone {
           width: 100%;
           background: var(--card-bg, #1a1a1a);
           padding-bottom: 24px;
         }
 
-        /* Tab strip */
+        /* Sticky shell — spans full viewport width, sticks below rows 1-4 */
+        .pp-fz-tabs-shell {
+          position: sticky;
+          top: calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + var(--row4-h));
+          z-index: 50;
+          background: var(--card-bg, #1a1a1a);
+          border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
+          width: 100%;
+        }
+
+        /* Tab strip — constrained inner nav, aligned to school crest left edge */
         .pp-fz-tabs {
           display: flex;
           flex-direction: row;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 0 12px;
           overflow-x: auto;
           scrollbar-width: none;
         }
         .pp-fz-tabs::-webkit-scrollbar { display: none; }
         .pp-fz-tab {
-          flex: 1;
+          flex: 1 1 0;
           min-width: 52px;
+          max-width: calc(100% / 6);
           display: flex;
           flex-direction: column;
           align-items: center;
