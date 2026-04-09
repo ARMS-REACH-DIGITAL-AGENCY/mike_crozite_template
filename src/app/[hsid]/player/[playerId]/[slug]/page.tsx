@@ -8,6 +8,7 @@
 
 "use client" in (0 as any); // this file is a Server Component — no "use client"
 
+import FavoriteButton from "@/components/yatstats/FavoriteButton";
 import {
   findPlayersBySlug,
   getPlayerById,
@@ -377,6 +378,16 @@ export default async function ProfilePage({ params }: Props) {
           ═══════════════════════════════════════════════════════════════════════ */}
        <section className="pp-funzone" id="playerFunZone">
 
+        {/* ── Sticky favorite bar — always visible above the tab strip ── */}
+        <div className="pp-fav-bar">
+          <span className="pp-fav-bar-name">{firstName} {lastName}</span>
+          <FavoriteButton
+            playerId={String(safePlayerId)}
+            playerName={`${firstName} ${lastName}`.trim()}
+            playerHsid={hsid}
+          />
+        </div>
+
         {/* Tab strip — rendered via CSS :target trick for Server Component */}
         {/* We use anchor links + :target CSS to drive tab switching without JS */}
         {/* Each tab panel has an id; the active tab is shown via :target */}
@@ -670,7 +681,10 @@ export default async function ProfilePage({ params }: Props) {
           gap: 12px;
           padding: 10px 16px;
           border-bottom: 1px solid rgba(255,255,255,.08);
-          background: rgba(0,0,0,.15);
+          background: var(--card-bg, #1a1a1a);
+          position: sticky;
+          top: var(--row2-height, 64px);
+          z-index: 90;
         }
         .pp-fav-bar-name {
           font: 700 clamp(13px, 2vw, 16px)/1.1 "Bebas Neue", sans-serif;
