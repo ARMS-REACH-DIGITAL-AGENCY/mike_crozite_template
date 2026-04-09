@@ -162,6 +162,12 @@ window.__firebase_config = ${firebaseConfigJSON};
 function showSection(tabId, updateHash){
   var key = normalizeTab(tabId);
 
+  // Detect whether the section is actually changing.
+  // If the target section is already visible, do NOT reset filters —
+  // the user may have active filters they want to keep.
+  var currentlyVisible = document.getElementById('sec-' + key);
+  var isSectionChange = !currentlyVisible || !currentlyVisible.classList.contains('visible');
+
   document.querySelectorAll('.yat-section').forEach(function(s){
     s.classList.remove('visible');
   });
@@ -169,7 +175,12 @@ function showSection(tabId, updateHash){
   var sec = document.getElementById('sec-' + key);
   if(sec) sec.classList.add('visible');
 
-  resetFiltersForCurrentSection();
+  // Only reset filters when the user is genuinely switching to a different section.
+  // Thumbnail strip clicks change the hash to #player-{id} which the hashchange
+  // handler maps back to showSection('active') — same section, no reset needed.
+  if(isSectionChange){
+    resetFiltersForCurrentSection();
+  }
 
   // On player profile pages the breadcrumb label is the player's name (set
   // server-side). Do not overwrite it when the gallery section hash changes.
@@ -223,7 +234,12 @@ document.addEventListener('click', function(e){
 
 window.addEventListener('hashchange', function(){
   var hash = window.location.hash || '';
-  var tab = hash.indexOf('#sec-') === 0 ? hash.replace('#sec-', '') : 'active';
+  // Only respond to explicit section-switch hashes (#sec-*).
+  // Ignore #player-{id} hashes produced by strip thumbnail clicks —
+  // those are scroll-to-card anchors, not section switches, and must
+  // NOT trigger showSection() which would reset the active filters.
+  if(hash.indexOf('#sec-') !== 0) return;
+  var tab = hash.replace('#sec-', '');
   showSection(tab, false);
 });
 
