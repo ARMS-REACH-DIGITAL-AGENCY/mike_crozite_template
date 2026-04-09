@@ -1,46 +1,44 @@
 // src/components/yatstats/CareerStrip.tsx
-// Career-path timeline strip (Block 3) on player profile pages.
-//
-// Layout rules:
-//   • NO fixed height on the strip or the images.
-//   • Each image renders at its full natural size (width:auto, height:auto).
-//   • The strip height is whatever the tallest image naturally is.
-//   • All images in the row share that height (align-items:stretch on the flex row,
-//     and each slot is height:100% so it fills the row).
-//   • The image inside each slot is height:100%, width:auto — so it fills the slot
-//     height and its width scales with its natural aspect ratio.
-//   • Landscape images are wider; portrait images are narrower. Both are the same height.
-//   • If combined widths exceed the viewport the outer wrapper scrolls horizontally.
-//   • Any slot whose S3 image 404s/403s is hidden via onError.
-//
-// Folder order (left → right): then/ → back/ → now/
+// Client component for the player career timeline strip (Block 3).
+// Renders all three S3 image slots (then / back / now) and hides any
+// that fail to load via onError — no server-side HEAD probing required.
 "use client";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
+const IMG_STYLE: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100px",
+  objectFit: "cover",
+  objectPosition: "top center",
+  display: "block",
+  borderRadius: 0,
+  border: "none",
+  outline: "none",
+};
+
+const SLOT_STYLE: React.CSSProperties = {
+  flex: "1 1 0",
+  minWidth: "80px",
+  height: "100px",
+  position: "relative",
+  overflow: "hidden",
+};
+
 function CareerSlot({ src }: { src: string }) {
   return (
     <div
-      className="career-slot"
-      style={{
-        flexShrink: 0,
-        // height:100% fills whatever height the flex row settles at
-        height: "100%",
-        lineHeight: 0,
-        overflow: "hidden",
-      }}
+      className="gallery-slot"
+      style={SLOT_STYLE}
     >
       <img
         src={src}
         alt=""
-        style={{
-          // height:100% fills the slot; width:auto preserves aspect ratio
-          display: "block",
-          height: "100%",
-          width: "auto",
-          maxWidth: "none",
-        }}
+        style={IMG_STYLE}
         onError={(e) => {
+          // Hide the parent slot entirely when the image 404s/403s
           const slot = (e.currentTarget as HTMLImageElement).parentElement;
           if (slot) slot.style.display = "none";
         }}
@@ -57,30 +55,8 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
   ];
 
   return (
-    // Outer wrapper scrolls horizontally when images are wider than viewport
-    <div
-      id="playerCareerStrip"
-      className="gallery-strip"
-      style={{
-        width: "100%",
-        overflowX: "auto",
-        overflowY: "hidden",
-        scrollbarWidth: "none",
-      } as React.CSSProperties}
-    >
-      {/* Inner flex row — height is driven by the tallest image */}
-      <div
-        className="gallery-strip-inner"
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "stretch",
-          gap: 0,
-          // width:max-content lets the row be as wide as all images combined
-          width: "max-content",
-          minWidth: "100%",
-        }}
-      >
+    <div className="gallery-strip" id="playerCareerStrip">
+      <div className="gallery-strip-inner">
         {slots.map((src, idx) => (
           <CareerSlot key={idx} src={src} />
         ))}
