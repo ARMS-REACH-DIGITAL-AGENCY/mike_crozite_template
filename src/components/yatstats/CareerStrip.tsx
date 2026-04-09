@@ -5,22 +5,19 @@
 // career-slot class so each image renders at its natural aspect ratio rather
 // than the fixed 72px width used for headshot thumbnails on the gallery page.
 //
-// Slot order:
-//   0 — THEN (HS flip card front)   → fallback: /img/then-batter-silhouette.png
-//   1 — BACK (flip card back)       → fallback: hidden (back is optional)
-//   2 — NOW  (current pro headshot) → fallback: /img/headshot-silhouette.png
+// Image loading strategy:
+//   Each slot uses a direct <img src> tag. If the image fails to load (403 or 404),
+//   the slot is hidden. This matches the original behaviour before the silhouette patch.
+//
+//   NOTE: Some players/then/{id}.jpg objects in S3 have a private ACL and return 403.
+//   The correct fix for those players is to set public-read ACL on the S3 objects.
+//   Silhouette substitution was reverted — it made the S3 ACL problem visible on the
+//   profile page when it was previously invisible on the gallery page.
 "use client";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
-// Fallback paths for each slot index. null = hide the slot on error.
-const SLOT_FALLBACKS: (string | null)[] = [
-  "/img/then-batter-silhouette.png", // THEN — always show something in the left slot
-  null,                               // BACK — optional; hide if missing
-  "/img/headshot-silhouette.png",    // NOW  — always show something in the right slot
-];
-
-function CareerSlot({ src, fallback }: { src: string; fallback: string | null }) {
+function CareerSlot({ src }: { src: string }) {
   return (
     <div className="career-slot">
       <img
@@ -34,15 +31,9 @@ function CareerSlot({ src, fallback }: { src: string; fallback: string | null })
           objectPosition: "top center",
         }}
         onError={(e) => {
-          const img = e.currentTarget as HTMLImageElement;
-          if (fallback && img.src !== fallback) {
-            // Swap to the silhouette placeholder — keeps the slot visible
-            img.src = fallback;
-          } else {
-            // No fallback (BACK slot) or fallback itself failed — hide the slot
-            const slot = img.parentElement;
-            if (slot) slot.style.display = "none";
-          }
+          // Hide the parent slot entirely when the image 404s/403s
+          const slot = (e.currentTarget as HTMLImageElement).parentElement;
+          if (slot) slot.style.display = "none";
         }}
       />
     </div>
@@ -59,7 +50,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
     <div className="gallery-strip" id="playerCareerStrip">
       <div className="gallery-strip-inner">
         {slots.map((src, idx) => (
-          <CareerSlot key={idx} src={src} fallback={SLOT_FALLBACKS[idx] ?? null} />
+          <CareerSlot key={idx} src={src} />
         ))}
       </div>
     </div>
