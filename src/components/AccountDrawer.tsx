@@ -199,6 +199,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           } catch { /* non-fatal */ }
         }
         if (loginData?.isSuperfan) setIsSuperfan(true);
+        // Persist plan so FavoriteButton (and other client components) can read it
+        // without depending on AccountDrawer's React state.
+        try { localStorage.setItem('yat-plan', loginData?.plan ?? 'free'); } catch { /* non-fatal */ }
 
         // Resume pending actions
         if (sessionStorage.getItem('pending_fav_pid')) {
@@ -285,6 +288,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           // non-fatal
         }
       }
+      // Persist plan so FavoriteButton can read it without AccountDrawer React state
+      try { localStorage.setItem('yat-plan', regData?.plan ?? 'free'); } catch { /* non-fatal */ }
 
       // Resume pending intents
       if (sessionStorage.getItem('pending_fav_pid') && uid) {
@@ -320,6 +325,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      try { localStorage.removeItem('yat-plan'); localStorage.removeItem('yat-user'); } catch { /* non-fatal */ }
       setMessage('Signed out successfully');
       setMessageType('success');
     } catch (error) {

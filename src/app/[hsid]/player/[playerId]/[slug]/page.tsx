@@ -21,6 +21,7 @@ import {
   getTeamContext,
   getResolvedCurrentTeam,
 } from "@/lib/db";
+import FavoriteButton from "@/components/yatstats/FavoriteButton";
 
 
 type Props = {
@@ -377,6 +378,16 @@ export default async function ProfilePage({ params }: Props) {
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
           ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ── FAVORITE BUTTON BAR — sits above the FunZone tab strip ── */}
+      <div className="pp-fav-bar">
+        <span className="pp-fav-bar-name">{displayName}</span>
+        <FavoriteButton
+          playerId={safePlayerId}
+          playerName={displayName}
+          playerHsid={hsid}
+        />
+      </div>
+
       <section className="pp-funzone" id="playerFunZone">
 
         {/* Tab strip — rendered via CSS :target trick for Server Component */}
@@ -664,6 +675,25 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
+        /* ── Favorite button bar ── */
+        .pp-fav-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 16px;
+          border-bottom: 1px solid rgba(255,255,255,.08);
+          background: rgba(0,0,0,.15);
+        }
+        .pp-fav-bar-name {
+          font: 700 clamp(13px, 2vw, 16px)/1.1 "Bebas Neue", sans-serif;
+          letter-spacing: .06em;
+          color: var(--fg, #f4f4f4);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          min-width: 0;
+        }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;

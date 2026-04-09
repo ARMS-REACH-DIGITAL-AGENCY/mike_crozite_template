@@ -254,6 +254,18 @@ export async function getFavorites(firebaseUid: string): Promise<UserFavorite[]>
   return res.rows;
 }
 
+/** Remove a player from a user's favorites. No-op if not present. */
+export async function removeFavorite(
+  firebaseUid: string,
+  playerId: string
+): Promise<{ deleted: boolean }> {
+  const res = await query(
+    'DELETE FROM user_favorites WHERE firebase_uid = $1 AND player_id = $2',
+    [firebaseUid, playerId]
+  );
+  return { deleted: (res.rowCount ?? 0) > 0 };
+}
+
 // ---------------------------------------------------------------------------
 // ensureUserProfile
 // ---------------------------------------------------------------------------
