@@ -1,14 +1,14 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
 // Renders Row 2 of the shared shell (sticky identity bar).
-// On player profile pages, reads PlayerProfileContext to render FavoriteButton
-// directly in Row 2 next to the search icon — no prop-threading required.
+// On player profile pages, extracts playerId directly from the URL pathname
+// (same pattern SharedShell uses for CareerStrip) and renders FavoriteButton
+// next to the search icon. No prop-threading or context required.
 
 'use client';
 
 import { useContext } from 'react';
 import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
-import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 
@@ -32,8 +32,10 @@ export default function SchoolContextBar({
   isNews,
 }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
-  const playerProfile = usePlayerProfile();
   const pathname = usePathname();
+  // Extract playerId from URL: /{hsid}/player/{playerId}/{slug}
+  const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
+  const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
@@ -82,11 +84,11 @@ export default function SchoolContextBar({
         </button>
 
         {/* FavoriteButton — rendered in Row 2 on player profile pages only */}
-        {isPlayerProfile && playerProfile && (
+        {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
-            playerId={playerProfile.playerId}
-            playerName={playerProfile.playerName}
-            playerHsid={playerProfile.playerHsid}
+            playerId={profilePlayerId}
+            playerName=""
+            playerHsid={schoolData?.hsid ?? ''}
           />
         )}
 

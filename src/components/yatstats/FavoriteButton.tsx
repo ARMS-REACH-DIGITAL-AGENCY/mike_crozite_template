@@ -75,6 +75,8 @@ export default function FavoriteButton({
   playerHsid,
 }: FavoriteButtonProps) {
   const schoolData = useContext(SchoolContext);
+  // Use playerName if provided; fall back to playerId for toast messages
+  const displayName = playerName || playerId;
 
   const [isFavorited, setIsFavorited] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // true until we've fetched persisted state
@@ -113,12 +115,12 @@ export default function FavoriteButton({
       // Only update this button if the event matches our player
       if (!detail.playerId || detail.playerId === playerId) {
         setIsFavorited(true);
-        showToast(`${playerName} added to your favorites`);
+        showToast(`${displayName} added to your favorites`);
       }
     };
     window.addEventListener('yat-auth-success', handler);
     return () => window.removeEventListener('yat-auth-success', handler);
-  }, [playerId, playerName, showToast]);
+  }, [playerId, playerName, displayName, showToast]);
 
   // ── Core click handler ────────────────────────────────────────────────────
   const handleClick = useCallback(async () => {
@@ -129,7 +131,7 @@ export default function FavoriteButton({
     if (!user?.uid) {
       try {
         sessionStorage.setItem('pending_fav_pid', playerId);
-        sessionStorage.setItem('pending_fav_name', playerName);
+        sessionStorage.setItem('pending_fav_name', displayName);
       } catch { /* non-fatal */ }
       openAccountDrawer();
       return;
@@ -168,7 +170,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(false);
-          showToast(`${playerName} removed from favorites`, 'info');
+          showToast(`${displayName} removed from favorites`, 'info');
         } else {
           showToast('Could not remove favorite. Please try again.', 'warn');
         }
@@ -182,7 +184,7 @@ export default function FavoriteButton({
             firebaseUid: user.uid,
             contactId: user.contactId,
             playerId,
-            playerName,
+            playerName: displayName,
             schoolId: playerHsid,
             type,
           }),
@@ -190,7 +192,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(true);
-          showToast(`${playerName} added to your favorites`);
+          showToast(`${displayName} added to your favorites`);
         } else {
           showToast('Could not save favorite. Please try again.', 'warn');
         }
@@ -200,7 +202,7 @@ export default function FavoriteButton({
     } finally {
       setIsLoading(false);
     }
-  }, [isFavorited, playerId, playerName, playerHsid, schoolData, showToast]);
+  }, [isFavorited, playerId, playerName, displayName, playerHsid, schoolData, showToast]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   const toastColors: Record<typeof toastType, string> = {
@@ -215,7 +217,7 @@ export default function FavoriteButton({
         id="btnFanFav"
         onClick={handleClick}
         disabled={isLoading}
-        aria-label={isFavorited ? `Remove ${playerName} from favorites` : `Add ${playerName} to favorites`}
+        aria-label={isFavorited ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
         aria-pressed={isFavorited}
         style={{
           display: 'inline-flex',
