@@ -21,9 +21,6 @@ import {
   getTeamContext,
   getResolvedCurrentTeam,
 } from "@/lib/db";
-import FavoriteButton from "@/components/yatstats/FavoriteButton";
-
-
 type Props = {
   params: Promise<{
     hsid: string;
@@ -378,17 +375,7 @@ export default async function ProfilePage({ params }: Props) {
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
           ═══════════════════════════════════════════════════════════════════════ */}
-      {/* ── FAVORITE BUTTON BAR — sits above the FunZone tab strip ── */}
-      <div className="pp-fav-bar">
-        <span className="pp-fav-bar-name">{displayName}</span>
-        <FavoriteButton
-          playerId={safePlayerId}
-          playerName={displayName}
-          playerHsid={hsid}
-        />
-      </div>
-
-      <section className="pp-funzone" id="playerFunZone">
+       <section className="pp-funzone" id="playerFunZone">
 
         {/* Tab strip — rendered via CSS :target trick for Server Component */}
         {/* We use anchor links + :target CSS to drive tab switching without JS */}

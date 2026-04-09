@@ -125,7 +125,8 @@ export default function FavoriteButton({
     const user = readYatUser();
 
     // ── Case 1: Visitor (not logged in) ──────────────────────────────────────
-    if (!user?.uid || !user.contactId) {
+    // uid alone is sufficient — contactId may be null if GHL lookup is still pending.
+    if (!user?.uid) {
       try {
         sessionStorage.setItem('pending_fav_pid', playerId);
         sessionStorage.setItem('pending_fav_name', playerName);

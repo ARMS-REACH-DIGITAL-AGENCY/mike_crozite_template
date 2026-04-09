@@ -1188,6 +1188,70 @@ showSection=function(tabId, updateHash){
   /* Also load if news section is already visible on page load */
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
+
+  /* ====================================================================
+     FAVORITES STAMPING
+     Stamp data-fav="true" on gallery cards whose playerid is in the
+     user's favorites list, then reveal the "By My Favorites" filter.
+     Runs on page load (if already logged in) and again on yat-auth-success
+     (fires after login/register + pending-fav resume).
+     ==================================================================== */
+  function stampFavorites(){
+    var raw;
+    try{ raw=localStorage.getItem('yat-user'); }catch(e){ return; }
+    if(!raw) return;
+    var user;
+    try{ user=JSON.parse(raw); }catch(e){ return; }
+    if(!user||!user.uid) return;
+    fetch('/api/favorites?uid='+encodeURIComponent(user.uid))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var ids=data&&Array.isArray(data.playerIds)?data.playerIds:[];
+        if(!ids.length) return;
+        /* Stamp matching cards */
+        document.querySelectorAll('.yat-card[data-playerid]').forEach(function(card){
+          if(ids.indexOf(card.getAttribute('data-playerid'))!==-1){
+            card.setAttribute('data-fav','true');
+          }
+        });
+        /* Reveal the "By My Favorites" filter group */
+        var favsGroup=document.getElementById('filterFavsGroup');
+        if(favsGroup) favsGroup.style.display='';
+      })
+      .catch(function(){}); /* non-fatal */
+  }
+  stampFavorites();
+
+  /* Wire filterFavs checkbox into applyFilters */
+  var _origApplyFilters=applyFilters;
+  applyFilters=function(){
+    _origApplyFilters();
+    var favsCb=document.getElementById('filterFavs');
+    if(!favsCb||!favsCb.checked) return;
+    /* Hide any card that doesn't have data-fav="true" */
+    document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
+      if(card.getAttribute('data-fav')!=='true') card.style.display='none';
+    });
+    /* Sync strip slots */
+    document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
+      var pid=slot.getAttribute('data-playerid');
+      var card=document.querySelector('.yat-card[data-playerid="'+pid+'"]');
+      if(card&&card.style.display==='none') slot.style.display='none';
+    });
+  };
+
+  /* Also reset filterFavs checkbox on reset */
+  var _origReset=resetFiltersForCurrentSection;
+  resetFiltersForCurrentSection=function(){
+    _origReset();
+    var favsCb=document.getElementById('filterFavs');
+    if(favsCb) favsCb.checked=false;
+  };
+
+  /* Re-stamp on yat-auth-success (fires after login/register + pending fav) */
+  window.addEventListener('yat-auth-success',function(){
+    stampFavorites();
+  });
 })();
         `,
       }}

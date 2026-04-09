@@ -186,18 +186,18 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           } catch { /* non-fatal */ }
           setDisplayName(loginData.firstName);
         }
-        if (loginData?.contactId) {
-          try {
-            localStorage.setItem('yat-user', JSON.stringify({
-              uid,
-              contactId: loginData.contactId,
-              email,
-              firstName: loginData.firstName ?? null,
-              homeHsid: loginData.homeHsid ?? null,
-              role: loginData.role ?? 'fan',
-            }));
-          } catch { /* non-fatal */ }
-        }
+        // Always write yat-user — uid is sufficient for FavoriteButton auth gate.
+        // contactId may be null if GHL lookup hasn't completed yet; that's OK.
+        try {
+          localStorage.setItem('yat-user', JSON.stringify({
+            uid,
+            contactId: loginData?.contactId ?? null,
+            email,
+            firstName: loginData?.firstName ?? null,
+            homeHsid: loginData?.homeHsid ?? null,
+            role: loginData?.role ?? 'fan',
+          }));
+        } catch { /* non-fatal */ }
         if (loginData?.isSuperfan) setIsSuperfan(true);
         // Persist plan so FavoriteButton (and other client components) can read it
         // without depending on AccountDrawer's React state.
@@ -273,21 +273,18 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         throw err;
       }
 
-      // Save contactId to localStorage so future addFavorite() calls work
-      if (regData?.contactId) {
-        try {
-          localStorage.setItem('yat-user', JSON.stringify({
-            uid,
-            contactId: regData.contactId,
-            email,
-            firstName: firstName || null,
-            homeHsid: regData.homeHsid ?? null,
-            role: 'fan',
-          }));
-        } catch {
-          // non-fatal
-        }
-      }
+      // Always write yat-user — uid is sufficient for FavoriteButton auth gate.
+      // contactId may be null if GHL lookup hasn't completed yet; that's OK.
+      try {
+        localStorage.setItem('yat-user', JSON.stringify({
+          uid,
+          contactId: regData?.contactId ?? null,
+          email,
+          firstName: firstName || null,
+          homeHsid: regData?.homeHsid ?? null,
+          role: 'fan',
+        }));
+      } catch { /* non-fatal */ }
       // Persist plan so FavoriteButton can read it without AccountDrawer React state
       try { localStorage.setItem('yat-plan', regData?.plan ?? 'free'); } catch { /* non-fatal */ }
 
