@@ -303,6 +303,23 @@ export default function YatStyles() {
         margin-left:1px;
       }
 
+      /* career-slot: same container rules as gallery-slot but width scales
+         with the image's natural aspect ratio at the fixed strip height */
+      .career-slot{
+        flex:0 0 auto;
+        width:auto;
+        height:100px;
+        overflow:hidden;
+        border:none;
+        border-radius:0;
+        background:#111;
+        display:block;
+        position:relative;
+      }
+      .career-slot + .career-slot{
+        margin-left:1px;
+      }
+
       .gallery-slot:hover,
       .gallery-slot:focus,
       .gallery-slot.is-active{

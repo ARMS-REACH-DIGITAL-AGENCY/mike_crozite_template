@@ -1,42 +1,26 @@
 // src/components/yatstats/CareerStrip.tsx
-// Client component for the player career timeline strip (Block 3).
-// Renders all three S3 image slots (then / back / now) and hides any
-// that fail to load via onError — no server-side HEAD probing required.
+// Career-path timeline strip (Block 3) on player profile pages.
+// Uses the shared gallery-strip / gallery-strip-inner container (same fixed
+// height and constrained max-width as the gallery page strip), but uses the
+// career-slot class so each image renders at its natural aspect ratio rather
+// than the fixed 72px width used for headshot thumbnails on the gallery page.
 "use client";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
-const IMG_STYLE: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100px",
-  objectFit: "cover",
-  objectPosition: "top center",
-  display: "block",
-  borderRadius: 0,
-  border: "none",
-  outline: "none",
-};
-
-const SLOT_STYLE: React.CSSProperties = {
-  flex: "1 1 0",
-  minWidth: "80px",
-  height: "100px",
-  position: "relative",
-  overflow: "hidden",
-};
-
 function CareerSlot({ src }: { src: string }) {
   return (
-    <div
-      className="gallery-slot"
-      style={SLOT_STYLE}
-    >
+    <div className="career-slot">
       <img
         src={src}
         alt=""
-        style={IMG_STYLE}
+        style={{
+          display: "block",
+          height: "100px",
+          width: "auto",
+          maxWidth: "none",
+          objectPosition: "top center",
+        }}
         onError={(e) => {
           // Hide the parent slot entirely when the image 404s/403s
           const slot = (e.currentTarget as HTMLImageElement).parentElement;
@@ -53,7 +37,6 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
     `${S3_BASE}/players/back/${playerId}.jpg`,
     `${S3_BASE}/players/now/${playerId}.jpg`,
   ];
-
   return (
     <div className="gallery-strip" id="playerCareerStrip">
       <div className="gallery-strip-inner">
