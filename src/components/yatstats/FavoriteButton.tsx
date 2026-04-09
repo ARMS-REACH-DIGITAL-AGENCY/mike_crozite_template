@@ -139,21 +139,31 @@ export default function FavoriteButton({
 
     const isSuperfan = readIsSuperfan();
     const currentHsid = schoolData?.hsid ?? playerHsid;
+    // isSameSchool is true only when the user's canonical home_hsid matches the
+    // current school. The previous null wildcard (!user.homeHsid) is removed:
+    // accounts with no home_hsid set are now blocked until data is cleaned up.
     const isSameSchool =
-      !user.homeHsid ||                        // no home set → treat as same-school (edge case)
-      user.homeHsid === currentHsid ||          // home matches the shell's school
-      user.homeHsid === playerHsid;             // home matches the player's own school
+      user.homeHsid === currentHsid ||   // home matches the shell's school
+      user.homeHsid === playerHsid;      // home matches the player's own school
 
-    // ── Case 2: Fan trying to favorite a cross-school player ─────────────────
+    // ── Case 2: Fan trying to favorite a cross-school player (or no home set) ─
     if (!isSuperfan && !isSameSchool) {
-      try {
-        sessionStorage.setItem('pending_superfan', '1');
-      } catch { /* non-fatal */ }
-      showToast(
-        'Global favoriting requires a Superfan subscription. Upgrade in your account.',
-        'warn'
-      );
-      openAccountDrawer();
+      if (!user.homeHsid) {
+        // Legacy account with no home_hsid — show a specific message
+        showToast(
+          'Your account has no home school set. Please contact support.',
+          'warn'
+        );
+      } else {
+        try {
+          sessionStorage.setItem('pending_superfan', '1');
+        } catch { /* non-fatal */ }
+        showToast(
+          'Global favoriting requires a Superfan subscription. Upgrade in your account.',
+          'warn'
+        );
+        openAccountDrawer();
+      }
       return;
     }
 

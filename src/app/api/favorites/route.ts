@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
-import { saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
+import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
 
 // ── POST — save a favorite ───────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -29,6 +29,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Server-side canonical home_hsid enforcement ───────────────────────────
+    // This is the authoritative gate — the client-side check in FavoriteButton.tsx
+    // is a UX convenience only. Free Fans may only favorite players from home_hsid.
+    const profile = await getUserProfile(firebaseUid);
+    if (!profile) {
+      return NextResponse.json(
+        { error: "User profile not found. Please register first.", code: "NO_PROFILE" },
+        { status: 404 }
+      );
+    }
+    const isSuperfan = profile.plan === "superfan";
+    if (!isSuperfan) {
+      if (!profile.home_hsid) {
+        return NextResponse.json(
+          { error: "Your account has no home school set. Please contact support.", code: "NO_HOME_HSID" },
+          { status: 403 }
+        );
+      }
+      if (schoolId && schoolId !== profile.home_hsid) {
+        return NextResponse.json(
+          {
+            error: `Free Fan accounts can only favorite players from their home school (${profile.home_hsid}). Upgrade to Superfan for global access.`,
+            code: "CROSS_SCHOOL_BLOCKED",
+            homeHsid: profile.home_hsid,
+          },
+          { status: 403 }
+        );
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // 1. Persist to PostgreSQL (canonical storage)
     const { created } = await saveFavorite(firebaseUid, playerId, {
       ghlContactId: contactId ?? null,
@@ -37,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Tag the GHL contact (secondary / non-fatal)
     if (contactId) {
-      const tagPrefix = type === "superfan" ? "superfav" : "fav";
+      const tagPrefix = isSuperfan ? "superfav" : "fav";
       const tag = `${tagPrefix}:${playerId}`;
       const nameTag = `${tagPrefix}:${(playerName || playerId).replace(/\s+/g, "-").toLowerCase()}`;
       await Promise.allSettled([
@@ -74,10 +105,34 @@ export async function GET(req: NextRequest) {
     }
 
     const favorites = await getFavorites(firebaseUid);
-    // Return only the player_ids for a lightweight client payload
-    const playerIds = favorites.map((f) => f.player_id);
+    const currentHsid = searchParams.get("hsid"); // optional: current microsite context
 
-    return NextResponse.json({ success: true, playerIds });
+    // For free Fans, filter favorites to only return those from their home school.
+    // This prevents cross-school favorites (created before enforcement) from
+    // appearing in the gallery filter on the wrong microsite.
+    const profile = await getUserProfile(firebaseUid);
+    let playerIds: string[];
+    if (profile && profile.plan !== "superfan" && profile.home_hsid) {
+      if (currentHsid && currentHsid !== profile.home_hsid) {
+        // User is browsing a foreign microsite — they have no favorites here
+        playerIds = [];
+      } else {
+        // Return only favorites from their home school
+        playerIds = favorites
+          .filter((f) => !f.school_id || f.school_id === profile.home_hsid)
+          .map((f) => f.player_id);
+      }
+    } else {
+      // Superfan or null home_hsid (legacy): return all favorites
+      playerIds = favorites.map((f) => f.player_id);
+    }
+
+    return NextResponse.json({
+      success: true,
+      playerIds,
+      homeHsid: profile?.home_hsid ?? null,
+      plan: profile?.plan ?? "free",
+    });
   } catch (error) {
     console.error("Error in favorites GET:", error);
     return NextResponse.json(

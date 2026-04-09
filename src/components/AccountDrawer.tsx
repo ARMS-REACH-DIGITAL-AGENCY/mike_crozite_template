@@ -203,6 +203,23 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         // without depending on AccountDrawer's React state.
         try { localStorage.setItem('yat-plan', loginData?.plan ?? 'free'); } catch { /* non-fatal */ }
 
+        // ── Cross-school login enforcement for free Fans ──────────────────────────────
+        // If the user's canonical home_hsid doesn't match the current microsite,
+        // redirect them to their home microsite. Superfans may browse freely.
+        const canonicalHome = loginData?.homeHsid;
+        const isSuperfanUser = loginData?.isSuperfan || loginData?.plan === 'superfan';
+        if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
+          setMessage(
+            `Your Fan account is registered to ${canonicalHome}. Redirecting you to your home microsite…`
+          );
+          setMessageType('info');
+          setTimeout(() => {
+            window.location.href = `/${canonicalHome}`;
+          }, 2500);
+          return; // stop here — redirect will handle the rest
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         // Resume pending actions
         if (sessionStorage.getItem('pending_fav_pid')) {
           await resumePendingFavorite(uid, loginData?.contactId);
