@@ -109,6 +109,47 @@ window.__firebase_config = ${firebaseConfigJSON};
     favImg.src=favLink.href;
   }
   /* Background image fallback for player cards — silhouette is the only allowed fallback */
+  /* Load background images only for cards in the currently visible section.
+     Probing ALL sections at once (including display:none sections) causes 150+
+     simultaneous S3 requests that queue in the browser, delaying visible cards
+     by 5–6 seconds. Hidden sections are loaded on-demand when switched to. */
+  function loadBgImages(scope){
+    var container = scope || document;
+    container.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
+      if(el.getAttribute('data-bg-loaded'))return; /* already probed */
+      el.setAttribute('data-bg-loaded','1');
+      var src=el.getAttribute('data-src');
+      var placeholder=el.getAttribute('data-placeholder');
+      var img=new Image();
+      img.onload=function(){el.style.backgroundImage="url('"+src+"')";  };
+      img.onerror=function(){
+        var altsrc=null;
+        if(src&&src.endsWith('.jpg'))altsrc=src.slice(0,-4)+'.png';
+        else if(src&&src.endsWith('.png'))altsrc=src.slice(0,-4)+'.jpg';
+        if(altsrc){
+          var altimg=new Image();
+          altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";  };
+          altimg.onerror=function(){
+            if(placeholder){el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';}
+          };
+          altimg.src=altsrc;
+        } else if(placeholder){
+          el.style.backgroundImage="url('"+placeholder+"')";
+          el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
+        }
+      };
+      img.src=src;
+    });
+  }
+  /* Background images are loaded lazily per-section in showSection().
+     On the initial page load, showSection('active') is called by initSectionFromHash()
+     which triggers loadBgImages(sec-active). Hidden sections are probed when switched to.
+     On player profile pages (no .yat-section elements), load all images immediately
+     since there is only one section and all cards are always visible. */
+  if(!document.querySelector('.yat-section')){
+    loadBgImages(undefined);
+  }
+  /* DEAD CODE BELOW — replaced by loadBgImages() above. Kept as reference.
   document.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
     var src=el.getAttribute('data-src');
     var placeholder=el.getAttribute('data-placeholder');
@@ -133,7 +174,7 @@ window.__firebase_config = ${firebaseConfigJSON};
       }
     };
     img.src=src;
-  });
+  }); */ /* end dead code */
 
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
@@ -187,6 +228,8 @@ function showSection(tabId, updateHash){
 
   if(isSectionChange){
     resetFiltersForCurrentSection();
+    /* Lazy-load background images for cards in the newly visible section */
+    if(sec) loadBgImages(sec);
   }
 
   // On player profile pages the breadcrumb label is the player's name (set
