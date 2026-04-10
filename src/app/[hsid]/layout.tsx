@@ -251,11 +251,10 @@ export default async function HsidLayout({
         <h3>FILTERS</h3>
         <div className="yat-drawer-content" id="filters">
           {/* ── My Favorites toggle ─────────────────────────────────────────────
-              Hidden until YatInteractivity fetches the user's favorites and
-              stamps data-fav="true" on the matching yat-card elements.
-              YatInteractivity removes the `display:none` style on this group
-              once the fetch completes and at least one favorite exists.       */}
-          <details className="yat-filter-group" id="filterFavsGroup" style={{ display: 'none' }}>
+              Always visible. When checked, applyFilters() hides any card that
+              doesn't have data-fav="true" (stamped by stampFavorites() on load
+              and again on yat-auth-success after login).                      */}
+          <details className="yat-filter-group" id="filterFavsGroup">
             <summary>By My Favorites</summary>
             <div className="yat-filter-options">
               <label>

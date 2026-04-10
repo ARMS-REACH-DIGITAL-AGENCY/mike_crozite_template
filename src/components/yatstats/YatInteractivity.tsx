@@ -1255,9 +1255,6 @@ showSection=function(tabId, updateHash){
             card.setAttribute('data-fav','true');
           }
         });
-        /* Reveal the "By My Favorites" filter group */
-        var favsGroup=document.getElementById('filterFavsGroup');
-        if(favsGroup) favsGroup.style.display='';
       })
       .catch(function(){}); /* non-fatal */
   }
