@@ -104,6 +104,13 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         // Try to get display name from Firebase profile or localStorage
         const storedName = localStorage.getItem(`yat_firstName_${currentUser.uid}`);
         setDisplayName(currentUser.displayName || storedName || '');
+        // Restore SuperFan status from localStorage so it survives page reloads.
+        // yat-plan is written during the login flow; reading it here means already-
+        // authenticated users see the correct SuperFan UI without signing in again.
+        try {
+          const storedPlan = localStorage.getItem('yat-plan');
+          setIsSuperfan(storedPlan === 'superfan');
+        } catch { /* non-fatal */ }
       } else {
         setDisplayName('');
         setIsSuperfan(false);
@@ -187,7 +194,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         const loginRes = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid, email }),
+          // Pass currentHsid so the login API can backfill home_hsid if it's missing
+          // (recovery path for users whose registration failed after Firebase account creation)
+          body: JSON.stringify({ uid, email, currentHsid: subdomain }),
         });
         const loginData = await loginRes.json();
         // Hydrate first_name from DB profile if available

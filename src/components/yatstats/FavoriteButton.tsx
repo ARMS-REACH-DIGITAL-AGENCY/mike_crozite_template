@@ -149,11 +149,14 @@ export default function FavoriteButton({
     // ── Case 2: Fan trying to favorite a cross-school player (or no home set) ─
     if (!isSuperfan && !isSameSchool) {
       if (!user.homeHsid) {
-        // Legacy account with no home_hsid — show a specific message
+        // Account has no home_hsid — this can happen if registration partially failed.
+        // Opening the account drawer and signing in again will trigger the login API
+        // recovery path which backfills home_hsid from the current microsite.
         showToast(
-          'Your account has no home school set. Please contact support.',
+          'Account setup incomplete. Please sign out and sign back in to finish setting up your account.',
           'warn'
         );
+        openAccountDrawer();
       } else {
         try {
           sessionStorage.setItem('pending_superfan', '1');
