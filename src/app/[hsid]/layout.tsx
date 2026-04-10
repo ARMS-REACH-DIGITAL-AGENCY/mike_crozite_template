@@ -16,6 +16,7 @@ import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import {
   getPlayerNowImageUrl,
+  getPlayerThenImageUrl,
 } from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
@@ -187,12 +188,18 @@ export default async function HsidLayout({
 
   const stripPlayers = allStripRows.map((p) => {
     const playerId = String(p.playerid);
+    // Active players get their designated HEADSHOT (or now-image fallback).
+    // Retired / NCAA / all other non-active players get the HS "then" image
+    // so the Next-Level All-Time strip shows the player's high-school era photo.
+    const statusLabel = String(p.status_label || '').toUpperCase().trim();
+    const isActive = statusLabel === 'ACTIVE' || p.is_active_2025 === true;
+    const image = isActive
+      ? (headshotMap.get(playerId)?.image_url || getPlayerNowImageUrl(playerId))
+      : getPlayerThenImageUrl(playerId);
     return {
       id: playerId,
       name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-      image:
-        headshotMap.get(playerId)?.image_url ||
-        getPlayerNowImageUrl(playerId),
+      image,
     };
   });
 
