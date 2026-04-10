@@ -1260,13 +1260,74 @@ showSection=function(tabId, updateHash){
   }
   stampFavorites();
 
-  /* Wire filterFavs checkbox into applyFilters */
+  /* ====================================================================
+     FAVORITES AUTH-GATE + FILTER WIRING
+     filterFavsHome  = Home School favorites (Fan or Superfan required)
+     filterFavsAll   = All Schools favorites (Superfan only)
+     If the user is not authenticated or lacks the required tier,
+     uncheck the box and open the Account drawer instead.
+     ==================================================================== */
+
+  function openAccountDrawer(){
+    var d=document.getElementById('drawerAccount');
+    var mask=document.getElementById('drawerMask');
+    if(d){ d.classList.add('open'); }
+    if(mask){ mask.classList.add('active'); }
+  }
+
+  function getUserTier(){
+    var raw;
+    try{ raw=localStorage.getItem('yat-user'); }catch(e){ return null; }
+    if(!raw) return null;
+    var u;
+    try{ u=JSON.parse(raw); }catch(e){ return null; }
+    if(!u||!u.uid) return null;
+    /* plan stored separately for quick access */
+    var plan;
+    try{ plan=localStorage.getItem('yat-plan')||u.role||'fan'; }catch(e){ plan=u.role||'fan'; }
+    return plan; /* 'fan' | 'superfan' | null */
+  }
+
+  var homeChk=document.getElementById('filterFavsHome');
+  var allChk=document.getElementById('filterFavsAll');
+
+  if(homeChk){
+    homeChk.addEventListener('change',function(){
+      if(!this.checked) return; /* unchecking is always allowed */
+      var tier=getUserTier();
+      if(!tier){
+        /* Not logged in — open Account drawer */
+        this.checked=false;
+        openAccountDrawer();
+        return;
+      }
+      /* fan or superfan — apply filter */
+      applyFilters();
+    });
+  }
+
+  if(allChk){
+    allChk.addEventListener('change',function(){
+      if(!this.checked) return;
+      var tier=getUserTier();
+      if(tier!=='superfan'){
+        /* Not a Superfan — open Account drawer */
+        this.checked=false;
+        openAccountDrawer();
+        return;
+      }
+      applyFilters();
+    });
+  }
+
+  /* Wire favorites checkboxes into applyFilters */
   var _origApplyFilters=applyFilters;
   applyFilters=function(){
     _origApplyFilters();
-    var favsCb=document.getElementById('filterFavs');
-    if(!favsCb||!favsCb.checked) return;
-    /* Hide any card that doesn't have data-fav="true" */
+    var homeChecked=homeChk&&homeChk.checked;
+    var allChecked=allChk&&allChk.checked;
+    if(!homeChecked&&!allChecked) return;
+    /* Hide any card that doesn't match the fav filter */
     document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
       if(card.getAttribute('data-fav')!=='true') card.style.display='none';
     });
@@ -1278,12 +1339,12 @@ showSection=function(tabId, updateHash){
     });
   };
 
-  /* Also reset filterFavs checkbox on reset */
+  /* Reset both favorites checkboxes on filter reset */
   var _origReset=resetFiltersForCurrentSection;
   resetFiltersForCurrentSection=function(){
     _origReset();
-    var favsCb=document.getElementById('filterFavs');
-    if(favsCb) favsCb.checked=false;
+    if(homeChk) homeChk.checked=false;
+    if(allChk) allChk.checked=false;
   };
 
   /* Re-stamp on yat-auth-success (fires after login/register + pending fav) */

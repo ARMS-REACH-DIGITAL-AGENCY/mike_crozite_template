@@ -250,49 +250,33 @@ export default async function HsidLayout({
         </button>
         <h3>FILTERS</h3>
         <div className="yat-drawer-content" id="filters">
-          {/* ── My Favorites toggle ─────────────────────────────────────────────
-              Always visible. When checked, applyFilters() hides any card that
-              doesn't have data-fav="true" (stamped by stampFavorites() on load
-              and again on yat-auth-success after login).                      */}
-          <details className="yat-filter-group" id="filterFavsGroup">
-            <summary>By My Favorites</summary>
+
+          {/* ── SHOW MY FAVORITES ─────────────────────────────────────────────
+              Two checkboxes always visible. Clicking while not authenticated
+              or wrong tier opens the Account drawer via JS auth-gate.        */}
+          <details className="yat-filter-group" id="filterFavsGroup" open>
+            <summary>Show My Favorites</summary>
             <div className="yat-filter-options">
               <label>
-                <input type="checkbox" id="filterFavs" value="favs" />{' '}
-                Show my favorites only
+                <input type="checkbox" id="filterFavsHome" value="favs-home" />{' '}
+                Home School
+              </label>
+              <label style={{ marginTop: '6px' }}>
+                <input type="checkbox" id="filterFavsAll" value="favs-all" />{' '}
+                All Schools{' '}
+                <span style={{ fontSize: '10px', color: '#FFD700', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.04em' }}>⭐ SUPERFAN</span>
               </label>
             </div>
           </details>
 
+          {/* ── BY STATUS (always open) ─────────────────────────────────────── */}
           <details className="yat-filter-group" open>
-            <summary>By Name</summary>
-            <div className="yat-filter-options">
-              <input id="filterName" type="text" placeholder="Type a name…" />
-            </div>
-          </details>
-
-          <details className="yat-filter-group">
-            <summary>By Level</summary>
-            <div className="yat-filter-options" id="filterLevels">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
-              {[
-                'MLB',
-                'TRIPLE-A',
-                'DOUBLE-A',
-                'HIGH-A',
-                'LOW-A',
-                'ROOKIE',
-                'INDY',
-                "INT'L",
-                'NCAA-D1',
-                'NCAA-D2',
-                'NCAA-D3',
-                'NAIA',
-                'JUCO',
-                'HIGH SCHOOL',
-              ].map((l) => (
-                <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
+            <summary>By Status</summary>
+            <div className="yat-filter-options" id="filterStatus">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" /> Select All</label>
+              {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
+                <label key={s}>
+                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
                 </label>
               ))}
             </div>
@@ -341,24 +325,39 @@ export default async function HsidLayout({
           </details>
 
           <details className="yat-filter-group">
-            <summary>By Status</summary>
-            <div className="yat-filter-options" id="filterStatus">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" /> Select All</label>
-              {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
-                <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
-                </label>
-              ))}
-            </div>
-          </details>
-
-          <details className="yat-filter-group">
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
               {Array.from({length: 27}, (_, i) => String(2025 - i)).map((yr) => (
                 <label key={yr}>
                   <input type="checkbox" value={yr} /> {yr}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          <details className="yat-filter-group">
+            <summary>By Level</summary>
+            <div className="yat-filter-options" id="filterLevels">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
+              {[
+                'MLB',
+                'TRIPLE-A',
+                'DOUBLE-A',
+                'HIGH-A',
+                'LOW-A',
+                'ROOKIE',
+                'INDY',
+                "INT'L",
+                'NCAA-D1',
+                'NCAA-D2',
+                'NCAA-D3',
+                'NAIA',
+                'JUCO',
+                'HIGH SCHOOL',
+              ].map((l) => (
+                <label key={l}>
+                  <input type="checkbox" value={l} /> {l}
                 </label>
               ))}
             </div>
@@ -375,6 +374,14 @@ export default async function HsidLayout({
               ))}
             </div>
           </details>
+
+          <details className="yat-filter-group">
+            <summary>By Name</summary>
+            <div className="yat-filter-options">
+              <input id="filterName" type="text" placeholder="Type a name…" />
+            </div>
+          </details>
+
         </div>
 
         <div className="yat-drawer-footer">

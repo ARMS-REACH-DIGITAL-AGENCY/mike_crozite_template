@@ -710,12 +710,148 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
             </p>
           )}
 
-          {/* ── Concise fan / superfan explanation ── */}
-          <div style={{ padding: '16px', borderTop: '1px solid var(--line)', marginTop: '8px' }}>
-            <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: '1.6', margin: 0 }}>
-              Sign in or register to save favorites from this school.{' '}
-              Want to favorite players from other schools too? Upgrade to Superfan for global access — $2.99/month.
-            </p>
+          {/* ── Tier explanation panel ── */}
+          <div style={{ borderTop: '1px solid var(--line)', marginTop: '8px' }}>
+            {/* Register CTA buttons */}
+            <div style={{ padding: '16px 16px 0' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('register')}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '13px',
+                  letterSpacing: '.07em',
+                  cursor: 'pointer',
+                  marginBottom: '8px',
+                }}
+              >
+                BECOME A FAN OF THIS SCHOOL — FREE
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.setItem('pending_superfan', '1');
+                  setActiveTab('register');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#FFD700',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '13px',
+                  letterSpacing: '.07em',
+                  cursor: 'pointer',
+                  marginBottom: '4px',
+                }}
+              >
+                ⭐ BECOME A GLOBAL SUPER FAN — $2.99/mo
+              </button>
+            </div>
+
+            {/* Tier comparison table */}
+            <div style={{ padding: '16px', fontSize: '11px', lineHeight: '1.7', color: 'var(--muted)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--fg)' }}>FEATURE</th>
+                    <th style={{ textAlign: 'center', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--muted)' }}>VISITOR</th>
+                    <th style={{ textAlign: 'center', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--fg)' }}>HOME FAN</th>
+                    <th style={{ textAlign: 'center', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: '#FFD700' }}>⭐ SUPER FAN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Browse all alumni stats', '✓', '✓', '✓'],
+                    ['View schedules & scores', '✓', '✓', '✓'],
+                    ['Save Home School favorites', '—', '✓', '✓'],
+                    ['Filter by My Favorites', '—', '✓', '✓'],
+                    ['Follow players from any school', '—', '—', '✓'],
+                    ['All-Schools favorites filter', '—', '—', '✓'],
+                  ].map(([feat, v, f, s]) => (
+                    <tr key={feat as string} style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                      <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
+                      <td style={{ textAlign: 'center', color: '#FFD700' }}>{s}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* YaTi mascot section */}
+            <div style={{
+              borderTop: '1px solid var(--line)',
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: '12px',
+              background: 'rgba(255,255,255,.03)',
+            }}>
+              <div style={{ flex: 1 }}>
+                {/* Speech bubble */}
+                <div style={{
+                  background: '#fff',
+                  color: '#000',
+                  borderRadius: '12px',
+                  padding: '10px 12px',
+                  fontSize: '12px',
+                  lineHeight: '1.5',
+                  position: 'relative',
+                  marginBottom: '10px',
+                }}>
+                  Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
+                  <br />
+                  <button
+                    type="button"
+                    style={{
+                      marginTop: '8px',
+                      background: '#FFD700',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '5px 12px',
+                      fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                      fontSize: '13px',
+                      letterSpacing: '.06em',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    LET&apos;S GO!!
+                  </button>
+                  {/* Bubble tail */}
+                  <span style={{
+                    position: 'absolute',
+                    bottom: '-8px',
+                    right: '28px',
+                    width: 0,
+                    height: 0,
+                    borderLeft: '8px solid transparent',
+                    borderRight: '8px solid transparent',
+                    borderTop: '8px solid #fff',
+                    display: 'block',
+                  }} />
+                </div>
+                <p style={{ fontSize: '10px', color: 'var(--muted)', textAlign: 'center', margin: 0, fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em' }}>Meet YaTi.</p>
+                <p style={{ fontSize: '9px', color: 'var(--muted)', textAlign: 'center', margin: '2px 0 0', lineHeight: '1.4' }}>The AI Clubhouse Assistant for YAT?STATS.</p>
+              </div>
+              {/* YaTi mascot image */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
+                alt="YaTi mascot"
+                style={{ width: '90px', flexShrink: 0, objectFit: 'contain' }}
+              />
+            </div>
           </div>
         </>
       )}
