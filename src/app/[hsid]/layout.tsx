@@ -26,7 +26,7 @@ import type { Metadata } from 'next';
 // Shared Components
 import YatStyles from '@/components/yatstats/YatStyles';
 import YatInteractivity from '@/components/yatstats/YatInteractivity';
-import AccountDrawerContent from '@/components/AccountDrawer';
+import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
@@ -236,13 +236,7 @@ export default async function HsidLayout({
       </aside>
 
       {/* Right Drawers */}
-      <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
-        <button className="yat-icon-btn yat-close-btn" id="closeAccount">
-          <i className="ri-close-line" />
-        </button>
-        <h3>ACCOUNT</h3>
-        <AccountDrawerContent subdomain={subdomain} />
-      </aside>
+      <AccountDrawer subdomain={subdomain} />
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <button className="yat-icon-btn yat-close-btn" id="closeFilters">
