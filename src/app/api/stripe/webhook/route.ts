@@ -12,7 +12,7 @@
  *   checkout.session.completed      — mark user as superfan + store Stripe IDs
  *   customer.subscription.created   — store subscription ID (may duplicate .completed, safe)
  *   customer.subscription.updated   — sync plan status changes (e.g. resume after pause)
- *   customer.subscription.deleted   — downgrade to free plan
+ *   customer.subscription.deleted   — downgrade to Fan plan
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
 
         await activateSuperfan(firebaseUid, customerId, subscriptionId);
 
-        // Optionally tag the GHL contact as Superfan
+        // Optionally tag the ARMS contact as Superfan
         const profile = await getUserProfileByStripeCustomerId(customerId);
-        if (profile?.ghl_contact_id) {
-          await addTagToGHLContact(profile.ghl_contact_id, "superfan").catch(() => { /* non-fatal */ });
+        if (profile?.arms_contact_id) {
+          await addTagToGHLContact(profile.arms_contact_id, "superfan").catch(() => { /* non-fatal */ });
         }
 
         console.log(`Superfan activated for uid=${firebaseUid}, customer=${customerId}`);
@@ -115,12 +115,12 @@ export async function POST(req: NextRequest) {
         const sub = event.data.object as Stripe.Subscription;
         await deactivateSuperfan(sub.id);
 
-        // Remove GHL superfan tag
+        // Remove ARMS superfan tag
         const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? "";
         const profile = await getUserProfileByStripeCustomerId(customerId);
-        if (profile?.ghl_contact_id) {
-          // TODO: implement GHL tag removal once a removeTagFromGHLContact helper is added
-          console.log(`Subscription deleted, user ${profile.firebase_uid} downgraded to free`);
+        if (profile?.arms_contact_id) {
+          // TODO: implement ARMS tag removal once a removeTagFromARMSContact helper is added
+          console.log(`Subscription deleted, user ${profile.firebase_uid} downgraded to fan`);
         }
         break;
       }

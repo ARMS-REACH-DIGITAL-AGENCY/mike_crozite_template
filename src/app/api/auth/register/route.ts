@@ -2,8 +2,8 @@
  * API Route: POST /api/auth/register
  * Handles user registration:
  *   1. Guard against duplicate email registrations (same email, different firebase uid).
- *   2. Find-or-create GHL contact (prevents duplicates)
- *   3. Persist user profile in PostgreSQL (firebase_uid → home_hsid → ghl_contact_id → plan)
+ *   2. Find-or-create ARMS contact (prevents duplicates)
+ *   3. Persist user profile in PostgreSQL (firebase_uid → home_hsid → arms_contact_id → plan)
  * Called from the client-side Firebase authentication after a user signs up.
  * home_hsid is set from the subdomain at first registration and never overwritten.
  */
@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Find-or-create GHL contact (safe against duplicates)
-    const ghlContactId = await findOrCreateGhlContact(
+    // 1. Find-or-create ARMS contact (safe against duplicates)
+    const armsContactId = await findOrCreateGhlContact(
       body.email,
       body.firstName,
       body.lastName
@@ -61,15 +61,15 @@ export async function POST(request: NextRequest) {
       first_name: body.firstName ?? null,
       last_name: body.lastName ?? null,
       home_hsid: body.subdomain || null,
-      ghl_contact_id: ghlContactId,
-      ghl_location_id: process.env.GHL_LOCATION_ID ?? null,
-      plan: "free",
+      arms_contact_id: armsContactId,
+      arms_location_id: process.env.GHL_LOCATION_ID ?? null,
+      plan: "fan",
     });
 
     return NextResponse.json(
       {
         success: true,
-        contactId: ghlContactId,
+        contactId: armsContactId,
         plan: profile.plan,
         homeHsid: profile.home_hsid,
         message: "User registered and synced",

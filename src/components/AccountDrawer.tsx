@@ -201,16 +201,20 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         if (loginData?.isSuperfan) setIsSuperfan(true);
         // Persist plan so FavoriteButton (and other client components) can read it
         // without depending on AccountDrawer's React state.
-        try { localStorage.setItem('yat-plan', loginData?.plan ?? 'free'); } catch { /* non-fatal */ }
+        try { localStorage.setItem('yat-plan', loginData?.plan ?? 'fan'); } catch { /* non-fatal */ }
 
-        // ── Cross-school login enforcement for free Fans ──────────────────────────────
+        // ── Cross-school login enforcement for Fans (non-Super Fan) ─────────────────────
         // If the user's canonical home_hsid doesn't match the current microsite,
         // redirect them to their home microsite. Superfans may browse freely.
         const canonicalHome = loginData?.homeHsid;
         const isSuperfanUser = loginData?.isSuperfan || loginData?.plan === 'superfan';
         if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
+          // Build a friendly school label — use name + location if the login API returned them
+          const homeLabel = loginData?.homeSchoolName
+            ? `${loginData.homeSchoolName}${loginData.homeSchoolLocation ? ` (${loginData.homeSchoolLocation})` : ''}`
+            : canonicalHome;
           setMessage(
-            `Your Fan account is registered to ${canonicalHome}. Redirecting you to your home microsite…`
+            `Your Fan account is registered to ${homeLabel}. Redirecting you to your home microsite…`
           );
           setMessageType('info');
           setTimeout(() => {
@@ -303,7 +307,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         }));
       } catch { /* non-fatal */ }
       // Persist plan so FavoriteButton can read it without AccountDrawer React state
-      try { localStorage.setItem('yat-plan', regData?.plan ?? 'free'); } catch { /* non-fatal */ }
+      try { localStorage.setItem('yat-plan', regData?.plan ?? 'fan'); } catch { /* non-fatal */ }
 
       // Resume pending intents
       if (sessionStorage.getItem('pending_fav_pid') && uid) {

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // ── Server-side canonical home_hsid enforcement ───────────────────────────
     // This is the authoritative gate — the client-side check in FavoriteButton.tsx
-    // is a UX convenience only. Free Fans may only favorite players from home_hsid.
+    // is a UX convenience only. Fans may only favorite players from their home school.
     const profile = await getUserProfile(firebaseUid);
     if (!profile) {
       return NextResponse.json(
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       if (schoolId && schoolId !== profile.home_hsid) {
         return NextResponse.json(
           {
-            error: `Free Fan accounts can only favorite players from their home school (${profile.home_hsid}). Upgrade to Superfan for global access.`,
+            error: `Fan accounts can only favorite players from their home school (${profile.home_hsid}). Upgrade to Super Fan for global access.`,
             code: "CROSS_SCHOOL_BLOCKED",
             homeHsid: profile.home_hsid,
           },
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Persist to PostgreSQL (canonical storage)
     const { created } = await saveFavorite(firebaseUid, playerId, {
-      ghlContactId: contactId ?? null,
+      armsContactId: contactId ?? null,
       schoolId: schoolId ?? null,
     });
 
@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
     const favorites = await getFavorites(firebaseUid);
     const currentHsid = searchParams.get("hsid"); // optional: current microsite context
 
-    // For free Fans, filter favorites to only return those from their home school.
+    // For Fans (non-Super Fan), filter favorites to only return those from their home school.
     // This prevents cross-school favorites (created before enforcement) from
     // appearing in the gallery filter on the wrong microsite.
     const profile = await getUserProfile(firebaseUid);
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
       success: true,
       playerIds,
       homeHsid: profile?.home_hsid ?? null,
-      plan: profile?.plan ?? "free",
+      plan: profile?.plan ?? "fan",
     });
   } catch (error) {
     console.error("Error in favorites GET:", error);

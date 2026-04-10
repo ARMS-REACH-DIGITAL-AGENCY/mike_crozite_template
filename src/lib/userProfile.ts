@@ -1,10 +1,11 @@
 /**
  * User profile helpers — PostgreSQL-backed
- * Stores the Firebase uid ↔ GHL contact ↔ Stripe billing mapping.
+ * Stores the Firebase uid ↔ ARMS contact ↔ Stripe billing mapping.
  *
  * Tables bootstrapped on first import:
  *   user_profiles  — one row per Firebase user
  *   user_favorites — player favorites per user
+ *   user_roles     — multi-role relationship table (one row per role per user)
  */
 
 'use server';
@@ -20,11 +21,12 @@ export interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   home_hsid: string | null;
-  role: string;
+  home_school_name: string | null;
+  role: string | null;
   subscription_status: string | null;
-  ghl_contact_id: string | null;
-  ghl_location_id: string | null;
-  plan: 'free' | 'superfan';
+  arms_contact_id: string | null;
+  arms_location_id: string | null;
+  plan: 'fan' | 'superfan';
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   created_at: Date;
@@ -34,9 +36,19 @@ export interface UserProfile {
 export interface UserFavorite {
   id: number;
   firebase_uid: string;
-  ghl_contact_id: string | null;
+  arms_contact_id: string | null;
   player_id: string;
   school_id: string | null;
+  created_at: Date;
+}
+
+export interface UserRole {
+  id: number;
+  firebase_uid: string;
+  role: string;
+  school_id: number | null;
+  player_id: number | null;
+  source: string;
   created_at: Date;
 }
 
@@ -54,35 +66,51 @@ if (!global.__userProfileBootstrapped) {
     try {
       await query(`
         CREATE TABLE IF NOT EXISTS user_profiles (
-          firebase_uid          TEXT PRIMARY KEY,
-          email                 TEXT NOT NULL,
-          first_name            TEXT,
-          last_name             TEXT,
-          home_hsid             TEXT,
-          role                  TEXT NOT NULL DEFAULT 'fan',
-          subscription_status   TEXT,
-          ghl_contact_id        TEXT,
-          ghl_location_id       TEXT,
-          plan                  TEXT NOT NULL DEFAULT 'free',
-          stripe_customer_id    TEXT,
+          firebase_uid           TEXT PRIMARY KEY,
+          email                  TEXT NOT NULL,
+          first_name             TEXT,
+          last_name              TEXT,
+          home_hsid              TEXT,
+          home_school_name       TEXT,
+          role                   TEXT,
+          subscription_status    TEXT,
+          arms_contact_id        TEXT,
+          arms_location_id       TEXT,
+          plan                   TEXT NOT NULL DEFAULT 'fan',
+          stripe_customer_id     TEXT,
           stripe_subscription_id TEXT,
-          created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
       // Migrate existing tables: add new columns if they don't exist yet
       await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS home_hsid TEXT`);
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'fan'`);
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS home_school_name TEXT`);
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT`);
       await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT`);
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS arms_contact_id TEXT`);
+      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS arms_location_id TEXT`);
       await query(`
         CREATE TABLE IF NOT EXISTS user_favorites (
           id              SERIAL PRIMARY KEY,
           firebase_uid    TEXT NOT NULL,
-          ghl_contact_id  TEXT,
+          arms_contact_id TEXT,
           player_id       TEXT NOT NULL,
           school_id       TEXT,
           created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE (firebase_uid, player_id)
+        )
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS user_roles (
+          id           BIGSERIAL PRIMARY KEY,
+          firebase_uid TEXT NOT NULL REFERENCES user_profiles(firebase_uid) ON DELETE CASCADE,
+          role         TEXT NOT NULL,
+          school_id    INTEGER,
+          player_id    BIGINT,
+          source       TEXT NOT NULL DEFAULT 'manual',
+          created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (firebase_uid, role, school_id, player_id)
         )
       `);
     } catch (err) {
@@ -137,16 +165,17 @@ export async function getUserProfileByStripeSubscriptionId(
 
 /**
  * Create or update the user profile for a given Firebase UID.
- * Safe to call on every login — does not overwrite plan with 'free' if already 'superfan'.
+ * Safe to call on every login — does not overwrite plan with 'fan' if already 'superfan'.
  *
  * Update semantics:
  *   email              — always updated to the latest value (Firebase is the auth source of truth)
  *   first_name/last_name — preserved if caller passes null/undefined (COALESCE)
  *   home_hsid          — set only on INSERT (first registration); never overwritten on update
+ *   home_school_name   — set only on INSERT; never overwritten on update
  *   role               — preserved once set; only updated if caller provides a value
  *   subscription_status — updated when provided
- *   ghl_contact_id     — preserved once set; only updated if caller provides a value
- *   plan               — never downgraded from 'superfan' to 'free' via this function
+ *   arms_contact_id    — preserved once set; only updated if caller provides a value
+ *   plan               — never downgraded from 'superfan' to 'fan' via this function
  */
 export async function upsertUserProfile(
   firebaseUid: string,
@@ -155,21 +184,22 @@ export async function upsertUserProfile(
   const res = await query<UserProfile>(
     `INSERT INTO user_profiles (
        firebase_uid, email, first_name, last_name,
-       home_hsid, role, subscription_status,
-       ghl_contact_id, ghl_location_id, plan,
+       home_hsid, home_school_name, role, subscription_status,
+       arms_contact_id, arms_location_id, plan,
        stripe_customer_id, stripe_subscription_id
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      ON CONFLICT (firebase_uid) DO UPDATE SET
        email                 = EXCLUDED.email,
        first_name            = COALESCE(EXCLUDED.first_name, user_profiles.first_name),
        last_name             = COALESCE(EXCLUDED.last_name,  user_profiles.last_name),
-       -- home_hsid is set at first registration only; never overwritten
+       -- home_hsid and home_school_name are set at first registration only; never overwritten
        home_hsid             = COALESCE(user_profiles.home_hsid, EXCLUDED.home_hsid),
+       home_school_name      = COALESCE(user_profiles.home_school_name, EXCLUDED.home_school_name),
        role                  = COALESCE(EXCLUDED.role, user_profiles.role),
        subscription_status   = COALESCE(EXCLUDED.subscription_status, user_profiles.subscription_status),
-       ghl_contact_id        = COALESCE(EXCLUDED.ghl_contact_id, user_profiles.ghl_contact_id),
-       ghl_location_id       = COALESCE(EXCLUDED.ghl_location_id, user_profiles.ghl_location_id),
-       -- Never downgrade plan from superfan to free via upsert
+       arms_contact_id       = COALESCE(EXCLUDED.arms_contact_id, user_profiles.arms_contact_id),
+       arms_location_id      = COALESCE(EXCLUDED.arms_location_id, user_profiles.arms_location_id),
+       -- Never downgrade plan from superfan to fan via upsert
        plan                  = CASE
                                  WHEN user_profiles.plan = 'superfan' THEN 'superfan'
                                  ELSE EXCLUDED.plan
@@ -184,11 +214,12 @@ export async function upsertUserProfile(
       data.first_name ?? null,
       data.last_name ?? null,
       data.home_hsid ?? null,
-      data.role ?? 'fan',
+      data.home_school_name ?? null,
+      data.role ?? null,
       data.subscription_status ?? null,
-      data.ghl_contact_id ?? null,
-      data.ghl_location_id ?? null,
-      data.plan ?? 'free',
+      data.arms_contact_id ?? null,
+      data.arms_location_id ?? null,
+      data.plan ?? 'fan',
       data.stripe_customer_id ?? null,
       data.stripe_subscription_id ?? null,
     ]
@@ -213,12 +244,13 @@ export async function activateSuperfan(
   );
 }
 
-/** Downgrade to free plan when a Stripe subscription is cancelled/deleted. */
+/** Downgrade to Fan plan when a Stripe subscription is cancelled/deleted. */
 export async function deactivateSuperfan(stripeSubscriptionId: string): Promise<void> {
   await query(
     `UPDATE user_profiles
-     SET plan = 'free',
+     SET plan = 'fan',
          stripe_subscription_id = NULL,
+         subscription_status    = 'cancelled',
          updated_at             = NOW()
      WHERE stripe_subscription_id = $1`,
     [stripeSubscriptionId]
@@ -233,14 +265,14 @@ export async function deactivateSuperfan(stripeSubscriptionId: string): Promise<
 export async function saveFavorite(
   firebaseUid: string,
   playerId: string,
-  opts: { ghlContactId?: string | null; schoolId?: string | null } = {}
+  opts: { armsContactId?: string | null; schoolId?: string | null } = {}
 ): Promise<{ created: boolean }> {
   const res = await query<{ id: number }>(
-    `INSERT INTO user_favorites (firebase_uid, ghl_contact_id, player_id, school_id)
+    `INSERT INTO user_favorites (firebase_uid, arms_contact_id, player_id, school_id)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (firebase_uid, player_id) DO NOTHING
      RETURNING id`,
-    [firebaseUid, opts.ghlContactId ?? null, playerId, opts.schoolId ?? null]
+    [firebaseUid, opts.armsContactId ?? null, playerId, opts.schoolId ?? null]
   );
   return { created: (res.rowCount ?? 0) > 0 };
 }
@@ -267,6 +299,33 @@ export async function removeFavorite(
 }
 
 // ---------------------------------------------------------------------------
+// User Roles
+// ---------------------------------------------------------------------------
+
+/** Add a role to a user. No-op if the exact combination already exists. */
+export async function addUserRole(
+  firebaseUid: string,
+  role: string,
+  opts: { schoolId?: number | null; playerId?: number | null; source?: string } = {}
+): Promise<void> {
+  await query(
+    `INSERT INTO user_roles (firebase_uid, role, school_id, player_id, source)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (firebase_uid, role, school_id, player_id) DO NOTHING`,
+    [firebaseUid, role, opts.schoolId ?? null, opts.playerId ?? null, opts.source ?? 'manual']
+  );
+}
+
+/** Get all roles for a user. */
+export async function getUserRoles(firebaseUid: string): Promise<UserRole[]> {
+  const res = await query<UserRole>(
+    'SELECT * FROM user_roles WHERE firebase_uid = $1 ORDER BY created_at ASC',
+    [firebaseUid]
+  );
+  return res.rows;
+}
+
+// ---------------------------------------------------------------------------
 // ensureUserProfile
 // ---------------------------------------------------------------------------
 
@@ -274,7 +333,7 @@ export async function removeFavorite(
  * Ensure a user profile exists and is up-to-date.
  * - On first call for a firebase_uid, creates the profile and sets home_hsid from currentHsid.
  * - On subsequent calls (login from any subdomain), loads the existing profile without
- *   overwriting home_hsid.
+ *   overwriting home_hsid or home_school_name.
  * - Returns the current profile.
  */
 export async function ensureUserProfile(
@@ -284,8 +343,9 @@ export async function ensureUserProfile(
   opts: {
     firstName?: string | null;
     lastName?: string | null;
-    ghlContactId?: string | null;
-    ghlLocationId?: string | null;
+    armsContactId?: string | null;
+    armsLocationId?: string | null;
+    homeSchoolName?: string | null;
   } = {}
 ): Promise<UserProfile> {
   return upsertUserProfile(firebaseUid, {
@@ -293,8 +353,9 @@ export async function ensureUserProfile(
     first_name: opts.firstName ?? null,
     last_name: opts.lastName ?? null,
     home_hsid: currentHsid ?? null,
-    ghl_contact_id: opts.ghlContactId ?? null,
-    ghl_location_id: opts.ghlLocationId ?? null,
-    plan: 'free',
+    home_school_name: opts.homeSchoolName ?? null,
+    arms_contact_id: opts.armsContactId ?? null,
+    arms_location_id: opts.armsLocationId ?? null,
+    plan: 'fan',
   });
 }

@@ -9,6 +9,7 @@
 import { useContext } from 'react';
 import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
+import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 
@@ -32,6 +33,7 @@ export default function SchoolContextBar({
   isNews,
 }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
+  const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
   // Extract playerId from URL: /{hsid}/player/{playerId}/{slug}
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
@@ -87,7 +89,7 @@ export default function SchoolContextBar({
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
             playerId={profilePlayerId}
-            playerName=""
+            playerName={playerProfile?.playerName ?? ''}
             playerHsid={schoolData?.hsid ?? ''}
           />
         )}

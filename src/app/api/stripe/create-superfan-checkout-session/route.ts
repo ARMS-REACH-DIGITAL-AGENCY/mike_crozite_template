@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     // Load or create the user profile so we can reuse an existing Stripe customer
     let profile = await getUserProfile(firebaseUid);
     if (!profile) {
-      profile = await upsertUserProfile(firebaseUid, { email, plan: "free" });
+      profile = await upsertUserProfile(firebaseUid, { email, plan: "fan" });
     }
 
     const existingCustomer = profile.stripe_customer_id;

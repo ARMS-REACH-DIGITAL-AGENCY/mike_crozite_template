@@ -12,7 +12,7 @@ export function isSuperfan(profile: UserProfile | null | undefined): boolean {
 
 /**
  * Returns true if the user can save player favorites.
- * Any authenticated user (free or superfan) can favorite players.
+ * Any authenticated user (Fan or Super Fan) can favorite players from their home school.
  */
 export function canSaveFavorite(profile: UserProfile | null | undefined): boolean {
   return !!profile?.firebase_uid;
