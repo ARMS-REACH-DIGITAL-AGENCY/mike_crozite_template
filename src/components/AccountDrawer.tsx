@@ -86,6 +86,16 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   // Whether the current user is a Superfan (derived from profile API response)
   const [isSuperfan, setIsSuperfan] = useState(false);
 
+  // Listen for tab-switch events dispatched by the wrapper header buttons (acctTabJoin / acctTabLogin)
+  useEffect(() => {
+    const handleTabSwitch = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail;
+      if (tab === 'signin' || tab === 'register') setActiveTab(tab);
+    };
+    window.addEventListener('yat:acct-tab', handleTabSwitch);
+    return () => window.removeEventListener('yat:acct-tab', handleTabSwitch);
+  }, []);
+
   // Listen to Firebase auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -499,50 +509,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       ) : (
         // Not logged in state
         <>
-          <div
-            style={{
-              display: 'flex',
-              borderBottom: '1px solid var(--line)',
-              marginBottom: '15px',
-            }}
-          >
-            <button
-              onClick={() => setActiveTab('signin')}
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                padding: '10px',
-                cursor: 'pointer',
-                background: 'transparent',
-                border: 'none',
-                color: activeTab === 'signin' ? 'var(--fg)' : 'var(--muted)',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: '14px',
-                letterSpacing: '.05em',
-                borderBottom: activeTab === 'signin' ? '2px solid var(--fg)' : 'none',
-              }}
-            >
-              LOG IN
-            </button>
-            <button
-              onClick={() => setActiveTab('register')}
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                padding: '10px',
-                cursor: 'pointer',
-                background: 'transparent',
-                border: 'none',
-                color: activeTab === 'register' ? 'var(--fg)' : 'var(--muted)',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: '14px',
-                letterSpacing: '.05em',
-                borderBottom: activeTab === 'register' ? '2px solid var(--fg)' : 'none',
-              }}
-            >
-              JOIN
-            </button>
-          </div>
 
           {activeTab === 'signin' && (
             <form onSubmit={handleSignIn} style={{ padding: '12px 15px' }}>
@@ -728,60 +694,15 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
           {/* ── Tier explanation panel ── */}
           <div style={{ borderTop: '1px solid var(--line)', marginTop: '8px' }}>
-            {/* Register CTA buttons */}
-            <div style={{ padding: '16px 16px 0' }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('register')}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: 'var(--fg)',
-                  color: 'var(--bg)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: '13px',
-                  letterSpacing: '.07em',
-                  cursor: 'pointer',
-                  marginBottom: '8px',
-                }}
-              >
-                BECOME A FAN OF THIS SCHOOL — FREE
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  sessionStorage.setItem('pending_superfan', '1');
-                  setActiveTab('register');
-                }}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#FFD700',
-                  color: '#000',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: '13px',
-                  letterSpacing: '.07em',
-                  cursor: 'pointer',
-                  marginBottom: '4px',
-                }}
-              >
-                ⭐ BECOME A GLOBAL SUPER FAN — $2.99/mo
-              </button>
-            </div>
-
             {/* Tier comparison table */}
             <div style={{ padding: '16px', fontSize: '11px', lineHeight: '1.7', color: 'var(--muted)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--fg)' }}>FEATURE</th>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--muted)' }}>VISITOR</th>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--fg)' }}>HOME FAN</th>
-                    <th style={{ textAlign: 'center', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: '#FFD700' }}>⭐ SUPER FAN</th>
+                    <th style={{ textAlign: 'left', fontSize: '10px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em', paddingBottom: '6px', color: 'var(--fg)', width: '40%' }}>FEATURE</th>
+                    <th style={{ textAlign: 'center', fontSize: '9px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.04em', paddingBottom: '6px', color: 'var(--muted)', width: '18%' }}>VISITOR</th>
+                    <th style={{ textAlign: 'center', fontSize: '9px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.04em', paddingBottom: '6px', color: 'var(--fg)', width: '20%' }}>HOME<br/>FAN</th>
+                    <th style={{ textAlign: 'center', fontSize: '9px', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.04em', paddingBottom: '6px', color: '#FFD700', width: '22%' }}>⭐ SUPER<br/>FAN</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -815,14 +736,12 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
             }}>
               {/* YaTi mascot image — left side, facing the bubble */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <div style={{ flexShrink: 0, textAlign: 'center' }}>
+              <div style={{ flexShrink: 0 }}>
                 <img
                   src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
                   alt="YaTi mascot"
                   style={{ width: '80px', objectFit: 'contain', display: 'block' }}
                 />
-                <p style={{ fontSize: '10px', color: 'var(--muted)', margin: '4px 0 0', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em' }}>Meet YaTi.</p>
-                <p style={{ fontSize: '9px', color: 'var(--muted)', margin: '2px 0 0', lineHeight: '1.3' }}>AI Clubhouse<br/>Assistant</p>
               </div>
               {/* Speech bubble — right side */}
               <div style={{ flex: 1 }}>
@@ -854,10 +773,10 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                   >
                     LET&apos;S GO!!
                   </button>
-                  {/* Bubble tail pointing left toward YaTi */}
+                  {/* Bubble tail pointing left toward YaTi — at top so it aligns with YaTi's mouth */}
                   <span style={{
                     position: 'absolute',
-                    bottom: '16px',
+                    top: '12px',
                     left: '-8px',
                     width: 0,
                     height: 0,

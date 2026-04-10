@@ -35,9 +35,14 @@ export default function SchoolContextBar({
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
-  // Extract playerId from URL: /{hsid}/player/{playerId}/{slug}
-  const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
+  // Extract playerId and slug from URL: /{hsid}/player/{playerId}/{slug}
+  const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
+  // Derive player display name: prefer context (set by nested layout), fall back to URL slug
+  const slugDerivedName = playerRouteMatch?.[2]
+    ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : '';
+  const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
@@ -89,7 +94,7 @@ export default function SchoolContextBar({
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
             playerId={profilePlayerId}
-            playerName={playerProfile?.playerName ?? ''}
+            playerName={resolvedPlayerName}
             playerHsid={schoolData?.hsid ?? ''}
           />
         )}

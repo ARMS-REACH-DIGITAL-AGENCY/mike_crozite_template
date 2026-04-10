@@ -310,6 +310,21 @@ if(mask){
   var closeAccount=document.getElementById('closeAccount');
   if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
   if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
+  /* Wire header tab buttons to dispatch custom event that AccountDrawerContent listens for */
+  var acctTabJoin=document.getElementById('acctTabJoin');
+  var acctTabLogin=document.getElementById('acctTabLogin');
+  function dispatchAcctTab(tab){
+    window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:tab}));
+    /* Update active underline on header buttons */
+    if(acctTabJoin)acctTabJoin.style.borderBottom=tab==='register'?'2px solid var(--gold)':'2px solid transparent';
+    if(acctTabJoin)acctTabJoin.style.color=tab==='register'?'var(--gold)':'var(--fg)';
+    if(acctTabLogin)acctTabLogin.style.borderBottom=tab==='signin'?'2px solid var(--gold)':'2px solid transparent';
+    if(acctTabLogin)acctTabLogin.style.color=tab==='signin'?'var(--gold)':'var(--muted)';
+  }
+  if(acctTabJoin)acctTabJoin.addEventListener('click',function(){dispatchAcctTab('register');});
+  if(acctTabLogin)acctTabLogin.addEventListener('click',function(){dispatchAcctTab('signin');});
+  /* Set initial active state: JOIN is default */
+  dispatchAcctTab('register');
   var mask=document.getElementById('drawerMask');
   if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
 
