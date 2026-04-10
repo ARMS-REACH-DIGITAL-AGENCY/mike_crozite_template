@@ -703,16 +703,42 @@ export default async function ProfilePage({ params }: Props) {
         .pp-mc-active { color: #20d67b; }
         .pp-mc-retired { color: #888; }
 
-        /* ── Block 5: FunZone — sticky tab strip, fixed-width tabs ─── */
+        /* ── Block 5: FunZone — fixed-height flex column ─────────────── */
+        /*
+         * Block 5 occupies exactly the viewport space between the sticky
+         * rows (Row 1–4) and the fixed footer (Row 6 / Block 6).
+         * Row heights from YatStyles :root:
+         *   --row1-h : 36px   (34px on mobile)
+         *   --row2-h : 54px   (48px on mobile)
+         *   --row3-h : 100px  (career strip)
+         *   --row4-h : 56px   (metadata chips)
+         *   --footerH: clamp(56px,8vh,77px)
+         * Row 5 shell adds padding-top: 8px.
+         *
+         * pp-funzone fills the remaining height as a flex column:
+         *   - active pp-fz-panel grows to fill the space and scrolls internally
+         *   - pp-fz-tabs-shell is the last flex child, always at the bottom
+         */
         .pp-funzone {
           width: 100%;
           background: var(--card-bg, #1a1a1a);
+          display: flex;
+          flex-direction: column;
+          height: calc(
+            100vh
+            - var(--row1-h, 36px)
+            - var(--row2-h, 54px)
+            - var(--row3-h, 100px)
+            - var(--row4-h, 56px)
+            - var(--footerH, 56px)
+            - 8px
+          );
+          min-height: 0;
         }
 
-        /* Tab strip — sticky to the bottom of Block 5, always visible above Block 6 */
+        /* Tab strip — last flex child, always at the bottom of Block 5 */
         .pp-fz-tabs-shell {
-          position: sticky;
-          bottom: 0;
+          flex-shrink: 0;
           z-index: 50;
           background: var(--card-bg, #1a1a1a);
           border-top: 1px solid var(--line, rgba(255,255,255,.08));
@@ -780,11 +806,16 @@ export default async function ProfilePage({ params }: Props) {
         /* Tab panels — all hidden by default; :target shows the targeted one */
         .pp-fz-panel {
           display: none;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           padding: 14px 12px;
         }
         /* Stats panel is the default visible panel */
         .pp-fz-panel-default {
-          display: block;
+          display: flex;
+          flex-direction: column;
         }
         /* When a tab anchor is targeted, show that panel and hide the default */
         #ppTab-schedule:target,
@@ -793,7 +824,8 @@ export default async function ProfilePage({ params }: Props) {
         #ppTab-social:target,
         #ppTab-connect:target,
         #ppTab-upload:target {
-          display: block;
+          display: flex;
+          flex-direction: column;
         }
         /* When any other tab is targeted, hide the default stats panel */
         #ppTab-schedule:target ~ #ppTab-stats.pp-fz-panel-default,
