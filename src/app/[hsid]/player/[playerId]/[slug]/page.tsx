@@ -724,13 +724,19 @@ export default async function ProfilePage({ params }: Props) {
           background: var(--card-bg, #1a1a1a);
           display: flex;
           flex-direction: column;
+          /*
+           * body already has padding-bottom: var(--footerH) which pushes
+           * <main> up above the fixed footer — so we must NOT subtract
+           * --footerH here or we get a double-gap.
+           * We only subtract the sticky rows above Block 5 and the 8px
+           * padding-top of .yat-row5-shell.
+           */
           height: calc(
-            100vh
+            100dvh
             - var(--row1-h, 36px)
             - var(--row2-h, 54px)
             - var(--row3-h, 100px)
             - var(--row4-h, 56px)
-            - var(--footerH, 56px)
             - 8px
           );
           min-height: 0;
