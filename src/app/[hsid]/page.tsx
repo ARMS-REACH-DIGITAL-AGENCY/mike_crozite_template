@@ -172,7 +172,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* ALL-TIME LIST */}
-      <section id="sec-alltime" className="yat-section visible">
+      <section id="sec-alltime" className="yat-section">
         <div className="yat-grid" id="alltime-grid">
           {allTimeFrontRoster.length === 0 ? (
             <div className="yat-empty">
@@ -194,7 +194,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* NEWS */}
-      <section id="sec-news" className="yat-section visible">
+      <section id="sec-news" className="yat-section">
         <div className="yat-news-wrap">
           <div className="yat-news-header">
             <div>
@@ -221,7 +221,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* CURRENT TEAM */}
-      <section id="sec-current" className="yat-section visible">
+      <section id="sec-current" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🏟️</div>
           <div className="yat-placeholder-title">Current Team Roster</div>
@@ -232,7 +232,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
      
       {/* FANTASY BRACKET */}
-      <section id="sec-fantasy" className="yat-section visible">
+      <section id="sec-fantasy" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🏆</div>
           <div className="yat-placeholder-title">Fantasy Bracket Tournament</div>
@@ -243,7 +243,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* MENTOR */}
-      <section id="sec-mentor" className="yat-section visible">
+      <section id="sec-mentor" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🤝</div>
           <div className="yat-placeholder-title">Mentorship Marketplace</div>
@@ -254,7 +254,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* PARTNER */}
-      <section id="sec-partner" className="yat-section visible">
+      <section id="sec-partner" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">🤝</div>
           <div className="yat-placeholder-title">PCD Action Partner Program</div>
@@ -281,7 +281,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
 
       {/* ABOUT */}
-      <section id="sec-about" className="yat-section visible">
+      <section id="sec-about" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">ℹ️</div>
           <div className="yat-placeholder-title">About YAT?STATS</div>
@@ -292,7 +292,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       </section>
       
       {/* FAQ */}
-      <section id="sec-faq" className="yat-section visible">
+      <section id="sec-faq" className="yat-section">
         <div className="yat-placeholder">
           <div className="yat-placeholder-icon">❓</div>
           <div className="yat-placeholder-title">FAQ&apos;s</div>
