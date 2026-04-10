@@ -165,7 +165,7 @@ export default function InteractionStrip({
               return (
                 <a
                   key={p.id}
-                  href={`#player-${p.id}`}
+                  href="javascript:void(0)"
                   className="gallery-slot gallery-slot-link"
                   data-playerid={p.id}
                   title={p.name}

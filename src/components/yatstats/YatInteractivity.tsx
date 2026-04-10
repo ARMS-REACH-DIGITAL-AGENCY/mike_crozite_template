@@ -170,6 +170,33 @@ window.__firebase_config = ${firebaseConfigJSON};
     card.classList.toggle('is-flipped');
   });
 
+  // Strip thumbnail click — scroll to the correct section's card.
+  // Both #sec-active and #sec-alltime contain cards with the same
+  // id="player-{id}", so a plain anchor scroll always lands on the
+  // first DOM match (the active section card, which may be hidden).
+  // When the NLAT section is visible we intercept the click and
+  // manually scroll to the card inside #sec-alltime instead.
+  document.addEventListener('click', function(e){
+    var slot = e.target.closest('.gallery-slot-link[data-playerid]');
+    if(!slot) return;
+    var pid = slot.dataset.playerid;
+    if(!pid) return;
+    e.preventDefault();
+    // Find the visible section and scroll to the card within it.
+    // Both #sec-active and #sec-alltime contain cards with id="player-{id}",
+    // so we must scope the querySelector to the visible section.
+    var secActive = document.getElementById('sec-active');
+    var secAlltime = document.getElementById('sec-alltime');
+    var visibleSection = (secAlltime && secAlltime.classList.contains('visible'))
+      ? secAlltime
+      : (secActive && secActive.classList.contains('visible'))
+        ? secActive
+        : null;
+    if(!visibleSection) return;
+    var target = visibleSection.querySelector('#player-' + pid);
+    if(target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
  function normalizeTab(tabId){
   if(tabId === 'team') return 'current';
   return tabId;
