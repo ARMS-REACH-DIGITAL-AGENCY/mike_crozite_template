@@ -375,6 +375,7 @@ export default async function ProfilePage({ params }: Props) {
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
           ═══════════════════════════════════════════════════════════════════════ */}
+        <div className="pp-funzone-outer">
         <section className="pp-funzone" id="playerFunZone">
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
@@ -656,6 +657,7 @@ export default async function ProfilePage({ params }: Props) {
         </div>
 
       </section>
+      </div>{/* /pp-funzone-outer */}
 
       {/* ═══════════════════════════════════════════════════════════════════════
           INLINE STYLES — scoped to this page only, no global changes
@@ -719,9 +721,15 @@ export default async function ProfilePage({ params }: Props) {
          *   - active pp-fz-panel grows to fill the space and scrolls internally
          *   - pp-fz-tabs-shell is the last flex child, always at the bottom
          */
-        .pp-funzone {
+        /* Outer wrapper — full-width background, centered fixed-width inner */
+        .pp-funzone-outer {
           width: 100%;
           background: var(--card-bg, #1a1a1a);
+        }
+        .pp-funzone {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 0 12px;
           display: flex;
           flex-direction: column;
           /*
@@ -751,13 +759,11 @@ export default async function ProfilePage({ params }: Props) {
           width: 100%;
         }
 
-        /* Tab strip — constrained inner nav, aligned to school crest left edge */
+        /* Tab strip — full width of pp-funzone (already constrained) */
         .pp-fz-tabs {
           display: flex;
           flex-direction: row;
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 0 12px;
+          width: 100%;
           overflow-x: auto;
           scrollbar-width: none;
         }
