@@ -1269,12 +1269,9 @@ showSection=function(tabId, updateHash){
      ==================================================================== */
 
   function openAccountDrawer(){
-    /* Close any open drawer first */
-    document.querySelectorAll('.yat-drawer.open').forEach(function(el){ el.classList.remove('open'); });
-    var d=document.getElementById('drawerAccount');
-    var mask=document.getElementById('drawerMask');
-    if(d){ d.classList.add('open'); }
-    if(mask){ mask.classList.add('active'); }
+    /* Close other drawers via body classes (matches YatStyles drawer mechanism) */
+    document.body.classList.remove('drawer-left-open','drawer-right-open');
+    document.body.classList.add('drawer-account-open','drawer-open');
   }
 
   function getUserTier(){

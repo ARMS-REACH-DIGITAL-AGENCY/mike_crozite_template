@@ -15,7 +15,7 @@ interface AccountDrawerProps {
   subdomain: string;
 }
 
-function PasswordInput({ name, required = true }: { name: string; required?: boolean }) {
+function PasswordInput({ name, required = true, placeholder = 'Password' }: { name: string; required?: boolean; placeholder?: string }) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -24,14 +24,15 @@ function PasswordInput({ name, required = true }: { name: string; required?: boo
         type={visible ? 'text' : 'password'}
         name={name}
         required={required}
+        placeholder={placeholder}
         style={{
           width: '100%',
-          padding: '10px',
-          paddingRight: '40px',
+          padding: '10px 40px 10px 12px',
           borderRadius: '8px',
           border: '1px solid var(--line)',
           background: 'rgba(255, 255, 255, .06)',
           color: 'var(--ink)',
+          fontSize: '13px',
         }}
       />
       <button
@@ -521,7 +522,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 borderBottom: activeTab === 'signin' ? '2px solid var(--fg)' : 'none',
               }}
             >
-              Sign In
+              LOG IN
             </button>
             <button
               onClick={() => setActiveTab('register')}
@@ -539,40 +540,35 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 borderBottom: activeTab === 'register' ? '2px solid var(--fg)' : 'none',
               }}
             >
-              Register
+              JOIN
             </button>
           </div>
 
           {activeTab === 'signin' && (
-            <form onSubmit={handleSignIn} style={{ padding: '15px' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  Email
-                </label>
+            <form onSubmit={handleSignIn} style={{ padding: '12px 15px' }}>
+              <div style={{ marginBottom: '8px' }}>
                 <input
                   type="email"
                   name="signInEmail"
                   required
+                  placeholder="Email"
                   value={signInEmail}
                   onChange={(e) => setSignInEmail(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '10px',
+                    padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--line)',
                     background: 'rgba(255, 255, 255, .06)',
                     color: 'var(--ink)',
+                    fontSize: '13px',
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  Password
-                </label>
-                <PasswordInput name="signInPassword" />
+              <div style={{ marginBottom: '6px' }}>
+                <PasswordInput name="signInPassword" placeholder="Password" />
               </div>
-              {/* Forgot password link — reuses the email already entered above */}
-              <div style={{ textAlign: 'right', marginBottom: '15px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <div style={{ textAlign: 'right', marginBottom: '10px' }}>
                 <button
                   type="button"
                   onClick={handleForgotPassword}
@@ -580,8 +576,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                   style={{
                     background: 'none',
                     border: 'none',
-                    padding: '4px 0',
-                    fontSize: '12px',
+                    padding: '2px 0',
+                    fontSize: '11px',
                     color: 'var(--muted)',
                     cursor: isLoading ? 'not-allowed' : 'pointer',
                     textDecoration: 'underline',
@@ -595,7 +591,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 disabled={isLoading}
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '11px',
                   background: 'var(--fg)',
                   color: 'var(--bg)',
                   border: 'none',
@@ -607,91 +603,111 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                   opacity: isLoading ? 0.6 : 1,
                 }}
               >
-                {isLoading ? 'Signing In...' : 'Sign In'}
+                {isLoading ? 'Logging In...' : 'LOG IN'}
               </button>
             </form>
           )}
 
           {activeTab === 'register' && (
-            <form onSubmit={handleRegister} style={{ padding: '15px' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  First Name
-                </label>
+            <form onSubmit={handleRegister} style={{ padding: '12px 15px' }}>
+              {/* Name row */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <input
                   type="text"
                   name="registerFirstName"
                   required
+                  placeholder="First Name"
                   style={{
-                    width: '100%',
-                    padding: '10px',
+                    flex: 1,
+                    padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--line)',
                     background: 'rgba(255, 255, 255, .06)',
                     color: 'var(--ink)',
+                    fontSize: '13px',
                   }}
                 />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  Last Name
-                </label>
                 <input
                   type="text"
                   name="registerLastName"
                   required
+                  placeholder="Last Name"
                   style={{
-                    width: '100%',
-                    padding: '10px',
+                    flex: 1,
+                    padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--line)',
                     background: 'rgba(255, 255, 255, .06)',
                     color: 'var(--ink)',
+                    fontSize: '13px',
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  Email
-                </label>
+              <div style={{ marginBottom: '8px' }}>
                 <input
                   type="email"
                   name="registerEmail"
                   required
+                  placeholder="Email"
                   style={{
                     width: '100%',
-                    padding: '10px',
+                    padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid var(--line)',
                     background: 'rgba(255, 255, 255, .06)',
                     color: 'var(--ink)',
+                    fontSize: '13px',
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px' }}>
-                  Password
-                </label>
-                <PasswordInput name="registerPassword" />
+              <div style={{ marginBottom: '10px' }}>
+                <PasswordInput name="registerPassword" placeholder="Password" />
               </div>
+              {/* Fan submit button */}
               <button
                 type="submit"
+                name="intent"
+                value="fan"
                 disabled={isLoading}
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '11px',
                   background: 'var(--fg)',
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: '14px',
-                  letterSpacing: '.08em',
+                  fontSize: '13px',
+                  letterSpacing: '.07em',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                  marginBottom: '8px',
+                }}
+              >
+                {isLoading ? 'Creating Account...' : 'BECOME A FAN OF THIS SCHOOL — FREE'}
+              </button>
+              {/* SuperFan submit button — registers then goes to Stripe */}
+              <button
+                type="submit"
+                name="intent"
+                value="superfan"
+                disabled={isLoading}
+                onClick={() => sessionStorage.setItem('pending_superfan', '1')}
+                style={{
+                  width: '100%',
+                  padding: '11px',
+                  background: '#FFD700',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '13px',
+                  letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
                   opacity: isLoading ? 0.6 : 1,
                 }}
               >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {isLoading ? 'Setting Up...' : '⭐ BECOME A GLOBAL SUPER FAN — $2.99/mo'}
               </button>
             </form>
           )}
@@ -788,7 +804,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               </table>
             </div>
 
-            {/* YaTi mascot section */}
+            {/* YaTi mascot section — YaTi on left facing right, speech bubble on right */}
             <div style={{
               borderTop: '1px solid var(--line)',
               padding: '16px',
@@ -797,8 +813,19 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               gap: '12px',
               background: 'rgba(255,255,255,.03)',
             }}>
+              {/* YaTi mascot image — left side, facing the bubble */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                <img
+                  src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
+                  alt="YaTi mascot"
+                  style={{ width: '80px', objectFit: 'contain', display: 'block' }}
+                />
+                <p style={{ fontSize: '10px', color: 'var(--muted)', margin: '4px 0 0', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em' }}>Meet YaTi.</p>
+                <p style={{ fontSize: '9px', color: 'var(--muted)', margin: '2px 0 0', lineHeight: '1.3' }}>AI Clubhouse<br/>Assistant</p>
+              </div>
+              {/* Speech bubble — right side */}
               <div style={{ flex: 1 }}>
-                {/* Speech bubble */}
                 <div style={{
                   background: '#fff',
                   color: '#000',
@@ -807,7 +834,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                   fontSize: '12px',
                   lineHeight: '1.5',
                   position: 'relative',
-                  marginBottom: '10px',
                 }}>
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
@@ -828,29 +854,20 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                   >
                     LET&apos;S GO!!
                   </button>
-                  {/* Bubble tail */}
+                  {/* Bubble tail pointing left toward YaTi */}
                   <span style={{
                     position: 'absolute',
-                    bottom: '-8px',
-                    right: '28px',
+                    bottom: '16px',
+                    left: '-8px',
                     width: 0,
                     height: 0,
-                    borderLeft: '8px solid transparent',
-                    borderRight: '8px solid transparent',
-                    borderTop: '8px solid #fff',
+                    borderTop: '8px solid transparent',
+                    borderBottom: '8px solid transparent',
+                    borderRight: '8px solid #fff',
                     display: 'block',
                   }} />
                 </div>
-                <p style={{ fontSize: '10px', color: 'var(--muted)', textAlign: 'center', margin: 0, fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.06em' }}>Meet YaTi.</p>
-                <p style={{ fontSize: '9px', color: 'var(--muted)', textAlign: 'center', margin: '2px 0 0', lineHeight: '1.4' }}>The AI Clubhouse Assistant for YAT?STATS.</p>
               </div>
-              {/* YaTi mascot image */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
-                alt="YaTi mascot"
-                style={{ width: '90px', flexShrink: 0, objectFit: 'contain' }}
-              />
             </div>
           </div>
         </>
