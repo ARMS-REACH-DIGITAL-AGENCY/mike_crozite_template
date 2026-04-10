@@ -2,7 +2,7 @@
  * API Route: POST /api/auth/register
  * Handles user registration:
  *   1. Guard against duplicate email registrations (same email, different firebase uid).
- *   2. Find-or-create ARMS contact (prevents duplicates)
+ *   2. Find-or-create ARMS contact (non-fatal — profile is written even if GHL fails)
  *   3. Persist user profile in PostgreSQL (firebase_uid → home_hsid → arms_contact_id → plan)
  * Called from the client-side Firebase authentication after a user signs up.
  * home_hsid is set from the subdomain at first registration and never overwritten.
@@ -46,12 +46,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Find-or-create ARMS contact (safe against duplicates)
-    const armsContactId = await findOrCreateGhlContact(
-      body.email,
-      body.firstName,
-      body.lastName
-    );
+    // 1. Find-or-create ARMS contact (non-fatal)
+    //    If GHL is down, rate-limited, or misconfigured, we still write the Neon profile.
+    //    The login API will backfill arms_contact_id on the user's next sign-in.
+    let armsContactId: string | null = null;
+    try {
+      armsContactId = await findOrCreateGhlContact(
+        body.email,
+        body.firstName,
+        body.lastName
+      );
+    } catch (ghlErr) {
+      console.error("GHL contact creation failed (non-fatal, will retry on login):", ghlErr);
+    }
 
     // 2. Persist user profile in PostgreSQL
     //    home_hsid is set from the registration subdomain (first registration only;

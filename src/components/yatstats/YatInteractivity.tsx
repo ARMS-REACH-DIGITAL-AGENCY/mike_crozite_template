@@ -1511,6 +1511,14 @@ showSection=function(tabId, updateHash){
     stampFavorites();
     hydrateHomeCrest();
   });
+  /* Hide home crest + MY HOME SCHOOL link immediately on sign-out */
+  window.addEventListener('yat-sign-out',function(){
+    var topbarLink=document.getElementById('topbarHomeCrestLink');
+    if(topbarLink) topbarLink.setAttribute('hidden','');
+    var drawerLink=document.getElementById('drawerHomeSchoolLink');
+    if(drawerLink) drawerLink.style.display='none';
+    stampFavorites();
+  });
 })();
         `,
       }}

@@ -363,7 +363,21 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      try { localStorage.removeItem('yat-plan'); localStorage.removeItem('yat-user'); } catch { /* non-fatal */ }
+      try {
+        // Clear all auth-related localStorage keys so a different user
+        // signing in on the same device/browser gets a clean slate.
+        localStorage.removeItem('yat-plan');
+        localStorage.removeItem('yat-user');
+        // Clear any firstName keys (keyed by uid) — iterate all keys to be thorough
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('yat_firstName_')) keysToRemove.push(k);
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        // Notify YatInteractivity to hide the home crest immediately
+        window.dispatchEvent(new CustomEvent('yat-sign-out'));
+      } catch { /* non-fatal */ }
       setMessage('Signed out successfully');
       setMessageType('success');
     } catch (error) {

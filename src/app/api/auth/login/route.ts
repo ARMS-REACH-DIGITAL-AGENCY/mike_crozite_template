@@ -5,6 +5,11 @@
  *   2. Backfill home_hsid if missing — uses currentHsid (the microsite they're on)
  *   3. Backfill armsContactId if missing (look up by email in ARMS/GHL)
  * Returns the current profile so the client can hydrate greeting, home_hsid, role, etc.
+ *
+ * IMPORTANT: This route MUST return 200 even when the DB is slow or unavailable.
+ * The client writes yat-user to localStorage from this response — a 500 means
+ * homeHsid never gets written, breaking the home crest and favorite gating.
+ * DB errors are logged but return a minimal valid response with currentHsid as homeHsid.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,16 +30,16 @@ interface LoginRequestBody {
 }
 
 export async function POST(request: NextRequest) {
+  const body: LoginRequestBody = await request.json().catch(() => ({} as LoginRequestBody));
+
+  if (!body.uid || !body.email) {
+    return NextResponse.json(
+      { error: "uid and email are required" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const body: LoginRequestBody = await request.json();
-
-    if (!body.uid || !body.email) {
-      return NextResponse.json(
-        { error: "uid and email are required" },
-        { status: 400 }
-      );
-    }
-
     // Load existing profile
     let profile = await getUserProfile(body.uid);
 
@@ -62,13 +67,17 @@ export async function POST(request: NextRequest) {
 
     // Backfill armsContactId if still missing — look up by email in ARMS, do NOT create duplicate
     if (!profile.arms_contact_id) {
-      const armsContactId = await lookupGHLContactByEmail(body.email);
-      if (armsContactId) {
-        profile = await upsertUserProfile(body.uid, {
-          email: body.email,
-          arms_contact_id: armsContactId,
-          arms_location_id: process.env.GHL_LOCATION_ID ?? null,
-        });
+      try {
+        const armsContactId = await lookupGHLContactByEmail(body.email);
+        if (armsContactId) {
+          profile = await upsertUserProfile(body.uid, {
+            email: body.email,
+            arms_contact_id: armsContactId,
+            arms_location_id: process.env.GHL_LOCATION_ID ?? null,
+          });
+        }
+      } catch (ghlErr) {
+        console.error("GHL backfill failed (non-fatal):", ghlErr);
       }
     }
 
@@ -97,14 +106,25 @@ export async function POST(request: NextRequest) {
       role: profile.role,
       subscriptionStatus: profile.subscription_status,
     });
+
   } catch (error) {
-    console.error("Error in login API:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    // DB is unavailable or slow — return a minimal valid response so the client
+    // can still write yat-user to localStorage with at least homeHsid from currentHsid.
+    // This prevents the "no home school" error on the next page load.
+    console.error("Error in login API (returning partial response):", error);
+    return NextResponse.json({
+      success: false,
+      dbError: true,
+      contactId: null,
+      plan: "fan",
+      isSuperfan: false,
+      firstName: body.firstName ?? null,
+      // Fall back to the current microsite hsid so the client has something to work with
+      homeHsid: body.currentHsid ?? null,
+      homeSchoolName: null,
+      homeSchoolLocation: null,
+      role: null,
+      subscriptionStatus: null,
+    });
   }
 }
