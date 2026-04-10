@@ -301,7 +301,21 @@ export default function FunZone({
       <YatiCta ctaText={ctaText} profileHref={profileHref} />
 
       {/*
-        2. Six-icon tab strip
+        2. Active content panel — flex:1 min-height:0
+           Gets all remaining vertical space after CTA strip.
+           No internal scroll; content expands naturally.
+      */}
+      <div className="fz-panel">
+        {activeTab === "schedule" && <SchedulePanel player={player} />}
+        {activeTab === "stats"    && <StatsPanel stats={stats} statBarLabel={statBarLabel} />}
+        {activeTab === "news"     && <NewsPanel player={player} />}
+        {activeTab === "social"   && <SocialPanel player={player} />}
+        {activeTab === "connect"  && <ConnectPanel player={player} />}
+        {activeTab === "upload"   && <UploadPanel player={player} />}
+      </div>
+
+      {/*
+        3. Six-icon tab strip — now at the BOTTOM of Block 5
            flex-shrink:1 — yields padding before content panel does.
       */}
       <nav className="fz-tab-strip" aria-label="FunZone tabs">
@@ -318,20 +332,6 @@ export default function FunZone({
           </button>
         ))}
       </nav>
-
-      {/*
-        3. Active content panel — flex:1 min-height:0
-           Gets all remaining vertical space after CTA + tab strips.
-           No internal scroll; content expands naturally.
-      */}
-      <div className="fz-panel">
-        {activeTab === "schedule" && <SchedulePanel player={player} />}
-        {activeTab === "stats"    && <StatsPanel stats={stats} statBarLabel={statBarLabel} />}
-        {activeTab === "news"     && <NewsPanel player={player} />}
-        {activeTab === "social"   && <SocialPanel player={player} />}
-        {activeTab === "connect"  && <ConnectPanel player={player} />}
-        {activeTab === "upload"   && <UploadPanel player={player} />}
-      </div>
 
       {/* Inline styles scoped to FunZone — no global stylesheet changes */}
       {/* All sizing uses cqi (container query inline-size) units.
@@ -416,7 +416,7 @@ export default function FunZone({
           display:flex;
           justify-content:space-around;
           align-items:stretch;
-          border-bottom:2px solid rgba(30,22,14,0.2);
+          border-top:2px solid rgba(30,22,14,0.2);
           flex-shrink:1;
           background:rgba(30,22,14,0.07);
         }
@@ -430,8 +430,8 @@ export default function FunZone({
           padding:clamp(3px,1.2cqi,7px) 1px clamp(2px,1cqi,5px);
           background:none;
           border:none;
-          border-bottom:2px solid transparent;
-          margin-bottom:-2px;
+          border-top:2px solid transparent;
+          margin-top:-2px;
           color:rgba(30,22,14,0.45);
           cursor:pointer;
           transition:color .15s,border-color .15s;
@@ -450,7 +450,7 @@ export default function FunZone({
         }
         .fz-tab-btn.fz-tab-active{
           color:rgba(30,22,14,0.9);
-          border-bottom-color:rgba(30,22,14,0.8);
+          border-top-color:rgba(30,22,14,0.8);
         }
         .fz-tab-btn:hover:not(.fz-tab-active){color:rgba(30,22,14,0.7)}
 
