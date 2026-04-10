@@ -181,6 +181,75 @@ window.__firebase_config = ${firebaseConfigJSON};
 // resetFiltersForCurrentSection() to apply the correct default sort order.
 var _activeSection = null;
 
+/* ── syncStripToSection ──────────────────────────────────────────────────────
+   Keeps Block 3 (the interactive headshot strip) in sync with whichever
+   section is currently visible in Block 5.
+
+   active / news  → show all strip slots; applyFilters() will hide non-matching
+   alltime        → reorder strip slots to match the all-time card DOM order,
+                    then show them all (mirrors Block 5 all-time sort)
+   everything else → hide all strip slots (empty strip for pages with no cards)
+──────────────────────────────────────────────────────────────────────────── */
+/* Preserve the original server-rendered active sort order so we can restore it
+   when switching back to the active section after visiting all-time. */
+var _stripOriginalOrder = null;
+
+function syncStripToSection(key){
+  var stripInner = document.querySelector('.gallery-strip-inner');
+  if(!stripInner) return;
+
+  var allSlots = Array.from(stripInner.querySelectorAll('.gallery-slot-link[data-playerid]'));
+  if(!allSlots.length) return;
+
+  /* Capture the original server-rendered order on first call */
+  if(!_stripOriginalOrder){
+    _stripOriginalOrder = allSlots.map(function(s){ return s.getAttribute('data-playerid'); });
+  }
+
+  if(key === 'active' || key === 'news'){
+    /* Restore original active-sort order */
+    if(_stripOriginalOrder){
+      var origMap = {};
+      allSlots.forEach(function(s){ origMap[s.getAttribute('data-playerid')] = s; });
+      _stripOriginalOrder.forEach(function(pid){
+        var slot = origMap[pid];
+        if(slot) stripInner.appendChild(slot);
+      });
+    }
+    /* Show all slots; applyFilters() will hide the ones that don't match */
+    allSlots.forEach(function(slot){ slot.style.display = ''; });
+
+  } else if(key === 'alltime'){
+    /* Read the all-time card order from the DOM */
+    var allTimeSection = document.getElementById('sec-alltime');
+    if(!allTimeSection){ allSlots.forEach(function(s){ s.style.display='none'; }); return; }
+    var allTimeCards = Array.from(allTimeSection.querySelectorAll('.yat-card[data-playerid]'));
+    var allTimeOrder = allTimeCards.map(function(c){ return c.getAttribute('data-playerid'); });
+
+    /* Build a map of playerid → slot element */
+    var slotMap = {};
+    allSlots.forEach(function(slot){ slotMap[slot.getAttribute('data-playerid')] = slot; });
+
+    /* Reorder slots in the strip to match the all-time card order */
+    allTimeOrder.forEach(function(pid){
+      var slot = slotMap[pid];
+      if(slot){
+        slot.style.display = '';
+        stripInner.appendChild(slot); /* moves to end, building the new order */
+      }
+    });
+    /* Hide any strip slots whose player is not in the all-time list */
+    allSlots.forEach(function(slot){
+      var pid = slot.getAttribute('data-playerid');
+      if(allTimeOrder.indexOf(pid) === -1) slot.style.display = 'none';
+    });
+
+  } else {
+    /* All other sections (current, fantasy, mentor, partner, about, faq) have no cards */
+    allSlots.forEach(function(slot){ slot.style.display = 'none'; });
+  }
+}
+
 function showSection(tabId, updateHash){
   var key = normalizeTab(tabId);
 
@@ -231,6 +300,8 @@ function showSection(tabId, updateHash){
   history.replaceState(null, '', '#sec-' + key);
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
+  /* Sync the Block 3 interactive strip to match the newly visible section */
+  syncStripToSection(key);
 }
 
 document.addEventListener('click', function(e){
@@ -689,8 +760,14 @@ function applyFilters(){
     ? visibleSection.querySelectorAll('.yat-card[data-name]')
     : document.querySelectorAll('.yat-card[data-name]');
 
-  /* Reset all strip slots to visible before applying active-section filter */
+  /* Reset strip slots before applying section filter */
   if(isActivePage){
+    document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
+      slot.style.display='';
+    });
+  } else if(isAllTimePage){
+    /* For all-time page: strip slots are already reordered by syncStripToSection.
+       Show all of them now; the card-loop below will hide slots for hidden cards. */
     document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
       slot.style.display='';
     });
@@ -715,8 +792,8 @@ function applyFilters(){
 
 
     card.style.display=show?'':'none';
-    /* Sync the Row 3 thumbnail strip slot — only from active section cards */
-    if(isActivePage){
+    /* Sync the Row 3 thumbnail strip slot — active and alltime pages */
+    if(isActivePage || isAllTimePage){
       var pid=card.getAttribute('data-playerid')||'';
       if(pid){
         var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
