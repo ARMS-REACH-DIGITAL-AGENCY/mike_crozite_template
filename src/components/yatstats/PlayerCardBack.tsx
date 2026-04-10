@@ -232,9 +232,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           text-decoration:none;
           overflow:hidden;
           flex-shrink:1;
-          aspect-ratio:20/9;
-          min-height:clamp(80px,38cqi,200px);
-          max-height:clamp(110px,52cqi,280px);
+          aspect-ratio:20/7;
+          min-height:clamp(60px,28cqi,155px);
+          max-height:clamp(85px,40cqi,215px);
           width:100%;
           /* Cardboard colour as bg — shows when image fails */
           background:#c2b9ae;
