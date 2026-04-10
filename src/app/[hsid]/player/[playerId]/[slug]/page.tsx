@@ -707,11 +707,13 @@ export default async function ProfilePage({ params }: Props) {
         .pp-funzone {
           width: 100%;
           background: var(--card-bg, #1a1a1a);
-          padding-bottom: 24px;
         }
 
-        /* Sticky shell — spans full viewport width, sticks below rows 1-4 */
+        /* Tab strip — sticky to the bottom of Block 5, always visible above Block 6 */
         .pp-fz-tabs-shell {
+          position: sticky;
+          bottom: 0;
+          z-index: 50;
           background: var(--card-bg, #1a1a1a);
           border-top: 1px solid var(--line, rgba(255,255,255,.08));
           width: 100%;

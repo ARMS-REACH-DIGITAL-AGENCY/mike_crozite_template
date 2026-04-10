@@ -456,10 +456,12 @@ export default function FunZone({
 
         /* ── Content panel ────────────────────────────────────────────── */
         /* flex:1 min-height:0 — gets all remaining space after CTA + tab strips.
-           NO overflow-y:auto — content expands naturally, page scrolls if needed. */
+           overflow:hidden — clips content to allocated space so it CANNOT push
+           the tab strip down at any card width (3-across or 4-across). */
         .fz-panel{
           flex:1;
           min-height:0;
+          overflow:hidden;
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.5cqi,12px) clamp(5px,2.5cqi,14px);
           background:transparent;
         }
