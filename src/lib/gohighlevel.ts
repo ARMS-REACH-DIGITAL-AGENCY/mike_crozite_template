@@ -201,19 +201,29 @@ export async function lookupGHLContactByEmail(
  * Find an existing GHL contact by email, or create a new one.
  * Prevents duplicate contacts on repeated registration / login.
  * Returns the GHL contact ID or null on failure.
+ *
+ * @param homeHsid  - Numeric school ID (e.g. "9655") — stored as tag "hsid:9655"
+ * @param schoolName - Human-readable school name (e.g. "Basha High School") — stored as tag "school:Basha High School"
  */
 export async function findOrCreateGhlContact(
   email: string,
   firstName?: string,
-  lastName?: string
+  lastName?: string,
+  homeHsid?: string,
+  schoolName?: string
 ): Promise<string | null> {
   // 1. Try to find an existing contact first
   const existingId = await lookupGHLContactByEmail(email);
   if (existingId) return existingId;
 
-  // 2. Create a new contact
+  // 2. Build school-specific tags so ARMS knows which microsite this fan came from
+  const extraTags: string[] = [];
+  if (homeHsid) extraTags.push(`hsid:${homeHsid}`);
+  if (schoolName) extraTags.push(`school:${schoolName}`);
+
+  // 3. Create a new contact
   const result = await createGHLContact(
-    { email, firstName, lastName },
+    { email, firstName, lastName, tags: extraTags },
     "yatstats"
   );
 
