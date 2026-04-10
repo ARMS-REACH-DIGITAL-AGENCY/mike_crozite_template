@@ -1269,6 +1269,8 @@ showSection=function(tabId, updateHash){
      ==================================================================== */
 
   function openAccountDrawer(){
+    /* Close any open drawer first */
+    document.querySelectorAll('.yat-drawer.open').forEach(function(el){ el.classList.remove('open'); });
     var d=document.getElementById('drawerAccount');
     var mask=document.getElementById('drawerMask');
     if(d){ d.classList.add('open'); }
