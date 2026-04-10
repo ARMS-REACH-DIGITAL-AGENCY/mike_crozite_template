@@ -308,10 +308,11 @@ function showSection(tabId, updateHash){
 document.addEventListener('click', function(e){
   var pair = e.target.closest('[data-tab]');
   if(!pair) return;
-
+  /* Ignore clicks on account drawer tabs (JOIN / LOG IN) — they have their own
+     dedicated click handlers and must NOT close the drawer or trigger showSection. */
+  if(pair.closest('#drawerAccount')) return;
   var tab = pair.dataset.tab;
   if(!tab) return;
-
   e.preventDefault();
   showSection(tab, true);
   document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
