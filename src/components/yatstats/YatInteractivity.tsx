@@ -1382,6 +1382,45 @@ showSection=function(tabId, updateHash){
   stampFavorites();
 
   /* ====================================================================
+     HOME SCHOOL CREST HYDRATION
+     Reads homeHsid from the yat-user localStorage entry (written by
+     AccountDrawer after login/register). Populates:
+       - #topbarHomeCrestLink  (Block 1 topbar, left of YAT?STATS logo)
+       - #topbarHomeCrestImg   (the <img> inside the topbar link)
+       - #drawerHomeSchoolLink (nav drawer MY HOME SCHOOL item)
+       - #drawerHomeCrestImg   (the <img> inside the drawer link)
+     Runs on page load (if already logged in) and on yat-auth-success.
+     ==================================================================== */
+  function hydrateHomeCrest(){
+    var raw;
+    try{ raw=localStorage.getItem('yat-user'); }catch(e){ return; }
+    if(!raw) return;
+    var user;
+    try{ user=JSON.parse(raw); }catch(e){ return; }
+    if(!user||!user.uid||!user.homeHsid) return;
+    var homeHsid=user.homeHsid;
+    var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
+    var homeHref='/'+homeHsid;
+    /* Topbar crest */
+    var topbarLink=document.getElementById('topbarHomeCrestLink');
+    var topbarImg=document.getElementById('topbarHomeCrestImg');
+    if(topbarLink&&topbarImg){
+      topbarImg.setAttribute('src',crestUrl);
+      topbarLink.setAttribute('href',homeHref);
+      topbarLink.removeAttribute('hidden');
+    }
+    /* Nav drawer MY HOME SCHOOL link */
+    var drawerLink=document.getElementById('drawerHomeSchoolLink');
+    var drawerImg=document.getElementById('drawerHomeCrestImg');
+    if(drawerLink&&drawerImg){
+      drawerImg.setAttribute('src',crestUrl);
+      drawerLink.setAttribute('href',homeHref);
+      drawerLink.style.display='';
+    }
+  }
+  hydrateHomeCrest();
+
+  /* ====================================================================
      FAVORITES AUTH-GATE + FILTER WIRING
      filterFavsHome  = Home School favorites (Fan or Superfan required)
      filterFavsAll   = All Schools favorites (Superfan only)
@@ -1467,9 +1506,10 @@ showSection=function(tabId, updateHash){
     if(allChk) allChk.checked=false;
   };
 
-  /* Re-stamp on yat-auth-success (fires after login/register + pending fav) */
+  /* Re-stamp + re-hydrate on yat-auth-success (fires after login/register + pending fav) */
   window.addEventListener('yat-auth-success',function(){
     stampFavorites();
+    hydrateHomeCrest();
   });
 })();
         `,

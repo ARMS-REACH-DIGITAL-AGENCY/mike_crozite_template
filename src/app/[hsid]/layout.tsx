@@ -97,8 +97,9 @@ export default async function HsidLayout({
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // Subdomain used for GHL tagging in AccountDrawer
-  const subdomain = hsid || 'unknown';
+  // Subdomain passed to AccountDrawer — MUST be the numeric hsid (e.g. '5004'),
+  // not the name slug (e.g. 'hamilton'), so home_hsid in user_profiles is always numeric.
+  const subdomain = resolvedHsid || hsid || 'unknown';
   // Build school data for the context providerr
     const schoolData = {
     hsid: resolvedHsid,
@@ -229,7 +230,32 @@ export default async function HsidLayout({
           <h3>NAVIGATION</h3>
 
           <div className="yat-drawer-nav">
-            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}`}>WHERE THEY YAT?</a>
+            {/* MY HOME SCHOOL — shown only when logged in; home crest + link back to home microsite */}
+            <a
+              className="yat-drawer-nav-item yat-drawer-home-school"
+              id="drawerHomeSchoolLink"
+              href="#"
+              data-home-nav="true"
+              style={{ display: 'none' }}
+            >
+              <img
+                id="drawerHomeCrestImg"
+                src=""
+                alt="Home school crest"
+                className="yat-drawer-crest-thumb"
+              />
+              <span>MY HOME SCHOOL</span>
+            </a>
+
+            {/* CURRENTLY VISITING — always shown; crest changes with current microsite */}
+            <a className="yat-drawer-nav-item yat-drawer-visiting-school" href={`/${resolvedHsid}`}>
+              <img
+                src={crestUrl}
+                alt={`${schoolName} crest`}
+                className="yat-drawer-crest-thumb"
+              />
+              <span>WHERE THEY YAT?</span>
+            </a>
             <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
             <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL ALL-TIME LIST</a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">2026 HIGH SCHOOL TEAM</a>

@@ -127,6 +127,21 @@ export default function YatStyles() {
         max-width:100%;
       }
 
+      /* Home school crest — shown to the left of the YAT?STATS wordmark when logged in */
+      .yat-topbar-home-crest-link{
+        display:inline-flex;
+        align-items:center;
+        flex-shrink:0;
+        margin-right:6px;
+      }
+      .yat-topbar-home-crest{
+        height:26px;
+        width:26px;
+        object-fit:contain;
+        border-radius:3px;
+        display:block;
+      }
+
       @media(max-width:1200px){.yat-topnav{display:none!important}}
       .yat-hr{border-top:1px solid var(--line)}
 
@@ -573,6 +588,26 @@ export default function YatStyles() {
         border-bottom:1px solid var(--line);
         cursor:pointer;
         color:var(--ink)
+      }
+
+      /* Nav items that include a crest thumbnail (MY HOME SCHOOL, CURRENTLY VISITING) */
+      .yat-drawer-home-school,
+      .yat-drawer-visiting-school{
+        display:flex;
+        align-items:center;
+        gap:10px;
+      }
+      .yat-drawer-crest-thumb{
+        height:28px;
+        width:28px;
+        object-fit:contain;
+        border-radius:3px;
+        flex-shrink:0;
+      }
+      /* MY HOME SCHOOL label is bold to distinguish from visiting */
+      .yat-drawer-home-school span{
+        font-weight:700;
+        letter-spacing:.06em;
       }
 
       .yat-drawer-nav-item:hover{

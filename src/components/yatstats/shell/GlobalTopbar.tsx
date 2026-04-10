@@ -17,14 +17,35 @@ export default function GlobalTopbar() {
       </div>
 
       <div className="yat-wordmark-wrap">
-  <a href="https://yatstats.com" aria-label="Go to YAT?STATS homepage">
-    <img
-      src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-      alt="YAT?STATS"
-      className="yat-wordmark-img"
-    />
-  </a>
-</div>
+        {/*
+          Home school crest — shown to the LEFT of the YAT?STATS logo when the user
+          is logged in and has a home_hsid. Hidden by default (hidden attribute);
+          YatInteractivity.tsx populates src + href and removes the hidden attribute
+          once the user profile is loaded from the session.
+        */}
+        <a
+          id="topbarHomeCrestLink"
+          href="#"
+          aria-label="Go to my home school"
+          className="yat-topbar-home-crest-link"
+          hidden
+        >
+          <img
+            id="topbarHomeCrestImg"
+            src=""
+            alt="My home school"
+            className="yat-topbar-home-crest"
+          />
+        </a>
+
+        <a href="https://yatstats.com" aria-label="Go to YAT?STATS homepage">
+          <img
+            src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+            alt="YAT?STATS"
+            className="yat-wordmark-img"
+          />
+        </a>
+      </div>
 
       <div className="yat-topbar-right" />
     </div>
