@@ -207,7 +207,10 @@ function syncStripToSection(key){
   }
 
   if(key === 'active' || key === 'news'){
-    /* Restore original active-sort order */
+    /* Restore original active-sort order — reorder only, do NOT touch display.
+       applyFilters() (called by resetFiltersForCurrentSection inside showSection)
+       is responsible for hiding retired/non-matching slots. Calling show here
+       would undo the ACTIVE filter that applyFilters already applied. */
     if(_stripOriginalOrder){
       var origMap = {};
       allSlots.forEach(function(s){ origMap[s.getAttribute('data-playerid')] = s; });
@@ -216,8 +219,6 @@ function syncStripToSection(key){
         if(slot) stripInner.appendChild(slot);
       });
     }
-    /* Show all slots; applyFilters() will hide the ones that don't match */
-    allSlots.forEach(function(slot){ slot.style.display = ''; });
 
   } else if(key === 'alltime'){
     /* Read the all-time card order from the DOM */
