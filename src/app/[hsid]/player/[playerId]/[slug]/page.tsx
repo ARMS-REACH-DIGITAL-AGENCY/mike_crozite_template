@@ -376,35 +376,6 @@ export default async function ProfilePage({ params }: Props) {
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
           ═══════════════════════════════════════════════════════════════════════ */}
         <section className="pp-funzone" id="playerFunZone">
-        {/* Sticky tab strip shell — spans full viewport width, constrains tabs inside */}
-        <div className="pp-fz-tabs-shell">
-          <nav className="pp-fz-tabs" aria-label="Player profile tabs">
-            <a href="#ppTab-schedule" className="pp-fz-tab">
-              <i className="ri-calendar-line" aria-hidden="true" />
-              <span>Schedule</span>
-            </a>
-            <a href="#ppTab-stats" className="pp-fz-tab pp-fz-tab-default">
-              <i className="ri-bar-chart-2-line" aria-hidden="true" />
-              <span>Stats</span>
-            </a>
-            <a href="#ppTab-news" className="pp-fz-tab">
-              <i className="ri-newspaper-line" aria-hidden="true" />
-              <span>News</span>
-            </a>
-            <a href="#ppTab-social" className="pp-fz-tab">
-              <i className="ri-share-line" aria-hidden="true" />
-              <span>Social</span>
-            </a>
-            <a href="#ppTab-connect" className="pp-fz-tab">
-              <i className="ri-group-line" aria-hidden="true" />
-              <span>Connect</span>
-            </a>
-            <a href="#ppTab-upload" className="pp-fz-tab">
-              <i className="ri-upload-cloud-line" aria-hidden="true" />
-              <span>Upload</span>
-            </a>
-          </nav>
-        </div>
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
@@ -654,6 +625,36 @@ export default async function ProfilePage({ params }: Props) {
           </div>
         </div>
 
+        {/* Sticky tab strip shell — now at the BOTTOM of Block 5, above Block 6 */}
+        <div className="pp-fz-tabs-shell">
+          <nav className="pp-fz-tabs" aria-label="Player profile tabs">
+            <a href="#ppTab-schedule" className="pp-fz-tab">
+              <i className="ri-calendar-line" aria-hidden="true" />
+              <span>Schedule</span>
+            </a>
+            <a href="#ppTab-stats" className="pp-fz-tab pp-fz-tab-default">
+              <i className="ri-bar-chart-2-line" aria-hidden="true" />
+              <span>Stats</span>
+            </a>
+            <a href="#ppTab-news" className="pp-fz-tab">
+              <i className="ri-newspaper-line" aria-hidden="true" />
+              <span>News</span>
+            </a>
+            <a href="#ppTab-social" className="pp-fz-tab">
+              <i className="ri-share-line" aria-hidden="true" />
+              <span>Social</span>
+            </a>
+            <a href="#ppTab-connect" className="pp-fz-tab">
+              <i className="ri-group-line" aria-hidden="true" />
+              <span>Connect</span>
+            </a>
+            <a href="#ppTab-upload" className="pp-fz-tab">
+              <i className="ri-upload-cloud-line" aria-hidden="true" />
+              <span>Upload</span>
+            </a>
+          </nav>
+        </div>
+
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════════
@@ -711,11 +712,8 @@ export default async function ProfilePage({ params }: Props) {
 
         /* Sticky shell — spans full viewport width, sticks below rows 1-4 */
         .pp-fz-tabs-shell {
-          position: sticky;
-          top: calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + var(--row4-h));
-          z-index: 50;
           background: var(--card-bg, #1a1a1a);
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
+          border-top: 1px solid var(--line, rgba(255,255,255,.08));
           width: 100%;
         }
 
@@ -744,18 +742,18 @@ export default async function ProfilePage({ params }: Props) {
           text-transform: uppercase;
           color: var(--muted, #888);
           text-decoration: none;
-          border-bottom: 2px solid transparent;
+          border-top: 2px solid transparent;
           transition: color .15s, border-color .15s;
         }
         .pp-fz-tab i { font-size: 16px; }
         .pp-fz-tab:hover {
           color: var(--fg, #f0f0f0);
-          border-bottom-color: var(--accent, #c8a96e);
+          border-top-color: var(--accent, #c8a96e);
         }
         /* Default active tab (Stats) — shown when no hash is targeted */
         .pp-fz-tab-default {
           color: var(--fg, #f0f0f0);
-          border-bottom-color: var(--accent, #c8a96e);
+          border-top-color: var(--accent, #c8a96e);
         }
         /* When any non-stats tab is targeted, remove active style from default STATS tab */
         body:has(#ppTab-schedule:target) .pp-fz-tab-default,
@@ -764,7 +762,7 @@ export default async function ProfilePage({ params }: Props) {
         body:has(#ppTab-connect:target) .pp-fz-tab-default,
         body:has(#ppTab-upload:target) .pp-fz-tab-default {
           color: var(--muted, #888);
-          border-bottom-color: transparent;
+          border-top-color: transparent;
         }
         /* Active indicator follows the :target tab */
         body:has(#ppTab-schedule:target) a[href="#ppTab-schedule"],
@@ -774,7 +772,7 @@ export default async function ProfilePage({ params }: Props) {
         body:has(#ppTab-connect:target) a[href="#ppTab-connect"],
         body:has(#ppTab-upload:target) a[href="#ppTab-upload"] {
           color: var(--fg, #f0f0f0);
-          border-bottom-color: var(--accent, #c8a96e);
+          border-top-color: var(--accent, #c8a96e);
         }
 
         /* Tab panels — all hidden by default; :target shows the targeted one */
