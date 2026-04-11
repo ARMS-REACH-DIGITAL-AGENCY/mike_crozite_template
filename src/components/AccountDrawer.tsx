@@ -193,13 +193,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               contactId: loginData.contactId,
               email,
               firstName: loginData.firstName ?? null,
-            homeHsid: loginData?.homeHsid ?? null,
-            homeMicrositeUrl: buildMicrositeUrl(
-              loginData?.homeHsid ?? null,
-              loginData?.homeSchoolName ?? null,
-              loginData?.homeSchoolLocation ?? null
-            ),
-            role: loginData?.role ?? 'fan',
+            homeHsid: loginData.homeHsid ?? null,
+              role: loginData.role ?? 'fan',
             }));
           } catch { /* non-fatal */ }
         }
@@ -283,13 +278,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
             contactId: regData.contactId,
             email,
             firstName: firstName || null,
-           homeHsid: regData?.homeHsid ?? null,
-           homeMicrositeUrl: buildMicrositeUrl(
-             regData?.homeHsid ?? null,
-             regData?.homeSchoolName ?? null,
-             regData?.homeSchoolLocation ?? null
-           ),
-           role: 'fan',
+             homeHsid: regData.homeHsid ?? null,
+            role: 'fan',
           }));
         } catch {
           // non-fatal
