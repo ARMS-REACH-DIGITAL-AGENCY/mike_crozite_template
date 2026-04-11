@@ -1420,32 +1420,41 @@ showSection=function(tabId, updateHash){
      Runs on page load (if already logged in) and on yat-auth-success.
      ==================================================================== */
   function hydrateHomeCrest(){
-    var raw;
-    try{ raw=localStorage.getItem('yat-user'); }catch(e){ return; }
-    if(!raw) return;
-    var user;
-    try{ user=JSON.parse(raw); }catch(e){ return; }
-    if(!user||!user.uid||!user.homeHsid) return;
-    var homeHsid=user.homeHsid;
-    var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
-    var homeHref='/'+homeHsid;
-    /* Topbar crest */
-    var topbarLink=document.getElementById('topbarHomeCrestLink');
-    var topbarImg=document.getElementById('topbarHomeCrestImg');
-    if(topbarLink&&topbarImg){
-      topbarImg.setAttribute('src',crestUrl);
-      topbarLink.setAttribute('href',homeHref);
-      topbarLink.removeAttribute('hidden');
-    }
-    /* Nav drawer MY HOME SCHOOL link */
-    var drawerLink=document.getElementById('drawerHomeSchoolLink');
-    var drawerImg=document.getElementById('drawerHomeCrestImg');
-    if(drawerLink&&drawerImg){
-      drawerImg.setAttribute('src',crestUrl);
-      drawerLink.setAttribute('href',homeHref);
-      drawerLink.style.display='';
-    }
+  var raw;
+  try{ raw=localStorage.getItem('yat-user'); }catch(e){ return; }
+  if(!raw) return;
+
+  var user;
+  try{ user=JSON.parse(raw); }catch(e){ return; }
+  if(!user||!user.uid||!user.homeHsid) return;
+
+  var homeHsid=user.homeHsid;
+  var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
+
+  // Use canonical microsite URL if we have it.
+  // Fallback keeps current behavior only if the URL was never stored.
+  var homeHref=user.homeMicrositeUrl || ('/' + homeHsid);
+
+  /* Topbar crest */
+  var topbarLink=document.getElementById('topbarHomeCrestLink');
+  var topbarImg=document.getElementById('topbarHomeCrestImg');
+  if(topbarLink&&topbarImg){
+    topbarImg.setAttribute('src',crestUrl);
+    topbarImg.onerror=function(){ topbarImg.onerror=null; topbarImg.src='${CREST_FALLBACK_PATH}'; };
+    topbarLink.setAttribute('href',homeHref);
+    topbarLink.removeAttribute('hidden');
   }
+
+  /* Nav drawer MY HOME SCHOOL link */
+  var drawerLink=document.getElementById('drawerHomeSchoolLink');
+  var drawerImg=document.getElementById('drawerHomeCrestImg');
+  if(drawerLink&&drawerImg){
+    drawerImg.setAttribute('src',crestUrl);
+    drawerImg.onerror=function(){ drawerImg.onerror=null; drawerImg.src='${CREST_FALLBACK_PATH}'; };
+    drawerLink.setAttribute('href',homeHref);
+    drawerLink.style.display='';
+  }
+}
   hydrateHomeCrest();
 
   /* ====================================================================
