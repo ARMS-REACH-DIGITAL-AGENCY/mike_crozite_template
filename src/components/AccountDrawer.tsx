@@ -104,20 +104,78 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         // Try to get display name from Firebase profile or localStorage
         const storedName = localStorage.getItem(`yat_firstName_${currentUser.uid}`);
         setDisplayName(currentUser.displayName || storedName || '');
-        // Restore SuperFan status from localStorage so it survives page reloads.
-        // yat-plan is written during the login flow; reading it here means already-
-        // authenticated users see the correct SuperFan UI without signing in again.
-        try {
-          const storedPlan = localStorage.getItem('yat-plan');
-          setIsSuperfan(storedPlan === 'superfan');
-        } catch { /* non-fatal */ }
-      } else {
-        setDisplayName('');
-        setIsSuperfan(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+        // Listen to Firebase auth state and rehydrate profile on every microsite/subdomain
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    setUser(currentUser);
+
+    if (!currentUser) {
+      setDisplayName('');
+      setIsSuperfan(false);
+      try {
+        localStorage.removeItem('yat-plan');
+        localStorage.removeItem('yat-user');
+      } catch {}
+      return;
+    }
+
+    const uid = currentUser.uid;
+    const email = currentUser.email || '';
+
+    // Try to show something immediately
+    try {
+      const storedName = localStorage.getItem(`yat_firstName_${uid}`);
+      setDisplayName(currentUser.displayName || storedName || '');
+      const storedPlan = localStorage.getItem('yat-plan');
+      setIsSuperfan(storedPlan === 'superfan');
+    } catch {}
+
+    // IMPORTANT:
+    // Rehydrate on THIS subdomain so switching microsites does not look like a logout.
+    try {
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid,
+          email,
+          currentHsid: subdomain,
+        }),
+      });
+
+      const loginData = await loginRes.json();
+
+      const firstName =
+        loginData?.firstName ||
+        currentUser.displayName ||
+        localStorage.getItem(`yat_firstName_${uid}`) ||
+        '';
+
+      setDisplayName(firstName);
+      setIsSuperfan(loginData?.isSuperfan || loginData?.plan === 'superfan');
+
+      try {
+        localStorage.setItem(`yat_firstName_${uid}`, firstName);
+        localStorage.setItem(
+          'yat-user',
+          JSON.stringify({
+            uid,
+            contactId: loginData?.contactId ?? null,
+            email,
+            firstName: firstName || null,
+            homeHsid: loginData?.homeHsid ?? subdomain ?? null,
+            role: loginData?.role ?? 'fan',
+          })
+        );
+        localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
+      } catch {}
+    } catch (err) {
+      console.error('Auth rehydrate failed:', err);
+    }
+  });
+
+  return () => unsubscribe();
+}, [subdomain]);
 
   /** Execute a pending favorite intent stored in sessionStorage, if any. */
   const resumePendingFavorite = async (firebaseUid: string, contactId?: string | null) => {
@@ -237,8 +295,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
             `Your Fan account is registered to ${homeLabel}. Redirecting you to your home microsite…`
           );
           setMessageType('info');
-          setTimeout(() => {
-            window.location.href = `/${canonicalHome}`;
+         setTimeout(() => {
+            window.location.href = '/';
           }, 2500);
           return; // stop here — redirect will handle the rest
         }
