@@ -609,7 +609,7 @@ if(mask){
     el.className='yat-gs-result yat-gs-player';
     el.setAttribute('role','option');
     el.setAttribute('tabindex','0');
-    var schoolId = p.schoolId || '';
+   var schoolId = p.schoolId || '';
 var playerId = p.playerId || '';
 var slug = p.slug || 'player';
 
@@ -623,21 +623,23 @@ function slugifySchoolName(name) {
 }
 
 function normalizeState(state) {
-  return String(state || '').toLowerCase().trim();
+  return String(state || '')
+    .toLowerCase()
+    .trim();
 }
 
 var schoolSlug = slugifySchoolName(p.schoolName || '');
 var stateSlug = normalizeState(p.state || '');
 
-var micrositeBase =
-  schoolSlug && stateSlug
-    ? `https://${schoolSlug}.${stateSlug}.yatstats.com`
-    : window.location.origin;
+var micrositeBase = window.location.origin;
+if (schoolSlug && stateSlug) {
+  micrositeBase = 'https://' + schoolSlug + '.' + stateSlug + '.yatstats.com';
+}
 
-var href =
-  schoolId && playerId
-    ? `${micrositeBase}/${schoolId}/player/${playerId}/${slug}`
-    : '';
+var href = '';
+if (schoolId && playerId) {
+  href = micrositeBase + '/' + schoolId + '/player/' + playerId + '/' + slug;
+}
 
 if (href) {
   el.setAttribute('href', href);
