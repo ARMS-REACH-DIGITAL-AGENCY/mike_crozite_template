@@ -609,13 +609,39 @@ if(mask){
     el.className='yat-gs-result yat-gs-player';
     el.setAttribute('role','option');
     el.setAttribute('tabindex','0');
-    var schoolId=p.schoolId||'';
-    var playerId=p.playerId||'';
-    var slug=p.slug||'player';
-    var href=schoolId&&playerId?(\`/\${schoolId}/player/\${playerId}/\${slug}\`):'';
-    if(href){
-      el.setAttribute('href',href);
-    }
+    var schoolId = p.schoolId || '';
+var playerId = p.playerId || '';
+var slug = p.slug || 'player';
+
+function slugifySchoolName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeState(state) {
+  return String(state || '').toLowerCase().trim();
+}
+
+var schoolSlug = slugifySchoolName(p.schoolName || '');
+var stateSlug = normalizeState(p.state || '');
+
+var micrositeBase =
+  schoolSlug && stateSlug
+    ? `https://${schoolSlug}.${stateSlug}.yatstats.com`
+    : window.location.origin;
+
+var href =
+  schoolId && playerId
+    ? `${micrositeBase}/${schoolId}/player/${playerId}/${slug}`
+    : '';
+
+if (href) {
+  el.setAttribute('href', href);
+}
     var topDiv=document.createElement('div');
     topDiv.className='yat-gs-result-top';
     var crestImg=document.createElement('img');
