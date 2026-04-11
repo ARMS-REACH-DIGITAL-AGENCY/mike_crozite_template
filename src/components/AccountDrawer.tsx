@@ -122,7 +122,7 @@ useEffect(() => {
     const uid = currentUser.uid;
     const email = currentUser.email || '';
 
-    // Try to show something immediately
+    // Show cached values immediately if present
     try {
       const storedName = localStorage.getItem(`yat_firstName_${uid}`);
       setDisplayName(currentUser.displayName || storedName || '');
@@ -130,8 +130,7 @@ useEffect(() => {
       setIsSuperfan(storedPlan === 'superfan');
     } catch {}
 
-    // IMPORTANT:
-    // Rehydrate on THIS subdomain so switching microsites does not look like a logout.
+    // Rehydrate on THIS subdomain so switching microsites does not look like a logout
     try {
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
