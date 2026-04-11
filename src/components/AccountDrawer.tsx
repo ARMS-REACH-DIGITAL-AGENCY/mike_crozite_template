@@ -69,7 +69,36 @@ function PasswordInput({
     </div>
   );
 }
+function buildMicrositeUrl(
+  homeHsid?: string | null,
+  homeSchoolName?: string | null,
+  homeSchoolLocation?: string | null
+) {
+  if (!homeHsid) return null;
 
+  const slugifySchoolName = (name: string) =>
+    String(name || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+  const normalizeState = (state: string) =>
+    String(state || '').toLowerCase().trim();
+
+  const schoolSlug = slugifySchoolName(homeSchoolName || '');
+  const statePart = String(homeSchoolLocation || '').split(',')[1] || '';
+  const stateSlug = normalizeState(statePart);
+
+  if (schoolSlug && stateSlug) {
+    return `https://${schoolSlug}.${stateSlug}.yatstats.com/${homeHsid}`;
+  }
+
+  return `/${homeHsid}`;
+}
+
+export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
