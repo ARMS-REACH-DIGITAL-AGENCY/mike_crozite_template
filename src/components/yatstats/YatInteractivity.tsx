@@ -1353,37 +1353,135 @@ if(searchInput&&liveResults){
   }
   stampFavorites();
 
-  function hydrateHomeCrest(){
-    var raw;
-    try{raw=localStorage.getItem('yat-user');}catch(e){return;}
-    if(!raw)return;
+  async function hydrateHomeCrest(){
+  var raw;
+  try{raw=localStorage.getItem('yat-user');}catch(e){return;}
+  if(!raw)return;
 
-    var user;
-    try{user=JSON.parse(raw);}catch(e){return;}
-    if(!user||!user.uid||!user.homeHsid)return;
+  var user;
+  try{user=JSON.parse(raw);}catch(e){return;}
+  if(!user||!user.homeHsid)return;
 
-    var homeHsid=user.homeHsid;
-    var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
-    var homeHref=user.homeMicrositeUrl||('/'+homeHsid);
+  var homeHsid=user.homeHsid;
+  var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
+
+  function slugifySchoolName(name){
+    return String(name||'')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g,' and ')
+      .replace(/[^a-z0-9]+/g,'-')
+      .replace(/^-+|-+$/g,'');
+  }
+
+  function normalizeState(state){
+    return String(state||'').toLowerCase().trim();
+  }
+
+  function buildAbsoluteMicrositeUrl(hsid, schoolName, schoolLocation){
+    if(!hsid)return '';
+
+    var schoolSlug=slugifySchoolName(schoolName||'');
+    var statePart=String(schoolLocation||'').split(',')[1]||'';
+    var stateSlug=normalizeState(statePart);
+
+    if(schoolSlug&&stateSlug){
+      return 'https://'+schoolSlug+'.'+stateSlug+'.yatstats.com/'+hsid;
+    }
+
+    return '';
+  }
+
+  function applyHomeLinks(homeHref){
+    if(!homeHref)return;
 
     var topbarLink=document.getElementById('topbarHomeCrestLink');
     var topbarImg=document.getElementById('topbarHomeCrestImg');
-    if(topbarLink&&topbarImg){
-      topbarImg.setAttribute('src',crestUrl);
-      topbarImg.onerror=function(){topbarImg.onerror=null;topbarImg.src='${CREST_FALLBACK_PATH}';};
+
+    if(topbarLink){
       topbarLink.setAttribute('href',homeHref);
       topbarLink.removeAttribute('hidden');
+      topbarLink.style.display='';
+      topbarLink.onclick=function(e){
+        e.preventDefault();
+        window.location.assign(homeHref);
+      };
+    }
+
+    if(topbarImg){
+      topbarImg.setAttribute('src',crestUrl);
+      topbarImg.onerror=function(){topbarImg.onerror=null;topbarImg.src='${CREST_FALLBACK_PATH}';};
+      topbarImg.onclick=function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign(homeHref);
+      };
     }
 
     var drawerLink=document.getElementById('drawerHomeSchoolLink');
     var drawerImg=document.getElementById('drawerHomeCrestImg');
-    if(drawerLink&&drawerImg){
-      drawerImg.setAttribute('src',crestUrl);
-      drawerImg.onerror=function(){drawerImg.onerror=null;drawerImg.src='${CREST_FALLBACK_PATH}';};
+
+    if(drawerLink){
       drawerLink.setAttribute('href',homeHref);
       drawerLink.style.display='';
+      drawerLink.onclick=function(e){
+        e.preventDefault();
+        window.location.assign(homeHref);
+      };
     }
+
+    if(drawerImg){
+      drawerImg.setAttribute('src',crestUrl);
+      drawerImg.onerror=function(){drawerImg.onerror=null;drawerImg.src='${CREST_FALLBACK_PATH}';};
+      drawerImg.onclick=function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign(homeHref);
+      };
+    }
+
+    try{
+      user.homeMicrositeUrl=homeHref;
+      localStorage.setItem('yat-user',JSON.stringify(user));
+    }catch(e){}
   }
+
+  var homeHref=user.homeMicrositeUrl||'';
+
+  if(!homeHref){
+    homeHref=buildAbsoluteMicrositeUrl(
+      homeHsid,
+      user.homeSchoolName||'',
+      user.homeSchoolLocation||''
+    );
+  }
+
+  if(!homeHref){
+    try{
+      var res=await fetch('/api/auth/session', {
+        method:'GET',
+        credentials:'include',
+        cache:'no-store'
+      });
+      var data=await res.json();
+
+      var s=data&&data.session?data.session:null;
+      if(s&&String(s.homeHsid||'')===String(homeHsid)){
+        if(!user.homeSchoolName&&s.homeSchoolName)user.homeSchoolName=s.homeSchoolName;
+        if(!user.homeSchoolLocation&&s.homeSchoolLocation)user.homeSchoolLocation=s.homeSchoolLocation;
+
+        homeHref=buildAbsoluteMicrositeUrl(
+          homeHsid,
+          user.homeSchoolName||'',
+          user.homeSchoolLocation||''
+        );
+      }
+    }catch(e){}
+  }
+
+  if(!homeHref)return;
+  applyHomeLinks(homeHref);
+}
   hydrateHomeCrest();
 
   function openAccountDrawer(){
