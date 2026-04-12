@@ -1446,15 +1446,15 @@ if(searchInput&&liveResults){
     }catch(e){}
   }
 
-  var homeHref=user.homeMicrositeUrl||'';
+  var homeHref=buildAbsoluteMicrositeUrl(
+  homeHsid,
+  user.homeSchoolName||'',
+  user.homeSchoolLocation||''
+);
 
-  if(!homeHref){
-    homeHref=buildAbsoluteMicrositeUrl(
-      homeHsid,
-      user.homeSchoolName||'',
-      user.homeSchoolLocation||''
-    );
-  }
+if(!homeHref && user.homeMicrositeUrl){
+  homeHref=user.homeMicrositeUrl;
+}
 
   if(!homeHref){
     try{
