@@ -1,4 +1,3 @@
-// src/components/AccountDrawer.tsx
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
@@ -15,6 +14,20 @@ import type { User } from 'firebase/auth';
 interface AccountDrawerProps {
   subdomain: string;
 }
+
+type SessionUser = {
+  uid: string;
+  email: string;
+  contactId?: string | null;
+  firstName?: string | null;
+  homeHsid?: string | null;
+  homeSchoolName?: string | null;
+  homeSchoolLocation?: string | null;
+  homeMicrositeUrl?: string | null;
+  role?: string | null;
+  plan?: string | null;
+  isSuperfan?: boolean;
+};
 
 function PasswordInput({
   name,
@@ -106,7 +119,8 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
     info: 'var(--muted)',
   };
 
-  const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('info');
@@ -116,6 +130,10 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
   const [favConfirm, setFavConfirm] = useState('');
   const [superfanLaunching, setSuperfanLaunching] = useState(false);
   const [isSuperfan, setIsSuperfan] = useState(false);
+
+  const effectiveEmail = firebaseUser?.email || sessionUser?.email || '';
+  const effectiveUid = firebaseUser?.uid || sessionUser?.uid || '';
+  const isAuthenticated = Boolean(firebaseUser || sessionUser);
 
   const persistLocalUser = ({
     uid,
@@ -140,6 +158,20 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
   }) => {
     const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
 
+    const nextSessionUser: SessionUser = {
+      uid,
+      email,
+      contactId: contactId ?? null,
+      firstName: firstName ?? null,
+      homeHsid: homeHsid ?? null,
+      homeSchoolName: homeSchoolName ?? null,
+      homeSchoolLocation: homeSchoolLocation ?? null,
+      homeMicrositeUrl,
+      role: role ?? 'fan',
+      plan: plan ?? 'fan',
+      isSuperfan: (plan ?? 'fan') === 'superfan',
+    };
+
     try {
       if (firstName) {
         localStorage.setItem(`yat_firstName_${uid}`, firstName);
@@ -162,6 +194,8 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
 
       localStorage.setItem('yat-plan', plan ?? 'fan');
     } catch {}
+
+    setSessionUser(nextSessionUser);
 
     window.dispatchEvent(
       new CustomEvent('yat-auth-success', {
@@ -190,18 +224,96 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const restoreFromServerSession = async () => {
+      try {
+        const res = await fetch('/api/auth/session', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        if (data?.authenticated && data?.session?.uid) {
+          const s = data.session as SessionUser;
+
+          setSessionUser({
+            uid: s.uid,
+            email: s.email,
+            contactId: s.contactId ?? null,
+            firstName: s.firstName ?? null,
+            homeHsid: s.homeHsid ?? null,
+            homeSchoolName: s.homeSchoolName ?? null,
+            homeSchoolLocation: s.homeSchoolLocation ?? null,
+            homeMicrositeUrl:
+              s.homeMicrositeUrl ??
+              buildMicrositeUrl(s.homeHsid, s.homeSchoolName, s.homeSchoolLocation),
+            role: s.role ?? 'fan',
+            plan: s.plan ?? 'fan',
+            isSuperfan: s.isSuperfan ?? s.plan === 'superfan',
+          });
+
+          setDisplayName(s.firstName || '');
+          setIsSuperfan(Boolean(s.isSuperfan || s.plan === 'superfan'));
+
+          try {
+            localStorage.setItem(
+              'yat-user',
+              JSON.stringify({
+                uid: s.uid,
+                contactId: s.contactId ?? null,
+                email: s.email,
+                firstName: s.firstName ?? null,
+                homeHsid: s.homeHsid ?? null,
+                homeSchoolName: s.homeSchoolName ?? null,
+                homeSchoolLocation: s.homeSchoolLocation ?? null,
+                homeMicrositeUrl:
+                  s.homeMicrositeUrl ??
+                  buildMicrositeUrl(s.homeHsid, s.homeSchoolName, s.homeSchoolLocation),
+                role: s.role ?? 'fan',
+              })
+            );
+            localStorage.setItem('yat-plan', s.plan ?? 'fan');
+            if (s.firstName) {
+              localStorage.setItem(`yat_firstName_${s.uid}`, s.firstName);
+            }
+          } catch {}
+
+          window.dispatchEvent(
+            new CustomEvent('yat-auth-success', {
+              detail: {
+                uid: s.uid,
+                contactId: s.contactId ?? null,
+                homeHsid: s.homeHsid ?? null,
+                homeSchoolName: s.homeSchoolName ?? null,
+                homeSchoolLocation: s.homeSchoolLocation ?? null,
+                homeMicrositeUrl:
+                  s.homeMicrositeUrl ??
+                  buildMicrositeUrl(s.homeHsid, s.homeSchoolName, s.homeSchoolLocation),
+                role: s.role ?? 'fan',
+                plan: s.plan ?? 'fan',
+              },
+            })
+          );
+        } else {
+          setSessionUser(null);
+        }
+      } catch {
+        setSessionUser(null);
+      }
+    };
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+      if (cancelled) return;
+
+      setFirebaseUser(currentUser);
 
       if (!currentUser) {
-        setDisplayName('');
-        setIsSuperfan(false);
-
-        try {
-          localStorage.removeItem('yat-plan');
-          localStorage.removeItem('yat-user');
-        } catch {}
-
+        await restoreFromServerSession();
         return;
       }
 
@@ -258,7 +370,10 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [subdomain]);
 
   const resumePendingFavorite = async (firebaseUid: string, contactId?: string | null) => {
@@ -508,7 +623,19 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch {}
+
+      try {
+        await signOut(auth);
+      } catch {}
+
+      setFirebaseUser(null);
+      setSessionUser(null);
 
       try {
         localStorage.removeItem('yat-plan');
@@ -565,7 +692,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
 
   return (
     <div className="yat-drawer-content">
-      {user && !user.isAnonymous ? (
+      {isAuthenticated ? (
         <div style={{ padding: '20px' }}>
           {superfanLaunching && (
             <div
@@ -629,7 +756,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
               <button
                 type="button"
                 disabled={superfanLaunching}
-                onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
+                onClick={() => effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)}
                 style={{
                   display: 'inline-block',
                   padding: '8px 14px',
@@ -686,13 +813,13 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
             >
               Hi, {displayName || 'Fan'}!
             </p>
-            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</p>
+            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
           </div>
 
           {!isSuperfan && !superfanLaunching && (
             <button
               type="button"
-              onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
+              onClick={() => effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)}
               style={{
                 width: '100%',
                 padding: '12px',
