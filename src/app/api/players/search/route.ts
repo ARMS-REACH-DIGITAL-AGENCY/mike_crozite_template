@@ -17,12 +17,41 @@ function buildCorsHeaders(req: NextRequest) {
   };
 }
 
+function slugifySchoolName(name: string) {
+  return String(name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeState(state: string) {
+  return String(state || "").toLowerCase().trim();
+}
+
+function buildMicrositeUrl(hsid?: string, hsname?: string, hslocation?: string) {
+  if (!hsid) return "";
+
+  const schoolSlug = slugifySchoolName(hsname || "");
+  const locParts = String(hslocation || "").split(",");
+  const statePart = (locParts.slice(1).join(",") || "").trim();
+  const stateSlug = normalizeState(statePart);
+
+  if (schoolSlug && stateSlug) {
+    return `https://${schoolSlug}.${stateSlug}.yatstats.com/${hsid}`;
+  }
+
+  return `/${hsid}`;
+}
+
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: buildCorsHeaders(req) });
 }
 
 export async function GET(req: NextRequest) {
   const cors = buildCorsHeaders(req);
+
   try {
     const { searchParams } = new URL(req.url);
     const qRaw = (searchParams.get("q") || "").trim();
@@ -32,10 +61,14 @@ export async function GET(req: NextRequest) {
     );
 
     if (!qRaw) {
-      return NextResponse.json({ players: [] }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
+      return NextResponse.json(
+        { players: [] },
+        { status: 200, headers: { ...cors, "Cache-Control": "no-store" } }
+      );
     }
 
     const pattern = `%${qRaw}%`;
+
     const sql = `
       SELECT DISTINCT ON (tp.playerid)
         tp.playerid::text AS playerid,
@@ -54,22 +87,28 @@ export async function GET(req: NextRequest) {
       ORDER BY tp.playerid, tp.lastname, tp.firstname
       LIMIT $2
     `;
+
     const { rows } = await query(sql, [pattern, limit]);
+
     const players = rows.map((r: any) => {
-      // hslocation is expected to be "City, State"; everything after the first comma is treated as state/region and kept as-is.
       const locParts = String(r.hslocation || "").split(",");
       const city = (locParts[0] || "").trim();
       const state = (locParts.slice(1).join(",") || "").trim();
+      const schoolId = r.hsid ?? "";
+      const schoolName = r.hsname ?? "";
+      const micrositeUrl = buildMicrositeUrl(schoolId, schoolName, r.hslocation ?? "");
+
       return {
         playerId: r.playerid ?? "",
         firstName: r.firstname ?? "",
         lastName: r.lastname ?? "",
-        schoolId: r.hsid ?? "",
-        schoolName: r.hsname ?? "",
+        schoolId,
+        schoolName,
         city,
         state,
         slug: toPlayerSlug(r.firstname, r.lastname),
         crestUrl: getSchoolCrestUrl(r.hsid),
+        micrositeUrl,
       };
     });
 
