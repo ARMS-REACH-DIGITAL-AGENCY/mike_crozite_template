@@ -10,7 +10,10 @@ interface YatInteractivityProps {
   firebaseConfigJSON: string;
 }
 
-export default function YatInteractivity({ resolvedHsid, firebaseConfigJSON }: YatInteractivityProps) {
+export default function YatInteractivity({
+  resolvedHsid,
+  firebaseConfigJSON,
+}: YatInteractivityProps) {
   return (
     <script
       dangerouslySetInnerHTML={{
@@ -554,11 +557,15 @@ window.__firebase_config = ${firebaseConfigJSON};
     var schoolId=p.schoolId||'';
     var playerId=p.playerId||'';
     var slug=p.slug||'player';
-    var micrositeBase=p.micrositeUrl||window.location.origin;
+    var micrositeBase=p.micrositeUrl||'';
 
     var href='';
-    if(schoolId&&playerId){
-      href=micrositeBase.replace(/\\/$/,'')+'/'+schoolId+'/player/'+playerId+'/'+slug;
+    if(playerId){
+      if(micrositeBase){
+        href=micrositeBase.replace(/\\/$/,'')+'/player/'+playerId+'/'+slug;
+      }else if(schoolId){
+        href='/' + schoolId + '/player/' + playerId + '/' + slug;
+      }
     }
 
     if(href){
@@ -567,6 +574,7 @@ window.__firebase_config = ${firebaseConfigJSON};
 
     var topDiv=document.createElement('div');
     topDiv.className='yat-gs-result-top';
+
     var crestImg=document.createElement('img');
     crestImg.className='yat-gs-result-crest';
     crestImg.alt='';
@@ -576,6 +584,7 @@ window.__firebase_config = ${firebaseConfigJSON};
 
     var infoDiv=document.createElement('div');
     infoDiv.className='yat-gs-result-info';
+
     var nameDiv=document.createElement('div');
     nameDiv.className='yat-gs-result-name';
     var displayName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Unknown Player';
@@ -632,14 +641,14 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
 
   function fetchSchoolResults(q){
-    return fetch(\`/api/schools/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
+    return fetch('/api/schools/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
       .then(function(d){return (d.programs||[]).map(normalizeSchoolResult);})
       .catch(function(err){gsHadError=true;console.warn('School search failed',err);return [];});
   }
 
   function fetchPlayerResults(q){
-    return fetch(\`/api/players/search?q=\${encodeURIComponent(q)}&limit=\${GS_RESULT_LIMIT}\`)
+    return fetch('/api/players/search?q='+encodeURIComponent(q)+'&limit='+GS_RESULT_LIMIT)
       .then(function(r){return r.json();})
       .then(function(d){return d.players||[];})
       .catch(function(err){gsHadError=true;console.warn('Player search failed',err);return [];});
@@ -691,94 +700,94 @@ window.__firebase_config = ${firebaseConfigJSON};
     });
   }
 
-var searchInput=document.getElementById('playerSearch');
-var liveResults=document.getElementById('liveResults');
-var liveSearchTimer=null;
-var liveSearchToken=0;
+  var searchInput=document.getElementById('playerSearch');
+  var liveResults=document.getElementById('liveResults');
+  var liveSearchTimer=null;
+  var liveSearchToken=0;
 
-function renderInlineGlobalResults(players,schools,q){
-  if(!liveResults)return;
-  liveResults.innerHTML='';
+  function renderInlineGlobalResults(players,schools,q){
+    if(!liveResults)return;
+    liveResults.innerHTML='';
 
-  var hasPlayers=players&&players.length>0;
-  var hasSchools=schools&&schools.length>0;
+    var hasPlayers=players&&players.length>0;
+    var hasSchools=schools&&schools.length>0;
 
-  if(!hasPlayers&&!hasSchools){
-    liveResults.innerHTML=q.length>=2
-      ? '<div style="padding:10px;opacity:.5;font-size:12px">No results</div>'
-      : '';
-    return;
-  }
-
-  var frag=document.createDocumentFragment();
-
-  if(hasPlayers){
-    var playerLabel=document.createElement('div');
-    playerLabel.style.cssText='padding:8px 12px;font:400 11px Bebas Neue,sans-serif;letter-spacing:.08em;opacity:.7;border-bottom:1px solid var(--line)';
-    playerLabel.textContent='PLAYERS';
-    frag.appendChild(playerLabel);
-
-    players.forEach(function(p){
-      var row=renderPlayerResult(p);
-      row.className='yat-live-hit yat-gs-result yat-gs-player';
-      row.style.display='block';
-      row.style.textDecoration='none';
-      row.style.color='inherit';
-      row.style.padding='8px 12px';
-      row.style.cursor='pointer';
-      row.style.borderBottom='1px solid var(--line)';
-      frag.appendChild(row);
-    });
-  }
-
-  if(hasSchools){
-    var schoolLabel=document.createElement('div');
-    schoolLabel.style.cssText='padding:8px 12px;font:400 11px Bebas Neue,sans-serif;letter-spacing:.08em;opacity:.7;border-bottom:1px solid var(--line)';
-    schoolLabel.textContent='SCHOOLS';
-    frag.appendChild(schoolLabel);
-
-    schools.forEach(function(s){
-      var row=renderSchoolResult(s);
-      row.className='yat-live-hit yat-gs-result';
-      row.style.display='block';
-      row.style.textDecoration='none';
-      row.style.color='inherit';
-      row.style.padding='8px 12px';
-      row.style.cursor='pointer';
-      row.style.borderBottom='1px solid var(--line)';
-      frag.appendChild(row);
-    });
-  }
-
-  liveResults.appendChild(frag);
-}
-
-if(searchInput&&liveResults){
-  searchInput.addEventListener('input',function(){
-    var q=this.value.trim();
-    clearTimeout(liveSearchTimer);
-
-    if(q.length<2){
-      liveResults.innerHTML='';
+    if(!hasPlayers&&!hasSchools){
+      liveResults.innerHTML=q.length>=2
+        ? '<div style="padding:10px;opacity:.5;font-size:12px">No results</div>'
+        : '';
       return;
     }
 
-    liveSearchTimer=setTimeout(function(){
-      var token=++liveSearchToken;
-      liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Searching...</div>';
+    var frag=document.createDocumentFragment();
 
-      Promise.all([fetchPlayerResults(q),fetchSchoolResults(q)])
-        .then(function(res){
-          if(token!==liveSearchToken)return;
-          renderInlineGlobalResults(res[0]||[],res[1]||[],q);
-        })
-        .catch(function(){
-          if(token!==liveSearchToken)return;
-          liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Search unavailable</div>';
-        });
-    },GS_DEBOUNCE_MS);
-  });
-}
+    if(hasPlayers){
+      var playerLabel=document.createElement('div');
+      playerLabel.style.cssText='padding:8px 12px;font:400 11px Bebas Neue,sans-serif;letter-spacing:.08em;opacity:.7;border-bottom:1px solid var(--line)';
+      playerLabel.textContent='PLAYERS';
+      frag.appendChild(playerLabel);
+
+      players.forEach(function(p){
+        var row=renderPlayerResult(p);
+        row.className='yat-live-hit yat-gs-result yat-gs-player';
+        row.style.display='block';
+        row.style.textDecoration='none';
+        row.style.color='inherit';
+        row.style.padding='8px 12px';
+        row.style.cursor='pointer';
+        row.style.borderBottom='1px solid var(--line)';
+        frag.appendChild(row);
+      });
+    }
+
+    if(hasSchools){
+      var schoolLabel=document.createElement('div');
+      schoolLabel.style.cssText='padding:8px 12px;font:400 11px Bebas Neue,sans-serif;letter-spacing:.08em;opacity:.7;border-bottom:1px solid var(--line)';
+      schoolLabel.textContent='SCHOOLS';
+      frag.appendChild(schoolLabel);
+
+      schools.forEach(function(s){
+        var row=renderSchoolResult(s);
+        row.className='yat-live-hit yat-gs-result';
+        row.style.display='block';
+        row.style.textDecoration='none';
+        row.style.color='inherit';
+        row.style.padding='8px 12px';
+        row.style.cursor='pointer';
+        row.style.borderBottom='1px solid var(--line)';
+        frag.appendChild(row);
+      });
+    }
+
+    liveResults.appendChild(frag);
+  }
+
+  if(searchInput&&liveResults){
+    searchInput.addEventListener('input',function(){
+      var q=this.value.trim();
+      clearTimeout(liveSearchTimer);
+
+      if(q.length<2){
+        liveResults.innerHTML='';
+        return;
+      }
+
+      liveSearchTimer=setTimeout(function(){
+        var token=++liveSearchToken;
+        liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Searching...</div>';
+
+        Promise.all([fetchPlayerResults(q),fetchSchoolResults(q)])
+          .then(function(res){
+            if(token!==liveSearchToken)return;
+            renderInlineGlobalResults(res[0]||[],res[1]||[],q);
+          })
+          .catch(function(){
+            if(token!==liveSearchToken)return;
+            liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Search unavailable</div>';
+          });
+      },GS_DEBOUNCE_MS);
+    });
+  }
 
   function applyFilters(){
     var activeSection=document.getElementById('sec-active');
@@ -1354,134 +1363,134 @@ if(searchInput&&liveResults){
   stampFavorites();
 
   async function hydrateHomeCrest(){
-  var raw;
-  try{raw=localStorage.getItem('yat-user');}catch(e){return;}
-  if(!raw)return;
+    var raw;
+    try{raw=localStorage.getItem('yat-user');}catch(e){return;}
+    if(!raw)return;
 
-  var user;
-  try{user=JSON.parse(raw);}catch(e){return;}
-  if(!user||!user.homeHsid)return;
+    var user;
+    try{user=JSON.parse(raw);}catch(e){return;}
+    if(!user||!user.homeHsid)return;
 
-  var homeHsid=user.homeHsid;
-  var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
+    var homeHsid=user.homeHsid;
+    var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
 
-  function slugifySchoolName(name){
-    return String(name||'')
-      .toLowerCase()
-      .trim()
-      .replace(/&/g,' and ')
-      .replace(/[^a-z0-9]+/g,'-')
-      .replace(/^-+|-+$/g,'');
-  }
-
-  function normalizeState(state){
-    return String(state||'').toLowerCase().trim();
-  }
-
-  function buildAbsoluteMicrositeUrl(hsid, schoolName, schoolLocation){
-    if(!hsid)return '';
-
-    var schoolSlug=slugifySchoolName(schoolName||'');
-    var statePart=String(schoolLocation||'').split(',')[1]||'';
-    var stateSlug=normalizeState(statePart);
-
-    if(schoolSlug&&stateSlug){
-      return 'https://'+schoolSlug+'.'+stateSlug+'.yatstats.com/'+hsid;
+    function slugifySchoolName(name){
+      return String(name||'')
+        .toLowerCase()
+        .trim()
+        .replace(/&/g,' and ')
+        .replace(/[^a-z0-9]+/g,'-')
+        .replace(/^-+|-+$/g,'');
     }
 
-    return '';
-  }
-
-  function applyHomeLinks(homeHref){
-    if(!homeHref)return;
-
-    var topbarLink=document.getElementById('topbarHomeCrestLink');
-    var topbarImg=document.getElementById('topbarHomeCrestImg');
-
-    if(topbarLink){
-      topbarLink.setAttribute('href',homeHref);
-      topbarLink.removeAttribute('hidden');
-      topbarLink.style.display='';
-      topbarLink.onclick=function(e){
-        e.preventDefault();
-        window.location.assign(homeHref);
-      };
+    function normalizeState(state){
+      return String(state||'').toLowerCase().trim();
     }
 
-    if(topbarImg){
-      topbarImg.setAttribute('src',crestUrl);
-      topbarImg.onerror=function(){topbarImg.onerror=null;topbarImg.src='${CREST_FALLBACK_PATH}';};
-      topbarImg.onclick=function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign(homeHref);
-      };
-    }
+    function buildAbsoluteMicrositeUrl(hsid, schoolName, schoolLocation){
+      if(!hsid)return '';
 
-    var drawerLink=document.getElementById('drawerHomeSchoolLink');
-    var drawerImg=document.getElementById('drawerHomeCrestImg');
+      var schoolSlug=slugifySchoolName(schoolName||'');
+      var statePart=String(schoolLocation||'').split(',')[1]||'';
+      var stateSlug=normalizeState(statePart);
 
-    if(drawerLink){
-      drawerLink.setAttribute('href',homeHref);
-      drawerLink.style.display='';
-      drawerLink.onclick=function(e){
-        e.preventDefault();
-        window.location.assign(homeHref);
-      };
-    }
-
-    if(drawerImg){
-      drawerImg.setAttribute('src',crestUrl);
-      drawerImg.onerror=function(){drawerImg.onerror=null;drawerImg.src='${CREST_FALLBACK_PATH}';};
-      drawerImg.onclick=function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign(homeHref);
-      };
-    }
-
-    try{
-      user.homeMicrositeUrl=homeHref;
-      localStorage.setItem('yat-user',JSON.stringify(user));
-    }catch(e){}
-  }
-
-  var homeHref=buildAbsoluteMicrositeUrl(
-  homeHsid,
-  user.homeSchoolName||'',
-  user.homeSchoolLocation||''
-);
-
-if(!homeHref && user.homeMicrositeUrl){
-  homeHref=user.homeMicrositeUrl;
-}
-
-  if(!homeHref){
-    try{
-      var res=await fetch('/api/auth/session', {
-        method:'GET',
-        credentials:'include',
-        cache:'no-store'
-      });
-      var data=await res.json();
-
-      var s=data&&data.session?data.session:null;
-      if(s&&String(s.homeHsid||'')===String(homeHsid)){
-        if(!user.homeSchoolName&&s.homeSchoolName)user.homeSchoolName=s.homeSchoolName;
-        if(!user.homeSchoolLocation&&s.homeSchoolLocation)user.homeSchoolLocation=s.homeSchoolLocation;
-
-        homeHref=buildAbsoluteMicrositeUrl(
-          homeHsid,
-          user.homeSchoolName||'',
-          user.homeSchoolLocation||''
-        );
+      if(schoolSlug&&stateSlug){
+        return 'https://'+schoolSlug+'.'+stateSlug+'.yatstats.com/'+hsid;
       }
-    }catch(e){}
-  }
 
-  if(!homeHref)return;
-  applyHomeLinks(homeHref);
-}
+      return '';
+    }
+
+    function applyHomeLinks(homeHref){
+      if(!homeHref)return;
+
+      var topbarLink=document.getElementById('topbarHomeCrestLink');
+      var topbarImg=document.getElementById('topbarHomeCrestImg');
+
+      if(topbarLink){
+        topbarLink.setAttribute('href',homeHref);
+        topbarLink.removeAttribute('hidden');
+        topbarLink.style.display='';
+        topbarLink.onclick=function(e){
+          e.preventDefault();
+          window.location.assign(homeHref);
+        };
+      }
+
+      if(topbarImg){
+        topbarImg.setAttribute('src',crestUrl);
+        topbarImg.onerror=function(){topbarImg.onerror=null;topbarImg.src='${CREST_FALLBACK_PATH}';};
+        topbarImg.onclick=function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          window.location.assign(homeHref);
+        };
+      }
+
+      var drawerLink=document.getElementById('drawerHomeSchoolLink');
+      var drawerImg=document.getElementById('drawerHomeCrestImg');
+
+      if(drawerLink){
+        drawerLink.setAttribute('href',homeHref);
+        drawerLink.style.display='';
+        drawerLink.onclick=function(e){
+          e.preventDefault();
+          window.location.assign(homeHref);
+        };
+      }
+
+      if(drawerImg){
+        drawerImg.setAttribute('src',crestUrl);
+        drawerImg.onerror=function(){drawerImg.onerror=null;drawerImg.src='${CREST_FALLBACK_PATH}';};
+        drawerImg.onclick=function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          window.location.assign(homeHref);
+        };
+      }
+
+      try{
+        user.homeMicrositeUrl=homeHref;
+        localStorage.setItem('yat-user',JSON.stringify(user));
+      }catch(e){}
+    }
+
+    var homeHref=user.homeMicrositeUrl||'';
+
+    if(!homeHref){
+      homeHref=buildAbsoluteMicrositeUrl(
+        homeHsid,
+        user.homeSchoolName||'',
+        user.homeSchoolLocation||''
+      );
+    }
+
+    if(!homeHref){
+      try{
+        var res=await fetch('/api/auth/session', {
+          method:'GET',
+          credentials:'include',
+          cache:'no-store'
+        });
+        var data=await res.json();
+
+        var s=data&&data.session?data.session:null;
+        if(s&&String(s.homeHsid||'')===String(homeHsid)){
+          if(!user.homeSchoolName&&s.homeSchoolName)user.homeSchoolName=s.homeSchoolName;
+          if(!user.homeSchoolLocation&&s.homeSchoolLocation)user.homeSchoolLocation=s.homeSchoolLocation;
+
+          homeHref=buildAbsoluteMicrositeUrl(
+            homeHsid,
+            user.homeSchoolName||'',
+            user.homeSchoolLocation||''
+          );
+        }
+      }catch(e){}
+    }
+
+    if(!homeHref)return;
+    applyHomeLinks(homeHref);
+  }
   hydrateHomeCrest();
 
   function openAccountDrawer(){
