@@ -1,0 +1,34 @@
+import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+
+function getCookieDomain(hostname: string | null) {
+  if (!hostname) return undefined;
+
+  const host = hostname.split(":")[0].toLowerCase();
+
+  if (host === "yatstats.com" || host.endsWith(".yatstats.com")) {
+    return ".yatstats.com";
+  }
+
+  return undefined;
+}
+
+export async function POST(request: NextRequest) {
+  const response = NextResponse.json({ success: true });
+
+  const cookieDomain = getCookieDomain(request.headers.get("host"));
+
+  response.cookies.set({
+    name: "yat-session",
+    value: "",
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 0,
+  });
+
+  return response;
+}
