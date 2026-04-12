@@ -18,8 +18,6 @@ export default function YatInteractivity({ resolvedHsid, firebaseConfigJSON }: Y
 window.__firebase_config = ${firebaseConfigJSON};
 (function(){
   function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-  /* ORG NORMALIZATION — maps all known name variants to canonical filter keys.
-     Must stay in sync with ORG_NORM in src/lib/playerUtils.ts */
   var ORG_NORM={
     'ARIZONA DIAMONDBACKS':'ARIZONA DIAMONDBACKS','ARI':'ARIZONA DIAMONDBACKS','AZ DIAMONDBACKS':'ARIZONA DIAMONDBACKS',
     'ATLANTA BRAVES':'ATLANTA BRAVES','ATL':'ATLANTA BRAVES',
@@ -96,60 +94,58 @@ window.__firebase_config = ${firebaseConfigJSON};
   };
   function normalizeOrg(raw){var k=(raw||'').trim().toUpperCase();return ORG_NORM[k]||k;}
   window.__YAT_HSID='${resolvedHsid}';
-  /* Favicon fallback: try school crest, fall back to YAT?STATS circle logo */
+
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
   if(favLink){
     var favImg=new Image();
     favImg.onerror=function(){
-      var placeholder = '/img/yatstats-logo-circle.png';
+      var placeholder='/img/yatstats-logo-circle.png';
       favLink.href=placeholder;
       var appleLink=document.querySelector('link[rel="apple-touch-icon"]');
       if(appleLink)appleLink.href=placeholder;
     };
     favImg.src=favLink.href;
   }
-  /* Background image fallback for player cards — silhouette is the only allowed fallback */
-  /* Load background images only for cards in the currently visible section.
-     Probing ALL sections at once (including display:none sections) causes 150+
-     simultaneous S3 requests that queue in the browser, delaying visible cards
-     by 5–6 seconds. Hidden sections are loaded on-demand when switched to. */
+
   function loadBgImages(scope){
-    var container = scope || document;
+    var container=scope||document;
     container.querySelectorAll('.yat-bg[data-src]').forEach(function(el){
-      if(el.getAttribute('data-bg-loaded'))return; /* already probed */
+      if(el.getAttribute('data-bg-loaded'))return;
       el.setAttribute('data-bg-loaded','1');
       var src=el.getAttribute('data-src');
       var placeholder=el.getAttribute('data-placeholder');
       var img=new Image();
-      img.onload=function(){el.style.backgroundImage="url('"+src+"')";  };
+      img.onload=function(){el.style.backgroundImage="url('"+src+"')";};
       img.onerror=function(){
         var altsrc=null;
         if(src&&src.endsWith('.jpg'))altsrc=src.slice(0,-4)+'.png';
         else if(src&&src.endsWith('.png'))altsrc=src.slice(0,-4)+'.jpg';
         if(altsrc){
           var altimg=new Image();
-          altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";  };
+          altimg.onload=function(){el.style.backgroundImage="url('"+altsrc+"')";};
           altimg.onerror=function(){
-            if(placeholder){el.style.backgroundImage="url('"+placeholder+"')";el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';}
+            if(placeholder){
+              el.style.backgroundImage="url('"+placeholder+"')";
+              el.style.backgroundSize='contain';
+              el.style.backgroundPosition='center bottom';
+              el.style.backgroundColor='#1a1a1a';
+            }
           };
           altimg.src=altsrc;
-        } else if(placeholder){
+        }else if(placeholder){
           el.style.backgroundImage="url('"+placeholder+"')";
-          el.style.backgroundSize='contain';el.style.backgroundPosition='center bottom';el.style.backgroundColor='#1a1a1a';
+          el.style.backgroundSize='contain';
+          el.style.backgroundPosition='center bottom';
+          el.style.backgroundColor='#1a1a1a';
         }
       };
       img.src=src;
     });
   }
-  /* Background images are loaded lazily per-section in showSection().
-     On the initial page load, showSection('active') is called by initSectionFromHash()
-     which triggers loadBgImages(sec-active). Hidden sections are probed when switched to.
-     On player profile pages (no .yat-section elements), load all images immediately
-     since there is only one section and all cards are always visible. */
+
   if(!document.querySelector('.yat-section')){
     loadBgImages(undefined);
   }
-  // Dead code removed — replaced by loadBgImages() above.
 
   var saved=localStorage.getItem('yat-theme');
   if(saved==='light')document.body.classList.add('light-theme');
@@ -161,8 +157,12 @@ window.__firebase_config = ${firebaseConfigJSON};
       var ic=btn.querySelector('i');
       if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
     });
-    if(saved==='light'){var ic=btn.querySelector('i');if(ic)ic.className='ri-moon-line';}
+    if(saved==='light'){
+      var ic=btn.querySelector('i');
+      if(ic)ic.className='ri-moon-line';
+    }
   }
+
   document.addEventListener('click',function(e){
     var card=e.target.closest('.yat-card');
     if(!card)return;
@@ -170,252 +170,201 @@ window.__firebase_config = ${firebaseConfigJSON};
     card.classList.toggle('is-flipped');
   });
 
-  // Strip thumbnail click — scroll to the correct section's card.
-  // Both #sec-active and #sec-alltime contain cards with the same
-  // id="player-{id}", so a plain anchor scroll always lands on the
-  // first DOM match (the active section card, which may be hidden).
-  // When the NLAT section is visible we intercept the click and
-  // manually scroll to the card inside #sec-alltime instead.
-  document.addEventListener('click', function(e){
-    var slot = e.target.closest('.gallery-slot-link[data-playerid]');
-    if(!slot) return;
-    var pid = slot.dataset.playerid;
-    if(!pid) return;
+  document.addEventListener('click',function(e){
+    var slot=e.target.closest('.gallery-slot-link[data-playerid]');
+    if(!slot)return;
+    var pid=slot.dataset.playerid;
+    if(!pid)return;
     e.preventDefault();
-    // Find the visible section and scroll to the card within it.
-    // Both #sec-active and #sec-alltime contain cards with id="player-{id}",
-    // so we must scope the querySelector to the visible section.
-    var secActive = document.getElementById('sec-active');
-    var secAlltime = document.getElementById('sec-alltime');
-    var visibleSection = (secAlltime && secAlltime.classList.contains('visible'))
+    var secActive=document.getElementById('sec-active');
+    var secAlltime=document.getElementById('sec-alltime');
+    var visibleSection=(secAlltime&&secAlltime.classList.contains('visible'))
       ? secAlltime
-      : (secActive && secActive.classList.contains('visible'))
+      : (secActive&&secActive.classList.contains('visible'))
         ? secActive
         : null;
-    if(!visibleSection) return;
-    var target = visibleSection.querySelector('#player-' + pid);
-    if(target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if(!visibleSection)return;
+    var target=visibleSection.querySelector('#player-'+pid);
+    if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
   });
 
- function normalizeTab(tabId){
-  if(tabId === 'team') return 'current';
-  return tabId;
-}
-
-// Track the currently active section key so showSection() can detect
-// genuine section changes vs. redundant calls (e.g. from thumbnail clicks).
-// Initialised to null so the very first call (page load) always runs
-// resetFiltersForCurrentSection() to apply the correct default sort order.
-var _activeSection = null;
-
-/* ── syncStripToSection ──────────────────────────────────────────────────────
-   Keeps Block 3 (the interactive headshot strip) in sync with whichever
-   section is currently visible in Block 5.
-
-   active / news  → show all strip slots; applyFilters() will hide non-matching
-   alltime        → reorder strip slots to match the all-time card DOM order,
-                    then show them all (mirrors Block 5 all-time sort)
-   everything else → hide all strip slots (empty strip for pages with no cards)
-──────────────────────────────────────────────────────────────────────────── */
-/* Preserve the original server-rendered active sort order so we can restore it
-   when switching back to the active section after visiting all-time. */
-var _stripOriginalOrder = null;
-
-function syncStripToSection(key){
-  var stripInner = document.querySelector('.gallery-strip-inner');
-  if(!stripInner) return;
-
-  var allSlots = Array.from(stripInner.querySelectorAll('.gallery-slot-link[data-playerid]'));
-  if(!allSlots.length) return;
-
-  /* Capture the original server-rendered order on first call */
-  if(!_stripOriginalOrder){
-    _stripOriginalOrder = allSlots.map(function(s){ return s.getAttribute('data-playerid'); });
+  function normalizeTab(tabId){
+    if(tabId==='team')return 'current';
+    return tabId;
   }
 
-  if(key === 'active' || key === 'news'){
-    /* Restore original active-sort order — reorder only, do NOT touch display.
-       applyFilters() (called by resetFiltersForCurrentSection inside showSection)
-       is responsible for hiding retired/non-matching slots. Calling show here
-       would undo the ACTIVE filter that applyFilters already applied. */
-    if(_stripOriginalOrder){
-      var origMap = {};
-      allSlots.forEach(function(s){ origMap[s.getAttribute('data-playerid')] = s; });
-      _stripOriginalOrder.forEach(function(pid){
-        var slot = origMap[pid];
-        if(slot) stripInner.appendChild(slot);
-      });
+  var _activeSection=null;
+  var _stripOriginalOrder=null;
+
+  function syncStripToSection(key){
+    var stripInner=document.querySelector('.gallery-strip-inner');
+    if(!stripInner)return;
+
+    var allSlots=Array.from(stripInner.querySelectorAll('.gallery-slot-link[data-playerid]'));
+    if(!allSlots.length)return;
+
+    if(!_stripOriginalOrder){
+      _stripOriginalOrder=allSlots.map(function(s){return s.getAttribute('data-playerid');});
     }
 
-  } else if(key === 'alltime'){
-    /* Read the all-time card order from the DOM */
-    var allTimeSection = document.getElementById('sec-alltime');
-    if(!allTimeSection){ allSlots.forEach(function(s){ s.style.display='none'; }); return; }
-    var allTimeCards = Array.from(allTimeSection.querySelectorAll('.yat-card[data-playerid]'));
-    var allTimeOrder = allTimeCards.map(function(c){ return c.getAttribute('data-playerid'); });
-
-    /* Build a map of playerid → slot element */
-    var slotMap = {};
-    allSlots.forEach(function(slot){ slotMap[slot.getAttribute('data-playerid')] = slot; });
-
-    /* Reorder slots in the strip to match the all-time card order */
-    allTimeOrder.forEach(function(pid){
-      var slot = slotMap[pid];
-      if(slot){
-        slot.style.display = '';
-        stripInner.appendChild(slot); /* moves to end, building the new order */
+    if(key==='active'||key==='news'){
+      if(_stripOriginalOrder){
+        var origMap={};
+        allSlots.forEach(function(s){origMap[s.getAttribute('data-playerid')]=s;});
+        _stripOriginalOrder.forEach(function(pid){
+          var slot=origMap[pid];
+          if(slot)stripInner.appendChild(slot);
+        });
       }
+    }else if(key==='alltime'){
+      var allTimeSection=document.getElementById('sec-alltime');
+      if(!allTimeSection){allSlots.forEach(function(s){s.style.display='none';});return;}
+      var allTimeCards=Array.from(allTimeSection.querySelectorAll('.yat-card[data-playerid]'));
+      var allTimeOrder=allTimeCards.map(function(c){return c.getAttribute('data-playerid');});
+
+      var slotMap={};
+      allSlots.forEach(function(slot){slotMap[slot.getAttribute('data-playerid')]=slot;});
+
+      allTimeOrder.forEach(function(pid){
+        var slot=slotMap[pid];
+        if(slot){
+          slot.style.display='';
+          stripInner.appendChild(slot);
+        }
+      });
+
+      allSlots.forEach(function(slot){
+        var pid=slot.getAttribute('data-playerid');
+        if(allTimeOrder.indexOf(pid)===-1)slot.style.display='none';
+      });
+    }else{
+      allSlots.forEach(function(slot){slot.style.display='none';});
+    }
+  }
+
+  function showSection(tabId, updateHash){
+    var key=normalizeTab(tabId);
+    var isSectionChange=(_activeSection!==key);
+    _activeSection=key;
+
+    document.querySelectorAll('.yat-section').forEach(function(s){
+      s.classList.remove('visible');
     });
-    /* Hide any strip slots whose player is not in the all-time list */
-    allSlots.forEach(function(slot){
-      var pid = slot.getAttribute('data-playerid');
-      if(allTimeOrder.indexOf(pid) === -1) slot.style.display = 'none';
-    });
 
-  } else {
-    /* All other sections (current, fantasy, mentor, partner, about, faq) have no cards */
-    allSlots.forEach(function(slot){ slot.style.display = 'none'; });
-  }
-}
+    var sec=document.getElementById('sec-'+key);
+    if(sec)sec.classList.add('visible');
 
-function showSection(tabId, updateHash){
-  var key = normalizeTab(tabId);
+    if(isSectionChange){
+      resetFiltersForCurrentSection();
+      if(sec)loadBgImages(sec);
+    }
 
-  // A genuine section change is: switching to a different section, OR the
-  // initial page load (when _activeSection is null and no section has been
-  // set yet). In both cases we must run resetFiltersForCurrentSection() to
-  // apply the correct default filter/sort for that section.
-  // When the same section is already active (e.g. a strip thumbnail click
-  // fired hashchange → showSection('active') while 'active' is already
-  // showing), we skip the reset so active filters are preserved.
-  var isSectionChange = (_activeSection !== key);
-  _activeSection = key;
+    var isPlayerProfilePage=window.location.pathname.indexOf('/player/')!==-1;
+    var sectionLabel=document.getElementById('yatSectionLabel');
+    if(sectionLabel&&!isPlayerProfilePage){
+      var labels={
+        active:'ACTIVE BASEBALL ALUMNI',
+        news:'ACTIVE ALUMNI NEWS',
+        alltime:'NEXT-LEVEL ALL-TIME LIST',
+        current:'2026 HIGH SCHOOL TEAM',
+        fantasy:'FANTASY BRACKET TOURNEY',
+        mentor:'MENTORSHIP MARKETPLACE',
+        partner:'PARTNERSHIP PROGRAM',
+        about:'ABOUT US',
+        faq:"FAQ'S"
+      };
+      var label=labels[key]||key.toUpperCase();
+      sectionLabel.textContent=label;
+    }
 
-  document.querySelectorAll('.yat-section').forEach(function(s){
-    s.classList.remove('visible');
-  });
+    if(updateHash){
+      history.replaceState(null,'','#sec-'+key);
+      window.scrollTo({top:0,behavior:'auto'});
+    }
 
-  var sec = document.getElementById('sec-' + key);
-  if(sec) sec.classList.add('visible');
-
-  if(isSectionChange){
-    resetFiltersForCurrentSection();
-    /* Lazy-load background images for cards in the newly visible section */
-    if(sec) loadBgImages(sec);
+    syncStripToSection(key);
   }
 
-  // On player profile pages the breadcrumb label is the player's name (set
-  // server-side). Do not overwrite it when the gallery section hash changes.
-  var isPlayerProfilePage = window.location.pathname.indexOf('/player/') !== -1;
-  var sectionLabel = document.getElementById('yatSectionLabel');
-  if(sectionLabel && !isPlayerProfilePage){
-    var labels = {
-      active:'ACTIVE BASEBALL ALUMNI',
-      news:'ACTIVE ALUMNI NEWS',
-      alltime:'NEXT-LEVEL ALL-TIME LIST',
-      current:'2026 HIGH SCHOOL TEAM',
-      fantasy:'FANTASY BRACKET TOURNEY',
-      mentor:'MENTORSHIP MARKETPLACE',
-      partner:'PARTNERSHIP PROGRAM',
-      about:'ABOUT US',
-      faq:"FAQ'S"
-    };
-    var label = labels[key] || key.toUpperCase();
-    sectionLabel.textContent = label;
-  }
-
-  if(updateHash){
-  history.replaceState(null, '', '#sec-' + key);
-  window.scrollTo({ top: 0, behavior: 'auto' });
-}
-  /* Sync the Block 3 interactive strip to match the newly visible section */
-  syncStripToSection(key);
-}
-
-document.addEventListener('click', function(e){
-  var pair = e.target.closest('[data-tab]');
-  if(!pair) return;
-  /* Ignore clicks on account drawer tabs (JOIN / LOG IN) — they have their own
-     dedicated click handlers and must NOT close the drawer or trigger showSection. */
-  if(pair.closest('#drawerAccount')) return;
-  var tab = pair.dataset.tab;
-  if(!tab) return;
-  e.preventDefault();
-  showSection(tab, true);
-  document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
-});
-
-(function initSectionFromHash(){
-  var hash = window.location.hash || '';
-  var tab = '';
-
-  if(hash.indexOf('#sec-') === 0){
-    tab = hash.replace('#sec-', '');
-  }
-
-  if(!tab) tab = 'active';
-  showSection(tab, false);
-})();
-
-window.addEventListener('hashchange', function(){
-  var hash = window.location.hash || '';
-  // Only respond to explicit section-switch hashes (#sec-*).
-  // Ignore #player-{id} hashes produced by strip thumbnail clicks —
-  // those are scroll-to-card anchors, not section switches, and must
-  // NOT trigger showSection() which would reset the active filters.
-  if(hash.indexOf('#sec-') !== 0) return;
-  var tab = hash.replace('#sec-', '');
-  showSection(tab, false);
-});
-
-  
-  var btnMenu=document.getElementById('btnMenu') || document.getElementById('openMenu');
-var closeLeft=document.getElementById('closeLeft');
-var mask=document.getElementById('drawerMask');
-
-if(btnMenu){
-  btnMenu.addEventListener('click',function(){
-    document.body.classList.add('drawer-left-open');
-    document.body.classList.add('drawer-open');
-    document.body.classList.remove('drawer-right-open','drawer-account-open');
-  });
-}
-
-if(closeLeft){
-  closeLeft.addEventListener('click',function(){
-    document.body.classList.remove('drawer-left-open','drawer-open');
-  });
-}
-
-if(mask){
-  mask.addEventListener('click',function(){
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
-  });
-}
-if(mask){
-  mask.addEventListener('click',function(){
+  document.addEventListener('click',function(e){
+    var pair=e.target.closest('[data-tab]');
+    if(!pair)return;
+    if(pair.closest('#drawerAccount'))return;
+    var tab=pair.dataset.tab;
+    if(!tab)return;
+    e.preventDefault();
+    showSection(tab,true);
     document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
   });
 
-  
-}var openFilters=document.getElementById('openFilters');
+  (function initSectionFromHash(){
+    var hash=window.location.hash||'';
+    var tab='';
+    if(hash.indexOf('#sec-')===0){
+      tab=hash.replace('#sec-','');
+    }
+    if(!tab)tab='active';
+    showSection(tab,false);
+  })();
+
+  window.addEventListener('hashchange',function(){
+    var hash=window.location.hash||'';
+    if(hash.indexOf('#sec-')!==0)return;
+    var tab=hash.replace('#sec-','');
+    showSection(tab,false);
+  });
+
+  var btnMenu=document.getElementById('btnMenu')||document.getElementById('openMenu');
+  var closeLeft=document.getElementById('closeLeft');
+  var mask=document.getElementById('drawerMask');
+
+  if(btnMenu){
+    btnMenu.addEventListener('click',function(){
+      document.body.classList.add('drawer-left-open');
+      document.body.classList.add('drawer-open');
+      document.body.classList.remove('drawer-right-open','drawer-account-open');
+    });
+  }
+
+  if(closeLeft){
+    closeLeft.addEventListener('click',function(){
+      document.body.classList.remove('drawer-left-open','drawer-open');
+    });
+  }
+
+  if(mask){
+    mask.addEventListener('click',function(){
+      document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+    });
+  }
+
+  var openFilters=document.getElementById('openFilters');
   var closeFilters=document.getElementById('closeFilters');
   var filtersReset=document.getElementById('filtersReset');
   var filtersReset2=document.getElementById('filtersReset2');
-  if(openFilters)openFilters.addEventListener('click',function(){document.body.classList.toggle('drawer-right-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-account-open');});
-  if(closeFilters)closeFilters.addEventListener('click',function(){document.body.classList.remove('drawer-right-open','drawer-open');});
-  
-  
+  if(openFilters)openFilters.addEventListener('click',function(){
+    document.body.classList.toggle('drawer-right-open');
+    document.body.classList.toggle('drawer-open');
+    document.body.classList.remove('drawer-left-open','drawer-account-open');
+  });
+  if(closeFilters)closeFilters.addEventListener('click',function(){
+    document.body.classList.remove('drawer-right-open','drawer-open');
+  });
+
   var btnAccount=document.getElementById('btnAccount');
   var closeAccount=document.getElementById('closeAccount');
-  if(btnAccount)btnAccount.addEventListener('click',function(){document.body.classList.toggle('drawer-account-open');document.body.classList.toggle('drawer-open');document.body.classList.remove('drawer-left-open','drawer-right-open');});
-  if(closeAccount)closeAccount.addEventListener('click',function(){document.body.classList.remove('drawer-account-open','drawer-open');});
-  /* Wire header tab buttons to dispatch custom event that AccountDrawerContent listens for */
+  if(btnAccount)btnAccount.addEventListener('click',function(){
+    document.body.classList.toggle('drawer-account-open');
+    document.body.classList.toggle('drawer-open');
+    document.body.classList.remove('drawer-left-open','drawer-right-open');
+  });
+  if(closeAccount)closeAccount.addEventListener('click',function(){
+    document.body.classList.remove('drawer-account-open','drawer-open');
+  });
+
   var acctTabJoin=document.getElementById('acctTabJoin');
   var acctTabLogin=document.getElementById('acctTabLogin');
   function dispatchAcctTab(tab){
     window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:tab}));
-    /* Update active underline on header buttons */
     if(acctTabJoin)acctTabJoin.style.borderBottom=tab==='register'?'2px solid var(--gold)':'2px solid transparent';
     if(acctTabJoin)acctTabJoin.style.color=tab==='register'?'var(--gold)':'var(--fg)';
     if(acctTabLogin)acctTabLogin.style.borderBottom=tab==='signin'?'2px solid var(--gold)':'2px solid transparent';
@@ -423,20 +372,11 @@ if(mask){
   }
   if(acctTabJoin)acctTabJoin.addEventListener('click',function(){dispatchAcctTab('register');});
   if(acctTabLogin)acctTabLogin.addEventListener('click',function(){dispatchAcctTab('signin');});
-  /* Set initial active state: JOIN is default */
   dispatchAcctTab('register');
-  var mask=document.getElementById('drawerMask');
-  if(mask)mask.addEventListener('click',function(){document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');});
 
-  /* ====================================================================
-     GLOBAL SEARCH MODAL
-     Opens #gsModal on #openSearch click.
-     Results show players first, then schools (grouped by region).
-     ==================================================================== */
   var S3_BASE='https://yatstats-assets.s3.us-west-2.amazonaws.com';
-  /* Canonical same-origin fallback: avoids CORB on cross-origin SVG from S3 */
   var CREST_FALLBACK='${CREST_FALLBACK_PATH}';
-  var STAT_EMPTY='\u2014';
+  var STAT_EMPTY='\\u2014';
   var GS_RESULT_LIMIT=${GLOBAL_SEARCH_LIMIT};
   var GS_DEBOUNCE_MS=${GLOBAL_SEARCH_DEBOUNCE_MS};
   var gsModal=document.getElementById('gsModal');
@@ -447,12 +387,14 @@ if(mask){
   var gsTimer=null;
   var gsQueryToken=0;
   var gsHadError=false;
+
   function openGsModal(){
     if(!gsModal)return;
     gsModal.classList.add('open');
     document.body.classList.add('drawer-open');
     if(gsInput)setTimeout(function(){gsInput.focus();},60);
   }
+
   function closeGsModal(){
     if(!gsModal)return;
     gsModal.classList.remove('open');
@@ -460,10 +402,12 @@ if(mask){
     if(gsInput)gsInput.value='';
     if(gsResults)gsResults.innerHTML='';
   }
+
   var openSearch=document.getElementById('openSearch');
   if(openSearch)openSearch.addEventListener('click',function(){openGsModal();});
   if(gsOverlay)gsOverlay.addEventListener('click',function(){closeGsModal();});
   if(gsClose)gsClose.addEventListener('click',function(){closeGsModal();});
+
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'&&gsModal&&gsModal.classList.contains('open')){closeGsModal();return;}
     if(!gsModal||!gsModal.classList.contains('open'))return;
@@ -486,18 +430,15 @@ if(mask){
     return lbl;
   }
 
-  /* Normalize a raw API program record into a typed result object */
   function normalizeSchoolResult(p){
     var hasAlumni=p.current_aa&&p.current_aa>0;
     var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
     var dest;
     if(status==='live'){
-      /* Use the canonical microsite URL so cross-school navigation always lands on
-         the correct host instead of resolving a relative /{hsid} path on the current host */
       dest=p.microsite_url;
-    } else if(p.hsid){
+    }else if(p.hsid){
       dest='/'+p.hsid;
-    } else {
+    }else{
       var sp=new URLSearchParams();
       if(p.hsname)sp.set('school',p.hsname);
       if(p.hslocation){
@@ -506,8 +447,6 @@ if(mask){
         if(locParts[1])sp.set('state',locParts[1].trim());
       }
       sp.set('reason',status);
-      /* Use absolute URL so subdomain rewrites (e.g. school.yatstats.com → /hsid/...)
-         don't intercept this path and cause a 404 */
       var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
       dest=notLiveBase+'/school-not-live?'+sp.toString();
     }
@@ -537,7 +476,6 @@ if(mask){
     };
   }
 
-  /* Build a single stat chip element */
   function makeChip(val,lbl,highlight){
     var chip=document.createElement('div');
     chip.className='yat-gs-chip';
@@ -552,7 +490,6 @@ if(mask){
     return chip;
   }
 
-  /* Render a premium school result card */
   function renderSchoolResult(r){
     var statusLabel=r.status==='live'?'Live':(r.status==='potential'?'Candidate':'Not Active');
     var statusCls='yat-gs-status yat-gs-status-'+r.status;
@@ -562,7 +499,7 @@ if(mask){
     el.setAttribute('href',r.dest);
     el.setAttribute('role','option');
     el.setAttribute('tabindex','0');
-    /* Top row: crest | identity | status badge */
+
     var topDiv=document.createElement('div');
     topDiv.className='yat-gs-result-top';
     var crestImg=document.createElement('img');
@@ -571,6 +508,7 @@ if(mask){
     crestImg.loading='lazy';
     crestImg.src=r.crestUrl;
     crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
+
     var infoDiv=document.createElement('div');
     infoDiv.className='yat-gs-result-info';
     var nameDiv=document.createElement('div');
@@ -579,16 +517,19 @@ if(mask){
     var locDiv=document.createElement('div');
     locDiv.className='yat-gs-result-loc';
     locDiv.textContent=r.location;
+
     infoDiv.appendChild(nameDiv);
     if(r.location)infoDiv.appendChild(locDiv);
+
     var badge=document.createElement('span');
     badge.className=statusCls;
     badge.textContent=statusLabel;
+
     topDiv.appendChild(crestImg);
     topDiv.appendChild(infoDiv);
     topDiv.appendChild(badge);
     el.appendChild(topDiv);
-    /* Stat chips row (only if at least one metric is non-null) */
+
     var hasStats=r.activeAlumni!=null||r.mlb!=null||r.natRank!=null||r.stateRank!=null||r.atnla!=null||r.draftedRatio!=null;
     if(hasStats){
       var statsDiv=document.createElement('div');
@@ -609,41 +550,21 @@ if(mask){
     el.className='yat-gs-result yat-gs-player';
     el.setAttribute('role','option');
     el.setAttribute('tabindex','0');
-   var schoolId = p.schoolId || '';
-var playerId = p.playerId || '';
-var slug = p.slug || 'player';
 
-function slugifySchoolName(name) {
-  return String(name || '')
-    .toLowerCase()
-    .trim()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+    var schoolId=p.schoolId||'';
+    var playerId=p.playerId||'';
+    var slug=p.slug||'player';
+    var micrositeBase=p.micrositeUrl||window.location.origin;
 
-function normalizeState(state) {
-  return String(state || '')
-    .toLowerCase()
-    .trim();
-}
+    var href='';
+    if(schoolId&&playerId){
+      href=micrositeBase.replace(/\\/$/,'')+'/'+schoolId+'/player/'+playerId+'/'+slug;
+    }
 
-var schoolSlug = slugifySchoolName(p.schoolName || '');
-var stateSlug = normalizeState(p.state || '');
+    if(href){
+      el.setAttribute('href',href);
+    }
 
-var micrositeBase = window.location.origin;
-if (schoolSlug && stateSlug) {
-  micrositeBase = 'https://' + schoolSlug + '.' + stateSlug + '.yatstats.com';
-}
-
-var href = '';
-if (schoolId && playerId) {
-  href = micrositeBase + '/' + schoolId + '/player/' + playerId + '/' + slug;
-}
-
-if (href) {
-  el.setAttribute('href', href);
-}
     var topDiv=document.createElement('div');
     topDiv.className='yat-gs-result-top';
     var crestImg=document.createElement('img');
@@ -652,13 +573,14 @@ if (href) {
     crestImg.loading='lazy';
     crestImg.src=p.crestUrl||CREST_FALLBACK;
     crestImg.onerror=function(){crestImg.onerror=null;crestImg.src=CREST_FALLBACK;};
+
     var infoDiv=document.createElement('div');
     infoDiv.className='yat-gs-result-info';
     var nameDiv=document.createElement('div');
     nameDiv.className='yat-gs-result-name';
-    // fallback avoids empty label if data is incomplete while still showing partial names
     var displayName=[p.firstName,p.lastName].filter(Boolean).join(' ').trim()||'Unknown Player';
     nameDiv.textContent=displayName;
+
     var locDiv=document.createElement('div');
     locDiv.className='yat-gs-result-loc';
     var locParts=[];
@@ -666,25 +588,29 @@ if (href) {
     if(p.state)locParts.push(p.state);
     var subtitle=p.schoolName||'';
     var loc=locParts.join(', ');
-    if(loc)subtitle+= (subtitle?' — ':'')+loc;
+    if(loc)subtitle+=(subtitle?' — ':'')+loc;
     locDiv.textContent=subtitle;
+
     infoDiv.appendChild(nameDiv);
     if(subtitle)infoDiv.appendChild(locDiv);
+
     topDiv.appendChild(crestImg);
     topDiv.appendChild(infoDiv);
     el.appendChild(topDiv);
+
     if(!href){
       el.setAttribute('aria-disabled','true');
       el.setAttribute('tabindex','-1');
       el.addEventListener('click',function(e){e.preventDefault();});
     }
+
     return el;
   }
 
   function renderSchoolGroups(items,frag){
     if(!items.length)return;
     frag.appendChild(makeSectionLabel('Schools'));
-    var groups={};var order=[];
+    var groups={},order=[];
     items.forEach(function(r){
       var key=r.region||'Unknown Region';
       if(!groups[key]){groups[key]=[];order.push(key);}
@@ -728,7 +654,7 @@ if (href) {
     if(hasPlayers)renderPlayerSection(players,frag);
     if(hasSchools)renderSchoolGroups(schools,frag);
     if(!hasPlayers&&!hasSchools){
-      var msg=hadError?'Search unavailable. Please try again.':'No results found matching \u201c'+escHtml(q)+'\u201d';
+      var msg=hadError?'Search unavailable. Please try again.':'No results found matching \\u201c'+escHtml(q)+'\\u201d';
       gsResults.innerHTML='<div class="yat-gs-msg">'+msg+'</div>';
       return;
     }
@@ -739,8 +665,8 @@ if (href) {
     if(!gsResults)return;
     gsHadError=false;
     var token=++gsQueryToken;
-    gsResults.innerHTML='<div class="yat-gs-msg">Searching\u2026</div>';
-    Promise.all([fetchPlayerResults(q), fetchSchoolResults(q)]).then(function(res){
+    gsResults.innerHTML='<div class="yat-gs-msg">Searching\\u2026</div>';
+    Promise.all([fetchPlayerResults(q),fetchSchoolResults(q)]).then(function(res){
       if(token!==gsQueryToken)return;
       var players=res[0],schools=res[1];
       renderCombinedResults(players||[],schools||[],q,gsHadError);
@@ -764,6 +690,7 @@ if (href) {
       }
     });
   }
+
   var searchInput=document.getElementById('playerSearch');
   var liveResults=document.getElementById('liveResults');
   if(searchInput&&liveResults){
@@ -780,7 +707,16 @@ if (href) {
             seen[pid]=true;
             var nameEl=card.querySelector('.yat-name');
             var dn;
-            if(nameEl){var spans=nameEl.querySelectorAll('span');if(spans.length>=2){dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());}else{dn=escHtml((nameEl.textContent||name).trim());}}else{dn=escHtml(name);}
+            if(nameEl){
+              var spans=nameEl.querySelectorAll('span');
+              if(spans.length>=2){
+                dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());
+              }else{
+                dn=escHtml((nameEl.textContent||name).trim());
+              }
+            }else{
+              dn=escHtml(name);
+            }
             results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
           }
         });
@@ -788,143 +724,132 @@ if (href) {
       liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
     });
   }
-function applyFilters(){
-  var activeSection=document.getElementById('sec-active');
-  var allTimeSection=document.getElementById('sec-alltime');
-  var newsSection=document.getElementById('sec-news');
 
-  var isActivePage=activeSection&&activeSection.classList.contains('visible');
-  var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
-  var isNewsPage=newsSection&&newsSection.classList.contains('visible');
+  function applyFilters(){
+    var activeSection=document.getElementById('sec-active');
+    var allTimeSection=document.getElementById('sec-alltime');
+    var newsSection=document.getElementById('sec-news');
 
-  var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
+    var isActivePage=activeSection&&activeSection.classList.contains('visible');
+    var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
+    var isNewsPage=newsSection&&newsSection.classList.contains('visible');
 
-  /* Exclude Select All checkboxes from filter arrays — they are UI helpers only */
-  var lc=Array.from(document.querySelectorAll('#filterLevels input:checked:not([data-select-all])')).map(function(i){return i.value;});
-  var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked:not([data-select-all])')).map(function(i){return i.value;});
-  var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked:not([data-select-all])')).map(function(i){return i.value;});
-  var rc=Array.from(document.querySelectorAll('#filterRosterYears input:checked:not([data-select-all])')).map(function(i){return i.value;});
-  var sc=Array.from(document.querySelectorAll('#filterStatus input:checked:not([data-select-all])')).map(function(i){return i.value;});
+    var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
 
-  /* Only filter cards in the currently visible section.
-     Cards in hidden sections are left untouched so they render
-     correctly when the user switches tabs. */
-  var visibleSection = isActivePage ? activeSection
-    : isAllTimePage ? allTimeSection
-    : isNewsPage ? newsSection
-    : null;
-  var cardScope = visibleSection
-    ? visibleSection.querySelectorAll('.yat-card[data-name]')
-    : document.querySelectorAll('.yat-card[data-name]');
+    var lc=Array.from(document.querySelectorAll('#filterLevels input:checked:not([data-select-all])')).map(function(i){return i.value;});
+    var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked:not([data-select-all])')).map(function(i){return i.value;});
+    var gc=Array.from(document.querySelectorAll('#filterGradClass input:checked:not([data-select-all])')).map(function(i){return i.value;});
+    var rc=Array.from(document.querySelectorAll('#filterRosterYears input:checked:not([data-select-all])')).map(function(i){return i.value;});
+    var sc=Array.from(document.querySelectorAll('#filterStatus input:checked:not([data-select-all])')).map(function(i){return i.value;});
 
-  /* Reset strip slots before applying section filter */
-  if(isActivePage){
-    document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
-      slot.style.display='';
-    });
-  } else if(isAllTimePage){
-    /* For all-time page: strip slots are already reordered by syncStripToSection.
-       Show all of them now; the card-loop below will hide slots for hidden cards. */
-    document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
-      slot.style.display='';
+    var visibleSection=isActivePage ? activeSection
+      : isAllTimePage ? allTimeSection
+      : isNewsPage ? newsSection
+      : null;
+
+    var cardScope=visibleSection
+      ? visibleSection.querySelectorAll('.yat-card[data-name]')
+      : document.querySelectorAll('.yat-card[data-name]');
+
+    if(isActivePage){
+      document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
+        slot.style.display='';
+      });
+    }else if(isAllTimePage){
+      document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
+        slot.style.display='';
+      });
+    }
+
+    cardScope.forEach(function(card){
+      var name=(card.getAttribute('data-name')||'').toLowerCase();
+      var level=card.getAttribute('data-level')||'';
+      var org=normalizeOrg(card.getAttribute('data-org')||'');
+      var g=card.getAttribute('data-gradclass')||'';
+      var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
+      var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
+
+      var show=true;
+
+      if(nf&&!name.includes(nf))show=false;
+      if(lc.length&&!lc.includes(level))show=false;
+      if(oc.length&&!oc.map(function(v){return normalizeOrg(v);}).includes(org))show=false;
+      if(gc.length&&!gc.includes(g))show=false;
+      if(rc.length&&!rosterYears.some(function(y){return rc.includes(y);} ))show=false;
+      if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
+
+      card.style.display=show?'':'none';
+
+      if(isActivePage||isAllTimePage){
+        var pid=card.getAttribute('data-playerid')||'';
+        if(pid){
+          var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
+          if(slot)slot.style.display=show?'':'none';
+        }
+      }
     });
   }
 
-  cardScope.forEach(function(card){
-    var name=(card.getAttribute('data-name')||'').toLowerCase();
-    var level=card.getAttribute('data-level')||'';
-    var org=normalizeOrg(card.getAttribute('data-org')||'');
-    var g=card.getAttribute('data-gradclass')||'';
-    var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
-    var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
-
-    var show=true;
-
-    if(nf&&!name.includes(nf))show=false;
-    if(lc.length&&!lc.includes(level))show=false;
-    if(oc.length&&!oc.map(function(v){return normalizeOrg(v);}).includes(org))show=false;
-    if(gc.length&&!gc.includes(g))show=false;
-    if(rc.length && !rosterYears.some(function(y){ return rc.includes(y); })) show=false;
-    if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
-
-
-    card.style.display=show?'':'none';
-    /* Sync the Row 3 thumbnail strip slot — active and alltime pages */
-    if(isActivePage || isAllTimePage){
-      var pid=card.getAttribute('data-playerid')||'';
-      if(pid){
-        var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
-        if(slot)slot.style.display=show?'':'none';
+  document.addEventListener('change',function(e){
+    if(!e.target.closest('#filters'))return;
+    var saGroup=e.target.getAttribute&&e.target.getAttribute('data-select-all');
+    if(saGroup){
+      var saChecked=e.target.checked;
+      document.querySelectorAll('#'+saGroup+' input[type="checkbox"]:not([data-select-all])').forEach(function(i){
+        i.checked=saChecked;
+      });
+    }else{
+      var groupEl=e.target.closest('[id^="filter"]');
+      if(groupEl){
+        var allInGroup=Array.from(groupEl.querySelectorAll('input[type="checkbox"]:not([data-select-all])'));
+        var allChecked=allInGroup.length>0&&allInGroup.every(function(i){return i.checked;});
+        var saEl=groupEl.querySelector('input[data-select-all]');
+        if(saEl)saEl.checked=allChecked;
       }
     }
-  });
-}
-  document.addEventListener('change',function(e){
-  if(!e.target.closest('#filters')) return;
-  /* Handle Select All checkboxes */
-  var saGroup=e.target.getAttribute&&e.target.getAttribute('data-select-all');
-  if(saGroup){
-    var saChecked=e.target.checked;
-    document.querySelectorAll('#'+saGroup+' input[type="checkbox"]:not([data-select-all])').forEach(function(i){
-      i.checked=saChecked;
-    });
-  } else {
-    /* When a regular checkbox changes, sync the Select All state for its group */
-    var groupEl=e.target.closest('[id^="filter"]');
-    if(groupEl){
-      var allInGroup=Array.from(groupEl.querySelectorAll('input[type="checkbox"]:not([data-select-all])'));
-      var allChecked=allInGroup.length>0&&allInGroup.every(function(i){return i.checked;});
-      var saEl=groupEl.querySelector('input[data-select-all]');
-      if(saEl) saEl.checked=allChecked;
-    }
-  }
-  applyFilters();
-});
-
-document.addEventListener('input',function(e){
-  if(e.target.id==='filterName') applyFilters();
-});
-
-function resetFiltersForCurrentSection(){
-  document.querySelectorAll('#filters input').forEach(function(i){
-    if(i.type==='checkbox'){
-      i.checked=false;
-    }else{
-      i.value='';
-    }
+    applyFilters();
   });
 
-  var activeSection=document.getElementById('sec-active');
-  var newsSection=document.getElementById('sec-news');
-  var allTimeSection=document.getElementById('sec-alltime');
+  document.addEventListener('input',function(e){
+    if(e.target.id==='filterName')applyFilters();
+  });
 
-  var isActivePage=activeSection&&activeSection.classList.contains('visible');
-  var isNewsPage=newsSection&&newsSection.classList.contains('visible');
-  var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
-
-  if(isActivePage||isNewsPage){
-    /* Case-insensitive: check both 'ACTIVE' and 'Active' checkbox values */
-    document.querySelectorAll('#filterStatus input').forEach(function(i){
-      if(i.value&&i.value.toUpperCase()==='ACTIVE') i.checked=true;
+  function resetFiltersForCurrentSection(){
+    document.querySelectorAll('#filters input').forEach(function(i){
+      if(i.type==='checkbox')i.checked=false;
+      else i.value='';
     });
+
+    var activeSection=document.getElementById('sec-active');
+    var newsSection=document.getElementById('sec-news');
+    var allTimeSection=document.getElementById('sec-alltime');
+
+    var isActivePage=activeSection&&activeSection.classList.contains('visible');
+    var isNewsPage=newsSection&&newsSection.classList.contains('visible');
+    var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
+
+    if(isActivePage||isNewsPage){
+      document.querySelectorAll('#filterStatus input').forEach(function(i){
+        if(i.value&&i.value.toUpperCase()==='ACTIVE')i.checked=true;
+      });
+    }
+
+    if(isAllTimePage){
+      document.querySelectorAll('#filterStatus input').forEach(function(i){
+        i.checked=true;
+      });
+    }
+
+    applyFilters();
   }
 
-  if(isAllTimePage){
-    document.querySelectorAll('#filterStatus input').forEach(function(i){
-      i.checked=true;
-    });
-  }
+  if(filtersReset)filtersReset.addEventListener('click',resetFiltersForCurrentSection);
+  if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSection);
 
-  applyFilters();
-}
+  document.querySelectorAll('.yat-fun-zone').forEach(function(fz){
+    fz.setAttribute('data-stats-html',fz.innerHTML);
+  });
 
-if(filtersReset)filtersReset.addEventListener('click',resetFiltersForCurrentSection);
-if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSection);
-  document.querySelectorAll('.yat-fun-zone').forEach(function(fz){fz.setAttribute('data-stats-html',fz.innerHTML);});
-
-  /* ====================================================================
-     NEWS SECTION — Lazy-load from /api/news/:hsid on first tab switch
-     ==================================================================== */
   var newsLoaded=false;
   var newsContainer=document.getElementById('news-grid');
   var allNewsPosts=[];
@@ -950,7 +875,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     return tmp.textContent||tmp.innerText||'';
   }
 
-  /* ── Article detail modal ─────────────────────────────────────────── */
   var articleOverlay=document.getElementById('articleOverlay');
   var articleModal=document.getElementById('articleModal');
   var articleModalClose=document.getElementById('articleModalClose');
@@ -962,7 +886,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     if(!articleModal||!articleModalBody||!articleModalImg)return;
     currentArticleUrl=post.url||'';
 
-    /* Image or placeholder */
     articleModalImg.innerHTML='';
     if(post.imageUrl){
       var mi=document.createElement('img');
@@ -971,17 +894,15 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       mi.alt='';
       mi.loading='lazy';
       mi.onerror=function(){
-        articleModalImg.innerHTML='<div class="yat-article-modal-img-ph">\u26BE</div>';
+        articleModalImg.innerHTML='<div class="yat-article-modal-img-ph">\\u26BE</div>';
       };
       articleModalImg.appendChild(mi);
     }else{
-      articleModalImg.innerHTML='<div class="yat-article-modal-img-ph">\u26BE</div>';
+      articleModalImg.innerHTML='<div class="yat-article-modal-img-ph">\\u26BE</div>';
     }
 
-    /* Body */
     articleModalBody.innerHTML='';
 
-    /* Player + level row */
     var displayName=post.playerName||post.playerDbName||'';
     if(displayName||post.level){
       var pRow=document.createElement('div');
@@ -1001,13 +922,11 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       articleModalBody.appendChild(pRow);
     }
 
-    /* Title */
     var titleEl=document.createElement('div');
     titleEl.className='yat-article-modal-title';
     titleEl.textContent=stripHtml(post.title||'Untitled');
     articleModalBody.appendChild(titleEl);
 
-    /* Snippet */
     if(post.snippet){
       var snipEl=document.createElement('div');
       snipEl.className='yat-article-modal-snippet';
@@ -1015,7 +934,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       articleModalBody.appendChild(snipEl);
     }
 
-    /* Source + date meta */
     var metaEl=document.createElement('div');
     metaEl.className='yat-article-modal-meta';
     if(post.source){
@@ -1035,7 +953,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     }
     articleModalBody.appendChild(metaEl);
 
-    /* Social sharing */
     var shareRow=document.createElement('div');
     shareRow.className='yat-share-row';
     var shareLabel=document.createElement('span');
@@ -1054,30 +971,28 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     var shareUrl=post.url||window.location.href;
     var shareTitle=encodeURIComponent(stripHtml(post.title||''));
 
-    /* X / Twitter */
     shareRow.appendChild(makeShareBtn('ri-twitter-x-line','X',function(){
       window.open('https://x.com/intent/tweet?url='+encodeURIComponent(shareUrl)+'&text='+shareTitle,'_blank','noopener,noreferrer');
     }));
-    /* Facebook */
     shareRow.appendChild(makeShareBtn('ri-facebook-line','Facebook',function(){
       window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(shareUrl),'_blank','noopener,noreferrer');
     }));
-    /* Email */
     shareRow.appendChild(makeShareBtn('ri-mail-line','Email',function(){
       window.open('mailto:?subject='+shareTitle+'&body='+encodeURIComponent(shareUrl));
     }));
-    /* Copy link */
     var copyBtn=makeShareBtn('ri-link','Copy link',function(){
       navigator.clipboard&&navigator.clipboard.writeText(shareUrl).then(function(){
         copyBtn.classList.add('copied');
         copyBtn.querySelector('i').className='ri-check-line';
-        setTimeout(function(){copyBtn.classList.remove('copied');copyBtn.querySelector('i').className='ri-link';},2000);
+        setTimeout(function(){
+          copyBtn.classList.remove('copied');
+          copyBtn.querySelector('i').className='ri-link';
+        },2000);
       });
     });
     shareRow.appendChild(copyBtn);
     articleModalBody.appendChild(shareRow);
 
-    /* Actions — "Read full article at source" */
     var actionsEl=document.createElement('div');
     actionsEl.className='yat-article-modal-actions';
     if(post.url){
@@ -1091,7 +1006,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     }
     articleModalBody.appendChild(actionsEl);
 
-    /* Open */
     document.body.classList.add('drawer-open');
     if(articleOverlay)articleOverlay.classList.add('open');
     articleModal.classList.add('open');
@@ -1111,7 +1025,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     if(e.key==='Escape'&&articleModal&&articleModal.classList.contains('open'))closeArticleModal();
   });
 
-  /* ── News filter logic ────────────────────────────────────────────── */
   var newsFilterName=document.getElementById('newsFilterName');
   var newsFilterLevels=document.getElementById('newsFilterLevels');
   var newsFilterGradClass=document.getElementById('newsFilterGradClass');
@@ -1138,7 +1051,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       card.style.display=show?'':'none';
       if(show)visible++;
     });
-    /* show empty message if all filtered out */
     var emptyEl=newsContainer?newsContainer.querySelector('.yat-news-filtered-empty'):null;
     if(newsContainer){
       if(visible===0&&cards.length>0){
@@ -1146,7 +1058,7 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
           var empty=document.createElement('div');
           empty.className='yat-news-loading yat-news-filtered-empty';
           empty.style.cssText='grid-column:1/-1';
-          empty.innerHTML='<div class="yat-news-empty-icon">\u26BE</div><div class="yat-news-loading-text">NO MATCHING ARTICLES</div>';
+          empty.innerHTML='<div class="yat-news-empty-icon">\\u26BE</div><div class="yat-news-loading-text">NO MATCHING ARTICLES</div>';
           newsContainer.appendChild(empty);
         }
       }else if(emptyEl){
@@ -1222,11 +1134,9 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     applyNewsFilters();
   });
 
-  /* ── Card renderer ────────────────────────────────────────────────── */
   function renderNewsCard(post){
     var card=document.createElement('div');
     card.className='yat-news-card';
-    /* Data attributes for filtering */
     var displayName=(post.playerName||post.playerDbName||'').toLowerCase();
     card.setAttribute('data-name',displayName);
     card.setAttribute('data-level',post.level||'');
@@ -1234,7 +1144,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     card.setAttribute('data-pid',post.playerId||'');
     card.setAttribute('data-active',post.active===true?'true':'false');
 
-    /* Image area */
     var imgWrap=document.createElement('div');
     imgWrap.className='yat-news-img-wrap';
     if(post.imageUrl){
@@ -1247,17 +1156,17 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
         img.style.display='none';
         var ph=document.createElement('div');
         ph.className='yat-news-img-placeholder';
-        ph.innerHTML='\u26BE';
+        ph.innerHTML='\\u26BE';
         imgWrap.appendChild(ph);
       };
       imgWrap.appendChild(img);
     }else{
       var ph=document.createElement('div');
       ph.className='yat-news-img-placeholder';
-      ph.innerHTML='\u26BE';
+      ph.innerHTML='\\u26BE';
       imgWrap.appendChild(ph);
     }
-    /* Sentiment badge */
+
     var sent=post.sentiment||'neutral';
     var sentBadge=document.createElement('span');
     sentBadge.className='yat-news-sentiment yat-news-sentiment-'+sent;
@@ -1265,11 +1174,9 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     imgWrap.appendChild(sentBadge);
     card.appendChild(imgWrap);
 
-    /* Body */
     var body=document.createElement('div');
     body.className='yat-news-body';
 
-    /* Player name + level row */
     var cardDisplayName=post.playerName||post.playerDbName||'';
     if(cardDisplayName||post.level){
       var pRow=document.createElement('div');
@@ -1289,13 +1196,11 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       body.appendChild(pRow);
     }
 
-    /* Title */
     var title=document.createElement('div');
     title.className='yat-news-card-title';
     title.textContent=stripHtml(post.title||'Untitled');
     body.appendChild(title);
 
-    /* Snippet */
     if(post.snippet){
       var snippet=document.createElement('div');
       snippet.className='yat-news-snippet';
@@ -1303,7 +1208,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       body.appendChild(snippet);
     }
 
-    /* Categories */
     if(post.categories&&post.categories.length){
       var cats=document.createElement('div');
       cats.className='yat-news-categories';
@@ -1316,7 +1220,6 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
       body.appendChild(cats);
     }
 
-    /* Meta row */
     var meta=document.createElement('div');
     meta.className='yat-news-meta';
     var src=document.createElement('span');
@@ -1330,158 +1233,119 @@ if(filtersReset2)filtersReset2.addEventListener('click',resetFiltersForCurrentSe
     body.appendChild(meta);
 
     card.appendChild(body);
-
-    /* Click opens internal detail modal instead of navigating away */
     card.addEventListener('click',function(){openArticleModal(post);});
-
     return card;
   }
 
   function loadNews(){
     if(newsLoaded||!newsContainer)return;
     newsLoaded=true;
-    newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-loading-spinner"></div><div class="yat-news-loading-text">LOADING ALUMNI NEWS\u2026</div></div>';
+    newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-loading-spinner"></div><div class="yat-news-loading-text">LOADING ALUMNI NEWS\\u2026</div></div>';
     var hsid=window.__YAT_HSID;
     fetch('/api/news/'+encodeURIComponent(hsid))
       .then(function(r){return r.json();})
       .then(function(data){
         newsContainer.innerHTML='';
         if(!data.posts||data.posts.length===0){
-          newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-empty-icon">\u26BE</div><div class="yat-news-loading-text">NO ALUMNI NEWS FOUND YET</div><div class="yat-news-loading-text" style="font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto">News for active alumni will appear here as articles are published. Check back soon.</div></div>';
+          newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-empty-icon">\\u26BE</div><div class="yat-news-loading-text">NO ALUMNI NEWS FOUND YET</div><div class="yat-news-loading-text" style="font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto">News for active alumni will appear here as articles are published. Check back soon.</div></div>';
           return;
         }
         allNewsPosts=data.posts;
-        /* Build level and grad-class filter chips from available data */
         buildNewsLevelChips(allNewsPosts);
         buildNewsGradClassChips(allNewsPosts);
         allNewsPosts.forEach(function(post){
           newsContainer.appendChild(renderNewsCard(post));
         });
-        /* Footer */
         var footer=document.createElement('div');
         footer.className='yat-news-footer';
-        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \u00B7 '+data.total+' articles</span>';
+        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \\u00B7 '+data.total+' articles</span>';
         newsContainer.parentNode.appendChild(footer);
       })
       .catch(function(err){
         console.error('News fetch error:',err);
-        newsContainer.innerHTML='<div class="yat-news-error"><div class="yat-news-error-icon">\u26A0\uFE0F</div><div class="yat-news-error-text">Unable to load news right now. Please try again later.</div></div>';
+        newsContainer.innerHTML='<div class="yat-news-error"><div class="yat-news-error-icon">\\u26A0\\uFE0F</div><div class="yat-news-error-text">Unable to load news right now. Please try again later.</div></div>';
       });
   }
 
-  /* Hook into section switching to trigger news load */
- var origShowSection=showSection;
-showSection=function(tabId, updateHash){
-  origShowSection(tabId, updateHash);
-  if(tabId==='news')loadNews();
-};
-  /* Also load if news section is already visible on page load */
+  var origShowSection=showSection;
+  showSection=function(tabId,updateHash){
+    origShowSection(tabId,updateHash);
+    if(tabId==='news')loadNews();
+  };
+
   var newsSection=document.getElementById('sec-news');
   if(newsSection&&newsSection.classList.contains('visible'))loadNews();
 
-  /* ====================================================================
-     FAVORITES STAMPING
-     Stamp data-fav="true" on gallery cards whose playerid is in the
-     user's favorites list, then reveal the "By My Favorites" filter.
-     Runs on page load (if already logged in) and again on yat-auth-success
-     (fires after login/register + pending-fav resume).
-     ==================================================================== */
   function stampFavorites(){
     var raw;
-    try{ raw=localStorage.getItem('yat-user'); }catch(e){ return; }
-    if(!raw) return;
+    try{raw=localStorage.getItem('yat-user');}catch(e){return;}
+    if(!raw)return;
     var user;
-    try{ user=JSON.parse(raw); }catch(e){ return; }
-    if(!user||!user.uid) return;
+    try{user=JSON.parse(raw);}catch(e){return;}
+    if(!user||!user.uid)return;
     fetch('/api/favorites?uid='+encodeURIComponent(user.uid))
-      .then(function(r){ return r.json(); })
+      .then(function(r){return r.json();})
       .then(function(data){
         var ids=data&&Array.isArray(data.playerIds)?data.playerIds:[];
-        if(!ids.length) return;
-        /* Stamp matching cards */
+        if(!ids.length)return;
         document.querySelectorAll('.yat-card[data-playerid]').forEach(function(card){
           if(ids.indexOf(card.getAttribute('data-playerid'))!==-1){
             card.setAttribute('data-fav','true');
           }
         });
       })
-      .catch(function(){}); /* non-fatal */
+      .catch(function(){});
   }
   stampFavorites();
 
-  /* ====================================================================
-     HOME SCHOOL CREST HYDRATION
-     Reads homeHsid from the yat-user localStorage entry (written by
-     AccountDrawer after login/register). Populates:
-       - #topbarHomeCrestLink  (Block 1 topbar, left of YAT?STATS logo)
-       - #topbarHomeCrestImg   (the <img> inside the topbar link)
-       - #drawerHomeSchoolLink (nav drawer MY HOME SCHOOL item)
-       - #drawerHomeCrestImg   (the <img> inside the drawer link)
-     Runs on page load (if already logged in) and on yat-auth-success.
-     ==================================================================== */
   function hydrateHomeCrest(){
-  var raw;
-  try{ raw=localStorage.getItem('yat-user'); }catch(e){ return; }
-  if(!raw) return;
+    var raw;
+    try{raw=localStorage.getItem('yat-user');}catch(e){return;}
+    if(!raw)return;
 
-  var user;
-  try{ user=JSON.parse(raw); }catch(e){ return; }
-  if(!user||!user.uid||!user.homeHsid) return;
+    var user;
+    try{user=JSON.parse(raw);}catch(e){return;}
+    if(!user||!user.uid||!user.homeHsid)return;
 
-  var homeHsid=user.homeHsid;
-  var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
+    var homeHsid=user.homeHsid;
+    var crestUrl='https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/'+homeHsid+'.png';
+    var homeHref=user.homeMicrositeUrl||('/'+homeHsid);
 
-  // Use canonical microsite URL if we have it.
-  // Fallback keeps current behavior only if the URL was never stored.
-  var homeHref=user.homeMicrositeUrl || ('/' + homeHsid);
+    var topbarLink=document.getElementById('topbarHomeCrestLink');
+    var topbarImg=document.getElementById('topbarHomeCrestImg');
+    if(topbarLink&&topbarImg){
+      topbarImg.setAttribute('src',crestUrl);
+      topbarImg.onerror=function(){topbarImg.onerror=null;topbarImg.src='${CREST_FALLBACK_PATH}';};
+      topbarLink.setAttribute('href',homeHref);
+      topbarLink.removeAttribute('hidden');
+    }
 
-  /* Topbar crest */
-  var topbarLink=document.getElementById('topbarHomeCrestLink');
-  var topbarImg=document.getElementById('topbarHomeCrestImg');
-  if(topbarLink&&topbarImg){
-    topbarImg.setAttribute('src',crestUrl);
-    topbarImg.onerror=function(){ topbarImg.onerror=null; topbarImg.src='${CREST_FALLBACK_PATH}'; };
-    topbarLink.setAttribute('href',homeHref);
-    topbarLink.removeAttribute('hidden');
+    var drawerLink=document.getElementById('drawerHomeSchoolLink');
+    var drawerImg=document.getElementById('drawerHomeCrestImg');
+    if(drawerLink&&drawerImg){
+      drawerImg.setAttribute('src',crestUrl);
+      drawerImg.onerror=function(){drawerImg.onerror=null;drawerImg.src='${CREST_FALLBACK_PATH}';};
+      drawerLink.setAttribute('href',homeHref);
+      drawerLink.style.display='';
+    }
   }
-
-  /* Nav drawer MY HOME SCHOOL link */
-  var drawerLink=document.getElementById('drawerHomeSchoolLink');
-  var drawerImg=document.getElementById('drawerHomeCrestImg');
-  if(drawerLink&&drawerImg){
-    drawerImg.setAttribute('src',crestUrl);
-    drawerImg.onerror=function(){ drawerImg.onerror=null; drawerImg.src='${CREST_FALLBACK_PATH}'; };
-    drawerLink.setAttribute('href',homeHref);
-    drawerLink.style.display='';
-  }
-}
   hydrateHomeCrest();
 
-  /* ====================================================================
-     FAVORITES AUTH-GATE + FILTER WIRING
-     filterFavsHome  = Home School favorites (Fan or Superfan required)
-     filterFavsAll   = All Schools favorites (Superfan only)
-     If the user is not authenticated or lacks the required tier,
-     uncheck the box and open the Account drawer instead.
-     ==================================================================== */
-
   function openAccountDrawer(){
-    /* Close other drawers via body classes (matches YatStyles drawer mechanism) */
     document.body.classList.remove('drawer-left-open','drawer-right-open');
     document.body.classList.add('drawer-account-open','drawer-open');
   }
 
   function getUserTier(){
     var raw;
-    try{ raw=localStorage.getItem('yat-user'); }catch(e){ return null; }
-    if(!raw) return null;
+    try{raw=localStorage.getItem('yat-user');}catch(e){return null;}
+    if(!raw)return null;
     var u;
-    try{ u=JSON.parse(raw); }catch(e){ return null; }
-    if(!u||!u.uid) return null;
-    /* plan stored separately for quick access */
+    try{u=JSON.parse(raw);}catch(e){return null;}
+    if(!u||!u.uid)return null;
     var plan;
-    try{ plan=localStorage.getItem('yat-plan')||u.role||'fan'; }catch(e){ plan=u.role||'fan'; }
-    return plan; /* 'fan' | 'superfan' | null */
+    try{plan=localStorage.getItem('yat-plan')||u.role||'fan';}catch(e){plan=u.role||'fan';}
+    return plan;
   }
 
   var homeChk=document.getElementById('filterFavsHome');
@@ -1489,25 +1353,22 @@ showSection=function(tabId, updateHash){
 
   if(homeChk){
     homeChk.addEventListener('change',function(){
-      if(!this.checked) return; /* unchecking is always allowed */
+      if(!this.checked)return;
       var tier=getUserTier();
       if(!tier){
-        /* Not logged in — open Account drawer */
         this.checked=false;
         openAccountDrawer();
         return;
       }
-      /* fan or superfan — apply filter */
       applyFilters();
     });
   }
 
   if(allChk){
     allChk.addEventListener('change',function(){
-      if(!this.checked) return;
+      if(!this.checked)return;
       var tier=getUserTier();
       if(tier!=='superfan'){
-        /* Not a Superfan — open Account drawer */
         this.checked=false;
         openAccountDrawer();
         return;
@@ -1516,44 +1377,39 @@ showSection=function(tabId, updateHash){
     });
   }
 
-  /* Wire favorites checkboxes into applyFilters */
   var _origApplyFilters=applyFilters;
   applyFilters=function(){
     _origApplyFilters();
     var homeChecked=homeChk&&homeChk.checked;
     var allChecked=allChk&&allChk.checked;
-    if(!homeChecked&&!allChecked) return;
-    /* Hide any card that doesn't match the fav filter */
+    if(!homeChecked&&!allChecked)return;
     document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-      if(card.getAttribute('data-fav')!=='true') card.style.display='none';
+      if(card.getAttribute('data-fav')!=='true')card.style.display='none';
     });
-    /* Sync strip slots */
     document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
       var pid=slot.getAttribute('data-playerid');
       var card=document.querySelector('.yat-card[data-playerid="'+pid+'"]');
-      if(card&&card.style.display==='none') slot.style.display='none';
+      if(card&&card.style.display==='none')slot.style.display='none';
     });
   };
 
-  /* Reset both favorites checkboxes on filter reset */
   var _origReset=resetFiltersForCurrentSection;
   resetFiltersForCurrentSection=function(){
     _origReset();
-    if(homeChk) homeChk.checked=false;
-    if(allChk) allChk.checked=false;
+    if(homeChk)homeChk.checked=false;
+    if(allChk)allChk.checked=false;
   };
 
-  /* Re-stamp + re-hydrate on yat-auth-success (fires after login/register + pending fav) */
   window.addEventListener('yat-auth-success',function(){
     stampFavorites();
     hydrateHomeCrest();
   });
-  /* Hide home crest + MY HOME SCHOOL link immediately on sign-out */
+
   window.addEventListener('yat-sign-out',function(){
     var topbarLink=document.getElementById('topbarHomeCrestLink');
-    if(topbarLink) topbarLink.setAttribute('hidden','');
+    if(topbarLink)topbarLink.setAttribute('hidden','');
     var drawerLink=document.getElementById('drawerHomeSchoolLink');
-    if(drawerLink) drawerLink.style.display='none';
+    if(drawerLink)drawerLink.style.display='none';
     stampFavorites();
   });
 })();
