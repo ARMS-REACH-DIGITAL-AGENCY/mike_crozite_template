@@ -1,18 +1,6 @@
-/**
- * API Route: POST /api/auth/register
- * Handles user registration:
- *   1. Guard against duplicate email registrations (same email, different firebase uid).
- *   2. Look up school name from player_hsids for GHL tagging.
- *   3. Find-or-create ARMS contact (non-fatal — profile is written even if GHL fails)
- *      Tags include: "yatstats", "source:yatstats", "hsid:{hsid}", "school:{schoolName}"
- *   4. Persist user profile in PostgreSQL (firebase_uid → home_hsid → arms_contact_id → plan)
- * Called from the client-side Firebase authentication after a user signs up.
- * home_hsid is set from the subdomain at first registration and never overwritten.
- */
-
 import { NextRequest, NextResponse } from "next/server";
-import { findOrCreateGhlContact } from "@/lib/gohighlevel";
-import { getUserProfileByEmail, upsertUserProfile } from "@/lib/userProfile";
+import { lookupGHLContactByEmail, createGHLContact } from "@/lib/gohighlevel";
+import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -22,98 +10,142 @@ interface RegisterRequestBody {
   email: string;
   firstName?: string;
   lastName?: string;
-  phone?: string;
-  subdomain: string;
+  subdomain?: string;
+}
+
+async function getSchoolByHsid(hsid: string) {
+  const sql = `
+    SELECT hsname, hslocation
+    FROM school_success
+    WHERE hsid::text = $1
+    LIMIT 1
+  `;
+  const result = await query(sql, [String(hsid)]);
+  return result.rows?.[0] ?? null;
+}
+
+function getCookieDomain(hostname: string | null) {
+  if (!hostname) return undefined;
+
+  const host = hostname.split(":")[0].toLowerCase();
+
+  if (host === "yatstats.com" || host.endsWith(".yatstats.com")) {
+    return ".yatstats.com";
+  }
+
+  return undefined;
 }
 
 export async function POST(request: NextRequest) {
+  const body: RegisterRequestBody = await request.json().catch(() => ({} as RegisterRequestBody));
+
+  if (!body.uid || !body.email) {
+    return NextResponse.json(
+      { error: "uid and email are required" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const body: RegisterRequestBody = await request.json();
+    let profile = await getUserProfile(body.uid);
 
-    // Validate required fields
-    if (!body.uid || !body.email) {
-      return NextResponse.json(
-        { error: "uid and email are required" },
-        { status: 400 }
-      );
-    }
+    if (!profile) {
+      let armsContactId: string | null = null;
 
-    // Guard: if a profile already exists for this email under a different firebase_uid,
-    // reject the registration. (Firebase itself prevents duplicate email sign-ups, but
-    // this adds a server-side check as belt-and-suspenders.)
-    const existing = await getUserProfileByEmail(body.email);
-    if (existing && existing.firebase_uid !== body.uid) {
-      return NextResponse.json(
-        { error: "This email already has a YAT?STATS account. Please sign in." },
-        { status: 409 }
-      );
-    }
-
-    // 0. Look up the school name for the home hsid (used for GHL tagging)
-    //    This gives ARMS a human-readable tag like "school:Basha High School"
-    //    alongside the numeric "hsid:9655" tag.
-    let schoolName: string | undefined;
-    if (body.subdomain) {
       try {
-        const schoolRows = await query(
-          "SELECT school_name FROM player_hsids WHERE hsid = $1 LIMIT 1",
-          [body.subdomain]
-        );
-        if (schoolRows.rows.length > 0) {
-          schoolName = schoolRows.rows[0].school_name as string;
+        armsContactId = await lookupGHLContactByEmail(body.email);
+      } catch (err) {
+        console.error("GHL lookup failed (non-fatal):", err);
+      }
+
+      if (!armsContactId) {
+        try {
+          const created = await createGHLContact({
+            email: body.email,
+            firstName: body.firstName ?? "",
+            lastName: body.lastName ?? "",
+          });
+          armsContactId = created?.contactId ?? null;
+        } catch (err) {
+          console.error("GHL create failed (non-fatal):", err);
         }
-      } catch {
-        // Non-fatal — school name is optional for tagging
+      }
+
+      profile = await upsertUserProfile(body.uid, {
+        email: body.email,
+        first_name: body.firstName ?? null,
+        last_name: body.lastName ?? null,
+        home_hsid: body.subdomain ?? null,
+        plan: "fan",
+        arms_contact_id: armsContactId,
+        arms_location_id: process.env.GHL_LOCATION_ID ?? null,
+      });
+    }
+
+    if (!profile.home_hsid && body.subdomain) {
+      profile = await upsertUserProfile(body.uid, {
+        email: body.email,
+        home_hsid: body.subdomain,
+      });
+    }
+
+    let homeSchoolName: string | null = null;
+    let homeSchoolLocation: string | null = null;
+
+    if (profile.home_hsid) {
+      try {
+        const school = await getSchoolByHsid(String(profile.home_hsid));
+        if (school) {
+          homeSchoolName = school.hsname ?? null;
+          homeSchoolLocation = school.hslocation ?? null;
+        }
+      } catch (schoolErr) {
+        console.error("School lookup failed (non-fatal):", schoolErr);
       }
     }
 
-    // 1. Find-or-create ARMS contact (non-fatal)
-    //    If GHL is down, rate-limited, or misconfigured, we still write the Neon profile.
-    //    The login API will backfill arms_contact_id on the user's next sign-in.
-    //    Tags written to ARMS: "yatstats", "source:yatstats", "hsid:{hsid}", "school:{schoolName}"
-    let armsContactId: string | null = null;
-    try {
-      armsContactId = await findOrCreateGhlContact(
-        body.email,
-        body.firstName,
-        body.lastName,
-        body.subdomain || undefined,
-        schoolName
-      );
-    } catch (ghlErr) {
-      console.error("GHL contact creation failed (non-fatal, will retry on login):", ghlErr);
-    }
+    const payload = {
+      success: true,
+      contactId: profile.arms_contact_id ?? null,
+      plan: profile.plan ?? "fan",
+      isSuperfan: profile.plan === "superfan",
+      firstName: profile.first_name ?? body.firstName ?? null,
+      homeHsid: profile.home_hsid ? String(profile.home_hsid) : (body.subdomain ?? null),
+      homeSchoolName,
+      homeSchoolLocation,
+      role: profile.role ?? "fan",
+      subscriptionStatus: profile.subscription_status ?? null,
+    };
 
-    // 2. Persist user profile in PostgreSQL
-    //    home_hsid is set from the registration subdomain (first registration only;
-    //    subsequent upserts preserve the original value via COALESCE).
-    const profile = await upsertUserProfile(body.uid, {
+    const sessionData = {
+      uid: body.uid,
       email: body.email,
-      first_name: body.firstName ?? null,
-      last_name: body.lastName ?? null,
-      home_hsid: body.subdomain || null,
-      arms_contact_id: armsContactId,
-      arms_location_id: process.env.GHL_LOCATION_ID ?? null,
-      plan: "fan",
+      ...payload,
+    };
+
+    const response = NextResponse.json(payload);
+
+    const cookieDomain = getCookieDomain(request.headers.get("host"));
+
+    response.cookies.set({
+      name: "yat-session",
+      value: JSON.stringify(sessionData),
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+      path: "/",
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
     });
 
+    return response;
+  } catch (error: any) {
+    console.error("Register API error:", error);
+
     return NextResponse.json(
       {
-        success: true,
-        contactId: armsContactId,
-        plan: profile.plan,
-        homeHsid: profile.home_hsid,
-        firstName: profile.first_name,
-        message: "User registered and synced",
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Error in registration API:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: "Registration failed",
+        message: error?.message ?? "Unknown error",
       },
       { status: 500 }
     );
