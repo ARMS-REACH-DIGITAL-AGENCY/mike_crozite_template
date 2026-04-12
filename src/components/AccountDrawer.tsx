@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   auth,
   createUserWithEmailAndPassword,
@@ -12,7 +12,7 @@ import {
 import type { User } from 'firebase/auth';
 
 interface AccountDrawerProps {
-  subdomain: string;
+  subdomain: string; // current microsite hsid
 }
 
 function PasswordInput({
@@ -69,6 +69,7 @@ function PasswordInput({
     </div>
   );
 }
+
 function buildMicrositeUrl(
   homeHsid?: string | null,
   homeSchoolName?: string | null,
@@ -84,8 +85,7 @@ function buildMicrositeUrl(
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-  const normalizeState = (state: string) =>
-    String(state || '').toLowerCase().trim();
+  const normalizeState = (state: string) => String(state || '').toLowerCase().trim();
 
   const schoolSlug = slugifySchoolName(homeSchoolName || '');
   const statePart = String(homeSchoolLocation || '').split(',')[1] || '';
@@ -112,20 +112,82 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [activeTab, setActiveTab] = useState<'signin' | 'register'>('register');
   const [displayName, setDisplayName] = useState('');
   const [signInEmail, setSignInEmail] = useState('');
-  const [favConfirm, setFavConfirm] = useState<string>('');
+  const [favConfirm, setFavConfirm] = useState('');
   const [superfanLaunching, setSuperfanLaunching] = useState(false);
   const [isSuperfan, setIsSuperfan] = useState(false);
+
+  const persistLocalUser = ({
+    uid,
+    email,
+    contactId,
+    firstName,
+    homeHsid,
+    homeSchoolName,
+    homeSchoolLocation,
+    role,
+    plan,
+  }: {
+    uid: string;
+    email: string;
+    contactId?: string | null;
+    firstName?: string | null;
+    homeHsid?: string | null;
+    homeSchoolName?: string | null;
+    homeSchoolLocation?: string | null;
+    role?: string | null;
+    plan?: string | null;
+  }) => {
+    const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
+
+    try {
+      if (firstName) {
+        localStorage.setItem(`yat_firstName_${uid}`, firstName);
+      }
+
+      localStorage.setItem(
+        'yat-user',
+        JSON.stringify({
+          uid,
+          contactId: contactId ?? null,
+          email,
+          firstName: firstName ?? null,
+          homeHsid: homeHsid ?? null,
+          homeSchoolName: homeSchoolName ?? null,
+          homeSchoolLocation: homeSchoolLocation ?? null,
+          homeMicrositeUrl,
+          role: role ?? 'fan',
+        })
+      );
+
+      localStorage.setItem('yat-plan', plan ?? 'fan');
+    } catch {}
+
+    window.dispatchEvent(
+      new CustomEvent('yat-auth-success', {
+        detail: {
+          uid,
+          contactId: contactId ?? null,
+          homeHsid: homeHsid ?? null,
+          homeSchoolName: homeSchoolName ?? null,
+          homeSchoolLocation: homeSchoolLocation ?? null,
+          homeMicrositeUrl,
+          role: role ?? 'fan',
+          plan: plan ?? 'fan',
+        },
+      })
+    );
+  };
 
   useEffect(() => {
     const handleTabSwitch = (e: Event) => {
       const tab = (e as CustomEvent<string>).detail;
       if (tab === 'signin' || tab === 'register') setActiveTab(tab);
     };
+
     window.addEventListener('yat:acct-tab', handleTabSwitch);
     return () => window.removeEventListener('yat:acct-tab', handleTabSwitch);
   }, []);
 
-  // Single valid auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -133,10 +195,12 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       if (!currentUser) {
         setDisplayName('');
         setIsSuperfan(false);
+
         try {
           localStorage.removeItem('yat-plan');
           localStorage.removeItem('yat-user');
         } catch {}
+
         return;
       }
 
@@ -146,8 +210,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       try {
         const storedName = localStorage.getItem(`yat_firstName_${uid}`);
         setDisplayName(currentUser.displayName || storedName || '');
-        const storedPlan = localStorage.getItem('yat-plan');
-        setIsSuperfan(storedPlan === 'superfan');
+        setIsSuperfan(localStorage.getItem('yat-plan') === 'superfan');
       } catch {}
 
       try {
@@ -169,24 +232,26 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           localStorage.getItem(`yat_firstName_${uid}`) ||
           '';
 
-        setDisplayName(firstName);
-        setIsSuperfan(loginData?.isSuperfan || loginData?.plan === 'superfan');
+        const homeHsid = loginData?.homeHsid ?? null;
+        const homeSchoolName = loginData?.homeSchoolName ?? null;
+        const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
+        const plan = loginData?.plan ?? 'fan';
+        const superfan = loginData?.isSuperfan || plan === 'superfan';
 
-        try {
-          localStorage.setItem(`yat_firstName_${uid}`, firstName);
-          localStorage.setItem(
-            'yat-user',
-            JSON.stringify({
-              uid,
-              contactId: loginData?.contactId ?? null,
-              email,
-              firstName: firstName || null,
-              homeHsid: loginData?.homeHsid ?? subdomain ?? null,
-              role: loginData?.role ?? 'fan',
-            })
-          );
-          localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
-        } catch {}
+        setDisplayName(firstName);
+        setIsSuperfan(superfan);
+
+        persistLocalUser({
+          uid,
+          email,
+          contactId: loginData?.contactId ?? null,
+          firstName,
+          homeHsid,
+          homeSchoolName,
+          homeSchoolLocation,
+          role: loginData?.role ?? 'fan',
+          plan,
+        });
       } catch (err) {
         console.error('Auth rehydrate failed:', err);
       }
@@ -195,7 +260,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     return () => unsubscribe();
   }, [subdomain]);
 
-  /** Execute a pending favorite intent stored in sessionStorage, if any. */
   const resumePendingFavorite = async (firebaseUid: string, contactId?: string | null) => {
     const pid = sessionStorage.getItem('pending_fav_pid');
     const pName = sessionStorage.getItem('pending_fav_name') || pid || '';
@@ -213,10 +277,13 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           contactId,
           playerId: pid,
           playerName: pName,
+          schoolId: subdomain,
           type: 'fan',
         }),
       });
+
       const data = await res.json();
+
       if (data && data.success) {
         setFavConfirm(pName);
         window.dispatchEvent(
@@ -228,7 +295,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     }
   };
 
-  /** Launch Stripe checkout for the Superfan subscription. */
   const launchSuperfanCheckout = async (firebaseUid: string, email: string) => {
     setSuperfanLaunching(true);
     setMessage('Launching Superfan checkout…');
@@ -240,14 +306,17 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firebaseUid, email }),
       });
+
       const data = await res.json();
+
       if (data?.url) {
         window.location.href = data.url;
-      } else {
-        setMessage(data?.error || 'Could not start checkout. Please try again.');
-        setMessageType('error');
-        setSuperfanLaunching(false);
+        return;
       }
+
+      setMessage(data?.error || 'Could not start checkout. Please try again.');
+      setMessageType('error');
+      setSuperfanLaunching(false);
     } catch {
       setMessage('Network error starting checkout. Please try again.');
       setMessageType('error');
@@ -255,15 +324,15 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     }
   };
 
-  /** Resume a pending superfan intent after auth, or dismiss if none. */
   const resumePendingSuperfan = async (firebaseUid: string, email: string) => {
     const pending = sessionStorage.getItem('pending_superfan');
     if (!pending) return;
+
     sessionStorage.removeItem('pending_superfan');
     await launchSuperfanCheckout(firebaseUid, email);
   };
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSignIn = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage('');
@@ -282,65 +351,38 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid, email, currentHsid: subdomain }),
         });
+
         const loginData = await loginRes.json();
 
-        if (loginData?.firstName) {
-          try {
-            localStorage.setItem(`yat_firstName_${uid}`, loginData.firstName);
-          } catch {}
-          setDisplayName(loginData.firstName);
+        const firstName =
+          loginData?.firstName ||
+          cred.user.displayName ||
+          localStorage.getItem(`yat_firstName_${uid}`) ||
+          '';
+
+        const homeHsid = loginData?.homeHsid ?? null;
+        const homeSchoolName = loginData?.homeSchoolName ?? null;
+        const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
+        const plan = loginData?.plan ?? 'fan';
+        const superfan = loginData?.isSuperfan || plan === 'superfan';
+
+        if (firstName) {
+          setDisplayName(firstName);
         }
 
-        const canonicalHome = loginData?.homeHsid ?? null;
-const homeSchoolName = loginData?.homeSchoolName ?? null;
-const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
-const homeMicrositeUrl = buildMicrositeUrl(canonicalHome, homeSchoolName, homeSchoolLocation);
+        setIsSuperfan(superfan);
 
-const homeHsid = regData?.homeHsid ?? null;
-const homeSchoolName = regData?.homeSchoolName ?? null;
-const homeSchoolLocation = regData?.homeSchoolLocation ?? null;
-const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
-
-try {
-  localStorage.setItem(
-    'yat-user',
-    JSON.stringify({
-      uid,
-      contactId: regData?.contactId ?? null,
-      email,
-      firstName: firstName || null,
-      homeHsid,
-      homeSchoolName,
-      homeSchoolLocation,
-      homeMicrositeUrl,
-      role: 'fan',
-    })
-  );
-} catch {}
-
-if (loginData?.isSuperfan) setIsSuperfan(true);
-try {
-  localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
-} catch {}
-
-const isSuperfanUser = loginData?.isSuperfan || loginData?.plan === 'superfan';
-
-if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
-  const homeLabel = homeSchoolName
-    ? `${homeSchoolName}${homeSchoolLocation ? ` (${homeSchoolLocation})` : ''}`
-    : canonicalHome;
-
-  setMessage(
-    `Your Fan account is registered to ${homeLabel}. Redirecting you to your home microsite…`
-  );
-  setMessageType('info');
-
-  setTimeout(() => {
-    window.location.href = homeMicrositeUrl || `/${canonicalHome}`;
-  }, 2500);
-
-  return;
-}
+        persistLocalUser({
+          uid,
+          email,
+          contactId: loginData?.contactId ?? null,
+          firstName: firstName || null,
+          homeHsid,
+          homeSchoolName,
+          homeSchoolLocation,
+          role: loginData?.role ?? 'fan',
+          plan,
+        });
 
         if (sessionStorage.getItem('pending_fav_pid')) {
           await resumePendingFavorite(uid, loginData?.contactId);
@@ -349,7 +391,7 @@ if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
           return;
         }
       } catch {
-        // non-fatal
+        // non-fatal: Firebase sign-in succeeded
       }
 
       setMessage('Sign in successful!');
@@ -363,7 +405,7 @@ if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage('');
@@ -373,41 +415,70 @@ if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
       const password = (e.currentTarget.elements.namedItem('registerPassword') as HTMLInputElement)
         .value;
       const firstName =
-  loginData?.firstName ||
-  currentUser.displayName ||
-  localStorage.getItem(`yat_firstName_${uid}`) ||
-  '';
+        (e.currentTarget.elements.namedItem('registerFirstName') as HTMLInputElement)?.value?.trim() ||
+        '';
+      const lastName =
+        (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value?.trim() ||
+        '';
 
-const homeHsid = loginData?.homeHsid ?? null;
-const homeSchoolName = loginData?.homeSchoolName ?? null;
-const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
-const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
+      if (!firstName || !lastName) {
+        setMessage('First name and last name are required.');
+        setMessageType('error');
+        setIsLoading(false);
+        return;
+      }
 
-setDisplayName(firstName);
-setIsSuperfan(loginData?.isSuperfan || loginData?.plan === 'superfan');
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
 
-try {
-  localStorage.setItem(`yat_firstName_${uid}`, firstName);
-  localStorage.setItem(
-    'yat-user',
-    JSON.stringify({
-      uid,
-      contactId: loginData?.contactId ?? null,
-      email,
-      firstName: firstName || null,
-      homeHsid,
-      homeSchoolName,
-      homeSchoolLocation,
-      homeMicrositeUrl,
-      role: loginData?.role ?? 'fan',
-    })
-  );
-  localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
-} catch {}
+      if (auth.currentUser) {
+        try {
+          localStorage.setItem(`yat_firstName_${auth.currentUser.uid}`, firstName);
+        } catch {}
+        setDisplayName(firstName);
+      }
 
-      try {
-        localStorage.setItem('yat-plan', regData?.plan ?? 'fan');
-      } catch {}
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid,
+          email,
+          firstName,
+          lastName,
+          subdomain,
+        }),
+      });
+
+      const regData = await registerResponse.json();
+
+      if (!registerResponse.ok) {
+        const err = new Error(regData?.error || 'Failed to sync to CRM') as Error & {
+          isEmailTaken?: boolean;
+        };
+        if (registerResponse.status === 409) err.isEmailTaken = true;
+        throw err;
+      }
+
+      const homeHsid = regData?.homeHsid ?? subdomain ?? null;
+      const homeSchoolName = regData?.homeSchoolName ?? null;
+      const homeSchoolLocation = regData?.homeSchoolLocation ?? null;
+      const plan = regData?.plan ?? 'fan';
+      const superfan = regData?.isSuperfan || plan === 'superfan';
+
+      setIsSuperfan(superfan);
+
+      persistLocalUser({
+        uid,
+        email,
+        contactId: regData?.contactId ?? null,
+        firstName: firstName || null,
+        homeHsid,
+        homeSchoolName,
+        homeSchoolLocation,
+        role: 'fan',
+        plan,
+      });
 
       if (sessionStorage.getItem('pending_fav_pid') && uid) {
         await resumePendingFavorite(uid, regData?.contactId);
@@ -421,6 +492,7 @@ try {
       setTimeout(() => setMessage(''), 1500);
     } catch (error) {
       const firebaseCode = (error as { code?: string })?.code;
+
       if (
         firebaseCode === 'auth/email-already-in-use' ||
         (error as { isEmailTaken?: boolean })?.isEmailTaken
@@ -430,6 +502,7 @@ try {
       } else {
         setMessage(error instanceof Error ? error.message : 'Registration failed');
       }
+
       setMessageType('error');
     } finally {
       setIsLoading(false);
@@ -439,6 +512,7 @@ try {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+
       try {
         localStorage.removeItem('yat-plan');
         localStorage.removeItem('yat-user');
@@ -463,6 +537,7 @@ try {
 
   const handleForgotPassword = async () => {
     const email = signInEmail.trim();
+
     if (!email) {
       setMessage('Please enter your email address first.');
       setMessageType('error');
@@ -484,9 +559,7 @@ try {
       setMessage('Password reset email sent. Check your inbox.');
       setMessageType('success');
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : 'Failed to send password reset email.'
-      );
+      setMessage(error instanceof Error ? error.message : 'Failed to send password reset email.');
       setMessageType('error');
     } finally {
       setIsLoading(false);
@@ -804,6 +877,7 @@ try {
                 name="intent"
                 value="fan"
                 disabled={isLoading}
+                onClick={() => sessionStorage.removeItem('pending_superfan')}
                 style={{
                   width: '100%',
                   padding: '11px',
@@ -940,7 +1014,10 @@ try {
                     ['Follow players from any school', '—', '—', '✓'],
                     ['All-Schools favorites filter', '—', '—', '✓'],
                   ].map(([feat, v, f, s]) => (
-                    <tr key={feat as string} style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                    <tr
+                      key={feat as string}
+                      style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}
+                    >
                       <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
                       <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
                       <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
