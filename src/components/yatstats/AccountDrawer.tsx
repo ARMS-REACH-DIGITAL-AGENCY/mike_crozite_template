@@ -12,21 +12,7 @@ import {
 import type { User } from 'firebase/auth';
 
 interface AccountDrawerProps {
-  subdomain: string;
-}
-
-interface ServerSessionUser {
-  uid: string;
-  email: string;
-  contactId?: string | null;
-  firstName?: string | null;
-  homeHsid?: string | null;
-  homeSchoolName?: string | null;
-  homeSchoolLocation?: string | null;
-  homeMicrositeUrl?: string | null;
-  role?: string | null;
-  plan?: string | null;
-  isSuperfan?: boolean;
+  subdomain: string; // current microsite hsid
 }
 
 function PasswordInput({
@@ -119,8 +105,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     info: 'var(--muted)',
   };
 
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  const [serverSessionUser, setServerSessionUser] = useState<ServerSessionUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('info');
@@ -130,14 +115,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [favConfirm, setFavConfirm] = useState('');
   const [superfanLaunching, setSuperfanLaunching] = useState(false);
   const [isSuperfan, setIsSuperfan] = useState(false);
-
-  const effectiveUser = firebaseUser || (serverSessionUser
-    ? ({
-        uid: serverSessionUser.uid,
-        email: serverSessionUser.email,
-        isAnonymous: false,
-      } as unknown as User)
-    : null);
 
   const persistLocalUser = ({
     uid,
@@ -185,20 +162,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       localStorage.setItem('yat-plan', plan ?? 'fan');
     } catch {}
 
-    setServerSessionUser({
-      uid,
-      email,
-      contactId: contactId ?? null,
-      firstName: firstName ?? null,
-      homeHsid: homeHsid ?? null,
-      homeSchoolName: homeSchoolName ?? null,
-      homeSchoolLocation: homeSchoolLocation ?? null,
-      homeMicrositeUrl,
-      role: role ?? 'fan',
-      plan: plan ?? 'fan',
-      isSuperfan: plan === 'superfan',
-    });
-
     window.dispatchEvent(
       new CustomEvent('yat-auth-success', {
         detail: {
@@ -215,58 +178,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
     );
   };
 
-  async function bootstrapFromServerSession() {
-    try {
-      const res = await fetch('/api/auth/session', {
-        method: 'GET',
-        cache: 'no-store',
-      });
-
-      const data = await res.json();
-
-      if (!data?.authenticated || !data?.session) {
-        setServerSessionUser(null);
-        return;
-      }
-
-      const s = data.session;
-      const homeMicrositeUrl =
-        s.homeMicrositeUrl ||
-        buildMicrositeUrl(s.homeHsid ?? null, s.homeSchoolName ?? null, s.homeSchoolLocation ?? null);
-
-      setServerSessionUser({
-        uid: s.uid,
-        email: s.email,
-        contactId: s.contactId ?? null,
-        firstName: s.firstName ?? null,
-        homeHsid: s.homeHsid ?? null,
-        homeSchoolName: s.homeSchoolName ?? null,
-        homeSchoolLocation: s.homeSchoolLocation ?? null,
-        homeMicrositeUrl,
-        role: s.role ?? 'fan',
-        plan: s.plan ?? 'fan',
-        isSuperfan: s.plan === 'superfan' || s.isSuperfan === true,
-      });
-
-      setDisplayName(s.firstName ?? '');
-      setIsSuperfan(s.plan === 'superfan' || s.isSuperfan === true);
-
-      persistLocalUser({
-        uid: s.uid,
-        email: s.email,
-        contactId: s.contactId ?? null,
-        firstName: s.firstName ?? null,
-        homeHsid: s.homeHsid ?? null,
-        homeSchoolName: s.homeSchoolName ?? null,
-        homeSchoolLocation: s.homeSchoolLocation ?? null,
-        role: s.role ?? 'fan',
-        plan: s.plan ?? 'fan',
-      });
-    } catch (err) {
-      console.error('Session bootstrap failed:', err);
-    }
-  }
-
   useEffect(() => {
     const handleTabSwitch = (e: Event) => {
       const tab = (e as CustomEvent<string>).detail;
@@ -278,20 +189,29 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   }, []);
 
   useEffect(() => {
-    bootstrapFromServerSession();
-  }, [subdomain]);
-
-  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setFirebaseUser(currentUser);
+      setUser(currentUser);
 
       if (!currentUser) {
-        await bootstrapFromServerSession();
+        setDisplayName('');
+        setIsSuperfan(false);
+
+        try {
+          localStorage.removeItem('yat-plan');
+          localStorage.removeItem('yat-user');
+        } catch {}
+
         return;
       }
 
       const uid = currentUser.uid;
       const email = currentUser.email || '';
+
+      try {
+        const storedName = localStorage.getItem(`yat_firstName_${uid}`);
+        setDisplayName(currentUser.displayName || storedName || '');
+        setIsSuperfan(localStorage.getItem('yat-plan') === 'superfan');
+      } catch {}
 
       try {
         const loginRes = await fetch('/api/auth/login', {
@@ -312,19 +232,25 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           localStorage.getItem(`yat_firstName_${uid}`) ||
           '';
 
+        const homeHsid = loginData?.homeHsid ?? null;
+        const homeSchoolName = loginData?.homeSchoolName ?? null;
+        const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
+        const plan = loginData?.plan ?? 'fan';
+        const superfan = loginData?.isSuperfan || plan === 'superfan';
+
         setDisplayName(firstName);
-        setIsSuperfan(loginData?.isSuperfan || loginData?.plan === 'superfan');
+        setIsSuperfan(superfan);
 
         persistLocalUser({
           uid,
           email,
           contactId: loginData?.contactId ?? null,
           firstName,
-          homeHsid: loginData?.homeHsid ?? null,
-          homeSchoolName: loginData?.homeSchoolName ?? null,
-          homeSchoolLocation: loginData?.homeSchoolLocation ?? null,
+          homeHsid,
+          homeSchoolName,
+          homeSchoolLocation,
           role: loginData?.role ?? 'fan',
-          plan: loginData?.plan ?? 'fan',
+          plan,
         });
       } catch (err) {
         console.error('Auth rehydrate failed:', err);
@@ -364,7 +290,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           new CustomEvent('yat-auth-success', { detail: { contactId, playerId: pid } })
         );
       }
-    } catch {}
+    } catch {
+      // non-fatal
+    }
   };
 
   const launchSuperfanCheckout = async (firebaseUid: string, email: string) => {
@@ -417,40 +345,53 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
 
-      const loginRes = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, email, currentHsid: subdomain }),
-      });
+      try {
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, email, currentHsid: subdomain }),
+        });
 
-      const loginData = await loginRes.json();
+        const loginData = await loginRes.json();
 
-      const firstName =
-        loginData?.firstName ||
-        cred.user.displayName ||
-        localStorage.getItem(`yat_firstName_${uid}`) ||
-        '';
+        const firstName =
+          loginData?.firstName ||
+          cred.user.displayName ||
+          localStorage.getItem(`yat_firstName_${uid}`) ||
+          '';
 
-      setDisplayName(firstName);
-      setIsSuperfan(loginData?.isSuperfan || loginData?.plan === 'superfan');
+        const homeHsid = loginData?.homeHsid ?? null;
+        const homeSchoolName = loginData?.homeSchoolName ?? null;
+        const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
+        const plan = loginData?.plan ?? 'fan';
+        const superfan = loginData?.isSuperfan || plan === 'superfan';
 
-      persistLocalUser({
-        uid,
-        email,
-        contactId: loginData?.contactId ?? null,
-        firstName,
-        homeHsid: loginData?.homeHsid ?? null,
-        homeSchoolName: loginData?.homeSchoolName ?? null,
-        homeSchoolLocation: loginData?.homeSchoolLocation ?? null,
-        role: loginData?.role ?? 'fan',
-        plan: loginData?.plan ?? 'fan',
-      });
+        if (firstName) {
+          setDisplayName(firstName);
+        }
 
-      if (sessionStorage.getItem('pending_fav_pid')) {
-        await resumePendingFavorite(uid, loginData?.contactId);
-      } else if (sessionStorage.getItem('pending_superfan')) {
-        await resumePendingSuperfan(uid, email);
-        return;
+        setIsSuperfan(superfan);
+
+        persistLocalUser({
+          uid,
+          email,
+          contactId: loginData?.contactId ?? null,
+          firstName: firstName || null,
+          homeHsid,
+          homeSchoolName,
+          homeSchoolLocation,
+          role: loginData?.role ?? 'fan',
+          plan,
+        });
+
+        if (sessionStorage.getItem('pending_fav_pid')) {
+          await resumePendingFavorite(uid, loginData?.contactId);
+        } else if (sessionStorage.getItem('pending_superfan')) {
+          await resumePendingSuperfan(uid, email);
+          return;
+        }
+      } catch {
+        // non-fatal: Firebase sign-in succeeded
       }
 
       setMessage('Sign in successful!');
@@ -490,6 +431,13 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
 
+      if (auth.currentUser) {
+        try {
+          localStorage.setItem(`yat_firstName_${auth.currentUser.uid}`, firstName);
+        } catch {}
+        setDisplayName(firstName);
+      }
+
       const registerResponse = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -505,27 +453,36 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const regData = await registerResponse.json();
 
       if (!registerResponse.ok) {
-        throw new Error(regData?.error || 'Registration failed');
+        const err = new Error(regData?.error || 'Failed to sync to CRM') as Error & {
+          isEmailTaken?: boolean;
+        };
+        if (registerResponse.status === 409) err.isEmailTaken = true;
+        throw err;
       }
 
-      setDisplayName(firstName);
-      setIsSuperfan(regData?.isSuperfan || regData?.plan === 'superfan');
+      const homeHsid = regData?.homeHsid ?? subdomain ?? null;
+      const homeSchoolName = regData?.homeSchoolName ?? null;
+      const homeSchoolLocation = regData?.homeSchoolLocation ?? null;
+      const plan = regData?.plan ?? 'fan';
+      const superfan = regData?.isSuperfan || plan === 'superfan';
+
+      setIsSuperfan(superfan);
 
       persistLocalUser({
         uid,
         email,
         contactId: regData?.contactId ?? null,
-        firstName,
-        homeHsid: regData?.homeHsid ?? subdomain ?? null,
-        homeSchoolName: regData?.homeSchoolName ?? null,
-        homeSchoolLocation: regData?.homeSchoolLocation ?? null,
-        role: regData?.role ?? 'fan',
-        plan: regData?.plan ?? 'fan',
+        firstName: firstName || null,
+        homeHsid,
+        homeSchoolName,
+        homeSchoolLocation,
+        role: 'fan',
+        plan,
       });
 
-      if (sessionStorage.getItem('pending_fav_pid')) {
+      if (sessionStorage.getItem('pending_fav_pid') && uid) {
         await resumePendingFavorite(uid, regData?.contactId);
-      } else if (sessionStorage.getItem('pending_superfan')) {
+      } else if (sessionStorage.getItem('pending_superfan') && uid) {
         await resumePendingSuperfan(uid, email);
         return;
       }
@@ -534,7 +491,18 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Registration failed');
+      const firebaseCode = (error as { code?: string })?.code;
+
+      if (
+        firebaseCode === 'auth/email-already-in-use' ||
+        (error as { isEmailTaken?: boolean })?.isEmailTaken
+      ) {
+        setMessage('This email already has a YAT?STATS account. Please sign in.');
+        setActiveTab('signin');
+      } else {
+        setMessage(error instanceof Error ? error.message : 'Registration failed');
+      }
+
       setMessageType('error');
     } finally {
       setIsLoading(false);
@@ -543,15 +511,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
   const handleSignOut = async () => {
     try {
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-        });
-      } catch {}
-
-      try {
-        await signOut(auth);
-      } catch {}
+      await signOut(auth);
 
       try {
         localStorage.removeItem('yat-plan');
@@ -566,11 +526,6 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
         window.dispatchEvent(new CustomEvent('yat-sign-out'));
       } catch {}
-
-      setFirebaseUser(null);
-      setServerSessionUser(null);
-      setDisplayName('');
-      setIsSuperfan(false);
 
       setMessage('Signed out successfully');
       setMessageType('success');
@@ -613,7 +568,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
   return (
     <div className="yat-drawer-content">
-      {effectiveUser && !effectiveUser.isAnonymous ? (
+      {user && !user.isAnonymous ? (
         <div style={{ padding: '20px' }}>
           {superfanLaunching && (
             <div
@@ -664,6 +619,36 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               >
                 ⭐ {favConfirm} added to your favorites
               </p>
+              <p
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--muted)',
+                  lineHeight: '1.5',
+                  marginBottom: '10px',
+                }}
+              >
+                Want to follow players from other schools too? Upgrade to Superfan for global access.
+              </p>
+              <button
+                type="button"
+                disabled={superfanLaunching}
+                onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 14px',
+                  background: '#b8860b',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  letterSpacing: '.06em',
+                  cursor: superfanLaunching ? 'not-allowed' : 'pointer',
+                  opacity: superfanLaunching ? 0.6 : 1,
+                }}
+              >
+                {superfanLaunching ? 'Launching…' : 'Upgrade to Superfan →'}
+              </button>
             </div>
           )}
 
@@ -687,6 +672,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               >
                 ⭐ You are a Superfan
               </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+                You can follow players from any school in the YAT?STATS network.
+              </p>
             </div>
           )}
 
@@ -701,13 +689,13 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
             >
               Hi, {displayName || 'Fan'}!
             </p>
-            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveUser.email}</p>
+            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</p>
           </div>
 
           {!isSuperfan && !superfanLaunching && (
             <button
               type="button"
-              onClick={() => effectiveUser?.uid && effectiveUser.email && launchSuperfanCheckout(effectiveUser.uid, effectiveUser.email)}
+              onClick={() => user?.uid && user.email && launchSuperfanCheckout(user.uid, user.email)}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -946,6 +934,167 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
               {message}
             </p>
           )}
+
+          <div style={{ borderTop: '1px solid var(--line)', marginTop: '8px' }}>
+            <div
+              style={{
+                padding: '16px',
+                fontSize: '11px',
+                lineHeight: '1.7',
+                color: 'var(--muted)',
+              }}
+            >
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th
+                      style={{
+                        textAlign: 'left',
+                        fontSize: '10px',
+                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        letterSpacing: '.06em',
+                        paddingBottom: '6px',
+                        color: 'var(--fg)',
+                        width: '40%',
+                      }}
+                    >
+                      FEATURE
+                    </th>
+                    <th
+                      style={{
+                        textAlign: 'center',
+                        fontSize: '9px',
+                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        letterSpacing: '.04em',
+                        paddingBottom: '6px',
+                        color: 'var(--muted)',
+                        width: '18%',
+                      }}
+                    >
+                      VISITOR
+                    </th>
+                    <th
+                      style={{
+                        textAlign: 'center',
+                        fontSize: '9px',
+                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        letterSpacing: '.04em',
+                        paddingBottom: '6px',
+                        color: 'var(--fg)',
+                        width: '20%',
+                      }}
+                    >
+                      HOME
+                      <br />
+                      FAN
+                    </th>
+                    <th
+                      style={{
+                        textAlign: 'center',
+                        fontSize: '9px',
+                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        letterSpacing: '.04em',
+                        paddingBottom: '6px',
+                        color: '#FFD700',
+                        width: '22%',
+                      }}
+                    >
+                      ⭐ SUPER
+                      <br />
+                      FAN
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Browse all alumni stats', '✓', '✓', '✓'],
+                    ['View schedules & scores', '✓', '✓', '✓'],
+                    ['Save Home School favorites', '—', '✓', '✓'],
+                    ['Filter by My Favorites', '—', '✓', '✓'],
+                    ['Follow players from any school', '—', '—', '✓'],
+                    ['All-Schools favorites filter', '—', '—', '✓'],
+                  ].map(([feat, v, f, s]) => (
+                    <tr
+                      key={feat as string}
+                      style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}
+                    >
+                      <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
+                      <td style={{ textAlign: 'center', color: '#FFD700' }}>{s}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              style={{
+                borderTop: '1px solid var(--line)',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: '12px',
+                background: 'rgba(255,255,255,.03)',
+              }}
+            >
+              <div style={{ flexShrink: 0 }}>
+                <img
+                  src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
+                  alt="YaTi mascot"
+                  style={{ width: '80px', objectFit: 'contain', display: 'block' }}
+                />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    background: '#fff',
+                    color: '#000',
+                    borderRadius: '12px',
+                    padding: '10px 12px',
+                    fontSize: '12px',
+                    lineHeight: '1.5',
+                    position: 'relative',
+                  }}
+                >
+                  Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
+                  <br />
+                  <button
+                    type="button"
+                    style={{
+                      marginTop: '8px',
+                      background: '#FFD700',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '5px 12px',
+                      fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                      fontSize: '13px',
+                      letterSpacing: '.06em',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    LET&apos;S GO!!
+                  </button>
+
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '-8px',
+                      width: 0,
+                      height: 0,
+                      borderTop: '8px solid transparent',
+                      borderBottom: '8px solid transparent',
+                      borderRight: '8px solid #fff',
+                      display: 'block',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       )}
     </div>
