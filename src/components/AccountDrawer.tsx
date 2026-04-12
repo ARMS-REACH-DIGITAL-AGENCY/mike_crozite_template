@@ -296,19 +296,24 @@ const homeSchoolName = loginData?.homeSchoolName ?? null;
 const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
 const homeMicrositeUrl = buildMicrositeUrl(canonicalHome, homeSchoolName, homeSchoolLocation);
 
+const homeHsid = regData?.homeHsid ?? null;
+const homeSchoolName = regData?.homeSchoolName ?? null;
+const homeSchoolLocation = regData?.homeSchoolLocation ?? null;
+const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
+
 try {
   localStorage.setItem(
     'yat-user',
     JSON.stringify({
       uid,
-      contactId: loginData?.contactId ?? null,
+      contactId: regData?.contactId ?? null,
       email,
-      firstName: loginData?.firstName ?? null,
-      homeHsid: canonicalHome,
+      firstName: firstName || null,
+      homeHsid,
       homeSchoolName,
       homeSchoolLocation,
       homeMicrositeUrl,
-      role: loginData?.role ?? 'fan',
+      role: 'fan',
     })
   );
 } catch {}
