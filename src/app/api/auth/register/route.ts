@@ -68,9 +68,14 @@ export async function POST(request: NextRequest) {
               firstName: body.firstName ?? "",
               lastName: body.lastName ?? "",
             },
-            body.subdomain ?? ""
+            body.subdomain ?? "yatstats"
           );
-          armsContactId = created?.contactId ?? null;
+
+          if (!("error" in created)) {
+            armsContactId = created.contact?.id ?? null;
+          } else {
+            console.error("GHL create failed (non-fatal):", created);
+          }
         } catch (err) {
           console.error("GHL create failed (non-fatal):", err);
         }
