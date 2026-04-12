@@ -291,46 +291,51 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           setDisplayName(loginData.firstName);
         }
 
-        try {
-          localStorage.setItem(
-            'yat-user',
-            JSON.stringify({
-              uid,
-              contactId: loginData?.contactId ?? null,
-              email,
-              firstName: loginData?.firstName ?? null,
-              homeHsid: loginData?.homeHsid ?? null,
-              role: loginData?.role ?? 'fan',
-            })
-          );
-        } catch {}
+        const canonicalHome = loginData?.homeHsid ?? null;
+const homeSchoolName = loginData?.homeSchoolName ?? null;
+const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
+const homeMicrositeUrl = buildMicrositeUrl(canonicalHome, homeSchoolName, homeSchoolLocation);
 
-        if (loginData?.isSuperfan) setIsSuperfan(true);
-        try {
-          localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
-        } catch {}
+try {
+  localStorage.setItem(
+    'yat-user',
+    JSON.stringify({
+      uid,
+      contactId: loginData?.contactId ?? null,
+      email,
+      firstName: loginData?.firstName ?? null,
+      homeHsid: canonicalHome,
+      homeSchoolName,
+      homeSchoolLocation,
+      homeMicrositeUrl,
+      role: loginData?.role ?? 'fan',
+    })
+  );
+} catch {}
 
-        const canonicalHome = loginData?.homeHsid;
-        const isSuperfanUser = loginData?.isSuperfan || loginData?.plan === 'superfan';
+if (loginData?.isSuperfan) setIsSuperfan(true);
+try {
+  localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
+} catch {}
 
-        if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
-          const homeLabel = loginData?.homeSchoolName
-            ? `${loginData.homeSchoolName}${
-                loginData.homeSchoolLocation ? ` (${loginData.homeSchoolLocation})` : ''
-              }`
-            : canonicalHome;
+const isSuperfanUser = loginData?.isSuperfan || loginData?.plan === 'superfan';
 
-          setMessage(
-            `Your Fan account is registered to ${homeLabel}. Redirecting you to your home microsite…`
-          );
-          setMessageType('info');
+if (canonicalHome && !isSuperfanUser && canonicalHome !== subdomain) {
+  const homeLabel = homeSchoolName
+    ? `${homeSchoolName}${homeSchoolLocation ? ` (${homeSchoolLocation})` : ''}`
+    : canonicalHome;
 
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 2500);
+  setMessage(
+    `Your Fan account is registered to ${homeLabel}. Redirecting you to your home microsite…`
+  );
+  setMessageType('info');
 
-          return;
-        }
+  setTimeout(() => {
+    window.location.href = homeMicrositeUrl || `/${canonicalHome}`;
+  }, 2500);
+
+  return;
+}
 
         if (sessionStorage.getItem('pending_fav_pid')) {
           await resumePendingFavorite(uid, loginData?.contactId);
