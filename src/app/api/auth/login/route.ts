@@ -1,21 +1,7 @@
-/**
- * API Route: POST /api/auth/login
- * Called after a successful Firebase sign-in to:
- *   1. Load (or create) the user profile
- *   2. Backfill home_hsid if missing — uses currentHsid (the microsite they're on)
- *   3. Backfill armsContactId if missing (look up by email in ARMS/GHL)
- * Returns the current profile so the client can hydrate greeting, home_hsid, role, etc.
- *
- * IMPORTANT: This route MUST return 200 even when the DB is slow or unavailable.
- * The client writes yat-user to localStorage from this response — a 500 means
- * homeHsid never gets written, breaking the home crest and favorite gating.
- * DB errors are logged but return a minimal valid response with currentHsid as homeHsid.
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { lookupGHLContactByEmail } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
-import { getSchoolByHsid } from "@/lib/db";
+import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -24,9 +10,30 @@ interface LoginRequestBody {
   email: string;
   firstName?: string;
   lastName?: string;
-  /** The numeric hsid of the microsite the user is currently on.
-   *  Used to set home_hsid when the profile has none (recovery path). */
   currentHsid?: string;
+}
+
+async function getSchoolByHsid(hsid: string) {
+  const sql = `
+    SELECT hsname, hslocation
+    FROM school_success
+    WHERE hsid::text = $1
+    LIMIT 1
+  `;
+  const result = await query(sql, [String(hsid)]);
+  return result.rows?.[0] ?? null;
+}
+
+function getCookieDomain(hostname: string | null) {
+  if (!hostname) return undefined;
+
+  const host = hostname.split(":")[0].toLowerCase();
+
+  if (host === "yatstats.com" || host.endsWith(".yatstats.com")) {
+    return ".yatstats.com";
+  }
+
+  return undefined;
 }
 
 export async function POST(request: NextRequest) {
@@ -39,13 +46,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let payload: {
+    success: boolean;
+    dbError?: boolean;
+    contactId: string | null;
+    plan: string;
+    isSuperfan: boolean;
+    firstName: string | null;
+    homeHsid: string | null;
+    homeSchoolName: string | null;
+    homeSchoolLocation: string | null;
+    role: string | null;
+    subscriptionStatus: string | null;
+  };
+
   try {
-    // Load existing profile
     let profile = await getUserProfile(body.uid);
 
-    // If no profile exists yet, create one using the current microsite as home_hsid.
-    // This is the recovery path for users whose Firebase account was created but
-    // the /api/auth/register call failed (e.g. network error, GHL timeout).
     if (!profile) {
       profile = await upsertUserProfile(body.uid, {
         email: body.email,
@@ -56,8 +73,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Backfill home_hsid if it's still missing — use the current microsite.
-    // This repairs legacy accounts and any that slipped through without a home_hsid.
     if (!profile.home_hsid && body.currentHsid) {
       profile = await upsertUserProfile(body.uid, {
         email: body.email,
@@ -65,7 +80,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Backfill armsContactId if still missing — look up by email in ARMS, do NOT create duplicate
     if (!profile.arms_contact_id) {
       try {
         const armsContactId = await lookupGHLContactByEmail(body.email);
@@ -81,9 +95,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Look up the home school name for friendly UI messages
     let homeSchoolName: string | null = null;
     let homeSchoolLocation: string | null = null;
+
     if (profile.home_hsid) {
       try {
         const school = await getSchoolByHsid(String(profile.home_hsid));
@@ -91,40 +105,62 @@ export async function POST(request: NextRequest) {
           homeSchoolName = school.hsname ?? null;
           homeSchoolLocation = school.hslocation ?? null;
         }
-      } catch { /* non-fatal */ }
+      } catch (schoolErr) {
+        console.error("School lookup failed (non-fatal):", schoolErr);
+      }
     }
 
-    return NextResponse.json({
+    payload = {
       success: true,
-      contactId: profile.arms_contact_id,
-      plan: profile.plan,
+      contactId: profile.arms_contact_id ?? null,
+      plan: profile.plan ?? "fan",
       isSuperfan: profile.plan === "superfan",
-      firstName: profile.first_name,
-      homeHsid: profile.home_hsid,
+      firstName: profile.first_name ?? null,
+      homeHsid: profile.home_hsid ? String(profile.home_hsid) : null,
       homeSchoolName,
       homeSchoolLocation,
-      role: profile.role,
-      subscriptionStatus: profile.subscription_status,
-    });
-
+      role: profile.role ?? null,
+      subscriptionStatus: profile.subscription_status ?? null,
+    };
   } catch (error) {
-    // DB is unavailable or slow — return a minimal valid response so the client
-    // can still write yat-user to localStorage with at least homeHsid from currentHsid.
-    // This prevents the "no home school" error on the next page load.
     console.error("Error in login API (returning partial response):", error);
-    return NextResponse.json({
+
+    payload = {
       success: false,
       dbError: true,
       contactId: null,
       plan: "fan",
       isSuperfan: false,
       firstName: body.firstName ?? null,
-      // Fall back to the current microsite hsid so the client has something to work with
       homeHsid: body.currentHsid ?? null,
       homeSchoolName: null,
       homeSchoolLocation: null,
       role: null,
       subscriptionStatus: null,
-    });
+    };
   }
+
+  const sessionData = {
+    uid: body.uid,
+    email: body.email,
+    ...payload,
+  };
+
+  const response = NextResponse.json(payload);
+
+  const hostname = request.headers.get("host");
+  const cookieDomain = getCookieDomain(hostname);
+
+  response.cookies.set({
+    name: "yat-session",
+    value: JSON.stringify(sessionData),
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  return response;
 }
