@@ -93,8 +93,7 @@ def parse_feed_list(raw_feeds: str) -> list[str]:
 
 
 def build_feed_url(feed_type: str, feed_password: str) -> str:
-    return f"{BASE_URL}/{feed_type}?pw={feed_password}"
-
+    return f"{BASE_URL}/{feed_type}/?pw={feed_password}"
 
 def is_html_or_challenge(body: str, content_type: str) -> bool:
     probe = (body[:1000] or "").lower()
