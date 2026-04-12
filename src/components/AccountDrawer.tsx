@@ -99,7 +99,6 @@ function buildMicrositeUrl(
 }
 
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
-export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
     success: '#16a34a',
@@ -364,61 +363,37 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       const password = (e.currentTarget.elements.namedItem('registerPassword') as HTMLInputElement)
         .value;
       const firstName =
-        (e.currentTarget.elements.namedItem('registerFirstName') as HTMLInputElement)?.value?.trim() ||
-        '';
-      const lastName =
-        (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value?.trim() ||
-        '';
+  loginData?.firstName ||
+  currentUser.displayName ||
+  localStorage.getItem(`yat_firstName_${uid}`) ||
+  '';
 
-      if (!firstName || !lastName) {
-        setMessage('First name and last name are required.');
-        setMessageType('error');
-        setIsLoading(false);
-        return;
-      }
+const homeHsid = loginData?.homeHsid ?? null;
+const homeSchoolName = loginData?.homeSchoolName ?? null;
+const homeSchoolLocation = loginData?.homeSchoolLocation ?? null;
+const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
 
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = cred.user.uid;
+setDisplayName(firstName);
+setIsSuperfan(loginData?.isSuperfan || loginData?.plan === 'superfan');
 
-      if (auth.currentUser) {
-        localStorage.setItem(`yat_firstName_${auth.currentUser.uid}`, firstName);
-        setDisplayName(firstName);
-      }
-
-      const registerResponse = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid,
-          email,
-          firstName,
-          lastName,
-          subdomain,
-        }),
-      });
-
-      const regData = await registerResponse.json();
-      if (!registerResponse.ok) {
-        const err = new Error(regData?.error || 'Failed to sync to CRM') as Error & {
-          isEmailTaken?: boolean;
-        };
-        if (registerResponse.status === 409) err.isEmailTaken = true;
-        throw err;
-      }
-
-      try {
-        localStorage.setItem(
-          'yat-user',
-          JSON.stringify({
-            uid,
-            contactId: regData?.contactId ?? null,
-            email,
-            firstName: firstName || null,
-            homeHsid: regData?.homeHsid ?? null,
-            role: 'fan',
-          })
-        );
-      } catch {}
+try {
+  localStorage.setItem(`yat_firstName_${uid}`, firstName);
+  localStorage.setItem(
+    'yat-user',
+    JSON.stringify({
+      uid,
+      contactId: loginData?.contactId ?? null,
+      email,
+      firstName: firstName || null,
+      homeHsid,
+      homeSchoolName,
+      homeSchoolLocation,
+      homeMicrositeUrl,
+      role: loginData?.role ?? 'fan',
+    })
+  );
+  localStorage.setItem('yat-plan', loginData?.plan ?? 'fan');
+} catch {}
 
       try {
         localStorage.setItem('yat-plan', regData?.plan ?? 'fan');
