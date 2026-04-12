@@ -1,16 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const cookie = request.cookies.get("yat-session")?.value;
+    const cookieStore = await cookies();
+    const raw = cookieStore.get("yat-session")?.value;
 
-    if (!cookie) {
+    if (!raw) {
       return NextResponse.json({ authenticated: false }, { status: 200 });
     }
 
-    const session = JSON.parse(cookie);
+    let session: any = null;
+
+    try {
+      session = JSON.parse(raw);
+    } catch {
+      return NextResponse.json({ authenticated: false }, { status: 200 });
+    }
 
     return NextResponse.json(
       {
@@ -19,8 +27,13 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
-    console.error("Error reading yat-session cookie:", error);
-    return NextResponse.json({ authenticated: false }, { status: 200 });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        authenticated: false,
+        error: error?.message ?? "Session lookup failed",
+      },
+      { status: 200 }
+    );
   }
 }
