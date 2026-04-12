@@ -72,10 +72,13 @@ export async function POST(request: NextRequest) {
           );
 
           if (!("error" in created)) {
-            armsContactId = created.contact?.id ?? null;
-          } else {
-            console.error("GHL create failed (non-fatal):", created);
-          }
+  const createdContact =
+    (created as { contact?: { id?: string } }).contact;
+
+  armsContactId = createdContact?.id ?? null;
+} else {
+  console.error("GHL create failed (non-fatal):", created);
+}
         } catch (err) {
           console.error("GHL create failed (non-fatal):", err);
         }
