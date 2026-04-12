@@ -691,39 +691,94 @@ window.__firebase_config = ${firebaseConfigJSON};
     });
   }
 
-  var searchInput=document.getElementById('playerSearch');
-  var liveResults=document.getElementById('liveResults');
-  if(searchInput&&liveResults){
-    searchInput.addEventListener('input',function(){
-      var q=this.value.toLowerCase().trim();
-      var results='';
-      var seen={};
-      if(q.length>=2){
-        document.querySelectorAll('.yat-card[data-name]').forEach(function(card){
-          var name=card.getAttribute('data-name')||'';
-          var pid=card.getAttribute('data-playerid')||'';
-          var slug=card.getAttribute('data-slug')||'';
-          if(name.includes(q)&&pid&&!seen[pid]){
-            seen[pid]=true;
-            var nameEl=card.querySelector('.yat-name');
-            var dn;
-            if(nameEl){
-              var spans=nameEl.querySelectorAll('span');
-              if(spans.length>=2){
-                dn=escHtml((spans[0].textContent||'').trim()+' '+(spans[1].textContent||'').trim());
-              }else{
-                dn=escHtml((nameEl.textContent||name).trim());
-              }
-            }else{
-              dn=escHtml(name);
-            }
-            results+='<a href="/${resolvedHsid}/player/'+pid+(slug?'/'+slug:'')+'" class="yat-live-hit" style="display:block;text-decoration:none;color:inherit;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)"><span style="font:400 14px Bebas Neue,sans-serif;letter-spacing:.04em">'+dn+'</span></a>';
-          }
-        });
-      }
-      liveResults.innerHTML=results||(q.length>=2?'<div style="padding:10px;opacity:.5;font-size:12px">No results</div>':'');
+var searchInput=document.getElementById('playerSearch');
+var liveResults=document.getElementById('liveResults');
+var liveSearchTimer=null;
+var liveSearchToken=0;
+
+function renderInlineGlobalResults(players,schools,q){
+  if(!liveResults)return;
+  liveResults.innerHTML='';
+
+  var hasPlayers=players&&players.length>0;
+  var hasSchools=schools&&schools.length>0;
+
+  if(!hasPlayers&&!hasSchools){
+    liveResults.innerHTML=q.length>=2
+      ? '<div style="padding:10px;opacity:.5;font-size:12px">No results</div>'
+      : '';
+    return;
+  }
+
+  var frag=document.createDocumentFragment();
+
+  if(hasPlayers){
+    var playerLabel=document.createElement('div');
+    playerLabel.style.cssText='padding:8px 12px;font:400 11px Bebas Neue,sans-serif;letter-spacing:.08em;opacity:.7;border-bottom:1px solid var(--line)';
+    playerLabel.textContent='PLAYERS';
+    frag.appendChild(playerLabel);
+
+    players.forEach(function(p){
+      var row=renderPlayerResult(p);
+      row.className='yat-live-hit yat-gs-result yat-gs-player';
+      row.style.display='block';
+      row.style.textDecoration='none';
+      row.style.color='inherit';
+      row.style.padding='8px 12px';
+      row.style.cursor='pointer';
+      row.style.borderBottom='1px solid var(--line)';
+      frag.appendChild(row);
     });
   }
+
+  if(hasSchools){
+    var schoolLabel=document.createElement('div');
+    schoolLabel.style.cssText='padding:8px 12px;font:400 11px Bebas Neue,sans-serif;letter-spacing:.08em;opacity:.7;border-bottom:1px solid var(--line)';
+    schoolLabel.textContent='SCHOOLS';
+    frag.appendChild(schoolLabel);
+
+    schools.forEach(function(s){
+      var row=renderSchoolResult(s);
+      row.className='yat-live-hit yat-gs-result';
+      row.style.display='block';
+      row.style.textDecoration='none';
+      row.style.color='inherit';
+      row.style.padding='8px 12px';
+      row.style.cursor='pointer';
+      row.style.borderBottom='1px solid var(--line)';
+      frag.appendChild(row);
+    });
+  }
+
+  liveResults.appendChild(frag);
+}
+
+if(searchInput&&liveResults){
+  searchInput.addEventListener('input',function(){
+    var q=this.value.trim();
+    clearTimeout(liveSearchTimer);
+
+    if(q.length<2){
+      liveResults.innerHTML='';
+      return;
+    }
+
+    liveSearchTimer=setTimeout(function(){
+      var token=++liveSearchToken;
+      liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Searching...</div>';
+
+      Promise.all([fetchPlayerResults(q),fetchSchoolResults(q)])
+        .then(function(res){
+          if(token!==liveSearchToken)return;
+          renderInlineGlobalResults(res[0]||[],res[1]||[],q);
+        })
+        .catch(function(){
+          if(token!==liveSearchToken)return;
+          liveResults.innerHTML='<div style="padding:10px;opacity:.5;font-size:12px">Search unavailable</div>';
+        });
+    },GS_DEBOUNCE_MS);
+  });
+}
 
   function applyFilters(){
     var activeSection=document.getElementById('sec-active');
