@@ -37,7 +37,9 @@ function getCookieDomain(hostname: string | null) {
 }
 
 export async function POST(request: NextRequest) {
-  const body: RegisterRequestBody = await request.json().catch(() => ({} as RegisterRequestBody));
+  const body: RegisterRequestBody = await request.json().catch(
+    () => ({} as RegisterRequestBody)
+  );
 
   if (!body.uid || !body.email) {
     return NextResponse.json(
@@ -60,11 +62,14 @@ export async function POST(request: NextRequest) {
 
       if (!armsContactId) {
         try {
-          const created = await createGHLContact({
-            email: body.email,
-            firstName: body.firstName ?? "",
-            lastName: body.lastName ?? "",
-          });
+          const created = await createGHLContact(
+            {
+              email: body.email,
+              firstName: body.firstName ?? "",
+              lastName: body.lastName ?? "",
+            },
+            body.subdomain ?? ""
+          );
           armsContactId = created?.contactId ?? null;
         } catch (err) {
           console.error("GHL create failed (non-fatal):", err);
@@ -110,7 +115,9 @@ export async function POST(request: NextRequest) {
       plan: profile.plan ?? "fan",
       isSuperfan: profile.plan === "superfan",
       firstName: profile.first_name ?? body.firstName ?? null,
-      homeHsid: profile.home_hsid ? String(profile.home_hsid) : (body.subdomain ?? null),
+      homeHsid: profile.home_hsid
+        ? String(profile.home_hsid)
+        : (body.subdomain ?? null),
       homeSchoolName,
       homeSchoolLocation,
       role: profile.role ?? "fan",
