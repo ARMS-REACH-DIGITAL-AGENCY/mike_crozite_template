@@ -27,7 +27,7 @@ export default function PlayerCardFront({
   const statusLabel =
     typeof p.status_label === "string" && String(p.status_label).trim()
       ? String(p.status_label).trim().toUpperCase()
-      : "ACTIVE";
+      : "";
 
   const currentTeamName =
     typeof p.current_team_name === "string" && String(p.current_team_name).trim()
@@ -47,7 +47,7 @@ export default function PlayerCardFront({
       <div className="yat-front-content">
         <div className="yat-chips-col">
           {gc && <span className="front-chip">CLASS OF {gc}</span>}
-          <span className="front-chip">{statusLabel}</span>
+          {!!statusLabel && <span className="front-chip">{statusLabel}</span>}
           {lvl && <span className={`front-chip ${lvlCls}`}>{lvl}</span>}
         </div>
 
