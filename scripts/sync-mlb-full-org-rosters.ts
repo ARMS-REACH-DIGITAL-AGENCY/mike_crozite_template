@@ -68,6 +68,19 @@ interface MlbRosterEntry {
     fullName?: string;
     firstName?: string;
     lastName?: string;
+    useName?: string;
+    middleName?: string;
+    birthDate?: string;
+    birthCity?: string;
+    birthStateProvince?: string;
+    batsSide?: { code?: string; description?: string };
+    pitchHand?: { code?: string; description?: string };
+    primaryPosition?: {
+      code?: string;
+      name?: string;
+      type?: string;
+      abbreviation?: string;
+    };
   };
   position?: { name?: string; abbreviation?: string };
   status?: { code?: string; description?: string };
@@ -88,6 +101,13 @@ interface DbPlayerRow {
   playerid: string;
   firstname: string;
   lastname: string;
+  borndate: string | null;
+  place: string | null;
+  bats: string | null;
+  throws: string | null;
+  posit: string | null;
+  highlevel: string | null;
+  high_school: string | null;
 }
 
 type LevelLabel =
@@ -234,12 +254,19 @@ async function fetchTeamRoster(
 // ---------------------------------------------------------------------------
 // Database helpers
 // ---------------------------------------------------------------------------
-async function getAllDbPlayers(): Promise<DbPlayerRow[]> {
+aasync function getAllDbPlayers(): Promise<DbPlayerRow[]> {
   const { rows } = await pool.query<DbPlayerRow>(`
     SELECT
       playerid::text AS playerid,
       TRIM(firstname) AS firstname,
-      TRIM(lastname)  AS lastname
+      TRIM(lastname)  AS lastname,
+      borndate::text  AS borndate,
+      TRIM(place)     AS place,
+      TRIM(bats)      AS bats,
+      TRIM(throws)    AS throws,
+      TRIM(posit)     AS posit,
+      TRIM(highlevel) AS highlevel,
+      TRIM(high_school) AS high_school
     FROM tbc_players_raw
     WHERE TRIM(firstname) != '' AND TRIM(lastname) != ''
   `);
