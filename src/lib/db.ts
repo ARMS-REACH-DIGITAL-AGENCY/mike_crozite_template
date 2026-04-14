@@ -1,7 +1,9 @@
 // src/lib/db.ts
 // YAT?STATS — Database helpers
 // Connects to Neon Postgres via DATABASE_URL env var.
-// All player data is sourced from TheBaseballCube tables.
+// Core player/stat identity data is sourced from TheBaseballCube tables.
+// flip_card_front_stage is the presentation-layer source for
+// front-card display overrides such as current_team_name.
 //
 // Key tables:
 //   tbc_players_raw   — player identity, position, bats/throws, height/weight, highlevel (historical peak)
@@ -12,8 +14,8 @@
 //   school_success    — per-school metadata (rank, counts, staging/microsite URLs, colors)
 //   teams             — team_id → team_name lookup; populated via scripts/import-teams.ts
 //
-// "Active" = player has batting or pitching stats from 2025 (proxy for 2026 activity)
-// "All-time" = all players ever tagged to a school in player_hsids
+// Homepage roster inclusion currently uses presence of batting or pitching
+// rows in 2025 as a temporary activity proxy. This is not a status label.
 
 'use server';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
@@ -39,6 +41,7 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     throw error;
   }
 }
+
 // ---------------------------------------------------------------------------
 // Normalize host/URL input -> { hostOnly, httpsUrl }
 // ---------------------------------------------------------------------------
@@ -53,7 +56,10 @@ function normalizeHostOrUrl(input: string) {
   } catch {
     host = raw
       .replace(/^https?:\/\//i, '')
-      .split('/')[0].split('?')[0].split('#')[0].split(':')[0]
+      .split('/')[0]
+      .split('?')[0]
+      .split('#')[0]
+      .split(':')[0]
       .toLowerCase();
   }
   const hostOnly = host;
@@ -65,9 +71,6 @@ function normalizeHostOrUrl(input: string) {
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
 export async function getSchoolByHsid(hsid: string) {
-  // hsid column is an integer — non-numeric values would cause a Postgres
-  // "invalid input syntax for integer" error (e.g. state-only subdomains
-  // like "co" or "az" routed here by the middleware). Return null early.
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
@@ -92,34 +95,206 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 }
 
 // ---------------------------------------------------------------------------
-// ACTIVE ROSTER — players with 2025 stats (homepage)
+// ACTIVE ROSTER — homepage roster slice
 //
 // Returns one row per player with their most recent season stats.
-// "Active" = has batting OR pitching stats in year 2025.
-// Level shown is from the most recent stat row (not historical peak).
-// Team name is looked up from the teams table via LEFT JOIN on team_id.
+// Inclusion currently uses presence of batting OR pitching stats in year 2025.
+// current_team_name is read from flip_card_front_stage.
 // ---------------------------------------------------------------------------
-WHEN 'MLB'        THEN 1
-        WHEN 'TRIPLE-A'   THEN 2
-        WHEN 'AAA'        THEN 2
-        WHEN 'DOUBLE-A'   THEN 3
-        WHEN 'AA'         THEN 3
-        WHEN 'HIGH-A'     THEN 4
-        WHEN 'A+'         THEN 4
-        WHEN 'LOW-A'      THEN 5
-        WHEN 'A'          THEN 5
-        WHEN 'ROOKIE'     THEN 6
-        WHEN 'Indy'       THEN 7
-        WHEN 'NCAA'       THEN 8
-        WHEN 'JrCollege'  THEN 9
-        WHEN 'NAIA'       THEN 10
-        ELSE 11
+export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+  const sql = `
+    WITH school_players AS (
+      SELECT
+        ph.playerid,
+        tp.firstname,
+        tp.lastname,
+        tp.highlevel    AS career_highlevel,
+        tp.ht           AS height,
+        tp.wt           AS weight,
+        tp.bats,
+        tp.throws,
+        tp.posit        AS position
+      FROM player_hsids ph
+      JOIN tbc_players_raw tp
+        ON ph.playerid::text = tp.playerid::text
+      WHERE ph.hsid = $1
+    ),
+
+    latest_batting AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text  AS playerid,
+        year            AS stat_year,
+        teamid,
+        highlevel       AS bat_level,
+        g, ab, r, h,
+        dbl             AS "2b",
+        tpl             AS "3b",
+        hr, rbi, sb, bb, so,
+        bavg            AS avg,
+        obp, slg, ops,
+        draft_info,
+        playyears
+      FROM tbc_batting_raw
+      ORDER BY playerid, year DESC
+    ),
+
+    latest_pitching AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text  AS playerid,
+        year            AS pitch_year,
+        teamid          AS pit_teamid,
+        highlevel       AS pit_level,
+        g               AS pg,
+        gs, w, l,
+        sv              AS saves,
+        ip,
+        bb              AS pbb,
+        so              AS ko,
+        era, whip,
+        h9, bb9,
+        so9             AS k9,
+        so_bb           AS kbb,
+        draft_info      AS pit_draft_info,
+        playyears       AS pit_playyears
+      FROM tbc_pitching_raw
+      ORDER BY playerid, year DESC
+    ),
+
+    current_roster_candidates AS (
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_batting_raw
+      WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+
+      UNION
+
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_pitching_raw
+      WHERE year = '2025'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+    ),
+
+    stage AS (
+      SELECT
+        f.playerid::text AS playerid,
+        f.display_name,
+        f.first_name,
+        f.last_name,
+        f.class_of,
+        f.roster_years,
+        f.status_label,
+        f.level_label,
+        f.current_team_name
+      FROM public.flip_card_front_stage f
+      WHERE f.hsid::text = $1
+    )
+
+    SELECT
+      sp.playerid,
+
+      COALESCE(
+        st.display_name,
+        NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''),
+        sp.playerid::text
+      ) AS display_name,
+
+      COALESCE(st.first_name, sp.firstname) AS firstname,
+      COALESCE(st.last_name, sp.lastname)   AS lastname,
+
+      st.class_of,
+      st.roster_years,
+      st.status_label,
+
+      COALESCE(
+        st.level_label,
+        CASE
+          WHEN lp.pitch_year IS NOT NULL
+           AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          THEN lp.pit_level
+          ELSE lb.bat_level
+        END,
+        sp.career_highlevel
+      ) AS level,
+
+      sp.height,
+      sp.weight,
+      sp.bats,
+      sp.throws,
+      sp.position,
+
+      st.current_team_name,
+
+      lb.stat_year,
+      lb.g, lb.ab, lb.r, lb.h,
+      lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb, lb.bb, lb.so,
+      lb.avg, lb.obp, lb.slg, lb.ops,
+      COALESCE(lb.draft_info, lp.pit_draft_info) AS draft_info,
+      COALESCE(lb.playyears, lp.pit_playyears)   AS playyears,
+
+      lp.pitch_year,
+      lp.pg, lp.gs, lp.w, lp.l, lp.saves,
+      lp.ip, lp.pbb, lp.ko,
+      lp.era, lp.whip, lp.h9, lp.bb9, lp.k9, lp.kbb,
+
+      CASE
+        WHEN lp.pitch_year IS NOT NULL AND (
+          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+        ) THEN true
+        ELSE false
+      END AS is_pitcher
+
+    FROM school_players sp
+    JOIN current_roster_candidates crc
+      ON sp.playerid::text = crc.playerid
+    LEFT JOIN latest_batting  lb
+      ON sp.playerid::text = lb.playerid
+    LEFT JOIN latest_pitching lp
+      ON sp.playerid::text = lp.playerid
+    LEFT JOIN stage st
+      ON sp.playerid::text = st.playerid
+
+    ORDER BY
+      CASE sp.career_highlevel
+        WHEN 'MLB' THEN 1
+        WHEN 'TRIPLE-A' THEN 2
+        WHEN 'AAA' THEN 2
+        WHEN 'DOUBLE-A' THEN 3
+        WHEN 'AA' THEN 3
+        WHEN 'HIGH-A' THEN 4
+        WHEN 'A+' THEN 4
+        WHEN 'LOW-A' THEN 5
+        WHEN 'A' THEN 5
+        WHEN 'INTERNATIONAL' THEN 6
+        WHEN 'INTL' THEN 6
+        WHEN 'Indy' THEN 7
+        WHEN 'INDY' THEN 7
+        WHEN 'INDEPENDENT' THEN 7
+        WHEN 'NCAA-D1' THEN 8
+        WHEN 'D1' THEN 8
+        WHEN 'NCAA-D2' THEN 9
+        WHEN 'D2' THEN 9
+        WHEN 'NCAA-D3' THEN 10
+        WHEN 'D3' THEN 10
+        WHEN 'NAIA' THEN 11
+        WHEN 'JrCollege' THEN 12
+        WHEN 'JUCO' THEN 12
+        WHEN 'NJCAA' THEN 12
+        WHEN 'HS' THEN 13
+        WHEN 'HIGH SCHOOL' THEN 13
+        WHEN 'High School' THEN 13
+        ELSE 14
       END,
+      sp.lastname,
+      sp.firstname
+  `;
+  const { rows } = await query(sql, [hsid]);
+  return rows;
+}
 
 // ---------------------------------------------------------------------------
 // ALL-TIME ROSTER — every alumni ever tagged to a school (all-time page)
 //
-// Returns all players regardless of activity, with their career best stats.
+// Returns all players regardless of current roster inclusion.
 // Used for the "All-Time Next Level List" page.
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
@@ -140,7 +315,6 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       WHERE ph.hsid = $1
     ),
 
-    -- Career batting totals (all years combined via most recent year for display)
     latest_batting AS (
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
@@ -174,8 +348,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       ORDER BY playerid, year DESC
     ),
 
-    -- Was player active in 2025?
-    active_2025 AS (
+    current_roster_candidates AS (
       SELECT DISTINCT playerid::text AS playerid
       FROM tbc_batting_raw WHERE year = '2025'
         AND playerid::text IN (SELECT playerid::text FROM school_players)
@@ -206,7 +379,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       lp.pitch_year,
       lp.pg, lp.w, lp.l, lp.saves,
       lp.ip, lp.ko, lp.era, lp.whip,
-      CASE WHEN a25.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
+      CASE WHEN crc.playerid IS NOT NULL THEN true ELSE false END AS is_current_roster_candidate,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
           lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
@@ -216,7 +389,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     FROM school_players sp
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
-    LEFT JOIN active_2025     a25 ON sp.playerid::text = a25.playerid
+    LEFT JOIN current_roster_candidates crc ON sp.playerid::text = crc.playerid
     ORDER BY
       CASE sp.career_highlevel
         WHEN 'MLB'        THEN 1
@@ -229,10 +402,10 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'LOW-A'      THEN 5
         WHEN 'A'          THEN 5
         WHEN 'INTERNATIONAL' THEN 6
-        WHEN 'INT'L'      THEN 6
+        WHEN 'INTL'       THEN 6
         WHEN 'Indy'       THEN 7
         WHEN 'INDY'       THEN 7
-        WHEN 'INDEPENDENT" THEN 7
+        WHEN 'INDEPENDENT' THEN 7
         WHEN 'NCAA-D1'    THEN 8
         WHEN 'D1'         THEN 8
         WHEN 'NCAA-D2'    THEN 9
@@ -246,7 +419,6 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'HS'         THEN 13
         WHEN 'HIGH SCHOOL' THEN 13
         WHEN 'High School' THEN 13
-        
         ELSE 14
       END,
       sp.lastname,
@@ -295,7 +467,6 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<Pl
       ph.hsid::text AS hsid
     FROM tbc_players_raw tp
     LEFT JOIN player_hsids ph ON ph.playerid::text = tp.playerid::text
-    -- Keep slugging logic in sync with toPlayerSlug (src/lib/slug.ts)
     WHERE trim(both '-' from regexp_replace(lower(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,''))), '-+', '-', 'g')) = $1
       ${hsid ? "AND (ph.hsid::text = $2 OR ph.hsid IS NULL)" : ""}
     LIMIT 10
@@ -322,15 +493,6 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON BATTING STATS — all years for a player
-//
-// Reads from public.vw_player_batting_seasons which resolves team names and
-// level abbreviations via a join to public.teams.  This means the TEAM column
-// shows the human-readable team_display value and the LVL column shows the
-// per-season team_level (e.g. JUCO, NCAA-D1, Rookie, A, A+, AA, AAA, MLB)
-// instead of a raw numeric teamid or a player-level highlevel field.
-// Falls back to teamid::text when team_display is NULL (unresolved team).
-// Falls back to '--' at render time when team_level is NULL (unknown level).
-// Rows are sorted year ASC, then teamid ASC for stable ordering.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -354,15 +516,6 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 
 // ---------------------------------------------------------------------------
 // SEASON-BY-SEASON PITCHING STATS — all years for a player
-//
-// Reads from public.vw_player_pitching_seasons which resolves team names and
-// level abbreviations via a join to public.teams.  This means the TEAM column
-// shows the human-readable team_display value and the LVL column shows the
-// per-season team_level (e.g. JUCO, NCAA-D1, Rookie, A, A+, AA, AAA, MLB)
-// instead of a raw numeric teamid or a player-level highlevel field.
-// Falls back to teamid::text when team_display is NULL (unresolved team).
-// Falls back to '--' at render time when team_level is NULL (unknown level).
-// Rows are sorted year ASC, then teamid ASC for stable ordering.
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -390,8 +543,6 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 // CAREER AGGREGATE STATS — totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
-  // Use regexp_replace to safely strip non-numeric chars before casting
-  // This handles dirty data like g='2B' that would otherwise throw a cast error
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
@@ -443,17 +594,13 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 
 // ---------------------------------------------------------------------------
 // TEAM CONTEXT — optional organization / conference metadata for a team.
-// Tries to read `organization` and `conference` columns from the teams table.
-// These columns are optional — if they don't exist, returns null gracefully.
-// When present: professional teams expose `organization` (e.g. "ATHLETICS"),
-// college teams expose `conference` (e.g. "PAC-12" / "BIG 12").
 // ---------------------------------------------------------------------------
 export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
   try {
     const { rows } = await query(
       `SELECT
          COALESCE(organization, mlb_org, org)      AS organization,
-         COALESCE(conference, league, association)  AS conference
+         COALESCE(conference, league, association) AS conference
        FROM teams
        WHERE team_id::text = $1
        LIMIT 1`,
@@ -461,26 +608,12 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
     );
     return rows[0] ?? null;
   } catch {
-    // Columns may not exist yet — degrade gracefully
     return null;
   }
 }
 
 // ---------------------------------------------------------------------------
 // TEAM SCHEDULE — chronological game feed for a given team_id.
-// Reads from the `team_schedule` table which is populated externally.
-// Returns rows ordered by game_date ASC.
-// Degrades gracefully (returns []) if the table doesn't exist yet.
-//
-// Expected columns (flexible — only those present are used):
-//   team_id        TEXT / INT  — matches teamid from tbc_batting_raw / tbc_pitching_raw
-//   game_date      DATE        — date of game
-//   home_away      TEXT        — 'H' or 'A' (or 'home'/'away')
-//   opponent       TEXT        — opponent team name / abbreviation
-//   result         TEXT        — 'W', 'L', 'T', or NULL for upcoming
-//   home_score     INT / TEXT  — score for home team (optional)
-//   away_score     INT / TEXT  — score for away team (optional)
-//   status         TEXT        — 'SCHEDULED', 'FINAL', 'IN PROGRESS', etc.
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
@@ -490,22 +623,12 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
     );
     return rows;
   } catch {
-    // Table doesn't exist yet — return empty array gracefully
     return [];
   }
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER GAME LOG — per-game batting stats for a player on a given team.
-// Reads from `batting_game_log` / `pitching_game_log` tables if present.
-// Returns rows keyed by game_date so the schedule renderer can look them up.
-// Degrades gracefully (returns []) if the table doesn't exist yet.
-//
-// Expected batting_game_log columns:
-//   playerid, team_id, game_date, h, ab, dbl, tpl, hr, rbi, r, so, bb, sf, sb
-//
-// Expected pitching_game_log columns:
-//   playerid, team_id, game_date, ip, h, r, er, ko (or so), bb, decision
+// PLAYER GAME LOG — per-game stats if present.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingGameLog(playerId: string, teamId: string): Promise<any[]> {
   try {
@@ -532,18 +655,7 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 }
 
 // ---------------------------------------------------------------------------
-// NEWS ARTICLES — from news_articles table (populated by Webz.io cron job)
-// Returns empty array if table doesn't exist yet (graceful degradation).
-//
-// Three query patterns matching the three news surfaces:
-//   1. getNewsByHsid()   — Alumni News page (all articles for a school)
-//   2. getNewsByPlayer() — Player profile + flip card teaser (player-scoped)
-//
-// getNewsByHsid now joins player identity rows so the API can:
-//   • normalize level labels
-//   • derive grad class from draft_info / playyears
-//   • detect active-2025 status
-//   • compute a confidence score to suppress false-positive name matches
+// NEWS ARTICLES — from news_articles table
 // ---------------------------------------------------------------------------
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
@@ -553,33 +665,33 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
          tp.firstname        AS player_firstname,
          tp.lastname         AS player_lastname,
          tp.highlevel        AS player_highlevel,
-         COALESCE(lb.draft_info,  lp.pit_draft_info)  AS player_draft_info,
-         COALESCE(lb.playyears,   lp.pit_playyears)   AS player_playyears,
-         CASE WHEN a25.playerid IS NOT NULL THEN true ELSE false END AS player_active
+         COALESCE(lb.draft_info, lp.pit_draft_info) AS player_draft_info,
+         COALESCE(lb.playyears, lp.pit_playyears)   AS player_playyears,
+         CASE WHEN crc.playerid IS NOT NULL THEN true ELSE false END AS player_is_current_roster_candidate
        FROM news_articles na
        LEFT JOIN tbc_players_raw tp
          ON na.playerid::text = tp.playerid::text
        LEFT JOIN LATERAL (
          SELECT draft_info, playyears
-         FROM   tbc_batting_raw
-         WHERE  playerid::text = na.playerid::text
-         ORDER  BY year DESC
-         LIMIT  1
+         FROM tbc_batting_raw
+         WHERE playerid::text = na.playerid::text
+         ORDER BY year DESC
+         LIMIT 1
        ) lb ON true
        LEFT JOIN LATERAL (
          SELECT draft_info AS pit_draft_info, playyears AS pit_playyears
-         FROM   tbc_pitching_raw
-         WHERE  playerid::text = na.playerid::text
-         ORDER  BY year DESC
-         LIMIT  1
+         FROM tbc_pitching_raw
+         WHERE playerid::text = na.playerid::text
+         ORDER BY year DESC
+         LIMIT 1
        ) lp ON true
        LEFT JOIN LATERAL (
          SELECT DISTINCT playerid::text AS playerid
-         FROM   tbc_batting_raw
-         WHERE  year = '2025'
-           AND  playerid::text = na.playerid::text
-         LIMIT  1
-       ) a25 ON true
+         FROM tbc_batting_raw
+         WHERE year = '2025'
+           AND playerid::text = na.playerid::text
+         LIMIT 1
+       ) crc ON true
        WHERE na.hsid = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,
@@ -587,7 +699,6 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
     );
     return rows;
   } catch {
-    // Table doesn't exist yet — return empty array gracefully
     return [];
   }
 }
@@ -600,46 +711,13 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
     );
     return rows;
   } catch {
-    // Table doesn't exist yet — return empty array gracefully
     return [];
   }
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER PHOTOS — uploaded career-progression photos for the filmstrip.
-//
-// Table columns (after migration 006):
-//   player_id         TEXT / INT  — matches player imageId
-//   image_url         TEXT        — full URL or S3 key for the photo
-//   image_role        TEXT NULL   — display slot: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR
-//                                   | HEADSHOT | TIMELINE
-//   image_source      TEXT NULL   — supplier: FAN | PLAYER | MLB | LICENSED | STAFF
-//                                   | SCHOOL | BOOSTER | IMPORT
-//   approval_status   TEXT        — PENDING (default) | APPROVED | REJECTED
-//   show_on_pp_timeline BOOLEAN   — true = include as a TIMELINE middle frame
-//   team_name         TEXT        — label line 1
-//   season_year       TEXT / INT  — label line 2
-//   date_taken        DATE        — primary sort key
-//   level             TEXT        — optional level tag (HS, College, AA, etc.)
-//   caption           TEXT        — optional caption override
-//
-// RUNTIME RULES (mirror of src/lib/playerImage.ts slot table):
-//   Designated slot images:  queried by image_role + approval_status='APPROVED'
-//   Timeline middle frames:  queried by show_on_pp_timeline=true + approval_status='APPROVED'
-//   image_role='TIMELINE' images are ONLY eligible as middle frames, never as anchors.
-//
-// All functions degrade gracefully (empty / null) if the table / columns don't exist.
+// PLAYER PHOTOS
 // ---------------------------------------------------------------------------
-
-/**
- * Returns the single designated player_photos row for a given role (APPROVED only).
- *
- * Supported roles: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR | HEADSHOT
- *
- * Returns null if:
- *   - no row exists for the given player + role
- *   - the table / new columns are not yet present (graceful degradation)
- */
 export async function getDesignatedPlayerImage(
   imageId: string,
   role: string
@@ -658,21 +736,10 @@ export async function getDesignatedPlayerImage(
     );
     return rows[0] || null;
   } catch {
-    // Table or columns don't exist yet — degrade gracefully
     return null;
   }
 }
 
-/**
- * Batch version of getDesignatedPlayerImage.
- *
- * Given a list of imageIds and a single role, returns a Map of imageId → row (APPROVED only).
- * Players with no designated row for the role are absent from the Map (not in results).
- *
- * Use this to avoid N+1 queries when rendering many PlayerCard components on the roster page.
- *
- * Supported roles: YATSTATS_FRONT | LEFT_ANCHOR | RIGHT_ANCHOR | HEADSHOT
- */
 export async function getBatchDesignatedPlayerImages(
   imageIds: string[],
   role: string
@@ -695,43 +762,18 @@ export async function getBatchDesignatedPlayerImages(
     }
     return map;
   } catch {
-    // Table or columns don't exist yet — degrade gracefully
     return new Map();
   }
 }
 
-/**
- * Returns TIMELINE middle-frame photos for the career strip.
- *
- * Only rows where:
- *   show_on_pp_timeline = true
- *   approval_status = 'APPROVED'
- *   image_role = 'TIMELINE' (or NULL for legacy rows pre-migration)
- *
- * NOTE on legacy rows (rows that existed before migration 006):
- *   After migration 006 runs, existing rows get approval_status='PENDING' (default) and
- *   show_on_pp_timeline=FALSE (default). Those rows will NOT appear in the timeline.
- *   To include a legacy row, an admin must explicitly set:
- *     approval_status='APPROVED' AND show_on_pp_timeline=TRUE AND image_role='TIMELINE'.
- *   This is intentional — images must be explicitly approved to appear.
- *
- * The outer try/catch handles the case where migration 006 has NOT yet run
- * (columns don't exist). In that case, the inner fallback query returns all rows
- * for the player as a graceful degradation until the migration is applied.
- *
- * Sorted by date_taken ASC then season_year ASC.
- */
 export async function getPlayerPhotos(imageId: string): Promise<any[]> {
   try {
     const { rows } = await query(
       `SELECT *
          FROM player_photos
         WHERE player_id::text = $1
-          AND (
-            -- Post-migration: explicit timeline role + approved + timeline flag
-            (show_on_pp_timeline = TRUE AND approval_status = 'APPROVED')
-            -- Pre-migration legacy rows: no columns yet → show all (column missing handled by catch)
-          )
+          AND show_on_pp_timeline = TRUE
+          AND approval_status = 'APPROVED'
           AND (image_role IS NULL OR image_role = 'TIMELINE')
           AND (is_active IS NULL OR is_active = TRUE)
         ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
@@ -739,7 +781,6 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     );
     return rows;
   } catch {
-    // Table or new columns don't exist yet — try simpler fallback query
     try {
       const { rows } = await query(
         `SELECT * FROM player_photos WHERE player_id::text = $1
@@ -752,6 +793,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     }
   }
 }
+
 // ---------------------------------------------------------------------------
 // FLIP CARD FRONT STAGE — staging table for UI rendering
 // ---------------------------------------------------------------------------
@@ -760,7 +802,6 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
     SELECT *,
       UPPER(status_label) AS status_label,
       CASE level_label
-        -- Pro levels
         WHEN 'AAA'          THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A'     THEN 'TRIPLE-A'
         WHEN 'AA'           THEN 'DOUBLE-A'
@@ -781,7 +822,6 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
         WHEN 'INTL'         THEN 'INT''L'
         WHEN 'Intl'         THEN 'INT''L'
         WHEN 'INT''L'       THEN 'INT''L'
-        -- College levels
         WHEN 'NCAA-D1'      THEN 'NCAA-D1'
         WHEN 'D1'           THEN 'NCAA-D1'
         WHEN 'NCAA'         THEN 'NCAA-D1'
@@ -792,21 +832,20 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
         WHEN 'NAIA'         THEN 'NAIA'
         WHEN 'JrCollege'    THEN 'JUCO'
         WHEN 'JUCO'         THEN 'JUCO'
-        -- High school
         WHEN 'HS'           THEN 'HIGH SCHOOL'
         WHEN 'HIGH SCHOOL'  THEN 'HIGH SCHOOL'
         ELSE COALESCE(UPPER(level_label), '')
-      END AS level_label
+      END AS normalized_level_label
     FROM flip_card_front_stage
     WHERE hsid = $1
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
 }
+
 // ---------------------------------------------------------------------------
 // ROSTER TRUTH — resolved current team + transactions
 // ---------------------------------------------------------------------------
-
 export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
   try {
     const { rows } = await query(
@@ -824,7 +863,6 @@ export async function getResolvedCurrentTeam(playerid: string): Promise<any | nu
     );
     return rows[0] || null;
   } catch {
-    // View may not exist yet — degrade gracefully
     return null;
   }
 }
@@ -841,16 +879,12 @@ export async function getPlayerTransactions(playerid: string, limit = 20): Promi
     );
     return rows;
   } catch {
-    // Table may not exist yet — degrade gracefully
     return [];
   }
 }
 
 // ---------------------------------------------------------------------------
 // Schema bootstrap — ensure auxiliary tables exist so JOINs never crash.
-// The teams table is populated externally (scripts/import-teams.ts); if it
-// hasn't been loaded yet the LEFT JOIN simply falls back to showing teamid
-// via COALESCE, which is acceptable.
 // ---------------------------------------------------------------------------
 declare global {
   var __pgSchemaBootstrapped: boolean | undefined;
@@ -866,7 +900,6 @@ if (!global.__pgSchemaBootstrapped) {
         )
       `);
     } catch (err) {
-      // Non-fatal — queries will still run; team names will fall back to teamid.
       console.error('Failed to bootstrap teams table:', err);
     }
   })();
