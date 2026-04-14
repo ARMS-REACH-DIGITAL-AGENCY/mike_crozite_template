@@ -1,5 +1,5 @@
 // src/components/yatstats/PlayerCardFront.tsx
-// Front face of the flip card: HS image, chips, name, current team, meta, varsity dots
+// Front face of the flip card: HS image, chips, name, current team, meta, varsity dots, last 3 games
 
 import { levelLabel, levelClass, gradClass, varsityDots } from "@/lib/playerUtils";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
@@ -14,7 +14,8 @@ export default function PlayerCardFront({
   player: p,
   frontImageUrl = null,
 }: PlayerCardFrontProps) {
-  const lvl = levelLabel(String(p.level || ""));
+  const rawLevel = String(p.level_label || p.level || "");
+  const lvl = levelLabel(rawLevel);
   const lvlCls = levelClass(lvl);
   const isPitcher = p.is_pitcher === true;
   const gc = gradClass(p);
@@ -33,6 +34,17 @@ export default function PlayerCardFront({
     typeof p.current_team_name === "string" && String(p.current_team_name).trim()
       ? String(p.current_team_name).trim()
       : "";
+
+  const currentOrgOrConferenceName =
+    typeof p.current_org_or_conference_name === "string" &&
+    String(p.current_org_or_conference_name).trim()
+      ? String(p.current_org_or_conference_name).trim()
+      : "";
+
+  const currentTeamLine =
+    currentTeamName && currentOrgOrConferenceName
+      ? `${currentTeamName} - ${currentOrgOrConferenceName}`
+      : currentTeamName || currentOrgOrConferenceName || "";
 
   return (
     <div className="yat-face yat-front">
@@ -57,9 +69,9 @@ export default function PlayerCardFront({
             <span>{String(p.lastname || "")}</span>
           </div>
 
-          {!!currentTeamName && (
+          {!!currentTeamLine && (
             <div className="yat-team-line">
-              {currentTeamName}
+              {currentTeamLine}
             </div>
           )}
 
