@@ -99,128 +99,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 // Level shown is from the most recent stat row (not historical peak).
 // Team name is looked up from the teams table via LEFT JOIN on team_id.
 // ---------------------------------------------------------------------------
-export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
-  const sql = `
-    WITH school_players AS (
-      SELECT
-        ph.playerid,
-        tp.firstname,
-        tp.lastname,
-        tp.highlevel    AS career_highlevel,
-        tp.ht           AS height,
-        tp.wt           AS weight,
-        tp.bats,
-        tp.throws,
-        tp.posit        AS position
-      FROM player_hsids ph
-      JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
-    ),
-
-    -- Most recent batting season for each player
-    latest_batting AS (
-      SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS stat_year,
-        teamid,
-        highlevel       AS bat_level,
-        g, ab, r, h,
-        dbl             AS "2b",
-        tpl             AS "3b",
-        hr, rbi, sb, bb, so,
-        bavg            AS avg,
-        obp, slg, ops,
-        draft_info,
-        playyears
-      FROM tbc_batting_raw
-      ORDER BY playerid, year DESC
-    ),
-
-    -- Most recent pitching season for each player
-    latest_pitching AS (
-      SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS pitch_year,
-        teamid          AS pit_teamid,
-        highlevel       AS pit_level,
-        g               AS pg,
-        gs, w, l,
-        sv              AS saves,
-        ip,
-        bb              AS pbb,
-        so              AS ko,
-        era, whip,
-        h9, bb9,
-        so9             AS k9,
-        so_bb           AS kbb,
-        draft_info      AS pit_draft_info,
-        playyears       AS pit_playyears
-      FROM tbc_pitching_raw
-      ORDER BY playerid, year DESC
-    ),
-
-    -- Active players: those with 2025 batting OR pitching stats
-    active_playerids AS (
-      SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_batting_raw
-      WHERE year = '2025'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
-      UNION
-      SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_pitching_raw
-      WHERE year = '2025'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
-    )
-
-    SELECT
-      sp.playerid,
-      sp.firstname,
-      sp.lastname,
-      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
-      -- Use level from most recent stat row (current level), fall back to career peak
-      COALESCE(
-        CASE
-          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
-          THEN lp.pit_level
-          ELSE lb.bat_level
-        END,
-        sp.career_highlevel
-      )                                     AS level,
-      sp.height,
-      sp.weight,
-      sp.bats,
-      sp.throws,
-      sp.position,
-      -- Batting stats
-      lb.stat_year,
-      lb.g, lb.ab, lb.r, lb.h,
-      lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb, lb.bb, lb.so,
-      lb.avg, lb.obp, lb.slg, lb.ops,
-      COALESCE(lb.draft_info, lp.pit_draft_info)  AS draft_info,
-      COALESCE(lb.playyears, lp.pit_playyears)     AS playyears,
-      -- Pitching stats
-      lp.pitch_year,
-      lp.pg, lp.gs, lp.w, lp.l, lp.saves,
-      lp.ip, lp.pbb, lp.ko,
-      lp.era, lp.whip, lp.h9, lp.bb9, lp.k9, lp.kbb,
-      -- Pitcher flag: has pitching stats AND (no batting stats OR pitching year >= batting year)
-      CASE
-        WHEN lp.pitch_year IS NOT NULL AND (
-          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
-        ) THEN true
-        ELSE false
-      END AS is_pitcher
-    FROM school_players sp
-    JOIN active_playerids ap ON sp.playerid::text = ap.playerid
-    LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
-    LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
-    ORDER BY
-      CASE COALESCE(
-        CASE
-          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
-          THEN lp.pit_level ELSE lb.bat_level
-        END, sp.career_highlevel)
-        WHEN 'MLB'        THEN 1
+WHEN 'MLB'        THEN 1
         WHEN 'TRIPLE-A'   THEN 2
         WHEN 'AAA'        THEN 2
         WHEN 'DOUBLE-A'   THEN 3
@@ -229,18 +108,13 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'A+'         THEN 4
         WHEN 'LOW-A'      THEN 5
         WHEN 'A'          THEN 5
-        WHEN 'Indy'       THEN 6
-        WHEN 'NCAA'       THEN 7
-        WHEN 'JrCollege'  THEN 8
-        WHEN 'NAIA'       THEN 9
-        ELSE 10
+        WHEN 'ROOKIE'     THEN 6
+        WHEN 'Indy'       THEN 7
+        WHEN 'NCAA'       THEN 8
+        WHEN 'JrCollege'  THEN 9
+        WHEN 'NAIA'       THEN 10
+        ELSE 11
       END,
-      sp.lastname,
-      sp.firstname
-  `;
-  const { rows } = await query(sql, [hsid]);
-  return rows;
-}
 
 // ---------------------------------------------------------------------------
 // ALL-TIME ROSTER — every alumni ever tagged to a school (all-time page)
@@ -354,11 +228,26 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'A+'         THEN 4
         WHEN 'LOW-A'      THEN 5
         WHEN 'A'          THEN 5
-        WHEN 'Indy'       THEN 6
-        WHEN 'NCAA'       THEN 7
-        WHEN 'JrCollege'  THEN 8
-        WHEN 'NAIA'       THEN 9
-        ELSE 10
+        WHEN 'INTERNATIONAL' THEN 6
+        WHEN 'INT'L'      THEN 6
+        WHEN 'Indy'       THEN 7
+        WHEN 'INDY'       THEN 7
+        WHEN 'INDEPENDENT" THEN 7
+        WHEN 'NCAA-D1'    THEN 8
+        WHEN 'D1'         THEN 8
+        WHEN 'NCAA-D2'    THEN 9
+        WHEN 'D2'         THEN 9
+        WHEN 'NCAA-D3'    THEN 10
+        WHEN 'D3'         THEN 10
+        WHEN 'NAIA'       THEN 11
+        WHEN 'JrCollege'  THEN 12
+        WHEN 'JUCO'       THEN 12
+        WHEN 'NJCAA'      THEN 12
+        WHEN 'HS'         THEN 13
+        WHEN 'HIGH SCHOOL' THEN 13
+        WHEN 'High School' THEN 13
+        
+        ELSE 14
       END,
       sp.lastname,
       sp.firstname
