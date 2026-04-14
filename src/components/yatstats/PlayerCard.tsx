@@ -25,25 +25,32 @@ interface PlayerCardProps {
   isAllTime?: boolean;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({
+  player: p,
+  resolvedHsid,
+  frontImageUrl = null,
+  headshotUrl = null,
+  isAllTime,
+}: PlayerCardProps) {
   // level_label comes from flip_card_front_stage (already normalized).
   // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
   // levelLabel() maps raw TBC values to the canonical filter values ("JUCO", "INDY", etc.)
   // so data-level always matches the FiltersDrawer checkbox values for every school.
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
+
   // data-gradclass uses only the verified class_of — never a playyears estimate.
-  // Blank class_of means the filter attribute is empty (sorts/filters as unknown).
-  // gradClassInfo is still used for the estimated badge display on the card face.
+  // gradClassInfo is still used elsewhere if needed, but NOT passed to PlayerCardFront.
   const gc = String(p.class_of || "").trim();
-  const { estimated: gcEstimated } = gradClassInfo(p);
+  gradClassInfo(p); // preserve any internal computation side effects if expected
+
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
   const org = normalizeOrg(String(p.current_org_or_conference_name || ""));
-  // FIX: Always derive status from p.status_label or p.is_active_2025 — never hardcode "ACTIVE".
-  // Previously the isAllTime=false branch hardcoded "ACTIVE" for every card, which prevented
-  // the status filter from distinguishing RETIRED / FREE AGENT / INJURED players on the homepage.
+
+  // Status comes from stage when present; fallback remains temporary legacy behavior.
   const status = String(
     p.status_label || (p.is_active_2025 ? "ACTIVE" : "RETIRED")
   );
+
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),
     String(p.lastname || p.last_name || "")
@@ -52,7 +59,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const playerWithSlug = { ...p, slug };
 
   return (
-       <article
+    <article
       id={`player-${String(p.playerid)}`}
       className="yat-card"
       data-name={`${String(p.firstname || p.first_name || "")} ${String(p.lastname || p.last_name || "")}`.toLowerCase()}
@@ -66,8 +73,17 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
     >
       <div className="yat-card-inner">
         <div className="yat-flip">
-          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} gradClassEstimated={gcEstimated} />
-          <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} headshotUrl={headshotUrl} isAllTime={isAllTime} />
+          <PlayerCardFront
+            player={playerWithSlug}
+            frontImageUrl={frontImageUrl}
+            isAllTime={isAllTime}
+          />
+          <PlayerCardBack
+            player={playerWithSlug}
+            resolvedHsid={resolvedHsid}
+            headshotUrl={headshotUrl}
+            isAllTime={isAllTime}
+          />
         </div>
       </div>
     </article>
