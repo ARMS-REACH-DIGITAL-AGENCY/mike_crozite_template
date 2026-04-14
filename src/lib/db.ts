@@ -18,7 +18,7 @@
 // rows in 2025 as a temporary activity proxy. This is not a status label.
 
 'use server';
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, QueryResult, QueryResultRow } from 'pg';export async function getActiveRosterByHsid(hsid: string): Promise<any[]> 
 import 'server-only';
 
 const pool = new Pool({
@@ -120,6 +120,18 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       WHERE ph.hsid = $1
     ),
 
+    stage_active AS (
+      SELECT
+        f.playerid::text AS playerid,
+        f.status_label,
+        f.level_label,
+        f.current_team_name,
+        f.current_org_or_conference_name
+      FROM public.flip_card_front_stage f
+      WHERE f.hsid::text = $1
+        AND upper(coalesce(f.status_label, '')) = 'ACTIVE'
+    ),
+
     latest_batting AS (
       SELECT DISTINCT ON (playerid)
         playerid::text  AS playerid,
@@ -158,58 +170,22 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         playyears       AS pit_playyears
       FROM tbc_pitching_raw
       ORDER BY playerid, year DESC
-    ),
-
-    current_roster_candidates AS (
-      SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_batting_raw
-      WHERE year = '2025'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
-
-      UNION
-
-      SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_pitching_raw
-      WHERE year = '2025'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
-    ),
-
-    stage AS (
-      SELECT
-        f.playerid::text AS playerid,
-        f.display_name,
-        f.first_name,
-        f.last_name,
-        f.class_of,
-        f.roster_years,
-        f.status_label,
-        f.level_label,
-        f.current_team_name
-      FROM public.flip_card_front_stage f
-      WHERE f.hsid::text = $1
     )
 
     SELECT
       sp.playerid,
+      sp.firstname,
+      sp.lastname,
+      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+
+      sa.status_label,
+      sa.current_team_name,
+      sa.current_org_or_conference_name,
 
       COALESCE(
-        st.display_name,
-        NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''),
-        sp.playerid::text
-      ) AS display_name,
-
-      COALESCE(st.first_name, sp.firstname) AS firstname,
-      COALESCE(st.last_name, sp.lastname)   AS lastname,
-
-      st.class_of,
-      st.roster_years,
-      st.status_label,
-
-      COALESCE(
-        st.level_label,
+        NULLIF(sa.level_label, ''),
         CASE
-          WHEN lp.pitch_year IS NOT NULL
-           AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
           THEN lp.pit_level
           ELSE lb.bat_level
         END,
@@ -221,8 +197,6 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       sp.bats,
       sp.throws,
       sp.position,
-
-      st.current_team_name,
 
       lb.stat_year,
       lb.g, lb.ab, lb.r, lb.h,
@@ -244,17 +218,26 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       END AS is_pitcher
 
     FROM school_players sp
-    JOIN current_roster_candidates crc
-      ON sp.playerid::text = crc.playerid
+    JOIN stage_active sa
+      ON sp.playerid::text = sa.playerid
     LEFT JOIN latest_batting  lb
       ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp
       ON sp.playerid::text = lp.playerid
-    LEFT JOIN stage st
-      ON sp.playerid::text = st.playerid
 
     ORDER BY
-      CASE sp.career_highlevel
+      CASE upper(
+        COALESCE(
+          NULLIF(sa.level_label, ''),
+          CASE
+            WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+            THEN lp.pit_level
+            ELSE lb.bat_level
+          END,
+          sp.career_highlevel,
+          ''
+        )
+      )
         WHEN 'MLB' THEN 1
         WHEN 'TRIPLE-A' THEN 2
         WHEN 'AAA' THEN 2
@@ -266,7 +249,6 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'A' THEN 5
         WHEN 'INTERNATIONAL' THEN 6
         WHEN 'INTL' THEN 6
-        WHEN 'Indy' THEN 7
         WHEN 'INDY' THEN 7
         WHEN 'INDEPENDENT' THEN 7
         WHEN 'NCAA-D1' THEN 8
@@ -276,12 +258,11 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'NCAA-D3' THEN 10
         WHEN 'D3' THEN 10
         WHEN 'NAIA' THEN 11
-        WHEN 'JrCollege' THEN 12
+        WHEN 'JRCOLLEGE' THEN 12
         WHEN 'JUCO' THEN 12
         WHEN 'NJCAA' THEN 12
         WHEN 'HS' THEN 13
         WHEN 'HIGH SCHOOL' THEN 13
-        WHEN 'High School' THEN 13
         ELSE 14
       END,
       sp.lastname,
