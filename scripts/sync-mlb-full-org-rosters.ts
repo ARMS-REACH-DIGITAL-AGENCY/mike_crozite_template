@@ -2,20 +2,22 @@
 // scripts/sync-mlb-full-org-rosters.ts
 // YAT?STATS — MLB Full-Season Org Roster Sync
 //
-// Pulls the fullSeason roster for all 30 MLB organizations from the MLB Stats
-// API, capturing MLB and MiLB affiliate assignments for each player.  Each
-// entry is matched to a canonical YAT?STATS playerid (via player_source_map
-// first, then conservative exact-name fallback) and upserted into
-// player_current_team with the assigned team name, level, and MLB API team id.
+// Pulls MLB + MiLB affiliate rosters across all 30 MLB organizations.
+// Every processed player row is:
+//   1) optionally stored in mlb_org_roster_raw
+//   2) resolved against internal player identity
+//   3) written to mlb_org_roster_resolution
+//   4) published to player_current_team only when confidently matched
 //
 // Usage:
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts               # all orgs, current season
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --season 2024 # specific season
-//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --dry-run     # preview, no writes
+//   npx ts-node scripts/sync-mlb-full-org-rosters.ts
+//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --season 2025
+//   npx ts-node scripts/sync-mlb-full-org-rosters.ts --dry-run
 //
 // Required env vars:
-//   DATABASE_URL  — Neon Postgres connection string
+//   DATABASE_URL
 
+import { randomUUID } from "crypto";
 import { Pool } from "pg";
 import {
   resolvePlayerFromSourceMap,
@@ -33,8 +35,6 @@ if (!DATABASE_URL) {
 
 const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
 const DELAY_MS = 250;
-
-// All sport IDs covered by fullSeason rosters (MLB through Rookie ball).
 const ALL_SPORT_IDS = "1,11,12,13,14,15,16";
 
 // Parse CLI args
@@ -71,7 +71,6 @@ interface MlbRosterEntry {
   };
   position?: { name?: string; abbreviation?: string };
   status?: { code?: string; description?: string };
-  /** The specific affiliate team the player is assigned to. */
   team?: { id?: number; name?: string };
   parentTeamId?: number;
 }
@@ -91,7 +90,6 @@ interface DbPlayerRow {
   lastname: string;
 }
 
-// Level label derived from the MLB API sport name.
 type LevelLabel =
   | "MLB"
   | "AAA"
@@ -100,6 +98,36 @@ type LevelLabel =
   | "Single-A"
   | "Rookie"
   | "Unknown";
+
+interface TeamInfo {
+  id: number;
+  name: string;
+  abbreviation: string;
+  level: LevelLabel;
+  parentOrgId: number | null;
+  sportId: number | null;
+}
+
+type MatchStatus =
+  | "matched"
+  | "ambiguous"
+  | "unmatched"
+  | "error";
+
+interface ResolutionArgs {
+  runId: string;
+  rawId: number;
+  playerid: string | null;
+  sourcePlayerId: string;
+  sourcePlayerName: string;
+  sourceTeamId: string;
+  sourceTeamName: string;
+  matchStatus: MatchStatus;
+  matchMethod: string | null;
+  matchConfidence: number | null;
+  candidatePlayerIds: string[];
+  notes: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Database pool
@@ -119,20 +147,27 @@ function safePlayerName(p: MlbRosterEntry["person"]): string {
   );
 }
 
-/** Map an MLB API sport name to a short level label. */
 function sportNameToLevel(sportName?: string): LevelLabel {
   if (!sportName) return "Unknown";
   const s = sportName.toLowerCase();
   if (s.includes("major")) return "MLB";
-  if (s.includes("triple") || s.includes("triple-a") || s === "aaa")
+  if (s.includes("triple") || s.includes("triple-a") || s === "aaa") {
     return "AAA";
-  if (s.includes("double") || s.includes("double-a") || s === "aa")
+  }
+  if (s.includes("double") || s.includes("double-a") || s === "aa") {
     return "AA";
+  }
   if (s.includes("high")) return "High-A";
   if (s.includes("single") || s.includes("class a")) return "Single-A";
   if (s.includes("rookie")) return "Rookie";
   return "Unknown";
 }
+
+function buildNameKey(firstName: string, lastName: string): string {
+  return `${firstName.toLowerCase()} ${lastName.toLowerCase()}`.trim();
+}
+
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // ---------------------------------------------------------------------------
 // MLB Stats API helpers
@@ -150,13 +185,10 @@ async function fetchMlbTeams(): Promise<MlbTeam[]> {
   }
 }
 
-/**
- * Fetch all teams across all sport levels so we can resolve the level label
- * for any affiliated team encountered in a fullSeason roster.
- */
 async function fetchAllTeamsWithSport(): Promise<Map<number, TeamInfo>> {
   const url = `${MLB_API_BASE}/teams?sportIds=${ALL_SPORT_IDS}&season=${SEASON}&hydrate=sport`;
   const map = new Map<number, TeamInfo>();
+
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -175,6 +207,7 @@ async function fetchAllTeamsWithSport(): Promise<Map<number, TeamInfo>> {
   } catch (err) {
     console.error("fetchAllTeamsWithSport error:", err);
   }
+
   return map;
 }
 
@@ -197,6 +230,7 @@ async function fetchTeamRoster(
     return null;
   }
 }
+
 // ---------------------------------------------------------------------------
 // Database helpers
 // ---------------------------------------------------------------------------
@@ -210,10 +244,6 @@ async function getAllDbPlayers(): Promise<DbPlayerRow[]> {
     WHERE TRIM(firstname) != '' AND TRIM(lastname) != ''
   `);
   return rows;
-}
-
-function buildNameKey(firstName: string, lastName: string): string {
-  return `${firstName.toLowerCase()} ${lastName.toLowerCase()}`.trim();
 }
 
 function buildNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
@@ -247,13 +277,172 @@ async function saveSourceMap(
   );
 }
 
-interface TeamInfo {
-  id: number;
-  name: string;
-  abbreviation: string;
-  level: LevelLabel;
-  parentOrgId: number | null;
-  sportId: number | null;
+async function createIngestRun(runId: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO public.source_ingest_runs
+       (run_id, source, feed_name, season, status, started_at)
+     VALUES ($1, 'mlb_api', 'mlb_full_org_roster', $2, 'running', NOW())`,
+    [runId, SEASON]
+  );
+}
+
+async function finalizeIngestRun(args: {
+  runId: string;
+  status: "completed" | "failed";
+  rowsReceived: number;
+  rowsStored: number;
+  rowsMatched: number;
+  rowsAmbiguous: number;
+  rowsUnmatched: number;
+  rowsPublished: number;
+  notes?: string | null;
+}): Promise<void> {
+  await pool.query(
+    `UPDATE public.source_ingest_runs
+        SET status = $2,
+            completed_at = NOW(),
+            rows_received = $3,
+            rows_stored = $4,
+            rows_matched = $5,
+            rows_ambiguous = $6,
+            rows_unmatched = $7,
+            rows_published = $8,
+            notes = $9
+      WHERE run_id = $1`,
+    [
+      args.runId,
+      args.status,
+      args.rowsReceived,
+      args.rowsStored,
+      args.rowsMatched,
+      args.rowsAmbiguous,
+      args.rowsUnmatched,
+      args.rowsPublished,
+      args.notes ?? null,
+    ]
+  );
+}
+
+async function insertMlbOrgRosterRaw(
+  runId: string,
+  org: MlbTeam,
+  entry: MlbRosterEntry,
+  assignedTeamId: number,
+  assignedTeamName: string,
+  level: LevelLabel,
+  rosterStatus: string
+): Promise<number> {
+  const p = entry.person;
+  const fullName = safePlayerName(p);
+
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO public.mlb_org_roster_raw (
+       run_id,
+       source,
+       feed_name,
+       season,
+       org_source_team_id,
+       org_name,
+       org_abbr,
+       source_player_id,
+       source_player_name,
+       source_team_id,
+       source_team_name,
+       roster_status,
+       level,
+       raw_payload,
+       seen_at,
+       updated_at
+     )
+     VALUES (
+       $1,
+       'mlb_api',
+       'mlb_full_org_roster',
+       $2,
+       $3,
+       $4,
+       $5,
+       $6,
+       $7,
+       $8,
+       $9,
+       $10,
+       $11,
+       $12::jsonb,
+       NOW(),
+       NOW()
+     )
+     RETURNING id`,
+    [
+      runId,
+      SEASON,
+      String(org.id),
+      org.name,
+      org.abbreviation,
+      String(p.id),
+      fullName,
+      String(assignedTeamId),
+      assignedTeamName,
+      rosterStatus,
+      level,
+      JSON.stringify(entry),
+    ]
+  );
+
+  return rows[0].id;
+}
+
+async function saveMlbOrgRosterResolution(args: ResolutionArgs): Promise<void> {
+  await pool.query(
+    `INSERT INTO public.mlb_org_roster_resolution (
+       run_id,
+       raw_id,
+       playerid,
+       source,
+       source_player_id,
+       source_player_name,
+       source_team_id,
+       source_team_name,
+       match_status,
+       match_method,
+       match_confidence,
+       candidate_playerids,
+       notes,
+       created_at,
+       updated_at
+     )
+     VALUES (
+       $1,
+       $2,
+       $3,
+       'mlb_api',
+       $4,
+       $5,
+       $6,
+       $7,
+       $8,
+       $9,
+       $10,
+       $11::jsonb,
+       $12,
+       NOW(),
+       NOW()
+     )`,
+    [
+      args.runId,
+      args.rawId,
+      args.playerid,
+      args.sourcePlayerId,
+      args.sourcePlayerName,
+      args.sourceTeamId,
+      args.sourceTeamName,
+      args.matchStatus,
+      args.matchMethod,
+      args.matchConfidence,
+      JSON.stringify(args.candidatePlayerIds),
+      args.notes,
+    ]
+  );
 }
 
 /**
@@ -272,8 +461,17 @@ async function upsertFullSeasonTeam(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO player_current_team
-       (playerid, teamid, team_name, level, source, source_team_id, roster_status,
-        last_verified, updated_at)
+       (
+         playerid,
+         teamid,
+         team_name,
+         level,
+         source,
+         source_team_id,
+         roster_status,
+         last_verified,
+         updated_at
+       )
      VALUES ($1, NULL, $2, $3, 'mlb_api', $4, $5, NOW(), NOW())
      ON CONFLICT (playerid) DO UPDATE SET
        teamid         = NULL,
@@ -289,186 +487,305 @@ async function upsertFullSeasonTeam(
 }
 
 // ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-// ---------------------------------------------------------------------------
 // Main pipeline
 // ---------------------------------------------------------------------------
 async function main() {
+  const runId = randomUUID();
+
   console.log("=== YAT?STATS MLB Full-Season Org Roster Sync ===");
   console.log(`Season: ${SEASON}`);
   console.log(`Mode:   ${dryRun ? "DRY RUN" : "LIVE"}`);
   console.log("");
 
-  // --- Fetch MLB organizations (30 teams, sportId=1) -----------------------
-  const mlbOrgs = await fetchMlbTeams();
-  if (mlbOrgs.length === 0) {
-    console.error("No MLB teams returned from MLB Stats API. Aborting.");
-    process.exit(1);
-  }
-  console.log(`✓ Fetched ${mlbOrgs.length} MLB organizations`);
-
-  // --- Fetch all teams (all levels) to resolve affiliate levels -------------
-  const allTeamInfo = await fetchAllTeamsWithSport();
-  console.log(
-    `✓ Fetched affiliate team info (${allTeamInfo.size} teams across all levels)`
-  );
-
-  // --- Load player DB for name-fallback matching ----------------------------
-  const dbPlayers = await getAllDbPlayers();
-  console.log(`✓ Loaded ${dbPlayers.length} players from DB`);
-  const nameIndex = buildNameIndex(dbPlayers);
-  console.log(`✓ Name index built (${nameIndex.size} unique name keys)`);
-  console.log("");
-
-  // --- Per-run counters ------------------------------------------------------
   let orgsProcessed = 0;
   let totalEntries = 0;
+  let rowsReceived = 0;
+  let rowsStored = 0;
   let resolvedViaSourceMap = 0;
   let resolvedViaName = 0;
   let ambiguousSkipped = 0;
   let unmatchedSkipped = 0;
   let rowsWritten = 0;
 
-  // --- Process each MLB organization + affiliates ----------------------------
-  for (const org of mlbOrgs) {
-    console.log(`── ${org.name} (id=${org.id}, abbr=${org.abbreviation}) ──`);
+  if (!dryRun) {
+    await createIngestRun(runId);
+  }
 
-    const affiliateTeams = Array.from(allTeamInfo.values())
-      .filter((team) => team.parentOrgId === org.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
+  try {
+    const mlbOrgs = await fetchMlbTeams();
+    if (mlbOrgs.length === 0) {
+      throw new Error("No MLB teams returned from MLB Stats API.");
+    }
+    console.log(`✓ Fetched ${mlbOrgs.length} MLB organizations`);
 
-    const teamsToProcess: TeamInfo[] = [
-      {
-        id: org.id,
-        name: org.name,
-        abbreviation: org.abbreviation,
-        level: "MLB",
-        parentOrgId: org.id,
-        sportId: 1,
-      },
-      ...affiliateTeams,
-    ];
+    const allTeamInfo = await fetchAllTeamsWithSport();
+    console.log(
+      `✓ Fetched affiliate team info (${allTeamInfo.size} teams across all levels)`
+    );
 
-    console.log(`  ${teamsToProcess.length} teams to process in org`);
+    const dbPlayers = await getAllDbPlayers();
+    console.log(`✓ Loaded ${dbPlayers.length} players from DB`);
+    const nameIndex = buildNameIndex(dbPlayers);
+    console.log(`✓ Name index built (${nameIndex.size} unique name keys)`);
+    console.log("");
 
-    orgsProcessed++;
+    for (const org of mlbOrgs) {
+      console.log(`── ${org.name} (id=${org.id}, abbr=${org.abbreviation}) ──`);
 
-    const seenMlbIds = new Set<number>();
+      const affiliateTeams = Array.from(allTeamInfo.values())
+        .filter((team) => team.parentOrgId === org.id)
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-    for (const team of teamsToProcess) {
-      const rosterType = team.level === "MLB" ? "active" : "active";
-      const rosterData = await fetchTeamRoster(team.id, rosterType);
+      const teamsToProcess: TeamInfo[] = [
+        {
+          id: org.id,
+          name: org.name,
+          abbreviation: org.abbreviation,
+          level: "MLB",
+          parentOrgId: org.id,
+          sportId: 1,
+        },
+        ...affiliateTeams,
+      ];
 
-      if (!rosterData || !rosterData.roster?.length) {
-        console.log(`  ✗ No roster returned for ${team.name} (${team.level})`);
-        await delay(DELAY_MS);
-        continue;
-      }
+      console.log(`  ${teamsToProcess.length} teams to process in org`);
 
-      const roster = rosterData.roster;
-      console.log(`  ${team.name} (${team.level}) → ${roster.length} entries`);
-      totalEntries += roster.length;
+      orgsProcessed++;
+      const seenMlbIds = new Set<number>();
 
-      for (const entry of roster) {
-        const p = entry.person;
-        const displayName = safePlayerName(p);
+      for (const team of teamsToProcess) {
+        const rosterData = await fetchTeamRoster(team.id, "active");
 
-        if (seenMlbIds.has(p.id)) {
+        if (!rosterData || !rosterData.roster?.length) {
+          console.log(`  ✗ No roster returned for ${team.name} (${team.level})`);
+          await delay(DELAY_MS);
           continue;
         }
-        seenMlbIds.add(p.id);
 
-        const assignedTeamId: number = entry.team?.id ?? team.id;
-        const assignedTeamLookup = allTeamInfo.get(assignedTeamId);
+        const roster = rosterData.roster;
+        console.log(`  ${team.name} (${team.level}) → ${roster.length} entries`);
+        totalEntries += roster.length;
 
-        const assignedTeamName: string =
-          entry.team?.name ?? assignedTeamLookup?.name ?? team.name;
+        for (const entry of roster) {
+          const p = entry.person;
+          const displayName = safePlayerName(p);
 
-        const level: LevelLabel =
-          assignedTeamLookup?.level ?? team.level ?? "Unknown";
+          if (seenMlbIds.has(p.id)) {
+            continue;
+          }
+          seenMlbIds.add(p.id);
+          rowsReceived++;
 
-        const rosterStatus = entry.status?.description ?? "Active";
+          const assignedTeamId: number = entry.team?.id ?? team.id;
+          const assignedTeamLookup = allTeamInfo.get(assignedTeamId);
 
-        let resolvedId: string | null = null;
-        if (!dryRun) {
-          resolvedId = await resolveFromSourceMap(p.id);
-        }
+          const assignedTeamName: string =
+            entry.team?.name ?? assignedTeamLookup?.name ?? team.name;
 
-        if (resolvedId) {
-          resolvedViaSourceMap++;
+          const level: LevelLabel =
+            assignedTeamLookup?.level ?? team.level ?? "Unknown";
+
+          const rosterStatus = entry.status?.description ?? "Active";
+
+          let rawId: number | null = null;
           if (!dryRun) {
-            await upsertFullSeasonTeam(
-              resolvedId,
+            rawId = await insertMlbOrgRosterRaw(
+              runId,
+              org,
+              entry,
               assignedTeamId,
               assignedTeamName,
               level,
               rosterStatus
             );
+            rowsStored++;
+          }
+
+          let resolvedId: string | null = null;
+
+          if (!dryRun) {
+            resolvedId = await resolveFromSourceMap(p.id);
+          }
+
+          if (resolvedId) {
+            resolvedViaSourceMap++;
+
+            if (!dryRun && rawId !== null) {
+              await saveMlbOrgRosterResolution({
+                runId,
+                rawId,
+                playerid: resolvedId,
+                sourcePlayerId: String(p.id),
+                sourcePlayerName: displayName,
+                sourceTeamId: String(assignedTeamId),
+                sourceTeamName: assignedTeamName,
+                matchStatus: "matched",
+                matchMethod: "source_map",
+                matchConfidence: 1.0,
+                candidatePlayerIds: [resolvedId],
+                notes: "Resolved via player_source_map",
+              });
+
+              await upsertFullSeasonTeam(
+                resolvedId,
+                assignedTeamId,
+                assignedTeamName,
+                level,
+                rosterStatus
+              );
+              rowsWritten++;
+            } else {
+              console.log(
+                `  [DRY RUN] source-map: ${displayName} → ${assignedTeamName} (${level}) playerid=${resolvedId}`
+              );
+            }
+
+            continue;
+          }
+
+          const nameKey = buildNameKey(p.firstName ?? "", p.lastName ?? "");
+          const matches = nameIndex.get(nameKey) ?? [];
+
+          if (matches.length === 0) {
+            unmatchedSkipped++;
+
+            if (!dryRun && rawId !== null) {
+              await saveMlbOrgRosterResolution({
+                runId,
+                rawId,
+                playerid: null,
+                sourcePlayerId: String(p.id),
+                sourcePlayerName: displayName,
+                sourceTeamId: String(assignedTeamId),
+                sourceTeamName: assignedTeamName,
+                matchStatus: "unmatched",
+                matchMethod: null,
+                matchConfidence: null,
+                candidatePlayerIds: [],
+                notes: `No canonical player match found for key "${nameKey}"`,
+              });
+            } else {
+              console.log(
+                `  [DRY RUN] UNMATCHED: ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name}, level=${level})`
+              );
+            }
+
+            continue;
+          }
+
+          if (matches.length > 1) {
+            ambiguousSkipped++;
+
+            if (!dryRun && rawId !== null) {
+              await saveMlbOrgRosterResolution({
+                runId,
+                rawId,
+                playerid: null,
+                sourcePlayerId: String(p.id),
+                sourcePlayerName: displayName,
+                sourceTeamId: String(assignedTeamId),
+                sourceTeamName: assignedTeamName,
+                matchStatus: "ambiguous",
+                matchMethod: "exact_name_fallback",
+                matchConfidence: null,
+                candidatePlayerIds: matches.map((m) => m.playerid),
+                notes: `Multiple canonical matches for key "${nameKey}"`,
+              });
+            } else {
+              console.log(
+                `  [DRY RUN] AMBIGUOUS (${matches.length} matches): ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name})`
+              );
+            }
+
+            continue;
+          }
+
+          const dbPlayer = matches[0];
+          resolvedViaName++;
+
+          if (!dryRun && rawId !== null) {
+            await saveMlbOrgRosterResolution({
+              runId,
+              rawId,
+              playerid: dbPlayer.playerid,
+              sourcePlayerId: String(p.id),
+              sourcePlayerName: displayName,
+              sourceTeamId: String(assignedTeamId),
+              sourceTeamName: assignedTeamName,
+              matchStatus: "matched",
+              matchMethod: "exact_name_fallback",
+              matchConfidence: 0.75,
+              candidatePlayerIds: [dbPlayer.playerid],
+              notes: `Resolved by exact first/last name key "${nameKey}"`,
+            });
+
+            await upsertFullSeasonTeam(
+              dbPlayer.playerid,
+              assignedTeamId,
+              assignedTeamName,
+              level,
+              rosterStatus
+            );
+            await saveSourceMap(dbPlayer.playerid, p.id, displayName);
             rowsWritten++;
           } else {
             console.log(
-              `  [DRY RUN] source-map: ${displayName} → ${assignedTeamName} (${level}) playerid=${resolvedId}`
+              `  [DRY RUN] name-match: ${displayName} → ${assignedTeamName} (${level}) playerid=${dbPlayer.playerid}`
             );
           }
-          continue;
         }
 
-        const nameKey = buildNameKey(p.firstName ?? "", p.lastName ?? "");
-        const matches = nameIndex.get(nameKey) ?? [];
-
-        if (matches.length === 0) {
-          unmatchedSkipped++;
-          console.log(
-            `  UNMATCHED: ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name}, level=${level})`
-          );
-          continue;
-        }
-
-        if (matches.length > 1) {
-          ambiguousSkipped++;
-          console.log(
-            `  AMBIGUOUS (${matches.length} matches): ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name}) — skipping`
-          );
-          continue;
-        }
-
-        const dbPlayer = matches[0];
-        resolvedViaName++;
-
-        if (!dryRun) {
-          await upsertFullSeasonTeam(
-            dbPlayer.playerid,
-            assignedTeamId,
-            assignedTeamName,
-            level,
-            rosterStatus
-          );
-          await saveSourceMap(dbPlayer.playerid, p.id, displayName);
-          rowsWritten++;
-        } else {
-          console.log(
-            `  [DRY RUN] name-match: ${displayName} → ${assignedTeamName} (${level}) playerid=${dbPlayer.playerid}`
-          );
-        }
+        await delay(DELAY_MS);
       }
-
-      await delay(DELAY_MS);
     }
+
+    if (!dryRun) {
+      await finalizeIngestRun({
+        runId,
+        status: "completed",
+        rowsReceived,
+        rowsStored,
+        rowsMatched: resolvedViaSourceMap + resolvedViaName,
+        rowsAmbiguous: ambiguousSkipped,
+        rowsUnmatched: unmatchedSkipped,
+        rowsPublished: rowsWritten,
+        notes: null,
+      });
+    }
+
+    console.log("");
+    console.log("=== Full-Season Org Roster Sync Complete ===");
+    console.log(`Organizations processed:      ${orgsProcessed}`);
+    console.log(`Roster entries processed:     ${totalEntries}`);
+    console.log(`Rows received (unique):       ${rowsReceived}`);
+    console.log(`Rows stored (raw):            ${dryRun ? "0 (dry run)" : String(rowsStored)}`);
+    console.log(`Resolved via source map:      ${resolvedViaSourceMap}`);
+    console.log(`Resolved via name match:      ${resolvedViaName}`);
+    console.log(`Ambiguous skipped:            ${ambiguousSkipped}`);
+    console.log(`Unmatched skipped:            ${unmatchedSkipped}`);
+    console.log(
+      `Rows written to player_current_team: ${dryRun ? "0 (dry run)" : String(rowsWritten)}`
+    );
+  } catch (err) {
+    if (!dryRun) {
+      try {
+        await finalizeIngestRun({
+          runId,
+          status: "failed",
+          rowsReceived,
+          rowsStored,
+          rowsMatched: resolvedViaSourceMap + resolvedViaName,
+          rowsAmbiguous: ambiguousSkipped,
+          rowsUnmatched: unmatchedSkipped,
+          rowsPublished: rowsWritten,
+          notes: err instanceof Error ? err.message : "Unknown failure",
+        });
+      } catch (finalizeErr) {
+        console.error("Failed to finalize ingest run after error:", finalizeErr);
+      }
+    }
+    throw err;
   }
-  console.log("");
-  console.log("=== Full-Season Org Roster Sync Complete ===");
-  console.log(`Organizations processed:      ${orgsProcessed}`);
-  console.log(`Roster entries processed:     ${totalEntries}`);
-  console.log(`Resolved via source map:      ${resolvedViaSourceMap}`);
-  console.log(`Resolved via name match:      ${resolvedViaName}`);
-  console.log(`Ambiguous skipped:            ${ambiguousSkipped}`);
-  console.log(`Unmatched skipped:            ${unmatchedSkipped}`);
-  console.log(
-    `Rows written to player_current_team: ${dryRun ? "0 (dry run)" : String(rowsWritten)}`
-  );
 }
 
 main()
