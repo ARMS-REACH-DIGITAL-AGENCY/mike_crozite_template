@@ -4,10 +4,18 @@
 //
 // Pulls MLB + MiLB affiliate rosters across all 30 MLB organizations.
 // Every processed player row is:
+//
 //   1) optionally stored in mlb_org_roster_raw
-//   2) resolved against internal player identity
-//   3) written to mlb_org_roster_resolution
-//   4) published to player_current_team only when confidently matched
+//   2) resolved first via player_source_map
+//   3) then matched using candidate name keys
+//      (legal name, preferred/use name, full name)
+//   4) disambiguated using borndate and place from tbc_players_raw
+//   5) written to mlb_org_roster_resolution
+//   6) published to player_current_team only when confidently matched
+//
+// When a player is confidently matched, the script also writes back to
+// player_source_map so future runs can resolve directly from the stable
+// MLB source player ID instead of repeating fallback matching.
 //
 // Usage:
 //   npx ts-node scripts/sync-mlb-full-org-rosters.ts
@@ -254,7 +262,7 @@ async function fetchTeamRoster(
 // ---------------------------------------------------------------------------
 // Database helpers
 // ---------------------------------------------------------------------------
-aasync function getAllDbPlayers(): Promise<DbPlayerRow[]> {
+async function getAllDbPlayers(): Promise<DbPlayerRow[]> {
   const { rows } = await pool.query<DbPlayerRow>(`
     SELECT
       playerid::text AS playerid,
@@ -290,20 +298,175 @@ async function resolveFromSourceMap(
   return resolvePlayerFromSourceMap(pool, "mlb_api", String(mlbPersonId));
 }
 
+
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function parsePlace(value: string | null | undefined): {
+  city: string | null;
+  state: string | null;
+} {
+  const raw = (value ?? "").trim();
+  if (!raw) return { city: null, state: null };
+
+  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return { city: null, state: null };
+  if (parts.length === 1) return { city: parts[0], state: null };
+
+  return {
+    city: parts[0],
+    state: parts[1],
+  };
+}
+
+function buildCandidateNameKeys(person: MlbRosterEntry["person"]): string[] {
+  const keys = new Set<string>();
+
+  if (person.firstName && person.lastName) {
+    keys.add(buildNameKey(person.firstName, person.lastName));
+  }
+
+  if (person.useName && person.lastName) {
+    keys.add(buildNameKey(person.useName, person.lastName));
+  }
+
+  if (person.fullName) {
+    const parts = person.fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      keys.add(buildNameKey(parts[0], parts[parts.length - 1]));
+    }
+  }
+
+  return Array.from(keys);
+}
+
+function scoreCandidate(
+  row: DbPlayerRow,
+  person: MlbRosterEntry["person"],
+  assignedTeamName: string,
+  level: LevelLabel
+): number {
+  let score = 0;
+
+  const legalKey = buildNameKey(person.firstName ?? "", person.lastName ?? "");
+  const preferredKey = buildNameKey(person.useName ?? "", person.lastName ?? "");
+  const dbKey = buildNameKey(row.firstname, row.lastname);
+
+  if (preferredKey && dbKey === preferredKey) score += 60;
+  if (legalKey && dbKey === legalKey) score += 35;
+
+  if (person.birthDate && row.borndate && row.borndate.startsWith(person.birthDate)) {
+    score += 80;
+  }
+
+  const parsedPlace = parsePlace(row.place);
+
+  if (person.birthCity && parsedPlace.city) {
+    if (normalizeText(person.birthCity) === normalizeText(parsedPlace.city)) {
+      score += 25;
+    }
+  }
+
+  if (person.birthStateProvince && parsedPlace.state) {
+    if (normalizeText(person.birthStateProvince) === normalizeText(parsedPlace.state)) {
+      score += 10;
+    }
+  }
+
+  const mlbPos = normalizeText(
+    person.primaryPosition?.abbreviation ?? person.primaryPosition?.name
+  );
+  const rowPos = normalizeText(row.posit);
+  if (mlbPos && rowPos && rowPos.includes(mlbPos)) {
+    score += 8;
+  }
+
+  const rowLevel = normalizeText(row.highlevel);
+  const currentLevel = normalizeText(level);
+  if (rowLevel && currentLevel && rowLevel.includes(currentLevel.replace("-", ""))) {
+    score += 5;
+  }
+
+  const lowerTeam = normalizeText(assignedTeamName);
+  const lowerSchool = normalizeText(row.high_school);
+  if (lowerTeam && lowerSchool && lowerSchool.includes("hamilton")) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function resolveByCandidateScoring(
+  candidates: DbPlayerRow[],
+  person: MlbRosterEntry["person"],
+  assignedTeamName: string,
+  level: LevelLabel
+): {
+  winner: DbPlayerRow | null;
+  ranked: { playerid: string; score: number }[];
+} {
+  const ranked = candidates
+    .map((row) => ({
+      row,
+      score: scoreCandidate(row, person, assignedTeamName, level),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  if (ranked.length === 0) {
+    return { winner: null, ranked: [] };
+  }
+
+  if (ranked.length === 1) {
+    return {
+      winner: ranked[0].score >= 35 ? ranked[0].row : null,
+      ranked: ranked.map((r) => ({ playerid: r.row.playerid, score: r.score })),
+    };
+  }
+
+  const top = ranked[0];
+  const second = ranked[1];
+
+  if (top.score >= 80 && top.score >= second.score + 20) {
+    return {
+      winner: top.row,
+      ranked: ranked.map((r) => ({ playerid: r.row.playerid, score: r.score })),
+    };
+  }
+
+  return {
+    winner: null,
+    ranked: ranked.map((r) => ({ playerid: r.row.playerid, score: r.score })),
+  };
+}
+
+
+
 async function saveSourceMap(
   playerid: string,
   mlbPersonId: number,
-  fullName: string
+  fullName: string,
+  sourceTeamId?: string | null,
+  sourceTeamName?: string | null,
+  matchMethod?: string | null,
+  matchConfidence?: number | null,
+  isVerified?: boolean | null,
+  notes?: string | null
 ): Promise<void> {
   return upsertSourceMap(
     pool,
     playerid,
     "mlb_api",
     String(mlbPersonId),
-    fullName
+    fullName,
+    sourceTeamId ?? null,
+    sourceTeamName ?? null,
+    matchMethod ?? null,
+    matchConfidence ?? null,
+    isVerified ?? null,
+    notes ?? null
   );
 }
-
 async function createIngestRun(runId: string): Promise<void> {
   await pool.query(
     `INSERT INTO public.source_ingest_runs
@@ -670,32 +833,170 @@ async function main() {
             continue;
           }
 
-          const nameKey = buildNameKey(p.firstName ?? "", p.lastName ?? "");
-          const matches = nameIndex.get(nameKey) ?? [];
+          const candidateKeys = buildCandidateNameKeys(p);
+const candidateMap = new Map<string, DbPlayerRow>();
 
-          if (matches.length === 0) {
-            unmatchedSkipped++;
+for (const key of candidateKeys) {
+  for (const match of nameIndex.get(key) ?? []) {
+    candidateMap.set(match.playerid, match);
+  }
+}
 
-            if (!dryRun && rawId !== null) {
-              await saveMlbOrgRosterResolution({
-                runId,
-                rawId,
-                playerid: null,
-                sourcePlayerId: String(p.id),
-                sourcePlayerName: displayName,
-                sourceTeamId: String(assignedTeamId),
-                sourceTeamName: assignedTeamName,
-                matchStatus: "unmatched",
-                matchMethod: null,
-                matchConfidence: null,
-                candidatePlayerIds: [],
-                notes: `No canonical player match found for key "${nameKey}"`,
-              });
-            } else {
-              console.log(
-                `  [DRY RUN] UNMATCHED: ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name}, level=${level})`
-              );
-            }
+const candidates = Array.from(candidateMap.values());
+
+if (candidates.length === 0) {
+  unmatchedSkipped++;
+
+  if (!dryRun && rawId !== null) {
+    await saveMlbOrgRosterResolution({
+      runId,
+      rawId,
+      playerid: null,
+      sourcePlayerId: String(p.id),
+      sourcePlayerName: displayName,
+      sourceTeamId: String(assignedTeamId),
+      sourceTeamName: assignedTeamName,
+      matchStatus: "unmatched",
+      matchMethod: null,
+      matchConfidence: null,
+      candidatePlayerIds: [],
+      notes: `No canonical player match found. Keys tried: ${candidateKeys.join(" | ")}`,
+    });
+  } else {
+    console.log(
+      `  [DRY RUN] UNMATCHED: ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name}, level=${level}, keys=${candidateKeys.join(" | ")})`
+    );
+  }
+
+  continue;
+}
+
+if (candidates.length === 1) {
+  const dbPlayer = candidates[0];
+  resolvedViaName++;
+
+  if (!dryRun && rawId !== null) {
+    await saveMlbOrgRosterResolution({
+      runId,
+      rawId,
+      playerid: dbPlayer.playerid,
+      sourcePlayerId: String(p.id),
+      sourcePlayerName: displayName,
+      sourceTeamId: String(assignedTeamId),
+      sourceTeamName: assignedTeamName,
+      matchStatus: "matched",
+      matchMethod: "candidate_key_unique",
+      matchConfidence: 0.9,
+      candidatePlayerIds: [dbPlayer.playerid],
+      notes: `Resolved uniquely via candidate keys: ${candidateKeys.join(", ")}`,
+    });
+
+    await upsertFullSeasonTeam(
+      dbPlayer.playerid,
+      assignedTeamId,
+      assignedTeamName,
+      level,
+      rosterStatus
+    );
+    await saveSourceMap(
+      dbPlayer.playerid,
+      p.id,
+      displayName,
+      String(assignedTeamId),
+      assignedTeamName,
+      "candidate_key_unique",
+      0.9,
+      true,
+      `Resolved uniquely via candidate keys: ${candidateKeys.join(", ")}`
+    );
+    rowsWritten++;
+  } else {
+    console.log(
+      `  [DRY RUN] candidate-key unique: ${displayName} → ${assignedTeamName} (${level}) playerid=${dbPlayer.playerid}`
+    );
+  }
+
+  continue;
+}
+
+const scored = resolveByCandidateScoring(
+  candidates,
+  p,
+  assignedTeamName,
+  level
+);
+
+if (scored.winner) {
+  resolvedViaName++;
+
+  if (!dryRun && rawId !== null) {
+    await saveMlbOrgRosterResolution({
+      runId,
+      rawId,
+      playerid: scored.winner.playerid,
+      sourcePlayerId: String(p.id),
+      sourcePlayerName: displayName,
+      sourceTeamId: String(assignedTeamId),
+      sourceTeamName: assignedTeamName,
+      matchStatus: "matched",
+      matchMethod: "candidate_scoring",
+      matchConfidence: 0.95,
+      candidatePlayerIds: [scored.winner.playerid],
+      notes: `Resolved by scoring. Keys=${candidateKeys.join(", ")} Scores=${JSON.stringify(scored.ranked)}`,
+    });
+
+    await upsertFullSeasonTeam(
+      scored.winner.playerid,
+      assignedTeamId,
+      assignedTeamName,
+      level,
+      rosterStatus
+    );
+    await saveSourceMap(
+      scored.winner.playerid,
+      p.id,
+      displayName,
+      String(assignedTeamId),
+      assignedTeamName,
+      "candidate_scoring",
+      0.95,
+      true,
+      `Resolved by scoring. Keys=${candidateKeys.join(", ")} Scores=${JSON.stringify(scored.ranked)}`
+    );
+    rowsWritten++;
+  } else {
+    console.log(
+      `  [DRY RUN] scored match: ${displayName} → ${assignedTeamName} (${level}) playerid=${scored.winner.playerid} scores=${JSON.stringify(scored.ranked)}`
+    );
+  }
+
+  continue;
+}
+
+ambiguousSkipped++;
+
+if (!dryRun && rawId !== null) {
+  await saveMlbOrgRosterResolution({
+    runId,
+    rawId,
+    playerid: null,
+    sourcePlayerId: String(p.id),
+    sourcePlayerName: displayName,
+    sourceTeamId: String(assignedTeamId),
+    sourceTeamName: assignedTeamName,
+    matchStatus: "ambiguous",
+    matchMethod: "candidate_scoring",
+    matchConfidence: null,
+    candidatePlayerIds: candidates.map((c) => c.playerid),
+    notes: `Multiple canonical matches. Keys=${candidateKeys.join(" | ")} Scores=${JSON.stringify(scored.ranked)}`,
+  });
+} else {
+  console.log(
+    `  [DRY RUN] AMBIGUOUS (${candidates.length} candidates): ${displayName} (mlbId=${p.id}, team=${assignedTeamName}, org=${org.name}, keys=${candidateKeys.join(" | ")}, scores=${JSON.stringify(scored.ranked)})`
+  );
+}
+
+continue;
 
             continue;
           }
