@@ -756,7 +756,11 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
               <button
                 type="button"
                 disabled={superfanLaunching}
-                onClick={() => effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)}
+                onClick={() =>
+                  effectiveUid &&
+                  effectiveEmail &&
+                  launchSuperfanCheckout(effectiveUid, effectiveEmail)
+                }
                 style={{
                   display: 'inline-block',
                   padding: '8px 14px',
@@ -819,7 +823,9 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
           {!isSuperfan && !superfanLaunching && (
             <button
               type="button"
-              onClick={() => effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)}
+              onClick={() =>
+                effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)
+              }
               style={{
                 width: '100%',
                 padding: '12px',
