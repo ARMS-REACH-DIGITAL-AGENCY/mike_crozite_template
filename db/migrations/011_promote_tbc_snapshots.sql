@@ -1,7 +1,46 @@
 -- SQL to promote data from snapshot tables to canonical raw tables.
 -- This script handles the mapping from JSONB raw_payload to structured columns.
 
--- 1. Promote Batting Snapshots
+-- 1. Promote Player Identity Snapshots
+-- Source: tbc_pitching_feed_snapshots (Identity feed)
+-- Target: tbc_players_raw
+INSERT INTO tbc_players_raw (
+    playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit, 
+    borndate, currentage, place, high_school
+)
+SELECT 
+    (raw_payload->>'playerid')::TEXT,
+    (raw_payload->>'firstname')::TEXT,
+    (raw_payload->>'lastname')::TEXT,
+    (raw_payload->>'highlevel')::TEXT,
+    (raw_payload->>'ht')::TEXT,
+    (raw_payload->>'wt')::TEXT,
+    (raw_payload->>'bats')::TEXT,
+    (raw_payload->>'throws')::TEXT,
+    (raw_payload->>'posit')::TEXT,
+    (raw_payload->>'borndate')::TEXT,
+    (raw_payload->>'currentage')::NUMERIC,
+    (raw_payload->>'place')::TEXT,
+    (raw_payload->>'high_school')::TEXT
+FROM tbc_pitching_feed_snapshots
+WHERE snapshot_date = CURRENT_DATE
+ON CONFLICT (playerid) DO UPDATE SET
+    firstname = EXCLUDED.firstname,
+    lastname = EXCLUDED.lastname,
+    highlevel = EXCLUDED.highlevel,
+    ht = EXCLUDED.ht,
+    wt = EXCLUDED.wt,
+    bats = EXCLUDED.bats,
+    throws = EXCLUDED.throws,
+    posit = EXCLUDED.posit,
+    borndate = EXCLUDED.borndate,
+    currentage = EXCLUDED.currentage,
+    place = EXCLUDED.place,
+    high_school = EXCLUDED.high_school;
+
+-- 2. Promote Batting Stats Snapshots
+-- Source: tbc_batting_feed_snapshots (Batting stats feed)
+-- Target: tbc_batting_raw
 INSERT INTO tbc_batting_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class, posit, 
     g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp, 
@@ -102,8 +141,10 @@ ON CONFLICT (playerid, year, teamid) DO UPDATE SET
     playyears = EXCLUDED.playyears,
     draft_info = EXCLUDED.draft_info;
 
--- 2. Promote Pitching Snapshots
-INSERT INTO tbc_players_raw (
+-- 3. Promote Pitching Stats Snapshots
+-- Source: tbc_players_feed_snapshots (Pitching stats feed)
+-- Target: tbc_pitching_raw
+INSERT INTO tbc_pitching_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class, 
     w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb, 
     era, whip, h9, hr9, bb9, so9, ra9, so_bb, highlevel, mlbyears, playyears, draft_info
@@ -189,38 +230,3 @@ ON CONFLICT (playerid, year, teamid) DO UPDATE SET
     mlbyears = EXCLUDED.mlbyears,
     playyears = EXCLUDED.playyears,
     draft_info = EXCLUDED.draft_info;
-
--- 3. Promote Pitching (Identity) Snapshots
-INSERT INTO tbc_pitching_raw (
-    playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit, 
-    borndate, currentage, place, high_school
-)
-SELECT 
-    (raw_payload->>'playerid')::TEXT,
-    (raw_payload->>'firstname')::TEXT,
-    (raw_payload->>'lastname')::TEXT,
-    (raw_payload->>'highlevel')::TEXT,
-    (raw_payload->>'ht')::TEXT,
-    (raw_payload->>'wt')::TEXT,
-    (raw_payload->>'bats')::TEXT,
-    (raw_payload->>'throws')::TEXT,
-    (raw_payload->>'posit')::TEXT,
-    (raw_payload->>'borndate')::TEXT,
-    (raw_payload->>'currentage')::NUMERIC,
-    (raw_payload->>'place')::TEXT,
-    (raw_payload->>'high_school')::TEXT
-FROM tbc_pitching_feed_snapshots
-WHERE snapshot_date = CURRENT_DATE
-ON CONFLICT (playerid) DO UPDATE SET
-    firstname = EXCLUDED.firstname,
-    lastname = EXCLUDED.lastname,
-    highlevel = EXCLUDED.highlevel,
-    ht = EXCLUDED.ht,
-    wt = EXCLUDED.wt,
-    bats = EXCLUDED.bats,
-    throws = EXCLUDED.throws,
-    posit = EXCLUDED.posit,
-    borndate = EXCLUDED.borndate,
-    currentage = EXCLUDED.currentage,
-    place = EXCLUDED.place,
-    high_school = EXCLUDED.high_school;
