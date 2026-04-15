@@ -3,7 +3,7 @@
 -- Strategy: Only promote CURRENT SEASON (2026) rows for daily updates.
 
 -- 1. Promote Player Identity Snapshots
--- Source: tbc_pitching_feed_snapshots (Identity feed)
+-- Source: tbc_players_feed_snapshots (Identity feed)
 -- Target: tbc_players_raw
 INSERT INTO tbc_players_raw (
     playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit, 
@@ -23,7 +23,7 @@ SELECT
     (raw_payload->>'currentage')::NUMERIC,
     (raw_payload->>'place')::TEXT,
     (raw_payload->>'high_school')::TEXT
-FROM tbc_pitching_feed_snapshots
+FROM tbc_players_feed_snapshots
 WHERE snapshot_date = CURRENT_DATE
 ON CONFLICT (playerid) DO UPDATE SET
     firstname = EXCLUDED.firstname,
@@ -145,7 +145,7 @@ ON CONFLICT (playerid, year, teamid) DO UPDATE SET
     draft_info = EXCLUDED.draft_info;
 
 -- 3. Promote Pitching Stats Snapshots
--- Source: tbc_players_feed_snapshots (Pitching stats feed)
+-- Source: tbc_pitching_feed_snapshots (Pitching stats feed)
 -- Target: tbc_pitching_raw
 -- Filter: Only year 2026
 INSERT INTO tbc_pitching_raw (
@@ -194,7 +194,7 @@ SELECT
     (raw_payload->>'mlbyears')::TEXT,
     (raw_payload->>'playyears')::TEXT,
     (raw_payload->>'draft_info')::TEXT
-FROM tbc_players_feed_snapshots
+FROM tbc_pitching_feed_snapshots
 WHERE snapshot_date = CURRENT_DATE
   AND (raw_payload->>'year')::INTEGER = 2026
 ON CONFLICT (playerid, year, teamid) DO UPDATE SET

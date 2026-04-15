@@ -37,9 +37,9 @@ class FeedConfig:
     expected_cols: int
 
 FEED_TABLES = {
-    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=40),
+    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=13),
     "batting": FeedConfig(feed_type="batting", snapshot_table="tbc_batting_feed_snapshots", expected_cols=46),
-    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=13),
+    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=40),
 }
 
 class ImportError(Exception):
@@ -115,7 +115,7 @@ def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[
         # Defensive alignment
         if len(parts) > expected_count:
             # In batting/pitching(stats), uniform is index 3 (0-based)
-            if feed_type in ("batting", "players") and expected_count >= 4:
+            if feed_type in ("batting", "pitching") and expected_count >= 4:
                 extra = len(parts) - expected_count
                 merged_uniform = ",".join(parts[3:3+extra+1])
                 new_parts = parts[:3] + [merged_uniform] + parts[3+extra+1:]
@@ -130,7 +130,7 @@ def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[
             continue
 
         # Filter by year for stats feeds
-        if filter_year > 0 and feed_type in ("batting", "players"):
+        if filter_year > 0 and feed_type in ("batting", "pitching"):
             row_year = row_dict.get("year")
             if row_year and str(row_year) != str(filter_year):
                 continue
