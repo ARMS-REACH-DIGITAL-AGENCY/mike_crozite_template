@@ -100,6 +100,7 @@ def parse_feed_list(raw_feeds: str) -> list[str]:
 def build_feed_url(feed_type: str, feed_password: str) -> str:
     return f"{BASE_URL}/{feed_type}/?pw={feed_password}"
 
+
 def is_html_or_challenge(body: str, content_type: str) -> bool:
     probe = (body[:1000] or "").lower()
     ctype = (content_type or "").lower()
@@ -226,8 +227,7 @@ def append_snapshot_rows(
     return len(row_values)
 
 
-
-   def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
+def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
     try:
         response = requests.get(source_url, headers=REQUEST_HEADERS, timeout=60)
         response.raise_for_status()
@@ -277,6 +277,8 @@ def append_snapshot_rows(
                 raise IngestError(f"{feed_type}: feed returned HTML/challenge content via playwright")
 
             return body_text
+
+
 def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str) -> int:
     feed_cfg = FEED_TABLES[feed_type]
     ingest_run_id = str(uuid.uuid4())
@@ -289,7 +291,6 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
 
     try:
         response_text = fetch_feed_response_text(feed_type, source_url)
-
         _, rows = parse_csv_rows(feed_type, response_text)
 
         snapshot_ts = datetime.now(timezone.utc)
