@@ -22,6 +22,11 @@ try:
 except ImportError:
     cloudscraper = None
 
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None
+
 BASE_URL = "https://thebaseballcube.com/data/feed/yatstats"
 VALID_FEEDS = ("players", "batting", "pitching")
 HEADER_RENAMES = {
@@ -221,14 +226,61 @@ def append_snapshot_rows(
     return len(row_values)
 
 
-def fetch_feed_response(feed_type: str, source_url: str) -> requests.Response:
+
+   def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
     try:
         response = requests.get(source_url, headers=REQUEST_HEADERS, timeout=60)
         response.raise_for_status()
         if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
             raise IngestError(f"{feed_type}: feed returned HTML/challenge content via requests")
-        return response
-    except (requests.HTTPError, requests.RequestException, IngestError) as exc:
+        return response.text
+
+    except (requests.HTTPError, requests.RequestException, IngestError):
+        if cloudscraper is not None:
+            try:
+                scraper = cloudscraper.create_scraper(
+                    browser={"browser": "chrome", "platform": "windows", "mobile": False}
+                )
+                response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
+                response.raise_for_status()
+
+                if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+                    raise IngestError(f"{feed_type}: feed returned HTML/challenge content via cloudscraper")
+
+                return response.text
+            except Exception:
+                pass
+
+        if sync_playwright is None:
+            raise IngestError(f"{feed_type}: requests/cloudscraper failed and playwright is not installed")
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent=REQUEST_HEADERS["User-Agent"],
+                extra_http_headers={
+                    "Accept": REQUEST_HEADERS["Accept"],
+                    "Accept-Language": REQUEST_HEADERS["Accept-Language"],
+                    "Cache-Control": REQUEST_HEADERS["Cache-Control"],
+                    "Pragma": REQUEST_HEADERS["Pragma"],
+                    "Referer": REQUEST_HEADERS["Referer"],
+                },
+            )
+
+            response = page.goto(source_url, wait_until="domcontentloaded", timeout=90000)
+            if response is None:
+                browser.close()
+                raise IngestError(f"{feed_type}: playwright got no response")
+
+            body_text = page.locator("body").inner_text(timeout=10000)
+            content_type = response.headers.get("content-type", "")
+            browser.close()
+
+            if is_html_or_challenge(body_text, content_type):
+                raise IngestError(f"{feed_type}: feed returned HTML/challenge content via playwright")
+
+            return body_text
+    except (requests.HTTPError, requests.RequestException, IngestError)
         should_retry = False
 
         if isinstance(exc, requests.HTTPError):
@@ -270,9 +322,9 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
     conn.commit()
 
     try:
-        response = fetch_feed_response(feed_type, source_url)
+        response_text = fetch_feed_response_text(feed_type, source_url)
 
-        _, rows = parse_csv_rows(feed_type, response.text)
+        _, rows = parse_csv_rows(feed_type, response_text)
 
         snapshot_ts = datetime.now(timezone.utc)
         snapshot_date = snapshot_ts.date()
