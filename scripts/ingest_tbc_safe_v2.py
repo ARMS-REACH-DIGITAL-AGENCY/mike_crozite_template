@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Safe snapshot-first ingest for TBC YAT stats feeds."""
+"""Safe snapshot-first ingest for TBC YAT stats feeds with robust parsing."""
 
 from __future__ import annotations
 
@@ -10,12 +10,22 @@ import json
 import os
 import sys
 import uuid
+import re
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Iterable
+from typing import Iterable, List, Dict, Tuple, Any
 
 import psycopg
 import requests
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
 
 try:
     import cloudscraper
@@ -51,12 +61,13 @@ REQUEST_HEADERS = {
 class FeedConfig:
     feed_type: str
     snapshot_table: str
+    expected_cols: int
 
 
 FEED_TABLES = {
-    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots"),
-    "batting": FeedConfig(feed_type="batting", snapshot_table="tbc_batting_feed_snapshots"),
-    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots"),
+    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=13),
+    "batting": FeedConfig(feed_type="batting", snapshot_table="tbc_batting_feed_snapshots", expected_cols=46),
+    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=40),
 }
 
 
@@ -113,30 +124,64 @@ def normalize_header(header: str) -> str:
     return HEADER_RENAMES.get(normalized, normalized)
 
 
+def robust_csv_split(line: str) -> List[str]:
+    """
+    Splits a CSV line while handling quoted values with commas.
+    If quoting is inconsistent, this might still need help.
+    """
+    # Standard CSV reader can handle quoted commas
+    reader = csv.reader([line])
+    try:
+        return next(reader)
+    except Exception:
+        # Fallback to simple split if csv.reader fails
+        return line.split(',')
+
+
 def parse_csv_rows(feed_type: str, response_text: str) -> tuple[list[str], list[dict[str, str]]]:
-    reader = csv.DictReader(io.StringIO(response_text))
-    if not reader.fieldnames:
-        raise IngestError(f"{feed_type}: empty or missing CSV header")
+    lines = response_text.strip().splitlines()
+    if not lines:
+        raise IngestError(f"{feed_type}: empty response")
 
-    normalized_headers = [normalize_header(header) for header in reader.fieldnames]
-    if not any(h.strip() for h in normalized_headers):
-        raise IngestError(f"{feed_type}: CSV header is blank after normalization")
-
+    header_line = lines[0]
+    headers = robust_csv_split(header_line)
+    normalized_headers = [normalize_header(h) for h in headers]
+    
     if "playerid" not in normalized_headers:
         raise IngestError(f"{feed_type}: required playerid column is missing")
 
+    expected_count = len(normalized_headers)
     rows: list[dict[str, str]] = []
-    for line_number, row in enumerate(reader, start=2):
-        normalized_row = {}
-        for original_header, normalized_header in zip(reader.fieldnames, normalized_headers):
-            value = row.get(original_header, "")
-            normalized_row[normalized_header] = value.strip() if isinstance(value, str) else value
+    
+    for i, line in enumerate(lines[1:], start=2):
+        if not line.strip():
+            continue
+            
+        parts = robust_csv_split(line)
+        
+        # Defensive alignment: if we have too many columns, try to merge the ones that might be shifted
+        if len(parts) > expected_count:
+            logger.warning(f"{feed_type} line {i}: expected {expected_count} cols, got {len(parts)}. Attempting repair.")
+            # Common issue: uniform numbers like "12,34,7" not quoted
+            # In batting/pitching, uniform is index 3 (0-based)
+            if feed_type in ("batting", "pitching") and expected_count >= 4:
+                # Merge columns from index 3 until we reach expected count
+                extra = len(parts) - expected_count
+                merged_uniform = ",".join(parts[3:3+extra+1])
+                new_parts = parts[:3] + [merged_uniform] + parts[3+extra+1:]
+                parts = new_parts
+        
+        if len(parts) != expected_count:
+            logger.error(f"{feed_type} line {i}: column mismatch after repair (got {len(parts)}, expected {expected_count}). Skipping row.")
+            continue
 
-        playerid = str(normalized_row.get("playerid", "") or "").strip()
-        if not playerid:
-            raise IngestError(f"{feed_type}: blank playerid encountered at CSV line {line_number}")
-
-        rows.append(normalized_row)
+        row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
+        
+        if not row_dict.get("playerid"):
+            logger.error(f"{feed_type} line {i}: missing playerid. Skipping row.")
+            continue
+            
+        rows.append(row_dict)
 
     return normalized_headers, rows
 
@@ -228,55 +273,66 @@ def append_snapshot_rows(
 
 
 def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
+    # 1. Requests
+    logger.info(f"{feed_type}: attempting fetch via requests")
     try:
         response = requests.get(source_url, headers=REQUEST_HEADERS, timeout=60)
         response.raise_for_status()
-        if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
-            raise IngestError(f"{feed_type}: feed returned HTML/challenge content via requests")
-        return response.text
-    except (requests.HTTPError, requests.RequestException, IngestError):
-        if cloudscraper is not None:
-            try:
-                scraper = cloudscraper.create_scraper(
-                    browser={"browser": "chrome", "platform": "windows", "mobile": False}
-                )
-                response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
-                response.raise_for_status()
-                if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
-                    raise IngestError(f"{feed_type}: feed returned HTML/challenge content via cloudscraper")
-                return response.text
-            except Exception:
-                pass
+        if not is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+            return response.text
+        logger.warning(f"{feed_type}: requests returned HTML/challenge")
+    except Exception as e:
+        logger.warning(f"{feed_type}: requests failed: {e}")
 
-        if sync_playwright is None:
-            raise IngestError(f"{feed_type}: requests/cloudscraper failed and playwright is not installed")
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page(
-                user_agent=REQUEST_HEADERS["User-Agent"],
-                extra_http_headers={
-                    "Accept": REQUEST_HEADERS["Accept"],
-                    "Accept-Language": REQUEST_HEADERS["Accept-Language"],
-                    "Cache-Control": REQUEST_HEADERS["Cache-Control"],
-                    "Pragma": REQUEST_HEADERS["Pragma"],
-                    "Referer": REQUEST_HEADERS["Referer"],
-                },
+    # 2. Cloudscraper
+    if cloudscraper is not None:
+        logger.info(f"{feed_type}: attempting fetch via cloudscraper")
+        try:
+            scraper = cloudscraper.create_scraper(
+                browser={"browser": "chrome", "platform": "windows", "mobile": False}
             )
+            response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
+            response.raise_for_status()
+            if not is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+                return response.text
+            logger.warning(f"{feed_type}: cloudscraper returned HTML/challenge")
+        except Exception as e:
+            logger.warning(f"{feed_type}: cloudscraper failed: {e}")
 
-            response = page.goto(source_url, wait_until="domcontentloaded", timeout=90000)
-            if response is None:
+    # 3. Playwright
+    if sync_playwright is not None:
+        logger.info(f"{feed_type}: attempting fetch via playwright")
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page(
+                    user_agent=REQUEST_HEADERS["User-Agent"],
+                    extra_http_headers={
+                        "Accept": REQUEST_HEADERS["Accept"],
+                        "Accept-Language": REQUEST_HEADERS["Accept-Language"],
+                        "Cache-Control": REQUEST_HEADERS["Cache-Control"],
+                        "Pragma": REQUEST_HEADERS["Pragma"],
+                        "Referer": REQUEST_HEADERS["Referer"],
+                    },
+                )
+
+                response = page.goto(source_url, wait_until="networkidle", timeout=90000)
+                if response is None:
+                    browser.close()
+                    raise IngestError(f"{feed_type}: playwright got no response")
+
+                # Some feeds might be rendered as pre-formatted text in HTML
+                body_text = page.locator("body").inner_text(timeout=10000)
+                content_type = response.headers.get("content-type", "")
                 browser.close()
-                raise IngestError(f"{feed_type}: playwright got no response")
 
-            body_text = page.locator("body").inner_text(timeout=10000)
-            content_type = response.headers.get("content-type", "")
-            browser.close()
+                if not is_html_or_challenge(body_text, content_type):
+                    return body_text
+                logger.warning(f"{feed_type}: playwright returned HTML/challenge")
+        except Exception as e:
+            logger.warning(f"{feed_type}: playwright failed: {e}")
 
-            if is_html_or_challenge(body_text, content_type):
-                raise IngestError(f"{feed_type}: feed returned HTML/challenge content via playwright")
-
-            return body_text
+    raise IngestError(f"{feed_type}: all fetch strategies failed")
 
 
 def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str) -> int:
@@ -309,11 +365,12 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
             finalize_ingest_run(cur, ingest_run_id, "succeeded", inserted, None)
 
         conn.commit()
-        print(f"{feed_type}: ingested {inserted} rows into {feed_cfg.snapshot_table} (run_id={ingest_run_id})")
+        logger.info(f"{feed_type}: ingested {inserted} rows into {feed_cfg.snapshot_table} (run_id={ingest_run_id})")
         return inserted
 
     except Exception as exc:
         error_message = str(exc)
+        logger.error(f"{feed_type} ingest failed: {error_message}")
         with conn.cursor() as cur:
             finalize_ingest_run(cur, ingest_run_id, "failed", 0, error_message[:4000])
         conn.commit()
@@ -330,13 +387,17 @@ def main() -> int:
         total_rows = 0
         with psycopg.connect(database_url) as conn:
             for feed_type in feeds:
-                total_rows += run_feed_ingest(conn, feed_type, feed_password)
+                try:
+                    total_rows += run_feed_ingest(conn, feed_type, feed_password)
+                except Exception:
+                    # Continue with other feeds if one fails
+                    continue
 
-        print(f"Completed safe ingest for feeds={feeds}; total_rows={total_rows}")
+        logger.info(f"Completed safe ingest for feeds={feeds}; total_rows={total_rows}")
         return 0
 
     except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        logger.error(f"FATAL ERROR: {exc}")
         return 1
 
 
