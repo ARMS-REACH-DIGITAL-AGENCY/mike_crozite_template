@@ -234,7 +234,6 @@ def append_snapshot_rows(
         if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
             raise IngestError(f"{feed_type}: feed returned HTML/challenge content via requests")
         return response.text
-
     except (requests.HTTPError, requests.RequestException, IngestError):
         if cloudscraper is not None:
             try:
@@ -243,10 +242,8 @@ def append_snapshot_rows(
                 )
                 response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
                 response.raise_for_status()
-
                 if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
                     raise IngestError(f"{feed_type}: feed returned HTML/challenge content via cloudscraper")
-
                 return response.text
             except Exception:
                 pass
@@ -280,37 +277,6 @@ def append_snapshot_rows(
                 raise IngestError(f"{feed_type}: feed returned HTML/challenge content via playwright")
 
             return body_text
-    except (requests.HTTPError, requests.RequestException, IngestError)
-        should_retry = False
-
-        if isinstance(exc, requests.HTTPError):
-            if exc.response is not None and exc.response.status_code == 403:
-                should_retry = True
-        elif isinstance(exc, IngestError):
-            should_retry = True
-        else:
-            should_retry = True
-
-        if not should_retry:
-            raise
-
-        if cloudscraper is None:
-            raise IngestError(
-                f"{feed_type}: requests fetch failed ({exc}) and cloudscraper is not installed"
-            ) from exc
-
-        scraper = cloudscraper.create_scraper(
-            browser={"browser": "chrome", "platform": "windows", "mobile": False}
-        )
-        response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
-        response.raise_for_status()
-
-        if is_html_or_challenge(response.text, response.headers.get("content-type", "")):
-            raise IngestError(f"{feed_type}: feed returned HTML/challenge content via cloudscraper")
-
-        return response
-
-
 def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str) -> int:
     feed_cfg = FEED_TABLES[feed_type]
     ingest_run_id = str(uuid.uuid4())
