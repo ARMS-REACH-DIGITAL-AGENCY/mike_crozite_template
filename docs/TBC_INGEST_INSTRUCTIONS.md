@@ -1,6 +1,11 @@
 # TBC Ingestion Pipeline Instructions
 
-This document provides simple, step-by-step instructions for running the Baseball Cube (TBC) ingestion pipeline.
+This document provides simple, step-by-step instructions for running the Baseball Cube (TBC) ingestion pipeline with validation and delta tracking.
+
+## Pipeline Overview
+
+The system follows a snapshot-first architecture:
+**FEED → SNAPSHOT (JSON) → VALIDATION → PROMOTION → RAW TABLES + DELTAS**
 
 ## Option 1: Automatic Daily Ingestion (GitHub Actions)
 
@@ -10,8 +15,7 @@ The system is set up to run automatically. If you need to trigger it manually:
 2. Click on the **Actions** tab.
 3. Select **TBC Safe Ingest v2** from the sidebar.
 4. Click the **Run workflow** dropdown.
-5. (Optional) Specify which feeds to run (default is `players,batting,pitching`).
-6. Click **Run workflow**.
+5. Click **Run workflow**.
 
 **Note**: The daily ingest is configured to only process rows for the **2026 season**.
 
@@ -30,33 +34,45 @@ export DATABASE_URL="your_database_url_here"
 python scripts/bulk_import_tbc.py --file path/to/your/batting_file.rtf --type batting
 
 # For Pitching stats (2026 only by default)
-# Note: In TBC feeds, 'players' contains pitching stats
-python scripts/bulk_import_tbc.py --file path/to/your/pitching_stats_file.rtf --type players
+python scripts/bulk_import_tbc.py --file path/to/your/pitching_stats_file.rtf --type pitching
 
 # For Player Identity data
-# Note: In TBC feeds, 'pitching' contains player identity
-python scripts/bulk_import_tbc.py --file path/to/your/identity_file.rtf --type pitching
+python scripts/bulk_import_tbc.py --file path/to/your/identity_file.rtf --type players
 ```
 
-**Filtering**: By default, these scripts filter for `year = 2026`. To import all years, add `--year 0`.
+## Option 3: Promoting Data and Generating Deltas
 
-## Option 3: Promoting Data to Main Tables
-
-After data is ingested into the "snapshot" tables, promote it to the main raw tables:
+After data is ingested into the "snapshot" tables, promote it to the main raw tables and generate daily deltas:
 
 1. Open your database management tool (e.g., Neon console, psql).
-2. Run the contents of `db/migrations/011_promote_tbc_snapshots.sql`.
+2. Run the contents of `db/migrations/011_promote_tbc_snapshots.sql` (Promotes valid rows).
+3. Run the contents of `db/migrations/013_tbc_delta_generation.sql` (Generates daily deltas).
 
 ---
 
-## What changed and why?
+## Key Features
 
-1.  **Corrected Table Mapping**: 
-    - `tbc_pitching_feed_snapshots` (Identity) → `tbc_players_raw`
-    - `tbc_batting_feed_snapshots` (Batting stats) → `tbc_batting_raw`
-    - `tbc_players_feed_snapshots` (Pitching stats) → `tbc_pitching_raw`
-2.  **2026 Season Filtering**: To improve performance and focus on current data, the pipeline now filters for the 2026 season. This filtering happens at two levels:
-    - **Script Level**: Both `ingest_tbc_safe_v2.py` and `bulk_import_tbc.py` filter rows before saving to snapshots.
-    - **SQL Level**: The promotion script also includes a `WHERE year = 2026` clause for extra safety.
-3.  **Robust Parsing**: Maintained the defensive parsing to handle uniform numbers with commas and other formatting inconsistencies.
-4.  **Corrected Schema Mapping**: Ensured that identity fields (firstname, birthplace, etc.) only go to the players table, while stats tables keep player names for convenience.
+### 1. Validation Layer
+- **Batting**: Validates `avg` (0-1), `ops` (0-2), and ensures stats are non-negative.
+- **Pitching**: Validates `era` (0-20) and ensures stats are non-negative.
+- **Identity**: Ensures `playerid`, `firstname`, and `lastname` are present.
+- **Broken Parsing Detection**: Rejects rows where the `highlevel` field contains numeric values (a sign of column shifting).
+- **Invalid Rows**: All rejected rows are stored in `tbc_invalid_rows` with the reason for failure.
+
+### 2. Delta System (2026 Only)
+- Tracks daily changes in stats for each player.
+- Compares the latest snapshot with the previous day's snapshot.
+- Appends new rows to `tbc_batting_daily_deltas` and `tbc_pitching_daily_deltas`.
+- Skips deltas if stats go backwards (data integrity check).
+
+### 3. Run Summary
+- Each ingest run stores a summary in `tbc_ingest_runs`:
+    - `total_rows`: Total rows processed.
+    - `valid_count`: Rows promoted to raw tables.
+    - `invalid_count`: Rows rejected due to validation errors.
+    - `delta_count`: Number of delta rows generated.
+
+### 4. Correct Table Mapping
+- **Batting Feed** → `tbc_batting_raw`
+- **Pitching Feed** → `tbc_pitching_raw`
+- **Players Feed** → `tbc_players_raw` (Identity)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Safe snapshot-first ingest for TBC YAT stats feeds with robust parsing and 2026 filtering."""
+"""Safe snapshot-first ingest for TBC YAT stats feeds with validation and delta tracking."""
 
 from __future__ import annotations
 
@@ -141,7 +141,65 @@ def robust_csv_split(line: str) -> List[str]:
         return line.split(',')
 
 
-def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]]]:
+def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]:
+    """
+    Validates a row based on feed-specific rules.
+    """
+    try:
+        if not row.get("playerid"):
+            return False, "Missing playerid"
+
+        if feed_type == "players":
+            if not row.get("firstname") or not row.get("lastname"):
+                return False, "Missing firstname or lastname"
+        
+        elif feed_type == "batting":
+            # Validate numeric fields
+            for field in ["ab", "h", "hr", "rbi"]:
+                val = row.get(field)
+                if val is not None and (not val.strip().isdigit() or int(val) < 0):
+                    return False, f"Invalid numeric field: {field}={val}"
+            
+            # Validate batting average and OPS
+            bavg = float(row.get("bavg", 0))
+            if bavg < 0 or bavg > 1:
+                return False, f"Invalid batting average: {bavg}"
+            
+            ops = float(row.get("ops", 0))
+            if ops < 0 or ops > 2:
+                return False, f"Invalid OPS: {ops}"
+
+            # Detect level shift
+            highlevel = row.get("highlevel", "")
+            if re.match(r'^[0-9.]+$', highlevel):
+                return False, f"Level field contains numeric value: {highlevel}"
+
+        elif feed_type == "pitching":
+            # Validate numeric fields
+            for field in ["ip", "so", "bb"]:
+                val = row.get(field)
+                try:
+                    if val is not None and float(val) < 0:
+                        return False, f"Invalid numeric field: {field}={val}"
+                except ValueError:
+                    return False, f"Non-numeric value in field: {field}={val}"
+            
+            # Validate ERA
+            era = float(row.get("era", 0))
+            if era < 0 or era > 20:
+                return False, f"Invalid ERA: {era}"
+
+            # Detect level shift
+            highlevel = row.get("highlevel", "")
+            if re.match(r'^[0-9.]+$', highlevel):
+                return False, f"Level field contains numeric value: {highlevel}"
+
+        return True, None
+    except Exception as e:
+        return False, f"Validation exception: {str(e)}"
+
+
+def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]], list[tuple[dict[str, str], str]]]:
     lines = response_text.strip().splitlines()
     if not lines:
         raise IngestError(f"{feed_type}: empty response")
@@ -154,7 +212,8 @@ def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) 
         raise IngestError(f"{feed_type}: required playerid column is missing")
 
     expected_count = len(normalized_headers)
-    rows: list[dict[str, str]] = []
+    valid_rows: list[dict[str, str]] = []
+    invalid_rows: list[tuple[dict[str, str], str]] = []
     
     for i, line in enumerate(lines[1:], start=2):
         if not line.strip():
@@ -172,23 +231,25 @@ def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) 
                 parts = new_parts
         
         if len(parts) != expected_count:
-            logger.error(f"{feed_type} line {i}: column mismatch (got {len(parts)}, expected {expected_count}). Skipping row.")
+            invalid_rows.append(({"raw_line": line}, f"Column mismatch: got {len(parts)}, expected {expected_count}"))
             continue
 
         row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
         
-        if not row_dict.get("playerid"):
-            continue
-
-        # Filter by year for stats feeds (batting and pitching-stats)
+        # Filter by year for stats feeds
         if filter_year > 0 and feed_type in ("batting", "pitching"):
             row_year = row_dict.get("year")
             if row_year and str(row_year) != str(filter_year):
                 continue
-            
-        rows.append(row_dict)
 
-    return normalized_headers, rows
+        # Validate row
+        is_valid, reason = validate_row(feed_type, row_dict)
+        if is_valid:
+            valid_rows.append(row_dict)
+        else:
+            invalid_rows.append((row_dict, reason or "Unknown validation error"))
+
+    return normalized_headers, valid_rows, invalid_rows
 
 
 def create_ingest_run(cur: psycopg.Cursor, ingest_run_id: str, feed_type: str, started_at: datetime) -> None:
@@ -211,6 +272,8 @@ def finalize_ingest_run(
     ingest_run_id: str,
     status: str,
     row_count: int,
+    valid_count: int,
+    invalid_count: int,
     error_message: str | None,
 ) -> None:
     cur.execute(
@@ -219,10 +282,12 @@ def finalize_ingest_run(
         SET finished_at = now(),
             status = %s,
             row_count = %s,
+            valid_count = %s,
+            invalid_count = %s,
             error_message = %s
         WHERE ingest_run_id = %s
         """,
-        (status, row_count, error_message, ingest_run_id),
+        (status, row_count, valid_count, invalid_count, error_message, ingest_run_id),
     )
 
 
@@ -240,7 +305,7 @@ def append_snapshot_rows(
             ingest_run_id,
             snapshot_ts,
             snapshot_date,
-            row["playerid"],
+            row.get("playerid", "unknown"),
             source_url,
             json.dumps(row),
         )
@@ -275,6 +340,22 @@ def append_snapshot_rows(
             )
 
     return len(row_values)
+
+
+def log_invalid_rows(cur: psycopg.Cursor, ingest_run_id: str, feed_type: str, invalid_rows: list[tuple[dict[str, str], str]]) -> None:
+    if not invalid_rows:
+        return
+    
+    row_values = [
+        (ingest_run_id, feed_type, json.dumps(row), reason)
+        for row, reason in invalid_rows
+    ]
+    
+    with cur.copy(
+        "COPY tbc_invalid_rows (ingest_run_id, feed_type, raw_payload, error_reason) FROM STDIN"
+    ) as copy:
+        for val in row_values:
+            copy.write_row(val)
 
 
 def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
@@ -351,12 +432,13 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
 
     try:
         response_text = fetch_feed_response_text(feed_type, source_url)
-        _, rows = parse_csv_rows(feed_type, response_text, filter_year)
+        _, valid_rows, invalid_rows = parse_csv_rows(feed_type, response_text, filter_year)
 
         snapshot_ts = datetime.now(timezone.utc)
         snapshot_date = snapshot_ts.date()
 
         with conn.cursor() as cur:
+            # Insert valid rows into snapshots
             inserted = append_snapshot_rows(
                 cur,
                 feed_cfg.snapshot_table,
@@ -364,19 +446,24 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
                 snapshot_ts,
                 snapshot_date,
                 source_url,
-                rows,
+                valid_rows,
             )
-            finalize_ingest_run(cur, ingest_run_id, "succeeded", inserted, None)
+            
+            # Log invalid rows
+            log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
+            
+            # Finalize run summary
+            finalize_ingest_run(cur, ingest_run_id, "succeeded", len(valid_rows) + len(invalid_rows), len(valid_rows), len(invalid_rows), None)
 
         conn.commit()
-        logger.info(f"{feed_type}: ingested {inserted} rows into {feed_cfg.snapshot_table} (run_id={ingest_run_id})")
+        logger.info(f"{feed_type}: ingested {inserted} valid rows, {len(invalid_rows)} invalid rows (run_id={ingest_run_id})")
         return inserted
 
     except Exception as exc:
         error_message = str(exc)
         logger.error(f"{feed_type} ingest failed: {error_message}")
         with conn.cursor() as cur:
-            finalize_ingest_run(cur, ingest_run_id, "failed", 0, error_message[:4000])
+            finalize_ingest_run(cur, ingest_run_id, "failed", 0, 0, 0, error_message[:4000])
         conn.commit()
         raise
 

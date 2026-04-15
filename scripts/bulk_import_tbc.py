@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bulk import script for manually saved TBC RTF/CSV files with 2026 filtering."""
+"""Bulk import script for manually saved TBC RTF/CSV files with validation and 2026 filtering."""
 
 import argparse
 import csv
@@ -91,7 +91,64 @@ def robust_csv_split(line: str) -> List[str]:
     except Exception:
         return line.split(',')
 
-def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]]]:
+def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]:
+    """
+    Validates a row based on feed-specific rules.
+    """
+    try:
+        if not row.get("playerid"):
+            return False, "Missing playerid"
+
+        if feed_type == "players":
+            if not row.get("firstname") or not row.get("lastname"):
+                return False, "Missing firstname or lastname"
+        
+        elif feed_type == "batting":
+            # Validate numeric fields
+            for field in ["ab", "h", "hr", "rbi"]:
+                val = row.get(field)
+                if val is not None and (not val.strip().isdigit() or int(val) < 0):
+                    return False, f"Invalid numeric field: {field}={val}"
+            
+            # Validate batting average and OPS
+            bavg = float(row.get("bavg", 0))
+            if bavg < 0 or bavg > 1:
+                return False, f"Invalid batting average: {bavg}"
+            
+            ops = float(row.get("ops", 0))
+            if ops < 0 or ops > 2:
+                return False, f"Invalid OPS: {ops}"
+
+            # Detect level shift
+            highlevel = row.get("highlevel", "")
+            if re.match(r'^[0-9.]+$', highlevel):
+                return False, f"Level field contains numeric value: {highlevel}"
+
+        elif feed_type == "pitching":
+            # Validate numeric fields
+            for field in ["ip", "so", "bb"]:
+                val = row.get(field)
+                try:
+                    if val is not None and float(val) < 0:
+                        return False, f"Invalid numeric field: {field}={val}"
+                except ValueError:
+                    return False, f"Non-numeric value in field: {field}={val}"
+            
+            # Validate ERA
+            era = float(row.get("era", 0))
+            if era < 0 or era > 20:
+                return False, f"Invalid ERA: {era}"
+
+            # Detect level shift
+            highlevel = row.get("highlevel", "")
+            if re.match(r'^[0-9.]+$', highlevel):
+                return False, f"Level field contains numeric value: {highlevel}"
+
+        return True, None
+    except Exception as e:
+        return False, f"Validation exception: {str(e)}"
+
+def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]], list[tuple[dict[str, str], str]]]:
     lines = text.strip().splitlines()
     if not lines:
         raise ImportError(f"{feed_type}: no content found in file")
@@ -104,7 +161,8 @@ def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[
         raise ImportError(f"{feed_type}: required playerid column is missing")
 
     expected_count = len(normalized_headers)
-    rows: list[dict[str, str]] = []
+    valid_rows: list[dict[str, str]] = []
+    invalid_rows: list[tuple[dict[str, str], str]] = []
     
     for i, line in enumerate(lines[1:], start=2):
         if not line.strip():
@@ -122,22 +180,25 @@ def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[
                 parts = new_parts
         
         if len(parts) != expected_count:
-            logger.error(f"Line {i}: column mismatch (got {len(parts)}, expected {expected_count}). Skipping.")
+            invalid_rows.append(({"raw_line": line}, f"Column mismatch: got {len(parts)}, expected {expected_count}"))
             continue
 
         row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
-        if not row_dict.get("playerid"):
-            continue
-
+        
         # Filter by year for stats feeds
         if filter_year > 0 and feed_type in ("batting", "pitching"):
             row_year = row_dict.get("year")
             if row_year and str(row_year) != str(filter_year):
                 continue
-            
-        rows.append(row_dict)
 
-    return normalized_headers, rows
+        # Validate row
+        is_valid, reason = validate_row(feed_type, row_dict)
+        if is_valid:
+            valid_rows.append(row_dict)
+        else:
+            invalid_rows.append((row_dict, reason or "Unknown validation error"))
+
+    return normalized_headers, valid_rows, invalid_rows
 
 def main() -> int:
     try:
@@ -148,9 +209,9 @@ def main() -> int:
         logger.info(f"Starting bulk import for {args.type} from {args.file} (year filter: {args.year})")
         
         text = extract_rtf_text(args.file)
-        _, rows = parse_csv_rows(args.type, text, args.year)
+        _, valid_rows, invalid_rows = parse_csv_rows(args.type, text, args.year)
         
-        logger.info(f"Parsed {len(rows)} rows from file.")
+        logger.info(f"Parsed {len(valid_rows)} valid rows, {len(invalid_rows)} invalid rows.")
         
         ingest_run_id = str(uuid.uuid4())
         snapshot_ts = datetime.now(timezone.utc)
@@ -165,10 +226,10 @@ def main() -> int:
                     (ingest_run_id, args.type, snapshot_ts, "running", 0)
                 )
                 
-                # Insert rows
+                # Insert valid rows into snapshots
                 row_values = [
-                    (ingest_run_id, snapshot_ts, snapshot_date, row["playerid"], source_url, json.dumps(row))
-                    for row in rows
+                    (ingest_run_id, snapshot_ts, snapshot_date, row.get("playerid", "unknown"), source_url, json.dumps(row))
+                    for row in valid_rows
                 ]
                 
                 with cur.copy(
@@ -177,14 +238,34 @@ def main() -> int:
                     for val in row_values:
                         copy.write_row((val[0], val[1].isoformat(), val[2].isoformat(), val[3], val[4], val[5]))
                 
-                # Finalize run
+                # Log invalid rows
+                if invalid_rows:
+                    invalid_values = [
+                        (ingest_run_id, args.type, json.dumps(row), reason)
+                        for row, reason in invalid_rows
+                    ]
+                    with cur.copy(
+                        "COPY tbc_invalid_rows (ingest_run_id, feed_type, raw_payload, error_reason) FROM STDIN"
+                    ) as copy:
+                        for val in invalid_values:
+                            copy.write_row(val)
+
+                # Finalize run summary
                 cur.execute(
-                    "UPDATE tbc_ingest_runs SET finished_at = now(), status = 'succeeded', row_count = %s WHERE ingest_run_id = %s",
-                    (len(rows), ingest_run_id)
+                    """
+                    UPDATE tbc_ingest_runs 
+                    SET finished_at = now(), 
+                        status = 'succeeded', 
+                        row_count = %s,
+                        valid_count = %s,
+                        invalid_count = %s
+                    WHERE ingest_run_id = %s
+                    """,
+                    (len(valid_rows) + len(invalid_rows), len(valid_rows), len(invalid_rows), ingest_run_id)
                 )
             conn.commit()
             
-        logger.info(f"Successfully imported {len(rows)} rows into {feed_cfg.snapshot_table}")
+        logger.info(f"Successfully imported {len(valid_rows)} valid rows into {feed_cfg.snapshot_table}")
         return 0
 
     except Exception as exc:
