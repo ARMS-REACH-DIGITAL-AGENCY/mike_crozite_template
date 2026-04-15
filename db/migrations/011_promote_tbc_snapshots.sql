@@ -1,4 +1,4 @@
--- SQL to promote data from snapshot tables to canonical raw tables with validation.
+-- SQL to promote data from snapshot tables to canonical raw tables with refined validation.
 -- Strategy: Only promote CURRENT SEASON (2026) rows for daily updates.
 -- Invalid rows are moved to tbc_invalid_rows.
 
@@ -128,10 +128,10 @@ invalid_batting AS (
         ingest_run_id, snapshot_id, 'batting', raw_payload,
         CASE 
             WHEN playerid IS NULL THEN 'Missing playerid'
-            WHEN bavg < 0 OR bavg > 1 THEN 'Invalid batting average'
-            WHEN ops < 0 OR ops > 2 THEN 'Invalid OPS'
+            WHEN bavg < 0 OR bavg > 1 THEN 'Invalid batting average (must be 0-1)'
+            WHEN ops < 0 OR ops > 2 THEN 'Invalid OPS (must be 0-2)'
             WHEN ab < 0 OR h < 0 OR hr < 0 OR rbi < 0 THEN 'Negative stats'
-            WHEN highlevel ~ '^[0-9.]+$' THEN 'Level field contains numeric value'
+            WHEN highlevel ~ '^[0-9.]+$' THEN 'Level field contains numeric value (parsing shift)'
             ELSE 'Validation failed'
         END
     FROM validated_batting
@@ -258,14 +258,14 @@ invalid_pitching AS (
         ingest_run_id, snapshot_id, 'pitching', raw_payload,
         CASE 
             WHEN playerid IS NULL THEN 'Missing playerid'
-            WHEN era < 0 OR era > 20 THEN 'Invalid ERA'
+            WHEN era < 0 OR era > 99.99 THEN 'Invalid ERA (must be 0-99.99)'
             WHEN ip < 0 OR so < 0 OR bb < 0 THEN 'Negative stats'
-            WHEN highlevel ~ '^[0-9.]+$' THEN 'Level field contains numeric value'
+            WHEN highlevel ~ '^[0-9.]+$' THEN 'Level field contains numeric value (parsing shift)'
             ELSE 'Validation failed'
         END
     FROM validated_pitching
     WHERE playerid IS NULL 
-       OR era < 0 OR era > 20 
+       OR era < 0 OR era > 99.99 
        OR ip < 0 OR so < 0 OR bb < 0
        OR highlevel ~ '^[0-9.]+$'
     RETURNING snapshot_id

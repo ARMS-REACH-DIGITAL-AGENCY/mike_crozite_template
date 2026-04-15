@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Safe snapshot-first ingest for TBC YAT stats feeds with validation and delta tracking."""
+"""Safe snapshot-first ingest for TBC YAT stats feeds with refined validation and delta tracking."""
 
 from __future__ import annotations
 
@@ -141,6 +141,15 @@ def robust_csv_split(line: str) -> List[str]:
         return line.split(',')
 
 
+def is_numeric(val: str | None) -> bool:
+    if val is None: return False
+    try:
+        float(val)
+        return True
+    except ValueError:
+        return False
+
+
 def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]:
     """
     Validates a row based on feed-specific rules.
@@ -157,15 +166,23 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
             # Validate numeric fields
             for field in ["ab", "h", "hr", "rbi"]:
                 val = row.get(field)
-                if val is not None and (not val.strip().isdigit() or int(val) < 0):
-                    return False, f"Invalid numeric field: {field}={val}"
+                if val is None or not val.strip().isdigit():
+                    return False, f"Non-integer field: {field}={val}"
+                if int(val) < 0:
+                    return False, f"Negative stat: {field}={val}"
             
             # Validate batting average and OPS
-            bavg = float(row.get("bavg", 0))
+            bavg_str = row.get("bavg", "0")
+            if not is_numeric(bavg_str):
+                return False, f"Non-numeric batting average: {bavg_str}"
+            bavg = float(bavg_str)
             if bavg < 0 or bavg > 1:
                 return False, f"Invalid batting average: {bavg}"
             
-            ops = float(row.get("ops", 0))
+            ops_str = row.get("ops", "0")
+            if not is_numeric(ops_str):
+                return False, f"Non-numeric OPS: {ops_str}"
+            ops = float(ops_str)
             if ops < 0 or ops > 2:
                 return False, f"Invalid OPS: {ops}"
 
@@ -178,15 +195,17 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
             # Validate numeric fields
             for field in ["ip", "so", "bb"]:
                 val = row.get(field)
-                try:
-                    if val is not None and float(val) < 0:
-                        return False, f"Invalid numeric field: {field}={val}"
-                except ValueError:
-                    return False, f"Non-numeric value in field: {field}={val}"
+                if not is_numeric(val):
+                    return False, f"Non-numeric field: {field}={val}"
+                if float(val) < 0:
+                    return False, f"Negative stat: {field}={val}"
             
             # Validate ERA
-            era = float(row.get("era", 0))
-            if era < 0 or era > 20:
+            era_str = row.get("era", "0")
+            if not is_numeric(era_str):
+                return False, f"Non-numeric ERA: {era_str}"
+            era = float(era_str)
+            if era < 0 or era > 99.99:
                 return False, f"Invalid ERA: {era}"
 
             # Detect level shift
