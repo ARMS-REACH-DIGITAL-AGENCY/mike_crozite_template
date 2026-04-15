@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bulk import script for manually saved TBC RTF/CSV files."""
+"""Bulk import script for manually saved TBC RTF/CSV files with 2026 filtering."""
 
 import argparse
 import csv
@@ -37,9 +37,9 @@ class FeedConfig:
     expected_cols: int
 
 FEED_TABLES = {
-    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=13),
+    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=40),
     "batting": FeedConfig(feed_type="batting", snapshot_table="tbc_batting_feed_snapshots", expected_cols=46),
-    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=40),
+    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=13),
 }
 
 class ImportError(Exception):
@@ -49,6 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Bulk import TBC files into snapshot tables.")
     parser.add_argument("--file", required=True, help="Path to the RTF or CSV file.")
     parser.add_argument("--type", required=True, choices=VALID_FEEDS, help="Type of feed (players, batting, pitching).")
+    parser.add_argument("--year", type=int, default=2026, help="Filter stats by year (default: 2026). Use 0 for all years.")
     return parser.parse_args()
 
 def require_env(var_name: str) -> str:
@@ -64,7 +65,6 @@ def extract_rtf_text(file_path: str) -> str:
             content = f.read()
         
         # Look for the CSV content which usually starts after \strokec2 or similar RTF tags
-        # We'll look for the header line which we know starts with teamid or playerid
         match = re.search(r'(teamid|playerid),.*', content, re.DOTALL)
         if match:
             text = match.group(0)
@@ -91,7 +91,7 @@ def robust_csv_split(line: str) -> List[str]:
     except Exception:
         return line.split(',')
 
-def parse_csv_rows(feed_type: str, text: str) -> tuple[list[str], list[dict[str, str]]]:
+def parse_csv_rows(feed_type: str, text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]]]:
     lines = text.strip().splitlines()
     if not lines:
         raise ImportError(f"{feed_type}: no content found in file")
@@ -114,8 +114,8 @@ def parse_csv_rows(feed_type: str, text: str) -> tuple[list[str], list[dict[str,
         
         # Defensive alignment
         if len(parts) > expected_count:
-            # Try to merge uniform column (index 3)
-            if feed_type in ("batting", "pitching") and expected_count >= 4:
+            # In batting/pitching(stats), uniform is index 3 (0-based)
+            if feed_type in ("batting", "players") and expected_count >= 4:
                 extra = len(parts) - expected_count
                 merged_uniform = ",".join(parts[3:3+extra+1])
                 new_parts = parts[:3] + [merged_uniform] + parts[3+extra+1:]
@@ -128,6 +128,12 @@ def parse_csv_rows(feed_type: str, text: str) -> tuple[list[str], list[dict[str,
         row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
         if not row_dict.get("playerid"):
             continue
+
+        # Filter by year for stats feeds
+        if filter_year > 0 and feed_type in ("batting", "players"):
+            row_year = row_dict.get("year")
+            if row_year and str(row_year) != str(filter_year):
+                continue
             
         rows.append(row_dict)
 
@@ -139,10 +145,10 @@ def main() -> int:
         database_url = require_env("DATABASE_URL")
         feed_cfg = FEED_TABLES[args.type]
         
-        logger.info(f"Starting bulk import for {args.type} from {args.file}")
+        logger.info(f"Starting bulk import for {args.type} from {args.file} (year filter: {args.year})")
         
         text = extract_rtf_text(args.file)
-        _, rows = parse_csv_rows(args.type, text)
+        _, rows = parse_csv_rows(args.type, text, args.year)
         
         logger.info(f"Parsed {len(rows)} rows from file.")
         

@@ -13,6 +13,8 @@ The system is set up to run automatically. If you need to trigger it manually:
 5. (Optional) Specify which feeds to run (default is `players,batting,pitching`).
 6. Click **Run workflow**.
 
+**Note**: The daily ingest is configured to only process rows for the **2026 season**.
+
 ## Option 2: Bulk Import from Manually Saved Files
 
 If the live feeds are failing or you have manually saved data:
@@ -23,20 +25,24 @@ If the live feeds are failing or you have manually saved data:
 ### How to run the bulk import:
 
 ```bash
-# For Batting data
+# For Batting data (2026 only by default)
 export DATABASE_URL="your_database_url_here"
 python scripts/bulk_import_tbc.py --file path/to/your/batting_file.rtf --type batting
 
-# For Pitching data (Note: this is the 'players' feed in TBC terms)
-python scripts/bulk_import_tbc.py --file path/to/your/pitching_file.rtf --type players
+# For Pitching stats (2026 only by default)
+# Note: In TBC feeds, 'players' contains pitching stats
+python scripts/bulk_import_tbc.py --file path/to/your/pitching_stats_file.rtf --type players
 
-# For Player Identity data (Note: this is the 'pitching' feed in TBC terms)
+# For Player Identity data
+# Note: In TBC feeds, 'pitching' contains player identity
 python scripts/bulk_import_tbc.py --file path/to/your/identity_file.rtf --type pitching
 ```
 
+**Filtering**: By default, these scripts filter for `year = 2026`. To import all years, add `--year 0`.
+
 ## Option 3: Promoting Data to Main Tables
 
-After data is ingested into the "snapshot" tables (via either method above), you can promote it to the main raw tables using the provided SQL script:
+After data is ingested into the "snapshot" tables, promote it to the main raw tables:
 
 1. Open your database management tool (e.g., Neon console, psql).
 2. Run the contents of `db/migrations/011_promote_tbc_snapshots.sql`.
@@ -45,7 +51,12 @@ After data is ingested into the "snapshot" tables (via either method above), you
 
 ## What changed and why?
 
-1.  **Robust Parsing**: The new scripts handle "dirty" data, such as uniform numbers containing commas (e.g., "12,34,7"), which previously caused data to shift into the wrong columns.
-2.  **Multi-Stage Fetching**: The ingestion script now tries three different ways to get the data (Requests, Cloudscraper, and Playwright) to bypass Cloudflare and other automation blocks.
-3.  **Snapshot-First Approach**: Data is first saved into "snapshot" tables. This ensures we never lose data even if the main tables have issues, and allows for easy auditing.
-4.  **Bulk Import Path**: A new script allows you to import data from files you've saved manually from your browser, ensuring the system works even when live feeds are completely blocked.
+1.  **Corrected Table Mapping**: 
+    - `tbc_pitching_feed_snapshots` (Identity) → `tbc_players_raw`
+    - `tbc_batting_feed_snapshots` (Batting stats) → `tbc_batting_raw`
+    - `tbc_players_feed_snapshots` (Pitching stats) → `tbc_pitching_raw`
+2.  **2026 Season Filtering**: To improve performance and focus on current data, the pipeline now filters for the 2026 season. This filtering happens at two levels:
+    - **Script Level**: Both `ingest_tbc_safe_v2.py` and `bulk_import_tbc.py` filter rows before saving to snapshots.
+    - **SQL Level**: The promotion script also includes a `WHERE year = 2026` clause for extra safety.
+3.  **Robust Parsing**: Maintained the defensive parsing to handle uniform numbers with commas and other formatting inconsistencies.
+4.  **Corrected Schema Mapping**: Ensured that identity fields (firstname, birthplace, etc.) only go to the players table, while stats tables keep player names for convenience.

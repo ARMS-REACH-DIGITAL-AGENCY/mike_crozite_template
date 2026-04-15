@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Safe snapshot-first ingest for TBC YAT stats feeds with robust parsing."""
+"""Safe snapshot-first ingest for TBC YAT stats feeds with robust parsing and 2026 filtering."""
 
 from __future__ import annotations
 
@@ -65,9 +65,9 @@ class FeedConfig:
 
 
 FEED_TABLES = {
-    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=13),
+    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=40),
     "batting": FeedConfig(feed_type="batting", snapshot_table="tbc_batting_feed_snapshots", expected_cols=46),
-    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=40),
+    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=13),
 }
 
 
@@ -81,6 +81,12 @@ def parse_args() -> argparse.Namespace:
         "--feeds",
         default=",".join(VALID_FEEDS),
         help="Comma-separated list of feeds (players,batting,pitching).",
+    )
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=2026,
+        help="Filter stats by year (default: 2026). Use 0 for all years.",
     )
     return parser.parse_args()
 
@@ -127,18 +133,15 @@ def normalize_header(header: str) -> str:
 def robust_csv_split(line: str) -> List[str]:
     """
     Splits a CSV line while handling quoted values with commas.
-    If quoting is inconsistent, this might still need help.
     """
-    # Standard CSV reader can handle quoted commas
     reader = csv.reader([line])
     try:
         return next(reader)
     except Exception:
-        # Fallback to simple split if csv.reader fails
         return line.split(',')
 
 
-def parse_csv_rows(feed_type: str, response_text: str) -> tuple[list[str], list[dict[str, str]]]:
+def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]]]:
     lines = response_text.strip().splitlines()
     if not lines:
         raise IngestError(f"{feed_type}: empty response")
@@ -159,27 +162,29 @@ def parse_csv_rows(feed_type: str, response_text: str) -> tuple[list[str], list[
             
         parts = robust_csv_split(line)
         
-        # Defensive alignment: if we have too many columns, try to merge the ones that might be shifted
+        # Defensive alignment: if we have too many columns, try to merge the uniform column
         if len(parts) > expected_count:
-            logger.warning(f"{feed_type} line {i}: expected {expected_count} cols, got {len(parts)}. Attempting repair.")
-            # Common issue: uniform numbers like "12,34,7" not quoted
-            # In batting/pitching, uniform is index 3 (0-based)
-            if feed_type in ("batting", "pitching") and expected_count >= 4:
-                # Merge columns from index 3 until we reach expected count
+            # In batting/pitching(stats), uniform is index 3 (0-based)
+            if feed_type in ("batting", "players") and expected_count >= 4:
                 extra = len(parts) - expected_count
                 merged_uniform = ",".join(parts[3:3+extra+1])
                 new_parts = parts[:3] + [merged_uniform] + parts[3+extra+1:]
                 parts = new_parts
         
         if len(parts) != expected_count:
-            logger.error(f"{feed_type} line {i}: column mismatch after repair (got {len(parts)}, expected {expected_count}). Skipping row.")
+            logger.error(f"{feed_type} line {i}: column mismatch (got {len(parts)}, expected {expected_count}). Skipping row.")
             continue
 
         row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
         
         if not row_dict.get("playerid"):
-            logger.error(f"{feed_type} line {i}: missing playerid. Skipping row.")
             continue
+
+        # Filter by year for stats feeds (batting and players/pitching-stats)
+        if filter_year > 0 and feed_type in ("batting", "players"):
+            row_year = row_dict.get("year")
+            if row_year and str(row_year) != str(filter_year):
+                continue
             
         rows.append(row_dict)
 
@@ -321,7 +326,6 @@ def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
                     browser.close()
                     raise IngestError(f"{feed_type}: playwright got no response")
 
-                # Some feeds might be rendered as pre-formatted text in HTML
                 body_text = page.locator("body").inner_text(timeout=10000)
                 content_type = response.headers.get("content-type", "")
                 browser.close()
@@ -335,7 +339,7 @@ def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
     raise IngestError(f"{feed_type}: all fetch strategies failed")
 
 
-def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str) -> int:
+def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str, filter_year: int = 2026) -> int:
     feed_cfg = FEED_TABLES[feed_type]
     ingest_run_id = str(uuid.uuid4())
     source_url = build_feed_url(feed_type, feed_password)
@@ -347,7 +351,7 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
 
     try:
         response_text = fetch_feed_response_text(feed_type, source_url)
-        _, rows = parse_csv_rows(feed_type, response_text)
+        _, rows = parse_csv_rows(feed_type, response_text, filter_year)
 
         snapshot_ts = datetime.now(timezone.utc)
         snapshot_date = snapshot_ts.date()
@@ -388,9 +392,8 @@ def main() -> int:
         with psycopg.connect(database_url) as conn:
             for feed_type in feeds:
                 try:
-                    total_rows += run_feed_ingest(conn, feed_type, feed_password)
+                    total_rows += run_feed_ingest(conn, feed_type, feed_password, args.year)
                 except Exception:
-                    # Continue with other feeds if one fails
                     continue
 
         logger.info(f"Completed safe ingest for feeds={feeds}; total_rows={total_rows}")

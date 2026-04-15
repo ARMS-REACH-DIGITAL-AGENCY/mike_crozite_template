@@ -1,5 +1,6 @@
 -- SQL to promote data from snapshot tables to canonical raw tables.
 -- This script handles the mapping from JSONB raw_payload to structured columns.
+-- Strategy: Only promote CURRENT SEASON (2026) rows for daily updates.
 
 -- 1. Promote Player Identity Snapshots
 -- Source: tbc_pitching_feed_snapshots (Identity feed)
@@ -41,6 +42,7 @@ ON CONFLICT (playerid) DO UPDATE SET
 -- 2. Promote Batting Stats Snapshots
 -- Source: tbc_batting_feed_snapshots (Batting stats feed)
 -- Target: tbc_batting_raw
+-- Filter: Only year 2026
 INSERT INTO tbc_batting_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class, posit, 
     g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp, 
@@ -96,6 +98,7 @@ SELECT
     (raw_payload->>'draft_info')::TEXT
 FROM tbc_batting_feed_snapshots
 WHERE snapshot_date = CURRENT_DATE
+  AND (raw_payload->>'year')::INTEGER = 2026
 ON CONFLICT (playerid, year, teamid) DO UPDATE SET
     uniform = EXCLUDED.uniform,
     playername = EXCLUDED.playername,
@@ -144,6 +147,7 @@ ON CONFLICT (playerid, year, teamid) DO UPDATE SET
 -- 3. Promote Pitching Stats Snapshots
 -- Source: tbc_players_feed_snapshots (Pitching stats feed)
 -- Target: tbc_pitching_raw
+-- Filter: Only year 2026
 INSERT INTO tbc_pitching_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class, 
     w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb, 
@@ -192,6 +196,7 @@ SELECT
     (raw_payload->>'draft_info')::TEXT
 FROM tbc_players_feed_snapshots
 WHERE snapshot_date = CURRENT_DATE
+  AND (raw_payload->>'year')::INTEGER = 2026
 ON CONFLICT (playerid, year, teamid) DO UPDATE SET
     uniform = EXCLUDED.uniform,
     playername = EXCLUDED.playername,
