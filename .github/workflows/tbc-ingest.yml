@@ -30,3 +30,8 @@ jobs:
 
       - name: Run safe TBC ingest
         run: python scripts/ingest_tbc_safe_v2.py --feeds "${{ inputs.feeds }}"
+
+      - name: Promote snapshots to raw tables
+        run: |
+         echo "Running promotion SQL..."
+         psql $DATABASE_URL -f db/migrations/011_promote_tbc_snapshots.sql
