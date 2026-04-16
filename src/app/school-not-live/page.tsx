@@ -1,26 +1,9 @@
 // src/app/school-not-live/page.tsx
-// Fallback page for schools that do not currently have a live YAT?STATS microsite.
-// Query params supported:
-//   school
-//   city
-//   state
-//   reason       "potential" | "inactive"
-//   hsid
-//   active
-//   mlb
-//   natRank
-//   stateRank
-//   allTime
-//   draftedRatio
 
 import type { Metadata } from "next";
+import { CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 
-export const metadata: Metadata = {
-  title: "School Status · YAT?STATS",
-  description: "School status page for schools that do not currently have a live YAT?STATS microsite.",
-};
-
-interface SearchParams {
+type SearchParams = {
   school?: string;
   city?: string;
   state?: string;
@@ -32,29 +15,43 @@ interface SearchParams {
   stateRank?: string;
   allTime?: string;
   draftedRatio?: string;
-}
+};
 
 interface PageProps {
   searchParams: Promise<SearchParams>;
 }
 
-function fmtVal(v?: string, fallback = "—") {
-  return v && String(v).trim() !== "" ? String(v).trim() : fallback;
+function fmtValue(v?: string) {
+  if (!v || String(v).trim() === "") return "—";
+  return String(v).trim();
 }
 
-function buildHomeUrl() {
-  return "https://yatstats.com";
+function toUpperSafe(v?: string) {
+  return (v || "").trim().toUpperCase();
 }
 
-function buildLeadUrl(sp: SearchParams) {
-  const params = new URLSearchParams();
-  if (sp.school) params.set("school", sp.school);
-  if (sp.city) params.set("city", sp.city);
-  if (sp.state) params.set("state", sp.state);
-  if (sp.reason) params.set("reason", sp.reason);
-  if (sp.hsid) params.set("hsid", sp.hsid);
-  return "/school-not-live?" + params.toString();
+function buildHomeHref() {
+  return "https://home.yatstats.com";
 }
+
+/**
+ * Replace this with your real GHL / lead capture URL when ready.
+ * Keeping it centralized makes the swap easy.
+ */
+function buildLeadHref(sp: SearchParams) {
+  const qs = new URLSearchParams();
+  if (sp.school) qs.set("school", sp.school);
+  if (sp.city) qs.set("city", sp.city);
+  if (sp.state) qs.set("state", sp.state);
+  if (sp.reason) qs.set("reason", sp.reason);
+  if (sp.hsid) qs.set("hsid", sp.hsid);
+  return `${buildHomeHref()}?${qs.toString()}`;
+}
+
+export const metadata: Metadata = {
+  title: "School Status · YAT?STATS",
+  description: "School status page for schools without a live YAT?STATS microsite.",
+};
 
 function StatTile({
   label,
@@ -68,24 +65,24 @@ function StatTile({
   return (
     <div
       style={{
-        background: "rgba(255,255,255,.03)",
-        border: "1px solid rgba(255,255,255,.08)",
+        border: "1px solid var(--line)",
+        background: "var(--panel)",
         borderRadius: "16px",
-        padding: "16px 14px",
-        minHeight: "92px",
+        padding: "14px 14px 12px",
+        minHeight: "88px",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
+        justifyContent: "space-between",
       }}
     >
       <div
         style={{
           fontFamily: '"Bebas Neue", Oswald, sans-serif',
-          fontSize: "28px",
+          fontSize: "30px",
           lineHeight: 1,
           letterSpacing: ".03em",
           color: highlight ? "var(--gold)" : "var(--fg)",
-          marginBottom: "8px",
+          marginBottom: "6px",
         }}
       >
         {value}
@@ -105,18 +102,88 @@ function StatTile({
   );
 }
 
-function CtaCard({
+function StoryTile({
+  title,
+  sub,
   icon,
+  href,
+}: {
+  title: string;
+  sub: string;
+  icon: string;
+  href: string;
+}) {
+  return (
+    <a
+      href={href}
+      style={{
+        border: "1px solid var(--line)",
+        borderRadius: "16px",
+        overflow: "hidden",
+        background:
+          "linear-gradient(180deg, rgba(255,193,7,.07) 0%, rgba(255,255,255,.02) 100%)",
+        minHeight: "122px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "14px",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <div
+        style={{
+          width: "38px",
+          height: "38px",
+          borderRadius: "10px",
+          border: "1px solid rgba(255,255,255,.12)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,.03)",
+        }}
+      >
+        <i className={icon} style={{ fontSize: "20px", color: "var(--gold)" }} />
+      </div>
+
+      <div>
+        <div
+          style={{
+            fontFamily: '"Bebas Neue", Oswald, sans-serif',
+            fontSize: "20px",
+            letterSpacing: ".04em",
+            marginBottom: "4px",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontFamily: "Oswald, sans-serif",
+            fontSize: "12px",
+            lineHeight: 1.45,
+            color: "rgba(255,255,255,.74)",
+          }}
+        >
+          {sub}
+        </div>
+      </div>
+    </a>
+  );
+}
+
+function ActionCard({
   title,
   body,
   href,
-  subtle,
+  icon,
+  primary = false,
 }: {
-  icon: string;
   title: string;
   body: string;
   href: string;
-  subtle?: boolean;
+  icon: string;
+  primary?: boolean;
 }) {
   return (
     <a
@@ -125,31 +192,38 @@ function CtaCard({
         display: "flex",
         gap: "14px",
         alignItems: "flex-start",
-        padding: "18px 18px",
         borderRadius: "16px",
-        border: "1px solid rgba(255,255,255,.08)",
-        background: subtle ? "rgba(255,255,255,.025)" : "linear-gradient(180deg, rgba(255,193,7,.08), rgba(255,255,255,.03))",
+        padding: "18px",
+        border: primary ? "1px solid rgba(255,193,7,.4)" : "1px solid var(--line)",
+        background: primary
+          ? "linear-gradient(180deg, rgba(255,193,7,.12), rgba(255,255,255,.03))"
+          : "var(--panel)",
         textDecoration: "none",
         color: "inherit",
-        transition: "transform .15s ease, border-color .15s ease",
       }}
     >
-      <i
-        className={icon}
+      <div
         style={{
-          fontSize: "22px",
-          color: subtle ? "var(--muted)" : "var(--gold)",
-          marginTop: "2px",
+          width: "42px",
+          height: "42px",
+          borderRadius: "12px",
           flexShrink: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid rgba(255,255,255,.12)",
+          background: "rgba(255,255,255,.03)",
         }}
-      />
+      >
+        <i className={icon} style={{ fontSize: "21px", color: primary ? "var(--gold)" : "var(--fg)" }} />
+      </div>
+
       <div>
         <div
           style={{
             fontFamily: '"Bebas Neue", Oswald, sans-serif',
-            fontSize: "20px",
+            fontSize: "22px",
             letterSpacing: ".04em",
-            color: "var(--fg)",
             marginBottom: "4px",
           }}
         >
@@ -160,7 +234,7 @@ function CtaCard({
             fontFamily: "Oswald, sans-serif",
             fontSize: "13px",
             lineHeight: 1.55,
-            color: "rgba(255,255,255,.72)",
+            color: "rgba(255,255,255,.76)",
           }}
         >
           {body}
@@ -173,92 +247,86 @@ function CtaCard({
 export default async function SchoolNotLivePage({ searchParams }: PageProps) {
   const sp = await searchParams;
 
-  const schoolName = sp.school?.trim() || "This School";
+  const schoolName = sp.school?.trim() || "THIS SCHOOL";
   const city = sp.city?.trim() || "";
   const state = sp.state?.trim() || "";
   const reason = sp.reason === "inactive" ? "inactive" : "potential";
-  const location = [city, state].filter(Boolean).join(", ");
-
   const isPotential = reason === "potential";
-  const homeUrl = buildHomeUrl();
 
-  const active = fmtVal(sp.active);
-  const mlb = fmtVal(sp.mlb);
+  const location = [city, state].filter(Boolean).join(", ");
+  const hsid = sp.hsid?.trim() || "";
+
+  const crestUrl = hsid
+    ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/${hsid}.png`
+    : CREST_FALLBACK_PATH;
+
+  const active = fmtValue(sp.active);
+  const mlb = fmtValue(sp.mlb);
   const natRank = sp.natRank ? `#${sp.natRank}` : "—";
   const stateRank = sp.stateRank ? `#${sp.stateRank}` : "—";
-  const allTime = fmtVal(sp.allTime);
-  const draftedRatio = fmtVal(sp.draftedRatio);
+  const allTime = fmtValue(sp.allTime);
+  const draftedRatio = fmtValue(sp.draftedRatio);
 
-  const statusLabel = isPotential ? "NOT LIVE YET" : "NOT CURRENTLY TRACKED";
-  const statusColor = isPotential ? "#ffc107" : "#9e9e9e";
+  const homeHref = buildHomeHref();
+  const leadHref = buildLeadHref(sp);
 
-  const heroBody = isPotential
-    ? "This school shows active baseball alumni in our current records, but it was not selected as one of the initial YAT?STATS live microsites. That launch group was shaped around the first 1,024-school competitive field and monetization priorities."
-    : "According to our current tracked records, we do not show active college or pro baseball alumni from this school at this time. That does not necessarily mean no alumni exist in the real world. It means they are not currently represented in the tracked YAT?STATS player universe.";
+  const statusBadge = isPotential ? "NOT LIVE YET" : "NOT CURRENTLY TRACKED";
 
-  const explainerTitle = isPotential
-    ? "Why this school is not live"
-    : "Why this school is not currently active";
+  const heroLine = isPotential
+    ? "YAT?STATS tracks active baseball alumni from this school, but a dedicated microsite is not live yet."
+    : "YAT?STATS does not currently show active baseball alumni from this school in our tracked records.";
 
-  const explainerBody = isPotential
-    ? "Some schools have players in college and pro baseball but still were not included in the initial microsite field. The original cutoff served a broader launch purpose, including the 1,024-school structure used for the season-long fantasy bracket tournament. That cutoff was directional, not a permanent judgment on the value of this school."
-    : "The current YAT?STATS player universe is tied to the schools that made the initial 1,024-school field. As a result, players from other schools may be missing from the current feed unless they are added into the tracked source universe. If you believe this school has alumni we should be following, we want to hear from you.";
+  const primaryTitle = isPotential ? "GET UPDATES FOR THIS SCHOOL" : "TELL US WHO WE SHOULD TRACK";
+  const primaryBody = isPotential
+    ? "Raise your hand and we’ll let you know when this school gets deeper coverage."
+    : "Know a college or pro player from this school? Send us the lead so we can review it.";
+  const secondaryTitle = isPotential ? "REQUEST THIS SCHOOL" : "SEARCH ANOTHER SCHOOL";
+  const secondaryBody = isPotential
+    ? "Show us there is fan, alumni, booster, or sponsor interest here."
+    : "Explore another school that may already have a live YAT?STATS microsite.";
 
-  const ctaPrimary = isPotential
-    ? {
-        icon: "ri-user-follow-line",
-        title: "Request This School",
-        body: "Tell us why this school deserves a microsite, and help us measure fan, alumni, booster, and sponsor interest.",
-      }
-    : {
-        icon: "ri-search-eye-line",
-        title: "Help Us Verify This School",
-        body: "If you know current college or pro players from this school, submit the lead so we can review whether they should be added to the tracked universe.",
-      };
-
-  const ctaSecondary = isPotential
-    ? {
-        icon: "ri-building-line",
-        title: "Become a Founding Sponsor",
-        body: "A sponsor, booster group, or school partner may help justify a future launch even when a school is outside the first 1,024-site field.",
-      }
-    : {
-        icon: "ri-team-line",
-        title: "Know Another School To Follow?",
-        body: "Search for another school that may already have a live microsite, or bring us the names of players who should be represented here.",
-      };
-
-  const ctaTertiary = {
-    icon: "ri-home-4-line",
-    title: "Go to YAT?STATS Home",
-    body: "Return to the main YAT?STATS experience to explore live microsites, search other schools, and enter the broader fan journey.",
-  };
+  const block5Headline = isPotential
+    ? "THIS SCHOOL HAS SOMETHING TO FOLLOW"
+    : "WE DON’T CURRENTLY SHOW ANYONE TO FOLLOW";
+  const block5Body = isPotential
+    ? "We already show active baseball alumni tied to this school in our records. The next step is proving there is enough interest to prioritize a full microsite."
+    : "Based on our current records, YAT?STATS does not show active college or pro baseball alumni from this school right now. If we’re missing someone, tell us.";
 
   return (
     <>
       <style>{`
         :root{
-          --bg:#050505;
-          --bg-soft:#0d0d0d;
-          --fg:#f5f5f5;
-          --muted:#9d9d9d;
+          --bg:#090909;
+          --fg:#f3f3f3;
+          --muted:#9c9c9c;
           --line:rgba(255,255,255,.08);
-          --line-strong:rgba(255,255,255,.14);
+          --panel:#141414;
+          --panel-2:#111111;
           --gold:#ffc107;
-          --card:#121212;
-          --card-2:#171717;
           --header:#000;
+          --container:1280px;
         }
         *,*::before,*::after{box-sizing:border-box}
         html{scroll-behavior:smooth}
         body{
           margin:0;
-          background:linear-gradient(180deg,#000 0%,#050505 100%);
+          background:var(--bg);
           color:var(--fg);
           font-family:Oswald,system-ui,sans-serif;
           -webkit-font-smoothing:antialiased;
         }
         a{color:inherit;text-decoration:none}
+        .ys-container{max-width:var(--container);margin:0 auto;padding:0 16px}
+        .ys-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .ys-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+        .ys-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+        @media (max-width: 1100px){
+          .ys-grid-4{grid-template-columns:repeat(2,1fr)}
+          .ys-grid-3{grid-template-columns:1fr 1fr}
+        }
+        @media (max-width: 800px){
+          .ys-grid-2,.ys-grid-3,.ys-grid-4{grid-template-columns:1fr}
+        }
       `}</style>
 
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -266,259 +334,212 @@ export default async function SchoolNotLivePage({ searchParams }: PageProps) {
       <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;500;700&display=swap" rel="stylesheet" />
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" />
 
+      {/* BLOCK 1 — PLATFORM HEADER */}
       <header
         style={{
           position: "sticky",
           top: 0,
-          zIndex: 20,
-          background: "rgba(0,0,0,.92)",
-          backdropFilter: "blur(10px)",
+          zIndex: 30,
+          background: "rgba(0,0,0,.94)",
           borderBottom: "1px solid var(--line)",
+          backdropFilter: "blur(10px)",
         }}
       >
         <div
+          className="ys-container"
           style={{
-            maxWidth: "1200px",
-            margin: "0 auto",
-            padding: "14px 20px",
+            height: "56px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "16px",
+            gap: "12px",
           }}
         >
-          <a href={homeUrl} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              type="button"
+              aria-label="Menu"
+              style={{ background: "none", border: 0, color: "var(--fg)", fontSize: "20px", cursor: "pointer" }}
+            >
+              <i className="ri-menu-line" />
+            </button>
+            <button
+              type="button"
+              aria-label="Settings"
+              style={{ background: "none", border: 0, color: "var(--fg)", fontSize: "18px", cursor: "pointer" }}
+            >
+              <i className="ri-settings-3-line" />
+            </button>
+          </div>
+
+          <a href={homeHref} style={{ display: "inline-flex", alignItems: "center" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
               alt="YAT?STATS"
-              style={{ height: "30px", width: "auto", filter: "invert(1)" }}
+              style={{ height: "24px", width: "auto", filter: "invert(1)" }}
             />
           </a>
 
-          <a
-            href={homeUrl}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "13px",
-              color: "rgba(255,255,255,.66)",
-              letterSpacing: ".04em",
-            }}
-          >
-            <i className="ri-arrow-left-line" />
-            Back to Home
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <a href={homeHref} style={{ fontSize: "18px", color: "var(--fg)" }} aria-label="Search">
+              <i className="ri-search-line" />
+            </a>
+            <a href={homeHref} style={{ fontSize: "18px", color: "var(--fg)" }} aria-label="Home">
+              <i className="ri-home-5-line" />
+            </a>
+            <a href={homeHref} style={{ fontSize: "18px", color: "var(--fg)" }} aria-label="Account">
+              <i className="ri-user-3-line" />
+            </a>
+          </div>
         </div>
       </header>
 
-      <main style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px 20px 72px" }}>
+      <main className="ys-container" style={{ paddingTop: "16px", paddingBottom: "40px" }}>
+        {/* BLOCK 2 — SCHOOL IDENTITY */}
         <section
           style={{
             border: "1px solid var(--line)",
-            borderRadius: "24px",
-            background: "linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015))",
+            borderRadius: "22px",
             overflow: "hidden",
-            marginBottom: "18px",
-          }}
-        >
-          <div style={{ padding: "24px 24px 12px" }}>
-            <div style={{ marginBottom: "16px" }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: ".12em",
-                  textTransform: "uppercase",
-                  padding: "5px 11px",
-                  borderRadius: "999px",
-                  border: `1px solid ${statusColor}`,
-                  color: statusColor,
-                  background: `${statusColor}18`,
-                }}
-              >
-                {statusLabel}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1.6fr .9fr",
-                gap: "24px",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                    fontSize: "clamp(40px,7vw,86px)",
-                    lineHeight: 0.92,
-                    letterSpacing: ".03em",
-                    marginBottom: "10px",
-                  }}
-                >
-                  {schoolName}
-                </div>
-
-                {location ? (
-                  <div
-                    style={{
-                      fontSize: "15px",
-                      color: "var(--muted)",
-                      letterSpacing: ".08em",
-                      textTransform: "uppercase",
-                      marginBottom: "24px",
-                    }}
-                  >
-                    {location}
-                  </div>
-                ) : null}
-
-                <p
-                  style={{
-                    fontSize: "17px",
-                    lineHeight: 1.7,
-                    color: "rgba(255,255,255,.82)",
-                    maxWidth: "760px",
-                    margin: 0,
-                  }}
-                >
-                  {heroBody}
-                </p>
-              </div>
-
-              <div
-                style={{
-                  border: "1px solid var(--line)",
-                  borderRadius: "20px",
-                  background: "rgba(255,255,255,.025)",
-                  padding: "18px",
-                  alignSelf: "start",
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                    fontSize: "22px",
-                    letterSpacing: ".04em",
-                    marginBottom: "8px",
-                  }}
-                >
-                  What this means
-                </div>
-                <div style={{ fontSize: "14px", lineHeight: 1.65, color: "rgba(255,255,255,.72)" }}>
-                  {isPotential
-                    ? "Fans have something here to care about. The school simply was not rolled into the first live microsite network."
-                    : "At the moment, our tracked records do not show active baseball alumni to follow from this school. We may need better source coverage or lead submissions."}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.15fr .85fr",
-            gap: "18px",
-            marginBottom: "18px",
+            background: "linear-gradient(180deg, #0d0d0d 0%, #111 100%)",
+            marginBottom: "16px",
           }}
         >
           <div
             style={{
-              border: "1px solid var(--line)",
-              borderRadius: "24px",
-              background: "var(--card)",
-              padding: "24px",
+              display: "grid",
+              gridTemplateColumns: "120px 1fr",
+              gap: "16px",
+              alignItems: "center",
+              padding: "18px",
             }}
           >
             <div
               style={{
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: "28px",
-                letterSpacing: ".04em",
-                marginBottom: "14px",
+                width: "120px",
+                height: "120px",
+                borderRadius: "18px",
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,.02)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
               }}
             >
-              {explainerTitle}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={crestUrl}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = CREST_FALLBACK_PATH;
+                }}
+              />
             </div>
 
-            <p style={{ margin: 0, fontSize: "15px", lineHeight: 1.75, color: "rgba(255,255,255,.78)" }}>
-              {explainerBody}
-            </p>
+            <div>
+              <div style={{ marginBottom: "10px" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: ".12em",
+                    textTransform: "uppercase",
+                    padding: "5px 10px",
+                    borderRadius: "999px",
+                    border: `1px solid ${isPotential ? "var(--gold)" : "rgba(255,255,255,.22)"}`,
+                    color: isPotential ? "var(--gold)" : "rgba(255,255,255,.7)",
+                    background: isPotential ? "rgba(255,193,7,.10)" : "rgba(255,255,255,.03)",
+                  }}
+                >
+                  {statusBadge}
+                </span>
+              </div>
 
-            <div
-              style={{
-                marginTop: "18px",
-                padding: "16px 18px",
-                borderRadius: "16px",
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,.025)",
-              }}
-            >
-              <div
+              <h1
                 style={{
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: "19px",
-                  letterSpacing: ".04em",
-                  marginBottom: "6px",
+                  fontSize: "clamp(40px,7vw,72px)",
+                  lineHeight: 0.95,
+                  letterSpacing: ".03em",
+                  margin: 0,
                 }}
               >
-                Important context
-              </div>
-              <div style={{ fontSize: "14px", lineHeight: 1.65, color: "rgba(255,255,255,.72)" }}>
-                The original 1,024-school field was also used to support launch structure and fantasy bracket design. It was a strategic selection model, not a permanent verdict on every school outside the network.
-              </div>
-            </div>
-          </div>
+                {toUpperSafe(schoolName)}
+              </h1>
 
-          <div
-            style={{
-              border: "1px solid var(--line)",
-              borderRadius: "24px",
-              background: "var(--card)",
-              padding: "24px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: "28px",
-                letterSpacing: ".04em",
-                marginBottom: "14px",
-              }}
-            >
-              Next best action
-            </div>
+              {location ? (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "15px",
+                    color: "var(--muted)",
+                    letterSpacing: ".08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {toUpperSafe(location)}
+                </div>
+              ) : null}
 
-            <div style={{ display: "grid", gap: "12px" }}>
-              <CtaCard
-                icon={ctaPrimary.icon}
-                title={ctaPrimary.title}
-                body={ctaPrimary.body}
-                href={buildLeadUrl(sp)}
-              />
-              <CtaCard
-                icon={ctaSecondary.icon}
-                title={ctaSecondary.title}
-                body={ctaSecondary.body}
-                href={homeUrl}
-                subtle
-              />
+              <p
+                style={{
+                  marginTop: "16px",
+                  marginBottom: 0,
+                  maxWidth: "820px",
+                  fontSize: "16px",
+                  lineHeight: 1.65,
+                  color: "rgba(255,255,255,.82)",
+                }}
+              >
+                {heroLine}
+              </p>
             </div>
           </div>
         </section>
 
+        {/* BLOCK 3 — INTERACTIVE ROW */}
+        <section style={{ marginBottom: "16px" }}>
+          <div className="ys-grid-4">
+            <StoryTile
+              icon="ri-baseball-line"
+              title={isPotential ? "ACTIVE ALUMNI" : "CURRENT STATUS"}
+              sub={isPotential ? "This school has players worth following on YAT?STATS." : "We do not currently show active alumni for this school."}
+              href={leadHref}
+            />
+            <StoryTile
+              icon="ri-bar-chart-2-line"
+              title="SCHOOL STATS"
+              sub="See the success snapshot tied to this school in our records."
+              href="#school-stats"
+            />
+            <StoryTile
+              icon="ri-user-heart-line"
+              title={isPotential ? "GET UPDATES" : "SUBMIT A PLAYER"}
+              sub={isPotential ? "Ask to be notified when this school gets more coverage." : "Know someone we should track? Tell us."}
+              href="#primary-action"
+            />
+            <StoryTile
+              icon="ri-arrow-right-up-line"
+              title="BACK TO YAT?STATS"
+              sub="Explore the main platform and other schools."
+              href={homeHref}
+            />
+          </div>
+        </section>
+
+        {/* BLOCK 4 — SCHOOL SUCCESS META */}
         <section
+          id="school-stats"
           style={{
             border: "1px solid var(--line)",
-            borderRadius: "24px",
-            background: "var(--card-2)",
-            padding: "24px",
-            marginBottom: "18px",
+            borderRadius: "22px",
+            background: "var(--panel-2)",
+            padding: "18px",
+            marginBottom: "16px",
           }}
         >
           <div
@@ -526,8 +547,8 @@ export default async function SchoolNotLivePage({ searchParams }: PageProps) {
               display: "flex",
               alignItems: "end",
               justifyContent: "space-between",
-              gap: "16px",
-              marginBottom: "18px",
+              gap: "12px",
+              marginBottom: "16px",
               flexWrap: "wrap",
             }}
           >
@@ -535,37 +556,23 @@ export default async function SchoolNotLivePage({ searchParams }: PageProps) {
               <div
                 style={{
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: "30px",
+                  fontSize: "34px",
                   letterSpacing: ".04em",
-                  marginBottom: "4px",
+                  lineHeight: 1,
                 }}
               >
-                School Success Snapshot
+                SCHOOL SUCCESS SNAPSHOT
               </div>
-              <div style={{ fontSize: "14px", color: "var(--muted)", lineHeight: 1.6 }}>
-                A quick look at the stats currently tied to this school in the search result payload.
+              <div style={{ marginTop: "6px", fontSize: "13px", color: "var(--muted)" }}>
+                The stats currently associated with this school in YAT?STATS search.
               </div>
             </div>
-
-            <div
-              style={{
-                fontSize: "12px",
-                color: "rgba(255,255,255,.5)",
-                letterSpacing: ".06em",
-                textTransform: "uppercase",
-              }}
-            >
-              Block 4 / school stats
+            <div style={{ fontSize: "11px", color: "rgba(255,255,255,.45)", letterSpacing: ".08em", textTransform: "uppercase" }}>
+              Block 4 / School Stats
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: "12px",
-            }}
-          >
+          <div className="ys-grid-3">
             <StatTile label="Active Alumni" value={active} highlight />
             <StatTile label="MLB" value={mlb} />
             <StatTile label="National Rank" value={natRank} />
@@ -575,138 +582,131 @@ export default async function SchoolNotLivePage({ searchParams }: PageProps) {
           </div>
         </section>
 
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: "18px",
-            marginBottom: "18px",
-          }}
-        >
+        {/* BLOCK 5 — MAIN CONTENT / SINGLE IMPORTANT CTA */}
+        <section className="ys-grid-2" style={{ marginBottom: "16px" }}>
           <div
             style={{
               border: "1px solid var(--line)",
-              borderRadius: "24px",
-              background: "var(--card)",
-              padding: "22px",
+              borderRadius: "22px",
+              background: "var(--panel)",
+              padding: "20px",
             }}
           >
             <div
               style={{
                 fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: "24px",
+                fontSize: "36px",
                 letterSpacing: ".04em",
-                marginBottom: "10px",
+                lineHeight: 1,
+                marginBottom: "14px",
               }}
             >
-              For fans
+              {block5Headline}
             </div>
-            <div style={{ fontSize: "14px", lineHeight: 1.7, color: "rgba(255,255,255,.72)" }}>
-              Register interest, tell us who this school’s next-level alumni are, and help us identify whether demand exists for expansion.
-            </div>
+
+            <p
+              style={{
+                margin: 0,
+                fontSize: "15px",
+                lineHeight: 1.75,
+                color: "rgba(255,255,255,.78)",
+              }}
+            >
+              {block5Body}
+            </p>
           </div>
 
           <div
+            id="primary-action"
             style={{
               border: "1px solid var(--line)",
-              borderRadius: "24px",
-              background: "var(--card)",
-              padding: "22px",
+              borderRadius: "22px",
+              background: "var(--panel)",
+              padding: "20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
             }}
           >
             <div
               style={{
                 fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: "24px",
+                fontSize: "36px",
                 letterSpacing: ".04em",
-                marginBottom: "10px",
+                lineHeight: 1,
               }}
             >
-              For schools & boosters
+              NEXT STEP
             </div>
-            <div style={{ fontSize: "14px", lineHeight: 1.7, color: "rgba(255,255,255,.72)" }}>
-              A school, booster club, or sponsor may help justify deeper coverage, especially if there is a strong alumni story and a path to engagement.
-            </div>
-          </div>
 
-          <div
-            style={{
-              border: "1px solid var(--line)",
-              borderRadius: "24px",
-              background: "var(--card)",
-              padding: "22px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: "24px",
-                letterSpacing: ".04em",
-                marginBottom: "10px",
-              }}
-            >
-              For YAT?STATS
-            </div>
-            <div style={{ fontSize: "14px", lineHeight: 1.7, color: "rgba(255,255,255,.72)" }}>
-              This page captures intent without dropping the visitor into a dead end, while also creating a future place for real lead-gen forms and conversion paths.
-            </div>
+            <ActionCard
+              primary
+              href={leadHref}
+              icon={isPotential ? "ri-notification-3-line" : "ri-user-search-line"}
+              title={primaryTitle}
+              body={primaryBody}
+            />
+
+            <ActionCard
+              href={isPotential ? leadHref : homeHref}
+              icon={isPotential ? "ri-mail-send-line" : "ri-search-line"}
+              title={secondaryTitle}
+              body={secondaryBody}
+            />
           </div>
         </section>
 
+        {/* BLOCK 6 — SPONSORSHIP BANNER */}
         <section
           style={{
             border: "1px solid var(--line)",
-            borderRadius: "24px",
-            background: "var(--card)",
-            padding: "24px",
+            borderRadius: "22px",
+            overflow: "hidden",
+            background:
+              "linear-gradient(90deg, rgba(255,193,7,.08) 0%, rgba(255,255,255,.02) 100%)",
           }}
         >
-          <div
+          <a
+            href={leadHref}
             style={{
-              fontFamily: '"Bebas Neue", Oswald, sans-serif',
-              fontSize: "28px",
-              letterSpacing: ".04em",
-              marginBottom: "14px",
+              display: "grid",
+              gridTemplateColumns: "1fr auto",
+              alignItems: "center",
+              gap: "16px",
+              padding: "18px 20px",
+              textDecoration: "none",
+              color: "inherit",
             }}
           >
-            Continue the journey
-          </div>
+            <div>
+              <div
+                style={{
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: "28px",
+                  letterSpacing: ".04em",
+                  lineHeight: 1,
+                  marginBottom: "6px",
+                }}
+              >
+                PCD ACTION PARTNER OPPORTUNITY
+              </div>
+              <div style={{ fontSize: "14px", lineHeight: 1.6, color: "rgba(255,255,255,.76)" }}>
+                Sponsors, schools, and boosters can help bring deeper YAT?STATS coverage to programs fans care about.
+              </div>
+            </div>
 
-          <div style={{ display: "grid", gap: "12px" }}>
-            <CtaCard
-              icon={ctaTertiary.icon}
-              title={ctaTertiary.title}
-              body={ctaTertiary.body}
-              href={homeUrl}
-            />
-            <CtaCard
-              icon="ri-search-line"
-              title="Search Other Schools"
-              body="Head back into the YAT?STATS experience and explore schools that already have live microsites and active alumni pages."
-              href={homeUrl}
-              subtle
-            />
-          </div>
-
-          <div
-            style={{
-              marginTop: "22px",
-              paddingTop: "18px",
-              borderTop: "1px solid var(--line)",
-              textAlign: "center",
-            }}
-          >
-            <a
-              href={homeUrl}
+            <div
               style={{
-                fontSize: "13px",
-                color: "rgba(255,255,255,.52)",
-                letterSpacing: ".06em",
+                whiteSpace: "nowrap",
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: "20px",
+                letterSpacing: ".04em",
+                color: "var(--gold)",
               }}
             >
-              ← Back to YAT?STATS Home
-            </a>
-          </div>
+              LEARN MORE →
+            </div>
+          </a>
         </section>
       </main>
     </>
