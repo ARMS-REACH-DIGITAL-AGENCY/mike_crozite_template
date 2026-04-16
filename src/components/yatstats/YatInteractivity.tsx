@@ -435,24 +435,29 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   function normalizeSchoolResult(p){
     var hasAlumni=p.current_aa&&p.current_aa>0;
-    var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
-    var dest;
-    if(status==='live'){
-      dest=p.microsite_url;
-    }else if(p.hsid){
-      dest='/'+p.hsid;
-    }else{
-      var sp=new URLSearchParams();
-      if(p.hsname)sp.set('school',p.hsname);
-      if(p.hslocation){
-        var locParts=p.hslocation.split(',');
-        if(locParts[0])sp.set('city',locParts[0].trim());
-        if(locParts[1])sp.set('state',locParts[1].trim());
-      }
-      sp.set('reason',status);
-      var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
-      dest=notLiveBase+'/school-not-live?'+sp.toString();
-    }
+var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
+var dest;
+
+if(status==='live' && p.microsite_url && p.microsite_url.length>0){
+  dest=p.microsite_url;
+}else{
+  var sp=new URLSearchParams();
+  if(p.hsname)sp.set('school',p.hsname);
+  if(p.hslocation){
+    var locParts=p.hslocation.split(',');
+    if(locParts[0])sp.set('city',locParts[0].trim());
+    if(locParts[1])sp.set('state',locParts[1].trim());
+  }
+  sp.set('reason',status);
+
+  var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
+
+  dest=notLiveBase+'/school-not-live?'+sp.toString();
+
+  /* If you want home page instead, use this instead:
+  dest=notLiveBase+'/';
+  */
+}
     var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_FALLBACK;
     var region=p.regionid||'';
     if(!region&&p.hslocation){
