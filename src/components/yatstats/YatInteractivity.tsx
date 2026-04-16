@@ -433,65 +433,55 @@ window.__firebase_config = ${firebaseConfigJSON};
     return lbl;
   }
 
-  function normalizeSchoolResult(p){
-    var hasAlumni=p.current_aa&&p.current_aa>0;
-var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
-var dest;
+function normalizeSchoolResult(p){
+  var hasAlumni=p.current_aa&&p.current_aa>0;
+  var status=p.microsite_url&&p.microsite_url.length>0?'live':(hasAlumni?'potential':'inactive');
+  var dest;
 
-if(status==='live' && p.microsite_url && p.microsite_url.length>0){
-  dest=p.microsite_url;
-}else{
-  var sp=new URLSearchParams();
-  if(p.hsname)sp.set('school',p.hsname);
-  if(p.hslocation){
-    var locParts=p.hslocation.split(',');
-    if(locParts[0])sp.set('city',locParts[0].trim());
-    if(locParts[1])sp.set('state',locParts[1].trim());
+  if(status==='live' && p.microsite_url && p.microsite_url.length>0){
+    dest=p.microsite_url;
+  }else if(p.hsid){
+    var stateParams=new URLSearchParams();
+    stateParams.set('schoolState',status);
+    dest='/' + encodeURIComponent(String(p.hsid)) + '?' + stateParams.toString();
+  }else{
+    var sp=new URLSearchParams();
+    if(p.hsname)sp.set('school',p.hsname);
+    if(p.hslocation){
+      var locParts=p.hslocation.split(',');
+      if(locParts[0])sp.set('city',locParts[0].trim());
+      if(locParts[1])sp.set('state',locParts[1].trim());
+    }
+    sp.set('reason',status);
+    var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
+    dest=notLiveBase+'/school-not-live?'+sp.toString();
   }
-   sp.set('reason',status);
 
-  if(p.hsid!=null&&String(p.hsid).trim()!=='')sp.set('hsid',String(p.hsid));
-  if(p.current_aa!=null)sp.set('active',String(p.current_aa));
-  if(p.mlb!=null)sp.set('mlb',String(p.mlb));
-  if(p.yatstats_national_rank!=null)sp.set('natRank',String(p.yatstats_national_rank));
-  if(p.yatstats_state_rank!=null)sp.set('stateRank',String(p.yatstats_state_rank));
-  if(p.atnla!=null)sp.set('allTime',String(p.atnla));
+  var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_FALLBACK;
+  var region=p.regionid||'';
+  if(!region&&p.hslocation){
+    var hlParts=p.hslocation.split(',');
+    if(hlParts.length>=2)region=hlParts[hlParts.length-1].trim();
+  }
+  var draftedRatio=null;
   if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){
-    sp.set('draftedRatio',String(p.drafted_hs)+'/'+String(p.drafted));
+    draftedRatio=p.drafted_hs+'/'+p.drafted;
   }
-
-  var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
-  dest=notLiveBase+'/school-not-live?'+sp.toString();
-
-  /* If you want home page instead, use this instead:
-  dest=notLiveBase+'/';
-  */
+  return {
+    schoolName:p.hsname||'',
+    location:p.hslocation||'',
+    region:region,
+    crestUrl:crestUrl,
+    status:status,
+    dest:dest,
+    activeAlumni:p.current_aa!=null?p.current_aa:null,
+    mlb:p.mlb!=null?p.mlb:null,
+    natRank:p.yatstats_national_rank!=null?p.yatstats_national_rank:null,
+    stateRank:p.yatstats_state_rank!=null?p.yatstats_state_rank:null,
+    atnla:p.atnla!=null?p.atnla:null,
+    draftedRatio:draftedRatio
+  };
 }
-    var crestUrl=p.hsid?S3_BASE+'/schools/'+p.hsid+'.png':CREST_FALLBACK;
-    var region=p.regionid||'';
-    if(!region&&p.hslocation){
-      var hlParts=p.hslocation.split(',');
-      if(hlParts.length>=2)region=hlParts[hlParts.length-1].trim();
-    }
-    var draftedRatio=null;
-    if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){
-      draftedRatio=p.drafted_hs+'/'+p.drafted;
-    }
-    return {
-      schoolName:p.hsname||'',
-      location:p.hslocation||'',
-      region:region,
-      crestUrl:crestUrl,
-      status:status,
-      dest:dest,
-      activeAlumni:p.current_aa!=null?p.current_aa:null,
-      mlb:p.mlb!=null?p.mlb:null,
-      natRank:p.yatstats_national_rank!=null?p.yatstats_national_rank:null,
-      stateRank:p.yatstats_state_rank!=null?p.yatstats_state_rank:null,
-      atnla:p.atnla!=null?p.atnla:null,
-      draftedRatio:draftedRatio
-    };
-  }
 
   function makeChip(val,lbl,highlight){
     var chip=document.createElement('div');
