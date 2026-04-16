@@ -448,10 +448,19 @@ if(status==='live' && p.microsite_url && p.microsite_url.length>0){
     if(locParts[0])sp.set('city',locParts[0].trim());
     if(locParts[1])sp.set('state',locParts[1].trim());
   }
-  sp.set('reason',status);
+   sp.set('reason',status);
+
+  if(p.hsid!=null&&String(p.hsid).trim()!=='')sp.set('hsid',String(p.hsid));
+  if(p.current_aa!=null)sp.set('active',String(p.current_aa));
+  if(p.mlb!=null)sp.set('mlb',String(p.mlb));
+  if(p.yatstats_national_rank!=null)sp.set('natRank',String(p.yatstats_national_rank));
+  if(p.yatstats_state_rank!=null)sp.set('stateRank',String(p.yatstats_state_rank));
+  if(p.atnla!=null)sp.set('allTime',String(p.atnla));
+  if(p.drafted_hs!=null&&p.drafted!=null&&(p.drafted_hs>0||p.drafted>0)){
+    sp.set('draftedRatio',String(p.drafted_hs)+'/'+String(p.drafted));
+  }
 
   var notLiveBase=window.location.hostname.endsWith('.yatstats.com')?'https://yatstats.com':'';
-
   dest=notLiveBase+'/school-not-live?'+sp.toString();
 
   /* If you want home page instead, use this instead:
