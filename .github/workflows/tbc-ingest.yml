@@ -23,15 +23,20 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
-        run: "pip install requests psycopg[binary] cloudscraper"
+        run: |
+          pip install requests psycopg[binary] cloudscraper playwright
+          python -m playwright install chromium
 
       - name: Run safe TBC ingest
         run: python scripts/ingest_tbc_safe_v2.py --feeds "${{ inputs.feeds }}"
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Promote snapshots to raw tables
         run: |
-         echo "Running promotion SQL..."
-         psql $DATABASE_URL -f db/migrations/011_promote_tbc_snapshots.sql
+          echo "Running promotion SQL..."
+          psql "$DATABASE_URL" -f db/migrations/011_promote_tbc_snapshots.sql
