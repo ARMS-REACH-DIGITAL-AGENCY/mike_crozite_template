@@ -1,6 +1,4 @@
-"use client";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
-import { useState, useEffect } from "react";
 
 interface PlayerCardFrontProps {
   player: Record<string, unknown>;
@@ -28,11 +26,6 @@ export default function PlayerCardFront({
   frontImageUrl = null,
   gradClassEstimated = false,
 }: PlayerCardFrontProps) {
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   const imageId = String(p.playerid || "");
   const isPitcher = p.is_pitcher === true;
 
@@ -78,7 +71,9 @@ export default function PlayerCardFront({
     <div className="yat-face yat-front">
       <div
         className="yat-bg"
-        style={{ backgroundImage: isMounted ? `url('${photoUrl}')` : 'none' }}
+        data-src={photoUrl}
+        data-placeholder={thenSilhouetteUrl}
+        style={{ backgroundImage: `url('${photoUrl}')` }}
       />
       <div className="yat-shade" />
 

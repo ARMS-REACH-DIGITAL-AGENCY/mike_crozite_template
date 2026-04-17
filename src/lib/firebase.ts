@@ -25,17 +25,8 @@ const firebaseConfig = {
 };
 
 // Singleton: reuse existing app if already initialized
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-
-if (typeof window !== "undefined" && firebaseConfig.apiKey) {
-  try {
-    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-  } catch (e) {
-    console.error("Firebase initialization failed:", e);
-  }
-}
+const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const auth: Auth = getAuth(app);
 
 export {
   app,
