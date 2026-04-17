@@ -1186,6 +1186,7 @@ function normalizeSchoolResult(p){
     card.setAttribute('data-active',post.active===true?'true':'false');
     card.setAttribute('data-team', (post.teamName||'').toLowerCase());
     card.setAttribute('data-org', (post.orgName||'').toLowerCase());
+    card.setAttribute('data-status', 'ACTIVE');
 
     var inner=document.createElement('div');
     inner.className='yat-card-inner';
