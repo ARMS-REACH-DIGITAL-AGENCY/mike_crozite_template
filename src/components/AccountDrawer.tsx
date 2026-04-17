@@ -307,6 +307,11 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
       }
     };
 
+    if (!auth) {
+      restoreFromServerSession();
+      return () => {};
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (cancelled) return;
 
@@ -456,6 +461,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
       const password = (e.currentTarget.elements.namedItem('signInPassword') as HTMLInputElement)
         .value;
 
+      if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
 
@@ -540,6 +546,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
         return;
       }
 
+      if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
 
@@ -631,7 +638,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
       } catch {}
 
       try {
-        await signOut(auth);
+        if (auth) await signOut(auth);
       } catch {}
 
       setFirebaseUser(null);
@@ -679,6 +686,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
     setMessage('');
 
     try {
+      if (!auth) throw new Error('Firebase auth not initialized');
       await sendPasswordResetEmail(auth, email);
       setMessage('Password reset email sent. Check your inbox.');
       setMessageType('success');
