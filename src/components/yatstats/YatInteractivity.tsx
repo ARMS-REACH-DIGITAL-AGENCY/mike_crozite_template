@@ -1209,16 +1209,16 @@ function normalizeSchoolResult(p){
     frontContent.className='yat-front-content';
     
     var topRow=document.createElement('div');
-    topRow.className='yat-front-top-row';
-    var classChip=document.createElement('div');
-    classChip.className='yat-metachip';
-    classChip.innerHTML='<span class="label">CLASS OF</span><span class="val">'+(post.gradClass||'TBD')+'</span>';
-    topRow.appendChild(classChip);
+    topRow.className='yat-front-top';
+    topRow.style.justifyContent='flex-end';
     var posChip=document.createElement('div');
-    posChip.className='yat-metachip';
-    posChip.innerHTML='<span class="val">'+(post.source||'NEWS').toUpperCase()+'</span>';
+    posChip.className='yat-front-top-right';
+    posChip.innerHTML='<span class="front-chip">'+escHtml((post.source||'NEWS').toUpperCase())+'</span>';
     topRow.appendChild(posChip);
     frontContent.appendChild(topRow);
+
+    var bottomWrap=document.createElement('div');
+    bottomWrap.className='yat-news-bottom-wrap';
 
     var infoBlock=document.createElement('div');
     infoBlock.className='yat-info-block';
@@ -1233,12 +1233,7 @@ function normalizeSchoolResult(p){
 
     var metaDiv=document.createElement('div');
     metaDiv.className='yat-meta';
-    metaDiv.style.maxHeight='2.4em';
-    metaDiv.style.overflow='hidden';
-    metaDiv.style.display='-webkit-box';
-    metaDiv.style.webkitLineClamp='2';
-    metaDiv.style.webkitBoxOrient='vertical';
-    metaDiv.innerHTML='<span>'+escHtml(post.title)+'</span>';
+    metaDiv.innerHTML='<span>UCLA - Big 10 Conference</span>';
     infoBlock.appendChild(metaDiv);
 
     var badgeRow=document.createElement('div');
@@ -1253,36 +1248,56 @@ function normalizeSchoolResult(p){
     badgeRow.appendChild(sChip);
     infoBlock.appendChild(badgeRow);
 
+    var chipsCol=document.createElement('div');
+    chipsCol.className='yat-chips-col';
+    chipsCol.style.marginTop='4px';
+    var classChip=document.createElement('span');
+    classChip.className='front-chip';
+    classChip.textContent='CLASS OF '+(post.gradClass||'2023');
+    chipsCol.appendChild(classChip);
+    var dots=document.createElement('div');
+    dots.className='yat-dots';
+    dots.style.marginTop='4px';
+    ['23','22','21','20'].forEach(function(y){
+      var dot=document.createElement('div');
+      dot.className='yat-dot';
+      dot.textContent=y;
+      dots.appendChild(dot);
+    });
+    chipsCol.appendChild(dots);
+    infoBlock.appendChild(chipsCol);
+
     var gameBlock=document.createElement('div');
     gameBlock.className='yat-game-block';
-    var pill=document.createElement('div');
-    pill.className='yat-pill';
-    pill.textContent='NEWS SOURCE';
-    gameBlock.appendChild(pill);
-    var gameText=document.createElement('div');
-    gameText.className='yat-game-text';
-    var srcSpan=document.createElement('span');
-    srcSpan.textContent=(post.source||'').toUpperCase();
-    gameText.appendChild(srcSpan);
-    var dateSpan=document.createElement('span');
-    dateSpan.textContent=post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'RECENT';
-    gameText.appendChild(dateSpan);
-    gameBlock.appendChild(gameText);
-    infoBlock.appendChild(gameBlock);
-
-    var ctaRow=document.createElement('div');
-    ctaRow.className='news-cta-row';
-    ctaRow.style.marginTop='8px';
+    gameBlock.style.marginTop='8px';
     var flipPill=document.createElement('div');
     flipPill.className='yat-pill';
     flipPill.style.background='#00e676';
     flipPill.style.color='#000';
     flipPill.style.border='none';
     flipPill.innerHTML='FLIP TO READ RECAP <i class="ri-arrow-right-line"></i>';
-    ctaRow.appendChild(flipPill);
-    infoBlock.appendChild(ctaRow);
+    gameBlock.appendChild(flipPill);
+    var gameText=document.createElement('div');
+    gameText.className='yat-game-text';
+    gameText.style.fontSize='10px';
+    gameText.style.opacity='0.7';
+    gameText.style.marginTop='4px';
+    var dateStr = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'RECENT';
+    gameText.textContent=escHtml(post.source.toUpperCase()) + ' (' + dateStr + ')';
+    gameBlock.appendChild(gameText);
+    infoBlock.appendChild(gameBlock);
     
-    frontContent.appendChild(infoBlock);
+    bottomWrap.appendChild(infoBlock);
+
+    var headlineWrap=document.createElement('div');
+    headlineWrap.className='yat-news-headline-wrap';
+    var headline=document.createElement('div');
+    headline.className='yat-news-headline';
+    headline.textContent=post.title;
+    headlineWrap.appendChild(headline);
+    bottomWrap.appendChild(headlineWrap);
+
+    frontContent.appendChild(bottomWrap);
     front.appendChild(frontContent);
 
     // BACK FACE

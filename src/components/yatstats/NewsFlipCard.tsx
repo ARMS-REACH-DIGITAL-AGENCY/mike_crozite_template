@@ -76,37 +76,52 @@ export default function NewsFlipCard({ article: a }: NewsFlipCardProps) {
             />
             <div className="yat-shade" />
             <div className="yat-front-content">
-              <div className="yat-chips-col">
-                <span className="front-chip">CLASS OF 2023</span>
+              {/* TOP RIGHT: SOURCE (Placeholder for now) */}
+              <div className="yat-front-top" style={{ justifyContent: 'flex-end' }}>
+                <div className="yat-front-top-right">
+                  <span className="front-chip">{a.source.toUpperCase()}</span>
+                </div>
               </div>
-              
-              <div className="yat-info-block">
-                <div className="yat-name">
-                  <span>{finalFirst || "--"}</span>
-                  <span>{finalLast || ""}</span>
-                </div>
 
-                <div className="yat-meta">
-                  <span>{a.title}</span>
-                </div>
-                
-                <div className="yat-front-badge-row">
-                  <span className="front-chip">{(a.level || 'PRO').toUpperCase()}</span>
-                  <span className="front-chip">ACTIVE</span>
-                </div>
+              {/* BOTTOM SECTION: SPLIT INTO LEFT AND RIGHT QUADRANTS */}
+              <div className="yat-news-bottom-wrap">
+                {/* BOTTOM LEFT: PLAYER INFO & METADATA */}
+                <div className="yat-info-block">
+                  <div className="yat-name">
+                    <span>{finalFirst || "--"}</span>
+                    <span>{finalLast || ""}</span>
+                  </div>
+                  <div className="yat-meta">
+                    <span>UCLA - Big 10 Conference</span>
+                  </div>
+                  <div className="yat-front-badge-row">
+                    <span className="front-chip">{(a.level || 'PRO').toUpperCase()}</span>
+                    <span className="front-chip">ACTIVE</span>
+                  </div>
+                  
+                  <div className="yat-chips-col" style={{ marginTop: '4px' }}>
+                    <span className="front-chip">CLASS OF 2023</span>
+                    <div className="yat-dots" style={{ marginTop: '4px' }}>
+                      <div className="yat-dot">23</div>
+                      <div className="yat-dot">22</div>
+                      <div className="yat-dot">21</div>
+                      <div className="yat-dot">20</div>
+                    </div>
+                  </div>
 
-                <div className="yat-game-block">
-                  <div className="yat-pill">NEWS SOURCE</div>
-                  <div className="yat-game-text">
-                    <span>{a.source.toUpperCase()}</span>
-                    <span>{dateStr}</span>
+                  <div className="yat-game-block" style={{ marginTop: '8px' }}>
+                    <div className="yat-pill" style={{ background: '#00e676', color: '#000', border: 'none' }}>
+                      FLIP TO READ RECAP <i className="ri-arrow-right-line" />
+                    </div>
+                    <div className="yat-game-text" style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>
+                      {a.source.toUpperCase()} ({dateStr})
+                    </div>
                   </div>
                 </div>
 
-                <div className="news-cta-row" style={{ marginTop: '8px' }}>
-                  <div className="yat-pill" style={{ background: '#00e676', color: '#000', border: 'none' }}>
-                    FLIP TO READ RECAP <i className="ri-arrow-right-line" />
-                  </div>
+                {/* BOTTOM RIGHT: HEADLINE ANCHORED TO BASELINE */}
+                <div className="yat-news-headline-wrap">
+                  <div className="yat-news-headline">{a.title}</div>
                 </div>
               </div>
             </div>
@@ -149,23 +164,52 @@ export default function NewsFlipCard({ article: a }: NewsFlipCardProps) {
           height: auto;
           position: relative;
         }
+        
+        .yat-news-bottom-wrap {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          width: 100%;
+          gap: 12px;
+        }
+
+        .yat-info-block {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .yat-news-headline-wrap {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          min-width: 0;
+          border-bottom: 2px solid #34495e; /* The blue baseline from mockup */
+          padding-bottom: 4px;
+        }
+
+        .yat-news-headline {
+          font-family: "Bebas Neue", sans-serif;
+          font-size: 20px;
+          line-height: 1.1;
+          color: #fff;
+          text-transform: uppercase;
+          text-align: right;
+          word-wrap: break-word;
+        }
+
         .news-card :global(.yat-name) {
-          font-size: 28px;
+          font-size: 24px;
           line-height: 0.9;
         }
-        @media(max-width: 1400px) { .news-card :global(.yat-name) { font-size: 26px; } }
-        @media(max-width: 1100px) { .news-card :global(.yat-name) { font-size: 24px; } }
-        @media(max-width: 768px) { .news-card :global(.yat-name) { font-size: 22px; } }
+        @media(max-width: 1400px) { .news-card :global(.yat-name) { font-size: 22px; } }
+        @media(max-width: 768px) { .news-card :global(.yat-name) { font-size: 20px; } }
 
         .news-card :global(.yat-meta) {
-          font-size: 13px;
+          font-size: 11px;
           line-height: 1.1;
-          margin-top: 4px;
-          max-height: 2.4em;
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
+          margin-top: 2px;
+          opacity: 0.8;
         }
 
         .news-back-content {

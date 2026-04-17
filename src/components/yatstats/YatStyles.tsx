@@ -726,11 +726,53 @@ export default function YatStyles() {
       .news-card { cursor: pointer; }
       .news-card .yat-bg { background-size: cover; background-position: center; }
       .news-card .yat-shade { background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.95) 100%); }
-      .news-card .yat-front-content { padding: 20px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+      .news-card .yat-front-content { padding: 12px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+      
+      .yat-news-bottom-wrap {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        width: 100%;
+        gap: 12px;
+      }
+
+      .yat-news-headline-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        min-width: 0;
+        border-bottom: 2px solid #34495e;
+        padding-bottom: 4px;
+      }
+
+      .yat-news-headline {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 20px;
+        line-height: 1.1;
+        color: #fff;
+        text-transform: uppercase;
+        text-align: right;
+        word-wrap: break-word;
+      }
+
+      .news-card .yat-name {
+        font-size: 24px;
+        line-height: 0.9;
+      }
+      @media(max-width: 1400px) { .news-card .yat-name { font-size: 22px; } }
+      @media(max-width: 768px) { .news-card .yat-name { font-size: 20px; } }
+
+      .news-card .yat-meta {
+        font-size: 11px;
+        line-height: 1.1;
+        margin-top: 2px;
+        opacity: 0.8;
+      }
+
       .news-card .yat-chips-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
       .news-card .front-chip { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; font: 700 10px Oswald, sans-serif; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.05em; }
-      .news-card .news-headline { font: 700 24px/1.1 "Bebas Neue", sans-serif; letter-spacing: 0.02em; color: #fff; text-transform: uppercase; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-      .news-card .yat-front-badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+      .news-card .yat-front-badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
       .news-card .news-cta-row { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 12px; }
       .news-card .news-flip-btn { background: none; border: none; color: var(--green); font: 700 12px Oswald, sans-serif; letter-spacing: 0.1em; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0; }
       
