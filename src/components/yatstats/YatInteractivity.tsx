@@ -820,7 +820,7 @@ function normalizeSchoolResult(p){
     var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
     var isNewsPage=newsSection&&newsSection.classList.contains('visible');
 
-    var nf=((document.getElementById('filterName')||document.getElementById('newsFilterName')||{}).value||'').toLowerCase().trim();
+    var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
 
     var lc=Array.from(document.querySelectorAll('#filterLevels input:checked:not([data-select-all])')).map(function(i){return i.value;});
     var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked:not([data-select-all])')).map(function(i){return i.value;});
@@ -834,8 +834,8 @@ function normalizeSchoolResult(p){
       : null;
 
     var cardScope=visibleSection
-      ? visibleSection.querySelectorAll('.yat-card[data-name], .news-card[data-name]')
-      : document.querySelectorAll('.yat-card[data-name], .news-card[data-name]');
+      ? visibleSection.querySelectorAll('.yat-card[data-name]')
+      : document.querySelectorAll('.yat-card[data-name]');
 
     if(isActivePage){
       document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
@@ -897,7 +897,7 @@ function normalizeSchoolResult(p){
   });
 
   document.addEventListener('input',function(e){
-    if(e.target.id==='filterName'||e.target.id==='newsFilterName')applyFilters();
+    if(e.target.id==='filterName')applyFilters();
   });
 
   function resetFiltersForCurrentSection(){
@@ -1221,43 +1221,64 @@ function normalizeSchoolResult(p){
 
     var infoBlock=document.createElement('div');
     infoBlock.className='yat-info-block';
+    
     var nameDiv=document.createElement('div');
     nameDiv.className='yat-name';
-    nameDiv.innerHTML='<span>'+escHtml(post.title).toUpperCase()+'</span>';
+    var pName = post.playerName || post.playerDbName || "";
+    var finalFirst = pName ? pName.split(" ").slice(0, -1).join(" ") : "--";
+    var finalLast = pName ? pName.split(" ").slice(-1).join(" ") : "";
+    nameDiv.innerHTML='<span>'+escHtml(finalFirst).toUpperCase()+'</span><span>'+escHtml(finalLast).toUpperCase()+'</span>';
     infoBlock.appendChild(nameDiv);
 
-    var subDiv=document.createElement('div');
-    subDiv.className='yat-sub';
-    subDiv.textContent=(post.source||'').toUpperCase() + ' \u00B7 ' + (post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'RECENT');
-    infoBlock.appendChild(subDiv);
+    var metaDiv=document.createElement('div');
+    metaDiv.className='yat-meta';
+    metaDiv.style.maxHeight='2.4em';
+    metaDiv.style.overflow='hidden';
+    metaDiv.style.display='-webkit-box';
+    metaDiv.style.webkitLineClamp='2';
+    metaDiv.style.webkitBoxOrient='vertical';
+    metaDiv.innerHTML='<span>'+escHtml(post.title)+'</span>';
+    infoBlock.appendChild(metaDiv);
 
     var badgeRow=document.createElement('div');
     badgeRow.className='yat-front-badge-row';
-    var lChip=document.createElement('div');
-    lChip.className='yat-metachip small';
-    lChip.innerHTML='<span class="val">'+(post.level||'PRO')+'</span>';
+    var lChip=document.createElement('span');
+    lChip.className='front-chip';
+    lChip.textContent=(post.level||'PRO').toUpperCase();
     badgeRow.appendChild(lChip);
-    var sChip=document.createElement('div');
-    sChip.className='yat-metachip small';
-    sChip.innerHTML='<span class="val">ACTIVE</span>';
+    var sChip=document.createElement('span');
+    sChip.className='front-chip';
+    sChip.textContent='ACTIVE';
     badgeRow.appendChild(sChip);
     infoBlock.appendChild(badgeRow);
 
+    var gameBlock=document.createElement('div');
+    gameBlock.className='yat-game-block';
+    var pill=document.createElement('div');
+    pill.className='yat-pill';
+    pill.textContent='NEWS SOURCE';
+    gameBlock.appendChild(pill);
+    var gameText=document.createElement('div');
+    gameText.className='yat-game-text';
+    var srcSpan=document.createElement('span');
+    srcSpan.textContent=(post.source||'').toUpperCase();
+    gameText.appendChild(srcSpan);
+    var dateSpan=document.createElement('span');
+    dateSpan.textContent=post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'RECENT';
+    gameText.appendChild(dateSpan);
+    gameBlock.appendChild(gameText);
+    infoBlock.appendChild(gameBlock);
+
     var ctaRow=document.createElement('div');
     ctaRow.className='news-cta-row';
-    ctaRow.style.marginTop='12px';
-    var flipBtn=document.createElement('button');
-    flipBtn.className='news-flip-btn';
-    flipBtn.style.background='transparent';
-    flipBtn.style.border='none';
-    flipBtn.style.color='#00e676';
-    flipBtn.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
-    flipBtn.style.fontSize='14px';
-    flipBtn.style.letterSpacing='.1em';
-    flipBtn.style.cursor='pointer';
-    flipBtn.style.padding='0';
-    flipBtn.innerHTML='FLIP TO READ RECAP <i class="ri-arrow-right-line"></i>';
-    ctaRow.appendChild(flipBtn);
+    ctaRow.style.marginTop='8px';
+    var flipPill=document.createElement('div');
+    flipPill.className='yat-pill';
+    flipPill.style.background='#00e676';
+    flipPill.style.color='#000';
+    flipPill.style.border='none';
+    flipPill.innerHTML='FLIP TO READ RECAP <i class="ri-arrow-right-line"></i>';
+    ctaRow.appendChild(flipPill);
     infoBlock.appendChild(ctaRow);
     
     frontContent.appendChild(infoBlock);
