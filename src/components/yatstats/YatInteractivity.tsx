@@ -820,7 +820,7 @@ function normalizeSchoolResult(p){
     var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
     var isNewsPage=newsSection&&newsSection.classList.contains('visible');
 
-    var nf=((document.getElementById('filterName')||{}).value||'').toLowerCase().trim();
+    var nf=((document.getElementById('filterName')||document.getElementById('newsFilterName')||{}).value||'').toLowerCase().trim();
 
     var lc=Array.from(document.querySelectorAll('#filterLevels input:checked:not([data-select-all])')).map(function(i){return i.value;});
     var oc=Array.from(document.querySelectorAll('#filterOrgs input:checked:not([data-select-all])')).map(function(i){return i.value;});
@@ -834,8 +834,8 @@ function normalizeSchoolResult(p){
       : null;
 
     var cardScope=visibleSection
-      ? visibleSection.querySelectorAll('.yat-card[data-name]')
-      : document.querySelectorAll('.yat-card[data-name]');
+      ? visibleSection.querySelectorAll('.yat-card[data-name], .news-card[data-name]')
+      : document.querySelectorAll('.yat-card[data-name], .news-card[data-name]');
 
     if(isActivePage){
       document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(slot){
@@ -897,7 +897,7 @@ function normalizeSchoolResult(p){
   });
 
   document.addEventListener('input',function(e){
-    if(e.target.id==='filterName')applyFilters();
+    if(e.target.id==='filterName'||e.target.id==='newsFilterName')applyFilters();
   });
 
   function resetFiltersForCurrentSection(){
@@ -918,6 +918,8 @@ function normalizeSchoolResult(p){
       document.querySelectorAll('#filterStatus input').forEach(function(i){
         if(i.value&&i.value.toUpperCase()==='ACTIVE')i.checked=true;
       });
+      var saEl=document.querySelector('#filterStatus input[data-select-all]');
+      if(saEl)saEl.checked=false;
     }
 
     if(isAllTimePage){

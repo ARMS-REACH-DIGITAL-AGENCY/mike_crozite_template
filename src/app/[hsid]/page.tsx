@@ -275,7 +275,7 @@ export default async function SchoolPage({
           </div>
           
           {/* Hidden filter input for JS logic — populated by side drawer filters */}
-          <input id="newsFilterName" type="hidden" style={{ display: 'none' }} />
+          <input id="filterName" type="hidden" style={{ display: 'none' }} />
           <div className="yat-grid" id="news-grid">
             <div className="yat-news-loading">
               <div className="yat-news-loading-spinner" />

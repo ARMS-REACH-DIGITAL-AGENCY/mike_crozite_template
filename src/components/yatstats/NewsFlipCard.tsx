@@ -51,7 +51,14 @@ export default function NewsFlipCard({ article: a }: NewsFlipCardProps) {
   };
 
   return (
-    <article className="yat-card news-card" id={`news-${a.uuid}`}>
+    <article 
+      className="yat-card news-card" 
+      id={`news-${a.uuid}`}
+      data-name={(a.playerName || '').toUpperCase()}
+      data-status="ACTIVE"
+      data-level={(a.level || '').toUpperCase()}
+      data-org={(a.source || '').toUpperCase()}
+    >
       <div className="yat-card-inner">
         <div className="yat-flip">
           
