@@ -261,7 +261,7 @@ export default async function HsidLayout({
               />
               <span>WHERE THEY YAT?</span>
             </a>
-            <a className="yat-drawer-nav-item" href={`/${resolvedHsid}/news`}>ACTIVE ALUMNI NEWS</a>
+            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news">ACTIVE ALUMNI NEWS</a>
             <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL ALL-TIME LIST</a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">2026 HIGH SCHOOL TEAM</a>
             <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy">FANTASY BRACKET TOURNEY</a>
