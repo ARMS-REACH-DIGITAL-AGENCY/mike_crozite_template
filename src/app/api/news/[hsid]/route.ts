@@ -34,85 +34,6 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Level label normalization (mirrors playerUtils.levelLabel)
-// ---------------------------------------------------------------------------
-function normLevel(raw: string | null): string {
-  if (!raw) return '';
-  const map: Record<string, string> = {
-    'MLB': 'MLB', 'TRIPLE-A': 'AAA', 'AAA': 'AAA',
-    'DOUBLE-A': 'AA', 'AA': 'AA',
-    'HIGH-A': 'A+', 'A+': 'A+',
-    'LOW-A': 'A', 'A': 'A', 'A-': 'A-',
-    'Indy': 'INDY', 'INDY': 'INDY',
-    'NCAA': 'NCAA', 'JrCollege': 'JUCO', 'JUCO': 'JUCO',
-    'NAIA': 'NAIA', 'Rk': 'RK',
-  };
-  return map[raw] ?? raw.toUpperCase();
-}
-
-// ---------------------------------------------------------------------------
-// Grad class derivation (mirrors playerUtils.gradClass)
-// ---------------------------------------------------------------------------
-function deriveGradClass(draftInfo: string | null, playYears: string | null): string {
-  if (draftInfo) {
-    const yr = String(draftInfo).split('-')[0];
-    if (yr && /^\d{4}$/.test(yr)) return yr;
-  }
-  if (playYears) {
-    const years = String(playYears).split(',').map((y: string) => y.trim()).filter(Boolean);
-    if (years.length) return years[0];
-  }
-  return '';
-}
-
-// ---------------------------------------------------------------------------
-// Confidence scoring
-//
-// Rules (applied when playerid is present):
-//   HIGH  (≥ 0.7) — playerid set + article player_name fuzzy-matches DB name
-//   MEDIUM (0.4)  — playerid set but player name not in DB (data gap, keep)
-//   LOW   (< 0.4) — playerid set BUT article name clearly mismatches DB name
-//                   → suppress to prevent false-positive display
-//
-// Articles with no playerid are "unmatched" school-level news → always shown.
-// ---------------------------------------------------------------------------
-function computeConfidence(row: Record<string, unknown>): {
-  score: number;
-  label: 'high' | 'medium' | 'low' | 'unmatched';
-} {
-  const playerId = row.playerid as string | null;
-
-  if (!playerId) return { score: 1.0, label: 'unmatched' };
-
-  const dbFirst = String(row.player_firstname ?? '').trim().toLowerCase();
-  const dbLast  = String(row.player_lastname  ?? '').trim().toLowerCase();
-
-  // No DB record found for this playerid — treat as data gap, not false positive
-  if (!dbFirst && !dbLast) return { score: 0.5, label: 'medium' };
-
-  // Compare article player_name against DB name
-  const articleName = String(row.player_name ?? '').trim().toLowerCase();
-  const dbFull = `${dbFirst} ${dbLast}`.trim();
-
-  if (!articleName) return { score: 0.5, label: 'medium' };
-
-  // Exact or near-exact match
-  if (articleName === dbFull) return { score: 1.0, label: 'high' };
-
-  // Partial match — at least last name must match
-  const articleParts = articleName.split(/\s+/);
-  const articleLastWord = articleParts[articleParts.length - 1];
-  if (dbLast && articleLastWord === dbLast) return { score: 0.75, label: 'high' };
-
-  // Name mismatch — flag as low confidence (likely a false positive)
-  return { score: 0.2, label: 'low' };
-}
-
-// Minimum confidence score to include in the public feed
-// TODO: lower to 0 + add admin curation layer so editors can manually approve/reject
-const CONFIDENCE_THRESHOLD = 0.4;
-
-// ---------------------------------------------------------------------------
 // GET /api/news/:hsid
 // ---------------------------------------------------------------------------
 export async function GET(
@@ -141,22 +62,12 @@ export async function GET(
       // Player-scoped query (for player profile pages and flip card teasers)
       articles = await getNewsByPlayer(playerId, limit);
     } else {
-      // School-scoped query (for Alumni News page) — enriched with player data
+      // School-scoped query (for Alumni News page)
       articles = await getNewsByHsid(hsid, limit);
     }
 
     const posts = articles
       .map((row) => {
-        const { score: confScore, label: confLabel } = computeConfidence(row);
-
-        const level = normLevel(
-          (row.player_highlevel as string | null) ?? null
-        );
-        const gradClass = deriveGradClass(
-          (row.player_draft_info as string | null) ?? null,
-          (row.player_playyears as string | null) ?? null
-        );
-
         return {
           // Raw article fields
           uuid:            row.uuid,
@@ -170,26 +81,23 @@ export async function GET(
           sentiment:       row.sentiment,
           categories:      row.categories || [],
           country:         row.country,
+          localRecap:      row.local_recap   ?? null,
 
           // Matched player fields
           playerName:      row.player_name   ?? null,
           playerId:        row.playerid      ?? null,
-          playerDbName:    (row.player_firstname || row.player_lastname)
-            ? `${row.player_firstname ?? ''} ${row.player_lastname ?? ''}`.trim()
-            : null,
+          playerDbName:    row.player_name   ?? null,
 
-          // Normalized metadata (from player join)
-          level,
-          gradClass,
-          active:          (row.player_active as boolean | null) ?? null,
-
-          // Confidence
-          confidence:      confScore,
-          confidenceLabel: confLabel,
+          // Metadata from news_articles table (already enriched during ingest)
+          level:           row.level_label   ?? null,
+          gradClass:       row.class_of      ?? null,
+          rosterYears:     row.roster_years  ?? [],
+          status:          row.status_label  ?? 'ACTIVE',
+          teamName:        row.current_team_name ?? null,
+          orgName:         row.current_org_or_conference_name ?? null,
+          active:          row.status_label === 'ACTIVE',
         };
-      })
-      // Suppress clearly incorrect player-name matches (false positives)
-      .filter((post) => post.confidence >= CONFIDENCE_THRESHOLD);
+      });
 
     return NextResponse.json(
       { posts, total: posts.length },

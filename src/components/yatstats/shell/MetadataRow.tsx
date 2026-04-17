@@ -45,7 +45,8 @@ export default function MetadataRow({
   isGallery,
   schoolMeta,
 }: MetadataRowProps) {
-  if (isGallery) {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (isGallery || pathname.includes('/news')) {
     return (
       <div className="yat-shell-meta-wrap">
         <div

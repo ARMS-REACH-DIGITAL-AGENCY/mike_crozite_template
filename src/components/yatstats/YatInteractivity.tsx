@@ -179,8 +179,23 @@ window.__firebase_config = ${firebaseConfigJSON};
     var pid=slot.dataset.playerid;
     if(!pid)return;
     e.preventDefault();
+    
     var secActive=document.getElementById('sec-active');
     var secAlltime=document.getElementById('sec-alltime');
+    var secNews=document.getElementById('sec-news');
+    
+    if(secNews && secNews.classList.contains('visible')){
+      // NEWS PAGE BEHAVIOR: Filter by player
+      if(newsFilterName){
+        var pName = slot.querySelector('.gallery-slot-name')?.textContent || '';
+        newsFilterName.value = pName;
+        applyNewsFilters();
+        // Scroll to top of news grid
+        if(newsContainer) newsContainer.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+      return;
+    }
+
     var visibleSection=(secAlltime&&secAlltime.classList.contains('visible'))
       ? secAlltime
       : (secActive&&secActive.classList.contains('visible'))
@@ -1104,7 +1119,7 @@ function normalizeSchoolResult(p){
 
   function applyNewsFilters(){
     var nf=(newsFilterName?newsFilterName.value||'':'').toLowerCase().trim();
-    var cards=newsContainer?newsContainer.querySelectorAll('.yat-news-card'):[];
+    var cards=newsContainer?newsContainer.querySelectorAll('.news-card'):[];
     var visible=0;
     cards.forEach(function(card){
       var name=(card.getAttribute('data-name')||'').toLowerCase();
@@ -1204,134 +1219,239 @@ function normalizeSchoolResult(p){
 
   function renderNewsCard(post){
     var card=document.createElement('div');
-    card.className='yat-news-card';
+    card.className='yat-card news-card';
     var displayName=(post.playerName||post.playerDbName||'').toLowerCase();
     card.setAttribute('data-name',displayName);
     card.setAttribute('data-level',post.level||'');
     card.setAttribute('data-gradclass',post.gradClass||'');
     card.setAttribute('data-pid',post.playerId||'');
     card.setAttribute('data-active',post.active===true?'true':'false');
+    card.setAttribute('data-team', (post.teamName||'').toLowerCase());
+    card.setAttribute('data-org', (post.orgName||'').toLowerCase());
 
-    var imgWrap=document.createElement('div');
-    imgWrap.className='yat-news-img-wrap';
-    if(post.imageUrl){
-      var img=document.createElement('img');
-      img.className='yat-news-img';
-      img.loading='lazy';
-      img.alt='';
-      img.src=post.imageUrl;
-      img.onerror=function(){
-        img.style.display='none';
-        var ph=document.createElement('div');
-        ph.className='yat-news-img-placeholder';
-        ph.innerHTML='\\u26BE';
-        imgWrap.appendChild(ph);
-      };
-      imgWrap.appendChild(img);
-    }else{
-      var ph=document.createElement('div');
-      ph.className='yat-news-img-placeholder';
-      ph.innerHTML='\\u26BE';
-      imgWrap.appendChild(ph);
-    }
+    var inner=document.createElement('div');
+    inner.className='yat-card-inner';
+    var flip=document.createElement('div');
+    flip.className='yat-flip';
 
-    var sent=post.sentiment||'neutral';
-    var sentBadge=document.createElement('span');
-    sentBadge.className='yat-news-sentiment yat-news-sentiment-'+sent;
-    sentBadge.textContent=sent.toUpperCase();
-    imgWrap.appendChild(sentBadge);
-    card.appendChild(imgWrap);
+    // FRONT FACE
+    var front=document.createElement('div');
+    front.className='yat-face yat-front';
+    var bg=document.createElement('div');
+    bg.className='yat-bg';
+    bg.style.backgroundImage="url('"+(post.imageUrl||'/images/news-placeholder.jpg')+"')";
+    front.appendChild(bg);
+    var shade=document.createElement('div');
+    shade.className='yat-shade';
+    front.appendChild(shade);
+
+    var frontContent=document.createElement('div');
+    frontContent.className='yat-front-content';
+    
+    var topRow=document.createElement('div');
+    topRow.className='yat-front-top-row';
+    var classChip=document.createElement('div');
+    classChip.className='yat-metachip';
+    classChip.innerHTML='<span class="label">CLASS OF</span><span class="val">'+(post.gradClass||'TBD')+'</span>';
+    topRow.appendChild(classChip);
+    var posChip=document.createElement('div');
+    posChip.className='yat-metachip';
+    posChip.innerHTML='<span class="val">'+(post.source||'NEWS').toUpperCase()+'</span>';
+    topRow.appendChild(posChip);
+    frontContent.appendChild(topRow);
+
+    var infoBlock=document.createElement('div');
+    infoBlock.className='yat-info-block';
+    var nameDiv=document.createElement('div');
+    nameDiv.className='yat-name';
+    nameDiv.innerHTML='<span>'+escHtml(post.title).toUpperCase()+'</span>';
+    infoBlock.appendChild(nameDiv);
+
+    var subDiv=document.createElement('div');
+    subDiv.className='yat-sub';
+    subDiv.textContent=(post.source||'').toUpperCase() + ' \u00B7 ' + (post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'RECENT');
+    infoBlock.appendChild(subDiv);
+
+    var badgeRow=document.createElement('div');
+    badgeRow.className='yat-front-badge-row';
+    var lChip=document.createElement('div');
+    lChip.className='yat-metachip small';
+    lChip.innerHTML='<span class="val">'+(post.level||'PRO')+'</span>';
+    badgeRow.appendChild(lChip);
+    var sChip=document.createElement('div');
+    sChip.className='yat-metachip small';
+    sChip.innerHTML='<span class="val">ACTIVE</span>';
+    badgeRow.appendChild(sChip);
+    infoBlock.appendChild(badgeRow);
+
+    var ctaRow=document.createElement('div');
+    ctaRow.className='news-cta-row';
+    ctaRow.style.marginTop='12px';
+    var flipBtn=document.createElement('button');
+    flipBtn.className='news-flip-btn';
+    flipBtn.style.background='transparent';
+    flipBtn.style.border='none';
+    flipBtn.style.color='#00e676';
+    flipBtn.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
+    flipBtn.style.fontSize='14px';
+    flipBtn.style.letterSpacing='.1em';
+    flipBtn.style.cursor='pointer';
+    flipBtn.style.padding='0';
+    flipBtn.innerHTML='FLIP TO READ RECAP <i class="ri-arrow-right-line"></i>';
+    ctaRow.appendChild(flipBtn);
+    infoBlock.appendChild(ctaRow);
+    
+    frontContent.appendChild(infoBlock);
+    front.appendChild(frontContent);
+
+    // BACK FACE
+    var back=document.createElement('div');
+    back.className='yat-face yat-back';
+    var backContent=document.createElement('div');
+    backContent.className='news-back-content';
+    backContent.style.padding='20px';
+    backContent.style.display='flex';
+    backContent.style.flexDirection='column';
+    backContent.style.height='100%';
+    
+    var header=document.createElement('div');
+    header.style.marginBottom='15px';
+    var label=document.createElement('div');
+    label.style.color='#00e676';
+    label.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
+    label.style.fontSize='12px';
+    label.style.letterSpacing='.1em';
+    label.style.marginBottom='4px';
+    label.textContent='HAMILTON YAT?STATS RECAP';
+    header.appendChild(label);
+    var rTitle=document.createElement('div');
+    rTitle.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
+    rTitle.style.fontSize='18px';
+    rTitle.style.lineHeight='1.1';
+    rTitle.style.color='#fff';
+    rTitle.textContent=post.title.toUpperCase();
+    header.appendChild(rTitle);
+    backContent.appendChild(header);
 
     var body=document.createElement('div');
-    body.className='yat-news-body';
+    body.style.fontFamily='Oswald,sans-serif';
+    body.style.fontSize='14px';
+    body.style.lineHeight='1.4';
+    body.style.color='rgba(255,255,255,.8)';
+    body.style.flex='1';
+    body.style.overflowY='auto';
+    body.textContent=post.localRecap || post.snippet || "No recap available yet. Check back soon for the local Hamilton angle!";
+    backContent.appendChild(body);
 
-    var cardDisplayName=post.playerName||post.playerDbName||'';
-    if(cardDisplayName||post.level){
-      var pRow=document.createElement('div');
-      pRow.className='yat-news-player-row';
-      if(cardDisplayName){
-        var pNameEl=document.createElement('span');
-        pNameEl.className='yat-news-player-name';
-        pNameEl.textContent=cardDisplayName.toUpperCase();
-        pRow.appendChild(pNameEl);
-      }
-      if(post.level){
-        var lvlEl=document.createElement('span');
-        lvlEl.className='yat-news-level-chip';
-        lvlEl.textContent=post.level;
-        pRow.appendChild(lvlEl);
-      }
-      body.appendChild(pRow);
+    var actions=document.createElement('div');
+    actions.style.marginTop='15px';
+    var fullBtn=document.createElement('a');
+    fullBtn.style.display='block';
+    fullBtn.style.background='#00e676';
+    fullBtn.style.color='#000';
+    fullBtn.style.textAlign='center';
+    fullBtn.style.padding='10px';
+    fullBtn.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
+    fullBtn.style.fontSize='14px';
+    fullBtn.style.letterSpacing='.1em';
+    fullBtn.style.borderRadius='4px';
+    fullBtn.style.textDecoration='none';
+    fullBtn.style.marginBottom='12px';
+    fullBtn.href=post.url;
+    fullBtn.target='_blank';
+    fullBtn.rel='noopener noreferrer';
+    fullBtn.textContent='READ FULL STORY';
+    actions.appendChild(fullBtn);
+
+    var shareRow=document.createElement('div');
+    shareRow.style.display='flex';
+    shareRow.style.alignItems='center';
+    shareRow.style.gap='12px';
+    var sLabel=document.createElement('span');
+    sLabel.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
+    sLabel.style.fontSize='12px';
+    sLabel.style.color='rgba(255,255,255,.5)';
+    sLabel.textContent='SHARE:';
+    shareRow.appendChild(sLabel);
+
+    function addShare(icon, handler) {
+      var btn=document.createElement('button');
+      btn.style.background='rgba(255,255,255,.1)';
+      btn.style.border='none';
+      btn.style.color='#fff';
+      btn.style.width='32px';
+      btn.style.height='32px';
+      btn.style.borderRadius='50%';
+      btn.style.display='flex';
+      btn.style.alignItems='center';
+      btn.style.justifyContent='center';
+      btn.style.cursor='pointer';
+      btn.innerHTML='<i class="'+icon+'"></i>';
+      btn.addEventListener('click', function(e){ e.stopPropagation(); handler(); });
+      shareRow.appendChild(btn);
     }
 
-    var title=document.createElement('div');
-    title.className='yat-news-card-title';
-    title.textContent=stripHtml(post.title||'Untitled');
-    body.appendChild(title);
+    var sUrl=post.url;
+    var sTitle=encodeURIComponent('Check out this news about '+(post.playerName||'Hamilton Alumni')+': '+post.title);
 
-    if(post.snippet){
-      var snippet=document.createElement('div');
-      snippet.className='yat-news-snippet';
-      snippet.innerHTML=post.snippet;
-      body.appendChild(snippet);
-    }
+    addShare('ri-twitter-x-line', function(){ window.open('https://x.com/intent/tweet?text='+sTitle+'&url='+encodeURIComponent(sUrl),'_blank'); });
+    addShare('ri-facebook-fill', function(){ window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(sUrl),'_blank'); });
+    addShare('ri-mail-line', function(){ window.open('mailto:?subject='+sTitle+'&body='+encodeURIComponent(sUrl)); });
+    addShare('ri-chat-1-line', function(){ window.open('sms:?&body='+sTitle+'%20'+encodeURIComponent(sUrl)); });
 
-    if(post.categories&&post.categories.length){
-      var cats=document.createElement('div');
-      cats.className='yat-news-categories';
-      post.categories.slice(0,3).forEach(function(c){
-        var tag=document.createElement('span');
-        tag.className='yat-news-cat';
-        tag.textContent=c;
-        cats.appendChild(tag);
-      });
-      body.appendChild(cats);
-    }
+    actions.appendChild(shareRow);
+    backContent.appendChild(actions);
+    back.appendChild(backContent);
 
-    var meta=document.createElement('div');
-    meta.className='yat-news-meta';
-    var src=document.createElement('span');
-    src.className='yat-news-source';
-    src.textContent=post.source||'Unknown';
-    var date=document.createElement('span');
-    date.className='yat-news-date';
-    date.textContent=timeAgo(post.publishedAt);
-    meta.appendChild(src);
-    meta.appendChild(date);
-    body.appendChild(meta);
+    flip.appendChild(front);
+    flip.appendChild(back);
+    inner.appendChild(flip);
+    card.appendChild(inner);
 
-    card.appendChild(body);
-    card.addEventListener('click',function(){openArticleModal(post);});
+    card.addEventListener('click', function(e){
+      if(e.target.closest('a') || e.target.closest('button')) return;
+      card.classList.toggle('is-flipped');
+    });
+
     return card;
   }
 
   function loadNews(){
     if(newsLoaded||!newsContainer)return;
     newsLoaded=true;
-    newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-loading-spinner"></div><div class="yat-news-loading-text">LOADING ALUMNI NEWS\\u2026</div></div>';
+    newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-loading-spinner"></div><div class="yat-news-loading-text">LOADING ALUMNI NEWS\u2026</div></div>';
     var hsid=window.__YAT_HSID;
     fetch('/api/news/'+encodeURIComponent(hsid))
       .then(function(r){return r.json();})
       .then(function(data){
         newsContainer.innerHTML='';
         if(!data.posts||data.posts.length===0){
-          newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-empty-icon">\\u26BE</div><div class="yat-news-loading-text">NO ALUMNI NEWS FOUND YET</div><div class="yat-news-loading-text" style="font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto">News for active alumni will appear here as articles are published. Check back soon.</div></div>';
+          newsContainer.innerHTML='<div class="yat-news-loading"><div class="yat-news-empty-icon">\u26BE</div><div class="yat-news-loading-text">NO ALUMNI NEWS FOUND YET</div><div class="yat-news-loading-text" style="font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto">News for active alumni will appear here as articles are published. Check back soon.</div></div>';
           return;
         }
         allNewsPosts=data.posts;
+        
+        // Build hidden filter chips for logic
         buildNewsLevelChips(allNewsPosts);
         buildNewsGradClassChips(allNewsPosts);
+        
         allNewsPosts.forEach(function(post){
           newsContainer.appendChild(renderNewsCard(post));
         });
+        
         var footer=document.createElement('div');
         footer.className='yat-news-footer';
-        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \\u00B7 '+data.total+' articles</span>';
+        footer.innerHTML='<span class="yat-news-powered">Powered by Webz.io News API \u00B7 '+data.total+' articles</span>';
         newsContainer.parentNode.appendChild(footer);
+        
+        // If there's a pending filter from a headshot click, apply it now
+        if(newsFilterName && newsFilterName.value) {
+          applyNewsFilters();
+        }
       })
       .catch(function(err){
         console.error('News fetch error:',err);
-        newsContainer.innerHTML='<div class="yat-news-error"><div class="yat-news-error-icon">\\u26A0\\uFE0F</div><div class="yat-news-error-text">Unable to load news right now. Please try again later.</div></div>';
+        newsContainer.innerHTML='<div class="yat-news-error"><div class="yat-news-error-icon">\u26A0\uFE0F</div><div class="yat-news-error-text">Unable to load news right now. Please try again later.</div></div>';
       });
   }
 

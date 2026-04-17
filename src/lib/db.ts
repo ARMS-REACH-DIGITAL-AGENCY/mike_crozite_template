@@ -660,37 +660,8 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
     const { rows } = await query(
       `SELECT
-         na.*,
-         tp.firstname        AS player_firstname,
-         tp.lastname         AS player_lastname,
-         tp.highlevel        AS player_highlevel,
-         COALESCE(lb.draft_info,  lp.pit_draft_info)  AS player_draft_info,
-         COALESCE(lb.playyears,   lp.pit_playyears)   AS player_playyears,
-         CASE WHEN a25.playerid IS NOT NULL THEN true ELSE false END AS player_active
+         na.*
        FROM news_articles na
-       LEFT JOIN tbc_players_raw tp
-         ON na.playerid::text = tp.playerid::text
-       LEFT JOIN LATERAL (
-         SELECT draft_info, playyears
-         FROM   tbc_batting_raw
-         WHERE  playerid::text = na.playerid::text
-         ORDER  BY year DESC
-         LIMIT  1
-       ) lb ON true
-       LEFT JOIN LATERAL (
-         SELECT draft_info AS pit_draft_info, playyears AS pit_playyears
-         FROM   tbc_pitching_raw
-         WHERE  playerid::text = na.playerid::text
-         ORDER  BY year DESC
-         LIMIT  1
-       ) lp ON true
-       LEFT JOIN LATERAL (
-         SELECT DISTINCT playerid::text AS playerid
-         FROM   tbc_batting_raw
-         WHERE  year = '2025'
-           AND  playerid::text = na.playerid::text
-         LIMIT  1
-       ) a25 ON true
        WHERE na.hsid = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,
@@ -698,7 +669,6 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
     );
     return rows;
   } catch {
-    // Table doesn't exist yet — return empty array gracefully
     return [];
   }
 }
@@ -706,12 +676,16 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
 export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT * FROM news_articles WHERE playerid = $1 ORDER BY published_at DESC LIMIT $2`,
+      `SELECT
+         na.*
+       FROM news_articles na
+       WHERE na.playerid = $1
+       ORDER BY na.published_at DESC
+       LIMIT $2`,
       [playerId, limit]
     );
     return rows;
   } catch {
-    // Table doesn't exist yet — return empty array gracefully
     return [];
   }
 }

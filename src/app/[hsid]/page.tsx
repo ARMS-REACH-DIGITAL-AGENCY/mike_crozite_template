@@ -270,19 +270,20 @@ export default async function SchoolPage({
         <div className="yat-news-wrap">
           <div className="yat-news-header">
             <div>
-              <div className="yat-news-title">ACTIVE ALUMNI NEWS</div>
+              <div className="yat-news-title">ALUMNI HEADLINES</div>
               <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
             </div>
           </div>
-          <div className="yat-news-filters" id="newsFilters">
-            <input id="newsFilterName" className="yat-news-filter-input" type="search" placeholder="Filter by player name…" />
-            <span className="yat-news-filter-label">Level:</span>
-            <div className="yat-news-filter-chips" id="newsFilterLevels" />
-            <span className="yat-news-filter-label">Class:</span>
-            <div className="yat-news-filter-chips" id="newsFilterGradClass" />
-            <button id="newsFilterActive" className="yat-news-chip" type="button">Active Only</button>
-            <button id="newsFilterReset" className="yat-news-filter-reset" type="button">Reset</button>
+          
+          {/* Hidden filters for JS logic */}
+          <div className="yat-news-filters" id="newsFilters" style={{ display: 'none' }}>
+            <input id="newsFilterName" type="hidden" />
+            <div id="newsFilterLevels" />
+            <div id="newsFilterGradClass" />
+            <button id="newsFilterActive" type="button" />
+            <button id="newsFilterReset" type="button" />
           </div>
+
           <div className="yat-news-grid" id="news-grid">
             <div className="yat-news-loading">
               <div className="yat-news-loading-spinner" />
