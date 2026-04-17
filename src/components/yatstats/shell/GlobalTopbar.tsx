@@ -30,12 +30,12 @@ export default function GlobalTopbar() {
           className="yat-topbar-home-crest-link"
           hidden
         >
-	          <img
-	            id="topbarHomeCrestImg"
-	            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-	            alt="My home school"
-	            className="yat-topbar-home-crest"
-	          />
+          <img
+            id="topbarHomeCrestImg"
+            src=""
+            alt="My home school"
+            className="yat-topbar-home-crest"
+          />
         </a>
 
         <a href="https://yatstats.com" aria-label="Go to YAT?STATS homepage">
