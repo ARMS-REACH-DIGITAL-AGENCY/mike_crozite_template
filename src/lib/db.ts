@@ -23,7 +23,7 @@ const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
   ssl: { rejectUnauthorized: false },
 });
 
@@ -765,19 +765,19 @@ export async function getBatchDesignatedPlayerImages(
   if (imageIds.length === 0) return new Map();
   try {
     const { rows } = await query(
-      `SELECT DISTINCT ON (player_id::text) player_id, image_url
-         FROM player_photos
-        WHERE player_id::text = ANY($1::text[])
-          AND image_role = $2
-          AND approval_status = 'APPROVED'
-          AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY player_id::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC`,
-      [imageIds, role]
-    );
-    const map = new Map<string, any>();
-    for (const row of rows) {
-      map.set(String(row.player_id), row);
-    }
+	      `SELECT DISTINCT ON (playerid::text) playerid, image_url
+	         FROM player_photos
+	        WHERE playerid::text = ANY($1::text[])
+	          AND image_role = $2
+	          AND approval_status = 'APPROVED'
+	          AND (is_active IS NULL OR is_active = TRUE)
+	        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST`,
+	      [imageIds, role]
+	    );
+	    const map = new Map<string, any>();
+	    for (const row of rows) {
+	      map.set(String(row.playerid), row);
+	    }
     return map;
   } catch {
     // Table or columns don't exist yet — degrade gracefully

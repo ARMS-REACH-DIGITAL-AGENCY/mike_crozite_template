@@ -61,7 +61,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-org={org}
       data-gradclass={gc}
       data-rosteryears={Array.isArray(rosterYears) ? rosterYears.join(",") : ""}
-      data-status={status}
+
       data-slug={slug}
     >
       <div className="yat-card-inner">

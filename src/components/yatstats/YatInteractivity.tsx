@@ -187,11 +187,14 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(secNews && secNews.classList.contains('visible')){
       // NEWS PAGE BEHAVIOR: Filter by player
       if(newsFilterName){
-        var pName = slot.querySelector('.gallery-slot-name')?.textContent || '';
-        newsFilterName.value = pName;
+        var pName = (slot.querySelector('.gallery-slot-name')?.textContent || '').toLowerCase().trim();
+        // If already filtered by this name, reset filter
+        if(newsFilterName.value.toLowerCase().trim() === pName) {
+          newsFilterName.value = '';
+        } else {
+          newsFilterName.value = pName;
+        }
         applyNewsFilters();
-        // Scroll to top of news grid
-        if(newsContainer) newsContainer.scrollIntoView({behavior:'smooth',block:'start'});
       }
       return;
     }
@@ -1150,55 +1153,7 @@ function normalizeSchoolResult(p){
     }
   }
 
-  function buildNewsLevelChips(posts){
-    if(!newsFilterLevels)return;
-    var levels={};
-    posts.forEach(function(p){if(p.level)levels[p.level]=true;});
-    var keys=Object.keys(levels).sort();
-    newsFilterLevels.innerHTML='';
-    activeNewsLevels=[];
-    keys.forEach(function(lvl){
-      var btn=document.createElement('button');
-      btn.className='yat-news-chip';
-      btn.textContent=lvl;
-      btn.dataset.level=lvl;
-      btn.addEventListener('click',function(){
-        btn.classList.toggle('active');
-        if(btn.classList.contains('active')){
-          if(!activeNewsLevels.includes(lvl))activeNewsLevels.push(lvl);
-        }else{
-          activeNewsLevels=activeNewsLevels.filter(function(l){return l!==lvl;});
-        }
-        applyNewsFilters();
-      });
-      newsFilterLevels.appendChild(btn);
-    });
-  }
-
-  function buildNewsGradClassChips(posts){
-    if(!newsFilterGradClass)return;
-    var classes={};
-    posts.forEach(function(p){if(p.gradClass)classes[p.gradClass]=true;});
-    var keys=Object.keys(classes).sort().reverse();
-    newsFilterGradClass.innerHTML='';
-    activeGradClasses=[];
-    keys.forEach(function(gc){
-      var btn=document.createElement('button');
-      btn.className='yat-news-chip';
-      btn.textContent=gc;
-      btn.dataset.gc=gc;
-      btn.addEventListener('click',function(){
-        btn.classList.toggle('active');
-        if(btn.classList.contains('active')){
-          if(!activeGradClasses.includes(gc))activeGradClasses.push(gc);
-        }else{
-          activeGradClasses=activeGradClasses.filter(function(c){return c!==gc;});
-        }
-        applyNewsFilters();
-      });
-      newsFilterGradClass.appendChild(btn);
-    });
-  }
+  // Removed: buildNewsLevelChips and buildNewsGradClassChips — use side drawer filters only
 
   if(newsFilterName)newsFilterName.addEventListener('input',applyNewsFilters);
   if(newsFilterActive)newsFilterActive.addEventListener('click',function(){
@@ -1219,7 +1174,8 @@ function normalizeSchoolResult(p){
 
   function renderNewsCard(post){
     var card=document.createElement('div');
-    card.className='yat-card news-card';
+    card.className='yat-card';
+    card.setAttribute('id','news-'+post.uuid);
     var displayName=(post.playerName||post.playerDbName||'').toLowerCase();
     card.setAttribute('data-name',displayName);
     card.setAttribute('data-level',post.level||'');
@@ -1430,10 +1386,6 @@ function normalizeSchoolResult(p){
           return;
         }
         allNewsPosts=data.posts;
-        
-        // Build hidden filter chips for logic
-        buildNewsLevelChips(allNewsPosts);
-        buildNewsGradClassChips(allNewsPosts);
         
         allNewsPosts.forEach(function(post){
           newsContainer.appendChild(renderNewsCard(post));

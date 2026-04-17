@@ -36,6 +36,11 @@ export default function InteractionStrip({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const showActiveStrip = isGallery || isNews;
   const showProfilePlaceholder = isPlayerProfile;
@@ -73,6 +78,10 @@ export default function InteractionStrip({
       behavior: 'smooth',
     });
   };
+
+  if (!isMounted) {
+    return <div className="gallery-strip" style={{ height: '100px' }} />;
+  }
 
   if (!showActiveStrip && !showProfilePlaceholder) {
     return null;

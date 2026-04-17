@@ -181,8 +181,13 @@ export default async function HsidLayout({
       stripMerged.push({ ...p });
     }
   }
+  // Filter to ACTIVE ONLY to match the main page display rules
+  const activeStripRows = stripMerged.filter(p => 
+    String(p.status_label || '').toUpperCase().trim() === 'ACTIVE' || p.is_active_2025 === true
+  );
+
   // Sort with Active sort so strip order matches Block 5 Active-page card order
-  const allStripRows = sortActivePlayers(stripMerged);
+  const allStripRows = sortActivePlayers(activeStripRows);
 
   const allStripIds = allStripRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
@@ -238,12 +243,12 @@ export default async function HsidLayout({
               data-home-nav="true"
               style={{ display: 'none' }}
             >
-              <img
-                id="drawerHomeCrestImg"
-                src=""
-                alt="Home school crest"
-                className="yat-drawer-crest-thumb"
-              />
+	              <img
+	                id="drawerHomeCrestImg"
+	                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+	                alt="Home school crest"
+	                className="yat-drawer-crest-thumb"
+	              />
               <span>MY HOME SCHOOL</span>
             </a>
 
