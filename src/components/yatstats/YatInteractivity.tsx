@@ -1176,16 +1176,16 @@ function normalizeSchoolResult(p){
 
   function renderNewsCard(post){
     var card=document.createElement('div');
-    card.className='yat-card';
+    card.className='yat-card news-card';
     card.setAttribute('id','news-'+post.uuid);
     var displayName=(post.playerName||post.playerDbName||'').toLowerCase();
     card.setAttribute('data-name',displayName);
-    card.setAttribute('data-level',post.level||'');
+    card.setAttribute('data-level',(post.level||'').toUpperCase());
     card.setAttribute('data-gradclass',post.gradClass||'');
     card.setAttribute('data-pid',post.playerId||'');
     card.setAttribute('data-active',post.active===true?'true':'false');
     card.setAttribute('data-team', (post.teamName||'').toLowerCase());
-    card.setAttribute('data-org', (post.orgName||'').toLowerCase());
+    card.setAttribute('data-org', (post.source||'').toUpperCase());
     card.setAttribute('data-status', 'ACTIVE');
 
     var inner=document.createElement('div');
