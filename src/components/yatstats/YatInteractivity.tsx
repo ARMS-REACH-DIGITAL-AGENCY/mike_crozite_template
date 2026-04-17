@@ -278,6 +278,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(isSectionChange){
       resetFiltersForCurrentSection();
       if(sec)loadBgImages(sec);
+      if(key==='news')loadNews();
     }
 
     var isPlayerProfilePage=window.location.pathname.indexOf('/player/')!==-1;
@@ -1431,16 +1432,14 @@ function normalizeSchoolResult(p){
       });
   }
 
-  var origShowSection=showSection;
-  showSection=function(tabId,updateHash){
-    origShowSection(tabId,updateHash);
-    if(tabId==='news')loadNews();
-  };
-
-  if(window.location.hash==='#sec-news')loadNews();
-  window.addEventListener('hashchange',function(){
-    if(window.location.hash==='#sec-news')loadNews();
-  });
+  function handleHash(){
+    var h=window.location.hash;
+    if(!h)return;
+    var tid=h.replace('#sec-','');
+    showSection(tid,false);
+  }
+  handleHash();
+  window.addEventListener('hashchange',handleHash);
 
   function stampFavorites(){
     var raw;
