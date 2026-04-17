@@ -16,7 +16,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { formatSchoolName, sortActivePlayers, sortAllTimePlayers, type NavItem } from "@/lib/playerUtils";
+import { formatSchoolName, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
@@ -36,6 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const schoolHsid = (school as Record<string, unknown>)?.hsid as string || hsid;
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school as Record<string, unknown> | null, schoolHsid);
+
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
@@ -50,10 +51,18 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   };
 }
 
-export default async function SchoolPage({ params }: { params: Promise<{ hsid: string }> }) {
+export default async function SchoolPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ hsid: string }>;
+  searchParams: Promise<{ schoolState?: string }>;
+}) {
   const { hsid } = await params;
+  const qp = await searchParams;
   const headersList = await headers();
   const host = headersList.get("host") || "";
+
   let school: Record<string, unknown> | null = null;
   try {
     school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
@@ -72,6 +81,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   }
 
   const resolvedHsid = String(school.hsid ?? hsid);
+
+  const schoolState =
+    qp.schoolState === "inactive"
+      ? "inactive"
+      : qp.schoolState === "potential"
+        ? "potential"
+        : null;
+
+  const isFallbackSchoolState = schoolState === "potential" || schoolState === "inactive";
   const schoolName = formatSchoolName(String(school.hsname || ""));
 
   const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
@@ -93,40 +111,40 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   // TBC base first, stage overlay on top. Stage-only ACTIVE players included.
   const activeSeenIds = new Set<string>();
   const activeMerged: Record<string, unknown>[] = [];
-  // TBC active rows, enriched with stage if present
+
   for (const p of activeRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     activeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
     activeSeenIds.add(id);
   }
-  // Stage-only ACTIVE rows not already in TBC active
+
   for (const p of flipFrontStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
     if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE") {
       activeMerged.push({ ...p });
     }
   }
-  const activeFrontRoster = sortActivePlayers(activeMerged);
 
   // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
   // TBC base first, stage overlay on top. Stage-only players included.
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Record<string, unknown>[] = [];
-  // TBC all-time rows, enriched with stage if present
+
   for (const p of allTimeRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     allTimeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
     allTimeSeenIds.add(id);
   }
-  // Stage-only rows not already in TBC all-time
+
   for (const p of flipFrontStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
     if (!allTimeSeenIds.has(id)) {
       allTimeMerged.push({ ...p });
     }
   }
+
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
   // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
@@ -136,9 +154,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
   // ---------------------------------------------------------------------------
   // Batch-fetch images — include all IDs from the full universe.
   // ---------------------------------------------------------------------------
-  const allRosterIds = Array.from(
-    new Set(allTimeMerged.map((p) => String(p.playerid)))
-  );
+  const allRosterIds = Array.from(new Set(allTimeMerged.map((p) => String(p.playerid))));
 
   const [frontImageMap, headshotMap] = await Promise.all([
     getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
@@ -152,23 +168,80 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
       {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
       {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
       <section id="sec-active" className="yat-section visible">
-        <div className="yat-grid" id="active-grid">
-          {activeSortedRoster.length === 0 ? (
-            <div className="yat-empty">
-              <div className="yat-empty-icon">⚾</div>
-              <div className="yat-empty-title">No players found</div>
-              <div className="yat-empty-sub">Check back as we continue building the database</div>
+        {isFallbackSchoolState ? (
+          <div className="yat-placeholder">
+            <div className="yat-placeholder-icon">⚾</div>
+            <div className="yat-placeholder-title">
+              {schoolState === "potential"
+                ? "THIS SCHOOL HAS SOMETHING TO FOLLOW"
+                : "WE DO NOT CURRENTLY HAVE DATA ON ANY ACTIVE ALUMNI"}
             </div>
-          ) : activeSortedRoster.map((p) => (
-            <PlayerCard
-              key={`active-${String(p.playerid)}`}
-              player={p}
-              resolvedHsid={resolvedHsid}
-              frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-              headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-            />
-          ))}
-        </div>
+            <div className="yat-placeholder-body">
+              {schoolState === "potential"
+                ? `YAT?STATS currently shows some active baseball alumni tied to ${schoolName}, but this school does not yet have a live microsite.`
+                : `At this time, YAT?STATS does not currently show data on any active baseball alumni for ${schoolName}.`}
+              <br />
+              <br />
+              You can still browse this school, use global search, or return to the YAT?STATS home page.
+              <br />
+              <br />
+              <a
+                href="https://home.yatstats.com"
+                style={{
+                  display: "inline-block",
+                  background: "#ffc107",
+                  color: "#000",
+                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
+                  fontSize: "14px",
+                  letterSpacing: ".1em",
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                  marginRight: "10px",
+                }}
+              >
+                BACK TO HOME
+              </a>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+                style={{
+                  display: "inline-block",
+                  border: "1px solid rgba(255,255,255,.18)",
+                  color: "#fff",
+                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
+                  fontSize: "14px",
+                  letterSpacing: ".1em",
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                }}
+              >
+                USE GLOBAL SEARCH
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="yat-grid" id="active-grid">
+            {activeSortedRoster.length === 0 ? (
+              <div className="yat-empty">
+                <div className="yat-empty-icon">⚾</div>
+                <div className="yat-empty-title">No players found</div>
+                <div className="yat-empty-sub">Check back as we continue building the database</div>
+              </div>
+            ) : (
+              activeSortedRoster.map((p) => (
+                <PlayerCard
+                  key={`active-${String(p.playerid)}`}
+                  player={p}
+                  resolvedHsid={resolvedHsid}
+                  frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                  headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+                />
+              ))
+            )}
+          </div>
+        )}
       </section>
 
       {/* ALL-TIME LIST */}
@@ -180,16 +253,18 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
               <div className="yat-empty-title">No alumni found</div>
               <div className="yat-empty-sub">Check back as we continue building the database</div>
             </div>
-          ) : allTimeFrontRoster.map((p) => (
-            <PlayerCard
-              key={`alltime-${String(p.playerid)}`}
-              player={p}
-              resolvedHsid={resolvedHsid}
-              frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-              headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-              isAllTime
-            />
-          ))}
+          ) : (
+            allTimeFrontRoster.map((p) => (
+              <PlayerCard
+                key={`alltime-${String(p.playerid)}`}
+                player={p}
+                resolvedHsid={resolvedHsid}
+                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+                isAllTime
+              />
+            ))
+          )}
         </div>
       </section>
 
@@ -230,7 +305,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </div>
       </section>
-     
+
       {/* FANTASY BRACKET */}
       <section id="sec-fantasy" className="yat-section">
         <div className="yat-placeholder">
@@ -260,7 +335,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           <div className="yat-placeholder-title">PCD Action Partner Program</div>
           <div className="yat-placeholder-body">
             Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
-            <br /><br />
+            <br />
+            <br />
             <a
               href="mailto:sponsor@yatstats.com"
               style={{
@@ -290,7 +366,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ hsid: s
           </div>
         </div>
       </section>
-      
+
       {/* FAQ */}
       <section id="sec-faq" className="yat-section">
         <div className="yat-placeholder">
