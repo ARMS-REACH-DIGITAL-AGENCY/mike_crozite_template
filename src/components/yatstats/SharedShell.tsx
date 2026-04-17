@@ -50,8 +50,10 @@ export default function SharedShell({
 
   const isPlayerProfile =
     pathname.includes('/player/') || pathname.includes('/profile/');
-  const isNews = pathname.includes('/news');
-  const isGallery = !isPlayerProfile && !isNews;
+  const [isNews, setIsNews] = (typeof window !== 'undefined') 
+    ? [window.location.hash === '#sec-news', () => {}] 
+    : [false, () => {}]; // SSR fallback
+  const isGallery = !isPlayerProfile;
 
   return (
     <>

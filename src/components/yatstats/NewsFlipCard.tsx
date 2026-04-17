@@ -56,10 +56,10 @@ export default function NewsFlipCard({ article: a }: NewsFlipCardProps) {
         <div className="yat-flip">
           
           {/* FRONT FACE */}
-          <div className="yat-face yat-front" onClick={(e) => {
-            const card = e.currentTarget.closest('.yat-card');
-            if (card) card.classList.toggle('is-flipped');
-          }}>
+	          <div className="yat-face yat-front" onClick={(e) => {
+	            const card = e.currentTarget.closest('.yat-card');
+	            if (card) card.classList.toggle('is-flipped');
+	          }}>
             <div 
               className="yat-bg" 
               style={{ backgroundImage: `url('${a.imageUrl || '/images/news-placeholder.jpg'}')` }}
@@ -122,14 +122,21 @@ export default function NewsFlipCard({ article: a }: NewsFlipCardProps) {
       </div>
       
 	      <style jsx>{`
-	        .news-card {
-	          aspect-ratio: 5 / 7;
-	          width: 100%;
-	          height: auto;
-	        }
-	        .news-card :global(.yat-card-inner) {
-	          height: 100%;
-	        }
+		        .news-card {
+		          aspect-ratio: 5 / 7;
+		          width: 100%;
+		          height: auto;
+		          position: relative;
+		          overflow: visible;
+		        }
+		        .news-card :global(.yat-card-inner) {
+		          position: absolute;
+		          top: 0;
+		          left: 0;
+		          right: 0;
+		          bottom: 0;
+		          height: 100%;
+		        }
 	        .news-card :global(.yat-name.news-headline) {
 	          font-size: clamp(18px, 4cqi, 24px);
 	          line-height: 1.1;
