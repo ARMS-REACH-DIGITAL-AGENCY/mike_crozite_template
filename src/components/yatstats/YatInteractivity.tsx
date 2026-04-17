@@ -1437,8 +1437,10 @@ function normalizeSchoolResult(p){
     if(tabId==='news')loadNews();
   };
 
-  var newsSection=document.getElementById('sec-news');
-  if(newsSection&&newsSection.classList.contains('visible'))loadNews();
+  if(window.location.hash==='#sec-news')loadNews();
+  window.addEventListener('hashchange',function(){
+    if(window.location.hash==='#sec-news')loadNews();
+  });
 
   function stampFavorites(){
     var raw;
