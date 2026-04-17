@@ -270,7 +270,6 @@ export default async function SchoolPage({
         <div className="yat-news-wrap">
           <div className="yat-news-header">
             <div>
-              <div className="yat-news-title">ACTIVE ALUMNI NEWS</div>
               <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
             </div>
           </div>
