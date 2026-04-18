@@ -659,9 +659,8 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT
-         na.*
-       FROM news_articles na
+      `SELECT 		na.*, 		nd.tease_json, 		nd.gallery_front_json, 		nd.gallery_back_json, 		nd.profile_json, 		nd.share_json, 		nd.story_grade, 		nd.story_scope, 		nd.player_relevance, 		nd.match_confidence, 		nd.generation_status, 		nd.approval_status, 		nd.updated_at AS derivatives_updated_at
+       FROM news_articles na LEFT JOIN news_article_derivatives nd   ON nd.news_article_uuid = na.uuid   AND nd.generation_status IN ('staged','published')   AND nd.approval_status IN ('approved','published')
        WHERE na.hsid = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,
@@ -676,9 +675,8 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
 export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT
-         na.*
-       FROM news_articles na
+      `SELECT 		na.*, 		nd.tease_json, 		nd.gallery_front_json, 		nd.gallery_back_json, 		nd.profile_json, 		nd.share_json, 		nd.story_grade, 		nd.story_scope, 		nd.player_relevance, 		nd.match_confidence, 		nd.generation_status, 		nd.approval_status, 		nd.updated_at AS derivatives_updated_at
+       FROM news_articles na LEFT JOIN news_article_derivatives nd   ON nd.news_article_uuid = na.uuid   AND nd.generation_status IN ('staged','published')   AND nd.approval_status IN ('approved','published')
        WHERE na.playerid = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,
