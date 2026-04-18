@@ -287,16 +287,52 @@ if (!cancelled) {
     );
   }
 
-  return (
-  <div className="fz-news-teaser">
-    {featuredNews.badge && <div className="fz-news-label">{featuredNews.badge}</div>}
-    {featuredNews.headline && <div className="fz-news-title">{featuredNews.headline}</div>}
-    {featuredNews.body && <div className="fz-news-body">{featuredNews.body}</div>}
-    {featuredNews.footer && <div className="fz-news-footer">{featuredNews.footer}</div>}
-  </div>
-);
-}
+  const slug = String(player.slug || "");
+const profileHref = `/${resolvedHsid}/player/${playerId}/${slug}#ppTab-news`;
+const featuredNewsHref = featuredNews.newsCardId
+  ? `/${resolvedHsid}/player/${playerId}/${slug}#news-card-${featuredNews.newsCardId}`
+  : profileHref;
 
+return (
+  <div className="fz-news-featured">
+    {featuredNews.imageUrl ? (
+      <a href={featuredNewsHref} className="fz-news-thumb-link">
+        <img
+          src={featuredNews.imageUrl}
+          alt={featuredNews.headline || "Latest news"}
+          className="fz-news-thumb"
+        />
+      </a>
+    ) : (
+      <a href={featuredNewsHref} className="fz-news-thumb-link">
+        <div className="fz-news-thumb fz-news-thumb-fallback">
+          NEWS
+        </div>
+      </a>
+    )}
+
+    <div className="fz-news-copy">
+      {featuredNews.badge && (
+        <div className="fz-news-label">{featuredNews.badge}</div>
+      )}
+
+      {featuredNews.headline && (
+        <a href={profileHref} className="fz-news-title-link">
+          <div className="fz-news-title">{featuredNews.headline}</div>
+        </a>
+      )}
+
+      {featuredNews.body && (
+        <div className="fz-news-body">{featuredNews.body}</div>
+      )}
+
+      {featuredNews.footer && (
+        <div className="fz-news-footer">{featuredNews.footer}</div>
+      )}
+      </div>
+    </div>
+  );
+}
 function SocialPanel({ player }: { player: Record<string, unknown> }) {
   const xHandle = player.x_handle || player.twitter_handle || null;
   const igHandle = player.ig_handle || player.instagram_handle || null;
@@ -585,7 +621,48 @@ export default function FunZone({
         }
 
         /* ── News teaser ──────────────────────────────────────────────── */
-        .fz-news-teaser{display:flex;flex-direction:column;gap:4px}
+        
+        .fz-news-featured{
+          display:flex;
+          gap:clamp(5px,1.8cqi,10px);
+          align-items:flex-start;
+          min-width:0;
+        }
+        .fz-news-thumb-link{
+          flex:0 0 auto;
+          text-decoration:none;
+        }
+        .fz-news-thumb{
+          display:block;
+          width:clamp(52px,18cqi,84px);
+          height:clamp(72px,24cqi,118px);
+          object-fit:cover;
+          border-radius:clamp(4px,1cqi,8px);
+          border:1px solid rgba(30,22,14,0.18);
+          box-shadow:0 1px 3px rgba(0,0,0,0.12);
+          background:rgba(30,22,14,0.06);
+        }
+        .fz-news-thumb-fallback{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font:700 clamp(8px,2.4cqi,11px) "Bebas Neue",sans-serif;
+          letter-spacing:.08em;
+          color:rgba(30,22,14,0.55);
+        }
+        .fz-news-copy{
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          min-width:0;
+          flex:1;
+        }
+        .fz-news-title-link{
+          text-decoration:none;
+        }
+        .fz-news-title-link:hover .fz-news-title{
+          text-decoration:underline;
+        }
         .fz-news-label{
           font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
           letter-spacing:.1em;
@@ -593,17 +670,15 @@ export default function FunZone({
           color:rgba(30,22,14,0.5);
         }
         .fz-news-title{
-          font:700 clamp(9px,3cqi,12px)/1.3 "Bebas Neue",sans-serif;
+          font:700 clamp(10px,3.5cqi,14px)/1.2 "Bebas Neue",sans-serif;
           letter-spacing:.03em;
           color:rgba(30,22,14,0.9);
         }
-                .fz-news-body{
-          font:400 clamp(7px,2.2cqi,10px)/1.35 Oswald,sans-serif;
-          color:rgba(30,22,14,0.78);
+        .fz-news-body{
+          font:400 clamp(8px,2.5cqi,11px)/1.4 Oswald,sans-serif;
         }
-
         .fz-news-footer{
-          font:700 clamp(5px,1.8cqi,8px) Oswald,sans-serif;
+          font:700 clamp(6px,2cqi,9px) Oswald,sans-serif;
           letter-spacing:.06em;
           text-transform:uppercase;
           color:rgba(30,22,14,0.5);
