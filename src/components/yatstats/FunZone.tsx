@@ -31,7 +31,7 @@
 //   CTA strip and tab strip use flex-shrink:1 with clamp(cqi) — they tighten first.
 //   fz-panel is flex:1 min-height:0 — gets whatever space remains after CTA + tabs.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,18 @@ interface FunZoneProps {
   /** Pre-computed display name from PlayerCardBack (Server Component) */
   displayName: string;
 }
+
+interface NewsTease {
+  badge?: string;
+  headline?: string;
+  body?: string;
+  footer?: string;
+}
+
+interface NewsApiPost {
+  tease?: NewsTease | null;
+}
+
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -183,10 +195,71 @@ function StatsPanel({
   );
 }
 
-function NewsPanel({ player }: { player: Record<string, unknown> }) {
-  const headline = player.latest_headline || player.news_headline || null;
+function NewsPanel({
+  player,
+  resolvedHsid,
+}: {
+  player: Record<string, unknown>;
+  resolvedHsid: string;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [tease, setTease] = useState<NewsTease | null>(null);
 
-  if (!headline) {
+  const playerId = String(player.playerid || "");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNews() {
+      if (!resolvedHsid || !playerId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=1`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error(`News fetch failed: ${res.status}`);
+        }
+
+        const data = await res.json();
+        const firstPost: NewsApiPost | undefined = data?.posts?.[0];
+
+        if (!cancelled) {
+          setTease(firstPost?.tease ?? null);
+        }
+      } catch (error) {
+        console.error("FunZone news fetch error:", error);
+        if (!cancelled) {
+          setTease(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadNews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedHsid, playerId]);
+
+  if (loading) {
+    return (
+      <div className="fz-placeholder">
+        <i className="ri-newspaper-line fz-ph-icon" />
+        <div className="fz-ph-text">Loading latest news...</div>
+      </div>
+    );
+  }
+
+  if (!tease) {
     return (
       <div className="fz-placeholder">
         <i className="ri-newspaper-line fz-ph-icon" />
@@ -197,8 +270,10 @@ function NewsPanel({ player }: { player: Record<string, unknown> }) {
 
   return (
     <div className="fz-news-teaser">
-      <div className="fz-news-label">LATEST HEADLINE</div>
-      <div className="fz-news-title">{String(headline)}</div>
+      {tease.badge && <div className="fz-news-label">{tease.badge}</div>}
+      {tease.headline && <div className="fz-news-title">{tease.headline}</div>}
+      {tease.body && <div className="fz-news-body">{tease.body}</div>}
+      {tease.footer && <div className="fz-news-footer">{tease.footer}</div>}
     </div>
   );
 }
@@ -308,7 +383,7 @@ export default function FunZone({
       <div className="fz-panel">
         {activeTab === "schedule" && <SchedulePanel player={player} />}
         {activeTab === "stats"    && <StatsPanel stats={stats} statBarLabel={statBarLabel} />}
-        {activeTab === "news"     && <NewsPanel player={player} />}
+        {activeTab === "news"     && <NewsPanel player={player} resolvedHsid={resolvedHsid} />}
         {activeTab === "social"   && <SocialPanel player={player} />}
         {activeTab === "connect"  && <ConnectPanel player={player} />}
         {activeTab === "upload"   && <UploadPanel player={player} />}
@@ -503,6 +578,18 @@ export default function FunZone({
           letter-spacing:.03em;
           color:rgba(30,22,14,0.9);
         }
+                .fz-news-body{
+          font:400 clamp(7px,2.2cqi,10px)/1.35 Oswald,sans-serif;
+          color:rgba(30,22,14,0.78);
+        }
+
+        .fz-news-footer{
+          font:700 clamp(5px,1.8cqi,8px) Oswald,sans-serif;
+          letter-spacing:.06em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.5);
+        }
+
 
         /* ── Social panel ─────────────────────────────────────────────── */
         .fz-social{display:flex;flex-direction:column;gap:6px}
