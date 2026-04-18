@@ -60,10 +60,16 @@ interface NewsTease {
   headline?: string;
   body?: string;
   footer?: string;
+  imageUrl?: string;
+  newsCardId?: string;
 }
 
 interface NewsApiPost {
   tease?: NewsTease | null;
+  headline?: string | null;
+  summary?: string | null;
+  imageUrl?: string | null;
+  id?: string | number | null;
 }
 
 
@@ -203,7 +209,7 @@ function NewsPanel({
   resolvedHsid: string;
 }) {
   const [loading, setLoading] = useState(true);
-  const [tease, setTease] = useState<NewsTease | null>(null);
+  const [featuredNews, setFeaturedNews] = useState<NewsTease | null>(null);
 
   const playerId = String(player.playerid || "");
 
@@ -226,16 +232,29 @@ function NewsPanel({
         }
 
         const data = await res.json();
-        const firstPost: NewsApiPost | undefined = data?.posts?.[0];
+const firstPost: NewsApiPost | undefined = data?.posts?.[0];
 
-        if (!cancelled) {
-          setTease(firstPost?.tease ?? null);
-        }
+const normalizedTease: NewsTease | null = firstPost
+  ? {
+      badge: firstPost.tease?.badge ?? undefined,
+      headline: firstPost.tease?.headline ?? firstPost.headline ?? undefined,
+      body: firstPost.tease?.body ?? firstPost.summary ?? undefined,
+      footer: firstPost.tease?.footer ?? undefined,
+      imageUrl: firstPost.tease?.imageUrl ?? firstPost.imageUrl ?? undefined,
+      newsCardId:
+        firstPost.tease?.newsCardId ??
+        (firstPost.id != null ? String(firstPost.id) : undefined),
+    }
+  : null;
+
+if (!cancelled) {
+  setFeaturedNews(normalizedTease);
+}
       } catch (error) {
         console.error("FunZone news fetch error:", error);
         if (!cancelled) {
-          setTease(null);
-        }
+  setFeaturedNews(null);
+}
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -259,7 +278,7 @@ function NewsPanel({
     );
   }
 
-  if (!tease) {
+  if (!featuredNews) {
     return (
       <div className="fz-placeholder">
         <i className="ri-newspaper-line fz-ph-icon" />
@@ -269,13 +288,13 @@ function NewsPanel({
   }
 
   return (
-    <div className="fz-news-teaser">
-      {tease.badge && <div className="fz-news-label">{tease.badge}</div>}
-      {tease.headline && <div className="fz-news-title">{tease.headline}</div>}
-      {tease.body && <div className="fz-news-body">{tease.body}</div>}
-      {tease.footer && <div className="fz-news-footer">{tease.footer}</div>}
-    </div>
-  );
+  <div className="fz-news-teaser">
+    {featuredNews.badge && <div className="fz-news-label">{featuredNews.badge}</div>}
+    {featuredNews.headline && <div className="fz-news-title">{featuredNews.headline}</div>}
+    {featuredNews.body && <div className="fz-news-body">{featuredNews.body}</div>}
+    {featuredNews.footer && <div className="fz-news-footer">{featuredNews.footer}</div>}
+  </div>
+);
 }
 
 function SocialPanel({ player }: { player: Record<string, unknown> }) {
