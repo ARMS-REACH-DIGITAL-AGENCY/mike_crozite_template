@@ -50,7 +50,6 @@ export async function GET(
     );
   }
 
-  // Optional query params
   const { searchParams } = new URL(req.url);
   const playerId = searchParams.get('player');
   const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
@@ -59,45 +58,73 @@ export async function GET(
     let articles: any[];
 
     if (playerId) {
-      // Player-scoped query (for player profile pages and flip card teasers)
       articles = await getNewsByPlayer(playerId, limit);
     } else {
-      // School-scoped query (for Alumni News page)
       articles = await getNewsByHsid(hsid, limit);
     }
 
-    const posts = articles
-      .map((row) => {
-        return {
-          // Raw article fields
-          uuid:            row.uuid,
-          title:           row.title,
-          source:          row.source,
-          sourceFull:      row.source_full,
-          publishedAt:     row.published_at,
-          url:             row.url,
-          imageUrl:        row.image_url,
-          snippet:         row.snippet,
-          sentiment:       row.sentiment,
-          categories:      row.categories || [],
-          country:         row.country,
-          localRecap:      row.local_recap   ?? null,
+    const posts = articles.map((row) => {
+      const tease = row.tease_json ?? null;
+      const galleryFront = row.gallery_front_json ?? null;
+      const galleryBack = row.gallery_back_json ?? null;
+      const profile = row.profile_json ?? null;
+      const share = row.share_json ?? null;
 
-          // Matched player fields
-          playerName:      row.player_name   ?? null,
-          playerId:        row.playerid      ?? null,
-          playerDbName:    row.player_name   ?? null,
+      return {
+        uuid: row.uuid,
+        title: row.title,
+        source: row.source,
+        sourceFull: row.source_full,
+        publishedAt: row.published_at,
+        url: row.url,
+        imageUrl: row.image_url,
+        snippet: row.snippet,
+        sentiment: row.sentiment,
+        categories: row.categories || [],
+        country: row.country,
+        localRecap: row.local_recap ?? null,
 
-          // Metadata from news_articles table (already enriched during ingest)
-          level:           row.level_label   ?? null,
-          gradClass:       row.class_of      ?? null,
-          rosterYears:     row.roster_years  ?? [],
-          status:          row.status_label  ?? 'ACTIVE',
-          teamName:        row.current_team_name ?? null,
-          orgName:         row.current_org_or_conference_name ?? null,
-          active:          row.status_label === 'ACTIVE',
-        };
-      });
+        playerName: row.player_name ?? null,
+        playerId: row.playerid ?? null,
+        playerDbName: row.player_name ?? null,
+
+        level: row.level_label ?? null,
+        gradClass: row.class_of ?? null,
+        rosterYears: row.roster_years ?? [],
+        status: row.status_label ?? 'ACTIVE',
+        teamName: row.current_team_name ?? null,
+        orgName: row.current_org_or_conference_name ?? null,
+        active: row.status_label === 'ACTIVE',
+
+        tease,
+        galleryFront,
+        galleryBack,
+        profile,
+        share,
+
+        storyGrade: row.story_grade ?? null,
+        storyScope: row.story_scope ?? null,
+        playerRelevance: row.player_relevance ?? null,
+        matchConfidence: row.match_confidence ?? null,
+        generationStatus: row.generation_status ?? null,
+        approvalStatus: row.approval_status ?? null,
+
+        displayHeadline: galleryFront?.headline ?? row.title,
+        displaySourceLabel: galleryFront?.source_label ?? row.source_full ?? row.source,
+        displayPublishedAt: galleryFront?.published_at ?? row.published_at,
+        displayMetaPills:
+          galleryFront?.meta_pills ??
+          [
+            row.level_label ?? '',
+            row.status_label ?? '',
+            row.class_of ? `Class of ${row.class_of}` : '',
+          ].filter(Boolean),
+
+        displayRecap: galleryBack?.yati_recap ?? row.local_recap ?? row.snippet ?? null,
+        displayWhyLocal: galleryBack?.why_local ?? null,
+        displayProfileBody: profile?.body ?? row.local_recap ?? row.snippet ?? null,
+      };
+    });
 
     return NextResponse.json(
       { posts, total: posts.length },
