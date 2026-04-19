@@ -7,7 +7,7 @@
 -- Target: tbc_players_raw
 WITH validated_players AS (
     SELECT 
-        id AS snapshot_id,
+        snapshot_id AS snapshot_id,
         ingest_run_id,
         raw_payload,
         (raw_payload->>'playerid')::TEXT AS playerid,
@@ -69,7 +69,7 @@ ON CONFLICT (playerid) DO UPDATE SET
 -- Target: tbc_batting_raw
 WITH validated_batting AS (
     SELECT 
-        id AS snapshot_id,
+        snapshot_id AS snapshot_id,
         ingest_run_id,
         raw_payload,
         (raw_payload->>'teamid')::INTEGER AS teamid,
@@ -205,7 +205,7 @@ ON CONFLICT (playerid, year, teamid) DO UPDATE SET
 -- Target: tbc_pitching_raw
 WITH validated_pitching AS (
     SELECT 
-        id AS snapshot_id,
+        snapshot_id AS snapshot_id,
         ingest_run_id,
         raw_payload,
         (raw_payload->>'teamid')::INTEGER AS teamid,
