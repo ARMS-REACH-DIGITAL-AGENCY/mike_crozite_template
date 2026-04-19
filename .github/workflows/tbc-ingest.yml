@@ -38,5 +38,6 @@ jobs:
 
       - name: Promote snapshots to raw tables
         run: |
+          set -e
           echo "Running promotion SQL..."
-          psql "$DATABASE_URL" -f db/migrations/011_promote_tbc_snapshots.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/011_promote_tbc_snapshots.sql
