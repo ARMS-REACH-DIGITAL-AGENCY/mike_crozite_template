@@ -88,15 +88,15 @@ const statBarLabel = useCareerStats
     { k: "2B", v: fmt("2B", p["2b"]) }, { k: "BB", v: fmt("BB", p.bb) },
   ];
   const pitcherStats = [
-    { k: "ERA", v: fmt("ERA", p.era) }, { k: "WHIP", v: fmt("WHIP", p.whip) },
-    { k: "IP", v: fmt("IP", p.ip) },
-    { k: "W-L", v: (p.w !== null && p.l !== null) ? `${p.w}-${p.l}` : "--" },
-    { k: "K", v: fmt("K", p.ko) },
-    { k: "BB", v: fmt("BB", isAllTime ? (p.pbb ?? p.bb) : p.pbb) },
-    { k: "K/9", v: fmt("K/9", p.k9) }, { k: "K/BB", v: fmt("K/BB", p.kbb) },
-    { k: "H/9", v: fmt("H/9", p.h9) }, { k: "BB/9", v: fmt("BB/9", p.bb9) },
-    { k: "SV", v: fmt("SV", p.saves) }, { k: "G", v: fmt("G", p.pg) },
-  ];
+  { k: "ERA", v: fmt("ERA", p.era) }, { k: "WHIP", v: fmt("WHIP", p.whip) },
+  { k: "IP", v: fmt("IP", p.ip) },
+  { k: "W-L", v: (p.w !== null && p.l !== null) ? `${p.w}-${p.l}` : "--" },
+  { k: "K", v: fmt("K", p.ko) },
+  { k: "BB", v: fmt("BB", p.bb) },
+  { k: "K/9", v: fmt("K/9", p.so9) }, { k: "K/BB", v: fmt("K/BB", p.so_bb) },
+  { k: "H/9", v: fmt("H/9", p.h9) }, { k: "BB/9", v: fmt("BB/9", p.bb9) },
+  { k: "SV", v: fmt("SV", p.saves) }, { k: "G", v: fmt("G", p.pg) },
+];
   const stats = isPitcher ? pitcherStats : batterStats;
 
   // ── Metadata overlay lines ─────────────────────────────────────────────────
