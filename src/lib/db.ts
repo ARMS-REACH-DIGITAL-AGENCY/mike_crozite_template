@@ -877,18 +877,3 @@ if (!global.__pgSchemaBootstrapped) {
     }
   })();
 }
-
-// ---------------------------------------------------------------------------
-// Graceful shutdown
-// ---------------------------------------------------------------------------
-declare global {
-  var __pgPoolShutdownRegistered: any;
-}
-if (!global.__pgPoolShutdownRegistered) {
-  global.__pgPoolShutdownRegistered = true;
-  const shutdown = async () => {
-    try { await pool.end(); } catch { /* ignore */ }
-  };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', async () => { await shutdown(); process.exit(0); });
-}
