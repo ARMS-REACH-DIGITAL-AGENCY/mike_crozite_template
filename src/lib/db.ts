@@ -466,8 +466,13 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC, b.teamid ASC
   `;
-  const { rows } = await query(sql, [playerId]);
-  return rows;
+  try {
+    const { rows } = await query(sql, [playerId]);
+    return rows;
+  } catch (error) {
+    console.error('getPlayerBattingStats failed:', error);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -493,8 +498,13 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC, p.teamid ASC
   `;
-  const { rows } = await query(sql, [playerId]);
-  return rows;
+  try {
+    const { rows } = await query(sql, [playerId]);
+    return rows;
+  } catch (error) {
+    console.error('getPlayerPitchingStats failed:', error);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -510,18 +520,32 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
       SUM(${n('dbl')}) AS "2b", SUM(${n('tpl')}) AS "3b",
       SUM(${n('hr')}) AS hr, SUM(${n('rbi')}) AS rbi, SUM(${n('sb')}) AS sb,
       SUM(${n('bb')}) AS bb, SUM(${n('so')}) AS so,
+      SUM(${n('tb')}) AS tb,
       CASE WHEN SUM(${n('ab')}) > 0 THEN ROUND(SUM(${n('h')}) / SUM(${n('ab')}), 3) ELSE NULL END AS avg,
       CASE WHEN SUM(${n('ab')}) + SUM(${n('bb')}) > 0
         THEN ROUND((SUM(${n('h')}) + SUM(${n('bb')})) / (SUM(${n('ab')}) + SUM(${n('bb')})), 3)
         ELSE NULL
-      END AS obp
+      END AS obp,
+      CASE WHEN SUM(${n('ab')}) > 0
+        THEN ROUND(SUM(${n('tb')}) / SUM(${n('ab')}), 3)
+        ELSE NULL
+      END AS slg,
+      CASE WHEN SUM(${n('ab')}) > 0 AND SUM(${n('ab')}) + SUM(${n('bb')}) > 0
+        THEN ROUND(
+          (SUM(${n('h')}) + SUM(${n('bb')})) / (SUM(${n('ab')}) + SUM(${n('bb')})) +
+          SUM(${n('tb')}) / SUM(${n('ab')}),
+          3
+        )
+        ELSE NULL
+      END AS ops
     FROM public.v_tbc_batting_all_seasons_resolved
     WHERE playerid::text = $1
   `;
   try {
     const { rows } = await query(sql, [playerId]);
     return rows[0] || null;
-  } catch {
+  } catch (error) {
+    console.error('getPlayerCareerBatting failed:', error);
     return null;
   }
 }
@@ -536,6 +560,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
       SUM(${n('w')}) AS w, SUM(${n('l')}) AS l,
       SUM(${n('sv')}) AS saves,
       SUM(${n('ip')}) AS ip,
+      SUM(${n('h')}) AS h,
       SUM(${n('er')}) AS er,
       SUM(${n('so')}) AS ko, SUM(${n('bb')}) AS bb,
       CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND(SUM(${n('er')}) * 9 / SUM(${n('ip')}), 2) ELSE NULL END AS era,
@@ -548,7 +573,8 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
   try {
     const { rows } = await query(sql, [playerId]);
     return rows[0] || null;
-  } catch {
+  } catch (error) {
+    console.error('getPlayerCareerPitching failed:', error);
     return null;
   }
 }
@@ -876,4 +902,19 @@ if (!global.__pgSchemaBootstrapped) {
       console.error('Failed to bootstrap teams table:', err);
     }
   })();
+}
+
+// ---------------------------------------------------------------------------
+// Graceful shutdown
+// ---------------------------------------------------------------------------
+declare global {
+  var __pgPoolShutdownRegistered: any;
+}
+if (!global.__pgPoolShutdownRegistered) {
+  global.__pgPoolShutdownRegistered = true;
+  const shutdown = async () => {
+    try { await pool.end(); } catch { /* ignore */ }
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', async () => { await shutdown(); process.exit(0); });
 }
