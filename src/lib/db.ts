@@ -139,15 +139,17 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         teamid          AS pit_teamid,
         highlevel       AS pit_level,
         g               AS pg,
-        gs, w, l,
+        gs,
+        w, l,
         sv              AS saves,
         ip,
-        bb              AS pbb,
+        bb,
         so              AS ko,
         era, whip,
-        h9, bb9,
-        so9             AS k9,
-        so_bb           AS kbb,
+        h9,
+        bb9,
+        so9,
+        so_bb,
         draft_info      AS pit_draft_info,
         playyears       AS pit_playyears
       FROM tbc_pitching_2026_season_raw
@@ -189,11 +191,11 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb, lb.bb, lb.so,
       lb.avg, lb.obp, lb.slg, lb.ops,
       COALESCE(lb.draft_info, lp.pit_draft_info)  AS draft_info,
-      COALESCE(lb.playyears, lp.pit_playyears)     AS playyears,
+      COALESCE(lb.playyears, lp.pit_playyears)    AS playyears,
       lp.pitch_year,
       lp.pg, lp.gs, lp.w, lp.l, lp.saves,
-      lp.ip, lp.pbb, lp.ko,
-      lp.era, lp.whip, lp.h9, lp.bb9, lp.k9, lp.kbb,
+      lp.ip, lp.bb, lp.ko,
+      lp.era, lp.whip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
           lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
@@ -290,11 +292,17 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         teamid          AS pit_teamid,
         highlevel       AS pit_level,
         g               AS pg,
+        gs,
         w, l,
         sv              AS saves,
         ip,
+        bb,
         so              AS ko,
         era, whip,
+        h9,
+        bb9,
+        so9,
+        so_bb,
         draft_info      AS pit_draft_info,
         playyears       AS pit_playyears
       FROM public.v_tbc_pitching_all_seasons_resolved
@@ -332,8 +340,9 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       COALESCE(lb.draft_info, lp.pit_draft_info) AS draft_info,
       COALESCE(lb.playyears, lp.pit_playyears)   AS playyears,
       lp.pitch_year,
-      lp.pg, lp.w, lp.l, lp.saves,
-      lp.ip, lp.ko, lp.era, lp.whip,
+      lp.pg, lp.gs, lp.w, lp.l, lp.saves,
+      lp.ip, lp.bb, lp.ko, lp.era, lp.whip,
+      lp.h9, lp.bb9, lp.so9, lp.so_bb,
       CASE WHEN a26.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
@@ -381,7 +390,6 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const { rows } = await query(sql, [hsid]);
   return rows;
 }
-
 // ---------------------------------------------------------------------------
 // SINGLE PLAYER — full player data for profile page
 // ---------------------------------------------------------------------------
