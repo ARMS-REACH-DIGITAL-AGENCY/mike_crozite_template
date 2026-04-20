@@ -251,6 +251,9 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 // ALL-TIME ROSTER — every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  const n = (col: string) =>
+    `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
+
   const sql = `
     WITH school_players AS (
       SELECT
@@ -264,49 +267,128 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         tp.throws,
         tp.posit        AS position
       FROM player_hsids ph
-      JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
+      JOIN tbc_players_raw tp
+        ON ph.playerid::text = tp.playerid::text
       WHERE ph.hsid = $1
     ),
 
-    latest_batting AS (
+    latest_batting_level AS (
       SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS stat_year,
-        teamid,
-        highlevel       AS bat_level,
-        g, ab, r, h,
-        dbl             AS "2b",
-        hr, rbi, sb, bb,
-        bavg            AS avg,
-        obp, slg, ops,
+        playerid::text AS playerid,
+        year           AS stat_year,
+        highlevel      AS bat_level,
         draft_info,
         playyears
       FROM public.v_tbc_batting_all_seasons_resolved
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
-    latest_pitching AS (
+    latest_pitching_level AS (
       SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS pitch_year,
-        teamid          AS pit_teamid,
-        highlevel       AS pit_level,
-        g               AS pg,
-        gs,
-        w, l,
-        sv              AS saves,
-        ip,
-        bb,
-        so              AS ko,
-        era, whip,
-        h9,
-        bb9,
-        so9,
-        so_bb,
-        draft_info      AS pit_draft_info,
-        playyears       AS pit_playyears
+        playerid::text AS playerid,
+        year           AS pitch_year,
+        highlevel      AS pit_level,
+        draft_info     AS pit_draft_info,
+        playyears      AS pit_playyears
       FROM public.v_tbc_pitching_all_seasons_resolved
       ORDER BY playerid, year DESC, teamid DESC
+    ),
+
+    career_batting AS (
+      SELECT
+        playerid::text AS playerid,
+        COUNT(DISTINCT year) AS batting_seasons,
+        SUM(${n("g")})   AS g,
+        SUM(${n("ab")})  AS ab,
+        SUM(${n("r")})   AS r,
+        SUM(${n("h")})   AS h,
+        SUM(${n("dbl")}) AS "2b",
+        SUM(${n("tpl")}) AS "3b",
+        SUM(${n("hr")})  AS hr,
+        SUM(${n("rbi")}) AS rbi,
+        SUM(${n("sb")})  AS sb,
+        SUM(${n("bb")})  AS bb,
+        SUM(${n("so")})  AS so,
+        SUM(${n("tb")})  AS tb,
+        CASE
+          WHEN SUM(${n("ab")}) > 0
+          THEN ROUND(SUM(${n("h")}) / SUM(${n("ab")}), 3)
+          ELSE NULL
+        END AS avg,
+        CASE
+          WHEN SUM(${n("ab")}) + SUM(${n("bb")}) > 0
+          THEN ROUND(
+            (SUM(${n("h")}) + SUM(${n("bb")})) /
+            (SUM(${n("ab")}) + SUM(${n("bb")})),
+            3
+          )
+          ELSE NULL
+        END AS obp,
+        CASE
+          WHEN SUM(${n("ab")}) > 0
+          THEN ROUND(SUM(${n("tb")}) / SUM(${n("ab")}), 3)
+          ELSE NULL
+        END AS slg,
+        CASE
+          WHEN SUM(${n("ab")}) > 0 AND SUM(${n("ab")}) + SUM(${n("bb")}) > 0
+          THEN ROUND(
+            ((SUM(${n("h")}) + SUM(${n("bb")})) /
+             (SUM(${n("ab")}) + SUM(${n("bb")}))) +
+            (SUM(${n("tb")}) / SUM(${n("ab")})),
+            3
+          )
+          ELSE NULL
+        END AS ops
+      FROM public.v_tbc_batting_all_seasons_resolved
+      GROUP BY playerid::text
+    ),
+
+    career_pitching AS (
+      SELECT
+        playerid::text AS playerid,
+        COUNT(DISTINCT year) AS pitching_seasons,
+        SUM(${n("g")})   AS pg,
+        SUM(${n("gs")})  AS gs,
+        SUM(${n("w")})   AS w,
+        SUM(${n("l")})   AS l,
+        SUM(${n("sv")})  AS saves,
+        SUM(${n("ip")})  AS ip,
+        SUM(${n("h")})   AS h_allowed,
+        SUM(${n("er")})  AS er,
+        SUM(${n("bb")})  AS bb,
+        SUM(${n("so")})  AS ko,
+        CASE
+          WHEN SUM(${n("ip")}) > 0
+          THEN ROUND(SUM(${n("er")}) * 9 / SUM(${n("ip")}), 2)
+          ELSE NULL
+        END AS era,
+        CASE
+          WHEN SUM(${n("ip")}) > 0
+          THEN ROUND((SUM(${n("bb")}) + SUM(${n("h")})) / SUM(${n("ip")}), 2)
+          ELSE NULL
+        END AS whip,
+        CASE
+          WHEN SUM(${n("ip")}) > 0
+          THEN ROUND(SUM(${n("h")}) * 9 / SUM(${n("ip")}), 2)
+          ELSE NULL
+        END AS h9,
+        CASE
+          WHEN SUM(${n("ip")}) > 0
+          THEN ROUND(SUM(${n("bb")}) * 9 / SUM(${n("ip")}), 2)
+          ELSE NULL
+        END AS bb9,
+        CASE
+          WHEN SUM(${n("ip")}) > 0
+          THEN ROUND(SUM(${n("so")}) * 9 / SUM(${n("ip")}), 2)
+          ELSE NULL
+        END AS so9,
+        CASE
+          WHEN SUM(${n("bb")}) > 0
+          THEN ROUND(SUM(${n("so")}) / SUM(${n("bb")}), 2)
+          ELSE NULL
+        END AS so_bb
+      FROM public.v_tbc_pitching_all_seasons_resolved
+      GROUP BY playerid::text
     ),
 
     active_2026 AS (
@@ -326,34 +408,68 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
-      sp.career_highlevel                   AS level,
+      sp.career_highlevel AS level,
       sp.height,
       sp.weight,
       sp.bats,
       sp.throws,
       sp.position,
-      lb.stat_year,
-      lb.bat_level                          AS current_level,
-      lb.g, lb.ab, lb.r, lb.h,
-      lb."2b", lb.hr, lb.rbi, lb.sb, lb.bb,
-      lb.avg, lb.obp, lb.slg, lb.ops,
-      COALESCE(lb.draft_info, lp.pit_draft_info) AS draft_info,
-      COALESCE(lb.playyears, lp.pit_playyears)   AS playyears,
-      lp.pitch_year,
-      lp.pg, lp.gs, lp.w, lp.l, lp.saves,
-      lp.ip, lp.bb, lp.ko, lp.era, lp.whip,
-      lp.h9, lp.bb9, lp.so9, lp.so_bb,
+
+      -- latest context only
+      lbl.stat_year,
+      lbl.bat_level AS current_level,
+      lpl.pitch_year,
+
+      -- true career batting
+      cb.g,
+      cb.ab,
+      cb.r,
+      cb.h,
+      cb."2b",
+      cb."3b",
+      cb.hr,
+      cb.rbi,
+      cb.sb,
+      cb.bb,
+      cb.so,
+      cb.avg,
+      cb.obp,
+      cb.slg,
+      cb.ops,
+
+      -- true career pitching
+      cp.pg,
+      cp.gs,
+      cp.w,
+      cp.l,
+      cp.saves,
+      cp.ip,
+      cp.bb,
+      cp.ko,
+      cp.era,
+      cp.whip,
+      cp.h9,
+      cp.bb9,
+      cp.so9,
+      cp.so_bb,
+
+      COALESCE(lbl.draft_info, lpl.pit_draft_info) AS draft_info,
+      COALESCE(lbl.playyears, lpl.pit_playyears)   AS playyears,
+
       CASE WHEN a26.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
       CASE
-        WHEN lp.pitch_year IS NOT NULL AND (
-          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
-        ) THEN true
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
+        THEN true
         ELSE false
       END AS is_pitcher
+
     FROM school_players sp
-    LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
-    LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
-    LEFT JOIN active_2026     a26 ON sp.playerid::text = a26.playerid
+    LEFT JOIN latest_batting_level  lbl ON sp.playerid::text = lbl.playerid
+    LEFT JOIN latest_pitching_level lpl ON sp.playerid::text = lpl.playerid
+    LEFT JOIN career_batting        cb  ON sp.playerid::text = cb.playerid
+    LEFT JOIN career_pitching       cp  ON sp.playerid::text = cp.playerid
+    LEFT JOIN active_2026           a26 ON sp.playerid::text = a26.playerid
+
     ORDER BY
       CASE sp.career_highlevel
         WHEN 'MLB'           THEN 1
@@ -389,28 +505,6 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-}
-// ---------------------------------------------------------------------------
-// SINGLE PLAYER — full player data for profile page
-// ---------------------------------------------------------------------------
-export async function getPlayerById(playerId: string): Promise<any | null> {
-  const sql = `
-    SELECT
-      tp.playerid,
-      tp.firstname,
-      tp.lastname,
-      tp.highlevel    AS career_highlevel,
-      tp.ht           AS height,
-      tp.wt           AS weight,
-      tp.bats,
-      tp.throws,
-      tp.posit        AS position
-    FROM tbc_players_raw tp
-    WHERE tp.playerid::text = $1
-    LIMIT 1
-  `;
-  const { rows } = await query(sql, [playerId]);
-  return rows[0] || null;
 }
 
 export interface PlayerSlugMatch {
