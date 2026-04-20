@@ -278,36 +278,101 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         ph.playerid,
         tp.firstname,
         tp.lastname,
-        tp.highlevel    AS career_highlevel,
-        tp.ht           AS height,
-        tp.wt           AS weight,
+        tp.highlevel AS career_highlevel,
+        tp.ht AS height,
+        tp.wt AS weight,
         tp.bats,
         tp.throws,
-        tp.posit        AS position
+        tp.posit AS position
       FROM player_hsids ph
       JOIN tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
       WHERE ph.hsid = $1
     ),
 
-    latest_batting_level AS (
+    active_2026 AS (
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_batting_2026_season_raw
+      WHERE year = '2026'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+      UNION
+      SELECT DISTINCT playerid::text AS playerid
+      FROM tbc_pitching_2026_season_raw
+      WHERE year = '2026'
+        AND playerid::text IN (SELECT playerid::text FROM school_players)
+    ),
+
+    season_batting_2026 AS (
       SELECT DISTINCT ON (playerid)
         playerid::text AS playerid,
-        year           AS stat_year,
-        highlevel      AS bat_level,
+        year AS stat_year,
+        teamid,
+        highlevel AS bat_level,
+        g,
+        ab,
+        r,
+        h,
+        dbl AS "2b",
+        tpl AS "3b",
+        hr,
+        rbi,
+        sb,
+        bb AS bat_bb,
+        so,
+        bavg AS avg,
+        obp,
+        slg,
+        ops,
+        draft_info,
+        playyears
+      FROM tbc_batting_2026_season_raw
+      ORDER BY playerid, year DESC, teamid DESC
+    ),
+
+    season_pitching_2026 AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text AS playerid,
+        year AS pitch_year,
+        teamid AS pit_teamid,
+        highlevel AS pit_level,
+        g AS pg,
+        gs,
+        w,
+        l,
+        sv AS saves,
+        ip,
+        bb AS pit_bb,
+        so AS ko,
+        era,
+        whip,
+        h9,
+        bb9,
+        so9,
+        so_bb,
+        draft_info AS pit_draft_info,
+        playyears AS pit_playyears
+      FROM tbc_pitching_2026_season_raw
+      ORDER BY playerid, year DESC, teamid DESC
+    ),
+
+    latest_batting_context AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text AS playerid,
+        year AS latest_bat_year,
+        highlevel AS latest_bat_level,
         draft_info,
         playyears
       FROM public.v_tbc_batting_all_seasons_resolved
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
-    latest_pitching_level AS (
+    latest_pitching_context AS (
       SELECT DISTINCT ON (playerid)
         playerid::text AS playerid,
-        year           AS pitch_year,
-        highlevel      AS pit_level,
-        draft_info     AS pit_draft_info,
-        playyears      AS pit_playyears
+        year AS latest_pitch_year,
+        highlevel AS latest_pitch_level,
+        draft_info AS latest_pitch_draft_info,
+        playyears AS latest_pitch_playyears
       FROM public.v_tbc_pitching_all_seasons_resolved
       ORDER BY playerid, year DESC, teamid DESC
     ),
@@ -325,7 +390,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         SUM(${n("hr")})  AS hr,
         SUM(${n("rbi")}) AS rbi,
         SUM(${n("sb")})  AS sb,
-        SUM(${n("bb")})  AS bb,
+        SUM(${n("bb")})  AS bat_bb,
         SUM(${n("so")})  AS so,
         SUM(${n("tb")})  AS tb,
         CASE
@@ -365,16 +430,16 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       SELECT
         playerid::text AS playerid,
         COUNT(DISTINCT year) AS pitching_seasons,
-        SUM(${n("g")})   AS pg,
-        SUM(${n("gs")})  AS gs,
-        SUM(${n("w")})   AS w,
-        SUM(${n("l")})   AS l,
-        SUM(${n("sv")})  AS saves,
-        SUM(${n("ip")})  AS ip,
-        SUM(${n("h")})   AS h_allowed,
-        SUM(${n("er")})  AS er,
-        SUM(${n("bb")})  AS bb,
-        SUM(${n("so")})  AS ko,
+        SUM(${n("g")})  AS pg,
+        SUM(${n("gs")}) AS gs,
+        SUM(${n("w")})  AS w,
+        SUM(${n("l")})  AS l,
+        SUM(${n("sv")}) AS saves,
+        SUM(${n("ip")}) AS ip,
+        SUM(${n("h")})  AS h_allowed,
+        SUM(${n("er")}) AS er,
+        SUM(${n("bb")}) AS pit_bb,
+        SUM(${n("so")}) AS ko,
         CASE
           WHEN SUM(${n("ip")}) > 0
           THEN ROUND(SUM(${n("er")}) * 9 / SUM(${n("ip")}), 2)
@@ -409,87 +474,204 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       GROUP BY playerid::text
     ),
 
-    active_2026 AS (
-      SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_batting_2026_season_raw
-      WHERE year = '2026'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
-      UNION
-      SELECT DISTINCT playerid::text AS playerid
-      FROM tbc_pitching_2026_season_raw
-      WHERE year = '2026'
-        AND playerid::text IN (SELECT playerid::text FROM school_players)
+    merged AS (
+      SELECT
+        sp.playerid,
+        sp.firstname,
+        sp.lastname,
+        sp.career_highlevel,
+        sp.height,
+        sp.weight,
+        sp.bats,
+        sp.throws,
+        sp.position,
+
+        CASE WHEN a26.playerid IS NOT NULL THEN 'ACTIVE' ELSE 'RETIRED' END AS status_label,
+
+        CASE
+          WHEN a26.playerid IS NOT NULL THEN
+            CASE
+              WHEN sp26.playerid IS NOT NULL
+                   AND (sb26.playerid IS NULL OR sp26.pitch_year::int >= sb26.stat_year::int)
+              THEN true ELSE false
+            END
+          ELSE
+            CASE
+              WHEN cp.playerid IS NOT NULL
+                   AND (cb.playerid IS NULL OR COALESCE(lpc.latest_pitch_year,'0')::int >= COALESCE(lbc.latest_bat_year,'0')::int)
+              THEN true ELSE false
+            END
+        END AS is_pitcher,
+
+        sb26.stat_year AS active_stat_year,
+        sp26.pitch_year AS active_pitch_year,
+        lbc.latest_bat_year AS retired_stat_year,
+        lpc.latest_pitch_year AS retired_pitch_year,
+
+        sb26.g AS active_bat_g,
+        sb26.ab AS active_bat_ab,
+        sb26.r AS active_bat_r,
+        sb26.h AS active_bat_h,
+        sb26."2b" AS active_bat_2b,
+        sb26."3b" AS active_bat_3b,
+        sb26.hr AS active_bat_hr,
+        sb26.rbi AS active_bat_rbi,
+        sb26.sb AS active_bat_sb,
+        sb26.bat_bb AS active_bat_bb,
+        sb26.so AS active_bat_so,
+        sb26.avg AS active_bat_avg,
+        sb26.obp AS active_bat_obp,
+        sb26.slg AS active_bat_slg,
+        sb26.ops AS active_bat_ops,
+
+        cb.g AS career_bat_g,
+        cb.ab AS career_bat_ab,
+        cb.r AS career_bat_r,
+        cb.h AS career_bat_h,
+        cb."2b" AS career_bat_2b,
+        cb."3b" AS career_bat_3b,
+        cb.hr AS career_bat_hr,
+        cb.rbi AS career_bat_rbi,
+        cb.sb AS career_bat_sb,
+        cb.bat_bb AS career_bat_bb,
+        cb.so AS career_bat_so,
+        cb.avg AS career_bat_avg,
+        cb.obp AS career_bat_obp,
+        cb.slg AS career_bat_slg,
+        cb.ops AS career_bat_ops,
+
+        sp26.pg AS active_pit_g,
+        sp26.gs AS active_pit_gs,
+        sp26.w AS active_pit_w,
+        sp26.l AS active_pit_l,
+        sp26.saves AS active_pit_saves,
+        sp26.ip AS active_pit_ip,
+        sp26.pit_bb AS active_pit_bb,
+        sp26.ko AS active_pit_ko,
+        sp26.era AS active_pit_era,
+        sp26.whip AS active_pit_whip,
+        sp26.h9 AS active_pit_h9,
+        sp26.bb9 AS active_pit_bb9,
+        sp26.so9 AS active_pit_so9,
+        sp26.so_bb AS active_pit_so_bb,
+
+        cp.pg AS career_pit_g,
+        cp.gs AS career_pit_gs,
+        cp.w AS career_pit_w,
+        cp.l AS career_pit_l,
+        cp.saves AS career_pit_saves,
+        cp.ip AS career_pit_ip,
+        cp.pit_bb AS career_pit_bb,
+        cp.ko AS career_pit_ko,
+        cp.era AS career_pit_era,
+        cp.whip AS career_pit_whip,
+        cp.h9 AS career_pit_h9,
+        cp.bb9 AS career_pit_bb9,
+        cp.so9 AS career_pit_so9,
+        cp.so_bb AS career_pit_so_bb,
+
+        COALESCE(sb26.draft_info, sp26.pit_draft_info, lbc.draft_info, lpc.latest_pitch_draft_info) AS draft_info,
+        COALESCE(sb26.playyears, sp26.pit_playyears, lbc.playyears, lpc.latest_pitch_playyears) AS playyears
+      FROM school_players sp
+      LEFT JOIN active_2026 a26 ON sp.playerid::text = a26.playerid
+      LEFT JOIN season_batting_2026 sb26 ON sp.playerid::text = sb26.playerid
+      LEFT JOIN season_pitching_2026 sp26 ON sp.playerid::text = sp26.playerid
+      LEFT JOIN latest_batting_context lbc ON sp.playerid::text = lbc.playerid
+      LEFT JOIN latest_pitching_context lpc ON sp.playerid::text = lpc.playerid
+      LEFT JOIN career_batting cb ON sp.playerid::text = cb.playerid
+      LEFT JOIN career_pitching cp ON sp.playerid::text = cp.playerid
     )
 
     SELECT
-      sp.playerid,
-      sp.firstname,
-      sp.lastname,
-      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
-      sp.career_highlevel AS level,
-      sp.height,
-      sp.weight,
-      sp.bats,
-      sp.throws,
-      sp.position,
+      m.playerid,
+      m.firstname,
+      m.lastname,
+      COALESCE(NULLIF(TRIM(m.firstname || ' ' || m.lastname), ''), m.playerid::text) AS display_name,
+      m.career_highlevel AS level,
+      m.height,
+      m.weight,
+      m.bats,
+      m.throws,
+      m.position,
+      m.status_label,
+      m.is_pitcher,
 
-      -- latest context only
-      lbl.stat_year,
-      lbl.bat_level AS current_level,
-      lpl.pitch_year,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_stat_year
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.retired_stat_year
+           ELSE NULL END AS stat_year,
 
-      -- true career batting
-      cb.g,
-      cb.ab,
-      cb.r,
-      cb.h,
-      cb."2b",
-      cb."3b",
-      cb.hr,
-      cb.rbi,
-      cb.sb,
-      cb.bb,
-      cb.so,
-      cb.avg,
-      cb.obp,
-      cb.slg,
-      cb.ops,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pitch_year
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.retired_pitch_year
+           ELSE NULL END AS pitch_year,
 
-      -- true career pitching
-      cp.pg,
-      cp.gs,
-      cp.w,
-      cp.l,
-      cp.saves,
-      cp.ip,
-      cp.bb,
-      cp.ko,
-      cp.era,
-      cp.whip,
-      cp.h9,
-      cp.bb9,
-      cp.so9,
-      cp.so_bb,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_g
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_g END AS g,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_ab
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_ab END AS ab,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_r
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_r END AS r,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_h
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_h END AS h,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_2b
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_2b END AS "2b",
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_3b
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_3b END AS "3b",
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_hr
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_hr END AS hr,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_rbi
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_rbi END AS rbi,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_sb
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_sb END AS sb,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_bb
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_bb
+           WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_bb
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_bb
+           ELSE NULL END AS bb,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_so
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_so END AS so,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_avg
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_avg END AS avg,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_obp
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_obp END AS obp,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_slg
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_slg END AS slg,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = false THEN m.active_bat_ops
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = false THEN m.career_bat_ops END AS ops,
 
-      COALESCE(lbl.draft_info, lpl.pit_draft_info) AS draft_info,
-      COALESCE(lbl.playyears, lpl.pit_playyears)   AS playyears,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_g
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_g END AS pg,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_gs
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_gs END AS gs,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_w
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_w END AS w,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_l
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_l END AS l,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_saves
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_saves END AS saves,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_ip
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_ip END AS ip,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_ko
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_ko END AS ko,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_era
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_era END AS era,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_whip
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_whip END AS whip,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_h9
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_h9 END AS h9,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_bb9
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_bb9 END AS bb9,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_so9
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_so9 END AS so9,
+      CASE WHEN m.status_label = 'ACTIVE' AND m.is_pitcher = true THEN m.active_pit_so_bb
+           WHEN m.status_label = 'RETIRED' AND m.is_pitcher = true THEN m.career_pit_so_bb END AS so_bb,
 
-      CASE WHEN a26.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
-      CASE
-        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
-        THEN true
-        ELSE false
-      END AS is_pitcher
+      m.draft_info,
+      m.playyears,
+      CASE WHEN m.status_label = 'ACTIVE' THEN true ELSE false END AS is_active_2025
 
-    FROM school_players sp
-    LEFT JOIN latest_batting_level  lbl ON sp.playerid::text = lbl.playerid
-    LEFT JOIN latest_pitching_level lpl ON sp.playerid::text = lpl.playerid
-    LEFT JOIN career_batting        cb  ON sp.playerid::text = cb.playerid
-    LEFT JOIN career_pitching       cp  ON sp.playerid::text = cp.playerid
-    LEFT JOIN active_2026           a26 ON sp.playerid::text = a26.playerid
-
+    FROM merged m
     ORDER BY
-      CASE sp.career_highlevel
+      CASE m.career_highlevel
         WHEN 'MLB'           THEN 1
         WHEN 'TRIPLE-A'      THEN 2
         WHEN 'AAA'           THEN 2
@@ -518,8 +700,8 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         WHEN 'HS'            THEN 14
         ELSE 15
       END,
-      sp.lastname,
-      sp.firstname
+      m.lastname,
+      m.firstname
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
