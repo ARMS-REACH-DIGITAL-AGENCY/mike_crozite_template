@@ -71,10 +71,13 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const backImageSrc = getPlayerBackImageUrl(imageId);
 
   // ── Stats for FunZone ──────────────────────────────────────────────────────
-  const statYear = isPitcher ? p.pitch_year : p.stat_year;
-  const statBarLabel = isAllTime
-    ? "CAREER STATS"
-    : `${statYear ? `${statYear} ` : ""}${isPitcher ? "PITCHING" : "BATTING"}`;
+const statusLabel = String(p.status_label || "").toUpperCase();
+const useCareerStats = statusLabel === "RETIRED";
+
+const statYear = isPitcher ? p.pitch_year : p.stat_year;
+const statBarLabel = useCareerStats
+  ? "CAREER STATS"
+  : `${statYear ? `${statYear} ` : ""}${isPitcher ? "PITCHING" : "BATTING"}`;
 
   const batterStats = [
     { k: "AVG", v: fmt("AVG", p.avg) }, { k: "OBP", v: fmt("OBP", p.obp) },
