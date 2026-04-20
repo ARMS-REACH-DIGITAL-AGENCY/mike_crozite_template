@@ -28,7 +28,25 @@ const pool = new Pool({
   connectionTimeoutMillis: 15000,
   ssl: { rejectUnauthorized: false },
 });
-
+export async function getPlayerById(playerId: string): Promise<any | null> {
+  const sql = `
+    SELECT
+      tp.playerid,
+      tp.firstname,
+      tp.lastname,
+      tp.highlevel    AS career_highlevel,
+      tp.ht           AS height,
+      tp.wt           AS weight,
+      tp.bats,
+      tp.throws,
+      tp.posit        AS position
+    FROM tbc_players_raw tp
+    WHERE tp.playerid::text = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+}
 // Generic query helper
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
