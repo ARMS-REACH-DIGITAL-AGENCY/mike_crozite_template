@@ -61,9 +61,9 @@ REQUEST_HEADERS = {
 }
 
 FEED_URL_TEMPLATES = {
-    "players": "https://www.thebaseballcube.com/data/feed/yatstats/players/?pw={password}",
-    "batting": "https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw={password}",
-    "pitching": "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw={password}",
+    "players": "https://www.thebaseballcube.com/data/feed/yatstats/players/?pw=yattbc",
+    "batting": "https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw=yattbc",
+    "pitching": "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw=yattbc",
 }
 
 WARMUP_URL = "https://www.thebaseballcube.com/"
