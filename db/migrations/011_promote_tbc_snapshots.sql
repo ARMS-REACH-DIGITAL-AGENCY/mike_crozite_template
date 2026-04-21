@@ -79,7 +79,7 @@ FROM valid_players;
 
 -- 2. Promote Batting Stats Snapshots
 -- Source: tbc_batting_feed_snapshots
--- Target: tbc_batting_raw
+-- Target: tbc_batting_2026_season_raw
 
 WITH validated_batting AS (
     SELECT
@@ -169,14 +169,14 @@ valid_batting AS (
     WHERE snapshot_id NOT IN (SELECT snapshot_id FROM invalid_batting)
 ),
 deleted_batting AS (
-    DELETE FROM tbc_batting_raw t
+    DELETE FROM tbc_batting_2026_season_raw t
     USING valid_batting v
     WHERE t.playerid::text = v.playerid
       AND NULLIF(t.year::text, '')::integer = v.year
       AND NULLIF(t.teamid::text, '')::integer = v.teamid
     RETURNING t.playerid
 )
-INSERT INTO tbc_batting_raw (
+INSERT INTO tbc_batting_2026_season_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class, posit,
     g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp,
     tb, pa, xbh, sgl, bavg, obp, slg, ops, seca, iso, babip, bb_pct, so_pct,
@@ -192,7 +192,7 @@ FROM valid_batting;
 
 -- 3. Promote Pitching Stats Snapshots
 -- Source: tbc_pitching_feed_snapshots
--- Target: tbc_pitching_raw
+-- Target: tbc_pitching_2026_season_raw
 
 WITH validated_pitching AS (
     SELECT
@@ -273,14 +273,14 @@ valid_pitching AS (
     WHERE snapshot_id NOT IN (SELECT snapshot_id FROM invalid_pitching)
 ),
 deleted_pitching AS (
-    DELETE FROM tbc_pitching_raw t
+    DELETE FROM tbc_pitching_2026_season_raw t
     USING valid_pitching v
     WHERE t.playerid::text = v.playerid
       AND NULLIF(t.year::text, '')::integer = v.year
       AND NULLIF(t.teamid::text, '')::integer = v.teamid
     RETURNING t.playerid
 )
-    INSERT INTO tbc_pitching_raw (
+INSERT INTO tbc_pitching_2026_season_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class,
     w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb,
     era, whip, h9, hr9, bb9, so9, ra9, so_bb, highlevel, mlbyears, playyears, draft_info
