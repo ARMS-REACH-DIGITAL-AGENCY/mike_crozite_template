@@ -30,57 +30,65 @@ const pool = new Pool({
 });
 export async function getPlayerById(playerId: string): Promise<any | null> {
   const sql = `
-    SELECT
-      tp.playerid,
-      tp.firstname,
-      tp.lastname,
-      tp.highlevel    AS career_highlevel,
-      tp.ht           AS height,
-      tp.wt           AS weight,
-      tp.bats,
-      tp.throws,
-      tp.posit        AS position
-    FROM tbc_players_raw tp
-    WHERE tp.playerid::text = $1
-    LIMIT 1
+    with tbc_player as (
+      select
+        tp.playerid::text as playerid,
+        tp.firstname as first_name,
+        tp.lastname as last_name,
+        trim(coalesce(tp.firstname, '') || ' ' || coalesce(tp.lastname, '')) as display_name,
+        tp.highlevel as career_highlevel,
+        tp.ht as height,
+        tp.wt as weight,
+        tp.bats,
+        tp.throws,
+        tp.posit as position,
+        null::text as hsid,
+        null::text as class_of,
+        null::text[] as roster_years,
+        null::text as status_label,
+        null::text as level_label,
+        null::text as current_team_name,
+        null::text as current_org_or_conference_name,
+        'tbc_players_raw'::text as identity_source
+      from tbc_players_raw tp
+      where tp.playerid::text = $1
+      limit 1
+    ),
+    stage_player as (
+      select
+        f.playerid::text as playerid,
+        f.first_name,
+        f.last_name,
+        coalesce(
+          nullif(f.display_name, ''),
+          trim(coalesce(f.first_name, '') || ' ' || coalesce(f.last_name, ''))
+        ) as display_name,
+        null::text as career_highlevel,
+        null::text as height,
+        null::text as weight,
+        null::text as bats,
+        null::text as throws,
+        f.position,
+        f.hsid,
+        f.class_of,
+        f.roster_years,
+        f.status_label,
+        f.level_label,
+        f.current_team_name,
+        f.current_org_or_conference_name,
+        'flip_card_front_stage'::text as identity_source
+      from flip_card_front_stage f
+      where f.playerid::text = $1
+      limit 1
+    )
+    select * from tbc_player
+    union all
+    select * from stage_player
+    limit 1
   `;
   const { rows } = await query(sql, [playerId]);
   return rows[0] || null;
 }
-// Generic query helper
-export async function query<T extends QueryResultRow = QueryResultRow>(
-  text: string,
-  params: any[] = []
-): Promise<QueryResult<T>> {
-  try {
-    return await pool.query<T>(text, params);
-  } catch (error) {
-    console.error('Database query error:', error);
-    throw error;
-  }
-}
-// ---------------------------------------------------------------------------
-// Normalize host/URL input -> { hostOnly, httpsUrl }
-// ---------------------------------------------------------------------------
-function normalizeHostOrUrl(input: string) {
-  const raw = (input || '').trim();
-  if (!raw) return { hostOnly: '', httpsUrl: '' };
-  const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  let host = '';
-  try {
-    const u = new URL(withProto);
-    host = (u.hostname || '').toLowerCase();
-  } catch {
-    host = raw
-      .replace(/^https?:\/\//i, '')
-      .split('/')[0].split('?')[0].split('#')[0].split(':')[0]
-      .toLowerCase();
-  }
-  const hostOnly = host;
-  const httpsUrl = hostOnly ? `https://${hostOnly}` : '';
-  return { hostOnly, httpsUrl };
-}
-
 // ---------------------------------------------------------------------------
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
