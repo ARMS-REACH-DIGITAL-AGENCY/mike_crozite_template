@@ -6,7 +6,11 @@ on:
       feeds:
         description: "Comma-separated feeds to ingest"
         required: false
-        default: "players,batting,pitching"
+        default: "batting,pitching"
+      optional_feeds:
+        description: "Feeds allowed to fail without failing the whole workflow"
+        required: false
+        default: "players"
       year:
         description: "Year filter for batting/pitching"
         required: false
@@ -17,7 +21,7 @@ on:
 jobs:
   ingest-tbc-safe-v2:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -34,8 +38,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests psycopg[binary] cloudscraper playwright
-          python -m playwright install chromium
+          python -m pip install --upgrade pip
+          pip install requests psycopg[binary]
 
       - name: Resolve inputs
         id: vars
@@ -43,23 +47,24 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "feeds=${{ github.event.inputs.feeds }}" >> "$GITHUB_OUTPUT"
+            echo "optional_feeds=${{ github.event.inputs.optional_feeds }}" >> "$GITHUB_OUTPUT"
             echo "year=${{ github.event.inputs.year }}" >> "$GITHUB_OUTPUT"
           else
-            echo "feeds=players,batting,pitching" >> "$GITHUB_OUTPUT"
+            echo "feeds=batting,pitching" >> "$GITHUB_OUTPUT"
+            echo "optional_feeds=players" >> "$GITHUB_OUTPUT"
             echo "year=2026" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run strict TBC ingest
+      - name: Run TBC snapshot ingest
         run: |
           python scripts/ingest_tbc_safe_v2.py \
             --feeds "${{ steps.vars.outputs.feeds }}" \
+            --optional-feeds "${{ steps.vars.outputs.optional_feeds }}" \
             --year "${{ steps.vars.outputs.year }}"
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Promote snapshots to raw tables
+      - name: Promote snapshots to canonical tables
         run: |
-          set -e
-          echo "Running promotion SQL..."
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/011_promote_tbc_snapshots.sql
