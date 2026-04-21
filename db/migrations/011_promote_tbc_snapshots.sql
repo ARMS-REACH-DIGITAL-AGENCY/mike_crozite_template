@@ -171,9 +171,9 @@ valid_batting AS (
 deleted_batting AS (
     DELETE FROM tbc_batting_raw t
     USING valid_batting v
-    WHERE t.playerid = v.playerid
-      AND t.year = v.year
-      AND t.teamid = v.teamid
+    WHERE t.playerid::text = v.playerid
+      AND NULLIF(t.year::text, '')::integer = v.year
+      AND NULLIF(t.teamid::text, '')::integer = v.teamid
     RETURNING t.playerid
 )
 INSERT INTO tbc_batting_raw (
@@ -275,12 +275,12 @@ valid_pitching AS (
 deleted_pitching AS (
     DELETE FROM tbc_pitching_raw t
     USING valid_pitching v
-    WHERE t.playerid = v.playerid
-      AND t.year = v.year
-      AND t.teamid = v.teamid
+    WHERE t.playerid::text = v.playerid
+      AND NULLIF(t.year::text, '')::integer = v.year
+      AND NULLIF(t.teamid::text, '')::integer = v.teamid
     RETURNING t.playerid
 )
-INSERT INTO tbc_pitching_raw (
+    INSERT INTO tbc_pitching_raw (
     teamid, playerid, year, uniform, playername, age, ba, th, class,
     w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb,
     era, whip, h9, hr9, bb9, so9, ra9, so_bb, highlevel, mlbyears, playyears, draft_info
