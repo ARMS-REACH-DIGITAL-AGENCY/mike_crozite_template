@@ -4,13 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       feeds:
-        description: "Comma-separated feeds to ingest (players,batting,pitching). Leave blank for all."
+        description: "Comma-separated feeds to ingest"
         required: false
         default: "players,batting,pitching"
+      year:
+        description: "Year filter for batting/pitching"
+        required: false
+        default: "2026"
+  schedule:
+    - cron: "15 7 * * *"
 
 jobs:
   ingest-tbc-safe-v2:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -30,8 +37,23 @@ jobs:
           pip install requests psycopg[binary] cloudscraper playwright
           python -m playwright install chromium
 
-      - name: Run safe TBC ingest
-        run: python scripts/ingest_tbc_safe_v2.py --feeds "${{ inputs.feeds }}"
+      - name: Resolve inputs
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "feeds=${{ github.event.inputs.feeds }}" >> "$GITHUB_OUTPUT"
+            echo "year=${{ github.event.inputs.year }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "feeds=players,batting,pitching" >> "$GITHUB_OUTPUT"
+            echo "year=2026" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run strict TBC ingest
+        run: |
+          python scripts/ingest_tbc_safe_v2.py \
+            --feeds "${{ steps.vars.outputs.feeds }}" \
+            --year "${{ steps.vars.outputs.year }}"
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
