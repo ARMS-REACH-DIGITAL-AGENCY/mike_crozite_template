@@ -1,13 +1,21 @@
 -- SQL to promote data from snapshot tables to canonical raw tables with refined validation.
--- Strategy: Only promote CURRENT SEASON (2026) rows for daily updates.
--- Invalid rows are moved to tbc_invalid_rows.
+-- Strategy:
+--   1) validate today's snapshot rows
+--   2) write invalid rows to tbc_invalid_rows
+--   3) delete matching target keys for valid rows
+--   4) insert valid rows
+--
+-- This avoids ON CONFLICT requirements on target tables that do not have matching unique constraints.
+
+BEGIN;
 
 -- 1. Promote Player Identity Snapshots
--- Source: tbc_players_feed_snapshots (Identity feed)
+-- Source: tbc_players_feed_snapshots
 -- Target: tbc_players_raw
+
 WITH validated_players AS (
-    SELECT 
-        snapshot_id AS snapshot_id,
+    SELECT
+        snapshot_id,
         ingest_run_id,
         raw_payload,
         (raw_payload::jsonb->>'playerid')::TEXT AS playerid,
@@ -28,9 +36,12 @@ WITH validated_players AS (
 ),
 invalid_players AS (
     INSERT INTO tbc_invalid_rows (ingest_run_id, snapshot_id, feed_type, raw_payload, error_reason)
-    SELECT 
-        ingest_run_id, snapshot_id, 'players', raw_payload,
-        CASE 
+    SELECT
+        ingest_run_id,
+        snapshot_id,
+        'players',
+        raw_payload,
+        CASE
             WHEN playerid IS NULL THEN 'Missing playerid'
             WHEN firstname IS NULL THEN 'Missing firstname'
             WHEN lastname IS NULL THEN 'Missing lastname'
@@ -39,37 +50,40 @@ invalid_players AS (
     FROM validated_players
     WHERE playerid IS NULL OR firstname IS NULL OR lastname IS NULL
     RETURNING snapshot_id
+),
+valid_players AS (
+    SELECT
+        playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit,
+        borndate, currentage, place, high_school
+    FROM validated_players
+    WHERE playerid IS NOT NULL
+      AND firstname IS NOT NULL
+      AND lastname IS NOT NULL
+      AND snapshot_id NOT IN (SELECT snapshot_id FROM invalid_players)
+),
+deleted_players AS (
+    DELETE FROM tbc_players_raw t
+    USING valid_players v
+    WHERE t.playerid = v.playerid
+    RETURNING t.playerid
 )
 INSERT INTO tbc_players_raw (
-    playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit, 
+    playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit,
     borndate, currentage, place, high_school
 )
-SELECT 
-    playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit, 
+SELECT
+    playerid, firstname, lastname, highlevel, ht, wt, bats, throws, posit,
     borndate, currentage, place, high_school
-FROM validated_players
-WHERE playerid IS NOT NULL AND firstname IS NOT NULL AND lastname IS NOT NULL
-  AND snapshot_id NOT IN (SELECT snapshot_id FROM invalid_players)
-ON CONFLICT (playerid) DO UPDATE SET
-    firstname = EXCLUDED.firstname,
-    lastname = EXCLUDED.lastname,
-    highlevel = EXCLUDED.highlevel,
-    ht = EXCLUDED.ht,
-    wt = EXCLUDED.wt,
-    bats = EXCLUDED.bats,
-    throws = EXCLUDED.throws,
-    posit = EXCLUDED.posit,
-    borndate = EXCLUDED.borndate,
-    currentage = EXCLUDED.currentage,
-    place = EXCLUDED.place,
-    high_school = EXCLUDED.high_school;
+FROM valid_players;
+
 
 -- 2. Promote Batting Stats Snapshots
--- Source: tbc_batting_feed_snapshots (Batting stats feed)
+-- Source: tbc_batting_feed_snapshots
 -- Target: tbc_batting_raw
+
 WITH validated_batting AS (
-    SELECT 
-        snapshot_id AS snapshot_id,
+    SELECT
+        snapshot_id,
         ingest_run_id,
         raw_payload,
         (raw_payload::jsonb->>'teamid')::INTEGER AS teamid,
@@ -124,9 +138,12 @@ WITH validated_batting AS (
 ),
 invalid_batting AS (
     INSERT INTO tbc_invalid_rows (ingest_run_id, snapshot_id, feed_type, raw_payload, error_reason)
-    SELECT 
-        ingest_run_id, snapshot_id, 'batting', raw_payload,
-        CASE 
+    SELECT
+        ingest_run_id,
+        snapshot_id,
+        'batting',
+        raw_payload,
+        CASE
             WHEN playerid IS NULL THEN 'Missing playerid'
             WHEN bavg < 0 OR bavg > 1 THEN 'Invalid batting average (must be 0-1)'
             WHEN ops < 0 OR ops > 2 THEN 'Invalid OPS (must be 0-2)'
@@ -135,77 +152,51 @@ invalid_batting AS (
             ELSE 'Validation failed'
         END
     FROM validated_batting
-    WHERE playerid IS NULL 
-       OR bavg < 0 OR bavg > 1 
-       OR ops < 0 OR ops > 2 
+    WHERE playerid IS NULL
+       OR bavg < 0 OR bavg > 1
+       OR ops < 0 OR ops > 2
        OR ab < 0 OR h < 0 OR hr < 0 OR rbi < 0
        OR highlevel ~ '^[0-9.]+$'
     RETURNING snapshot_id
+),
+valid_batting AS (
+    SELECT
+        teamid, playerid, year, uniform, playername, age, ba, th, class, posit,
+        g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp,
+        tb, pa, xbh, sgl, bavg, obp, slg, ops, seca, iso, babip, bb_pct, so_pct,
+        so_bb, ab_hr, highlevel, mlbyears, playyears, draft_info
+    FROM validated_batting
+    WHERE snapshot_id NOT IN (SELECT snapshot_id FROM invalid_batting)
+),
+deleted_batting AS (
+    DELETE FROM tbc_batting_raw t
+    USING valid_batting v
+    WHERE t.playerid = v.playerid
+      AND t.year = v.year
+      AND t.teamid = v.teamid
+    RETURNING t.playerid
 )
 INSERT INTO tbc_batting_raw (
-    teamid, playerid, year, uniform, playername, age, ba, th, class, posit, 
-    g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp, 
-    tb, pa, xbh, sgl, bavg, obp, slg, ops, seca, iso, babip, bb_pct, so_pct, 
+    teamid, playerid, year, uniform, playername, age, ba, th, class, posit,
+    g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp,
+    tb, pa, xbh, sgl, bavg, obp, slg, ops, seca, iso, babip, bb_pct, so_pct,
     so_bb, ab_hr, highlevel, mlbyears, playyears, draft_info
 )
-SELECT 
-    teamid, playerid, year, uniform, playername, age, ba, th, class, posit, 
-    g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp, 
-    tb, pa, xbh, sgl, bavg, obp, slg, ops, seca, iso, babip, bb_pct, so_pct, 
+SELECT
+    teamid, playerid, year, uniform, playername, age, ba, th, class, posit,
+    g, ab, r, h, dbl, tpl, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp,
+    tb, pa, xbh, sgl, bavg, obp, slg, ops, seca, iso, babip, bb_pct, so_pct,
     so_bb, ab_hr, highlevel, mlbyears, playyears, draft_info
-FROM validated_batting
-WHERE snapshot_id NOT IN (SELECT snapshot_id FROM invalid_batting)
-ON CONFLICT (playerid, year, teamid) DO UPDATE SET
-    uniform = EXCLUDED.uniform,
-    playername = EXCLUDED.playername,
-    age = EXCLUDED.age,
-    ba = EXCLUDED.ba,
-    th = EXCLUDED.th,
-    class = EXCLUDED.class,
-    posit = EXCLUDED.posit,
-    g = EXCLUDED.g,
-    ab = EXCLUDED.ab,
-    r = EXCLUDED.r,
-    h = EXCLUDED.h,
-    dbl = EXCLUDED.dbl,
-    tpl = EXCLUDED.tpl,
-    hr = EXCLUDED.hr,
-    rbi = EXCLUDED.rbi,
-    sb = EXCLUDED.sb,
-    cs = EXCLUDED.cs,
-    bb = EXCLUDED.bb,
-    so = EXCLUDED.so,
-    hbp = EXCLUDED.hbp,
-    sh = EXCLUDED.sh,
-    sf = EXCLUDED.sf,
-    ibb = EXCLUDED.ibb,
-    gdp = EXCLUDED.gdp,
-    tb = EXCLUDED.tb,
-    pa = EXCLUDED.pa,
-    xbh = EXCLUDED.xbh,
-    sgl = EXCLUDED.sgl,
-    bavg = EXCLUDED.bavg,
-    obp = EXCLUDED.obp,
-    slg = EXCLUDED.slg,
-    ops = EXCLUDED.ops,
-    seca = EXCLUDED.seca,
-    iso = EXCLUDED.iso,
-    babip = EXCLUDED.babip,
-    bb_pct = EXCLUDED.bb_pct,
-    so_pct = EXCLUDED.so_pct,
-    so_bb = EXCLUDED.so_bb,
-    ab_hr = EXCLUDED.ab_hr,
-    highlevel = EXCLUDED.highlevel,
-    mlbyears = EXCLUDED.mlbyears,
-    playyears = EXCLUDED.playyears,
-    draft_info = EXCLUDED.draft_info;
+FROM valid_batting;
+
 
 -- 3. Promote Pitching Stats Snapshots
--- Source: tbc_pitching_feed_snapshots (Pitching stats feed)
+-- Source: tbc_pitching_feed_snapshots
 -- Target: tbc_pitching_raw
+
 WITH validated_pitching AS (
-    SELECT 
-        snapshot_id AS snapshot_id,
+    SELECT
+        snapshot_id,
         ingest_run_id,
         raw_payload,
         (raw_payload::jsonb->>'teamid')::INTEGER AS teamid,
@@ -254,9 +245,12 @@ WITH validated_pitching AS (
 ),
 invalid_pitching AS (
     INSERT INTO tbc_invalid_rows (ingest_run_id, snapshot_id, feed_type, raw_payload, error_reason)
-    SELECT 
-        ingest_run_id, snapshot_id, 'pitching', raw_payload,
-        CASE 
+    SELECT
+        ingest_run_id,
+        snapshot_id,
+        'pitching',
+        raw_payload,
+        CASE
             WHEN playerid IS NULL THEN 'Missing playerid'
             WHEN era < 0 OR era > 99.99 THEN 'Invalid ERA (must be 0-99.99)'
             WHEN ip < 0 OR so < 0 OR bb < 0 THEN 'Negative stats'
@@ -264,58 +258,37 @@ invalid_pitching AS (
             ELSE 'Validation failed'
         END
     FROM validated_pitching
-    WHERE playerid IS NULL 
-       OR era < 0 OR era > 99.99 
+    WHERE playerid IS NULL
+       OR era < 0 OR era > 99.99
        OR ip < 0 OR so < 0 OR bb < 0
        OR highlevel ~ '^[0-9.]+$'
     RETURNING snapshot_id
+),
+valid_pitching AS (
+    SELECT
+        teamid, playerid, year, uniform, playername, age, ba, th, class,
+        w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb,
+        era, whip, h9, hr9, bb9, so9, ra9, so_bb, highlevel, mlbyears, playyears, draft_info
+    FROM validated_pitching
+    WHERE snapshot_id NOT IN (SELECT snapshot_id FROM invalid_pitching)
+),
+deleted_pitching AS (
+    DELETE FROM tbc_pitching_raw t
+    USING valid_pitching v
+    WHERE t.playerid = v.playerid
+      AND t.year = v.year
+      AND t.teamid = v.teamid
+    RETURNING t.playerid
 )
 INSERT INTO tbc_pitching_raw (
-    teamid, playerid, year, uniform, playername, age, ba, th, class, 
-    w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb, 
+    teamid, playerid, year, uniform, playername, age, ba, th, class,
+    w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb,
     era, whip, h9, hr9, bb9, so9, ra9, so_bb, highlevel, mlbyears, playyears, draft_info
 )
-SELECT 
-    teamid, playerid, year, uniform, playername, age, ba, th, class, 
-    w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb, 
+SELECT
+    teamid, playerid, year, uniform, playername, age, ba, th, class,
+    w, l, g, gs, cg, sho, gr, gf, sv, ip, h, r, er, hr, bb, so, wp, bk, hb,
     era, whip, h9, hr9, bb9, so9, ra9, so_bb, highlevel, mlbyears, playyears, draft_info
-FROM validated_pitching
-WHERE snapshot_id NOT IN (SELECT snapshot_id FROM invalid_pitching)
-ON CONFLICT (playerid, year, teamid) DO UPDATE SET
-    uniform = EXCLUDED.uniform,
-    playername = EXCLUDED.playername,
-    age = EXCLUDED.age,
-    ba = EXCLUDED.ba,
-    th = EXCLUDED.th,
-    class = EXCLUDED.class,
-    w = EXCLUDED.w,
-    l = EXCLUDED.l,
-    g = EXCLUDED.g,
-    gs = EXCLUDED.gs,
-    cg = EXCLUDED.cg,
-    sho = EXCLUDED.sho,
-    gr = EXCLUDED.gr,
-    gf = EXCLUDED.gf,
-    sv = EXCLUDED.sv,
-    ip = EXCLUDED.ip,
-    h = EXCLUDED.h,
-    r = EXCLUDED.r,
-    er = EXCLUDED.er,
-    hr = EXCLUDED.hr,
-    bb = EXCLUDED.bb,
-    so = EXCLUDED.so,
-    wp = EXCLUDED.wp,
-    bk = EXCLUDED.bk,
-    hb = EXCLUDED.hb,
-    era = EXCLUDED.era,
-    whip = EXCLUDED.whip,
-    h9 = EXCLUDED.h9,
-    hr9 = EXCLUDED.hr9,
-    bb9 = EXCLUDED.bb9,
-    so9 = EXCLUDED.so9,
-    ra9 = EXCLUDED.ra9,
-    so_bb = EXCLUDED.so_bb,
-    highlevel = EXCLUDED.highlevel,
-    mlbyears = EXCLUDED.mlbyears,
-    playyears = EXCLUDED.playyears,
-    draft_info = EXCLUDED.draft_info;
+FROM valid_pitching;
+
+COMMIT;
