@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
-"""Safe snapshot-first ingest for TBC YAT stats feeds with refined validation and delta tracking."""
+"""Strict snapshot-first ingest for TBC YAT stats feeds.
+
+Design:
+- Fetch live CSV from TBC feed URLs
+- Validate rows
+- Append valid rows into snapshot tables
+- Append invalid rows into tbc_invalid_rows
+- Mark ingest runs accurately
+- FAIL the process if any requested feed fails or inserts zero rows
+"""
 
 from __future__ import annotations
 
 import argparse
 import csv
-import io
 import json
+import logging
 import os
+import re
 import sys
 import uuid
-import re
-import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Iterable, List, Dict, Tuple, Any
+from typing import Iterable, List
 
 import psycopg
 import requests
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
 
@@ -37,7 +44,7 @@ try:
 except ImportError:
     sync_playwright = None
 
-BASE_URL = "https://thebaseballcube.com/data/feed/yatstats"
+
 VALID_FEEDS = ("players", "batting", "pitching")
 HEADER_RENAMES = {
     "2b": "dbl",
@@ -53,7 +60,13 @@ REQUEST_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
-    "Referer": "https://thebaseballcube.com/",
+    "Referer": "https://www.thebaseballcube.com/",
+}
+
+FEED_URL_TEMPLATES = {
+    "players": "https://www.thebaseballcube.com/data/feed/yatstats/players/?pw={password}",
+    "batting": "https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw={password}",
+    "pitching": "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw={password}",
 }
 
 
@@ -65,9 +78,9 @@ class FeedConfig:
 
 
 FEED_TABLES = {
-    "players": FeedConfig(feed_type="players", snapshot_table="tbc_players_feed_snapshots", expected_cols=13),
-    "batting": FeedConfig(feed_type="batting", snapshot_table="tbc_batting_feed_snapshots", expected_cols=46),
-    "pitching": FeedConfig(feed_type="pitching", snapshot_table="tbc_pitching_feed_snapshots", expected_cols=40),
+    "players": FeedConfig("players", "tbc_players_feed_snapshots", 13),
+    "batting": FeedConfig("batting", "tbc_batting_feed_snapshots", 46),
+    "pitching": FeedConfig("pitching", "tbc_pitching_feed_snapshots", 40),
 }
 
 
@@ -76,17 +89,17 @@ class IngestError(Exception):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Safely ingest TBC CSV feeds into snapshot tables.")
+    parser = argparse.ArgumentParser(description="Strictly ingest TBC CSV feeds into snapshot tables.")
     parser.add_argument(
         "--feeds",
-        default=",".join(VALID_FEEDS),
+        default="players,batting,pitching",
         help="Comma-separated list of feeds (players,batting,pitching).",
     )
     parser.add_argument(
         "--year",
         type=int,
         default=2026,
-        help="Filter stats by year (default: 2026). Use 0 for all years.",
+        help="Filter batting/pitching stats by year (default: 2026). Use 0 for all years.",
     )
     return parser.parse_args()
 
@@ -99,7 +112,7 @@ def require_env(var_name: str) -> str:
 
 
 def parse_feed_list(raw_feeds: str) -> list[str]:
-    feeds = [f.strip().lower() for f in raw_feeds.split(",") if f.strip()]
+    feeds = [f.strip().lower() for f in (raw_feeds or "").split(",") if f.strip()]
     if not feeds:
         raise IngestError("No feeds specified. Provide at least one feed.")
 
@@ -115,13 +128,14 @@ def parse_feed_list(raw_feeds: str) -> list[str]:
 
 
 def build_feed_url(feed_type: str, feed_password: str) -> str:
-    return f"{BASE_URL}/{feed_type}/?pw={feed_password}"
+    template = FEED_URL_TEMPLATES[feed_type]
+    return template.format(password=feed_password)
 
 
 def is_html_or_challenge(body: str, content_type: str) -> bool:
-    probe = (body[:1000] or "").lower()
+    probe = (body[:2000] or "").lower()
     ctype = (content_type or "").lower()
-    html_markers = ("<html", "<!doctype", "cloudflare", "just a moment", "captcha")
+    html_markers = ("<html", "<!doctype", "cloudflare", "just a moment", "captcha", "attention required")
     return "text/html" in ctype or any(marker in probe for marker in html_markers)
 
 
@@ -131,18 +145,16 @@ def normalize_header(header: str) -> str:
 
 
 def robust_csv_split(line: str) -> List[str]:
-    """
-    Splits a CSV line while handling quoted values with commas.
-    """
     reader = csv.reader([line])
     try:
         return next(reader)
     except Exception:
-        return line.split(',')
+        return line.split(",")
 
 
 def is_numeric(val: str | None) -> bool:
-    if val is None: return False
+    if val is None:
+        return False
     try:
         float(val)
         return True
@@ -151,9 +163,6 @@ def is_numeric(val: str | None) -> bool:
 
 
 def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]:
-    """
-    Validates a row based on feed-specific rules.
-    """
     try:
         if not row.get("playerid"):
             return False, "Missing playerid"
@@ -161,24 +170,22 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
         if feed_type == "players":
             if not row.get("firstname") or not row.get("lastname"):
                 return False, "Missing firstname or lastname"
-        
+
         elif feed_type == "batting":
-            # Validate numeric fields
             for field in ["ab", "h", "hr", "rbi"]:
                 val = row.get(field)
                 if val is None or not val.strip().isdigit():
                     return False, f"Non-integer field: {field}={val}"
                 if int(val) < 0:
                     return False, f"Negative stat: {field}={val}"
-            
-            # Validate batting average and OPS
+
             bavg_str = row.get("bavg", "0")
             if not is_numeric(bavg_str):
                 return False, f"Non-numeric batting average: {bavg_str}"
             bavg = float(bavg_str)
             if bavg < 0 or bavg > 1:
                 return False, f"Invalid batting average: {bavg}"
-            
+
             ops_str = row.get("ops", "0")
             if not is_numeric(ops_str):
                 return False, f"Non-numeric OPS: {ops_str}"
@@ -186,21 +193,18 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
             if ops < 0 or ops > 2:
                 return False, f"Invalid OPS: {ops}"
 
-            # Detect level shift
             highlevel = row.get("highlevel", "")
-            if re.match(r'^[0-9.]+$', highlevel):
+            if re.match(r"^[0-9.]+$", highlevel):
                 return False, f"Level field contains numeric value: {highlevel}"
 
         elif feed_type == "pitching":
-            # Validate numeric fields
             for field in ["ip", "so", "bb"]:
                 val = row.get(field)
                 if not is_numeric(val):
                     return False, f"Non-numeric field: {field}={val}"
                 if float(val) < 0:
                     return False, f"Negative stat: {field}={val}"
-            
-            # Validate ERA
+
             era_str = row.get("era", "0")
             if not is_numeric(era_str):
                 return False, f"Non-numeric ERA: {era_str}"
@@ -208,9 +212,8 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
             if era < 0 or era > 99.99:
                 return False, f"Invalid ERA: {era}"
 
-            # Detect level shift
             highlevel = row.get("highlevel", "")
-            if re.match(r'^[0-9.]+$', highlevel):
+            if re.match(r"^[0-9.]+$", highlevel):
                 return False, f"Level field contains numeric value: {highlevel}"
 
         return True, None
@@ -218,7 +221,11 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
         return False, f"Validation exception: {str(e)}"
 
 
-def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) -> tuple[list[str], list[dict[str, str]], list[tuple[dict[str, str], str]]]:
+def parse_csv_rows(
+    feed_type: str,
+    response_text: str,
+    filter_year: int = 2026,
+) -> tuple[list[str], list[dict[str, str]], list[tuple[dict[str, str], str]]]:
     lines = response_text.strip().splitlines()
     if not lines:
         raise IngestError(f"{feed_type}: empty response")
@@ -226,42 +233,37 @@ def parse_csv_rows(feed_type: str, response_text: str, filter_year: int = 2026) 
     header_line = lines[0]
     headers = robust_csv_split(header_line)
     normalized_headers = [normalize_header(h) for h in headers]
-    
+
     if "playerid" not in normalized_headers:
         raise IngestError(f"{feed_type}: required playerid column is missing")
 
     expected_count = len(normalized_headers)
     valid_rows: list[dict[str, str]] = []
     invalid_rows: list[tuple[dict[str, str], str]] = []
-    
-    for i, line in enumerate(lines[1:], start=2):
+
+    for line_no, line in enumerate(lines[1:], start=2):
         if not line.strip():
             continue
-            
+
         parts = robust_csv_split(line)
-        
-        # Defensive alignment: if we have too many columns, try to merge the uniform column
+
         if len(parts) > expected_count:
-            # In batting/pitching(stats), uniform is index 3 (0-based)
             if feed_type in ("batting", "pitching") and expected_count >= 4:
                 extra = len(parts) - expected_count
-                merged_uniform = ",".join(parts[3:3+extra+1])
-                new_parts = parts[:3] + [merged_uniform] + parts[3+extra+1:]
-                parts = new_parts
-        
+                merged_uniform = ",".join(parts[3 : 3 + extra + 1])
+                parts = parts[:3] + [merged_uniform] + parts[3 + extra + 1 :]
+
         if len(parts) != expected_count:
-            invalid_rows.append(({"raw_line": line}, f"Column mismatch: got {len(parts)}, expected {expected_count}"))
+            invalid_rows.append(({"raw_line": line, "line_no": str(line_no)}, f"Column mismatch: got {len(parts)}, expected {expected_count}"))
             continue
 
         row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
-        
-        # Filter by year for stats feeds
+
         if filter_year > 0 and feed_type in ("batting", "pitching"):
             row_year = row_dict.get("year")
             if row_year and str(row_year) != str(filter_year):
                 continue
 
-        # Validate row
         is_valid, reason = validate_row(feed_type, row_dict)
         if is_valid:
             valid_rows.append(row_dict)
@@ -364,50 +366,47 @@ def append_snapshot_rows(
 def log_invalid_rows(cur: psycopg.Cursor, ingest_run_id: str, feed_type: str, invalid_rows: list[tuple[dict[str, str], str]]) -> None:
     if not invalid_rows:
         return
-    
-    row_values = [
-        (ingest_run_id, feed_type, json.dumps(row), reason)
-        for row, reason in invalid_rows
-    ]
-    
+
     with cur.copy(
         "COPY tbc_invalid_rows (ingest_run_id, feed_type, raw_payload, error_reason) FROM STDIN"
     ) as copy:
-        for val in row_values:
-            copy.write_row(val)
+        for row, reason in invalid_rows:
+            copy.write_row((ingest_run_id, feed_type, json.dumps(row), reason))
 
 
 def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
-    # 1. Requests
-    logger.info(f"{feed_type}: attempting fetch via requests")
+    logger.info("%s: fetching %s", feed_type, source_url)
+
     try:
         response = requests.get(source_url, headers=REQUEST_HEADERS, timeout=60)
         response.raise_for_status()
-        if not is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+        content_type = response.headers.get("content-type", "")
+        logger.info("%s: requests status=%s content_type=%s bytes=%s", feed_type, response.status_code, content_type, len(response.text))
+        if not is_html_or_challenge(response.text, content_type):
             return response.text
-        logger.warning(f"{feed_type}: requests returned HTML/challenge")
+        logger.warning("%s: requests returned HTML/challenge", feed_type)
     except Exception as e:
-        logger.warning(f"{feed_type}: requests failed: {e}")
+        logger.warning("%s: requests failed: %s", feed_type, e)
 
-    # 2. Cloudscraper
     if cloudscraper is not None:
-        logger.info(f"{feed_type}: attempting fetch via cloudscraper")
         try:
+            logger.info("%s: attempting cloudscraper fallback", feed_type)
             scraper = cloudscraper.create_scraper(
                 browser={"browser": "chrome", "platform": "windows", "mobile": False}
             )
             response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
             response.raise_for_status()
-            if not is_html_or_challenge(response.text, response.headers.get("content-type", "")):
+            content_type = response.headers.get("content-type", "")
+            logger.info("%s: cloudscraper status=%s content_type=%s bytes=%s", feed_type, response.status_code, content_type, len(response.text))
+            if not is_html_or_challenge(response.text, content_type):
                 return response.text
-            logger.warning(f"{feed_type}: cloudscraper returned HTML/challenge")
+            logger.warning("%s: cloudscraper returned HTML/challenge", feed_type)
         except Exception as e:
-            logger.warning(f"{feed_type}: cloudscraper failed: {e}")
+            logger.warning("%s: cloudscraper failed: %s", feed_type, e)
 
-    # 3. Playwright
     if sync_playwright is not None:
-        logger.info(f"{feed_type}: attempting fetch via playwright")
         try:
+            logger.info("%s: attempting playwright fallback", feed_type)
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page(
@@ -420,7 +419,6 @@ def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
                         "Referer": REQUEST_HEADERS["Referer"],
                     },
                 )
-
                 response = page.goto(source_url, wait_until="networkidle", timeout=90000)
                 if response is None:
                     browser.close()
@@ -428,13 +426,14 @@ def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
 
                 body_text = page.locator("body").inner_text(timeout=10000)
                 content_type = response.headers.get("content-type", "")
+                logger.info("%s: playwright status=%s content_type=%s bytes=%s", feed_type, response.status, content_type, len(body_text))
                 browser.close()
 
                 if not is_html_or_challenge(body_text, content_type):
                     return body_text
-                logger.warning(f"{feed_type}: playwright returned HTML/challenge")
+                logger.warning("%s: playwright returned HTML/challenge", feed_type)
         except Exception as e:
-            logger.warning(f"{feed_type}: playwright failed: {e}")
+            logger.warning("%s: playwright failed: %s", feed_type, e)
 
     raise IngestError(f"{feed_type}: all fetch strategies failed")
 
@@ -453,11 +452,13 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
         response_text = fetch_feed_response_text(feed_type, source_url)
         _, valid_rows, invalid_rows = parse_csv_rows(feed_type, response_text, filter_year)
 
+        if len(valid_rows) == 0:
+            raise IngestError(f"{feed_type}: zero valid rows after fetch/parse")
+
         snapshot_ts = datetime.now(timezone.utc)
         snapshot_date = snapshot_ts.date()
 
         with conn.cursor() as cur:
-            # Insert valid rows into snapshots
             inserted = append_snapshot_rows(
                 cur,
                 feed_cfg.snapshot_table,
@@ -467,20 +468,32 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
                 source_url,
                 valid_rows,
             )
-            
-            # Log invalid rows
             log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
-            
-            # Finalize run summary
-            finalize_ingest_run(cur, ingest_run_id, "succeeded", len(valid_rows) + len(invalid_rows), len(valid_rows), len(invalid_rows), None)
+            finalize_ingest_run(
+                cur,
+                ingest_run_id,
+                "succeeded",
+                len(valid_rows) + len(invalid_rows),
+                len(valid_rows),
+                len(invalid_rows),
+                None,
+            )
 
         conn.commit()
-        logger.info(f"{feed_type}: ingested {inserted} valid rows, {len(invalid_rows)} invalid rows (run_id={ingest_run_id})")
+        logger.info(
+            "%s: inserted=%s valid=%s invalid=%s snapshot_date=%s run_id=%s",
+            feed_type,
+            inserted,
+            len(valid_rows),
+            len(invalid_rows),
+            snapshot_date.isoformat(),
+            ingest_run_id,
+        )
         return inserted
 
     except Exception as exc:
         error_message = str(exc)
-        logger.error(f"{feed_type} ingest failed: {error_message}")
+        logger.error("%s ingest failed: %s", feed_type, error_message)
         with conn.cursor() as cur:
             finalize_ingest_run(cur, ingest_run_id, "failed", 0, 0, 0, error_message[:4000])
         conn.commit()
@@ -495,18 +508,27 @@ def main() -> int:
         feed_password = require_env("TBC_FEED_PASSWORD")
 
         total_rows = 0
+        failures: list[str] = []
+
         with psycopg.connect(database_url) as conn:
             for feed_type in feeds:
                 try:
-                    total_rows += run_feed_ingest(conn, feed_type, feed_password, args.year)
-                except Exception:
-                    continue
+                    inserted = run_feed_ingest(conn, feed_type, feed_password, args.year)
+                    total_rows += inserted
+                except Exception as exc:
+                    failures.append(f"{feed_type}: {exc}")
 
-        logger.info(f"Completed safe ingest for feeds={feeds}; total_rows={total_rows}")
+        if failures:
+            raise IngestError(" ; ".join(failures))
+
+        if total_rows <= 0:
+            raise IngestError("No rows were ingested across requested feeds")
+
+        logger.info("Completed strict ingest for feeds=%s total_rows=%s", feeds, total_rows)
         return 0
 
     except Exception as exc:
-        logger.error(f"FATAL ERROR: {exc}")
+        logger.error("FATAL ERROR: %s", exc)
         return 1
 
 
