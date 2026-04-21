@@ -70,22 +70,61 @@ export async function GET(req: NextRequest) {
     const pattern = `%${qRaw}%`;
 
     const sql = `
-      SELECT DISTINCT ON (tp.playerid)
-        tp.playerid::text AS playerid,
-        tp.firstname,
-        tp.lastname,
-        ph.hsid::text AS hsid,
-        ss.hsname,
-        ss.hslocation
-      FROM player_hsids ph
-      JOIN tbc_players_raw tp ON tp.playerid::text = ph.playerid::text
-      JOIN school_success ss ON ss.hsid::text = ph.hsid::text
-      WHERE
-        tp.firstname ILIKE $1
-        OR tp.lastname ILIKE $1
-        OR (tp.firstname || ' ' || tp.lastname) ILIKE $1
-      ORDER BY tp.playerid, tp.lastname, tp.firstname
-      LIMIT $2
+      with tbc_matches as (
+        select distinct on (tp.playerid::text, ph.hsid::text)
+          tp.playerid::text as playerid,
+          tp.firstname as firstname,
+          tp.lastname as lastname,
+          ph.hsid::text as hsid,
+          ss.hsname,
+          ss.hslocation,
+          'tbc'::text as source_rank
+        from player_hsids ph
+        join tbc_players_raw tp
+          on tp.playerid::text = ph.playerid::text
+        join school_success ss
+          on ss.hsid::text = ph.hsid::text
+        where
+          tp.firstname ilike $1
+          or tp.lastname ilike $1
+          or (tp.firstname || ' ' || tp.lastname) ilike $1
+        order by tp.playerid::text, ph.hsid::text, tp.lastname, tp.firstname
+      ),
+      stage_matches as (
+        select distinct on (f.playerid::text, f.hsid::text)
+          f.playerid::text as playerid,
+          f.first_name as firstname,
+          f.last_name as lastname,
+          f.hsid::text as hsid,
+          ss.hsname,
+          ss.hslocation,
+          'stage'::text as source_rank
+        from flip_card_front_stage f
+        join school_success ss
+          on ss.hsid::text = f.hsid::text
+        where
+          (
+            f.first_name ilike $1
+            or f.last_name ilike $1
+            or coalesce(f.display_name, '') ilike $1
+            or (coalesce(f.first_name, '') || ' ' || coalesce(f.last_name, '')) ilike $1
+          )
+          and not exists (
+            select 1
+            from tbc_players_raw tp
+            where tp.playerid::text = f.playerid::text
+          )
+        order by f.playerid::text, f.hsid::text, f.last_name, f.first_name
+      ),
+      combined as (
+        select * from tbc_matches
+        union all
+        select * from stage_matches
+      )
+      select *
+      from combined
+      order by lastname nulls last, firstname nulls last, playerid
+      limit $2
     `;
 
     const { rows } = await query(sql, [pattern, limit]);
