@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Snapshot-first ingest for TBC YAT?STATS feeds.
+"""Direct ingest for TBC YAT?STATS feeds.
 
-Architecture:
-- Fetch live CSV from TBC feed URLs using a simple browser-like requests session
-- Write valid rows to snapshot tables
-- Write invalid rows to tbc_invalid_rows
+What this version does:
+- Fetch live CSV from TBC feed URLs
+- Parse and validate rows
+- Load rows into reusable landing tables (all TEXT columns)
+- Truncate/reload canonical raw tables directly
 - Record ingest runs in tbc_ingest_runs
+- Record invalid rows in tbc_invalid_rows
 - FAIL the job if required feeds fail or insert zero valid rows
 
-Important:
-- This script DOES NOT write directly to canonical season tables
-- Promotion into canonical tables is handled by db/migrations/011_promote_tbc_snapshots.sql
+This replaces the prior snapshot-first pattern.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import logging
 import os
@@ -24,10 +25,11 @@ import re
 import sys
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Iterable
 
 import psycopg
+from psycopg import sql
 import requests
 
 
@@ -37,7 +39,6 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
-
 
 VALID_FEEDS = ("players", "batting", "pitching")
 
@@ -72,13 +73,14 @@ WARMUP_URL = "https://www.thebaseballcube.com/"
 @dataclass(frozen=True)
 class FeedConfig:
     feed_type: str
-    snapshot_table: str
+    landing_table: str
+    target_table: str
 
 
 FEED_TABLES = {
-    "players": FeedConfig("players", "tbc_players_feed_snapshots"),
-    "batting": FeedConfig("batting", "tbc_batting_feed_snapshots"),
-    "pitching": FeedConfig("pitching", "tbc_pitching_feed_snapshots"),
+    "players": FeedConfig("players", "tbc_players_landing_latest", "tbc_players_raw"),
+    "batting": FeedConfig("batting", "tbc_batting_landing_latest", "tbc_batting_2026_season_raw"),
+    "pitching": FeedConfig("pitching", "tbc_pitching_landing_latest", "tbc_pitching_2026_season_raw"),
 }
 
 
@@ -87,10 +89,10 @@ class IngestError(Exception):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Ingest TBC YAT?STATS feeds into snapshot tables.")
+    parser = argparse.ArgumentParser(description="Direct-ingest TBC YAT?STATS feeds into landing and raw tables.")
     parser.add_argument(
         "--feeds",
-        default="batting,pitching",
+        default="batting,pitching,players",
         help="Comma-separated feeds to ingest. Example: batting,pitching or batting,pitching,players",
     )
     parser.add_argument(
@@ -130,8 +132,8 @@ def parse_feed_list(raw_feeds: str) -> list[str]:
     return deduped
 
 
-def build_feed_url(feed_type: str, feed_password: str) -> str:
-    return FEED_URL_TEMPLATES[feed_type].format(password=feed_password)
+def build_feed_url(feed_type: str) -> str:
+    return FEED_URL_TEMPLATES[feed_type]
 
 
 def redact_url(url: str) -> str:
@@ -165,7 +167,10 @@ def looks_like_csv(body: str) -> bool:
 
 def normalize_header(header: str) -> str:
     normalized = (header or "").strip().lower()
-    return HEADER_RENAMES.get(normalized, normalized)
+    normalized = HEADER_RENAMES.get(normalized, normalized)
+    normalized = re.sub(r"[^\w]+", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized
 
 
 def robust_csv_split(line: str) -> list[str]:
@@ -343,58 +348,6 @@ def finalize_ingest_run(
     )
 
 
-def append_snapshot_rows(
-    cur: psycopg.Cursor,
-    table_name: str,
-    ingest_run_id: str,
-    snapshot_ts: datetime,
-    snapshot_date: date,
-    source_url: str,
-    rows: Iterable[dict[str, str]],
-) -> int:
-    row_values = [
-        (
-            ingest_run_id,
-            snapshot_ts,
-            snapshot_date,
-            row.get("playerid", "unknown"),
-            source_url,
-            json.dumps(row),
-        )
-        for row in rows
-    ]
-
-    if not row_values:
-        return 0
-
-    with cur.copy(
-        f"""
-        COPY {table_name} (
-            ingest_run_id,
-            snapshot_ts,
-            snapshot_date,
-            playerid,
-            source_url,
-            raw_payload
-        ) FROM STDIN
-        """
-    ) as copy:
-        for value in row_values:
-            ingest_run_id_v, snapshot_ts_v, snapshot_date_v, playerid_v, source_url_v, raw_payload_v = value
-            copy.write_row(
-                (
-                    ingest_run_id_v,
-                    snapshot_ts_v.isoformat(),
-                    snapshot_date_v.isoformat(),
-                    playerid_v,
-                    source_url_v,
-                    raw_payload_v,
-                )
-            )
-
-    return len(row_values)
-
-
 def log_invalid_rows(
     cur: psycopg.Cursor,
     ingest_run_id: str,
@@ -461,16 +414,111 @@ def fetch_feed_response_text(session: requests.Session, feed_type: str, source_u
         raise IngestError(f"{feed_type}: request error: {exc}") from exc
 
 
+def get_table_columns(cur: psycopg.Cursor, table_name: str) -> list[str]:
+    schema_name, bare_table_name = table_name.split(".", 1) if "." in table_name else ("public", table_name)
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = %s
+          AND table_name = %s
+        ORDER BY ordinal_position
+        """,
+        (schema_name, bare_table_name),
+    )
+    return [r[0] for r in cur.fetchall()]
+
+
+def recreate_landing_table(cur: psycopg.Cursor, table_name: str, headers: list[str]) -> None:
+    schema_name, bare_table_name = table_name.split(".", 1) if "." in table_name else ("public", table_name)
+
+    cur.execute(
+        sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name))
+    )
+    cur.execute(
+        sql.SQL("DROP TABLE IF EXISTS {}.{}").format(
+            sql.Identifier(schema_name),
+            sql.Identifier(bare_table_name),
+        )
+    )
+
+    column_defs = [
+        sql.SQL("{} text").format(sql.Identifier(col))
+        for col in headers
+    ]
+
+    cur.execute(
+        sql.SQL("CREATE TABLE {}.{} ({})").format(
+            sql.Identifier(schema_name),
+            sql.Identifier(bare_table_name),
+            sql.SQL(", ").join(column_defs),
+        )
+    )
+
+
+def copy_rows_to_landing(
+    cur: psycopg.Cursor,
+    landing_table: str,
+    headers: list[str],
+    rows: Iterable[dict[str, str]],
+) -> int:
+    rows = list(rows)
+    if not rows:
+        return 0
+
+    copy_sql = sql.SQL("COPY {} ({}) FROM STDIN WITH (FORMAT csv)").format(
+        sql.SQL(landing_table),
+        sql.SQL(", ").join(sql.Identifier(h) for h in headers),
+    )
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    for row in rows:
+        writer.writerow([row.get(h, "") for h in headers])
+    buf.seek(0)
+
+    with cur.copy(copy_sql) as copy:
+        copy.write(buf.read())
+
+    return len(rows)
+
+
+def replace_target_from_landing(
+    cur: psycopg.Cursor,
+    landing_table: str,
+    target_table: str,
+) -> int:
+    landing_columns = set(get_table_columns(cur, landing_table))
+    target_columns = get_table_columns(cur, target_table)
+
+    common_columns = [col for col in target_columns if col in landing_columns]
+    if not common_columns:
+        raise IngestError(f"No common columns between {landing_table} and {target_table}")
+
+    col_list = sql.SQL(", ").join(sql.Identifier(c) for c in common_columns)
+
+    cur.execute(sql.SQL("TRUNCATE TABLE {}").format(sql.SQL(target_table)))
+    cur.execute(
+        sql.SQL("INSERT INTO {} ({}) SELECT {} FROM {}").format(
+            sql.SQL(target_table),
+            col_list,
+            col_list,
+            sql.SQL(landing_table),
+        )
+    )
+    cur.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.SQL(target_table)))
+    return int(cur.fetchone()[0])
+
+
 def run_feed_ingest(
     conn: psycopg.Connection,
     session: requests.Session,
     feed_type: str,
-    feed_password: str,
     filter_year: int = 2026,
 ) -> int:
     feed_cfg = FEED_TABLES[feed_type]
     ingest_run_id = str(uuid.uuid4())
-    source_url = build_feed_url(feed_type, feed_password)
+    source_url = build_feed_url(feed_type)
     started_at = datetime.now(timezone.utc)
 
     with conn.cursor() as cur:
@@ -479,46 +527,36 @@ def run_feed_ingest(
 
     try:
         response_text = fetch_feed_response_text(session, feed_type, source_url)
-        _, valid_rows, invalid_rows = parse_csv_rows(feed_type, response_text, filter_year)
+        headers, valid_rows, invalid_rows = parse_csv_rows(feed_type, response_text, filter_year)
 
         if len(valid_rows) == 0:
             raise IngestError(f"{feed_type}: zero valid rows after fetch/parse")
 
-        snapshot_ts = datetime.now(timezone.utc)
-        snapshot_date = snapshot_ts.date()
-
         with conn.cursor() as cur:
-            inserted = append_snapshot_rows(
-                cur=cur,
-                table_name=feed_cfg.snapshot_table,
-                ingest_run_id=ingest_run_id,
-                snapshot_ts=snapshot_ts,
-                snapshot_date=snapshot_date,
-                source_url=source_url,
-                rows=valid_rows,
-            )
+            recreate_landing_table(cur, feed_cfg.landing_table, headers)
+            landing_count = copy_rows_to_landing(cur, feed_cfg.landing_table, headers, valid_rows)
+            target_count = replace_target_from_landing(cur, feed_cfg.landing_table, feed_cfg.target_table)
             log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
             finalize_ingest_run(
                 cur,
                 ingest_run_id,
                 "succeeded",
                 len(valid_rows) + len(invalid_rows),
-                len(valid_rows),
+                landing_count,
                 len(invalid_rows),
                 None,
             )
         conn.commit()
 
         logger.info(
-            "%s: inserted=%s valid=%s invalid=%s snapshot_date=%s run_id=%s",
+            "%s: landing_rows=%s target_rows=%s invalid=%s run_id=%s",
             feed_type,
-            inserted,
-            len(valid_rows),
+            landing_count,
+            target_count,
             len(invalid_rows),
-            snapshot_date.isoformat(),
             ingest_run_id,
         )
-        return inserted
+        return landing_count
 
     except Exception as exc:
         error_message = str(exc)
@@ -544,7 +582,7 @@ def main() -> int:
         optional_feeds = set(parse_feed_list(args.optional_feeds)) if args.optional_feeds.strip() else set()
 
         database_url = require_env("DATABASE_URL")
-        feed_password = require_env("TBC_FEED_PASSWORD")
+
 
         total_rows = 0
         hard_failures: list[str] = []
@@ -556,7 +594,7 @@ def main() -> int:
         with psycopg.connect(database_url) as conn:
             for feed_type in feeds:
                 try:
-                    inserted = run_feed_ingest(conn, session, feed_type, feed_password, args.year)
+                    inserted = run_feed_ingest(conn, session, feed_type, args.year)
                     total_rows += inserted
                 except Exception as exc:
                     msg = f"{feed_type}: {exc}"
@@ -575,7 +613,7 @@ def main() -> int:
         if soft_failures:
             logger.warning("Completed with optional feed failures: %s", " ; ".join(soft_failures))
 
-        logger.info("Completed ingest for feeds=%s total_rows=%s", feeds, total_rows)
+        logger.info("Completed direct ingest for feeds=%s total_rows=%s", feeds, total_rows)
         return 0
 
     except Exception as exc:
