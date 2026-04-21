@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Strict snapshot-first ingest for TBC YAT stats feeds.
+"""Snapshot-first ingest for TBC YAT?STATS feeds.
 
-Design:
-- Fetch live CSV from TBC feed URLs
-- Validate rows
-- Append valid rows into snapshot tables
-- Append invalid rows into tbc_invalid_rows
-- Mark ingest runs accurately
-- FAIL the process if any requested feed fails or inserts zero rows
+Architecture:
+- Fetch live CSV from TBC feed URLs using a simple browser-like requests session
+- Write valid rows to snapshot tables
+- Write invalid rows to tbc_invalid_rows
+- Record ingest runs in tbc_ingest_runs
+- FAIL the job if required feeds fail or insert zero valid rows
+
+Important:
+- This script DOES NOT write directly to canonical season tables
+- Promotion into canonical tables is handled by db/migrations/011_promote_tbc_snapshots.sql
 """
 
 from __future__ import annotations
@@ -22,10 +25,11 @@ import sys
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Iterable, List
+from typing import Iterable
 
 import psycopg
 import requests
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,33 +38,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-try:
-    import cloudscraper
-except ImportError:
-    cloudscraper = None
-
-try:
-    from playwright.sync_api import sync_playwright
-except ImportError:
-    sync_playwright = None
-
 
 VALID_FEEDS = ("players", "batting", "pitching")
+
 HEADER_RENAMES = {
     "2b": "dbl",
     "3b": "tpl",
 }
+
 REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/122.0.0.0 Safari/537.36"
+        "Chrome/124.0.0.0 Safari/537.36"
     ),
     "Accept": "text/csv,application/json;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
     "Referer": "https://www.thebaseballcube.com/",
+    "Connection": "keep-alive",
 }
 
 FEED_URL_TEMPLATES = {
@@ -69,18 +66,19 @@ FEED_URL_TEMPLATES = {
     "pitching": "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw={password}",
 }
 
+WARMUP_URL = "https://www.thebaseballcube.com/"
 
-@dataclass
+
+@dataclass(frozen=True)
 class FeedConfig:
     feed_type: str
     snapshot_table: str
-    expected_cols: int
 
 
 FEED_TABLES = {
-    "players": FeedConfig("players", "tbc_players_feed_snapshots", 13),
-    "batting": FeedConfig("batting", "tbc_batting_feed_snapshots", 46),
-    "pitching": FeedConfig("pitching", "tbc_pitching_feed_snapshots", 40),
+    "players": FeedConfig("players", "tbc_players_feed_snapshots"),
+    "batting": FeedConfig("batting", "tbc_batting_feed_snapshots"),
+    "pitching": FeedConfig("pitching", "tbc_pitching_feed_snapshots"),
 }
 
 
@@ -89,17 +87,22 @@ class IngestError(Exception):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Strictly ingest TBC CSV feeds into snapshot tables.")
+    parser = argparse.ArgumentParser(description="Ingest TBC YAT?STATS feeds into snapshot tables.")
     parser.add_argument(
         "--feeds",
-        default="players,batting,pitching",
-        help="Comma-separated list of feeds (players,batting,pitching).",
+        default="batting,pitching",
+        help="Comma-separated feeds to ingest. Example: batting,pitching or batting,pitching,players",
+    )
+    parser.add_argument(
+        "--optional-feeds",
+        default="players",
+        help="Comma-separated feeds that should not fail the whole job if they fail.",
     )
     parser.add_argument(
         "--year",
         type=int,
         default=2026,
-        help="Filter batting/pitching stats by year (default: 2026). Use 0 for all years.",
+        help="Filter batting/pitching rows by year. Use 0 for all years.",
     )
     return parser.parse_args()
 
@@ -114,7 +117,7 @@ def require_env(var_name: str) -> str:
 def parse_feed_list(raw_feeds: str) -> list[str]:
     feeds = [f.strip().lower() for f in (raw_feeds or "").split(",") if f.strip()]
     if not feeds:
-        raise IngestError("No feeds specified. Provide at least one feed.")
+        raise IngestError("No feeds specified.")
 
     invalid = [f for f in feeds if f not in VALID_FEEDS]
     if invalid:
@@ -128,15 +131,36 @@ def parse_feed_list(raw_feeds: str) -> list[str]:
 
 
 def build_feed_url(feed_type: str, feed_password: str) -> str:
-    template = FEED_URL_TEMPLATES[feed_type]
-    return template.format(password=feed_password)
+    return FEED_URL_TEMPLATES[feed_type].format(password=feed_password)
+
+
+def redact_url(url: str) -> str:
+    return re.sub(r"([?&]pw=)[^&]+", r"\1***", url)
 
 
 def is_html_or_challenge(body: str, content_type: str) -> bool:
-    probe = (body[:2000] or "").lower()
+    probe = (body[:2500] or "").lower()
     ctype = (content_type or "").lower()
-    html_markers = ("<html", "<!doctype", "cloudflare", "just a moment", "captcha", "attention required")
+    html_markers = (
+        "<html",
+        "<!doctype",
+        "cloudflare",
+        "just a moment",
+        "checking your browser",
+        "attention required",
+        "cf-browser-verification",
+        "cf_clearance",
+    )
     return "text/html" in ctype or any(marker in probe for marker in html_markers)
+
+
+def looks_like_csv(body: str) -> bool:
+    first = (body or "").lstrip()
+    return (
+        first.startswith("teamid,")
+        or first.startswith("playerid,")
+        or ("playerid" in first.splitlines()[0].lower() if first else False)
+    )
 
 
 def normalize_header(header: str) -> str:
@@ -144,7 +168,7 @@ def normalize_header(header: str) -> str:
     return HEADER_RENAMES.get(normalized, normalized)
 
 
-def robust_csv_split(line: str) -> List[str]:
+def robust_csv_split(line: str) -> list[str]:
     reader = csv.reader([line])
     try:
         return next(reader)
@@ -194,7 +218,7 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
                 return False, f"Invalid OPS: {ops}"
 
             highlevel = row.get("highlevel", "")
-            if re.match(r"^[0-9.]+$", highlevel):
+            if highlevel and re.match(r"^[0-9.]+$", highlevel):
                 return False, f"Level field contains numeric value: {highlevel}"
 
         elif feed_type == "pitching":
@@ -213,12 +237,12 @@ def validate_row(feed_type: str, row: dict[str, str]) -> tuple[bool, str | None]
                 return False, f"Invalid ERA: {era}"
 
             highlevel = row.get("highlevel", "")
-            if re.match(r"^[0-9.]+$", highlevel):
+            if highlevel and re.match(r"^[0-9.]+$", highlevel):
                 return False, f"Level field contains numeric value: {highlevel}"
 
         return True, None
-    except Exception as e:
-        return False, f"Validation exception: {str(e)}"
+    except Exception as exc:
+        return False, f"Validation exception: {exc}"
 
 
 def parse_csv_rows(
@@ -228,7 +252,7 @@ def parse_csv_rows(
 ) -> tuple[list[str], list[dict[str, str]], list[tuple[dict[str, str], str]]]:
     lines = response_text.strip().splitlines()
     if not lines:
-        raise IngestError(f"{feed_type}: empty response")
+        raise IngestError(f"{feed_type}: empty response body")
 
     header_line = lines[0]
     headers = robust_csv_split(header_line)
@@ -247,17 +271,21 @@ def parse_csv_rows(
 
         parts = robust_csv_split(line)
 
-        if len(parts) > expected_count:
-            if feed_type in ("batting", "pitching") and expected_count >= 4:
-                extra = len(parts) - expected_count
-                merged_uniform = ",".join(parts[3 : 3 + extra + 1])
-                parts = parts[:3] + [merged_uniform] + parts[3 + extra + 1 :]
+        if len(parts) > expected_count and feed_type in ("batting", "pitching") and expected_count >= 4:
+            extra = len(parts) - expected_count
+            merged_uniform = ",".join(parts[3 : 3 + extra + 1])
+            parts = parts[:3] + [merged_uniform] + parts[3 + extra + 1 :]
 
         if len(parts) != expected_count:
-            invalid_rows.append(({"raw_line": line, "line_no": str(line_no)}, f"Column mismatch: got {len(parts)}, expected {expected_count}"))
+            invalid_rows.append(
+                (
+                    {"raw_line": line, "line_no": str(line_no)},
+                    f"Column mismatch: got {len(parts)}, expected {expected_count}",
+                )
+            )
             continue
 
-        row_dict = {normalized_headers[j]: parts[j].strip() for j in range(expected_count)}
+        row_dict = {normalized_headers[i]: parts[i].strip() for i in range(expected_count)}
 
         if filter_year > 0 and feed_type in ("batting", "pitching"):
             row_year = row_dict.get("year")
@@ -281,10 +309,13 @@ def create_ingest_run(cur: psycopg.Cursor, ingest_run_id: str, feed_type: str, s
             feed_type,
             started_at,
             status,
-            row_count
-        ) VALUES (%s, %s, %s, %s, %s)
+            row_count,
+            valid_count,
+            invalid_count,
+            error_message
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (ingest_run_id, feed_type, started_at, "running", 0),
+        (ingest_run_id, feed_type, started_at, "running", 0, 0, 0, None),
     )
 
 
@@ -348,7 +379,8 @@ def append_snapshot_rows(
         ) FROM STDIN
         """
     ) as copy:
-        for ingest_run_id_v, snapshot_ts_v, snapshot_date_v, playerid_v, source_url_v, raw_payload_v in row_values:
+        for value in row_values:
+            ingest_run_id_v, snapshot_ts_v, snapshot_date_v, playerid_v, source_url_v, raw_payload_v = value
             copy.write_row(
                 (
                     ingest_run_id_v,
@@ -363,7 +395,12 @@ def append_snapshot_rows(
     return len(row_values)
 
 
-def log_invalid_rows(cur: psycopg.Cursor, ingest_run_id: str, feed_type: str, invalid_rows: list[tuple[dict[str, str], str]]) -> None:
+def log_invalid_rows(
+    cur: psycopg.Cursor,
+    ingest_run_id: str,
+    feed_type: str,
+    invalid_rows: list[tuple[dict[str, str], str]],
+) -> None:
     if not invalid_rows:
         return
 
@@ -374,82 +411,74 @@ def log_invalid_rows(cur: psycopg.Cursor, ingest_run_id: str, feed_type: str, in
             copy.write_row((ingest_run_id, feed_type, json.dumps(row), reason))
 
 
-def fetch_feed_response_text(feed_type: str, source_url: str) -> str:
-    logger.info("%s: fetching %s", feed_type, source_url)
+def make_session() -> requests.Session:
+    session = requests.Session()
+    session.headers.update(REQUEST_HEADERS)
+    return session
+
+
+def warmup_session(session: requests.Session) -> None:
+    try:
+        res = session.get(WARMUP_URL, timeout=30, allow_redirects=True)
+        logger.info(
+            "warmup: status=%s content_type=%s",
+            res.status_code,
+            res.headers.get("content-type", ""),
+        )
+    except Exception as exc:
+        logger.warning("warmup failed: %s", exc)
+
+
+def fetch_feed_response_text(session: requests.Session, feed_type: str, source_url: str) -> str:
+    logger.info("%s: fetching %s", feed_type, redact_url(source_url))
 
     try:
-        response = requests.get(source_url, headers=REQUEST_HEADERS, timeout=60)
-        response.raise_for_status()
+        response = session.get(source_url, timeout=60, allow_redirects=True)
         content_type = response.headers.get("content-type", "")
-        logger.info("%s: requests status=%s content_type=%s bytes=%s", feed_type, response.status_code, content_type, len(response.text))
-        if not is_html_or_challenge(response.text, content_type):
-            return response.text
-        logger.warning("%s: requests returned HTML/challenge", feed_type)
-    except Exception as e:
-        logger.warning("%s: requests failed: %s", feed_type, e)
+        logger.info(
+            "%s: status=%s content_type=%s bytes=%s final_url=%s",
+            feed_type,
+            response.status_code,
+            content_type,
+            len(response.text or ""),
+            redact_url(str(response.url)),
+        )
+        response.raise_for_status()
 
-    if cloudscraper is not None:
-        try:
-            logger.info("%s: attempting cloudscraper fallback", feed_type)
-            scraper = cloudscraper.create_scraper(
-                browser={"browser": "chrome", "platform": "windows", "mobile": False}
-            )
-            response = scraper.get(source_url, headers=REQUEST_HEADERS, timeout=60)
-            response.raise_for_status()
-            content_type = response.headers.get("content-type", "")
-            logger.info("%s: cloudscraper status=%s content_type=%s bytes=%s", feed_type, response.status_code, content_type, len(response.text))
-            if not is_html_or_challenge(response.text, content_type):
-                return response.text
-            logger.warning("%s: cloudscraper returned HTML/challenge", feed_type)
-        except Exception as e:
-            logger.warning("%s: cloudscraper failed: %s", feed_type, e)
+        if is_html_or_challenge(response.text, content_type):
+            preview = (response.text[:200] or "").replace("\n", " ")
+            raise IngestError(f"{feed_type}: received HTML/challenge instead of CSV: {preview}")
 
-    if sync_playwright is not None:
-        try:
-            logger.info("%s: attempting playwright fallback", feed_type)
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page(
-                    user_agent=REQUEST_HEADERS["User-Agent"],
-                    extra_http_headers={
-                        "Accept": REQUEST_HEADERS["Accept"],
-                        "Accept-Language": REQUEST_HEADERS["Accept-Language"],
-                        "Cache-Control": REQUEST_HEADERS["Cache-Control"],
-                        "Pragma": REQUEST_HEADERS["Pragma"],
-                        "Referer": REQUEST_HEADERS["Referer"],
-                    },
-                )
-                response = page.goto(source_url, wait_until="networkidle", timeout=90000)
-                if response is None:
-                    browser.close()
-                    raise IngestError(f"{feed_type}: playwright got no response")
+        if not looks_like_csv(response.text):
+            preview = (response.text[:200] or "").replace("\n", " ")
+            raise IngestError(f"{feed_type}: response did not look like CSV: {preview}")
 
-                body_text = page.locator("body").inner_text(timeout=10000)
-                content_type = response.headers.get("content-type", "")
-                logger.info("%s: playwright status=%s content_type=%s bytes=%s", feed_type, response.status, content_type, len(body_text))
-                browser.close()
+        return response.text
 
-                if not is_html_or_challenge(body_text, content_type):
-                    return body_text
-                logger.warning("%s: playwright returned HTML/challenge", feed_type)
-        except Exception as e:
-            logger.warning("%s: playwright failed: %s", feed_type, e)
-
-    raise IngestError(f"{feed_type}: all fetch strategies failed")
+    except requests.HTTPError as exc:
+        raise IngestError(f"{feed_type}: HTTP error: {exc}") from exc
+    except requests.RequestException as exc:
+        raise IngestError(f"{feed_type}: request error: {exc}") from exc
 
 
-def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str, filter_year: int = 2026) -> int:
+def run_feed_ingest(
+    conn: psycopg.Connection,
+    session: requests.Session,
+    feed_type: str,
+    feed_password: str,
+    filter_year: int = 2026,
+) -> int:
     feed_cfg = FEED_TABLES[feed_type]
     ingest_run_id = str(uuid.uuid4())
     source_url = build_feed_url(feed_type, feed_password)
     started_at = datetime.now(timezone.utc)
 
     with conn.cursor() as cur:
-        create_ingest_run(cur, ingest_run_id, feed_cfg.feed_type, started_at)
+        create_ingest_run(cur, ingest_run_id, feed_type, started_at)
     conn.commit()
 
     try:
-        response_text = fetch_feed_response_text(feed_type, source_url)
+        response_text = fetch_feed_response_text(session, feed_type, source_url)
         _, valid_rows, invalid_rows = parse_csv_rows(feed_type, response_text, filter_year)
 
         if len(valid_rows) == 0:
@@ -460,13 +489,13 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
 
         with conn.cursor() as cur:
             inserted = append_snapshot_rows(
-                cur,
-                feed_cfg.snapshot_table,
-                ingest_run_id,
-                snapshot_ts,
-                snapshot_date,
-                source_url,
-                valid_rows,
+                cur=cur,
+                table_name=feed_cfg.snapshot_table,
+                ingest_run_id=ingest_run_id,
+                snapshot_ts=snapshot_ts,
+                snapshot_date=snapshot_date,
+                source_url=source_url,
+                rows=valid_rows,
             )
             log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
             finalize_ingest_run(
@@ -478,8 +507,8 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
                 len(invalid_rows),
                 None,
             )
-
         conn.commit()
+
         logger.info(
             "%s: inserted=%s valid=%s invalid=%s snapshot_date=%s run_id=%s",
             feed_type,
@@ -495,7 +524,15 @@ def run_feed_ingest(conn: psycopg.Connection, feed_type: str, feed_password: str
         error_message = str(exc)
         logger.error("%s ingest failed: %s", feed_type, error_message)
         with conn.cursor() as cur:
-            finalize_ingest_run(cur, ingest_run_id, "failed", 0, 0, 0, error_message[:4000])
+            finalize_ingest_run(
+                cur,
+                ingest_run_id,
+                "failed",
+                0,
+                0,
+                0,
+                error_message[:4000],
+            )
         conn.commit()
         raise
 
@@ -504,27 +541,41 @@ def main() -> int:
     try:
         args = parse_args()
         feeds = parse_feed_list(args.feeds)
+        optional_feeds = set(parse_feed_list(args.optional_feeds)) if args.optional_feeds.strip() else set()
+
         database_url = require_env("DATABASE_URL")
         feed_password = require_env("TBC_FEED_PASSWORD")
 
         total_rows = 0
-        failures: list[str] = []
+        hard_failures: list[str] = []
+        soft_failures: list[str] = []
+
+        session = make_session()
+        warmup_session(session)
 
         with psycopg.connect(database_url) as conn:
             for feed_type in feeds:
                 try:
-                    inserted = run_feed_ingest(conn, feed_type, feed_password, args.year)
+                    inserted = run_feed_ingest(conn, session, feed_type, feed_password, args.year)
                     total_rows += inserted
                 except Exception as exc:
-                    failures.append(f"{feed_type}: {exc}")
+                    msg = f"{feed_type}: {exc}"
+                    if feed_type in optional_feeds:
+                        logger.warning("optional feed failed: %s", msg)
+                        soft_failures.append(msg)
+                    else:
+                        hard_failures.append(msg)
 
-        if failures:
-            raise IngestError(" ; ".join(failures))
+        if hard_failures:
+            raise IngestError(" ; ".join(hard_failures))
 
         if total_rows <= 0:
             raise IngestError("No rows were ingested across requested feeds")
 
-        logger.info("Completed strict ingest for feeds=%s total_rows=%s", feeds, total_rows)
+        if soft_failures:
+            logger.warning("Completed with optional feed failures: %s", " ; ".join(soft_failures))
+
+        logger.info("Completed ingest for feeds=%s total_rows=%s", feeds, total_rows)
         return 0
 
     except Exception as exc:
