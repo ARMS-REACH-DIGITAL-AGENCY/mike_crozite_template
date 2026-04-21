@@ -130,17 +130,51 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
   });
 
   const body = await res.text();
+  const contentType = res.headers.get("content-type") || "";
+  const preview = body.slice(0, 500).replace(/\s+/g, " ").trim();
 
   if (!res.ok) {
-    throw new Error(`Fetch failed ${res.status} ${res.statusText}: ${body.slice(0, 200)}`);
+    throw new Error(`Fetch failed ${res.status} ${res.statusText}: ${preview}`);
+  }
+
+  const lowerBody = body.slice(0, 4000).toLowerCase();
+  const lowerType = contentType.toLowerCase();
+
+  const looksLikeHtml =
+    lowerType.includes("text/html") ||
+    lowerBody.includes("<html") ||
+    lowerBody.includes("<!doctype") ||
+    lowerBody.includes("cloudflare") ||
+    lowerBody.includes("forbidden") ||
+    lowerBody.includes("access denied") ||
+    lowerBody.includes("just a moment") ||
+    lowerBody.includes("checking your browser");
+
+  if (looksLikeHtml) {
+    throw new Error(`TBC returned HTML instead of CSV. content-type=${contentType}. preview=${preview}`);
   }
 
   const parsed = parseCsv(body);
-  if (!parsed.length) throw new Error(`CSV was empty for ${url}`);
+  if (!parsed.length) {
+    throw new Error(`CSV was empty for ${url}`);
+  }
 
   const rawHeaders = parsed[0].map(normalizeHeader);
   const headers = rawHeaders.map((h, idx) => h || `col_${idx + 1}`);
-  const rows = parsed.slice(1).filter((r) => r.some((v) => String(v || "").trim() !== ""));
+
+  if (headers.length > 200) {
+    throw new Error(
+      `Header sanity check failed: got ${headers.length} columns. This is not a valid TBC CSV header. preview=${preview}`
+    );
+  }
+
+  if (!headers.includes("playerid")) {
+    throw new Error(`CSV header missing playerid. preview=${preview}`);
+  }
+
+  const rows = parsed
+    .slice(1)
+    .filter((r) => r.some((v) => String(v || "").trim() !== ""));
 
   return { headers, rows };
 }
