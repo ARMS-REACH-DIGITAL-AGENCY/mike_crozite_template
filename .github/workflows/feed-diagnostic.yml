@@ -1,0 +1,199 @@
+# .github/workflows/feed-diagnostic.yml
+# 
+# Run this ONCE manually from GitHub Actions.
+# It tests all three feeds four different ways and logs exactly what the runner sees.
+# This settles the "can we fetch from this environment" question with real evidence.
+#
+# Trigger: Actions tab → "Feed Access Diagnostic" → Run workflow
+
+name: Feed Access Diagnostic
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: Test Feed Access From Runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Print runner IP and environment
+        run: |
+          echo "=== RUNNER ENVIRONMENT ==="
+          echo "Runner OS: $RUNNER_OS"
+          echo "Runner Arch: $RUNNER_ARCH"
+          echo "Outbound IP:"
+          curl -s https://api.ipify.org
+          echo ""
+          echo "IP Info:"
+          curl -s https://ipinfo.io/json
+          echo ""
+
+      - name: Run feed diagnostic
+        env:
+          FEED_PW: yattbc
+        run: |
+          cat << 'EOF' > diagnostic.mjs
+          import https from 'https';
+          import http from 'http';
+
+          const FEEDS = [
+            { name: 'batting',  url: 'https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw=yattbc' },
+            { name: 'pitching', url: 'https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw=yattbc' },
+            { name: 'players',  url: 'https://www.thebaseballcube.com/data/feed/yatstats/players/?pw=yattbc' },
+          ];
+
+          // Four different request profiles to isolate what matters
+          const PROFILES = [
+            {
+              name: 'bare-fetch',
+              headers: {},
+            },
+            {
+              name: 'browser-ua',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              },
+            },
+            {
+              name: 'full-browser-headers',
+              headers: {
+                'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection':      'keep-alive',
+                'Cache-Control':   'no-cache',
+                'Pragma':          'no-cache',
+              },
+            },
+            {
+              name: 'curl-style',
+              headers: {
+                'User-Agent': 'curl/7.88.1',
+              },
+            },
+          ];
+
+          function fetchUrl(url, headers) {
+            return new Promise((resolve) => {
+              const startMs = Date.now();
+              const req = https.get(url, { headers, timeout: 15000 }, (res) => {
+                let body = '';
+                res.on('data', chunk => { body += chunk; });
+                res.on('end', () => {
+                  const ms = Date.now() - startMs;
+                  const first200 = body.slice(0, 200).replace(/\n/g, '↵');
+                  const isChallenge = (
+                    body.includes('Just a moment') ||
+                    body.includes('cf-browser-verification') ||
+                    body.includes('cf_clearance') ||
+                    body.includes('Checking your browser') ||
+                    body.includes('ray ID') ||
+                    body.includes('cloudflare')
+                  );
+                  const isCSV = body.trimStart().startsWith('teamid,');
+                  resolve({
+                    status:      res.statusCode,
+                    contentType: res.headers['content-type'] ?? 'none',
+                    bodyLen:     body.length,
+                    first200,
+                    isChallenge,
+                    isCSV,
+                    ms,
+                    finalUrl:    res.headers['location'] ?? url,
+                  });
+                });
+              });
+
+              req.on('error', (err) => {
+                resolve({ error: err.message, status: 0, isChallenge: false, isCSV: false });
+              });
+
+              req.on('timeout', () => {
+                req.destroy();
+                resolve({ error: 'timeout', status: 0, isChallenge: false, isCSV: false });
+              });
+            });
+          }
+
+          // Run all combinations
+          console.log('\n' + '='.repeat(70));
+          console.log('FEED ACCESS DIAGNOSTIC');
+          console.log('='.repeat(70));
+
+          const results = {};
+
+          for (const feed of FEEDS) {
+            console.log(`\n── ${feed.name.toUpperCase()} ──`);
+            results[feed.name] = {};
+
+            for (const profile of PROFILES) {
+              const r = await fetchUrl(feed.url, profile.headers);
+              results[feed.name][profile.name] = r;
+
+              const status = r.error
+                ? `ERROR: ${r.error}`
+                : `HTTP ${r.status}`;
+
+              const verdict = r.isCSV
+                ? '✅ GOT CSV'
+                : r.isChallenge
+                  ? '🚫 CF CHALLENGE'
+                  : `❓ UNKNOWN (${r.bodyLen} bytes)`;
+
+              console.log(`  [${profile.name.padEnd(22)}] ${status.padEnd(12)} ${verdict}`);
+              if (!r.error) {
+                console.log(`  ${''.padEnd(26)} Content-Type: ${r.contentType}`);
+                console.log(`  ${''.padEnd(26)} First 200 chars: ${r.first200}`);
+              }
+            }
+          }
+
+          // Summary table
+          console.log('\n' + '='.repeat(70));
+          console.log('SUMMARY');
+          console.log('='.repeat(70));
+          console.log('Feed'.padEnd(12) + 'Profile'.padEnd(24) + 'Result');
+          console.log('-'.repeat(70));
+
+          let csvCount = 0;
+          for (const [feed, profiles] of Object.entries(results)) {
+            for (const [profile, r] of Object.entries(profiles)) {
+              const verdict = r.isCSV ? '✅ CSV' : r.isChallenge ? '🚫 CF' : `❓ (HTTP ${r.status})`;
+              console.log(feed.padEnd(12) + profile.padEnd(24) + verdict);
+              if (r.isCSV) csvCount++;
+            }
+          }
+
+          console.log('\n' + '='.repeat(70));
+          console.log(`RESULT: ${csvCount} of ${FEEDS.length * PROFILES.length} combinations returned CSV`);
+
+          if (csvCount === 0) {
+            console.log('CONCLUSION: Runner is blocked for all profiles. Need proxy or alternative approach.');
+            process.exit(1);
+          } else if (csvCount < FEEDS.length * PROFILES.length) {
+            console.log('CONCLUSION: Some profiles work. Use the working profile in your pipeline.');
+          } else {
+            console.log('CONCLUSION: All profiles work. Plain fetch is sufficient.');
+          }
+          EOF
+
+          node diagnostic.mjs
+
+      - name: Upload diagnostic results as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-diagnostic-results
+          retention-days: 7
+          path: diagnostic.mjs
