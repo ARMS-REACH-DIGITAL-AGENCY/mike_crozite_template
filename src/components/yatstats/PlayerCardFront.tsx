@@ -71,7 +71,7 @@ function getAccentColor(player: Record<string, unknown>): string {
     if (normalized) return normalized;
   }
 
-  return "#7a1f2b";
+  return "";
 }
 
 function getAccentBorderColor(player: Record<string, unknown>): string {
@@ -176,26 +176,8 @@ export default function PlayerCardFront({
   const { opponentLine, timeLine } = formatNextGame(player);
 
   const accent = getAccentColor(player);
-  const accentBorder = getAccentBorderColor(player);
-
-  const pillStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 22,
-    padding: "0 9px",
-    borderRadius: 6,
-    background: "rgba(18, 22, 27, 0.78)",
-    border: `1px solid ${accentBorder}`,
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: 800,
-    lineHeight: 1,
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
-  };
+const accentBorder = getAccentBorderColor(player);
+const useSchoolAccent = Boolean(accent);
 
   const yearDotStyle: CSSProperties = {
     width: 26,
@@ -347,10 +329,10 @@ export default function PlayerCardFront({
                 gap: 4,
               }}
             >
-              <span style={pillStyle}>{levelLabel}</span>
-              <span style={pillStyle}>{statusLabel}</span>
+            <span className="front-chip">{levelLabel}</span>
+<span className="front-chip">{statusLabel}</span>
 
-              {classOf && <span style={pillStyle}>CLASS OF {classOf}</span>}
+{classOf && <span className="front-chip">CLASS OF {classOf}</span>}
 
               {rosterYears.length > 0 && (
                 <div
@@ -380,7 +362,7 @@ export default function PlayerCardFront({
               gap: 5,
             }}
           >
-            <span style={pillStyle}>NEXT GAME</span>
+           <span className="front-chip">NEXT GAME</span>
 
             <div
               style={{
@@ -413,26 +395,26 @@ export default function PlayerCardFront({
               onClick={handleFlipClick}
               onKeyDown={handleFlipKeyDown}
               style={{
-                appearance: "none",
-                border: `1px solid ${accentBorder}`,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                minHeight: 26,
-                padding: "0 10px",
-                borderRadius: 6,
-                background: accent,
-                color: "#fff",
-                fontSize: 10,
-                fontWeight: 900,
-                lineHeight: 1,
-                letterSpacing: "0.03em",
-                textTransform: "uppercase",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
-                cursor: "pointer",
-                marginTop: 2,
-              }}
+  appearance: "none",
+  border: useSchoolAccent ? `1px solid ${accentBorder}` : "1px solid rgba(255,255,255,0.42)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  minHeight: 26,
+  padding: "0 10px",
+  borderRadius: 6,
+  background: useSchoolAccent ? accent : "rgba(255,255,255,0.10)",
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: 900,
+  lineHeight: 1,
+  letterSpacing: "0.03em",
+  textTransform: "uppercase",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
+  cursor: "pointer",
+  marginTop: 2,
+}}
               aria-label="Flip for stats"
             >
               <span>FLIP FOR STATS</span>
