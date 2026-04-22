@@ -122,14 +122,14 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
     cache: "no-store",
     headers: {
       "User-Agent": "Mozilla/5.0 YATSTATS Vercel Cron",
-      "Accept": "text/csv,text/plain,*/*",
+      "Accept": "text/csv,text/plain,text/html,*/*",
       "Referer": "https://www.thebaseballcube.com/",
       "Cache-Control": "no-cache",
       "Pragma": "no-cache",
     },
   });
 
-  const body = await res.text();
+  let body = await res.text();
   const contentType = res.headers.get("content-type") || "";
   const preview = body.slice(0, 500).replace(/\s+/g, " ").trim();
 
@@ -140,17 +140,32 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
   const lowerBody = body.slice(0, 4000).toLowerCase();
   const lowerType = contentType.toLowerCase();
 
-  const looksLikeHtml =
-    lowerType.includes("text/html") ||
-    lowerBody.includes("<html") ||
-    lowerBody.includes("<!doctype") ||
+  const clearlyBlocked =
     lowerBody.includes("cloudflare") ||
     lowerBody.includes("forbidden") ||
     lowerBody.includes("access denied") ||
     lowerBody.includes("just a moment") ||
     lowerBody.includes("checking your browser");
 
-  if (looksLikeHtml) {
+  if (clearlyBlocked) {
+    throw new Error(`TBC returned blocked/challenge HTML. content-type=${contentType}. preview=${preview}`);
+  }
+
+  const looksLikeTbcHtmlWrappedCsv =
+    lowerType.includes("text/html") &&
+    lowerBody.includes("playerid") &&
+    (lowerBody.includes("<br") || lowerBody.includes("\\u003cbr"));
+
+  if (looksLikeTbcHtmlWrappedCsv) {
+    body = body
+      .replace(/\\u003cbr\\u003e/gi, "\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/?html[^>]*>/gi, "")
+      .replace(/<\/?body[^>]*>/gi, "")
+      .replace(/<\/?pre[^>]*>/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+  } else if (lowerType.includes("text/html")) {
     throw new Error(`TBC returned HTML instead of CSV. content-type=${contentType}. preview=${preview}`);
   }
 
