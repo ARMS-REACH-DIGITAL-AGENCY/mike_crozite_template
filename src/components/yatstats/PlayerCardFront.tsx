@@ -209,31 +209,7 @@ export default function PlayerCardFront({
   };
 
   return (
-    <div
-      className="yat-face yat-front"
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        height: "100%",
-        minHeight: 0,
-        background: "#111",
-      }}
-    >
-      <div
-        className="yat-bg"
-        data-src={photoUrl}
-        data-placeholder={thenSilhouetteUrl}
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: `url('${photoUrl}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
-          backgroundRepeat: "no-repeat",
-        }}
-      />
-
-      <div
+   <div
   className="yat-shade"
   style={{
     position: "absolute",
@@ -261,6 +237,32 @@ export default function PlayerCardFront({
   }}
 />
 
+<div
+  style={{
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "34%",
+    zIndex: 1,
+    pointerEvents: "none",
+    background: `
+      linear-gradient(
+        180deg,
+        rgba(0,0,0,0.00) 0%,
+        rgba(0,0,0,0.35) 18%,
+        rgba(0,0,0,0.68) 42%,
+        rgba(0,0,0,0.88) 72%,
+        rgba(0,0,0,0.97) 100%
+      )
+    `,
+  }}
+/>
+
+<div
+  style={{
+    position: "relative",
+    zIndex: 2,
       <div
         style={{
           position: "relative",
