@@ -95,7 +95,7 @@ function formatOpponentPrefix(value: string): string {
   const v = value.trim().toUpperCase();
   if (!v) return "";
   if (v === "AWAY" || v === "@") return "@";
-  if (v === "HOME" || v === "vs" || v === "vs.") return "vs.";
+  if (v === "HOME" || v === "VS" || v === "VS.") return "vs.";
   return value.trim();
 }
 
@@ -176,8 +176,8 @@ export default function PlayerCardFront({
   const { opponentLine, timeLine } = formatNextGame(player);
 
   const accent = getAccentColor(player);
-const accentBorder = getAccentBorderColor(player);
-const useSchoolAccent = Boolean(accent);
+  const accentBorder = getAccentBorderColor(player);
+  const useSchoolAccent = Boolean(accent);
 
   const yearDotStyle: CSSProperties = {
     width: 26,
@@ -234,28 +234,17 @@ const useSchoolAccent = Boolean(accent);
       />
 
       <div
- className="yat-shade"
-  style={{
+        className="yat-shade"
         style={{
-    position: "absolute",
           position: "absolute",
-    left: 0,
           inset: 0,
-    right: 0,
           backgroundImage: `
-    bottom: 0,
             linear-gradient(
-    top: "auto",
               180deg,
-    height: "58%",
               rgba(0,0,0,0.00) 0%,
-    background:
               rgba(0,0,0,0.00) 42%,
-      "linear-gradient(180deg, rgba(0,0,0,0.50) 0%, 10%, rgba(0,0,0,0.55) 20%, rgba(0,0,0,0.60) 30%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0.70) 50%), rgba(0,0,0,0.75) 60%, rgba(0,0,0,0.80) 70%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.95) 90%, rgba(0,0,0,0.99) 100%)",
               rgba(0,0,0,0.12) 50%,
-  }}
               rgba(0,0,0,0.38) 60%,
-/>
               rgba(0,0,0,0.65) 70%,
               rgba(0,0,0,0.84) 82%,
               rgba(0,0,0,0.96) 100%
@@ -311,7 +300,8 @@ const useSchoolAccent = Boolean(accent);
                 textTransform: "uppercase",
                 fontWeight: 900,
                 letterSpacing: "0.01em",
-                textShadow: "0 2px 10px rgba(0,0,0,0.48)",
+                textShadow:
+                  "0 2px 4px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.85)",
               }}
             >
               <span style={{ fontSize: 22 }}>{first}</span>
@@ -325,7 +315,8 @@ const useSchoolAccent = Boolean(accent);
                 fontWeight: 800,
                 lineHeight: 1.06,
                 color: "rgba(255,255,255,0.98)",
-                textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                textShadow:
+                  "0 2px 4px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.85)",
               }}
             >
               {currentTeamName}
@@ -339,7 +330,8 @@ const useSchoolAccent = Boolean(accent);
                   fontWeight: 500,
                   lineHeight: 1.06,
                   color: "rgba(255,255,255,0.90)",
-                  textShadow: "0 1px 5px rgba(0,0,0,0.28)",
+                  textShadow:
+                    "0 2px 4px rgba(0,0,0,0.92), 0 4px 10px rgba(0,0,0,0.80)",
                 }}
               >
                 {currentOrgOrConferenceName}
@@ -355,10 +347,10 @@ const useSchoolAccent = Boolean(accent);
                 gap: 4,
               }}
             >
-            <span className="front-chip">{levelLabel}</span>
-<span className="front-chip">{statusLabel}</span>
+              <span className="front-chip">{levelLabel}</span>
+              <span className="front-chip">{statusLabel}</span>
 
-{classOf && <span className="front-chip">CLASS OF {classOf}</span>}
+              {classOf && <span className="front-chip">CLASS OF {classOf}</span>}
 
               {rosterYears.length > 0 && (
                 <div
@@ -388,7 +380,7 @@ const useSchoolAccent = Boolean(accent);
               gap: 5,
             }}
           >
-           <span className="front-chip">NEXT GAME</span>
+            <span className="front-chip">NEXT GAME</span>
 
             <div
               style={{
@@ -397,7 +389,8 @@ const useSchoolAccent = Boolean(accent);
                 fontWeight: 800,
                 lineHeight: 1.08,
                 color: "#fff",
-                textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                textShadow:
+                  "0 2px 4px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.85)",
               }}
             >
               {opponentLine}
@@ -410,7 +403,8 @@ const useSchoolAccent = Boolean(accent);
                 fontWeight: 600,
                 lineHeight: 1.08,
                 color: "rgba(255,255,255,0.92)",
-                textShadow: "0 1px 5px rgba(0,0,0,0.3)",
+                textShadow:
+                  "0 2px 4px rgba(0,0,0,0.92), 0 4px 10px rgba(0,0,0,0.80)",
               }}
             >
               {timeLine}
@@ -421,26 +415,26 @@ const useSchoolAccent = Boolean(accent);
               onClick={handleFlipClick}
               onKeyDown={handleFlipKeyDown}
               style={{
-  appearance: "none",
-  border: useSchoolAccent ? `1px solid ${accentBorder}` : "1px solid rgba(255,255,255,0.42)",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
-  minHeight: 26,
-  padding: "0 10px",
-  borderRadius: 6,
-  background: useSchoolAccent ? accent : "rgba(255,255,255,0.10)",
-  color: "#fff",
-  fontSize: 10,
-  fontWeight: 900,
-  lineHeight: 1,
-  letterSpacing: "0.03em",
-  textTransform: "uppercase",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
-  cursor: "pointer",
-  marginTop: 2,
-}}
+                appearance: "none",
+                border: useSchoolAccent ? `1px solid ${accentBorder}` : "1px solid rgba(255,255,255,0.42)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                minHeight: 26,
+                padding: "0 10px",
+                borderRadius: 6,
+                background: useSchoolAccent ? accent : "rgba(255,255,255,0.10)",
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 900,
+                lineHeight: 1,
+                letterSpacing: "0.03em",
+                textTransform: "uppercase",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
+                cursor: "pointer",
+                marginTop: 2,
+              }}
               aria-label="Flip for stats"
             >
               <span>FLIP FOR STATS</span>
