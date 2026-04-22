@@ -95,7 +95,7 @@ function formatOpponentPrefix(value: string): string {
   const v = value.trim().toUpperCase();
   if (!v) return "";
   if (v === "AWAY" || v === "@") return "@";
-  if (v === "HOME" || v === "VS" || v === "VS.") return "VS.";
+  if (v === "HOME" || v === "vs" || v === "vs.") return "vs.";
   return value.trim();
 }
 
@@ -255,9 +255,13 @@ export default function PlayerCardFront({
   className="yat-shade"
   style={{
     position: "absolute",
-    inset: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: "auto",
+    height: "58%",
     background:
-  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.22) 60%, rgba(0,0,0,0.55) 76%, rgba(0,0,0,0.84) 90%, rgba(0,0,0,0.97) 100%)",
+      "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 18%, rgba(0,0,0,0.28) 42%, rgba(0,0,0,0.58) 72%, rgba(0,0,0,0.86) 100%)",
   }}
 />
 
