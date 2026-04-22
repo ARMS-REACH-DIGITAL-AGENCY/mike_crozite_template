@@ -4,7 +4,6 @@ interface PlayerCardFrontProps {
   player: Record<string, unknown>;
   frontImageUrl?: string | null;
   isAllTime?: boolean;
-  /** When true, the grad class year is estimated (derived from TBC playyears), not verified by school. */
   gradClassEstimated?: boolean;
 }
 
@@ -21,110 +20,274 @@ function asTextArray(value: unknown): string[] {
   return [];
 }
 
+function formatNameParts(player: Record<string, unknown>) {
+  const displayName = asText(player.display_name);
+  const firstName = asText(player.first_name || player.firstname);
+  const lastName = asText(player.last_name || player.lastname);
+
+  if (firstName || lastName) {
+    return {
+      first: firstName || "--",
+      last: lastName || "",
+    };
+  }
+
+  if (displayName) {
+    const parts = displayName.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+      return { first: parts[0], last: "" };
+    }
+    return {
+      first: parts.slice(0, -1).join(" "),
+      last: parts.slice(-1).join(" "),
+    };
+  }
+
+  return { first: "--", last: "" };
+}
+
+function formatOpponentPrefix(value: string): string {
+  const v = value.trim().toUpperCase();
+  if (!v) return "";
+  if (v === "AWAY" || v === "@") return "@";
+  if (v === "HOME" || v === "VS" || v === "VS.") return "VS.";
+  return value.trim();
+}
+
+function formatNextGameLine(player: Record<string, unknown>): string {
+  const homeAway = formatOpponentPrefix(asText(player.next_game_home_away));
+  const opponent = asText(player.next_game_opponent);
+  const date = asText(player.next_game_date);
+  const time = asText(player.next_game_time_local);
+
+  const opponentSegment =
+    opponent && homeAway ? `${homeAway} ${opponent}` : opponent || "";
+
+  const parts = [opponentSegment, date, time].filter(Boolean);
+
+  if (parts.length === 0) return "NEXT GAME TBD";
+  return `NEXT GAME ${parts.join(" | ")}`;
+}
+
 export default function PlayerCardFront({
-  player: p,
+  player,
   frontImageUrl = null,
-  gradClassEstimated = false,
 }: PlayerCardFrontProps) {
-  const imageId = String(p.playerid || "");
-  const isPitcher = p.is_pitcher === true;
+  const imageId = String(player.playerid || "");
+  const isPitcher = player.is_pitcher === true;
 
   const photoUrl = frontImageUrl || getPlayerThenImageUrl(imageId);
   const thenSilhouetteUrl = getThenSilhouetteUrl(isPitcher);
 
-  const displayName = asText(p.display_name);
-  const firstName = asText(p.first_name || p.firstname);
-  const lastName = asText(p.last_name || p.lastname);
+  const { first, last } = formatNameParts(player);
 
-  const classOf = asText(p.class_of);
-  const rosterYears = asTextArray(p.roster_years);
-
-  // status_label: stage rows have it explicitly; TBC active roster rows are always ACTIVE
-  const statusLabel = asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
-  // level_label: stage rows use level_label; TBC rows use level (already normalized in db.ts)
-  const levelLabel = asText(p.level_label) || asText(p.level) || "--";
-
-  const currentTeamName = asText(p.current_team_name);
-  const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
-
-  const lg1 = asText(p.lg1_line) || "--";
-  const lg2 = asText(p.lg2_line) || "--";
-  const lg3 = asText(p.lg3_line) || "--";
-
-  const nextGameDate = asText(p.next_game_date);
-  const nextGameHomeAway = asText(p.next_game_home_away);
-  const nextGameOpponent = asText(p.next_game_opponent);
-  const nextGameTimeLocal = asText(p.next_game_time_local);
-
-  const nextGameLine =
-    [nextGameDate, nextGameHomeAway, nextGameOpponent, nextGameTimeLocal]
-      .filter(Boolean)
-      .join(" ") || "TBD";
+  const currentTeamName = asText(player.current_team_name);
+  const currentOrgOrConferenceName = asText(player.current_org_or_conference_name);
+  const levelLabel = asText(player.level_label) || asText(player.level) || "--";
+  const statusLabel =
+    asText(player.status_label) || (player.stat_year || player.pitch_year ? "ACTIVE" : "--");
+  const classOf = asText(player.class_of);
+  const rosterYears = asTextArray(player.roster_years);
+  const nextGameLine = formatNextGameLine(player);
 
   const teamLine =
-    [currentTeamName, currentOrgOrConferenceName].filter(Boolean).join(" - ") || "--";
+    [currentTeamName, currentOrgOrConferenceName].filter(Boolean).join(" | ") || "--";
 
-  const finalFirst = displayName ? displayName.split(" ").slice(0, -1).join(" ") : firstName;
-  const finalLast = displayName ? displayName.split(" ").slice(-1).join(" ") : lastName;
+  const pillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 24,
+    padding: "0 10px",
+    borderRadius: 999,
+    background: "rgba(17,17,17,0.82)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: 800,
+    lineHeight: 1,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.28)",
+  };
+
+  const yearDotStyle: React.CSSProperties = {
+    width: 30,
+    height: 30,
+    borderRadius: "50%",
+    background: "#fff",
+    color: "#111",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 13,
+    fontWeight: 900,
+    lineHeight: 1,
+    boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
+  };
 
   return (
-    <div className="yat-face yat-front">
+    <div
+      className="yat-face yat-front"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        height: "100%",
+        minHeight: 0,
+        background: "#111",
+      }}
+    >
       <div
         className="yat-bg"
         data-src={photoUrl}
         data-placeholder={thenSilhouetteUrl}
-        style={{ backgroundImage: `url('${photoUrl}')` }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `url('${photoUrl}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+        }}
       />
-      <div className="yat-shade" />
 
-      <div className="yat-front-content">
-        <div className="yat-chips-col">
+      <div
+        className="yat-shade"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.12) 24%, rgba(0,0,0,0.26) 54%, rgba(0,0,0,0.78) 100%)",
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative",
+          zIndex: 2,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          padding: "14px 14px 12px",
+          color: "#fff",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 7,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 0,
+              lineHeight: 0.9,
+              textTransform: "uppercase",
+              fontWeight: 900,
+              letterSpacing: "0.01em",
+              textShadow: "0 2px 10px rgba(0,0,0,0.48)",
+            }}
+          >
+            <span style={{ fontSize: 22 }}>{first}</span>
+            <span style={{ fontSize: 22 }}>{last}</span>
+          </div>
+
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              lineHeight: 1.15,
+              color: "rgba(255,255,255,0.96)",
+              textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+            }}
+          >
+            {teamLine}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={pillStyle}>{levelLabel}</span>
+            <span style={pillStyle}>{statusLabel}</span>
+          </div>
+
           {classOf && (
-            <span className={gradClassEstimated ? "front-chip front-chip--estimated" : "front-chip"}>
-              CLASS OF {classOf}
-            </span>
-          )}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 6,
+              }}
+            >
+              <span style={pillStyle}>CLASS OF {classOf}</span>
 
-          {rosterYears.length > 0 && (
-            <div className="yat-dots">
-              {rosterYears.map((y) => (
-                <div key={y} className="yat-dot">
-                  {y.slice(-2)}
+              {rosterYears.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {rosterYears.map((y) => (
+                    <div key={y} style={yearDotStyle}>
+                      {y.slice(-2)}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
-        </div>
 
-        <div className="yat-info-block">
-          <div className="yat-name">
-            <span>{finalFirst || "--"}</span>
-            <span>{finalLast || ""}</span>
-          </div>
+          <button
+            type="button"
+            style={{
+              appearance: "none",
+              border: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              minHeight: 34,
+              padding: "0 14px",
+              borderRadius: 999,
+              background: "#00e36f",
+              color: "#06140b",
+              fontSize: 13,
+              fontWeight: 900,
+              lineHeight: 1,
+              letterSpacing: "0.03em",
+              textTransform: "uppercase",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.24)",
+              cursor: "pointer",
+            }}
+            aria-label="Flip for stats"
+          >
+            <span>FLIP FOR STATS</span>
+            <span aria-hidden="true">→</span>
+          </button>
 
-          <div className="yat-meta">
-            <span>{teamLine}</span>
-          </div>
-
-          <div className="yat-front-badge-row">
-            <span className="front-chip">{levelLabel}</span>
-            <span className="front-chip">{statusLabel}</span>
-          </div>
-
-          <div className="yat-game-block">
-            <div className="yat-pill">LAST 3 GAMES</div>
-            <div className="yat-game-text">
-              <span className="yat-log">{lg1}</span>
-              <span className="yat-log">{lg2}</span>
-              <span className="yat-log">{lg3}</span>
-            </div>
-          </div>
-
-          <div className="yat-game-block">
-            <div className="yat-pill">NEXT GAME</div>
-            <div className="yat-game-text">
-              <span>{nextGameLine}</span>
-            </div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1.15,
+              color: "#fff",
+              textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+            }}
+          >
+            {nextGameLine}
           </div>
         </div>
       </div>
