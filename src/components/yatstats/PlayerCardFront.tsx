@@ -209,60 +209,82 @@ export default function PlayerCardFront({
   };
 
   return (
-   <div
-  className="yat-shade"
-  style={{
-    position: "absolute",
-    inset: 0,
-    backgroundImage: `
-      linear-gradient(
-        180deg,
-        rgba(0,0,0,0.00) 0%,
-        rgba(0,0,0,0.00) 42%,
-        rgba(0,0,0,0.10) 50%,
-        rgba(0,0,0,0.32) 58%,
-        rgba(0,0,0,0.58) 66%,
-        rgba(0,0,0,0.80) 76%,
-        rgba(0,0,0,0.93) 88%,
-        rgba(0,0,0,0.98) 100%
-      ),
-      linear-gradient(
-        90deg,
-        rgba(0,0,0,0.42) 0%,
-        rgba(0,0,0,0.24) 28%,
-        rgba(0,0,0,0.00) 55%
-      )
-    `,
-    pointerEvents: "none",
-  }}
-/>
+    <div
+      className="yat-face yat-front"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        height: "100%",
+        minHeight: 0,
+        background: "#111",
+      }}
+    >
+      <div
+        className="yat-bg"
+        data-src={photoUrl}
+        data-placeholder={thenSilhouetteUrl}
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `url('${photoUrl}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
 
-<div
-  style={{
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "34%",
-    zIndex: 1,
-    pointerEvents: "none",
-    background: `
-      linear-gradient(
-        180deg,
-        rgba(0,0,0,0.00) 0%,
-        rgba(0,0,0,0.35) 18%,
-        rgba(0,0,0,0.68) 42%,
-        rgba(0,0,0,0.88) 72%,
-        rgba(0,0,0,0.97) 100%
-      )
-    `,
-  }}
-/>
+      <div
+        className="yat-shade"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          pointerEvents: "none",
+          backgroundImage: `
+            linear-gradient(
+              180deg,
+              rgba(0,0,0,0.00) 0%,
+              rgba(0,0,0,0.00) 42%,
+              rgba(0,0,0,0.10) 50%,
+              rgba(0,0,0,0.32) 58%,
+              rgba(0,0,0,0.58) 66%,
+              rgba(0,0,0,0.80) 76%,
+              rgba(0,0,0,0.93) 88%,
+              rgba(0,0,0,0.98) 100%
+            ),
+            linear-gradient(
+              90deg,
+              rgba(0,0,0,0.42) 0%,
+              rgba(0,0,0,0.24) 28%,
+              rgba(0,0,0,0.00) 55%
+            )
+          `,
+        }}
+      />
 
-<div
-  style={{
-    position: "relative",
-    zIndex: 2,
+      <div
+        className="yat-bottom-scrim"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: "34%",
+          zIndex: 1,
+          pointerEvents: "none",
+          background: `
+            linear-gradient(
+              180deg,
+              rgba(0,0,0,0.00) 0%,
+              rgba(0,0,0,0.35) 18%,
+              rgba(0,0,0,0.68) 42%,
+              rgba(0,0,0,0.88) 72%,
+              rgba(0,0,0,0.97) 100%
+            )
+          `,
+        }}
+      />
+
       <div
         style={{
           position: "relative",
@@ -417,7 +439,9 @@ export default function PlayerCardFront({
               onKeyDown={handleFlipKeyDown}
               style={{
                 appearance: "none",
-                border: useSchoolAccent ? `1px solid ${accentBorder}` : "1px solid rgba(255,255,255,0.42)",
+                border: useSchoolAccent
+                  ? `1px solid ${accentBorder}`
+                  : "1px solid rgba(255,255,255,0.42)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "space-between",
