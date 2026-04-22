@@ -234,18 +234,44 @@ const useSchoolAccent = Boolean(accent);
       />
 
       <div
-  className="yat-shade"
+ className="yat-shade"
   style={{
+        style={{
     position: "absolute",
+          position: "absolute",
     left: 0,
+          inset: 0,
     right: 0,
+          backgroundImage: `
     bottom: 0,
+            linear-gradient(
     top: "auto",
+              180deg,
     height: "58%",
+              rgba(0,0,0,0.00) 0%,
     background:
+              rgba(0,0,0,0.00) 42%,
       "linear-gradient(180deg, rgba(0,0,0,0.50) 0%, 10%, rgba(0,0,0,0.55) 20%, rgba(0,0,0,0.60) 30%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0.70) 50%), rgba(0,0,0,0.75) 60%, rgba(0,0,0,0.80) 70%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.95) 90%, rgba(0,0,0,0.99) 100%)",
+              rgba(0,0,0,0.12) 50%,
   }}
+              rgba(0,0,0,0.38) 60%,
 />
+              rgba(0,0,0,0.65) 70%,
+              rgba(0,0,0,0.84) 82%,
+              rgba(0,0,0,0.96) 100%
+            ),
+            linear-gradient(
+              90deg,
+              rgba(0,0,0,0.42) 0%,
+              rgba(0,0,0,0.22) 28%,
+              rgba(0,0,0,0.00) 55%
+            )
+          `,
+          backgroundRepeat: "no-repeat",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
 
       <div
         style={{
