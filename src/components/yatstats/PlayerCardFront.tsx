@@ -261,7 +261,7 @@ export default function PlayerCardFront({
     top: "auto",
     height: "58%",
     background:
-      "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.60) 48%, rgba(0,0,0,0.70) 62%, rgba(0,0,0,0.80) 78%, rgba(0,0,0,0.90) 90%, rgba(0,0,0,0.99) 100%)",
+      "linear-gradient(180deg, rgba(0,0,0,0.50) 0%, 10%, rgba(0,0,0,0.55) 20%, rgba(0,0,0,0.60) 30%, rgba(0,0,0,0.65) 40%, rgba(0,0,0,0.70) 50%), rgba(0,0,0,0.75) 60%, rgba(0,0,0,0.80) 70%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.95) 90%, rgba(0,0,0,0.99) 100%)",
   }}
 />
 
