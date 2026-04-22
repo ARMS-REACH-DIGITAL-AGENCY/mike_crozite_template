@@ -252,14 +252,14 @@ export default function PlayerCardFront({
       />
 
       <div
-        className="yat-shade"
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.04) 42%, rgba(0,0,0,0.16) 56%, rgba(0,0,0,0.46) 72%, rgba(0,0,0,0.82) 88%, rgba(0,0,0,0.94) 100%)",
-        }}
-      />
+  className="yat-shade"
+  style={{
+    position: "absolute",
+    inset: 0,
+    background:
+  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.22) 60%, rgba(0,0,0,0.55) 76%, rgba(0,0,0,0.84) 90%, rgba(0,0,0,0.97) 100%)",
+  }}
+/>
 
       <div
         style={{
