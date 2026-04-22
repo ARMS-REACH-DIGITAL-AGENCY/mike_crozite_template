@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent, KeyboardEvent } from "react";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 
 interface PlayerCardFrontProps {
@@ -69,7 +69,6 @@ function getAccentColor(player: Record<string, unknown>): string {
     if (normalized) return normalized;
   }
 
-  // Hamilton-friendly fallback
   return "#7a1f2b";
 }
 
@@ -121,6 +120,34 @@ function formatNextGame(player: Record<string, unknown>) {
     opponentLine,
     timeLine: timeLine || fallbackTimeLine,
   };
+}
+
+function triggerFlipFromChild(target: HTMLElement) {
+  const flipRoot = target.closest(
+    '[data-flip-card], .flip-card, .player-card, .yat-card, .yat-flip-card'
+  ) as HTMLElement | null;
+
+  if (flipRoot) {
+    flipRoot.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      })
+    );
+    return;
+  }
+
+  const clickableParent = target.parentElement as HTMLElement | null;
+  if (clickableParent) {
+    clickableParent.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      })
+    );
+  }
 }
 
 export default function PlayerCardFront({
@@ -183,6 +210,20 @@ export default function PlayerCardFront({
     boxShadow: "0 1px 4px rgba(0,0,0,0.24)",
   };
 
+  const handleFlipClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    triggerFlipFromChild(e.currentTarget);
+  };
+
+  const handleFlipKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerFlipFromChild(e.currentTarget);
+    }
+  };
+
   return (
     <div
       className="yat-face yat-front"
@@ -214,7 +255,7 @@ export default function PlayerCardFront({
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.04) 42%, rgba(0,0,0,0.26) 58%, rgba(0,0,0,0.72) 76%, rgba(0,0,0,0.92) 100%)",
+            "linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.04) 42%, rgba(0,0,0,0.16) 56%, rgba(0,0,0,0.46) 72%, rgba(0,0,0,0.82) 88%, rgba(0,0,0,0.94) 100%)",
         }}
       />
 
@@ -252,23 +293,23 @@ export default function PlayerCardFront({
                 display: "flex",
                 flexDirection: "column",
                 gap: 0,
-                lineHeight: 0.9,
+                lineHeight: 0.88,
                 textTransform: "uppercase",
                 fontWeight: 900,
                 letterSpacing: "0.01em",
                 textShadow: "0 2px 10px rgba(0,0,0,0.48)",
               }}
             >
-              <span style={{ fontSize: 18 }}>{first}</span>
-              <span style={{ fontSize: 18 }}>{last}</span>
+              <span style={{ fontSize: 22 }}>{first}</span>
+              <span style={{ fontSize: 22 }}>{last}</span>
             </div>
 
             <div
               style={{
-                marginTop: 1,
+                marginTop: 2,
                 fontSize: 13,
                 fontWeight: 800,
-                lineHeight: 1.08,
+                lineHeight: 1.06,
                 color: "rgba(255,255,255,0.98)",
                 textShadow: "0 1px 6px rgba(0,0,0,0.35)",
               }}
@@ -282,7 +323,7 @@ export default function PlayerCardFront({
                   marginTop: 0,
                   fontSize: 10,
                   fontWeight: 500,
-                  lineHeight: 1.08,
+                  lineHeight: 1.06,
                   color: "rgba(255,255,255,0.90)",
                   textShadow: "0 1px 5px rgba(0,0,0,0.28)",
                 }}
@@ -363,6 +404,8 @@ export default function PlayerCardFront({
 
             <button
               type="button"
+              onClick={handleFlipClick}
+              onKeyDown={handleFlipKeyDown}
               style={{
                 appearance: "none",
                 border: `1px solid ${accentBorder}`,
