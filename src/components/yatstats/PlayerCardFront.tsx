@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 
 interface PlayerCardFrontProps {
@@ -46,6 +47,49 @@ function formatNameParts(player: Record<string, unknown>) {
   return { first: "--", last: "" };
 }
 
+function normalizeColor(value: string): string {
+  const v = value.trim();
+  if (!v) return "";
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) return v;
+  if (/^[a-z]+$/i.test(v)) return v;
+  return "";
+}
+
+function getAccentColor(player: Record<string, unknown>): string {
+  const candidates = [
+    asText(player.color1),
+    asText(player.school_color1),
+    asText(player.primary_color),
+    asText(player.hs_color1),
+    asText(player.team_color1),
+  ];
+
+  for (const c of candidates) {
+    const normalized = normalizeColor(c);
+    if (normalized) return normalized;
+  }
+
+  // Hamilton-friendly fallback
+  return "#7a1f2b";
+}
+
+function getAccentBorderColor(player: Record<string, unknown>): string {
+  const candidates = [
+    asText(player.color2),
+    asText(player.school_color2),
+    asText(player.secondary_color),
+    asText(player.hs_color2),
+    asText(player.team_color2),
+  ];
+
+  for (const c of candidates) {
+    const normalized = normalizeColor(c);
+    if (normalized) return normalized;
+  }
+
+  return "#c0c0c0";
+}
+
 function formatOpponentPrefix(value: string): string {
   const v = value.trim().toUpperCase();
   if (!v) return "";
@@ -54,19 +98,29 @@ function formatOpponentPrefix(value: string): string {
   return value.trim();
 }
 
-function formatNextGameLine(player: Record<string, unknown>): string {
+function formatNextGame(player: Record<string, unknown>) {
   const homeAway = formatOpponentPrefix(asText(player.next_game_home_away));
   const opponent = asText(player.next_game_opponent);
   const date = asText(player.next_game_date);
   const time = asText(player.next_game_time_local);
 
-  const opponentSegment =
-    opponent && homeAway ? `${homeAway} ${opponent}` : opponent || "";
+  const tz =
+    asText(player.next_game_time_zone) ||
+    asText(player.school_time_zone) ||
+    asText(player.school_timezone) ||
+    asText(player.hs_time_zone) ||
+    "";
 
-  const parts = [opponentSegment, date, time].filter(Boolean);
+  const opponentLine =
+    opponent && homeAway ? `${homeAway} ${opponent}` : opponent || "TBD";
 
-  if (parts.length === 0) return "NEXT GAME TBD";
-  return `NEXT GAME ${parts.join(" | ")}`;
+  const timeLine = [time, tz].filter(Boolean).join(" | ");
+  const fallbackTimeLine = date || "TBD";
+
+  return {
+    opponentLine,
+    timeLine: timeLine || fallbackTimeLine,
+  };
 }
 
 export default function PlayerCardFront({
@@ -81,50 +135,52 @@ export default function PlayerCardFront({
 
   const { first, last } = formatNameParts(player);
 
-  const currentTeamName = asText(player.current_team_name);
+  const currentTeamName = asText(player.current_team_name) || "--";
   const currentOrgOrConferenceName = asText(player.current_org_or_conference_name);
+
   const levelLabel = asText(player.level_label) || asText(player.level) || "--";
   const statusLabel =
     asText(player.status_label) || (player.stat_year || player.pitch_year ? "ACTIVE" : "--");
   const classOf = asText(player.class_of);
   const rosterYears = asTextArray(player.roster_years);
-  const nextGameLine = formatNextGameLine(player);
 
-  const teamLine =
-    [currentTeamName, currentOrgOrConferenceName].filter(Boolean).join(" | ") || "--";
+  const { opponentLine, timeLine } = formatNextGame(player);
 
-  const pillStyle: React.CSSProperties = {
+  const accent = getAccentColor(player);
+  const accentBorder = getAccentBorderColor(player);
+
+  const pillStyle: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 24,
-    padding: "0 10px",
-    borderRadius: 999,
-    background: "rgba(17,17,17,0.82)",
-    border: "1px solid rgba(255,255,255,0.16)",
+    minHeight: 22,
+    padding: "0 9px",
+    borderRadius: 6,
+    background: "rgba(18, 22, 27, 0.78)",
+    border: `1px solid ${accentBorder}`,
     color: "#fff",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 800,
     lineHeight: 1,
-    letterSpacing: "0.04em",
+    letterSpacing: "0.03em",
     textTransform: "uppercase",
     whiteSpace: "nowrap",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.28)",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
   };
 
-  const yearDotStyle: React.CSSProperties = {
-    width: 30,
-    height: 30,
+  const yearDotStyle: CSSProperties = {
+    width: 26,
+    height: 26,
     borderRadius: "50%",
     background: "#fff",
     color: "#111",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 900,
     lineHeight: 1,
-    boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.24)",
   };
 
   return (
@@ -158,7 +214,7 @@ export default function PlayerCardFront({
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.12) 24%, rgba(0,0,0,0.26) 54%, rgba(0,0,0,0.78) 100%)",
+            "linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.04) 42%, rgba(0,0,0,0.26) 58%, rgba(0,0,0,0.72) 76%, rgba(0,0,0,0.92) 100%)",
         }}
       />
 
@@ -170,73 +226,90 @@ export default function PlayerCardFront({
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end",
-          padding: "14px 14px 12px",
+          padding: "12px 12px 10px",
           color: "#fff",
         }}
       >
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 7,
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: 10,
+            alignItems: "end",
           }}
         >
           <div
             style={{
+              minWidth: 0,
               display: "flex",
               flexDirection: "column",
-              gap: 0,
-              lineHeight: 0.9,
-              textTransform: "uppercase",
-              fontWeight: 900,
-              letterSpacing: "0.01em",
-              textShadow: "0 2px 10px rgba(0,0,0,0.48)",
+              alignItems: "flex-start",
+              gap: 2,
             }}
           >
-            <span style={{ fontSize: 22 }}>{first}</span>
-            <span style={{ fontSize: 22 }}>{last}</span>
-          </div>
-
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              lineHeight: 1.15,
-              color: "rgba(255,255,255,0.96)",
-              textShadow: "0 1px 6px rgba(0,0,0,0.35)",
-            }}
-          >
-            {teamLine}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={pillStyle}>{levelLabel}</span>
-            <span style={pillStyle}>{statusLabel}</span>
-          </div>
-
-          {classOf && (
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 6,
+                gap: 0,
+                lineHeight: 0.9,
+                textTransform: "uppercase",
+                fontWeight: 900,
+                letterSpacing: "0.01em",
+                textShadow: "0 2px 10px rgba(0,0,0,0.48)",
               }}
             >
-              <span style={pillStyle}>CLASS OF {classOf}</span>
+              <span style={{ fontSize: 18 }}>{first}</span>
+              <span style={{ fontSize: 18 }}>{last}</span>
+            </div>
+
+            <div
+              style={{
+                marginTop: 1,
+                fontSize: 13,
+                fontWeight: 800,
+                lineHeight: 1.08,
+                color: "rgba(255,255,255,0.98)",
+                textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+              }}
+            >
+              {currentTeamName}
+            </div>
+
+            {currentOrgOrConferenceName && (
+              <div
+                style={{
+                  marginTop: 0,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  lineHeight: 1.08,
+                  color: "rgba(255,255,255,0.90)",
+                  textShadow: "0 1px 5px rgba(0,0,0,0.28)",
+                }}
+              >
+                {currentOrgOrConferenceName}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: 5,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 4,
+              }}
+            >
+              <span style={pillStyle}>{levelLabel}</span>
+              <span style={pillStyle}>{statusLabel}</span>
+
+              {classOf && <span style={pillStyle}>CLASS OF {classOf}</span>}
 
               {rosterYears.length > 0 && (
                 <div
                   style={{
                     display: "flex",
-                    gap: 6,
+                    gap: 5,
                     flexWrap: "wrap",
                   }}
                 >
@@ -248,46 +321,74 @@ export default function PlayerCardFront({
                 </div>
               )}
             </div>
-          )}
-
-          <button
-            type="button"
-            style={{
-              appearance: "none",
-              border: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              minHeight: 34,
-              padding: "0 14px",
-              borderRadius: 999,
-              background: "#00e36f",
-              color: "#06140b",
-              fontSize: 13,
-              fontWeight: 900,
-              lineHeight: 1,
-              letterSpacing: "0.03em",
-              textTransform: "uppercase",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.24)",
-              cursor: "pointer",
-            }}
-            aria-label="Flip for stats"
-          >
-            <span>FLIP FOR STATS</span>
-            <span aria-hidden="true">→</span>
-          </button>
+          </div>
 
           <div
             style={{
-              fontSize: 11,
-              fontWeight: 800,
-              lineHeight: 1.15,
-              color: "#fff",
-              textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+              minWidth: 92,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              justifyContent: "flex-end",
+              gap: 5,
             }}
           >
-            {nextGameLine}
+            <span style={pillStyle}>NEXT GAME</span>
+
+            <div
+              style={{
+                textAlign: "right",
+                fontSize: 12,
+                fontWeight: 800,
+                lineHeight: 1.08,
+                color: "#fff",
+                textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+              }}
+            >
+              {opponentLine}
+            </div>
+
+            <div
+              style={{
+                textAlign: "right",
+                fontSize: 10,
+                fontWeight: 600,
+                lineHeight: 1.08,
+                color: "rgba(255,255,255,0.92)",
+                textShadow: "0 1px 5px rgba(0,0,0,0.3)",
+              }}
+            >
+              {timeLine}
+            </div>
+
+            <button
+              type="button"
+              style={{
+                appearance: "none",
+                border: `1px solid ${accentBorder}`,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                minHeight: 26,
+                padding: "0 10px",
+                borderRadius: 6,
+                background: accent,
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 900,
+                lineHeight: 1,
+                letterSpacing: "0.03em",
+                textTransform: "uppercase",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
+                cursor: "pointer",
+                marginTop: 2,
+              }}
+              aria-label="Flip for stats"
+            >
+              <span>FLIP FOR STATS</span>
+              <span aria-hidden="true">&gt;&gt;&gt;</span>
+            </button>
           </div>
         </div>
       </div>
