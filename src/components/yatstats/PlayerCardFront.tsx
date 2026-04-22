@@ -161,15 +161,8 @@ export default function PlayerCardFront({
   const accent = getAccentColor(p);
   const accentBorder = getAccentBorderColor(p);
 
-  const stackedChipStyle: CSSProperties = {
+  const chipStyle: CSSProperties = {
     width: "fit-content",
-  };
-
-  const yearDotsWrapStyle: CSSProperties = {
-    display: "flex",
-    gap: 4,
-    flexWrap: "wrap",
-    marginTop: 2,
   };
 
   return (
@@ -182,7 +175,16 @@ export default function PlayerCardFront({
       />
       <div className="yat-shade" />
 
-      <div className="yat-front-content">
+      <div
+        className="yat-front-content"
+        style={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          padding: "14px 12px 12px",
+        }}
+      >
         <div
           style={{
             width: "100%",
@@ -201,17 +203,26 @@ export default function PlayerCardFront({
               gap: 0,
             }}
           >
-            <div className="yat-name">
+            <div
+              className="yat-name"
+              style={{
+                fontFamily: 'Indigo, "Bebas Neue", sans-serif',
+                fontSize: 30,
+                lineHeight: 0.88,
+                textTransform: "uppercase",
+                textShadow: "0 2px 10px rgba(0,0,0,0.48)",
+              }}
+            >
               <span>{first || "--"}</span>
               <span>{last || ""}</span>
             </div>
 
             <div
               style={{
-                marginTop: 2,
+                marginTop: 3,
                 fontSize: 13,
                 fontWeight: 700,
-                lineHeight: 1.05,
+                lineHeight: 1.04,
                 color: "rgba(255,255,255,0.96)",
                 textShadow: "0 1px 6px rgba(0,0,0,0.35)",
               }}
@@ -225,7 +236,7 @@ export default function PlayerCardFront({
                   marginTop: 1,
                   fontSize: 10,
                   fontWeight: 400,
-                  lineHeight: 1.05,
+                  lineHeight: 1.04,
                   color: "rgba(255,255,255,0.82)",
                   textShadow: "0 1px 5px rgba(0,0,0,0.28)",
                 }}
@@ -240,14 +251,14 @@ export default function PlayerCardFront({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "flex-start",
-                gap: 4,
+                gap: 3,
               }}
             >
-              <span className="front-chip" style={stackedChipStyle}>
+              <span className="front-chip" style={chipStyle}>
                 {levelLabel}
               </span>
 
-              <span className="front-chip" style={stackedChipStyle}>
+              <span className="front-chip" style={chipStyle}>
                 {statusLabel}
               </span>
 
@@ -258,14 +269,21 @@ export default function PlayerCardFront({
                       ? "front-chip front-chip--estimated"
                       : "front-chip"
                   }
-                  style={stackedChipStyle}
+                  style={chipStyle}
                 >
                   CLASS OF {classOf}
                 </span>
               )}
 
               {rosterYears.length > 0 && (
-                <div style={yearDotsWrapStyle}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 4,
+                    flexWrap: "wrap",
+                    marginTop: 1,
+                  }}
+                >
                   {rosterYears.map((y) => (
                     <div key={y} className="yat-dot">
                       {y.slice(-2)}
@@ -278,7 +296,7 @@ export default function PlayerCardFront({
 
           <div
             style={{
-              minWidth: 122,
+              minWidth: 126,
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-end",
@@ -286,7 +304,7 @@ export default function PlayerCardFront({
               gap: 5,
             }}
           >
-            <span className="front-chip" style={stackedChipStyle}>
+            <span className="front-chip" style={chipStyle}>
               NEXT GAME
             </span>
 
