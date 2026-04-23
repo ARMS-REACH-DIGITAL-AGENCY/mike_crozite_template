@@ -139,9 +139,10 @@ export default function PlayerCardFront({
   const currentTeamName = asText(p.current_team_name) || "--";
   const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
 
+  const nextGameStatusLabelRaw = asText(p.next_game_status_label);
   const nextGameDate = asText(p.next_game_date);
   const nextGameHomeAway = formatOpponentPrefix(asText(p.next_game_home_away));
-  const nextGameOpponent = asText(p.next_game_opponent) || "TBD";
+  const nextGameOpponent = asText(p.next_game_opponent);
   const nextGameTimeLocal = asText(p.next_game_time_local);
   const hsTimeZone =
     asText(p.school_time_zone) ||
@@ -149,14 +150,26 @@ export default function PlayerCardFront({
     asText(p.hs_time_zone) ||
     asText(p.next_game_time_zone);
 
+  const normalizedStatus = statusLabel.toUpperCase();
+  const isNonActiveStatus =
+    normalizedStatus === "RETIRED" ||
+    normalizedStatus === "NOT ACTIVE" ||
+    normalizedStatus === "FREE AGENT";
+
+  const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
   const { dayLine, dateLine } = tryFormatGameDate(nextGameDate);
   const nextGameDateLine = dateLine ? `${dayLine} | ${dateLine}` : dayLine;
-  const nextGameOpponentLine =
-    nextGameOpponent === "TBD"
-      ? "TBD"
-      : `${nextGameHomeAway || "vs."} ${nextGameOpponent}`;
+  const nextGameOpponentLine = nextGameOpponent
+    ? `${nextGameHomeAway || "vs."} ${nextGameOpponent}`
+    : "TBD";
   const nextGameTimeLine =
     [nextGameTimeLocal, hsTimeZone].filter(Boolean).join(" | ") || "TBD";
+
+  const showNextGameBlock =
+    !isNonActiveStatus &&
+    !!nextGameStatusLabel &&
+    !!nextGameDate &&
+    !!nextGameOpponent;
 
   const accent = getAccentColor(p);
   const accentBorder = getAccentBorderColor(p);
@@ -304,27 +317,31 @@ export default function PlayerCardFront({
               gap: 5,
             }}
           >
-            <span className="front-chip" style={chipStyle}>
-              NEXT GAME
-            </span>
+            {showNextGameBlock && (
+              <>
+                <span className="front-chip" style={chipStyle}>
+                  {nextGameStatusLabel}
+                </span>
 
-            <div
-              style={{
-                textAlign: "right",
-                fontSize: 10,
-                fontWeight: 700,
-                lineHeight: 1.15,
-                color: "#fff",
-                textShadow: "0 1px 6px rgba(0,0,0,0.35)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-              }}
-            >
-              <span>{nextGameDateLine}</span>
-              <span>{nextGameOpponentLine}</span>
-              <span>{nextGameTimeLine}</span>
-            </div>
+                <div
+                  style={{
+                    textAlign: "right",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    lineHeight: 1.15,
+                    color: "#fff",
+                    textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                  }}
+                >
+                  <span>{nextGameDateLine}</span>
+                  <span>{nextGameOpponentLine}</span>
+                  <span>{nextGameTimeLine}</span>
+                </div>
+              </>
+            )}
 
             <span
               style={{
