@@ -197,7 +197,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         f.last_name,
         f.class_of,
         f.roster_years,
-        f.roster_years_count,
+        COALESCE(array_length(f.roster_years, 1), 0) AS roster_years_count,
         f.status_label,
         f.level_label,
         f.current_team_name,
