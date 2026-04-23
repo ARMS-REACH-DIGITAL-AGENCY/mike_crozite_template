@@ -3,7 +3,7 @@ name: MLB Schedule Sync
 on:
   workflow_dispatch:
   schedule:
-  - cron: "0 15-23,0-7 * * *"
+  - cron: "*/10 15-23,0-7 * * *"
 jobs:
   sync-mlb-schedules:
     runs-on: ubuntu-latest
