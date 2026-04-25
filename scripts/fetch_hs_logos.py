@@ -1,7 +1,7 @@
 """
 fetch_hs_logos.py
 -----------------
-Fetches high school logos from MaxPreps (with SBLive + FieldLevel fallbacks),
+Fetches high school logos from FieldLevel first, with MaxPreps + SBLive fallbacks,
 renames them {hsid}.png, and uploads to S3.
 
 CSV expected columns: hsid, hsname.1, nickname, city
@@ -16,8 +16,10 @@ Usage:
 import argparse
 import csv
 import logging
+import re
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import boto3
 import requests
@@ -45,14 +47,14 @@ HEADERS = {
     ),
     "Accept": "application/json, text/html, */*",
     "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.maxpreps.com/",
+    "Referer": "https://www.fieldlevel.com/app/teams?sportEnum=baseball&athleticAssociation=512",
 }
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
 
 
-# ── CSV parsing ───────────────────────────────────────────────────────────────
+# -- CSV parsing ---------------------------------------------------------------
 
 def load_schools(csv_path: Path) -> list:
     schools = []
@@ -84,7 +86,7 @@ def load_schools(csv_path: Path) -> list:
     return schools
 
 
-# ── S3 helpers ────────────────────────────────────────────────────────────────
+# -- S3 helpers ----------------------------------------------------------------
 
 def get_existing_hsids(s3_client, bucket: str, prefix: str) -> set:
     existing = set()
@@ -106,17 +108,28 @@ def upload_to_s3(s3_client, image_bytes: bytes, hsid: str, bucket: str, prefix: 
             Body=image_bytes,
             ContentType="image/png",
         )
-        log.info(f"  ✓  Uploaded → s3://{bucket}/{key}")
+        log.info(f"  Uploaded -> s3://{bucket}/{key}")
         return True
     except ClientError as e:
-        log.error(f"  ✗  S3 upload failed for {hsid}: {e}")
+        log.error(f"  S3 upload failed for {hsid}: {e}")
         return False
 
 
-# ── Image download helper ─────────────────────────────────────────────────────
+# -- Image download helper -----------------------------------------------------
+
+def _absolute_url(url: str) -> str:
+    if not url:
+        return ""
+    if url.startswith("//"):
+        return "https:" + url
+    if url.startswith("/"):
+        return "https://www.fieldlevel.com" + url
+    return url
+
 
 def _download_image(url: str):
     try:
+        url = _absolute_url(url)
         r = SESSION.get(url, timeout=10, stream=True)
         r.raise_for_status()
         ctype = r.headers.get("Content-Type", "")
@@ -131,12 +144,133 @@ def _download_image(url: str):
         return None
 
 
-# ── MaxPreps ──────────────────────────────────────────────────────────────────
+# -- Matching helpers ----------------------------------------------------------
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+def _school_matches(name: str, city: str, state: str, text: str) -> bool:
+    text_n = _norm(text)
+    name_n = _norm(name)
+    city_n = _norm(city)
+    state_n = _norm(state)
+
+    if not name_n or not text_n:
+        return False
+
+    if name_n in text_n:
+        return True
+
+    # CSV may say "Hamilton" while FieldLevel says "Hamilton High School".
+    short_name = re.sub(r"\b(high school|school|hs)\b", "", name_n).strip()
+    if short_name and short_name in text_n:
+        return True
+
+    # Fallback: school name plus location near the same card/script section.
+    if short_name and short_name in text_n and (city_n in text_n or state_n in text_n):
+        return True
+
+    return False
+
+
+def _image_urls_near_match(html: str, name: str, city: str, state: str) -> list:
+    urls = []
+
+    # Standard img src or data-src.
+    for match in re.finditer(r'<img[^>]+(?:src|data-src|data-original)=["\']([^"\']+)["\'][^>]*>', html, re.I):
+        tag = match.group(0)
+        url = match.group(1)
+        start = max(0, match.start() - 1200)
+        end = min(len(html), match.end() + 1200)
+        nearby = html[start:end] + " " + tag
+
+        if _school_matches(name, city, state, nearby):
+            urls.append(url)
+
+    # Escaped URLs inside React/JSON payloads.
+    for match in re.finditer(r'https?:\\/\\/[^"\'<> ]+', html):
+        url = match.group(0).replace("\\/", "/")
+        lower = url.lower()
+        if not any(x in lower for x in ["logo", "image", "avatar", "cloudfront", "s3"]):
+            continue
+
+        start = max(0, match.start() - 1600)
+        end = min(len(html), match.end() + 1600)
+        nearby = html[start:end]
+
+        if _school_matches(name, city, state, nearby):
+            urls.append(url)
+
+    # Normal unescaped URLs in HTML/JS.
+    for match in re.finditer(r'https?://[^"\'<> ]+', html):
+        url = match.group(0)
+        lower = url.lower()
+        if not any(x in lower for x in ["logo", "image", "avatar", "cloudfront", "s3"]):
+            continue
+
+        start = max(0, match.start() - 1600)
+        end = min(len(html), match.end() + 1600)
+        nearby = html[start:end]
+
+        if _school_matches(name, city, state, nearby):
+            urls.append(url)
+
+    # Preserve order but remove duplicates.
+    clean = []
+    seen = set()
+    for url in urls:
+        if url not in seen:
+            clean.append(url)
+            seen.add(url)
+    return clean
+
+
+# -- FieldLevel primary --------------------------------------------------------
+
+def search_fieldlevel(name: str, state: str, city: str = ""):
+    queries = [
+        name,
+        f"{name} {state}",
+        f"{name} High School {state}",
+    ]
+    if city:
+        queries.append(f"{name} {city} {state}")
+
+    for q in queries:
+        url = (
+            "https://www.fieldlevel.com/app/teams"
+            "?sportEnum=baseball"
+            "&athleticAssociation=512"
+            f"&q={quote(q)}"
+        )
+
+        try:
+            resp = SESSION.get(url, timeout=12)
+            if resp.status_code != 200:
+                log.debug(f"    FieldLevel status {resp.status_code} for '{q}'")
+                continue
+
+            for img_url in _image_urls_near_match(resp.text, name, city, state):
+                img = _download_image(img_url)
+                if img:
+                    log.debug(f"    FieldLevel image found: {img_url}")
+                    return img
+
+        except Exception as e:
+            log.debug(f"    FieldLevel error '{name}': {e}")
+
+        time.sleep(DELAY)
+
+    return None
+
+
+# -- MaxPreps fallback ---------------------------------------------------------
 
 MAXPREPS_SEARCH = "https://api.maxpreps.com/gatewayweb/search/v1/site-search"
 MAXPREPS_LOGO   = "https://d2ub8l8azeufoa.cloudfront.net/team/{guid}/school-logo.png"
 
-def search_maxpreps(name: str, state: str):
+def search_maxpreps(name: str, state: str, city: str = ""):
     try:
         resp = SESSION.get(MAXPREPS_SEARCH, params={"term": f"{name} {state}"}, timeout=10)
         resp.raise_for_status()
@@ -164,9 +298,9 @@ def search_maxpreps(name: str, state: str):
     return None
 
 
-# ── SBLive fallback ───────────────────────────────────────────────────────────
+# -- SBLive fallback -----------------------------------------------------------
 
-def search_sblive(name: str, state: str):
+def search_sblive(name: str, state: str, city: str = ""):
     try:
         resp = SESSION.get(
             "https://scorebook.com/api/v1/schools/search",
@@ -187,47 +321,24 @@ def search_sblive(name: str, state: str):
     return None
 
 
-# ── FieldLevel fallback ───────────────────────────────────────────────────────
-
-def search_fieldlevel(name: str, state: str):
-    try:
-        resp = SESSION.get(
-            "https://www.fieldlevel.com/api/search/schools",
-            params={"q": f"{name} {state}"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        log.debug(f"    FieldLevel error '{name}': {e}")
-        return None
-    for school in (data.get("results") or [])[:5]:
-        logo_url = school.get("logoUrl") or school.get("logo")
-        if logo_url:
-            img = _download_image(logo_url)
-            if img:
-                return img
-    return None
-
-
-# ── Orchestration ─────────────────────────────────────────────────────────────
+# -- Orchestration -------------------------------------------------------------
 
 SOURCES = [
+    ("FieldLevel", search_fieldlevel),
     ("MaxPreps",   search_maxpreps),
     ("SBLive",     search_sblive),
-    ("FieldLevel", search_fieldlevel),
 ]
 
-def fetch_logo(name: str, state: str):
+def fetch_logo(name: str, state: str, city: str = ""):
     for label, fn in SOURCES:
-        img = fn(name, state)
+        img = fn(name, state, city)
         if img:
             return img, label
         time.sleep(DELAY)
     return None, ""
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# -- Main ----------------------------------------------------------------------
 
 def parse_args():
     p = argparse.ArgumentParser(description="Fetch HS logos and upload to S3")
@@ -252,13 +363,13 @@ def main():
     log.info(f"Loaded {len(schools)} schools from CSV")
 
     if args.dry_run:
-        log.info("DRY RUN MODE — no uploads will happen")
+        log.info("DRY RUN MODE - no uploads will happen")
 
     s3 = boto3.client("s3", region_name=args.region)
 
-    log.info("Checking existing S3 objects…")
+    log.info("Checking existing S3 objects...")
     existing = get_existing_hsids(s3, args.bucket, args.prefix)
-    log.info(f"  {len(existing)} logos already in S3 — skipping those")
+    log.info(f"  {len(existing)} logos already in S3 - skipping those")
 
     todo = [s for s in schools if s["hsid"] not in existing]
     if args.limit and args.limit > 0:
@@ -275,9 +386,9 @@ def main():
         state = school["state"]
         city  = school["city"]
 
-        log.info(f"[{i:>4}/{len(todo)}]  {name} ({city}, {state})  →  {hsid}.png")
+        log.info(f"[{i:>4}/{len(todo)}]  {name} ({city}, {state})  ->  {hsid}.png")
 
-        img, source = fetch_logo(name, state)
+        img, source = fetch_logo(name, state, city)
 
         if args.dry_run:
             if img:
@@ -292,14 +403,14 @@ def main():
                 entry = {"hsid": hsid, "name": name, "state": state, "source": source}
                 (success if ok else failed).append(entry)
             else:
-                log.warning(f"  ✗  No logo found for {name} ({state})")
+                log.warning(f"  No logo found for {name} ({state})")
                 failed.append({"hsid": hsid, "name": name, "state": state, "source": "none"})
 
         time.sleep(DELAY)
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # -- Summary ---------------------------------------------------------------
     log.info("\n" + "=" * 60)
-    log.info(f"Done.  ✓ Success: {len(success)}  |  ✗ Failed: {len(failed)}")
+    log.info(f"Done.  Success: {len(success)}  |  Failed: {len(failed)}")
 
     if failed:
         out = Path("failed_logos.csv")
@@ -307,7 +418,7 @@ def main():
             writer = csv.DictWriter(f, fieldnames=["hsid", "name", "state", "source"])
             writer.writeheader()
             writer.writerows(failed)
-        log.info(f"Failed schools saved to → {out}")
+        log.info(f"Failed schools saved to -> {out}")
 
 
 if __name__ == "__main__":
