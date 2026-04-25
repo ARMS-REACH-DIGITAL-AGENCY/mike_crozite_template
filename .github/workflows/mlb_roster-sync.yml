@@ -2,15 +2,6 @@ name: MLB Roster Sync
 
 on:
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Run without writing to DB"
-        required: true
-        default: "false"
-      season:
-        description: "Season (optional)"
-        required: false
-        default: ""
   schedule:
     - cron: "0 */3 * * *"
 
@@ -22,7 +13,7 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     steps:
-      - name: Checkout Easter-NEWS
+      - name: Checkout Easter-NEWS branch
         uses: actions/checkout@v4
         with:
           ref: Easter-NEWS
@@ -35,14 +26,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run MLB roster sync
+      - name: Confirm branch
         run: |
-          CMD="npx tsx ./scripts/sync-mlb-full-org-rosters.ts"
-          if [ -n "${{ github.event.inputs.season }}" ]; then
-            CMD="$CMD --season ${{ github.event.inputs.season }}"
-          fi
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            CMD="$CMD --dry-run"
-          fi
-          echo "Running: $CMD"
-          eval $CMD
+          git branch --show-current
+          git rev-parse --short HEAD
+
+      - name: Run MLB roster sync
+        run: npx tsx ./scripts/sync-mlb-full-org-rosters.ts
