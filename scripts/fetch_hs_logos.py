@@ -179,19 +179,34 @@ def _school_matches(name: str, city: str, state: str, text: str) -> bool:
     if not name_n or not text_n:
         return False
 
-    if name_n in text_n:
-        return True
+    # Must be the baseball listing, not another sport.
+    if "baseball" not in text_n:
+        return False
 
-    # CSV may say "Hamilton" while FieldLevel says "Hamilton High School".
+    # Must be a high school listing.
+    if "high school" not in text_n:
+        return False
+
+    # Must match the school name.
     short_name = re.sub(r"\b(high school|school|hs)\b", "", name_n).strip()
 
-    if short_name and short_name in text_n:
-        return True
+    name_matches = (
+        name_n in text_n
+        or (short_name and short_name in text_n)
+    )
 
-    if short_name and short_name in text_n and (city_n in text_n or state_n in text_n):
-        return True
+    if not name_matches:
+        return False
 
-    return False
+    # Must match city when city is available.
+    if city_n and city_n not in text_n:
+        return False
+
+    # Must match state when state is available.
+    if state_n and state_n not in text_n:
+        return False
+
+    return True
 
 
 def _candidate_queries(name: str, city: str, state: str) -> list:
@@ -239,59 +254,78 @@ def search_fieldlevel(name: str, state: str, city: str = ""):
             BROWSER_PAGE.goto(url, wait_until="networkidle", timeout=30000)
             BROWSER_PAGE.wait_for_timeout(2500)
 
-            cards = BROWSER_PAGE.evaluate("""
+            results = BROWSER_PAGE.evaluate("""
                 () => {
-                    const imgs = Array.from(document.querySelectorAll('img'));
-                    return imgs.map((img) => {
-                        let texts = [];
-                        let el = img;
+                    const anchors = Array.from(document.querySelectorAll('a[href*="/app/organization/"][href*="/baseball"]'));
 
-                        for (let i = 0; i < 6 && el; i++) {
-                            if (el.innerText) texts.push(el.innerText);
+                    return anchors.map((a) => {
+                        let el = a;
+                        let bestText = '';
+
+                        for (let i = 0; i < 8 && el; i++) {
+                            const text = el.innerText || '';
+                            if (
+                                text.toLowerCase().includes('high school') ||
+                                text.toLowerCase().includes('baseball')
+                            ) {
+                                bestText = text;
+                            }
                             el = el.parentElement;
                         }
 
                         return {
-                            src: img.currentSrc || img.src || img.getAttribute('src') || '',
-                            alt: img.alt || '',
-                            text: texts.join(' ')
+                            href: a.href || a.getAttribute('href') || '',
+                            text: bestText || a.innerText || ''
                         };
                     });
                 }
             """)
 
-            log.info(f"    FieldLevel rendered {len(cards)} image candidate(s)")
+            # Remove duplicate organization links
+            clean_results = []
+            seen = set()
 
-            for card in cards:
-                src = card.get("src") or ""
-                alt = card.get("alt") or ""
-                text = card.get("text") or ""
-                nearby = f"{alt} {text}"
+            for result in results:
+                href = result.get("href") or ""
+                text = result.get("text") or ""
 
-                if not src:
+                if href in seen:
                     continue
 
-                if _school_matches(name, city, state, nearby):
-                    img = _download_image(src)
-                    if img:
-                        log.info(f"    FieldLevel match: {src}")
-                        return img
+                seen.add(href)
+                clean_results.append({"href": href, "text": text})
 
-            # Backup: download first school-ish logo candidate if page narrowed to search results.
-            for card in cards:
-                src = card.get("src") or ""
-                text = card.get("text") or ""
-                lower_src = src.lower()
+            log.info(f"    FieldLevel found {len(clean_results)} baseball organization result(s)")
 
-                if not src:
+            for result in clean_results:
+                href = result["href"]
+                text = result["text"]
+
+                if not href:
                     continue
 
-                if any(x in lower_src for x in ["logo", "avatar", "image", "cloudfront", "s3"]):
-                    if name.lower().split()[0] in text.lower() or city.lower() in text.lower():
-                        img = _download_image(src)
-                        if img:
-                            log.info(f"    FieldLevel fallback image: {src}")
-                            return img
+                if not _school_matches(name, city, state, text):
+                    continue
+
+                match = re.search(r"/app/organization/([^/?#]+)/baseball", href)
+                if not match:
+                    continue
+
+                shortname = match.group(1)
+
+                logo_url = (
+                    "https://www.fieldlevel.com/media/orglogo"
+                    f"?shortname={shortname}"
+                    "&width=200"
+                    "&height=200"
+                )
+
+                log.info(f"    FieldLevel baseball org match: {href}")
+                log.info(f"    FieldLevel logo URL: {logo_url}")
+
+                img = _download_image(logo_url)
+                if img:
+                    return img
 
         except Exception as e:
             log.debug(f"    FieldLevel browser error for '{name}': {e}")
@@ -299,7 +333,6 @@ def search_fieldlevel(name: str, state: str, city: str = ""):
         time.sleep(DELAY)
 
     return None
-
 
 # -- MaxPreps fallback ---------------------------------------------------------
 
