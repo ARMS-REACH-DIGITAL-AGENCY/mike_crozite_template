@@ -13,8 +13,10 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Easter-NEWS branch
         uses: actions/checkout@v4
+        with:
+          ref: Easter-NEWS
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -23,6 +25,11 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Confirm branch
+        run: |
+          git branch --show-current
+          git rev-parse --short HEAD
 
       - name: Run MLB roster sync
         run: npx tsx ./scripts/sync-mlb-full-org-rosters.ts
