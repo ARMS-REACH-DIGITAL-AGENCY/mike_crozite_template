@@ -62,8 +62,10 @@ BROWSER_PAGE = None
 def load_schools(csv_path: Path) -> list:
     schools = []
     skipped = 0
+
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for row in reader:
             hsid = row.get("hsid", "").strip()
             if not hsid:
@@ -180,6 +182,7 @@ def _school_matches(name: str, city: str, state: str, text: str) -> bool:
     if name_n in text_n:
         return True
 
+    # CSV may say "Hamilton" while FieldLevel says "Hamilton High School".
     short_name = re.sub(r"\b(high school|school|hs)\b", "", name_n).strip()
 
     if short_name and short_name in text_n:
@@ -242,6 +245,7 @@ def search_fieldlevel(name: str, state: str, city: str = ""):
                     return imgs.map((img) => {
                         let texts = [];
                         let el = img;
+
                         for (let i = 0; i < 6 && el; i++) {
                             if (el.innerText) texts.push(el.innerText);
                             el = el.parentElement;
@@ -304,7 +308,11 @@ MAXPREPS_LOGO = "https://d2ub8l8azeufoa.cloudfront.net/team/{guid}/school-logo.p
 
 def search_maxpreps(name: str, state: str, city: str = ""):
     try:
-        resp = SESSION.get(MAXPREPS_SEARCH, params={"term": f"{name} {state}"}, timeout=10)
+        resp = SESSION.get(
+            MAXPREPS_SEARCH,
+            params={"term": f"{name} {state}"},
+            timeout=10,
+        )
         resp.raise_for_status()
         data = resp.json()
 
@@ -374,6 +382,7 @@ def fetch_logo(name: str, state: str, city: str = ""):
         img = fn(name, state, city)
         if img:
             return img, label
+
         time.sleep(DELAY)
 
     return None, ""
