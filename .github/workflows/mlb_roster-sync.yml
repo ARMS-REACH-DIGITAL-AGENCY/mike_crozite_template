@@ -31,5 +31,8 @@ jobs:
           git branch --show-current
           git rev-parse --short HEAD
 
-      - name: Run MLB roster sync
+      - name: Run MLB roster raw sync
         run: npx tsx ./scripts/sync-mlb-full-org-rosters.ts
+
+      - name: Refresh flip card front stage from MLB raw
+        run: npx tsx ./scripts/refresh-flip-card-front-stage-from-mlb.ts
