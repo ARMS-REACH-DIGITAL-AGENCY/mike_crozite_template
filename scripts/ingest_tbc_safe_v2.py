@@ -508,7 +508,64 @@ def replace_target_from_landing(
     )
     cur.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.SQL(target_table)))
     return int(cur.fetchone()[0])
+    
+def upsert_players_from_landing(
+    cur: psycopg.Cursor,
+    landing_table: str,
+    target_table: str,
+) -> int:
+    """
+    Safely merge the latest TBC players feed into canonical tbc_players_raw.
 
+    Rules:
+    - Never truncate tbc_players_raw.
+    - Never delete players missing from the latest feed.
+    - Insert new playerids.
+    - Update only columns that exist in both landing and target.
+    - Leave target-only columns, such as deathdate, untouched when omitted from the feed.
+    """
+    landing_columns = set(get_table_columns(cur, landing_table))
+    target_columns = get_table_columns(cur, target_table)
+
+    if "playerid" not in landing_columns:
+        raise IngestError(f"{landing_table}: missing required playerid column")
+
+    common_columns = [col for col in target_columns if col in landing_columns]
+
+    if "playerid" not in common_columns:
+        raise IngestError(f"No usable playerid column between {landing_table} and {target_table}")
+
+    update_columns = [col for col in common_columns if col != "playerid"]
+
+    if not update_columns:
+        raise IngestError(f"No updatable common columns between {landing_table} and {target_table}")
+
+    insert_cols = sql.SQL(", ").join(sql.Identifier(c) for c in common_columns)
+
+    update_set = sql.SQL(", ").join(
+        sql.SQL("{} = EXCLUDED.{}").format(sql.Identifier(c), sql.Identifier(c))
+        for c in update_columns
+    )
+
+    cur.execute(
+        sql.SQL("""
+            INSERT INTO {} ({})
+            SELECT {}
+            FROM {}
+            WHERE playerid IS NOT NULL
+              AND trim(playerid) <> ''
+            ON CONFLICT (playerid) DO UPDATE SET
+              {}
+        """).format(
+            sql.SQL(target_table),
+            insert_cols,
+            insert_cols,
+            sql.SQL(landing_table),
+            update_set,
+        )
+    )
+
+    return cur.rowcount or 0
 
 def run_feed_ingest(
     conn: psycopg.Connection,
