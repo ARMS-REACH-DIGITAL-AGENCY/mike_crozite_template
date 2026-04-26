@@ -1,18 +1,18 @@
 // src/lib/db.ts
-// YAT?STATS — Database helpers
+// YAT?STATS â€” Database helpers
 // Connects to Neon Postgres via DATABASE_URL env var.
 // All player data is sourced from TheBaseballCube tables.
 //
 // Key tables:
-//   tbc_players_raw              — player identity, position, bats/throws, height/weight, highlevel
-//   tbc_batting_raw              — historical season batting stats archive
-//   tbc_pitching_raw             — historical season pitching stats archive
-//   tbc_batting_2026_season_raw  — live 2026 batting season stats
-//   tbc_pitching_2026_season_raw — live 2026 pitching season stats
-//   player_hsids                 — links playerid -> hsid (high school)
-//   tbc_schools_raw              — high school info (hsid, hsname, colors, nickname) — NOT pro/college teams
-//   school_success               — per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams                        — team_id → team_name lookup; populated via scripts/import-teams.ts
+//   tbc_players_raw              â€” player identity, position, bats/throws, height/weight, highlevel
+//   tbc_batting_raw              â€” historical season batting stats archive
+//   tbc_pitching_raw             â€” historical season pitching stats archive
+//   tbc_batting_2026_season_raw  â€” live 2026 batting season stats
+//   tbc_pitching_2026_season_raw â€” live 2026 pitching season stats
+//   player_hsids                 â€” links playerid -> hsid (high school)
+//   tbc_schools_raw              â€” high school info (hsid, hsname, colors, nickname) â€” NOT pro/college teams
+//   school_success               â€” per-school metadata (rank, counts, staging/microsite URLs, colors)
+//   teams                        â€” team_id â†’ team_name lookup; populated via scripts/import-teams.ts
 //
 // "Active" = player has batting or pitching stats from 2026
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -71,7 +71,7 @@ function normalizeHostOrUrl(input: string) {
 }
 
 // ---------------------------------------------------------------------------
-// SINGLE PLAYER — full player identity for profile page
+// SINGLE PLAYER â€” full player identity for profile page
 // Falls back to flip_card_front_stage for YAT-only players not in TBC.
 // ---------------------------------------------------------------------------
 export async function getPlayerById(playerId: string): Promise<any | null> {
@@ -164,7 +164,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 }
 
 // ---------------------------------------------------------------------------
-// ACTIVE ROSTER — players with 2026 stats (homepage)
+// ACTIVE ROSTER â€” players with 2026 stats (homepage)
 //
 // Returns one row per player with their current 2026 season stats.
 // "Active" = has batting OR pitching stats in year 2026.
@@ -218,11 +218,12 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         ip,
         bb,
         so              AS ko,
-        era, whip,
-        h9,
-        bb9,
-        so9,
-        so_bb,
+        ROUND(NULLIF(regexp_replace(COALESCE(era::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS era,
+        ROUND(NULLIF(regexp_replace(COALESCE(whip::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS whip,
+        ROUND(NULLIF(regexp_replace(COALESCE(h9::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS h9,
+        ROUND(NULLIF(regexp_replace(COALESCE(bb9::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS bb9,
+        ROUND(NULLIF(regexp_replace(COALESCE(so9::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS so9,
+        ROUND(NULLIF(regexp_replace(COALESCE(so_bb::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS so_bb,
         draft_info      AS pit_draft_info,
         playyears       AS pit_playyears
       FROM tbc_pitching_2026_season_raw
@@ -261,13 +262,20 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       sp.position,
       lb.stat_year,
       lb.g, lb.ab, lb.r, lb.h,
-      lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb, lb.bb, lb.so,
+      lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb,
+      CASE
+        WHEN lp.pitch_year IS NOT NULL AND (
+          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+        ) THEN lp.bb
+        ELSE lb.bb
+      END AS bb,
+      lb.so,
       lb.avg, lb.obp, lb.slg, lb.ops,
       COALESCE(lb.draft_info, lp.pit_draft_info)  AS draft_info,
       COALESCE(lb.playyears, lp.pit_playyears)    AS playyears,
       lp.pitch_year,
       lp.pg, lp.gs, lp.w, lp.l, lp.saves,
-      lp.ip, lp.bb, lp.ko,
+      lp.ip, lp.ko,
       lp.era, lp.whip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
@@ -321,7 +329,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// ALL-TIME ROSTER — every alumni ever tagged to a school (all-time page)
+// ALL-TIME ROSTER â€” every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
@@ -367,9 +375,16 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
-    career_batting AS (
+    career_batting_by_bucket AS (
       SELECT
         playerid::text AS playerid,
+        CASE
+          WHEN upper(coalesce(highlevel, '')) IN ('MLB') THEN 'mlb'
+          WHEN upper(coalesce(highlevel, '')) IN ('TRIPLE-A','AAA','DOUBLE-A','AA','HIGH-A','A+','LOW-A','SINGLE-A','A','A-','ROOKIE','RK','ROK','MINORS','INDY','INDEPENDENT','INT''L','INTERNATIONAL') THEN 'minors'
+          WHEN upper(coalesce(highlevel, '')) LIKE 'NCAA%'
+            OR upper(coalesce(highlevel, '')) IN ('NCAA','D1','D2','D3','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','JRCOLLEGE','NJCAA') THEN 'college'
+          ELSE 'other'
+        END AS bucket,
         COUNT(DISTINCT year) AS batting_seasons,
         SUM(${n("g")})   AS g,
         SUM(${n("ab")})  AS ab,
@@ -413,12 +428,40 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
           ELSE NULL
         END AS ops
       FROM public.v_tbc_batting_all_seasons_resolved
-      GROUP BY playerid::text
+      GROUP BY playerid::text, bucket
     ),
 
-    career_pitching AS (
+    career_batting AS (
+      SELECT DISTINCT ON (playerid)
+        *,
+        CASE bucket
+          WHEN 'mlb' THEN 'MLB CAREER'
+          WHEN 'minors' THEN 'MINOR LEAGUE CAREER'
+          WHEN 'college' THEN 'COLLEGE CAREER'
+          ELSE 'CAREER'
+        END AS career_bucket_label
+      FROM career_batting_by_bucket
+      WHERE bucket <> 'other'
+      ORDER BY
+        playerid,
+        CASE bucket
+          WHEN 'mlb' THEN 1
+          WHEN 'minors' THEN 2
+          WHEN 'college' THEN 3
+          ELSE 4
+        END
+    ),
+
+    career_pitching_by_bucket AS (
       SELECT
         playerid::text AS playerid,
+        CASE
+          WHEN upper(coalesce(highlevel, '')) IN ('MLB') THEN 'mlb'
+          WHEN upper(coalesce(highlevel, '')) IN ('TRIPLE-A','AAA','DOUBLE-A','AA','HIGH-A','A+','LOW-A','SINGLE-A','A','A-','ROOKIE','RK','ROK','MINORS','INDY','INDEPENDENT','INT''L','INTERNATIONAL') THEN 'minors'
+          WHEN upper(coalesce(highlevel, '')) LIKE 'NCAA%'
+            OR upper(coalesce(highlevel, '')) IN ('NCAA','D1','D2','D3','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','JRCOLLEGE','NJCAA') THEN 'college'
+          ELSE 'other'
+        END AS bucket,
         COUNT(DISTINCT year) AS pitching_seasons,
         SUM(${n("g")})   AS pg,
         SUM(${n("gs")})  AS gs,
@@ -461,7 +504,28 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
           ELSE NULL
         END AS so_bb
       FROM public.v_tbc_pitching_all_seasons_resolved
-      GROUP BY playerid::text
+      GROUP BY playerid::text, bucket
+    ),
+
+    career_pitching AS (
+      SELECT DISTINCT ON (playerid)
+        *,
+        CASE bucket
+          WHEN 'mlb' THEN 'MLB CAREER'
+          WHEN 'minors' THEN 'MINOR LEAGUE CAREER'
+          WHEN 'college' THEN 'COLLEGE CAREER'
+          ELSE 'CAREER'
+        END AS career_bucket_label
+      FROM career_pitching_by_bucket
+      WHERE bucket <> 'other'
+      ORDER BY
+        playerid,
+        CASE bucket
+          WHEN 'mlb' THEN 1
+          WHEN 'minors' THEN 2
+          WHEN 'college' THEN 3
+          ELSE 4
+        END
     ),
 
     active_2026 AS (
@@ -491,6 +555,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       lbl.stat_year,
       lbl.bat_level AS current_level,
       lpl.pitch_year,
+      COALESCE(cp.career_bucket_label, cb.career_bucket_label, 'CAREER') AS career_bucket_label,
 
       cb.g,
       cb.ab,
@@ -501,7 +566,11 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       cb.hr,
       cb.rbi,
       cb.sb,
-      cb.bb,
+      CASE
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
+        THEN cp.bb
+        ELSE cb.bb
+      END AS bb,
       cb.so,
       cb.avg,
       cb.obp,
@@ -514,7 +583,6 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       cp.l,
       cp.saves,
       cp.ip,
-      cp.bb,
       cp.ko,
       cp.era,
       cp.whip,
@@ -603,7 +671,7 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<Pl
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER SCHOOL — which school(s) a player is linked to
+// PLAYER SCHOOL â€” which school(s) a player is linked to
 // ---------------------------------------------------------------------------
 export async function getPlayerSchool(playerId: string): Promise<any | null> {
   const sql = `
@@ -618,7 +686,7 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 }
 
 // ---------------------------------------------------------------------------
-// SEASON-BY-SEASON BATTING STATS — all years for a player
+// SEASON-BY-SEASON BATTING STATS â€” all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -648,7 +716,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SEASON-BY-SEASON PITCHING STATS — all years for a player
+// SEASON-BY-SEASON PITCHING STATS â€” all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -680,7 +748,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// CAREER AGGREGATE STATS — totals across all seasons
+// CAREER AGGREGATE STATS â€” totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
   const n = (col: string) =>
@@ -752,7 +820,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 }
 
 // ---------------------------------------------------------------------------
-// TEAM CONTEXT — optional organization / conference metadata for a team.
+// TEAM CONTEXT â€” optional organization / conference metadata for a team.
 // ---------------------------------------------------------------------------
 export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
   try {
@@ -772,7 +840,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 }
 
 // ---------------------------------------------------------------------------
-// TEAM SCHEDULE — chronological game feed for a given team_id.
+// TEAM SCHEDULE â€” chronological game feed for a given team_id.
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
@@ -787,7 +855,7 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER GAME LOG — per-game batting stats for a player on a given team.
+// PLAYER GAME LOG â€” per-game batting stats for a player on a given team.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingGameLog(playerId: string, teamId: string): Promise<any[]> {
   try {
@@ -814,7 +882,7 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 }
 
 // ---------------------------------------------------------------------------
-// NEWS ARTICLES — from news_articles table (populated by Webz.io cron job)
+// NEWS ARTICLES â€” from news_articles table (populated by Webz.io cron job)
 // ---------------------------------------------------------------------------
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
@@ -883,7 +951,7 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER PHOTOS — uploaded career-progression photos for the filmstrip.
+// PLAYER PHOTOS â€” uploaded career-progression photos for the filmstrip.
 // ---------------------------------------------------------------------------
 export async function getDesignatedPlayerImage(
   imageId: string,
@@ -963,7 +1031,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// FLIP CARD FRONT STAGE — staging table for UI rendering
+// FLIP CARD FRONT STAGE â€” staging table for UI rendering
 // ---------------------------------------------------------------------------
 export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `
@@ -1015,7 +1083,7 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
 }
 
 // ---------------------------------------------------------------------------
-// ROSTER TRUTH — resolved current team + transactions
+// ROSTER TRUTH â€” resolved current team + transactions
 // ---------------------------------------------------------------------------
 export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
   try {
@@ -1055,7 +1123,7 @@ export async function getPlayerTransactions(playerid: string, limit = 20): Promi
 }
 
 // ---------------------------------------------------------------------------
-// Schema bootstrap — ensure auxiliary tables exist so JOINs never crash.
+// Schema bootstrap â€” ensure auxiliary tables exist so JOINs never crash.
 // ---------------------------------------------------------------------------
 declare global {
   // eslint-disable-next-line no-var
