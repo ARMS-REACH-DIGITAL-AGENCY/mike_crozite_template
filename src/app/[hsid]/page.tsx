@@ -113,11 +113,16 @@ export default async function SchoolPage({
   const activeMerged: Record<string, unknown>[] = [];
 
   for (const p of activeRoster as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    activeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-    activeSeenIds.add(id);
-  }
+  const id = String(p.playerid);
+  const stageRow = stageMap.get(id);
+
+  // Stage supplies display/current-team/profile fields.
+  // TBC active row supplies 2026 stats.
+  // Put TBC row last so blank stage fields cannot overwrite real 2026 stats.
+  activeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+
+  activeSeenIds.add(id);
+}
 
   for (const p of flipFrontStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
