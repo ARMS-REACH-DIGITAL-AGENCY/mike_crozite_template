@@ -135,13 +135,17 @@ export default async function SchoolPage({
   // TBC base first, stage overlay on top. Stage-only players included.
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Record<string, unknown>[] = [];
+for (const p of allTimeRoster as Record<string, unknown>[]) {
+  const id = String(p.playerid);
+  const stageRow = stageMap.get(id);
 
-  for (const p of allTimeRoster as Record<string, unknown>[]) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    allTimeMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
-    allTimeSeenIds.add(id);
-  }
+  // Stage supplies card/profile metadata.
+  // TBC all-time row supplies career stats.
+  // Put TBC row last so blank stage fields cannot overwrite career stats.
+  allTimeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+
+  allTimeSeenIds.add(id);
+}
 
   for (const p of flipFrontStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
