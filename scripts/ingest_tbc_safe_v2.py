@@ -590,10 +590,30 @@ def run_feed_ingest(
             raise IngestError(f"{feed_type}: zero valid rows after fetch/parse")
 
         with conn.cursor() as cur:
-            recreate_landing_table(cur, feed_cfg.landing_table, headers)
-            landing_count = copy_rows_to_landing(cur, feed_cfg.landing_table, headers, valid_rows)
-            target_count = replace_target_from_landing(cur, feed_cfg.landing_table, feed_cfg.target_table)
-            log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
+    recreate_landing_table(cur, feed_cfg.landing_table, headers)
+    landing_count = copy_rows_to_landing(cur, feed_cfg.landing_table, headers, valid_rows)
+
+    if feed_type == "players":
+        if landing_count < 50000:
+            logger.warning(
+                "%s: feed returned only %s valid rows; will upsert additions/updates only and will NOT delete missing canonical players",
+                feed_type,
+                landing_count,
+            )
+
+        target_count = upsert_players_from_landing(
+            cur,
+            feed_cfg.landing_table,
+            feed_cfg.target_table,
+        )
+    else:
+        target_count = replace_target_from_landing(
+            cur,
+            feed_cfg.landing_table,
+            feed_cfg.target_table,
+        )
+
+    log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
             finalize_ingest_run(
                 cur,
                 ingest_run_id,
