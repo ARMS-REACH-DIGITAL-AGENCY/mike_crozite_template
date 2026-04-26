@@ -168,7 +168,7 @@ const delay = (ms: number) =>
 
 function safePlayerName(p: MlbRosterEntry["person"]): string {
   const fallback = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
-  return p.fullName ?? fallback || "Unknown Player";
+  return p.fullName ?? (fallback || "Unknown Player");
 }
 
 function sportNameToLevel(sportName?: string): LevelLabel {
