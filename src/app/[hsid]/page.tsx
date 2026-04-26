@@ -147,9 +147,23 @@ export default async function SchoolPage({
 
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
-  // Active section uses Active sort: Level → Grad Class → Roster Years → Last Name.
-  // allTimeMerged is the full universe; we sort a copy so allTimeFrontRoster is unaffected.
-  const activeSortedRoster = sortActivePlayers([...allTimeMerged]);
+// Active section shows the full player universe, but overlays 2026 stats
+// for players who have current-season batting/pitching rows.
+// If no 2026 stats exist, the card keeps career stats.
+const activeStatsMap = new Map(
+  (activeMerged as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+);
+
+const activeDisplayRoster = allTimeMerged.map((p) => {
+  const id = String(p.playerid);
+  const activeStatsRow = activeStatsMap.get(id);
+
+  return activeStatsRow
+    ? { ...p, ...activeStatsRow, has_2026_stats: true }
+    : { ...p, has_2026_stats: false };
+});
+
+const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
 
   // ---------------------------------------------------------------------------
   // Batch-fetch images — include all IDs from the full universe.
