@@ -59,10 +59,55 @@ function formatOpponentPrefix(value: string): string {
 function tryFormatGameDate(value: string) {
   if (!value) return { dayLine: "TBD", dateLine: "" };
 
-  const parsed = new Date(value);
-  if (!Number.isNaN(parsed.getTime())) {
+  const raw = value.trim();
+
+  function isTodayDate(dateText: string): boolean {
+    const parsedDate = new Date(dateText);
+    if (Number.isNaN(parsedDate.getTime())) return false;
+
+    const now = new Date();
+
+    return (
+      parsedDate.getFullYear() === now.getFullYear() &&
+      parsedDate.getMonth() === now.getMonth() &&
+      parsedDate.getDate() === now.getDate()
+    );
+  }
+
+  // Backend may send: TODAY | April 27, 2026
+  if (raw.toUpperCase().startsWith("TODAY |")) {
+    const datePart = raw.split("|").slice(1).join("|").trim();
     return {
-      dayLine: parsed.toLocaleDateString("en-US", { weekday: "long" }),
+      dayLine: "TODAY",
+      dateLine: datePart,
+    };
+  }
+
+  // Backend may send: Monday | April 27, 2026
+  const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const datePart = parts.slice(1).join(" | ");
+    return {
+      dayLine: isTodayDate(datePart) ? "TODAY" : parts[0],
+      dateLine: datePart,
+    };
+  }
+
+  // Backend may send a raw date/timestamp.
+  const parsed = new Date(raw);
+
+  if (!Number.isNaN(parsed.getTime())) {
+    const now = new Date();
+
+    const isToday =
+      parsed.getFullYear() === now.getFullYear() &&
+      parsed.getMonth() === now.getMonth() &&
+      parsed.getDate() === now.getDate();
+
+    return {
+      dayLine: isToday
+        ? "TODAY"
+        : parsed.toLocaleDateString("en-US", { weekday: "long" }),
       dateLine: parsed.toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
@@ -71,7 +116,21 @@ function tryFormatGameDate(value: string) {
     };
   }
 
-  return { dayLine: value, dateLine: "" };
+  return { dayLine: raw, dateLine: "" };
+}
+
+function formatTimeZoneLabel(value: string): string {
+  const v = value.trim();
+
+  const map: Record<string, string> = {
+    "America/Phoenix": "MST",
+    "America/Denver": "MST",
+    "America/Los_Angeles": "PST",
+    "America/New_York": "EST",
+    "America/Chicago": "CST",
+  };
+
+  return map[v] || v;
 }
 
 function normalizeColor(value: string): string {
@@ -132,7 +191,7 @@ export default function PlayerCardFront({
   const classOf = asText(p.class_of);
   const rosterYears = asTextArray(p.roster_years);
 
-   const statusLabelRaw =
+  const statusLabelRaw =
     asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
 
   const levelLabelRaw = asText(p.level_label) || asText(p.level) || "--";
@@ -148,11 +207,13 @@ export default function PlayerCardFront({
   const nextGameHomeAway = formatOpponentPrefix(asText(p.next_game_home_away));
   const nextGameOpponent = asText(p.next_game_opponent);
   const nextGameTimeLocal = asText(p.next_game_time_local);
-  const hsTimeZone =
+  const hsTimeZoneRaw =
     asText(p.school_time_zone) ||
     asText(p.school_timezone) ||
     asText(p.hs_time_zone) ||
     asText(p.next_game_time_zone);
+
+  const hsTimeZone = formatTimeZoneLabel(hsTimeZoneRaw);
 
   const normalizedStatus = statusLabel.toUpperCase();
   const isNonActiveStatus =
