@@ -60,7 +60,7 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'DESIGNATED FOR ASSIGNMENT',
     'FREE AGENT',
     'REDSHIRT',
-   	'PARTNER/SPONSOR'
+   	'PARTNER - SPONSOR'
 	'RETIRED',
   ];
 
