@@ -22,6 +22,42 @@ import PlayerCard from "@/components/yatstats/PlayerCard";
 
 export const runtime = "nodejs";
 
+function hasReal2026Stats(p: Record<string, unknown>): boolean {
+  const statKeys = [
+    "avg",
+    "obp",
+    "slg",
+    "ops",
+    "hr",
+    "rbi",
+    "h",
+    "ab",
+    "r",
+    "sb",
+    "bb",
+    "era",
+    "whip",
+    "ip",
+    "w",
+    "l",
+    "ko",
+    "so9",
+    "so_bb",
+    "h9",
+    "bb9",
+    "saves",
+    "pg",
+  ];
+
+  return statKeys.some((key) => {
+    const value = p[key];
+    if (value === null || value === undefined) return false;
+
+    const text = String(value).trim();
+    return text !== "" && text !== "--";
+  });
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
   const { hsid } = await params;
   const headersList = await headers();
@@ -101,28 +137,27 @@ export default async function SchoolPage({
   // ---------------------------------------------------------------------------
   // Build union datasets — TBC rows + stage-only rows, merged by playerid.
   // Stage-only players (YAT00001–YAT00008 etc.) are included even with no TBC row.
-  // Stage fields overlay TBC fields when both exist.
   // ---------------------------------------------------------------------------
   const stageMap = new Map(
     (flipFrontStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // activeFrontRoster: union of TBC active + stage-ACTIVE rows, merged by playerid.
-  // TBC base first, stage overlay on top. Stage-only ACTIVE players included.
+  // activeMerged: only rows from the active/current-season query path.
+  // These rows may or may not actually have stat values, so we filter them later
+  // before allowing them to set has_2026_stats=true.
   const activeSeenIds = new Set<string>();
   const activeMerged: Record<string, unknown>[] = [];
 
   for (const p of activeRoster as Record<string, unknown>[]) {
-  const id = String(p.playerid);
-  const stageRow = stageMap.get(id);
+    const id = String(p.playerid);
+    const stageRow = stageMap.get(id);
 
-  // Stage supplies display/current-team/profile fields.
-  // TBC active row supplies 2026 stats.
-  // Put TBC row last so blank stage fields cannot overwrite real 2026 stats.
-  activeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+    // Stage supplies display/current-team/profile fields.
+    // TBC active row supplies 2026 stats when present.
+    activeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
 
-  activeSeenIds.add(id);
-}
+    activeSeenIds.add(id);
+  }
 
   for (const p of flipFrontStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
@@ -132,20 +167,17 @@ export default async function SchoolPage({
   }
 
   // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
-  // TBC base first, stage overlay on top. Stage-only players included.
+  // Stage supplies card/profile metadata. TBC all-time row supplies career stats.
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Record<string, unknown>[] = [];
-for (const p of allTimeRoster as Record<string, unknown>[]) {
-  const id = String(p.playerid);
-  const stageRow = stageMap.get(id);
 
-  // Stage supplies card/profile metadata.
-  // TBC all-time row supplies career stats.
-  // Put TBC row last so blank stage fields cannot overwrite career stats.
-  allTimeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+  for (const p of allTimeRoster as Record<string, unknown>[]) {
+    const id = String(p.playerid);
+    const stageRow = stageMap.get(id);
 
-  allTimeSeenIds.add(id);
-}
+    allTimeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+    allTimeSeenIds.add(id);
+  }
 
   for (const p of flipFrontStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
@@ -156,23 +188,26 @@ for (const p of allTimeRoster as Record<string, unknown>[]) {
 
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
-// Active section shows the full player universe, but overlays 2026 stats
-// for players who have current-season batting/pitching rows.
-// If no 2026 stats exist, the card keeps career stats.
-const activeStatsMap = new Map(
-  (activeMerged as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
-);
+  // Active section shows the full player universe, but overlays 2026 stats only
+  // for players who have real current-season batting/pitching values.
+  // This prevents blank ACTIVE/stage rows from overwriting career stats and then
+  // falsely labeling the back of the card as "2026 BATTING/PITCHING".
+  const activeStatsMap = new Map(
+    (activeMerged as Record<string, unknown>[])
+      .filter((p) => hasReal2026Stats(p))
+      .map((p) => [String(p.playerid), p])
+  );
 
-const activeDisplayRoster = allTimeMerged.map((p) => {
-  const id = String(p.playerid);
-  const activeStatsRow = activeStatsMap.get(id);
+  const activeDisplayRoster = allTimeMerged.map((p) => {
+    const id = String(p.playerid);
+    const activeStatsRow = activeStatsMap.get(id);
 
-  return activeStatsRow
-    ? { ...p, ...activeStatsRow, has_2026_stats: true }
-    : { ...p, has_2026_stats: false };
-});
+    return activeStatsRow
+      ? { ...p, ...activeStatsRow, has_2026_stats: true }
+      : { ...p, has_2026_stats: false };
+  });
 
-const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
+  const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
 
   // ---------------------------------------------------------------------------
   // Batch-fetch images — include all IDs from the full universe.
@@ -224,7 +259,7 @@ const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
               >
                 BACK TO HOME
               </a>
-                            <a
+              <a
                 href="https://home.yatstats.com"
                 style={{
                   display: "inline-block",
