@@ -1,9 +1,10 @@
-name: MLB Schedule Sync
+name: MLB/MiLB Full Schedule Sync
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 15-23,0-7 * * *"
+    # 2:00 AM Arizona time = 09:00 UTC
+    - cron: "0 9 * * *"
 
 jobs:
   sync-mlb-schedules:
@@ -31,5 +32,5 @@ jobs:
           git branch --show-current
           git rev-parse --short HEAD
 
-      - name: Run MLB schedule sync
+      - name: Run full MLB/MiLB schedule sync
         run: python scripts/sync_mlb_schedules.py
