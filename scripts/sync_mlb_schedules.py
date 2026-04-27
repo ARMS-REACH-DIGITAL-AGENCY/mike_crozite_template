@@ -7,8 +7,11 @@ import requests
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
-START_DATE = date.today() - timedelta(days=2)
-END_DATE = date.today() + timedelta(days=14)
+# Full-season schedule ingest. The rolling freshness behavior comes from rerunning
+# this job and upserting statuses/scores into the same canonical table.
+SCHEDULE_SEASON = int(os.environ.get("SCHEDULE_SEASON", "2026"))
+START_DATE = date.fromisoformat(os.environ.get("SCHEDULE_START_DATE", f"{SCHEDULE_SEASON}-02-01"))
+END_DATE = date.fromisoformat(os.environ.get("SCHEDULE_END_DATE", f"{SCHEDULE_SEASON}-11-30"))
 
 API_BASE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 PRO_SPORT_IDS = [1, 11, 12, 13, 14, 16]
