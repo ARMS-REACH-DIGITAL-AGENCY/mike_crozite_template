@@ -1,0 +1,37 @@
+name: MLB/MiLB Live Schedule Refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Wake up every 10 minutes.
+    # The Python script decides whether the current AZ time is inside a valid polling window.
+    - cron: "*/10 * * * *"
+
+jobs:
+  refresh-live-schedules:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout Easter-NEWS branch
+        uses: actions/checkout@v4
+        with:
+          ref: Easter-NEWS
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests psycopg[binary]
+
+      - name: Confirm branch
+        run: |
+          git branch --show-current
+          git rev-parse --short HEAD
+
+      - name: Refresh live schedule statuses and flip-card next games
+        run: python scripts/refresh_live_schedule_status.py
