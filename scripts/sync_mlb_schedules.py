@@ -77,6 +77,29 @@ def get_table_columns(cur: psycopg.Cursor, table_name: str) -> set[str]:
     return {row[0] for row in cur.fetchall()}
 
 
+def infer_sport_id(level: str | None) -> int | None:
+    """
+    MLB Stats API schedule calls require a sportId when querying by teamId.
+    These are the standard pro baseball sport IDs used by the Stats API.
+    """
+    normalized = (level or "").strip().upper().replace("_", "-")
+
+    if normalized in {"MLB", "MAJOR", "MAJOR LEAGUE", "MAJOR-LEAGUE"}:
+        return 1
+    if normalized in {"AAA", "TRIPLE-A", "TRIPLE A", "TRIPLEA"}:
+        return 11
+    if normalized in {"AA", "DOUBLE-A", "DOUBLE A", "DOUBLEA"}:
+        return 12
+    if normalized in {"HIGH-A", "HIGH A", "HIGHA", "A+"}:
+        return 13
+    if normalized in {"LOW-A", "LOW A", "LOWA", "A", "SINGLE-A", "SINGLE A", "SINGLEA"}:
+        return 14
+    if normalized in {"ROOKIE", "ROK", "RK", "ACL", "FCL", "CPX", "COMPLEX"}:
+        return 16
+
+    return None
+
+
 def load_schedule_team_targets(cur: psycopg.Cursor) -> list[dict[str, Any]]:
     """
     Load all pro organization schedule targets from public.teams.
@@ -90,7 +113,7 @@ def load_schedule_team_targets(cur: psycopg.Cursor) -> list[dict[str, Any]]:
     if "mlb_stats_api_id" not in teams_cols:
         raise RuntimeError("public.teams is missing required mlb_stats_api_id column")
 
-    optional_cols = [col for col in ["team_name", "level"] if col in teams_cols]
+    optional_cols = [col for col in ["team_name", "level", "sport_id"] if col in teams_cols]
     select_cols = ["mlb_stats_api_id", *optional_cols]
 
     cur.execute(
@@ -105,21 +128,46 @@ def load_schedule_team_targets(cur: psycopg.Cursor) -> list[dict[str, Any]]:
     )
 
     targets: list[dict[str, Any]] = []
+    skipped = 0
+
     for db_row in cur.fetchall():
         row = dict(zip(select_cols, db_row))
+        level = row.get("level")
+        raw_sport_id = row.get("sport_id")
+        sport_id = None
+
+        if raw_sport_id is not None and str(raw_sport_id).strip().isdigit():
+            sport_id = int(str(raw_sport_id).strip())
+        else:
+            sport_id = infer_sport_id(level)
+
+        if sport_id is None:
+            skipped += 1
+            continue
+
         targets.append(
             {
                 "team_id": int(row["mlb_stats_api_id"]),
                 "team_name": row.get("team_name"),
-                "level": row.get("level"),
+                "level": level,
+                "sport_id": sport_id,
             }
         )
+
+    if skipped:
+        print(f"Skipped {skipped} teams without a usable sport_id/level")
 
     return targets
 
 
-def fetch_team_schedule(session: requests.Session, team_id: int, fallback_level: str | None = None) -> list[dict[str, Any]]:
+def fetch_team_schedule(
+    session: requests.Session,
+    team_id: int,
+    sport_id: int,
+    fallback_level: str | None = None,
+) -> list[dict[str, Any]]:
     params = {
+        "sportId": str(sport_id),
         "teamId": str(team_id),
         "startDate": START_DATE.isoformat(),
         "endDate": END_DATE.isoformat(),
@@ -151,7 +199,7 @@ def fetch_team_schedule(session: requests.Session, team_id: int, fallback_level:
                     "away_team_id": (away.get("team") or {}).get("id"),
                     "away_team_name": (away.get("team") or {}).get("name"),
                     "venue_name": venue.get("name"),
-                    "sport_id": sport.get("id"),
+                    "sport_id": sport.get("id") or sport_id,
                     "level": fallback_level,
                     "home_score": home.get("score"),
                     "away_score": away.get("score"),
@@ -167,12 +215,13 @@ def fetch_org_schedule(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     for index, target in enumerate(targets, start=1):
         team_id = target["team_id"]
+        sport_id = target["sport_id"]
         level = target.get("level")
 
         try:
-            rows = fetch_team_schedule(session, team_id, level)
+            rows = fetch_team_schedule(session, team_id, sport_id, level)
         except Exception as exc:
-            print(f"WARNING: schedule fetch failed for team_id={team_id}: {exc}")
+            print(f"WARNING: schedule fetch failed for team_id={team_id} sport_id={sport_id}: {exc}")
             continue
 
         for row in rows:
