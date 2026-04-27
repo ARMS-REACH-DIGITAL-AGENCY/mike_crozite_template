@@ -195,59 +195,63 @@ def fetch_complete_pro_schedule() -> list[dict[str, Any]]:
 
 
 def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
-    stage_cols = get_table_columns(cur, "flip_card_front_stage")
-    view_cols = get_table_columns(cur, "v_player_next_game_resolved")
+    """
+    Write the next game directly into flip_card_front_stage.
 
-    required_stage = {"playerid"}
-    required_view = {"playerid", "next_game_time_utc"}
+    Do not use a separate matchup-shaped helper output here. The destination
+    table already has the card fields the UI reads:
+      next_game_date
+      next_game_time_local
+      next_game_time_utc
+      next_game_home_away
+      next_game_opponent
+
+    Source:
+      flip_card_front_stage.current_team_name + team_schedules
+    """
+    stage_cols = get_table_columns(cur, "flip_card_front_stage")
+    schedule_cols = get_table_columns(cur, "team_schedules")
+
+    required_stage = {"playerid", "current_team_name"}
+    required_schedule = {"game_time_utc", "home_team_name", "away_team_name"}
 
     missing_stage = required_stage - stage_cols
-    missing_view = required_view - view_cols
+    missing_schedule = required_schedule - schedule_cols
 
     if missing_stage:
         print(f"Skipping next-game refresh: flip_card_front_stage missing {sorted(missing_stage)}")
         return 0
 
-    if missing_view:
-        print(f"Skipping next-game refresh: v_player_next_game_resolved missing {sorted(missing_view)}")
+    if missing_schedule:
+        print(f"Skipping next-game refresh: team_schedules missing {sorted(missing_schedule)}")
         return 0
 
     set_clauses: list[str] = []
 
-    if "next_game_date" in stage_cols and {"next_game_date", "next_game_time_local"} <= view_cols:
+    if "next_game_date" in stage_cols:
         set_clauses.append(
-            """
-            next_game_date = concat_ws(
-                ' ',
-                nullif(v.next_game_date::text, ''),
-                nullif(v.next_game_time_local::text, '')
-            )
-            """
-        )
-    elif "next_game_date" in stage_cols and "next_game_date" in view_cols:
-        set_clauses.append("next_game_date = nullif(v.next_game_date::text, '')")
-
-    if "next_game_home_away" in stage_cols and "next_game_home_away" in view_cols:
-        set_clauses.append("next_game_home_away = nullif(v.next_game_home_away::text, '')")
-
-    if "next_game_opponent" in stage_cols and "next_game_opponent" in view_cols:
-        set_clauses.append("next_game_opponent = nullif(v.next_game_opponent::text, '')")
-
-    if "current_team_name" in stage_cols and "current_team_name" in view_cols:
-        set_clauses.append(
-            "current_team_name = coalesce(nullif(f.current_team_name, ''), nullif(v.current_team_name::text, ''))"
+            "next_game_date = to_char(ng.game_time_utc at time zone 'America/Phoenix', 'FMDay | FMMonth DD, YYYY')"
         )
 
-    if "current_team_level" in stage_cols and "current_level" in view_cols:
+    if "next_game_time_local" in stage_cols:
         set_clauses.append(
-            "current_team_level = coalesce(nullif(f.current_team_level, ''), nullif(v.current_level::text, ''))"
+            "next_game_time_local = to_char(ng.game_time_utc at time zone 'America/Phoenix', 'FMHH12:MI AM')"
         )
+
+    if "next_game_time_utc" in stage_cols:
+        set_clauses.append("next_game_time_utc = ng.game_time_utc")
+
+    if "next_game_home_away" in stage_cols:
+        set_clauses.append("next_game_home_away = ng.home_away")
+
+    if "next_game_opponent" in stage_cols:
+        set_clauses.append("next_game_opponent = ng.opponent")
 
     if "stage_updated_at" in stage_cols:
         set_clauses.append("stage_updated_at = now()")
 
     if not set_clauses:
-        print("Skipping next-game refresh: no compatible target columns found")
+        print("Skipping next-game refresh: no compatible flip_card_front_stage next-game columns found")
         return 0
 
     retired_filter = ""
@@ -258,10 +262,28 @@ def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
         f"""
         update public.flip_card_front_stage f
         set {", ".join(set_clauses)}
-        from public.v_player_next_game_resolved v
-        where v.playerid::text = f.playerid::text
-          and v.next_game_time_utc is not null
-          and v.next_game_time_utc > now()
+        from lateral (
+            select
+                s.game_time_utc,
+                case
+                    when lower(trim(s.away_team_name)) = lower(trim(f.current_team_name)) then '@'
+                    else 'vs.'
+                end as home_away,
+                case
+                    when lower(trim(s.away_team_name)) = lower(trim(f.current_team_name)) then s.home_team_name
+                    else s.away_team_name
+                end as opponent
+            from public.team_schedules s
+            where s.game_time_utc > now()
+              and (
+                    lower(trim(s.home_team_name)) = lower(trim(f.current_team_name))
+                 or lower(trim(s.away_team_name)) = lower(trim(f.current_team_name))
+              )
+            order by s.game_time_utc asc
+            limit 1
+        ) ng
+        where f.current_team_name is not null
+          and trim(f.current_team_name) <> ''
           {retired_filter}
         """
     )
