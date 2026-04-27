@@ -5,21 +5,19 @@
 // Usage:
 //   npx ts-node scripts/import-teams.ts <path-to-csv>
 //
-// CSV format (exported from the team-names Google Spreadsheet):
+// CSV format:
 //   teamid,team_name
 //   LAD,Los Angeles Dodgers
 //   NYY,New York Yankees
 //   ...
 //
 // The script upserts rows so it is safe to re-run.
+// Canonical schema uses `teamid`, not `team_id`.
 
 import fs from "fs";
 import path from "path";
 import { Pool } from "pg";
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error("ERROR: DATABASE_URL environment variable is not set.");
@@ -38,10 +36,7 @@ if (!fs.existsSync(resolvedPath)) {
   process.exit(1);
 }
 
-// ---------------------------------------------------------------------------
-// Parse CSV
-// ---------------------------------------------------------------------------
-function parseCSV(raw: string): Array<{ team_id: string; team_name: string }> {
+function parseCSV(raw: string): Array<{ teamid: string; team_name: string }> {
   const lines = raw
     .replace(/\r\n/g, "\n")
     .split("\n")
@@ -52,30 +47,25 @@ function parseCSV(raw: string): Array<{ team_id: string; team_name: string }> {
     throw new Error("CSV must have a header row and at least one data row.");
   }
 
-  // Determine column indices from header
-  const header = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
-  const teamidIdx = header.findIndex((h) => h === "team_id" || h === "teamid");
+  const header = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^\"|\"$/g, ""));
+  const teamidIdx = header.findIndex((h) => h === "teamid");
   const teamNameIdx = header.findIndex((h) => h === "team_name" || h === "teamname" || h === "name");
 
-  if (teamidIdx === -1) throw new Error("CSV header must include a 'team_id' (or 'teamid') column.");
-  if (teamNameIdx === -1) throw new Error("CSV header must include a 'team_name' (or 'name') column.");
+  if (teamidIdx === -1) throw new Error("CSV header must include a `teamid` column.");
+  if (teamNameIdx === -1) throw new Error("CSV header must include a `team_name` or `name` column.");
 
-  const rows: Array<{ team_id: string; team_name: string }> = [];
+  const rows: Array<{ teamid: string; team_name: string }> = [];
   for (let i = 1; i < lines.length; i++) {
-    // Simple CSV split — handles quoted fields
-    const cols = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g) || [];
-    const team_id = (cols[teamidIdx] || "").replace(/^"|"$/g, "").trim();
-    const team_name = (cols[teamNameIdx] || "").replace(/^"|"$/g, "").trim();
-    if (team_id && team_name) {
-      rows.push({ team_id, team_name });
+    const cols = lines[i].match(/(\".*?\"|[^,]+)(?=,|$)/g) || [];
+    const teamid = (cols[teamidIdx] || "").replace(/^\"|\"$/g, "").trim();
+    const team_name = (cols[teamNameIdx] || "").replace(/^\"|\"$/g, "").trim();
+    if (teamid && team_name) {
+      rows.push({ teamid, team_name });
     }
   }
   return rows;
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
 async function main() {
   const raw = fs.readFileSync(resolvedPath, "utf-8");
   const rows = parseCSV(raw);
@@ -87,15 +77,13 @@ async function main() {
   });
 
   try {
-    // Ensure the table exists
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teams (
-        team_id   TEXT PRIMARY KEY,
+        teamid TEXT PRIMARY KEY,
         team_name TEXT NOT NULL
       )
     `);
 
-    // Upsert in batches of 100
     let inserted = 0;
     const BATCH = 100;
     for (let i = 0; i < rows.length; i += BATCH) {
@@ -103,11 +91,11 @@ async function main() {
       const values = batch
         .map((_, j) => `($${j * 2 + 1}, $${j * 2 + 2})`)
         .join(", ");
-      const params = batch.flatMap((r) => [r.team_id, r.team_name]);
+      const params = batch.flatMap((r) => [r.teamid, r.team_name]);
       await pool.query(
-        `INSERT INTO teams (team_id, team_name)
+        `INSERT INTO teams (teamid, team_name)
          VALUES ${values}
-         ON CONFLICT (team_id) DO UPDATE SET team_name = EXCLUDED.team_name`,
+         ON CONFLICT (teamid) DO UPDATE SET team_name = EXCLUDED.team_name`,
         params
       );
       inserted += batch.length;
