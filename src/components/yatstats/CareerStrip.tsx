@@ -72,6 +72,19 @@ function CareerSlot({
 
 export default function CareerStrip({ playerId }: { playerId: string }) {
   const schoolData = useContext(SchoolContext);
+  const playerProfile = usePlayerProfile();
+
+  const hsid = String(
+    playerProfile?.playerHsid ||
+    schoolData?.hsid ||
+    ""
+  ).trim();
+
+  // Link the HS "then" image back to the player's flip card on the numeric school route.
+  // Example: /5004#player-180827
+  const flipCardHref = hsid
+    ? `/${encodeURIComponent(hsid)}#player-${encodeURIComponent(playerId)}`
+    : undefined;
   const hsid = schoolData?.hsid ?? "";
 
   // Link the HS "then" image back to the player's flip card on the gallery page.
