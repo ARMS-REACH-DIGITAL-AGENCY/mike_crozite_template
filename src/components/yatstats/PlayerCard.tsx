@@ -42,8 +42,10 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // Previously the isAllTime=false branch hardcoded "ACTIVE" for every card, which prevented
   // the status filter from distinguishing RETIRED / FREE AGENT / INJURED players on the homepage.
   const status = String(
-    p.status_label || (p.is_active_2025 ? "ACTIVE" : "RETIRED")
-  );
+  p.status_label || (p.is_active_2025 ? "ACTIVE" : "RETIRED")
+)
+  .trim()
+  .toUpperCase();
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),
     String(p.lastname || p.last_name || "")
