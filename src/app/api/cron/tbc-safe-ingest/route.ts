@@ -122,10 +122,10 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
     cache: "no-store",
     headers: {
       "User-Agent": "Mozilla/5.0 YATSTATS Vercel Cron",
-      "Accept": "text/csv,text/plain,text/html,*/*",
-      "Referer": "https://www.thebaseballcube.com/",
+      Accept: "text/csv,text/plain,text/html,*/*",
+      Referer: "https://www.thebaseballcube.com/",
       "Cache-Control": "no-cache",
-      "Pragma": "no-cache",
+      Pragma: "no-cache",
     },
   });
 
@@ -179,7 +179,7 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
 
   if (headers.length > 200) {
     throw new Error(
-      `Header sanity check failed: got ${headers.length} columns. This is not a valid TBC CSV header. preview=${preview}`
+      `Header sanity check failed: got ${headers.length} columns. This is not a valid TBC CSV header. preview=${preview}`,
     );
   }
 
@@ -296,18 +296,65 @@ async function replaceTargetFromLanding(
   return Number(rows[0]?.count || 0);
 }
 
+async function mergePlayersFromLanding(
+  client: any,
+  landingTable: string,
+  targetTable: string,
+  landingHeaders: string[],
+): Promise<number> {
+  const targetCols = await getTargetColumns(client, targetTable);
+  const commonCols = targetCols.filter((c) => landingHeaders.includes(c));
+
+  if (!commonCols.includes("playerid")) {
+    throw new Error(`No common playerid column between ${landingTable} and ${targetTable}`);
+  }
+
+  const updateCols = commonCols.filter((c) => c !== "playerid");
+
+  if (updateCols.length) {
+    const assignments = updateCols
+      .map((c) => `${quoteIdent(c)} = l.${quoteIdent(c)}`)
+      .join(", ");
+
+    await client.query(`
+      update ${targetTable} as t
+      set ${assignments}
+      from ${landingTable} as l
+      where t.playerid::text = l.playerid::text
+        and l.playerid is not null
+        and trim(l.playerid::text) <> ''
+    `);
+  }
+
+  const quotedCols = commonCols.map(quoteIdent).join(", ");
+
+  await client.query(`
+    insert into ${targetTable} (${quotedCols})
+    select ${quotedCols}
+    from ${landingTable} as l
+    where l.playerid is not null
+      and trim(l.playerid::text) <> ''
+      and not exists (
+        select 1
+        from ${targetTable} as t
+        where t.playerid::text = l.playerid::text
+      )
+  `);
+
+  const { rows } = await client.query(`select count(*)::text as count from ${targetTable}`);
+  return Number(rows[0]?.count || 0);
+}
+
 async function syncOneFeed(client: any, feed: FeedKey) {
   const cfg = FEEDS[feed];
   const { headers, rows } = await fetchCsvRows(cfg.url);
 
   await recreateLandingTable(client, cfg.landingTable, headers);
   const insertedRows = await insertLandingRows(client, cfg.landingTable, headers, rows);
-  const targetRows = await replaceTargetFromLanding(
-    client,
-    cfg.landingTable,
-    cfg.targetTable,
-    headers,
-  );
+
+  const targetRows = feed === "players"
+    ? await mergePlayersFromLanding(client, cfg.landingTable, cfg.targetTable, headers)
+    : await replaceTargetFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
 
   return {
     feed,
