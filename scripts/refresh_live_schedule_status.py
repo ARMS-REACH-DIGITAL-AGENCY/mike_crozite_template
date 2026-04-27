@@ -286,7 +286,11 @@ def refresh_flip_card_next_games(conn: psycopg.Connection) -> int:
                 f.playerid,
                 f.current_team_name
               from public.flip_card_front_stage f
-              where lower(trim(coalesce(f.status_label, ''))) = 'active'
+            where lower(trim(coalesce(f.status_label, ''))) not in (
+              'retired',
+              'not active',
+              'free agent'
+            )
                 and upper(trim(coalesce(f.level_label, ''))) in {PRO_LEVELS_SQL}
                 and f.current_team_name is not null
                 and trim(f.current_team_name) <> ''
@@ -395,22 +399,21 @@ def refresh_flip_card_next_games(conn: psycopg.Connection) -> int:
               next_game_opponent = rng.opponent,
 
               next_game_status_label = case
-                when lower(trim(coalesce(rng.schedule_status, ''))) = 'scheduled'
-                  then 'NEXT GAME'
-                when lower(trim(coalesce(rng.schedule_status, ''))) in (
-                  'pre-game',
-                  'in progress',
-                  'delayed',
-                  'warmup',
-                  'manager challenge',
-                  'review'
-                )
-                  then rng.schedule_status
-                else 'NEXT GAME'
-              end,
+                  when lower(trim(coalesce(rng.schedule_status, ''))) = 'scheduled'
+                    then 'NEXT GAME'
+                  when lower(trim(coalesce(rng.schedule_status, ''))) in (
+                    'pre-game',
+                    'in progress',
+                    'delayed',
+                    'warmup',
+                    'manager challenge',
+                    'review'
+                  )
+                    then rng.schedule_status
+                  else 'NEXT GAME'
+                end,
 
-              next_game_time_zone = 'MST',
-              stage_updated_at = now()
+                stage_updated_at = now()
 
             from resolved_next_games rng
             where f.ctid = rng.row_id;
