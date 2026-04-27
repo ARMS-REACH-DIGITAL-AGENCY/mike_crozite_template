@@ -280,34 +280,124 @@ def refresh_flip_card_next_games(conn: psycopg.Connection) -> int:
     with conn.cursor() as cur:
         cur.execute(
             f"""
+            with eligible_players as (
+              select
+                f.ctid as row_id,
+                f.playerid,
+                f.current_team_name
+              from public.flip_card_front_stage f
+              where lower(trim(coalesce(f.status_label, ''))) = 'active'
+                and upper(trim(coalesce(f.level_label, ''))) in {PRO_LEVELS_SQL}
+                and f.current_team_name is not null
+                and trim(f.current_team_name) <> ''
+                and f.current_team_name <> '--'
+            ),
+
+            resolved_next_games as (
+              select
+                ep.row_id,
+                ep.playerid,
+                ng.game_time_utc,
+                ng.schedule_status,
+                ng.home_away,
+                ng.opponent
+              from eligible_players ep
+              join lateral (
+                select
+                  ts.game_time_utc,
+                  ts.status as schedule_status,
+
+                  case
+                    when lower(trim(ts.away_team_name)) = lower(trim(ep.current_team_name)) then '@'
+                    else 'vs.'
+                  end as home_away,
+
+                  case
+                    when lower(trim(ts.away_team_name)) = lower(trim(ep.current_team_name)) then ts.home_team_name
+                    else ts.away_team_name
+                  end as opponent,
+
+                  case
+                    when lower(trim(coalesce(ts.status, ''))) = 'in progress' then 1
+                    when lower(trim(coalesce(ts.status, ''))) = 'pre-game' then 2
+                    when lower(trim(coalesce(ts.status, ''))) in (
+                      'delayed',
+                      'warmup',
+                      'manager challenge',
+                      'review'
+                    ) then 3
+                    when lower(trim(coalesce(ts.status, ''))) = 'scheduled' then 4
+                    else 9
+                  end as status_priority
+
+                from public.team_schedules ts
+
+                where (
+                      lower(trim(ts.home_team_name)) = lower(trim(ep.current_team_name))
+                   or lower(trim(ts.away_team_name)) = lower(trim(ep.current_team_name))
+                )
+
+                  -- Final games are not displayed on the flip-card front.
+                  -- Final means move forward to the next relevant game.
+                  and lower(trim(coalesce(ts.status, ''))) not in (
+                    'final',
+                    'game over',
+                    'completed early'
+                  )
+
+                  -- Status is the primary driver.
+                  -- Scheduled games still need future time so old scheduled rows do not get picked.
+                  and (
+                    lower(trim(coalesce(ts.status, ''))) in (
+                      'pre-game',
+                      'in progress',
+                      'delayed',
+                      'warmup',
+                      'manager challenge',
+                      'review'
+                    )
+                    or (
+                      lower(trim(coalesce(ts.status, ''))) = 'scheduled'
+                      and ts.game_time_utc > now()
+                    )
+                  )
+
+                order by
+                  status_priority asc,
+                  ts.game_time_utc asc
+
+                limit 1
+              ) ng on true
+            )
+
             update public.flip_card_front_stage f
             set
               next_game_date = case
-                when (ng.game_time_utc at time zone 'America/Phoenix')::date =
+                when (rng.game_time_utc at time zone 'America/Phoenix')::date =
                      (now() at time zone 'America/Phoenix')::date
                 then 'TODAY | ' || to_char(
-                  ng.game_time_utc at time zone 'America/Phoenix',
+                  rng.game_time_utc at time zone 'America/Phoenix',
                   'FMMonth DD, YYYY'
                 )
                 else to_char(
-                  ng.game_time_utc at time zone 'America/Phoenix',
+                  rng.game_time_utc at time zone 'America/Phoenix',
                   'FMDay | FMMonth DD, YYYY'
                 )
               end,
 
               next_game_time_local = to_char(
-                ng.game_time_utc at time zone 'America/Phoenix',
+                rng.game_time_utc at time zone 'America/Phoenix',
                 'FMHH12:MI AM'
               ),
 
-              next_game_time_utc = ng.game_time_utc,
-              next_game_home_away = ng.home_away,
-              next_game_opponent = ng.opponent,
+              next_game_time_utc = rng.game_time_utc,
+              next_game_home_away = rng.home_away,
+              next_game_opponent = rng.opponent,
 
               next_game_status_label = case
-                when lower(trim(coalesce(ng.schedule_status, ''))) = 'scheduled'
+                when lower(trim(coalesce(rng.schedule_status, ''))) = 'scheduled'
                   then 'NEXT GAME'
-                when lower(trim(coalesce(ng.schedule_status, ''))) in (
+                when lower(trim(coalesce(rng.schedule_status, ''))) in (
                   'pre-game',
                   'in progress',
                   'delayed',
@@ -315,85 +405,15 @@ def refresh_flip_card_next_games(conn: psycopg.Connection) -> int:
                   'manager challenge',
                   'review'
                 )
-                  then ng.schedule_status
+                  then rng.schedule_status
                 else 'NEXT GAME'
               end,
 
               next_game_time_zone = 'MST',
               stage_updated_at = now()
 
-            from lateral (
-              select
-                ts.game_time_utc,
-                ts.status as schedule_status,
-
-                case
-                  when lower(trim(ts.away_team_name)) = lower(trim(f.current_team_name)) then '@'
-                  else 'vs.'
-                end as home_away,
-
-                case
-                  when lower(trim(ts.away_team_name)) = lower(trim(f.current_team_name)) then ts.home_team_name
-                  else ts.away_team_name
-                end as opponent,
-
-                case
-                  when lower(trim(coalesce(ts.status, ''))) = 'in progress' then 1
-                  when lower(trim(coalesce(ts.status, ''))) = 'pre-game' then 2
-                  when lower(trim(coalesce(ts.status, ''))) in (
-                    'delayed',
-                    'warmup',
-                    'manager challenge',
-                    'review'
-                  ) then 3
-                  when lower(trim(coalesce(ts.status, ''))) = 'scheduled' then 4
-                  else 9
-                end as status_priority
-
-              from public.team_schedules ts
-
-              where (
-                    lower(trim(ts.home_team_name)) = lower(trim(f.current_team_name))
-                 or lower(trim(ts.away_team_name)) = lower(trim(f.current_team_name))
-              )
-
-                -- Final games are not displayed on the flip-card front.
-                -- Final means move forward to the next relevant game.
-                and lower(trim(coalesce(ts.status, ''))) not in (
-                  'final',
-                  'game over',
-                  'completed early'
-                )
-
-                -- Status is the primary driver.
-                -- Scheduled games still need future time so old scheduled rows do not get picked.
-                and (
-                  lower(trim(coalesce(ts.status, ''))) in (
-                    'pre-game',
-                    'in progress',
-                    'delayed',
-                    'warmup',
-                    'manager challenge',
-                    'review'
-                  )
-                  or (
-                    lower(trim(coalesce(ts.status, ''))) = 'scheduled'
-                    and ts.game_time_utc > now()
-                  )
-                )
-
-              order by
-                status_priority asc,
-                ts.game_time_utc asc
-
-              limit 1
-            ) ng
-
-            where lower(trim(coalesce(f.status_label, ''))) = 'active'
-              and upper(trim(coalesce(f.level_label, ''))) in {PRO_LEVELS_SQL}
-              and f.current_team_name is not null
-              and trim(f.current_team_name) <> ''
-              and f.current_team_name <> '--'
+            from resolved_next_games rng
+            where f.ctid = rng.row_id;
             """
         )
 
