@@ -23,6 +23,7 @@
 
 import { useContext } from "react";
 import { SchoolContext } from "@/context/SchoolContext";
+import { usePlayerProfile } from "@/context/PlayerProfileContext";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -85,11 +86,6 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
   const flipCardHref = hsid
     ? `/${encodeURIComponent(hsid)}#player-${encodeURIComponent(playerId)}`
     : undefined;
-  const hsid = schoolData?.hsid ?? "";
-
-  // Link the HS "then" image back to the player's flip card on the gallery page.
-  // The gallery page is /{hsid} and each flip card has id="player-{playerId}".
-  const flipCardHref = hsid ? `/${hsid}#player-${playerId}` : undefined;
 
   const slots = [
     { src: `${S3_BASE}/players/then/${playerId}.jpg`, href: flipCardHref },
