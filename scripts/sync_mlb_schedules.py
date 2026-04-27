@@ -11,6 +11,15 @@ START_DATE = date.today() - timedelta(days=2)
 END_DATE = date.today() + timedelta(days=14)
 
 API_BASE_URL = "https://statsapi.mlb.com/api/v1/schedule"
+PRO_SPORT_IDS = [1, 11, 12, 13, 14, 16]
+SPORT_LEVELS = {
+    1: "MLB",
+    11: "TRIPLE-A",
+    12: "DOUBLE-A",
+    13: "HIGH-A",
+    14: "LOW-A",
+    16: "ROOKIE",
+}
 
 UPSERT_SQL = """
 INSERT INTO team_schedules (
@@ -77,12 +86,19 @@ def get_table_columns(cur: psycopg.Cursor, table_name: str) -> set[str]:
     return {row[0] for row in cur.fetchall()}
 
 
+def require_table(cur: psycopg.Cursor, table_name: str) -> set[str]:
+    cols = get_table_columns(cur, table_name)
+    if not cols:
+        raise RuntimeError(f"Required table public.{table_name} was not found")
+    return cols
+
+
+def normalize_level(level: str | None) -> str:
+    return (level or "").strip().upper().replace("_", "-")
+
+
 def infer_sport_id(level: str | None) -> int | None:
-    """
-    MLB Stats API schedule calls require a sportId when querying by teamId.
-    These are the standard pro baseball sport IDs used by the Stats API.
-    """
-    normalized = (level or "").strip().upper().replace("_", "-")
+    normalized = normalize_level(level)
 
     if normalized in {"MLB", "MAJOR", "MAJOR LEAGUE", "MAJOR-LEAGUE"}:
         return 1
@@ -102,24 +118,34 @@ def infer_sport_id(level: str | None) -> int | None:
 
 def load_schedule_team_targets(cur: psycopg.Cursor) -> list[dict[str, Any]]:
     """
-    Load all pro organization schedule targets from public.teams.
+    Load pro schedule targets from the TBC-to-MLB bridge table.
 
-    This is intentionally not MLB-only. It uses each team's MLB Stats API id,
-    including MLB and affiliated minor-league clubs, so team_schedules stays
-    organization-wide.
+    This intentionally does NOT use public.teams. The working schedule bridge is:
+      tbc_batting_raw/tbc_pitching_raw.teamid
+      -> public.tbc_to_mlb_team_map.tbc_teamid
+      -> public.tbc_to_mlb_team_map.mlb_stats_api_id
+      -> public.team_schedules
     """
-    teams_cols = get_table_columns(cur, "teams")
+    map_cols = require_table(cur, "tbc_to_mlb_team_map")
 
-    if "mlb_stats_api_id" not in teams_cols:
-        raise RuntimeError("public.teams is missing required mlb_stats_api_id column")
+    required = {"tbc_teamid", "mlb_stats_api_id"}
+    missing = required - map_cols
+    if missing:
+        raise RuntimeError(f"public.tbc_to_mlb_team_map is missing required columns: {sorted(missing)}")
 
-    optional_cols = [col for col in ["team_name", "level", "sport_id"] if col in teams_cols]
-    select_cols = ["mlb_stats_api_id", *optional_cols]
+    name_col = next((c for c in ["mlb_team_name", "team_name", "name"] if c in map_cols), None)
+    level_col = next((c for c in ["level", "highlevel", "team_level"] if c in map_cols), None)
+    sport_col = next((c for c in ["sport_id", "sportid"] if c in map_cols), None)
+
+    select_parts = ["tbc_teamid", "mlb_stats_api_id"]
+    select_parts.append(f"{name_col} as team_name" if name_col else "null::text as team_name")
+    select_parts.append(f"{level_col} as level" if level_col else "null::text as level")
+    select_parts.append(f"{sport_col} as sport_id" if sport_col else "null::text as sport_id")
 
     cur.execute(
         f"""
-        select {", ".join(select_cols)}
-        from public.teams
+        select distinct {", ".join(select_parts)}
+        from public.tbc_to_mlb_team_map
         where mlb_stats_api_id is not null
           and trim(mlb_stats_api_id::text) <> ''
           and mlb_stats_api_id::text ~ '^[0-9]+$'
@@ -128,39 +154,27 @@ def load_schedule_team_targets(cur: psycopg.Cursor) -> list[dict[str, Any]]:
     )
 
     targets: list[dict[str, Any]] = []
-    skipped = 0
-
-    for db_row in cur.fetchall():
-        row = dict(zip(select_cols, db_row))
-        level = row.get("level")
-        raw_sport_id = row.get("sport_id")
+    for tbc_teamid, mlb_stats_api_id, team_name, level, raw_sport_id in cur.fetchall():
         sport_id = None
-
         if raw_sport_id is not None and str(raw_sport_id).strip().isdigit():
             sport_id = int(str(raw_sport_id).strip())
         else:
             sport_id = infer_sport_id(level)
 
-        if sport_id is None:
-            skipped += 1
-            continue
-
         targets.append(
             {
-                "team_id": int(row["mlb_stats_api_id"]),
-                "team_name": row.get("team_name"),
+                "tbc_teamid": str(tbc_teamid),
+                "team_id": int(str(mlb_stats_api_id).strip()),
+                "team_name": team_name,
                 "level": level,
                 "sport_id": sport_id,
             }
         )
 
-    if skipped:
-        print(f"Skipped {skipped} teams without a usable sport_id/level")
-
     return targets
 
 
-def fetch_team_schedule(
+def fetch_schedule_for_params(
     session: requests.Session,
     team_id: int,
     sport_id: int,
@@ -187,6 +201,7 @@ def fetch_team_schedule(
             venue = game.get("venue", {}) or {}
             status = game.get("status", {}) or {}
             sport = game.get("sport", {}) or {}
+            resolved_sport_id = sport.get("id") or sport_id
 
             rows.append(
                 {
@@ -199,8 +214,8 @@ def fetch_team_schedule(
                     "away_team_id": (away.get("team") or {}).get("id"),
                     "away_team_name": (away.get("team") or {}).get("name"),
                     "venue_name": venue.get("name"),
-                    "sport_id": sport.get("id") or sport_id,
-                    "level": fallback_level,
+                    "sport_id": resolved_sport_id,
+                    "level": fallback_level or SPORT_LEVELS.get(int(resolved_sport_id), None),
                     "home_score": home.get("score"),
                     "away_score": away.get("score"),
                 }
@@ -209,19 +224,52 @@ def fetch_team_schedule(
     return rows
 
 
+def fetch_team_schedule(session: requests.Session, target: dict[str, Any]) -> list[dict[str, Any]]:
+    team_id = target["team_id"]
+    level = target.get("level")
+    preferred_sport_id = target.get("sport_id")
+
+    sport_ids = [preferred_sport_id] if preferred_sport_id else PRO_SPORT_IDS
+    sport_ids = [sid for sid in sport_ids if sid]
+
+    combined_rows: list[dict[str, Any]] = []
+    first_success = False
+    last_error: Exception | None = None
+
+    for sport_id in sport_ids:
+        try:
+            rows = fetch_schedule_for_params(session, team_id, int(sport_id), level)
+        except Exception as exc:
+            last_error = exc
+            continue
+
+        first_success = True
+        combined_rows.extend(rows)
+
+        if preferred_sport_id is None:
+            break
+
+    if not first_success and last_error is not None:
+        raise last_error
+
+    return combined_rows
+
+
 def fetch_org_schedule(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     session = requests.Session()
     all_rows_by_game_pk: dict[int, dict[str, Any]] = {}
+    failures = 0
 
     for index, target in enumerate(targets, start=1):
-        team_id = target["team_id"]
-        sport_id = target["sport_id"]
-        level = target.get("level")
-
         try:
-            rows = fetch_team_schedule(session, team_id, sport_id, level)
+            rows = fetch_team_schedule(session, target)
         except Exception as exc:
-            print(f"WARNING: schedule fetch failed for team_id={team_id} sport_id={sport_id}: {exc}")
+            failures += 1
+            print(
+                "WARNING: schedule fetch failed for "
+                f"tbc_teamid={target.get('tbc_teamid')} "
+                f"mlb_stats_api_id={target.get('team_id')}: {exc}"
+            )
             continue
 
         for row in rows:
@@ -233,19 +281,13 @@ def fetch_org_schedule(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if index % 50 == 0:
             print(f"Fetched schedules for {index}/{len(targets)} teams; unique games={len(all_rows_by_game_pk)}")
 
+    if failures:
+        print(f"Schedule fetch completed with {failures} target failures")
+
     return list(all_rows_by_game_pk.values())
 
 
 def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
-    """
-    Refresh cached next-game fields after the full org schedule sync.
-
-    Source of truth:
-      public.v_player_next_game_resolved
-
-    Target:
-      public.flip_card_front_stage
-    """
     stage_cols = get_table_columns(cur, "flip_card_front_stage")
     view_cols = get_table_columns(cur, "v_player_next_game_resolved")
 
@@ -326,7 +368,7 @@ def main() -> None:
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
             targets = load_schedule_team_targets(cur)
-            print(f"Loaded {len(targets)} schedule team targets from public.teams")
+            print(f"Loaded {len(targets)} schedule team targets from public.tbc_to_mlb_team_map")
 
         rows = fetch_org_schedule(targets)
         print(f"Fetched {len(rows)} unique pro org games from {START_DATE} to {END_DATE}")
