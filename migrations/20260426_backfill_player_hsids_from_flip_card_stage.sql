@@ -6,12 +6,13 @@
 insert into public.player_hsids (playerid, hsid)
 select distinct
   f.playerid,
-  f.hsid
+  f.hsid::integer
 from public.flip_card_front_stage f
 where f.playerid is not null
   and f.hsid is not null
   and trim(f.playerid::text) <> ''
   and trim(f.hsid::text) <> ''
+  and f.hsid::text ~ '^[0-9]+$'
   and not exists (
     select 1
     from public.player_hsids ph
