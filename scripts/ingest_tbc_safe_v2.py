@@ -5,7 +5,8 @@ What this version does:
 - Fetch live CSV from TBC feed URLs
 - Parse and validate rows
 - Load rows into reusable landing tables (all TEXT columns)
-- Truncate/reload canonical raw tables directly
+- Players feed upserts into tbc_players_raw without deleting missing players
+- Batting/pitching season feeds truncate/reload only the 2026 season raw tables
 - Record ingest runs in tbc_ingest_runs
 - Record invalid rows in tbc_invalid_rows
 - FAIL the job if required feeds fail or insert zero valid rows
@@ -432,9 +433,7 @@ def get_table_columns(cur: psycopg.Cursor, table_name: str) -> list[str]:
 def recreate_landing_table(cur: psycopg.Cursor, table_name: str, headers: list[str]) -> None:
     schema_name, bare_table_name = table_name.split(".", 1) if "." in table_name else ("public", table_name)
 
-    cur.execute(
-        sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name))
-    )
+    cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name)))
     cur.execute(
         sql.SQL("DROP TABLE IF EXISTS {}.{}").format(
             sql.Identifier(schema_name),
@@ -442,10 +441,7 @@ def recreate_landing_table(cur: psycopg.Cursor, table_name: str, headers: list[s
         )
     )
 
-    column_defs = [
-        sql.SQL("{} text").format(sql.Identifier(col))
-        for col in headers
-    ]
+    column_defs = [sql.SQL("{} text").format(sql.Identifier(col)) for col in headers]
 
     cur.execute(
         sql.SQL("CREATE TABLE {}.{} ({})").format(
@@ -508,7 +504,8 @@ def replace_target_from_landing(
     )
     cur.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.SQL(target_table)))
     return int(cur.fetchone()[0])
-    
+
+
 def upsert_players_from_landing(
     cur: psycopg.Cursor,
     landing_table: str,
@@ -567,6 +564,7 @@ def upsert_players_from_landing(
 
     return cur.rowcount or 0
 
+
 def run_feed_ingest(
     conn: psycopg.Connection,
     session: requests.Session,
@@ -590,30 +588,36 @@ def run_feed_ingest(
             raise IngestError(f"{feed_type}: zero valid rows after fetch/parse")
 
         with conn.cursor() as cur:
-    recreate_landing_table(cur, feed_cfg.landing_table, headers)
-    landing_count = copy_rows_to_landing(cur, feed_cfg.landing_table, headers, valid_rows)
-
-    if feed_type == "players":
-        if landing_count < 50000:
-            logger.warning(
-                "%s: feed returned only %s valid rows; will upsert additions/updates only and will NOT delete missing canonical players",
-                feed_type,
-                landing_count,
+            recreate_landing_table(cur, feed_cfg.landing_table, headers)
+            landing_count = copy_rows_to_landing(
+                cur,
+                feed_cfg.landing_table,
+                headers,
+                valid_rows,
             )
 
-        target_count = upsert_players_from_landing(
-            cur,
-            feed_cfg.landing_table,
-            feed_cfg.target_table,
-        )
-    else:
-        target_count = replace_target_from_landing(
-            cur,
-            feed_cfg.landing_table,
-            feed_cfg.target_table,
-        )
+            if feed_type == "players":
+                if landing_count < 50000:
+                    logger.warning(
+                        "%s: feed returned only %s valid rows; will upsert additions/updates only and will NOT delete missing canonical players",
+                        feed_type,
+                        landing_count,
+                    )
 
-    log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
+                target_count = upsert_players_from_landing(
+                    cur,
+                    feed_cfg.landing_table,
+                    feed_cfg.target_table,
+                )
+            else:
+                target_count = replace_target_from_landing(
+                    cur,
+                    feed_cfg.landing_table,
+                    feed_cfg.target_table,
+                )
+
+            log_invalid_rows(cur, ingest_run_id, feed_type, invalid_rows)
+
             finalize_ingest_run(
                 cur,
                 ingest_run_id,
@@ -623,6 +627,7 @@ def run_feed_ingest(
                 len(invalid_rows),
                 None,
             )
+
         conn.commit()
 
         logger.info(
@@ -638,6 +643,7 @@ def run_feed_ingest(
     except Exception as exc:
         error_message = str(exc)
         logger.error("%s ingest failed: %s", feed_type, error_message)
+
         with conn.cursor() as cur:
             finalize_ingest_run(
                 cur,
@@ -648,6 +654,7 @@ def run_feed_ingest(
                 0,
                 error_message[:4000],
             )
+
         conn.commit()
         raise
 
@@ -659,7 +666,6 @@ def main() -> int:
         optional_feeds = set(parse_feed_list(args.optional_feeds)) if args.optional_feeds.strip() else set()
 
         database_url = require_env("DATABASE_URL")
-
 
         total_rows = 0
         hard_failures: list[str] = []
