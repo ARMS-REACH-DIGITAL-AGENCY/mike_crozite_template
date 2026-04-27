@@ -65,6 +65,7 @@ ON CONFLICT (game_pk) DO UPDATE SET
     updated_at = NOW();
 """
 
+
 def should_run_schedule_sync() -> bool:
     today = date.today()
     url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={today}"
@@ -90,6 +91,7 @@ def should_run_schedule_sync() -> bool:
 
     print("All games finished -> skipping sync")
     return False
+
 
 def fetch_schedule() -> list[dict]:
     res = requests.get(SCHEDULE_URL, timeout=60)
@@ -126,6 +128,104 @@ def fetch_schedule() -> list[dict]:
 
     return rows
 
+
+def get_table_columns(cur: psycopg.Cursor, table_name: str) -> set[str]:
+    cur.execute(
+        """
+        select column_name
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = %s
+        """,
+        (table_name,),
+    )
+    return {row[0] for row in cur.fetchall()}
+
+
+def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
+    """
+    Refresh cached next-game display fields after the MLB schedule sync.
+
+    Source of truth:
+      public.v_player_next_game_resolved
+
+    Target:
+      public.flip_card_front_stage
+
+    The view already resolves player -> current team -> next future game.
+    This function only writes that resolved answer into the front-card cache.
+    """
+    stage_cols = get_table_columns(cur, "flip_card_front_stage")
+    view_cols = get_table_columns(cur, "v_player_next_game_resolved")
+
+    required_stage = {"playerid"}
+    required_view = {"playerid", "next_game_time_utc"}
+
+    missing_stage = required_stage - stage_cols
+    missing_view = required_view - view_cols
+
+    if missing_stage:
+        print(f"Skipping next-game refresh: flip_card_front_stage missing {sorted(missing_stage)}")
+        return 0
+
+    if missing_view:
+        print(f"Skipping next-game refresh: v_player_next_game_resolved missing {sorted(missing_view)}")
+        return 0
+
+    set_clauses: list[str] = []
+
+    if "next_game_date" in stage_cols and {"next_game_date", "next_game_time_local"} <= view_cols:
+        set_clauses.append(
+            """
+            next_game_date = concat_ws(
+                ' ',
+                nullif(v.next_game_date::text, ''),
+                nullif(v.next_game_time_local::text, '')
+            )
+            """
+        )
+
+    if "next_game_opponent" in stage_cols and "next_game_opponent" in view_cols:
+        set_clauses.append("next_game_opponent = nullif(v.next_game_opponent::text, '')")
+
+    if "current_team_name" in stage_cols and "current_team_name" in view_cols:
+        set_clauses.append(
+            "current_team_name = coalesce(nullif(f.current_team_name, ''), nullif(v.current_team_name::text, ''))"
+        )
+
+    if "current_team_level" in stage_cols and "current_level" in view_cols:
+        set_clauses.append(
+            "current_team_level = coalesce(nullif(f.current_team_level, ''), nullif(v.current_level::text, ''))"
+        )
+
+    if "stage_updated_at" in stage_cols:
+        set_clauses.append("stage_updated_at = now()")
+
+    if not set_clauses:
+        print("Skipping next-game refresh: no compatible target columns found")
+        return 0
+
+    active_filter = ""
+    if "status_label" in stage_cols:
+        active_filter = "and lower(trim(coalesce(f.status_label, ''))) = 'active'"
+
+    cur.execute(
+        f"""
+        update public.flip_card_front_stage f
+        set {", ".join(set_clauses)}
+        from public.v_player_next_game_resolved v
+        where v.playerid::text = f.playerid::text
+          and v.next_game_time_utc is not null
+          and v.next_game_time_utc > now()
+          {active_filter}
+        """
+    )
+
+    refreshed = cur.rowcount or 0
+    print(f"flip_card_front_stage next-game refresh complete: {refreshed} rows updated")
+    return refreshed
+
+
 def main() -> None:
     if not should_run_schedule_sync():
         return
@@ -137,9 +237,14 @@ def main() -> None:
         with conn.cursor() as cur:
             for row in rows:
                 cur.execute(UPSERT_SQL, row)
+
+            print("team_schedules upsert complete")
+            refresh_flip_card_next_games(cur)
+
         conn.commit()
 
-    print("team_schedules upsert complete")
+    print("MLB schedule sync complete")
+
 
 if __name__ == "__main__":
     main()
