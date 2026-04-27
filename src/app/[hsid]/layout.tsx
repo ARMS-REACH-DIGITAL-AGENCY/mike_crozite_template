@@ -32,6 +32,50 @@ import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 
+function normalizeStatusLabel(value: unknown): string {
+  return String(value || '').trim().toUpperCase();
+}
+
+function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
+  const statuses = new Set<string>();
+
+  // Baseline statuses we want available even if not currently present on this school.
+  statuses.add('ACTIVE');
+  statuses.add('RETIRED');
+  statuses.add('FREE AGENT');
+  statuses.add('INJURED');
+  statuses.add('REDSHIRT');
+  statuses.add('PARTNER/SPONSOR');
+
+  for (const row of rows) {
+    const status = normalizeStatusLabel(row.status_label);
+    if (status) statuses.add(status);
+  }
+
+  const priority = [
+    'ACTIVE',
+    'INJURED - FULL SEASON',
+    'INJURED',
+    'DEVELOPMENT LIST',
+    'DESIGNATED FOR ASSIGNMENT',
+    'FREE AGENT',
+    'REDSHIRT',
+   	'PARTNER/SPONSOR'
+	'RETIRED',
+  ];
+
+  return Array.from(statuses).sort((a, b) => {
+    const ai = priority.indexOf(a);
+    const bi = priority.indexOf(b);
+
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+
+    return a.localeCompare(b);
+  });
+}
+
 export const runtime = 'nodejs';
 
 export async function generateMetadata({
@@ -157,10 +201,13 @@ export default async function HsidLayout({
   // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
   // so it matches the default Active-page card order in Block 5.
   const [allStageRows, rawAllTimeRoster] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
-  ]);
+  getFlipCardFrontStageByHsid(resolvedHsid),
+  getAllTimeRosterByHsid(resolvedHsid),
+]);
 
+const statusFilterOptions = buildStatusFilterOptions(
+  allStageRows as Record<string, unknown>[]
+);
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
@@ -302,17 +349,20 @@ export default async function HsidLayout({
           </details>
 
           {/* ── BY STATUS (always open) ─────────────────────────────────────── */}
-          <details className="yat-filter-group" open>
-            <summary>By Status</summary>
-            <div className="yat-filter-options" id="filterStatus">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterStatus" /> Select All</label>
-              {['ACTIVE', 'FREE AGENT', 'RETIRED', 'INJURED'].map((s) => (
-                <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
-                </label>
-              ))}
-            </div>
-          </details>
+		<details className="yat-filter-group" open>
+  			<summary>By Status</summary>
+  			<div className="yat-filter-options" id="filterStatus">
+   			 <label className="yat-filter-select-all">
+     			 <input type="checkbox" data-select-all="filterStatus" /> Select All
+   			 </label>
+
+    		{statusFilterOptions.map((s) => (
+      			<label key={s}>
+      			  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
+      			</label>
+    		))}
+		  </div>
+		</details>
 
           <details className="yat-filter-group">
             <summary>By Graduating Class</summary>
