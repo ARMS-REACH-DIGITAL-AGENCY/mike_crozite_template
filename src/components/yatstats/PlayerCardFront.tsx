@@ -56,29 +56,69 @@ function formatOpponentPrefix(value: string): string {
   return value.trim();
 }
 
-function tryFormatGameDate(value: string) {
-  if (!value) return { dayLine: "TBD", dateLine: "" };
+function getLocalDateKey(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
 
+  const year = parts.find((p) => p.type === "year")?.value || "0000";
+  const month = parts.find((p) => p.type === "month")?.value || "00";
+  const day = parts.find((p) => p.type === "day")?.value || "00";
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatGameDateInTimeZone(date: Date, timeZone: string) {
+  return {
+    dayLine: date.toLocaleDateString("en-US", { weekday: "long", timeZone }),
+    dateLine: date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone,
+    }),
+  };
+}
+
+function tryFormatGameDate(
+  value: string,
+  gameTimeUtc: string,
+  timeZone: string,
+) {
+  const safeTimeZone = timeZone || "America/Phoenix";
   const raw = value.trim();
+  const parsedGameTimeUtc = new Date(gameTimeUtc);
+
+  // Prefer the real UTC timestamp and the same local timezone shown on the card.
+  // This prevents a UTC day rollover from incorrectly turning tomorrow into TODAY.
+  if (!Number.isNaN(parsedGameTimeUtc.getTime())) {
+    const gameLocalDateKey = getLocalDateKey(parsedGameTimeUtc, safeTimeZone);
+    const nowLocalDateKey = getLocalDateKey(new Date(), safeTimeZone);
+    const formatted = formatGameDateInTimeZone(parsedGameTimeUtc, safeTimeZone);
+
+    return {
+      dayLine: gameLocalDateKey === nowLocalDateKey ? "TODAY" : formatted.dayLine,
+      dateLine: formatted.dateLine,
+    };
+  }
+
+  if (!raw) return { dayLine: "TBD", dateLine: "" };
 
   function isTodayDate(dateText: string): boolean {
     const parsedDate = new Date(dateText);
     if (Number.isNaN(parsedDate.getTime())) return false;
 
-    const now = new Date();
-
-    return (
-      parsedDate.getFullYear() === now.getFullYear() &&
-      parsedDate.getMonth() === now.getMonth() &&
-      parsedDate.getDate() === now.getDate()
-    );
+    return getLocalDateKey(parsedDate, safeTimeZone) === getLocalDateKey(new Date(), safeTimeZone);
   }
 
   // Backend may send: TODAY | April 27, 2026
   if (raw.toUpperCase().startsWith("TODAY |")) {
     const datePart = raw.split("|").slice(1).join("|").trim();
     return {
-      dayLine: "TODAY",
+      dayLine: isTodayDate(datePart) ? "TODAY" : new Date(datePart).toLocaleDateString("en-US", { weekday: "long", timeZone: safeTimeZone }),
       dateLine: datePart,
     };
   }
@@ -97,22 +137,13 @@ function tryFormatGameDate(value: string) {
   const parsed = new Date(raw);
 
   if (!Number.isNaN(parsed.getTime())) {
-    const now = new Date();
-
     const isToday =
-      parsed.getFullYear() === now.getFullYear() &&
-      parsed.getMonth() === now.getMonth() &&
-      parsed.getDate() === now.getDate();
+      getLocalDateKey(parsed, safeTimeZone) === getLocalDateKey(new Date(), safeTimeZone);
+    const formatted = formatGameDateInTimeZone(parsed, safeTimeZone);
 
     return {
-      dayLine: isToday
-        ? "TODAY"
-        : parsed.toLocaleDateString("en-US", { weekday: "long" }),
-      dateLine: parsed.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }),
+      dayLine: isToday ? "TODAY" : formatted.dayLine,
+      dateLine: formatted.dateLine,
     };
   }
 
@@ -207,6 +238,7 @@ export default function PlayerCardFront({
   const nextGameHomeAway = formatOpponentPrefix(asText(p.next_game_home_away));
   const nextGameOpponent = asText(p.next_game_opponent);
   const nextGameTimeLocal = asText(p.next_game_time_local);
+  const nextGameTimeUtc = asText(p.next_game_time_utc);
   const hsTimeZoneRaw =
     asText(p.school_time_zone) ||
     asText(p.school_timezone) ||
@@ -222,7 +254,11 @@ export default function PlayerCardFront({
     normalizedStatus === "FREE AGENT";
 
   const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
-  const { dayLine, dateLine } = tryFormatGameDate(nextGameDate);
+  const { dayLine, dateLine } = tryFormatGameDate(
+    nextGameDate,
+    nextGameTimeUtc,
+    hsTimeZoneRaw,
+  );
   const nextGameDateLine = dateLine ? `${dayLine} | ${dateLine}` : dayLine;
   const nextGameOpponentLine = nextGameOpponent
     ? `${nextGameHomeAway || "vs."} ${nextGameOpponent}`
