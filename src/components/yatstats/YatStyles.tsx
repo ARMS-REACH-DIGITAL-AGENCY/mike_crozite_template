@@ -213,14 +213,7 @@ export default function YatStyles() {
           justify-content:flex-end;
         }
       }
-        .yat-topbar{
-          grid-template-columns:auto 1fr;
-        }
-
-        .yat-wordmark-wrap{
-          justify-content:flex-end;
-        }
-      }
+        
       .yat-hr{border-top:1px solid var(--line)}
 
       .yat-schoolrow{
