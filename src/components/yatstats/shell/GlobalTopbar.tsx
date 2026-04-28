@@ -8,9 +8,11 @@ export default function GlobalTopbar() {
         <button id="btnMenu" className="yat-icon-btn" aria-label="Open navigation">
           <i className="ri-menu-line" />
         </button>
+
         <button id="btnAccount" className="yat-icon-btn" aria-label="Open account drawer">
           <i className="ri-user-line" />
         </button>
+
         <button id="theme-toggle" className="yat-icon-btn" aria-label="Toggle light/dark theme">
           <i className="ri-sun-line" />
         </button>
@@ -18,35 +20,43 @@ export default function GlobalTopbar() {
 
       <nav className="yat-topnav" aria-label="Desktop navigation">
         <a className="yat-topnav-item" data-tab="gallery" href="#sec-gallery">
-          <span>WHERE THEY</span><strong>YAT?</strong>
+          <span>WHERE THEY</span>
+          <strong>YAT?</strong>
         </a>
 
         <a className="yat-topnav-item" data-tab="news" href="#sec-news">
-          <span>ACTIVE ALUMNI</span><strong>NEWS</strong>
+          <span>ACTIVE ALUMNI</span>
+          <strong>NEWS</strong>
         </a>
-  
+
         <a className="yat-topnav-item" data-tab="alltime" href="#sec-alltime">
-          <span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong>
+          <span>NEXT-LEVEL</span>
+          <strong>ALL-TIME LIST</strong>
         </a>
-        
+
         <a className="yat-topnav-item" data-tab="current" href="#sec-current">
-          <span>2026</span><strong>HIGH SCHOOL TEAM</strong>
+          <span>2026</span>
+          <strong>TEAM</strong>
         </a>
 
         <a className="yat-topnav-item" data-tab="fantasy" href="#sec-fantasy">
-          <span>FANTASY</span><strong>BRACKET TOURNEY</strong>
+          <span>FANTASY</span>
+          <strong>BRACKET</strong>
         </a>
 
         <a className="yat-topnav-item" data-tab="mentor" href="#sec-mentor">
-          <span>MENTORSHIP</span><strong>MARKETPLACE</strong>
+          <span>MENTORSHIP</span>
+          <strong>MARKETPLACE</strong>
         </a>
 
         <a className="yat-topnav-item" data-tab="partner" href="#sec-partner">
-          <span>PARTNERSHIP</span><strong>PROGRAM</strong>
+          <span>PARTNER</span>
+          <strong>PROGRAM</strong>
         </a>
 
         <a className="yat-topnav-item" data-tab="about" href="#sec-about">
-          <span>ABOUT</span><strong>US</strong>
+          <span>ABOUT</span>
+          <strong>US</strong>
         </a>
 
         <a className="yat-topnav-item" data-tab="faq" href="#sec-faq">
