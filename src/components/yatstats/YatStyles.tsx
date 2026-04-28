@@ -69,7 +69,7 @@ export default function YatStyles() {
   scroll-margin-top: 190px;
 }
 
-         /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */
+      /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */
 
       .yat-topbar{
         display:grid;
@@ -118,7 +118,7 @@ export default function YatStyles() {
         display:flex;
         align-items:center;
         justify-content:center;
-        gap:clamp(10px, 1.15vw, 24px);
+        gap:clamp(12px, 1.25vw, 26px);
         min-width:0;
         width:100%;
         white-space:nowrap;
@@ -127,33 +127,41 @@ export default function YatStyles() {
 
       .yat-topnav-item{
         display:inline-flex;
-        align-items:baseline;
+        align-items:center;
         gap:3px;
         min-width:0;
         flex:0 1 auto;
         white-space:nowrap;
-        font-family:Oswald, sans-serif;
-        font-size:clamp(8px, .7vw, 11px);
         line-height:1;
         text-transform:uppercase;
         color:var(--fg);
-        opacity:.95;
+        opacity:.96;
+      }
+
+      .yat-topnav-item span,
+      .yat-topnav-item strong{
+        font-size:clamp(9px, .72vw, 13px);
+        line-height:1;
+        text-transform:uppercase;
+        white-space:nowrap;
       }
 
       .yat-topnav-item span{
+        font-family:Oswald, sans-serif;
         font-weight:300;
+        letter-spacing:.02em;
         color:var(--muted);
       }
 
       .yat-topnav-item strong{
-        font-family:"Bebas Neue", Oswald, sans-serif;
-        font-size:clamp(11px, .95vw, 16px);
-        letter-spacing:.015em;
+        font-family:"Indigo", "Bebas Neue", Oswald, sans-serif;
+        font-weight:400;
+        letter-spacing:.01em;
         color:var(--fg);
       }
 
       .yat-topnav-item:hover{
-        opacity:.7;
+        opacity:.72;
       }
 
       .yat-wordmark-wrap{
@@ -167,10 +175,10 @@ export default function YatStyles() {
 
       .yat-wordmark-img{
         filter:var(--logo-filter);
-        height:clamp(16px, 1.4vw, 24px);
+        height:clamp(17px, 1.45vw, 25px);
         width:auto;
         display:block;
-        max-width:220px;
+        max-width:230px;
       }
 
       .yat-topbar-home-crest-link{
@@ -197,6 +205,14 @@ export default function YatStyles() {
           display:none !important;
         }
 
+        .yat-topbar{
+          grid-template-columns:auto 1fr;
+        }
+
+        .yat-wordmark-wrap{
+          justify-content:flex-end;
+        }
+      }
         .yat-topbar{
           grid-template-columns:auto 1fr;
         }
