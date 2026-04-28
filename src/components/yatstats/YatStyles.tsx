@@ -69,13 +69,15 @@ export default function YatStyles() {
   scroll-margin-top: 190px;
 }
 
+         /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */
+
       .yat-topbar{
         display:grid;
-        grid-template-columns:auto 1fr auto;
+        grid-template-columns:auto minmax(0, 1fr) auto;
         align-items:center;
-        min-height:36px;
-        padding:1px 8px 0;
-        column-gap:8px;
+        min-height:var(--row1-h);
+        padding:1px 10px 0;
+        column-gap:14px;
         background:var(--header-bg);
       }
 
@@ -84,11 +86,7 @@ export default function YatStyles() {
         align-items:center;
         gap:4px;
         white-space:nowrap;
-      }
-
-      .yat-topbar-right{
-        width:0;
-        min-width:0;
+        flex-shrink:0;
       }
 
       .yat-icon-btn{
@@ -107,33 +105,81 @@ export default function YatStyles() {
         flex:0 0 auto;
       }
 
-      .yat-icon-btn i{font-size:15px}
-      .yat-icon-btn:focus{outline:2px solid var(--fg);outline-offset:2px}
+      .yat-icon-btn i{
+        font-size:15px;
+      }
+
+      .yat-icon-btn:focus{
+        outline:2px solid var(--fg);
+        outline-offset:2px;
+      }
+
+      .yat-topnav{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:clamp(10px, 1.15vw, 24px);
+        min-width:0;
+        width:100%;
+        white-space:nowrap;
+        overflow:hidden;
+      }
+
+      .yat-topnav-item{
+        display:inline-flex;
+        align-items:baseline;
+        gap:3px;
+        min-width:0;
+        flex:0 1 auto;
+        white-space:nowrap;
+        font-family:Oswald, sans-serif;
+        font-size:clamp(8px, .7vw, 11px);
+        line-height:1;
+        text-transform:uppercase;
+        color:var(--fg);
+        opacity:.95;
+      }
+
+      .yat-topnav-item span{
+        font-weight:300;
+        color:var(--muted);
+      }
+
+      .yat-topnav-item strong{
+        font-family:"Bebas Neue", Oswald, sans-serif;
+        font-size:clamp(11px, .95vw, 16px);
+        letter-spacing:.015em;
+        color:var(--fg);
+      }
+
+      .yat-topnav-item:hover{
+        opacity:.7;
+      }
 
       .yat-wordmark-wrap{
         display:flex;
         align-items:center;
         justify-content:flex-end;
-        min-width:0;
-        width:100%;
+        min-width:max-content;
         white-space:nowrap;
+        flex-shrink:0;
       }
 
       .yat-wordmark-img{
         filter:var(--logo-filter);
-        height:20px;
+        height:clamp(16px, 1.4vw, 24px);
         width:auto;
         display:block;
-        max-width:100%;
+        max-width:220px;
       }
 
-      /* Home school crest — shown to the left of the YAT?STATS wordmark when logged in */
       .yat-topbar-home-crest-link{
         display:inline-flex;
         align-items:center;
         flex-shrink:0;
         margin-right:6px;
       }
+
       .yat-topbar-home-crest{
         height:26px;
         width:26px;
@@ -142,7 +188,23 @@ export default function YatStyles() {
         display:block;
       }
 
-      @media(max-width:1200px){.yat-topnav{display:none!important}}
+      /*
+        Desktop nav should shrink on wide screens,
+        then disappear before it wraps/crams on tablet/mobile.
+      */
+      @media(max-width:1180px){
+        .yat-topnav{
+          display:none !important;
+        }
+
+        .yat-topbar{
+          grid-template-columns:auto 1fr;
+        }
+
+        .yat-wordmark-wrap{
+          justify-content:flex-end;
+        }
+      }
       .yat-hr{border-top:1px solid var(--line)}
 
       .yat-schoolrow{
