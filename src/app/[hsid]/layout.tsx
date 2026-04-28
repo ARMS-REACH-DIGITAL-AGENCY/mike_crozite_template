@@ -490,7 +490,7 @@ const statusFilterOptions = buildStatusFilterOptions(
         aria-label="Article detail"
       >
         <div className="yat-article-modal-top">
-          <span className="yat-article-modal-label">ALUMNI NEWS</span>
+          <span className="yat-article-modal-label">THIS SHOULDN'T BE HERE</span>
           <button className="yat-article-modal-close" id="articleModalClose" aria-label="Close">
             <i className="ri-close-line" />
           </button>
