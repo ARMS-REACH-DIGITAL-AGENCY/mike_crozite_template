@@ -335,7 +335,7 @@ export default async function SchoolPage({
           <div className="yat-grid" id="news-grid">
             <div className="yat-news-loading">
               <div className="yat-news-loading-spinner" />
-              <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
+              <div className="yat-news-loading-text">LOADING ALUMNINEWS&hellip;</div>
             </div>
           </div>
         </div>
