@@ -480,25 +480,7 @@ const statusFilterOptions = buildStatusFilterOptions(
       <GlobalSearchModal />
       <div id="drawerMask" className="yat-drawer-mask" />
 
-      {/* Article detail overlay + modal drawer */}
-      <div className="yat-article-overlay" id="articleOverlay" />
-      <aside
-        className="yat-article-modal"
-        id="articleModal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Article detail"
-      >
-        <div className="yat-article-modal-top">
-           <button className="yat-article-modal-close" id="articleModalClose" aria-label="Close">
-            <i className="ri-close-line" />
-          </button>
-        </div>
-        <div id="articleModalImg" />
-        <div className="yat-article-modal-body" id="articleModalBody" />
-      </aside>
-
-      {/* Shared Interactivity — must be rendered last */}
+{/* Shared Interactivity — must be rendered last */}
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
