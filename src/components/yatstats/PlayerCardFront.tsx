@@ -13,6 +13,12 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function asDateTimeText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value instanceof Date) return value.toISOString();
+  return "";
+}
+
 function asTextArray(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
@@ -83,6 +89,68 @@ function formatGameDateInTimeZone(date: Date, timeZone: string) {
   };
 }
 
+const MONTH_INDEX: Record<string, number> = {
+  january: 0,
+  february: 1,
+  march: 2,
+  april: 3,
+  may: 4,
+  june: 5,
+  july: 6,
+  august: 7,
+  september: 8,
+  october: 9,
+  november: 10,
+  december: 11,
+};
+
+function parseDateOnlyText(value: string): { key: string; date: Date } | null {
+  const raw = value.replace(/\s+/g, " ").trim();
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]) - 1;
+    const day = Number(isoMatch[3]);
+
+    return {
+      key: `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`,
+      date: new Date(Date.UTC(year, month, day, 12, 0, 0)),
+    };
+  }
+
+  const longMatch = raw.match(/^([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})$/);
+  if (!longMatch) return null;
+
+  const month = MONTH_INDEX[longMatch[1].toLowerCase()];
+  if (month === undefined) return null;
+
+  const day = Number(longMatch[2]);
+  const year = Number(longMatch[3]);
+  const monthNumber = String(month + 1).padStart(2, "0");
+  const dayNumber = String(day).padStart(2, "0");
+
+  return {
+    key: `${year}-${monthNumber}-${dayNumber}`,
+    date: new Date(Date.UTC(year, month, day, 12, 0, 0)),
+  };
+}
+
+function formatDateOnlyText(date: Date) {
+  return {
+    dayLine: date.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: "UTC",
+    }),
+    dateLine: date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  };
+}
+
 function tryFormatGameDate(
   value: string,
   gameTimeUtc: string,
@@ -90,13 +158,12 @@ function tryFormatGameDate(
 ) {
   const safeTimeZone = timeZone || "America/Phoenix";
   const raw = value.trim();
+  const nowLocalDateKey = getLocalDateKey(new Date(), safeTimeZone);
   const parsedGameTimeUtc = new Date(gameTimeUtc);
 
   // Prefer the real UTC timestamp and the same local timezone shown on the card.
-  // This prevents a UTC day rollover from incorrectly turning tomorrow into TODAY.
   if (!Number.isNaN(parsedGameTimeUtc.getTime())) {
     const gameLocalDateKey = getLocalDateKey(parsedGameTimeUtc, safeTimeZone);
-    const nowLocalDateKey = getLocalDateKey(new Date(), safeTimeZone);
     const formatted = formatGameDateInTimeZone(parsedGameTimeUtc, safeTimeZone);
 
     return {
@@ -107,47 +174,43 @@ function tryFormatGameDate(
 
   if (!raw) return { dayLine: "TBD", dateLine: "" };
 
-  function isTodayDate(dateText: string): boolean {
-    const parsedDate = new Date(dateText);
-    if (Number.isNaN(parsedDate.getTime())) return false;
+  function formatDatePart(dateText: string) {
+    const dateOnly = parseDateOnlyText(dateText);
 
-    return getLocalDateKey(parsedDate, safeTimeZone) === getLocalDateKey(new Date(), safeTimeZone);
+    if (dateOnly) {
+      const formatted = formatDateOnlyText(dateOnly.date);
+      return {
+        dayLine: dateOnly.key === nowLocalDateKey ? "TODAY" : formatted.dayLine,
+        dateLine: formatted.dateLine,
+      };
+    }
+
+    const parsedDate = new Date(dateText);
+    if (Number.isNaN(parsedDate.getTime())) return null;
+
+    const dateKey = getLocalDateKey(parsedDate, safeTimeZone);
+    const formatted = formatGameDateInTimeZone(parsedDate, safeTimeZone);
+
+    return {
+      dayLine: dateKey === nowLocalDateKey ? "TODAY" : formatted.dayLine,
+      dateLine: formatted.dateLine,
+    };
   }
 
   // Backend may send: TODAY | April 27, 2026
   if (raw.toUpperCase().startsWith("TODAY |")) {
     const datePart = raw.split("|").slice(1).join("|").trim();
-    return {
-      dayLine: isTodayDate(datePart) ? "TODAY" : new Date(datePart).toLocaleDateString("en-US", { weekday: "long", timeZone: safeTimeZone }),
-      dateLine: datePart,
-    };
+    return formatDatePart(datePart) || { dayLine: "TODAY", dateLine: datePart };
   }
 
   // Backend may send: Monday | April 27, 2026
   const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 2) {
     const datePart = parts.slice(1).join(" | ");
-    return {
-      dayLine: isTodayDate(datePart) ? "TODAY" : parts[0],
-      dateLine: datePart,
-    };
+    return formatDatePart(datePart) || { dayLine: parts[0], dateLine: datePart };
   }
 
-  // Backend may send a raw date/timestamp.
-  const parsed = new Date(raw);
-
-  if (!Number.isNaN(parsed.getTime())) {
-    const isToday =
-      getLocalDateKey(parsed, safeTimeZone) === getLocalDateKey(new Date(), safeTimeZone);
-    const formatted = formatGameDateInTimeZone(parsed, safeTimeZone);
-
-    return {
-      dayLine: isToday ? "TODAY" : formatted.dayLine,
-      dateLine: formatted.dateLine,
-    };
-  }
-
-  return { dayLine: raw, dateLine: "" };
+  return formatDatePart(raw) || { dayLine: raw, dateLine: "" };
 }
 
 function formatTimeZoneLabel(value: string): string {
@@ -238,7 +301,7 @@ export default function PlayerCardFront({
   const nextGameHomeAway = formatOpponentPrefix(asText(p.next_game_home_away));
   const nextGameOpponent = asText(p.next_game_opponent);
   const nextGameTimeLocal = asText(p.next_game_time_local);
-  const nextGameTimeUtc = asText(p.next_game_time_utc);
+  const nextGameTimeUtc = asDateTimeText(p.next_game_time_utc);
   const hsTimeZoneRaw =
     asText(p.school_time_zone) ||
     asText(p.school_timezone) ||
