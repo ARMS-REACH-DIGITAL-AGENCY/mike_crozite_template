@@ -328,14 +328,13 @@ export default async function SchoolPage({
         <div className="yat-news-wrap">
           <div className="yat-news-header">
             <div>
-              <div className="yat-news-sub">Latest news mentions for {schoolName} baseball alumni</div>
             </div>
           </div>
           
           <div className="yat-grid" id="news-grid">
             <div className="yat-news-loading">
               <div className="yat-news-loading-spinner" />
-              <div className="yat-news-loading-text">LOADING ALUMNINEWS&hellip;</div>
+              <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
             </div>
           </div>
         </div>
@@ -384,7 +383,7 @@ export default async function SchoolPage({
             <br />
             <br />
             <a
-              href="mailto:sponsor@yatstats.com"
+              href="mailto:pete@yatstats.com"
               style={{
                 display: "inline-block",
                 background: "#00e676",
