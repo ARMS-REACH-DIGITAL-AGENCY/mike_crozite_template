@@ -219,7 +219,7 @@ export default function YatStyles() {
       .yat-schoolrow{
         display:flex;
         align-items:center;
-        gap:0;
+        gap:8px;
         min-height:var(--row2-h);
         padding:4px 12px;
         max-width:1400px;
