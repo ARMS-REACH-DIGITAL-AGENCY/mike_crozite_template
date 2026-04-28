@@ -16,13 +16,45 @@ export default function GlobalTopbar() {
         </button>
       </div>
 
+      <nav className="yat-topnav" aria-label="Desktop navigation">
+        <a className="yat-topnav-item" data-tab="gallery" href="#sec-gallery">
+          <span>WHERE THEY</span><strong>YAT?</strong>
+        </a>
+
+        <a className="yat-topnav-item" data-tab="news" href="#sec-news">
+          <span>ACTIVE ALUMNI</span><strong>NEWS</strong>
+        </a>
+  
+        <a className="yat-topnav-item" data-tab="alltime" href="#sec-alltime">
+          <span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong>
+        </a>
+        
+        <a className="yat-topnav-item" data-tab="current" href="#sec-current">
+          <span>2026</span><strong>HIGH SCHOOL TEAM</strong>
+        </a>
+
+        <a className="yat-topnav-item" data-tab="fantasy" href="#sec-fantasy">
+          <span>FANTASY</span><strong>BRACKET TOURNEY</strong>
+        </a>
+
+        <a className="yat-topnav-item" data-tab="mentor" href="#sec-mentor">
+          <span>MENTORSHIP</span><strong>MARKETPLACE</strong>
+        </a>
+
+        <a className="yat-topnav-item" data-tab="partner" href="#sec-partner">
+          <span>PARTNERSHIP</span><strong>PROGRAM</strong>
+        </a>
+
+        <a className="yat-topnav-item" data-tab="about" href="#sec-about">
+          <span>ABOUT</span><strong>US</strong>
+        </a>
+
+        <a className="yat-topnav-item" data-tab="faq" href="#sec-faq">
+          <strong>FAQ'S</strong>
+        </a>
+      </nav>
+
       <div className="yat-wordmark-wrap">
-        {/*
-          Home school crest — shown to the LEFT of the YAT?STATS logo when the user
-          is logged in and has a home_hsid. Hidden by default (hidden attribute);
-          YatInteractivity.tsx populates src + href and removes the hidden attribute
-          once the user profile is loaded from the session.
-        */}
         <a
           id="topbarHomeCrestLink"
           href="#"
@@ -46,8 +78,6 @@ export default function GlobalTopbar() {
           />
         </a>
       </div>
-
-      <div className="yat-topbar-right" />
     </div>
   );
 }
