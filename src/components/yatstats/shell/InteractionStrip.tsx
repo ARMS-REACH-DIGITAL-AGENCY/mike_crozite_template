@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getNowSilhouetteUrl } from '@/lib/playerImage';
+
+const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 
 type Player = {
   id: string;
@@ -157,12 +158,9 @@ export default function InteractionStrip({
         <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
           {showActiveStrip ? (
             players.map((p) => {
-             const lastName = 
-            getLastName(p.name);
-             const fallbackSrc = 
-            getNowSilhouetteUrl(Boolean(p.isPitcher));
-             const initialSrc =
-            p.image && p.image.trim() !== '' ? p.image : fallbackSrc;
+              const lastName = getLastName(p.name);
+              const initialSrc =
+                p.image && p.image.trim() !== '' ? p.image : HEADSHOT_FALLBACK_SRC;
 
               return (
                 <a
@@ -178,13 +176,13 @@ export default function InteractionStrip({
                       alt={p.name}
                       className="gallery-slot-img"
                       onError={(e) => {
-  const img = e.currentTarget;
+                        const img = e.currentTarget;
 
-  if (img.dataset.fallbackApplied === 'true') return;
+                        if (img.dataset.fallbackApplied === 'true') return;
 
-  img.dataset.fallbackApplied = 'true';
-  img.src = fallbackSrc;
-}}
+                        img.dataset.fallbackApplied = 'true';
+                        img.src = HEADSHOT_FALLBACK_SRC;
+                      }}
                     />
                     <div className="gallery-slot-gradient" />
                     {lastName ? (
