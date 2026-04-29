@@ -898,33 +898,27 @@ function normalizeSchoolResult(p){
     }
 
     cardScope.forEach(function(card){
-      var name=(card.getAttribute('data-name')||'').toLowerCase();
-      var level=card.getAttribute('data-level')||'';
-      var org=normalizeOrg(card.getAttribute('data-org')||'');
-      var g=card.getAttribute('data-gradclass')||'';
-      var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
-      var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
+  var name=(card.getAttribute('data-name')||'').toLowerCase();
+  var level=card.getAttribute('data-level')||'';
+  var org=normalizeOrg(card.getAttribute('data-org')||'');
+  var g=card.getAttribute('data-gradclass')||'';
+  var rosterYears=(card.getAttribute('data-rosteryears')||'').split(',').filter(Boolean);
+  var status=String(card.getAttribute('data-status')||'').trim().toUpperCase();
 
-      var show=true;
+  var show=true;
 
-      if(nf&&!name.includes(nf))show=false;
-      if(lc.length&&!lc.includes(level))show=false;
-      if(oc.length&&!oc.map(function(v){return normalizeOrg(v);}).includes(org))show=false;
-      if(gc.length&&!gc.includes(g))show=false;
-      if(rc.length&&!rosterYears.some(function(y){return rc.includes(y);} ))show=false;
-      if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
+  if(nf&&!name.includes(nf))show=false;
+  if(lc.length&&!lc.includes(level))show=false;
+  if(oc.length&&!oc.map(function(v){return normalizeOrg(v);}).includes(org))show=false;
+  if(gc.length&&!gc.includes(g))show=false;
+  if(rc.length&&!rosterYears.some(function(y){return rc.includes(y);} ))show=false;
+  if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
 
-      card.style.display=show?'':'none';
+  card.style.display=show?'':'none';
+});
 
-      if(isActivePage||isAllTimePage){
-        var pid=card.getAttribute('data-playerid')||'';
-        if(pid){
-          var slot=document.querySelector('.gallery-slot-link[data-playerid="'+pid+'"]');
-          if(slot)slot.style.display=show?'':'none';
-        }
-      }
-    });
-  }
+syncStripToVisibleCards();
+
 
   document.addEventListener('change',function(e){
     if(!e.target.closest('#filters'))return;
