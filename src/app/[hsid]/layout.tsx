@@ -228,33 +228,24 @@ const statusFilterOptions = buildStatusFilterOptions(
       stripMerged.push({ ...p });
     }
   }
-  // Filter to ACTIVE ONLY to match the main page display rules
-  const activeStripRows = stripMerged.filter(p => 
-    String(p.status_label || '').toUpperCase().trim() === 'ACTIVE' || p.is_active_2025 === true
-  );
-
-  // Sort with Active sort so strip order matches Block 5 Active-page card order
-  const allStripRows = sortActivePlayers(activeStripRows);
+ // Row 3 must contain the full hsid universe.
+// Visibility/order is controlled client-side so Block 3 can mirror Block 5
+// after section changes and filter changes.
+const allStripRows = sortActivePlayers(stripMerged);
 
   const allStripIds = allStripRows.map((p) => String(p.playerid));
   const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
 
-  const stripPlayers = allStripRows.map((p) => {
-    const playerId = String(p.playerid);
-    // Active players get their designated HEADSHOT (or now-image fallback).
-    // Retired / NCAA / all other non-active players get the HS "then" image
-    // so the Next-Level All-Time strip shows the player's high-school era photo.
-    const statusLabel = String(p.status_label || '').toUpperCase().trim();
-    const isActive = statusLabel === 'ACTIVE' || p.is_active_2025 === true;
-    const image = isActive
-      ? (headshotMap.get(playerId)?.image_url || getPlayerNowImageUrl(playerId))
-      : getPlayerThenImageUrl(playerId);
-    return {
-      id: playerId,
-      name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-      image,
-    };
-  });
+ const stripPlayers = allStripRows.map((p) => {
+  const playerId = String(p.playerid);
+  const headshot = headshotMap.get(playerId)?.image_url || null;
+
+  return {
+    id: playerId,
+    name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+    image: headshot,
+  };
+});
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
