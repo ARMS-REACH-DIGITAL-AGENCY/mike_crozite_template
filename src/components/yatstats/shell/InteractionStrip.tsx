@@ -178,10 +178,13 @@ export default function InteractionStrip({
                       alt={p.name}
                       className="gallery-slot-img"
                       onError={(e) => {
-                        if (!e.currentTarget.src.endsWith(fallbackSrc)) {
-                          e.currentTarget.src = fallbackSrc;
-                        }
-                      }}
+  const img = e.currentTarget;
+
+  if (img.dataset.fallbackApplied === 'true') return;
+
+  img.dataset.fallbackApplied = 'true';
+  img.src = fallbackSrc;
+}}
                     />
                     <div className="gallery-slot-gradient" />
                     {lastName ? (
