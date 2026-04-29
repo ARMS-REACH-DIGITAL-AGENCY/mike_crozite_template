@@ -157,10 +157,12 @@ export default function InteractionStrip({
         <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
           {showActiveStrip ? (
             players.map((p) => {
-              const lastName = getLastName(p.name);
-             const fallbackSrc = '/img/headshot-silhouette.png';
-              const initialSrc =
-                p.image && p.image.trim() !== '' ? p.image : fallbackSrc;
+             const lastName = 
+            getLastName(p.name);
+             const fallbackSrc = 
+            getNowSilhouetteUrl(Boolean(p.isPitcher));
+             const initialSrc =
+            p.image && p.image.trim() !== '' ? p.image : fallbackSrc;
 
               return (
                 <a
