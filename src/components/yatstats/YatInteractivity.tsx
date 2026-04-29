@@ -263,6 +263,55 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
   }
 
+function syncStripToVisibleCards() {
+  var stripInner = document.querySelector('.gallery-strip-inner');
+  if (!stripInner) return;
+
+  var activeSection = document.getElementById('sec-active');
+  var allTimeSection = document.getElementById('sec-alltime');
+
+  var visibleSection =
+    activeSection && activeSection.classList.contains('visible')
+      ? activeSection
+      : allTimeSection && allTimeSection.classList.contains('visible')
+        ? allTimeSection
+        : null;
+
+  if (!visibleSection) return;
+
+  var visibleCards = Array.from(
+    visibleSection.querySelectorAll('.yat-card[data-playerid]')
+  ).filter(function(card) {
+    return card.style.display !== 'none';
+  });
+
+  var visibleIds = visibleCards.map(function(card) {
+    return card.getAttribute('data-playerid');
+  });
+
+  var slots = Array.from(
+    stripInner.querySelectorAll('.gallery-slot-link[data-playerid]')
+  );
+
+  var slotMap = {};
+  slots.forEach(function(slot) {
+    slotMap[slot.getAttribute('data-playerid')] = slot;
+  });
+
+  visibleIds.forEach(function(pid) {
+    var slot = slotMap[pid];
+    if (slot) {
+      slot.style.display = '';
+      stripInner.appendChild(slot);
+    }
+  });
+
+  slots.forEach(function(slot) {
+    var pid = slot.getAttribute('data-playerid');
+    slot.style.display = visibleIds.indexOf(pid) === -1 ? 'none' : '';
+  });
+}
+
   function showSection(tabId, updateHash){
     var key=normalizeTab(tabId);
     var isSectionChange=(_activeSection!==key);
