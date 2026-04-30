@@ -98,6 +98,149 @@ window.__firebase_config = ${firebaseConfigJSON};
   function normalizeOrg(raw){var k=(raw||'').trim().toUpperCase();return ORG_NORM[k]||k;}
   window.__YAT_HSID='${resolvedHsid}';
 
+    function yatOpenLeftDrawer(){
+    document.body.classList.add('drawer-left-open', 'drawer-open');
+    document.body.classList.remove('drawer-right-open', 'drawer-account-open');
+  }
+
+  function yatOpenRightDrawer(){
+    document.body.classList.toggle('drawer-right-open');
+    document.body.classList.toggle('drawer-open');
+    document.body.classList.remove('drawer-left-open', 'drawer-account-open');
+  }
+
+  function yatOpenAccountDrawer(){
+    document.body.classList.toggle('drawer-account-open');
+    document.body.classList.toggle('drawer-open');
+    document.body.classList.remove('drawer-left-open', 'drawer-right-open');
+  }
+
+  function yatCloseDrawers(){
+    document.body.classList.remove(
+      'drawer-left-open',
+      'drawer-right-open',
+      'drawer-account-open',
+      'drawer-open'
+    );
+  }
+
+  function yatToggleTheme(){
+    var isLight=document.body.classList.toggle('light-theme');
+    localStorage.setItem('yat-theme',isLight?'light':'dark');
+
+    var btn=document.getElementById('theme-toggle');
+    if(btn){
+      var ic=btn.querySelector('i');
+      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
+    }
+  }
+
+  function yatOpenGlobalSearch(){
+    var gsModal=document.getElementById('gsModal');
+    var gsInput=document.getElementById('gsInput');
+
+    if(!gsModal)return;
+
+    gsModal.classList.add('open');
+    document.body.classList.add('drawer-open');
+
+    if(gsInput){
+      setTimeout(function(){
+        gsInput.focus();
+      },60);
+    }
+  }
+
+  function yatCloseGlobalSearch(){
+    var gsModal=document.getElementById('gsModal');
+    var gsInput=document.getElementById('gsInput');
+    var gsResults=document.getElementById('gsResults');
+
+    if(!gsModal)return;
+
+    gsModal.classList.remove('open');
+    document.body.classList.remove('drawer-open');
+
+    if(gsInput)gsInput.value='';
+    if(gsResults)gsResults.innerHTML='';
+  }
+
+  document.addEventListener('click',function(e){
+    var themeBtn=e.target.closest('#theme-toggle');
+    if(themeBtn){
+      e.preventDefault();
+      yatToggleTheme();
+      return;
+    }
+
+    var menuBtn=e.target.closest('#btnMenu, #openMenu');
+    if(menuBtn){
+      e.preventDefault();
+      yatOpenLeftDrawer();
+      return;
+    }
+
+    var filterBtn=e.target.closest('#openFilters');
+    if(filterBtn){
+      e.preventDefault();
+      yatOpenRightDrawer();
+      return;
+    }
+
+    var accountBtn=e.target.closest('#btnAccount');
+    if(accountBtn){
+      e.preventDefault();
+      yatOpenAccountDrawer();
+      return;
+    }
+
+    var searchBtn=e.target.closest('#openSearch');
+    if(searchBtn){
+      e.preventDefault();
+      yatOpenGlobalSearch();
+      return;
+    }
+
+    var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
+    if(closeBtn){
+      e.preventDefault();
+      yatCloseDrawers();
+      return;
+    }
+
+    var closeSearchBtn=e.target.closest('#gsClose, #gsOverlay');
+    if(closeSearchBtn){
+      e.preventDefault();
+      yatCloseGlobalSearch();
+      return;
+    }
+  });
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      yatCloseDrawers();
+      yatCloseGlobalSearch();
+    }
+  });
+
+  function yatSafeApplyFilters(){
+    try{
+      if(typeof applyFilters==='function'){
+        applyFilters();
+      }
+    }catch(err){
+      console.error('YAT applyFilters failed',err);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    yatSafeApplyFilters();
+  });
+
+  window.addEventListener('load',function(){
+    yatSafeApplyFilters();
+  });
+  
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
   if(favLink){
     var favImg=new Image();
