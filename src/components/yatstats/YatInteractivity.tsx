@@ -165,56 +165,27 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(gsResults)gsResults.innerHTML='';
   }
 
-  document.addEventListener('click',function(e){
-    var themeBtn=e.target.closest('#theme-toggle');
-    if(themeBtn){
-      e.preventDefault();
-      yatToggleTheme();
-      return;
-    }
+  document.addEventListener('change', function(e) {
+  var input = e.target;
 
-    var menuBtn=e.target.closest('#btnMenu, #openMenu');
-    if(menuBtn){
-      e.preventDefault();
-      yatOpenLeftDrawer();
-      return;
-    }
+  if (!input || input.tagName !== 'INPUT') return;
+  if (!input.closest('#filters')) return;
+  if (input.type !== 'checkbox') return;
 
-    var filterBtn=e.target.closest('#openFilters');
-    if(filterBtn){
-      e.preventDefault();
-      yatOpenRightDrawer();
-      return;
-    }
+  var group = input.closest('[id^="filter"]');
+  if (!group || !group.id) {
+    applyFilters();
+    return;
+  }
 
-    var accountBtn=e.target.closest('#btnAccount');
-    if(accountBtn){
-      e.preventDefault();
-      yatOpenAccountDrawer();
-      return;
-    }
+  if (input.hasAttribute('data-select-all')) {
+    setAllInFilterGroup(group.id, input.checked);
+  } else {
+    syncSelectAllForGroup(group.id);
+  }
 
-    var searchBtn=e.target.closest('#openSearch');
-    if(searchBtn){
-      e.preventDefault();
-      yatOpenGlobalSearch();
-      return;
-    }
-
-    var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
-    if(closeBtn){
-      e.preventDefault();
-      yatCloseDrawers();
-      return;
-    }
-
-    var closeSearchBtn=e.target.closest('#gsClose, #gsOverlay');
-    if(closeSearchBtn){
-      e.preventDefault();
-      yatCloseGlobalSearch();
-      return;
-    }
-  });
+  applyFilters();
+});
 
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){
