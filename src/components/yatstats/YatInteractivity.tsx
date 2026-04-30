@@ -165,28 +165,6 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(gsResults)gsResults.innerHTML='';
   }
 
-  document.addEventListener('change', function(e) {
-  var input = e.target;
-
-  if (!input || input.tagName !== 'INPUT') return;
-  if (!input.closest('#filters')) return;
-  if (input.type !== 'checkbox') return;
-
-  var group = input.closest('[id^="filter"]');
-  if (!group || !group.id) {
-    applyFilters();
-    return;
-  }
-
-  if (input.hasAttribute('data-select-all')) {
-    setAllInFilterGroup(group.id, input.checked);
-  } else {
-    syncSelectAllForGroup(group.id);
-  }
-
-  applyFilters();
-});
-
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){
       yatCloseDrawers();
