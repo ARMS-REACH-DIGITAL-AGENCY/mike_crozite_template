@@ -165,6 +165,57 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(gsResults)gsResults.innerHTML='';
   }
 
+  document.addEventListener('click',function(e){
+    var themeBtn=e.target.closest('#theme-toggle');
+    if(themeBtn){
+      e.preventDefault();
+      yatToggleTheme();
+      return;
+    }
+
+    var menuBtn=e.target.closest('#btnMenu, #openMenu');
+    if(menuBtn){
+      e.preventDefault();
+      yatOpenLeftDrawer();
+      return;
+    }
+
+    var filterBtn=e.target.closest('#openFilters');
+    if(filterBtn){
+      e.preventDefault();
+      yatOpenRightDrawer();
+      return;
+    }
+
+    var accountBtn=e.target.closest('#btnAccount');
+    if(accountBtn){
+      e.preventDefault();
+      yatOpenAccountDrawer();
+      return;
+    }
+
+    var searchBtn=e.target.closest('#openSearch');
+    if(searchBtn){
+      e.preventDefault();
+      yatOpenGlobalSearch();
+      return;
+    }
+
+    var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
+    if(closeBtn){
+      e.preventDefault();
+      yatCloseDrawers();
+      return;
+    }
+
+    var closeSearchBtn=e.target.closest('#gsClose, #gsOverlay');
+    if(closeSearchBtn){
+      e.preventDefault();
+      yatCloseGlobalSearch();
+      return;
+    }
+  });
+
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){
       yatCloseDrawers();
