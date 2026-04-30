@@ -1003,7 +1003,64 @@ function normalizeSchoolResult(p){
       },GS_DEBOUNCE_MS);
     });
   }
+function getFilterBoxes(groupId) {
+  var group = document.getElementById(groupId);
+  if (!group) return [];
+  return Array.from(
+    group.querySelectorAll('input[type="checkbox"]:not([data-select-all])')
+  );
+}
 
+function getFilterSelectAll(groupId) {
+  var group = document.getElementById(groupId);
+  if (!group) return null;
+  return group.querySelector('input[type="checkbox"][data-select-all]');
+}
+
+function setFilterGroup(groupId, checkedValues) {
+  var wanted = (checkedValues || []).map(function(v) {
+    return String(v || '').toUpperCase().trim();
+  });
+
+  getFilterBoxes(groupId).forEach(function(box) {
+    var val = String(box.value || '').toUpperCase().trim();
+    box.checked = wanted.indexOf(val) !== -1;
+  });
+
+  syncSelectAllForGroup(groupId);
+}
+
+function setAllInFilterGroup(groupId, checked) {
+  getFilterBoxes(groupId).forEach(function(box) {
+    box.checked = checked;
+  });
+
+  var selectAll = getFilterSelectAll(groupId);
+  if (selectAll) selectAll.checked = checked;
+}
+
+function syncSelectAllForGroup(groupId) {
+  var boxes = getFilterBoxes(groupId);
+  var selectAll = getFilterSelectAll(groupId);
+
+  if (!selectAll) return;
+
+  selectAll.checked =
+    boxes.length > 0 &&
+    boxes.every(function(box) {
+      return box.checked;
+    });
+}
+
+function syncAllSelectAllBoxes() {
+  [
+    'filterStatus',
+    'filterLevel',
+    'filterOrgs',
+    'filterGradClass',
+    'filterRosterYears'
+  ].forEach(syncSelectAllForGroup);
+}
   function applyFilters(){
     var activeSection=document.getElementById('sec-active');
     var allTimeSection=document.getElementById('sec-alltime');
