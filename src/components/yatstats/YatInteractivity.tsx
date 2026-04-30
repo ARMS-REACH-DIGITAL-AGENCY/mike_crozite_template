@@ -924,8 +924,40 @@ try {
 } catch (err) {
   console.error('YAT strip sync failed', err);
 }
-    if(e.target.id==='filterName')applyFilters();
+  }
+
+  document.addEventListener('change', function(e){
+    if(!e.target.closest('#filters')) return;
+
+    var selectAll =
+      e.target.hasAttribute('data-select-all') ||
+      e.target.classList.contains('select-all');
+
+    if(selectAll){
+      var group=e.target.closest('.filter-options');
+      if(group){
+        group.querySelectorAll('input[type="checkbox"]:not([data-select-all]):not(.select-all)').forEach(function(i){
+          i.checked=e.target.checked;
+        });
+      }
+    }else if(e.target.type==='checkbox'){
+      var group=e.target.closest('.filter-options');
+      if(group){
+        var sa=group.querySelector('input[data-select-all], input.select-all');
+        var boxes=Array.from(group.querySelectorAll('input[type="checkbox"]:not([data-select-all]):not(.select-all)'));
+        if(sa){
+          sa.checked=boxes.length>0 && boxes.every(function(i){return i.checked;});
+        }
+      }
+    }
+
+    applyFilters();
   });
+
+  var filterNameInput=document.getElementById('filterName');
+  if(filterNameInput){
+    filterNameInput.addEventListener('input', applyFilters);
+  }
 
   function resetFiltersForCurrentSection(){
     document.querySelectorAll('#filters input').forEach(function(i){
