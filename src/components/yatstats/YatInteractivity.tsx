@@ -1262,7 +1262,7 @@ try {
     filterNameInput.addEventListener('input', applyFilters);
   }
 
-  function resetFiltersForCurrentSection(){
+function resetFiltersForCurrentSection(){
     document.querySelectorAll('#filters input').forEach(function(i){
       if(i.type==='checkbox')i.checked=false;
       else i.value='';
@@ -1289,17 +1289,14 @@ try {
       });
     }
 
-    if(typeof syncAllSelectAllBoxes==='function'){
-      syncAllSelectAllBoxes();
-    }else{
-      document.querySelectorAll('#filters input[data-select-all]').forEach(function(sa){
-        var groupId=sa.getAttribute('data-select-all');
-        var group=groupId?document.getElementById(groupId):null;
-        if(!group)return;
-        var boxes=Array.from(group.querySelectorAll('input[type="checkbox"]:not([data-select-all])'));
-        sa.checked=boxes.length>0&&boxes.every(function(box){return box.checked;});
-      });
-    }
+    document.querySelectorAll('#filters input[data-select-all]').forEach(function(sa){
+      var groupId=sa.getAttribute('data-select-all');
+      var group=groupId?document.getElementById(groupId):null;
+      if(!group)return;
+
+      var boxes=Array.from(group.querySelectorAll('input[type="checkbox"]:not([data-select-all])'));
+      sa.checked=boxes.length>0&&boxes.every(function(box){return box.checked;});
+    });
 
     applyFilters();
   }
