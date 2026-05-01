@@ -270,13 +270,15 @@ const statusFilterOptions = buildStatusFilterOptions(
 // after section changes and filter changes.
 const allStripRows = sortActivePlayers(stripMerged);
 
-   const stripPlayers = allStripRows.map((p) => {
+  const stripPlayers = allStripRows.map((p) => {
   const playerId = String(p.playerid);
+  const status = String(p.status_label || p.status || '').toUpperCase().trim();
 
   return {
     id: playerId,
     name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
     image: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
+    status,
   };
 });
 
