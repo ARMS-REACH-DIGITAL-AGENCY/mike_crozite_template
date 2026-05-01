@@ -1,7 +1,7 @@
 // src/components/yatstats/shell/GlobalTopbar.tsx
 // Renders Row 1 of the shared shell
 
-export default function GlobalTopbar() {
+export default function GlobalTopbar({ hsid }: { hsid: string }) {
   return (
     <div className="yat-topbar">
       <div className="yat-topbar-left">
@@ -19,10 +19,10 @@ export default function GlobalTopbar() {
       </div>
 
       <nav className="yat-topnav" aria-label="Desktop navigation">
-        <a className="yat-topnav-item" data-tab="active" href="#sec-active">
+        <a className="yat-topnav-item" href={`/${hsid}`}>
           <span>WHERE THEY</span>
           <strong>YAT?</strong>
-        </a>
+      </a>
 
         <a className="yat-topnav-item" data-tab="news" href="#sec-news">
           <span>ACTIVE ALUMNI</span>
