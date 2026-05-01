@@ -1267,20 +1267,30 @@ try {
     var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
 
     if(isActivePage||isNewsPage){
-      document.querySelectorAll('#filterStatus input').forEach(function(i){
-        if(i.value&&i.value.toUpperCase()==='ACTIVE')i.checked=true;
+      document.querySelectorAll('#filterStatus input[type="checkbox"]:not([data-select-all])').forEach(function(i){
+        var statusValue=String(i.value||'').toUpperCase().trim();
+        i.checked=statusValue!==''&&statusValue!=='RETIRED';
       });
-      var saEl=document.querySelector('#filterStatus input[data-select-all]');
-      if(saEl)saEl.checked=false;
     }
 
     if(isAllTimePage){
-      document.querySelectorAll('#filterStatus input').forEach(function(i){
+      document.querySelectorAll('#filterStatus input[type="checkbox"]:not([data-select-all])').forEach(function(i){
         i.checked=true;
       });
     }
 
-    syncAllSelectAllBoxes();
+    if(typeof syncAllSelectAllBoxes==='function'){
+      syncAllSelectAllBoxes();
+    }else{
+      document.querySelectorAll('#filters input[data-select-all]').forEach(function(sa){
+        var groupId=sa.getAttribute('data-select-all');
+        var group=groupId?document.getElementById(groupId):null;
+        if(!group)return;
+        var boxes=Array.from(group.querySelectorAll('input[type="checkbox"]:not([data-select-all])'));
+        sa.checked=boxes.length>0&&boxes.every(function(box){return box.checked;});
+      });
+    }
+
     applyFilters();
   }
 
