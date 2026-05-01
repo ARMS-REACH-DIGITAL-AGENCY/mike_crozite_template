@@ -212,17 +212,10 @@ window.__firebase_config = ${firebaseConfigJSON};
       return;
     }
 
-    var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
+        var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
     if(closeBtn){
       e.preventDefault();
       yatCloseDrawers();
-      return;
-    }
-
-        var searchBtn=e.target.closest('#openSearch');
-    if(searchBtn){
-      e.preventDefault();
-      yatOpenGlobalSearch();
       return;
     }
 
@@ -243,7 +236,9 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   function yatSafeApplyFilters(){
     try{
-      if(typeof applyFilters==='function'){
+      if(typeof resetFiltersForCurrentSection==='function'){
+        resetFiltersForCurrentSection();
+      }else if(typeof applyFilters==='function'){
         applyFilters();
       }
     }catch(err){
@@ -251,12 +246,16 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
   }
 
-  document.addEventListener('DOMContentLoaded',function(){
-    yatSafeApplyFilters();
+ document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(function(){
+      yatSafeApplyFilters();
+    },0);
   });
 
   window.addEventListener('load',function(){
-    yatSafeApplyFilters();
+    setTimeout(function(){
+      yatSafeApplyFilters();
+    },0);
   });
   
   var favLink=document.querySelector('link[rel="icon"][type="image/png"]');
