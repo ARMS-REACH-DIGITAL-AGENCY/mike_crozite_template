@@ -351,12 +351,37 @@ const allStripRows = sortActivePlayers(stripMerged);
       {/* Right Drawers */}
       <AccountDrawer subdomain={subdomain} />
 
-      <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
-        <button className="yat-icon-btn yat-close-btn" id="closeFilters">
-          <i className="ri-close-line" />
-        </button>
-        <h3>FILTERS</h3>
-        <div className="yat-drawer-content" id="filters">
+   <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
+  <div
+    className="yat-drawer-header"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '10px',
+      padding: '12px 14px',
+      borderBottom: '1px solid var(--line)',
+    }}
+  >
+    <h3 style={{ margin: 0 }}>FILTERS</h3>
+
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button
+        id="filtersReset"
+        className="yat-icon-btn"
+        aria-label="Reset filters"
+        title="Reset filters"
+      >
+        <i className="ri-restart-line" />
+      </button>
+
+      <button className="yat-icon-btn" id="closeFilters" aria-label="Close filters">
+        <i className="ri-close-line" />
+      </button>
+    </div>
+  </div>
+
+  <div className="yat-drawer-content" id="filters">
 
           {/* ── SHOW MY FAVORITES ─────────────────────────────────────────────
               Two checkboxes always visible. Clicking while not authenticated
@@ -491,20 +516,6 @@ const allStripRows = sortActivePlayers(stripMerged);
               <input id="filterName" type="text" placeholder="Type a name…" />
             </div>
           </details>
-
-        </div>
-
-        <div className="yat-drawer-footer">
-          <button
-           <button
-  id="filtersReset"
-  className="yat-icon-btn"
-  aria-label="Reset filters"
-  title="Reset filters"
-  style={{ padding: '10px', border: '1px solid var(--line)', borderRadius: '12px' }}
->
-  <i className="ri-restart-line" />
-</button>
         </div>
       </aside>
 
