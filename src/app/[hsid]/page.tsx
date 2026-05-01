@@ -287,13 +287,28 @@ export default async function SchoolPage({
             ) : (
               activeSortedRoster.map((p) => (
                 <PlayerCard
-                  key={`active-${String(p.playerid)}`}
-                  player={p}
-                  resolvedHsid={resolvedHsid}
-                  frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-                  headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-                />
-              ))
+                 activeSortedRoster.map((p) => {
+                  const status = String(p.status_label || p.status || '').toUpperCase().trim();
+                  const isRetired = status === 'RETIRED';
+                
+                  return (
+                    <div
+                      key={`active-wrap-${String(p.playerid)}`}
+                      data-player-card-wrap="true"
+                      data-playerid={String(p.playerid)}
+                      data-default-hidden={isRetired ? 'retired' : undefined}
+                      style={{ display: isRetired ? 'none' : undefined }}
+                    >
+                      <PlayerCard
+                        key={`active-${String(p.playerid)}`}
+                        player={p}
+                        resolvedHsid={resolvedHsid}
+                        frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                        headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+                      />
+                    </div>
+                  );
+                })
             )}
           </div>
         )}
