@@ -59,7 +59,7 @@ export default function SharedShell({
     <>
       {/* ROW 1 */}
       <div className="yat-row1-shell">
-        <GlobalTopbar />
+        <GlobalTopbar hsid={hsid} />
       </div>
 
       {/* ROW 2 */}
