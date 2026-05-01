@@ -443,6 +443,8 @@ function syncStripToVisibleCards() {
   var visibleCards = Array.from(
     visibleSection.querySelectorAll('.yat-card[data-playerid]')
   ).filter(function(card) {
+    var wrap = card.closest('[data-player-card-wrap="true"]');
+    if (wrap && wrap.style.display === 'none') return false;
     return card.style.display !== 'none';
   });
 
@@ -1214,7 +1216,8 @@ function syncAllSelectAllBoxes() {
       if(rc.length&&!rosterYears.some(function(y){return rc.includes(y);} ))show=false;
       if(sc.length&&!sc.map(function(v){return v.toUpperCase();}).includes(status))show=false;
 
-  card.style.display=show?'':'none';
+  var displayTarget=card.closest('[data-player-card-wrap="true"]')||card;
+  displayTarget.style.display=show?'':'none';
 });
 
 try {
