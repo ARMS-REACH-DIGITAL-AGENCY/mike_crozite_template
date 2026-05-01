@@ -496,12 +496,15 @@ const allStripRows = sortActivePlayers(stripMerged);
 
         <div className="yat-drawer-footer">
           <button
-            id="filtersReset"
-            className="yat-icon-btn"
-            style={{ padding: '10px 14px', border: '1px solid var(--line)', borderRadius: '12px' }}
-          >
-            <i className="ri-restart-line" /> Reset Filters
-          </button>
+           <button
+  id="filtersReset"
+  className="yat-icon-btn"
+  aria-label="Reset filters"
+  title="Reset filters"
+  style={{ padding: '10px', border: '1px solid var(--line)', borderRadius: '12px' }}
+>
+  <i className="ri-restart-line" />
+</button>
         </div>
       </aside>
 
