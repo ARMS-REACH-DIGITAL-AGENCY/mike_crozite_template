@@ -39,6 +39,40 @@ function normalizeStatusLabel(value: unknown): string {
 function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
   const statuses = new Set<string>();
 
+  const NON_STATUS_VALUES = new Set([
+    'MLB',
+    'TRIPLE-A',
+    'AAA',
+    'DOUBLE-A',
+    'AA',
+    'HIGH-A',
+    'A+',
+    'SINGLE-A',
+    'A',
+    'LOW-A',
+    'A-',
+    'ROOKIE',
+    'RK',
+    'ROK',
+    'INDY',
+    'INDEPENDENT',
+    "INT'L",
+    'INTERNATIONAL',
+    'NCAA',
+    'NCAA-D1',
+    'NCAA-D2',
+    'NCAA-D3',
+    'D1',
+    'D2',
+    'D3',
+    'NAIA',
+    'JUCO',
+    'JRCOLLEGE',
+    'NJCAA',
+    'HIGH SCHOOL',
+    'HS',
+  ]);
+
   // Baseline statuses we want available even if not currently present on this school.
   statuses.add('ACTIVE');
   statuses.add('RETIRED');
@@ -49,7 +83,9 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
 
   for (const row of rows) {
     const status = normalizeStatusLabel(row.status_label);
-    if (status) statuses.add(status);
+    if (status && !NON_STATUS_VALUES.has(status)) {
+      statuses.add(status);
+    }
   }
 
   const priority = [
@@ -60,8 +96,9 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'DESIGNATED FOR ASSIGNMENT',
     'FREE AGENT',
     'REDSHIRT',
-   	'PARTNER - SPONSOR',
-	'RETIRED',
+    'PARTNER/SPONSOR',
+    'PARTNER - SPONSOR',
+    'RETIRED',
   ];
 
   return Array.from(statuses).sort((a, b) => {
