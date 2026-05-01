@@ -270,17 +270,13 @@ const statusFilterOptions = buildStatusFilterOptions(
 // after section changes and filter changes.
 const allStripRows = sortActivePlayers(stripMerged);
 
-  const allStripIds = allStripRows.map((p) => String(p.playerid));
-  const headshotMap = await getBatchDesignatedPlayerImages(allStripIds, 'HEADSHOT');
-
- const stripPlayers = allStripRows.map((p) => {
+   const stripPlayers = allStripRows.map((p) => {
   const playerId = String(p.playerid);
-  const headshot = headshotMap.get(playerId)?.image_url || null;
 
   return {
     id: playerId,
     name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-    image: headshot,
+    image: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
   };
 });
 
