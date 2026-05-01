@@ -8,6 +8,7 @@ type Player = {
   id: string;
   name: string;
   image?: string | null;
+  status?: string | null;
   isPitcher?: boolean;
 };
 
@@ -162,14 +163,20 @@ export default function InteractionStrip({
               const initialSrc =
                 p.image && p.image.trim() !== '' ? p.image : HEADSHOT_FALLBACK_SRC;
 
-              return (
-                <a
-                  key={p.id}
-                  href="javascript:void(0)"
-                  className="gallery-slot gallery-slot-link"
-                  data-playerid={p.id}
-                  title={p.name}
-                >
+            const status = String(p.status || '').toUpperCase().trim();
+            const isRetired = status === 'RETIRED';
+
+            return (
+              <a
+                key={p.id}
+                href="javascript:void(0)"
+                className="gallery-slot gallery-slot-link"
+                data-playerid={p.id}
+                data-status={status}
+                data-default-hidden={isRetired ? 'retired' : undefined}
+                style={{ display: isRetired ? 'none' : undefined }}
+                title={p.name}
+              >
                   <div className="gallery-slot-media">
                     <img
                       src={initialSrc}
