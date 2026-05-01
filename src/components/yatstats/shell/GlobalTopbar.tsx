@@ -19,7 +19,7 @@ export default function GlobalTopbar() {
       </div>
 
       <nav className="yat-topnav" aria-label="Desktop navigation">
-        <a className="yat-topnav-item" data-tab="gallery" href="#sec-gallery">
+        <a className="yat-topnav-item" data-tab="active" href="#sec-active">
           <span>WHERE THEY</span>
           <strong>YAT?</strong>
         </a>
