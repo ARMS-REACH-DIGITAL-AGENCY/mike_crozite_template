@@ -219,10 +219,17 @@ window.__firebase_config = ${firebaseConfigJSON};
       return;
     }
 
-    var closeSearchBtn=e.target.closest('#gsClose, #gsOverlay');
-    if(closeSearchBtn){
+        var searchBtn=e.target.closest('#openSearch');
+    if(searchBtn){
       e.preventDefault();
-      yatCloseGlobalSearch();
+      yatOpenGlobalSearch();
+      return;
+    }
+
+    var resetBtn=e.target.closest('#filtersReset, #filtersReset2');
+    if(resetBtn){
+      e.preventDefault();
+      resetFiltersForCurrentSection();
       return;
     }
   });
