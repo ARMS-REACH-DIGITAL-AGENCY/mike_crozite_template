@@ -8,6 +8,8 @@ type Player = {
   id: string;
   name: string;
   image?: string | null;
+  nowImage?: string | null;
+  thenImage?: string | null;
   status?: string | null;
   isPitcher?: boolean;
 };
@@ -160,9 +162,19 @@ export default function InteractionStrip({
           {showActiveStrip ? (
             players.map((p) => {
               const lastName = getLastName(p.name);
-              const initialSrc =
-                p.image && p.image.trim() !== '' ? p.image : HEADSHOT_FALLBACK_SRC;
-
+           const nowSrc =
+              p.nowImage && p.nowImage.trim() !== ''
+                ? p.nowImage
+                : p.image && p.image.trim() !== ''
+                  ? p.image
+                  : HEADSHOT_FALLBACK_SRC;
+            
+            const thenSrc =
+              p.thenImage && p.thenImage.trim() !== ''
+                ? p.thenImage
+                : nowSrc;
+            
+            const initialSrc = nowSrc;
             const status = String(p.status || '').toUpperCase().trim();
             const isRetired = status === 'RETIRED';
 
@@ -182,11 +194,13 @@ export default function InteractionStrip({
                       src={initialSrc}
                       alt={p.name}
                       className="gallery-slot-img"
+                      data-now-src={nowSrc}
+                      data-then-src={thenSrc}
                       onError={(e) => {
                         const img = e.currentTarget;
-
+                    
                         if (img.dataset.fallbackApplied === 'true') return;
-
+                    
                         img.dataset.fallbackApplied = 'true';
                         img.src = HEADSHOT_FALLBACK_SRC;
                       }}
