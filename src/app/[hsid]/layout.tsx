@@ -278,6 +278,8 @@ const allStripRows = sortActivePlayers(stripMerged);
     id: playerId,
     name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
     image: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
+    nowImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
+    thenImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`,
     status,
   };
 });
