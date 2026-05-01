@@ -165,7 +165,18 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(gsResults)gsResults.innerHTML='';
   }
 
-  document.addEventListener('click',function(e){
+ document.addEventListener('click',function(e){
+    var acctTab=e.target.closest('#acctTabJoin, #acctTabLogin');
+    if(acctTab){
+      e.preventDefault();
+      e.stopPropagation();
+      var acctTabName=acctTab.getAttribute('data-tab');
+      if(acctTabName){
+        window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:acctTabName}));
+      }
+      return;
+    }
+
     var themeBtn=e.target.closest('#theme-toggle');
     if(themeBtn){
       e.preventDefault();
