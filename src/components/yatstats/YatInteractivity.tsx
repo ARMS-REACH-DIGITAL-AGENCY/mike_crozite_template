@@ -376,8 +376,27 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   var _activeSection=null;
   var _stripOriginalOrder=null;
+  
+  function syncStripImagesToSection(key){
+    var useThenImages = key === 'alltime';
+  
+    document.querySelectorAll('.gallery-slot-link[data-playerid] .gallery-slot-img').forEach(function(img){
+      var nextSrc = useThenImages
+        ? img.getAttribute('data-then-src')
+        : img.getAttribute('data-now-src');
+  
+      if(!nextSrc)return;
+  
+      img.dataset.fallbackApplied = '';
+      if(img.getAttribute('src') !== nextSrc){
+        img.setAttribute('src', nextSrc);
+      }
+    });
+  }
 
-  function syncStripToSection(key){
+ function syncStripToSection(key){
+    syncStripImagesToSection(key);
+
     var stripInner=document.querySelector('.gallery-strip-inner');
     if(!stripInner)return;
 
