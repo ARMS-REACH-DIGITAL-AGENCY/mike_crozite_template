@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     template: "%s | YAT?STATS",
   },
   description: "YAT?STATS school microsites — Track active and all-time baseball alumni.",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
