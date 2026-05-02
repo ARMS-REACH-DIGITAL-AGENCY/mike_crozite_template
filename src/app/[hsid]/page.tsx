@@ -260,20 +260,20 @@ export default async function SchoolPage({
                 BACK TO HOME
               </a>
               <a
-                href="https://home.yatstats.com"
-                style={{
-                  display: "inline-block",
-                  border: "1px solid rgba(255,255,255,.18)",
-                  color: "#fff",
-                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                  fontSize: "14px",
-                  letterSpacing: ".1em",
-                  padding: "10px 24px",
-                  borderRadius: "4px",
-                }}
-              >
-                USE GLOBAL SEARCH
-              </a>
+  href="https://home.yatstats.com"
+  style={{
+    display: "inline-block",
+    border: "1px solid rgba(255,255,255,.18)",
+    color: "#fff",
+    fontFamily: '"Bebas Neue",Oswald,sans-serif',
+    fontSize: "14px",
+    letterSpacing: ".1em",
+    padding: "10px 24px",
+    borderRadius: "4px",
+  }}
+>
+  USE GLOBAL SEARCH
+</a>
             </div>
           </div>
         ) : (
