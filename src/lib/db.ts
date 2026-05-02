@@ -187,48 +187,201 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       WHERE ph.hsid = $1
     ),
 
-    latest_batting AS (
-      SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS stat_year,
-        teamid,
-        highlevel       AS bat_level,
-        g, ab, r, h,
-        dbl             AS "2b",
-        tpl             AS "3b",
-        hr, rbi, sb, bb, so,
-        bavg            AS avg,
-        obp, slg, ops,
-        draft_info,
-        playyears
-      FROM tbc_batting_2026_season_raw
-      ORDER BY playerid, year DESC, teamid DESC
-    ),
+    batting_2026_by_level AS (
+  SELECT
+    playerid::text AS playerid,
+    MAX(year)      AS stat_year,
+    highlevel      AS bat_level,
+    MAX(teamid)    AS teamid,
 
-    latest_pitching AS (
-      SELECT DISTINCT ON (playerid)
-        playerid::text  AS playerid,
-        year            AS pitch_year,
-        teamid          AS pit_teamid,
-        highlevel       AS pit_level,
-        g               AS pg,
-        gs,
-        w, l,
-        sv              AS saves,
-        ip,
-        bb,
-        so              AS ko,
-        ROUND(NULLIF(regexp_replace(COALESCE(era::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS era,
-        ROUND(NULLIF(regexp_replace(COALESCE(whip::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS whip,
-        ROUND(NULLIF(regexp_replace(COALESCE(h9::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS h9,
-        ROUND(NULLIF(regexp_replace(COALESCE(bb9::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS bb9,
-        ROUND(NULLIF(regexp_replace(COALESCE(so9::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS so9,
-        ROUND(NULLIF(regexp_replace(COALESCE(so_bb::text,''), '[^0-9.]', '', 'g'), '')::numeric, 2) AS so_bb,
-        draft_info      AS pit_draft_info,
-        playyears       AS pit_playyears
-      FROM tbc_pitching_2026_season_raw
-      ORDER BY playerid, year DESC, teamid DESC
-    ),
+    SUM(NULLIF(regexp_replace(COALESCE(g::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric) AS g,
+    SUM(NULLIF(regexp_replace(COALESCE(ab::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS ab,
+    SUM(NULLIF(regexp_replace(COALESCE(r::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric) AS r,
+    SUM(NULLIF(regexp_replace(COALESCE(h::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric) AS h,
+    SUM(NULLIF(regexp_replace(COALESCE(dbl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS "2b",
+    SUM(NULLIF(regexp_replace(COALESCE(tpl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS "3b",
+    SUM(NULLIF(regexp_replace(COALESCE(hr::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS hr,
+    SUM(NULLIF(regexp_replace(COALESCE(rbi::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS rbi,
+    SUM(NULLIF(regexp_replace(COALESCE(sb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS sb,
+    SUM(NULLIF(regexp_replace(COALESCE(bb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS bb,
+    SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS so,
+
+    MAX(draft_info) AS draft_info,
+    MAX(playyears)  AS playyears
+  FROM tbc_batting_2026_season_raw
+  WHERE year = '2026'
+  GROUP BY playerid::text, highlevel
+),
+
+latest_batting AS (
+  SELECT DISTINCT ON (playerid)
+    playerid,
+    stat_year,
+    teamid,
+    bat_level,
+    g, ab, r, h, "2b", "3b", hr, rbi, sb, bb, so,
+
+    CASE
+      WHEN ab > 0 THEN ROUND(h / ab, 3)
+      ELSE NULL
+    END AS avg,
+
+    CASE
+      WHEN (ab + bb) > 0 THEN ROUND((h + bb) / (ab + bb), 3)
+      ELSE NULL
+    END AS obp,
+
+    CASE
+      WHEN ab > 0 THEN ROUND((h + "2b" + ("3b" * 2) + (hr * 3)) / ab, 3)
+      ELSE NULL
+    END AS slg,
+
+    CASE
+      WHEN ab > 0 AND (ab + bb) > 0 THEN
+        ROUND(
+          ((h + bb) / (ab + bb)) +
+          ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab),
+          3
+        )
+      ELSE NULL
+    END AS ops,
+
+    draft_info,
+    playyears
+  FROM batting_2026_by_level
+  ORDER BY
+    playerid,
+    CASE UPPER(COALESCE(bat_level, ''))
+      WHEN 'MLB'           THEN 1
+      WHEN 'TRIPLE-A'      THEN 2
+      WHEN 'AAA'           THEN 2
+      WHEN 'DOUBLE-A'      THEN 3
+      WHEN 'AA'            THEN 3
+      WHEN 'HIGH-A'        THEN 4
+      WHEN 'A+'            THEN 4
+      WHEN 'LOW-A'         THEN 5
+      WHEN 'SINGLE-A'      THEN 5
+      WHEN 'A'             THEN 5
+      WHEN 'ROOKIE'        THEN 6
+      WHEN 'INT''L'        THEN 7
+      WHEN 'INTERNATIONAL' THEN 7
+      WHEN 'INDY'          THEN 8
+      WHEN 'INDEPENDENT'   THEN 8
+      WHEN 'NCAA-D1'       THEN 9
+      WHEN 'D1'            THEN 9
+      WHEN 'NCAA-D2'       THEN 10
+      WHEN 'D2'            THEN 10
+      WHEN 'NCAA-D3'       THEN 11
+      WHEN 'D3'            THEN 11
+      WHEN 'NAIA'          THEN 12
+      WHEN 'JUCO'          THEN 13
+      ELSE 99
+    END
+),
+
+pitching_2026_by_level AS (
+  SELECT
+    playerid::text AS playerid,
+    MAX(year)      AS pitch_year,
+    highlevel      AS pit_level,
+    MAX(teamid)    AS pit_teamid,
+
+    SUM(NULLIF(regexp_replace(COALESCE(g::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS pg,
+    SUM(NULLIF(regexp_replace(COALESCE(gs::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS gs,
+    SUM(NULLIF(regexp_replace(COALESCE(w::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS w,
+    SUM(NULLIF(regexp_replace(COALESCE(l::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS l,
+    SUM(NULLIF(regexp_replace(COALESCE(sv::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS saves,
+
+    SUM(NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS ip,
+    SUM(NULLIF(regexp_replace(COALESCE(h::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric) AS hits_allowed,
+    SUM(NULLIF(regexp_replace(COALESCE(er::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS er,
+    SUM(NULLIF(regexp_replace(COALESCE(bb::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS bb,
+    SUM(NULLIF(regexp_replace(COALESCE(so::text, '0'), '[^0-9.]', '', 'g'), '')::numeric) AS ko,
+
+    MAX(draft_info) AS pit_draft_info,
+    MAX(playyears)  AS pit_playyears
+  FROM tbc_pitching_2026_season_raw
+  WHERE year = '2026'
+  GROUP BY playerid::text, highlevel
+),
+
+latest_pitching AS (
+  SELECT DISTINCT ON (playerid)
+    playerid,
+    pitch_year,
+    pit_teamid,
+    pit_level,
+    pg,
+    gs,
+    w,
+    l,
+    saves,
+    ip,
+    bb,
+    ko,
+
+    CASE
+      WHEN ip > 0 THEN ROUND((er * 9) / ip, 2)
+      ELSE NULL
+    END AS era,
+
+    CASE
+      WHEN ip > 0 THEN ROUND((hits_allowed + bb) / ip, 2)
+      ELSE NULL
+    END AS whip,
+
+    CASE
+      WHEN ip > 0 THEN ROUND((hits_allowed * 9) / ip, 2)
+      ELSE NULL
+    END AS h9,
+
+    CASE
+      WHEN ip > 0 THEN ROUND((bb * 9) / ip, 2)
+      ELSE NULL
+    END AS bb9,
+
+    CASE
+      WHEN ip > 0 THEN ROUND((ko * 9) / ip, 2)
+      ELSE NULL
+    END AS so9,
+
+    CASE
+      WHEN bb > 0 THEN ROUND(ko / bb, 2)
+      ELSE NULL
+    END AS so_bb,
+
+    pit_draft_info,
+    pit_playyears
+  FROM pitching_2026_by_level
+  ORDER BY
+    playerid,
+    CASE UPPER(COALESCE(pit_level, ''))
+      WHEN 'MLB'           THEN 1
+      WHEN 'TRIPLE-A'      THEN 2
+      WHEN 'AAA'           THEN 2
+      WHEN 'DOUBLE-A'      THEN 3
+      WHEN 'AA'            THEN 3
+      WHEN 'HIGH-A'        THEN 4
+      WHEN 'A+'            THEN 4
+      WHEN 'LOW-A'         THEN 5
+      WHEN 'SINGLE-A'      THEN 5
+      WHEN 'A'             THEN 5
+      WHEN 'ROOKIE'        THEN 6
+      WHEN 'INT''L'        THEN 7
+      WHEN 'INTERNATIONAL' THEN 7
+      WHEN 'INDY'          THEN 8
+      WHEN 'INDEPENDENT'   THEN 8
+      WHEN 'NCAA-D1'       THEN 9
+      WHEN 'D1'            THEN 9
+      WHEN 'NCAA-D2'       THEN 10
+      WHEN 'D2'            THEN 10
+      WHEN 'NCAA-D3'       THEN 11
+      WHEN 'D3'            THEN 11
+      WHEN 'NAIA'          THEN 12
+      WHEN 'JUCO'          THEN 13
+      ELSE 99
+    END
+),
 
     active_playerids AS (
       SELECT DISTINCT playerid::text AS playerid
