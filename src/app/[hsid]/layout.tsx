@@ -136,10 +136,17 @@ export async function generateMetadata({
 
   return {
     title: `${schoolName} | YAT?STATS`,
-    icons: {
-      icon: crestUrl,
-      apple: crestUrl,
-      shortcut: crestUrl,
+        icons: {
+      icon: [
+        { url: crestUrl, type: 'image/png', sizes: '192x192' },
+        { url: crestUrl, type: 'image/png', sizes: '512x512' },
+      ],
+      apple: [
+        { url: crestUrl, type: 'image/png', sizes: '180x180' },
+      ],
+      shortcut: [
+        { url: crestUrl, type: 'image/png' },
+      ],
     },
     appleWebApp: {
       capable: true,
