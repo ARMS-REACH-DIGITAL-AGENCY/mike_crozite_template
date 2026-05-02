@@ -13,13 +13,14 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   let school: Record<string, unknown> | null = null;
   try {
     if (host) {
-      school = await getSchoolByUrl(`https://${host}`) as Record<string, unknown> | null;
+      school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
     }
   } catch {
     school = null;
   }
 
   const hsid = school?.hsid ? String(school.hsid) : null;
+
   const schoolName = school
     ? formatSchoolName(String(school.hsname || "YAT?STATS"))
     : "YAT?STATS";
@@ -48,7 +49,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
         src: iconUrl,
         sizes: "512x512",
         type: "image/png",
-        purpose: "any maskable",
+        purpose: "maskable", // ✅ FIXED (was "any maskable")
       },
     ],
   };
