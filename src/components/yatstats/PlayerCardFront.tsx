@@ -438,12 +438,12 @@ const levelLabelRaw =
               }}
             >
               <span className="front-chip" style={chipStyle}>
-                {levelLabel}
-              </span>
+  {statusLabel}
+</span>
 
-              <span className="front-chip" style={chipStyle}>
-                {statusLabel}
-              </span>
+<span className="front-chip" style={chipStyle}>
+  {levelLabel}
+</span>
 
               {classOf && (
                 <span
