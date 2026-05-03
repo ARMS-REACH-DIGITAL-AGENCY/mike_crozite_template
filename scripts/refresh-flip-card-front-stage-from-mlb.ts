@@ -5,8 +5,10 @@
 // Fan-facing SOP:
 // - roster_type='active' owns current team, level, and roster status when present.
 // - roster_type='40Man' is context only; it must not override active team/level.
+// - A true MLB 40-man context row must come from the MLB parent club endpoint:
+//   source_team_id = org_source_team_id.
 // - roster_type='fullRoster' is fallback only.
-// - If a player is active at a non-MLB level and also on the 40-man roster,
+// - If a player is active at a non-MLB level and also on the true MLB 40-man roster,
 //   display level becomes e.g. TRIPLE-A (40-MAN), while level_label stays TRIPLE-A for filters.
 // - Rehab/injured roster status overrides plain ACTIVE, but level remains the actual assigned level.
 
@@ -64,6 +66,7 @@ async function refreshStage(): Promise<number> {
         raw.source_player_name,
         raw.source_team_id,
         raw.source_team_name,
+        raw.org_source_team_id,
         raw.level,
         CASE UPPER(COALESCE(raw.level, ''))
           WHEN 'MLB' THEN 'MLB'
@@ -93,7 +96,11 @@ async function refreshStage(): Promise<number> {
         raw.org_abbr,
         raw.seen_at,
         raw.updated_at,
-        raw.id AS raw_id
+        raw.id AS raw_id,
+        (
+          LOWER(COALESCE(raw.roster_type, '')) = '40man'
+          AND raw.source_team_id::text = raw.org_source_team_id::text
+        ) AS is_true_mlb_40man_row
       FROM public.mlb_org_roster_resolution res
       JOIN public.mlb_org_roster_raw raw
         ON raw.id = res.raw_id
@@ -116,19 +123,20 @@ async function refreshStage(): Promise<number> {
         org_name AS forty_man_org_name,
         org_abbr AS forty_man_org_abbr
       FROM matched_rows
-      WHERE LOWER(COALESCE(roster_type, '')) = '40man'
+      WHERE is_true_mlb_40man_row IS TRUE
       ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
     fallback_truth AS (
       SELECT DISTINCT ON (playerid)
         *
       FROM matched_rows
-      WHERE LOWER(COALESCE(roster_type, '')) IN ('40man', 'fullroster')
+      WHERE LOWER(COALESCE(roster_type, '')) = 'fullroster'
+         OR is_true_mlb_40man_row IS TRUE
       ORDER BY
         playerid,
-        CASE LOWER(COALESCE(roster_type, ''))
-          WHEN '40man' THEN 1
-          WHEN 'fullroster' THEN 2
+        CASE
+          WHEN is_true_mlb_40man_row IS TRUE THEN 1
+          WHEN LOWER(COALESCE(roster_type, '')) = 'fullroster' THEN 2
           ELSE 9
         END,
         seen_at DESC NULLS LAST,
