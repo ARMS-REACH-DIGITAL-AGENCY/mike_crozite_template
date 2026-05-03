@@ -37,8 +37,10 @@ const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
 const DELAY_MS = 250;
 const ALL_SPORT_IDS = "1,11,12,13,14,15,16";
 
-// Store all useful roster types in raw. Resolution/stage refresh can rank later.
-const ROSTER_TYPES = ["active", "40Man", "fullRoster"];
+// MLB parent clubs can expose true 40-man roster context.
+// Affiliates should not be queried for 40Man because that can pollute MLB 40-man flags.
+const MLB_PARENT_ROSTER_TYPES = ["active", "40Man", "fullRoster"];
+const AFFILIATE_ROSTER_TYPES = ["active", "fullRoster"];
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -921,7 +923,11 @@ async function main() {
       orgsProcessed++;
 
       for (const team of teamsToProcess) {
-        for (const rosterType of ROSTER_TYPES) {
+        const rosterTypes = team.id === org.id
+          ? MLB_PARENT_ROSTER_TYPES
+          : AFFILIATE_ROSTER_TYPES;
+
+        for (const rosterType of rosterTypes) {
           const rosterData = await fetchTeamRoster(team.id, rosterType);
 
           if (!rosterData || !rosterData.roster?.length) {
