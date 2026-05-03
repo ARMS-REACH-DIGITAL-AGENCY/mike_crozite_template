@@ -286,9 +286,15 @@ export default function PlayerCardFront({
   const rosterYears = asTextArray(p.roster_years);
 
   const statusLabelRaw =
-    asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
+  asText(p.display_status_label) ||
+  asText(p.status_label) ||
+  (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
 
-  const levelLabelRaw = asText(p.level_label) || asText(p.level) || "--";
+const levelLabelRaw =
+  asText(p.display_level_label) ||
+  asText(p.level_label) ||
+  asText(p.level) ||
+  "--";
 
   const statusLabel = statusLabelRaw.toUpperCase();
   const levelLabel = levelLabelRaw.toUpperCase();
