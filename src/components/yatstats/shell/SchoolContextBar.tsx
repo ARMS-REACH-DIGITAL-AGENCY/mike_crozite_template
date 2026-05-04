@@ -111,35 +111,25 @@ export default function SchoolContextBar({
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '5px',
-                minHeight: '26px',
-                padding: '3px 7px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255,255,255,.65)',
-                background: '#222',
-                color: '#fff',
+                width: '34px',
+                height: '34px',
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                color: 'inherit',
                 opacity: 1,
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '.08em',
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
-                boxShadow: '0 1px 3px rgba(0,0,0,.45)',
               }}
             >
-              <span data-flip-all-label="true">FLIP ALL</span>
               <img
                 data-flip-all-icon="true"
-                src="/img/flip-all-icon.png"
+                src="/img/flip-all-icon.review.png"
                 alt=""
                 aria-hidden="true"
                 style={{
-                  width: '22px',
-                  height: '22px',
+                  width: '30px',
+                  height: '30px',
                   objectFit: 'contain',
                   display: 'block',
-                  borderRadius: '3px',
                 }}
               />
             </button>
