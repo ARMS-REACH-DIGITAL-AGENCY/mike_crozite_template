@@ -35,13 +35,17 @@ export default function SchoolContextBar({
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
-  // Extract playerId and slug from URL: /{hsid}/player/{playerId}/{slug}
+
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
-  // Derive player display name: prefer context (set by nested layout), fall back to URL slug
+
   const slugDerivedName = playerRouteMatch?.[2]
-    ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    ? playerRouteMatch[2]
+        .split('-')
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
     : '';
+
   const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
 
   const getPageLabel = () => {
@@ -90,7 +94,6 @@ export default function SchoolContextBar({
           <i className="ri-search-line" />
         </button>
 
-        {/* FavoriteButton — rendered in Row 2 on player profile pages only */}
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
             playerId={profilePlayerId}
@@ -107,12 +110,35 @@ export default function SchoolContextBar({
               aria-label="Flip all cards to stats"
               aria-pressed="false"
               title="Flip all cards to stats"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                minHeight: '24px',
+                padding: '4px 7px',
+                borderRadius: '999px',
+                border: '1px solid rgba(0,0,0,.35)',
+                background: '#ffc107',
+                color: '#111',
+                opacity: 1,
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '.08em',
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 4px rgba(0,0,0,.35)',
+              }}
             >
-              <i className="ri-flip-horizontal-line" />
+              <span data-flip-all-label="true">FLIP ALL</span>
+              <i className="ri-loop-right-line" />
             </button>
+
             <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
               <i className="ri-filter-3-line" />
             </button>
+
             <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters">
               <i className="ri-restart-line" />
             </button>
