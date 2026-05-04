@@ -13,6 +13,15 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function asDateTimeText(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (value instanceof Date) return value.toISOString();
@@ -26,6 +35,16 @@ function asTextArray(value: unknown): string[] {
       .filter(Boolean);
   }
   return [];
+}
+
+function getFallbackStatusLabel(player: Record<string, unknown>): string {
+  const battingYear = asNumber(player.stat_year);
+  const pitchingYear = asNumber(player.pitch_year);
+  const latestYear = Math.max(battingYear ?? 0, pitchingYear ?? 0);
+
+  if (latestYear >= 2026) return "ACTIVE";
+  if (latestYear === 2025) return "NOT ACTIVE";
+  return "RETIRED";
 }
 
 function formatNameParts(player: Record<string, unknown>) {
@@ -286,15 +305,15 @@ export default function PlayerCardFront({
   const rosterYears = asTextArray(p.roster_years);
 
   const statusLabelRaw =
-  asText(p.display_status_label) ||
-  asText(p.status_label) ||
-  (p.stat_year || p.pitch_year ? "ACTIVE" : "--");
+    asText(p.display_status_label) ||
+    asText(p.status_label) ||
+    getFallbackStatusLabel(p);
 
-const levelLabelRaw =
-  asText(p.display_level_label) ||
-  asText(p.level_label) ||
-  asText(p.level) ||
-  "--";
+  const levelLabelRaw =
+    asText(p.display_level_label) ||
+    asText(p.level_label) ||
+    asText(p.level) ||
+    "--";
 
   const statusLabel = statusLabelRaw.toUpperCase();
   const levelLabel = levelLabelRaw.toUpperCase();
@@ -438,12 +457,12 @@ const levelLabelRaw =
               }}
             >
               <span className="front-chip" style={chipStyle}>
-  {statusLabel}
-</span>
+                {statusLabel}
+              </span>
 
-<span className="front-chip" style={chipStyle}>
-  {levelLabel}
-</span>
+              <span className="front-chip" style={chipStyle}>
+                {levelLabel}
+              </span>
 
               {classOf && (
                 <span
