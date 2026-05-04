@@ -101,6 +101,15 @@ export default function SchoolContextBar({
 
         {isGallery && (
           <>
+            <button
+              id="flipAllCards"
+              className="yat-icon-btn"
+              aria-label="Flip all cards to stats"
+              aria-pressed="false"
+              title="Flip all cards to stats"
+            >
+              <i className="ri-flip-horizontal-line" />
+            </button>
             <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
               <i className="ri-filter-3-line" />
             </button>
