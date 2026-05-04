@@ -1,18 +1,18 @@
 // src/lib/db.ts
-// YAT?STATS â€” Database helpers
+// YAT?STATS Ã¢â‚¬â€ Database helpers
 // Connects to Neon Postgres via DATABASE_URL env var.
 // All player data is sourced from TheBaseballCube tables.
 //
 // Key tables:
-//   tbc_players_raw              â€” player identity, position, bats/throws, height/weight, highlevel
-//   tbc_batting_raw              â€” historical season batting stats archive
-//   tbc_pitching_raw             â€” historical season pitching stats archive
-//   tbc_batting_2026_season_raw  â€” live 2026 batting season stats
-//   tbc_pitching_2026_season_raw â€” live 2026 pitching season stats
-//   player_hsids                 â€” links playerid -> hsid (high school)
-//   tbc_schools_raw              â€” high school info (hsid, hsname, colors, nickname) â€” NOT pro/college teams
-//   school_success               â€” per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams                        â€” team_id â†’ team_name lookup; populated via scripts/import-teams.ts
+//   tbc_players_raw              Ã¢â‚¬â€ player identity, position, bats/throws, height/weight, highlevel
+//   tbc_batting_raw              Ã¢â‚¬â€ historical season batting stats archive
+//   tbc_pitching_raw             Ã¢â‚¬â€ historical season pitching stats archive
+//   tbc_batting_2026_season_raw  Ã¢â‚¬â€ live 2026 batting season stats
+//   tbc_pitching_2026_season_raw Ã¢â‚¬â€ live 2026 pitching season stats
+//   player_hsids                 Ã¢â‚¬â€ links playerid -> hsid (high school)
+//   tbc_schools_raw              Ã¢â‚¬â€ high school info (hsid, hsname, colors, nickname) Ã¢â‚¬â€ NOT pro/college teams
+//   school_success               Ã¢â‚¬â€ per-school metadata (rank, counts, staging/microsite URLs, colors)
+//   teams                        Ã¢â‚¬â€ team_id Ã¢â€ â€™ team_name lookup; populated via scripts/import-teams.ts
 //
 // "Active" = player has batting or pitching stats from 2026
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -71,7 +71,7 @@ function normalizeHostOrUrl(input: string) {
 }
 
 // ---------------------------------------------------------------------------
-// SINGLE PLAYER â€” full player identity for profile page
+// SINGLE PLAYER Ã¢â‚¬â€ full player identity for profile page
 // Falls back to flip_card_front_stage for YAT-only players not in TBC.
 // ---------------------------------------------------------------------------
 export async function getPlayerById(playerId: string): Promise<any | null> {
@@ -164,7 +164,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 }
 
 // ---------------------------------------------------------------------------
-// ACTIVE ROSTER â€” players with 2026 stats (homepage)
+// ACTIVE ROSTER Ã¢â‚¬â€ players with 2026 stats (homepage)
 //
 // Returns one row per player with their current 2026 season stats.
 // "Active" = has batting OR pitching stats in year 2026.
@@ -352,6 +352,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         saves,
 
         (FLOOR(outs / 3)::numeric + ((outs % 3)::numeric / 10)) AS ip,
+        er,
         bb,
         ko,
 
@@ -463,7 +464,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       COALESCE(lb.playyears, lp.pit_playyears)    AS playyears,
       lp.pitch_year,
       lp.pg, lp.gs, lp.w, lp.l, lp.saves,
-      lp.ip, lp.ko,
+      lp.ip, lp.er, lp.ko,
       lp.era, lp.whip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
@@ -517,7 +518,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// ALL-TIME ROSTER â€” every alumni ever tagged to a school (all-time page)
+// ALL-TIME ROSTER Ã¢â‚¬â€ every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
@@ -771,6 +772,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       cp.l,
       cp.saves,
       cp.ip,
+      cp.er,
       cp.ko,
       cp.era,
       cp.whip,
@@ -859,7 +861,7 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<Pl
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER SCHOOL â€” which school(s) a player is linked to
+// PLAYER SCHOOL Ã¢â‚¬â€ which school(s) a player is linked to
 // ---------------------------------------------------------------------------
 export async function getPlayerSchool(playerId: string): Promise<any | null> {
   const sql = `
@@ -874,7 +876,7 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 }
 
 // ---------------------------------------------------------------------------
-// SEASON-BY-SEASON BATTING STATS â€” all years for a player
+// SEASON-BY-SEASON BATTING STATS Ã¢â‚¬â€ all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -904,7 +906,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SEASON-BY-SEASON PITCHING STATS â€” all years for a player
+// SEASON-BY-SEASON PITCHING STATS Ã¢â‚¬â€ all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -936,7 +938,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// CAREER AGGREGATE STATS â€” totals across all seasons
+// CAREER AGGREGATE STATS Ã¢â‚¬â€ totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
   const n = (col: string) =>
@@ -1008,7 +1010,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 }
 
 // ---------------------------------------------------------------------------
-// TEAM CONTEXT â€” optional organization / conference metadata for a team.
+// TEAM CONTEXT Ã¢â‚¬â€ optional organization / conference metadata for a team.
 // ---------------------------------------------------------------------------
 export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
   try {
@@ -1028,7 +1030,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 }
 
 // ---------------------------------------------------------------------------
-// TEAM SCHEDULE â€” chronological game feed for a given team_id.
+// TEAM SCHEDULE Ã¢â‚¬â€ chronological game feed for a given team_id.
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
@@ -1043,7 +1045,7 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER GAME LOG â€” per-game batting stats for a player on a given team.
+// PLAYER GAME LOG Ã¢â‚¬â€ per-game batting stats for a player on a given team.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingGameLog(playerId: string, teamId: string): Promise<any[]> {
   try {
@@ -1070,7 +1072,7 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 }
 
 // ---------------------------------------------------------------------------
-// NEWS ARTICLES â€” from news_articles table (populated by Webz.io cron job)
+// NEWS ARTICLES Ã¢â‚¬â€ from news_articles table (populated by Webz.io cron job)
 // ---------------------------------------------------------------------------
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
@@ -1139,7 +1141,7 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER PHOTOS â€” uploaded career-progression photos for the filmstrip.
+// PLAYER PHOTOS Ã¢â‚¬â€ uploaded career-progression photos for the filmstrip.
 // ---------------------------------------------------------------------------
 export async function getDesignatedPlayerImage(
   imageId: string,
@@ -1219,7 +1221,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// FLIP CARD FRONT STAGE â€” staging table for UI rendering
+// FLIP CARD FRONT STAGE Ã¢â‚¬â€ staging table for UI rendering
 // ---------------------------------------------------------------------------
 export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `
@@ -1271,7 +1273,7 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
 }
 
 // ---------------------------------------------------------------------------
-// ROSTER TRUTH â€” resolved current team + transactions
+// ROSTER TRUTH Ã¢â‚¬â€ resolved current team + transactions
 // ---------------------------------------------------------------------------
 export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
   try {
@@ -1311,7 +1313,7 @@ export async function getPlayerTransactions(playerid: string, limit = 20): Promi
 }
 
 // ---------------------------------------------------------------------------
-// Schema bootstrap â€” ensure auxiliary tables exist so JOINs never crash.
+// Schema bootstrap Ã¢â‚¬â€ ensure auxiliary tables exist so JOINs never crash.
 // ---------------------------------------------------------------------------
 declare global {
   // eslint-disable-next-line no-var
