@@ -55,7 +55,12 @@ function asText(value: unknown): string {
 }
 
 function isBlankStat(value: unknown): boolean {
-  return value === null || value === undefined || String(value).trim() === "" || String(value).trim() === "--";
+  return (
+    value === null ||
+    value === undefined ||
+    String(value).trim() === "" ||
+    String(value).trim() === "--"
+  );
 }
 
 function fmtFixedStat(value: unknown, digits = 2): string {
@@ -114,6 +119,7 @@ const statBarLabel = has2026Stats
     { k: "SB", v: fmt("SB", p.sb) },
     { k: "GP", v: fmt("GP", p.g) },
   ];
+
   const pitcherStats = [
     { k: "IP", v: fmt("IP", p.ip) },
     { k: "ER", v: fmt("ER", p.er) },
@@ -129,7 +135,7 @@ const statBarLabel = has2026Stats
 
     { k: "W-L", v: fmtWinLoss(p.w, p.l) },
     { k: "SAVES", v: fmt("SV", p.saves) },
-    { k: "GP", v: fmt("GP", p.g) },
+    { k: "GP", v: fmt("GP", p.pg ?? p.g) },
   ];
   const stats = isPitcher ? pitcherStats : batterStats;
 
