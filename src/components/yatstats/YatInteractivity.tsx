@@ -204,9 +204,9 @@ window.__firebase_config = ${firebaseConfigJSON};
       label.textContent=yatFlipAllActive?'SHOW FRONT':'FLIP ALL';
     }
 
-    var icon=btn.querySelector('i');
+    var icon=btn.querySelector('[data-flip-all-icon]');
     if(icon){
-      icon.className=yatFlipAllActive?'ri-arrow-go-back-line':'ri-loop-right-line';
+      icon.style.transform=yatFlipAllActive?'scaleX(-1)':'none';
     }
   }
 
