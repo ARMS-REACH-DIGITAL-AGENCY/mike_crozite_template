@@ -1,4 +1,3 @@
-
 // src/components/yatstats/PlayerCardBack.tsx
 // Back face of the flip card.
 //
@@ -55,6 +54,24 @@ function asText(value: unknown): string {
   return String(value).trim();
 }
 
+function isBlankStat(value: unknown): boolean {
+  return value === null || value === undefined || String(value).trim() === "" || String(value).trim() === "--";
+}
+
+function fmtFixedStat(value: unknown, digits = 2): string {
+  if (isBlankStat(value)) return "--";
+
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value).trim();
+
+  return num.toFixed(digits);
+}
+
+function fmtWinLoss(wins: unknown, losses: unknown): string {
+  if (isBlankStat(wins) || isBlankStat(losses)) return "--";
+  return `${String(wins).trim()}-${String(losses).trim()}`;
+}
+
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
@@ -95,24 +112,24 @@ const statBarLabel = has2026Stats
 
     { k: "OPS", v: fmt("OPS", p.ops) },
     { k: "SB", v: fmt("SB", p.sb) },
-    { k: "GP", v: fmt("GP", p.gp ?? p.pg) },
+    { k: "GP", v: fmt("GP", p.g) },
   ];
   const pitcherStats = [
     { k: "IP", v: fmt("IP", p.ip) },
     { k: "ER", v: fmt("ER", p.er) },
-    { k: "ERA", v: fmt("ERA", p.era) },
+    { k: "ERA", v: fmtFixedStat(p.era, 2) },
 
     { k: "K", v: fmt("K", p.ko) },
     { k: "BB", v: fmt("BB", p.bb) },
-    { k: "WHIP", v: fmt("WHIP", p.whip) },
+    { k: "WHIP", v: fmtFixedStat(p.whip, 2) },
 
-    { k: "K/9", v: fmt("K/9", p.so9) },
-    { k: "BB/9", v: fmt("BB/9", p.bb9) },
-    { k: "K/BB", v: fmt("K/BB", p.so_bb) },
+    { k: "K/9", v: fmtFixedStat(p.so9, 2) },
+    { k: "BB/9", v: fmtFixedStat(p.bb9, 2) },
+    { k: "K/BB", v: fmtFixedStat(p.so_bb, 2) },
 
-    { k: "W-L", v: (p.w !== null && p.w !== undefined && p.l !== null && p.l !== undefined) ? `${p.w}-${p.l}` : "--" },
+    { k: "W-L", v: fmtWinLoss(p.w, p.l) },
     { k: "SAVES", v: fmt("SV", p.saves) },
-    { k: "GP", v: fmt("GP", p.pg ?? p.gp) },
+    { k: "GP", v: fmt("GP", p.g) },
   ];
   const stats = isPitcher ? pitcherStats : batterStats;
 
