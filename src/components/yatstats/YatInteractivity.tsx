@@ -165,6 +165,62 @@ window.__firebase_config = ${firebaseConfigJSON};
     if(gsResults)gsResults.innerHTML='';
   }
 
+  var yatFlipAllActive=false;
+
+  function getVisibleGallerySection(){
+    var activeSection=document.getElementById('sec-active');
+    var allTimeSection=document.getElementById('sec-alltime');
+
+    if(activeSection&&activeSection.classList.contains('visible'))return activeSection;
+    if(allTimeSection&&allTimeSection.classList.contains('visible'))return allTimeSection;
+
+    return null;
+  }
+
+  function getVisibleGalleryCards(){
+    var visibleSection=getVisibleGallerySection();
+    if(!visibleSection)return [];
+
+    return Array.from(visibleSection.querySelectorAll('.yat-card[data-playerid]')).filter(function(card){
+      var wrap=card.closest('[data-player-card-wrap="true"]');
+      if(wrap&&wrap.style.display==='none')return false;
+      return card.style.display!=='none';
+    });
+  }
+
+  function syncFlipAllButton(){
+    var btn=document.getElementById('flipAllCards');
+    if(!btn)return;
+
+    btn.setAttribute('aria-pressed',String(yatFlipAllActive));
+    btn.setAttribute(
+      'aria-label',
+      yatFlipAllActive?'Flip all cards to front':'Flip all cards to stats'
+    );
+    btn.setAttribute('title',yatFlipAllActive?'Flip all cards to front':'Flip all cards to stats');
+
+    var icon=btn.querySelector('i');
+    if(icon){
+      icon.className=yatFlipAllActive?'ri-arrow-go-back-line':'ri-flip-horizontal-line';
+    }
+  }
+
+  function syncFlipAllVisibleCards(){
+    if(yatFlipAllActive){
+      getVisibleGalleryCards().forEach(function(card){
+        card.classList.add('is-flipped');
+      });
+    }
+
+    syncFlipAllButton();
+  }
+
+  function setVisibleGalleryCardsFlipped(shouldFlip){
+    getVisibleGalleryCards().forEach(function(card){
+      card.classList.toggle('is-flipped',shouldFlip);
+    });
+  }
+
  document.addEventListener('click',function(e){
     var acctTab=e.target.closest('#acctTabJoin, #acctTabLogin');
     if(acctTab){
@@ -174,6 +230,16 @@ window.__firebase_config = ${firebaseConfigJSON};
       if(acctTabName){
         window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:acctTabName}));
       }
+      return;
+    }
+
+    var flipAllBtn=e.target.closest('#flipAllCards');
+    if(flipAllBtn){
+      e.preventDefault();
+      e.stopPropagation();
+      yatFlipAllActive=!yatFlipAllActive;
+      setVisibleGalleryCardsFlipped(yatFlipAllActive);
+      syncFlipAllButton();
       return;
     }
 
@@ -535,6 +601,7 @@ function syncStripToVisibleCards() {
     }
 
     syncStripToSection(key);
+    syncFlipAllVisibleCards();
   }
 
   document.addEventListener('click',function(e){
@@ -1244,6 +1311,12 @@ try {
   }
 } catch (err) {
   console.error('YAT strip sync failed', err);
+}
+
+try {
+  syncFlipAllVisibleCards();
+} catch (err) {
+  console.error('YAT flip-all sync failed', err);
 }
   }
 
