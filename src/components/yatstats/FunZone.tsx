@@ -3,16 +3,16 @@
 // Interactive six-tab FunZone area on the back of the player flip card.
 //
 // Layout order (matches approved visual target):
-//   1. CTA strip  — YaTi mascot (left) + speech bubble (right), dynamic per tab
-//   2. Tab strip  — six icon/label tabs in a single row
-//   3. Content panel — active tab content, no internal scroll
+//   1. CTA strip  â€” YaTi mascot (left) + speech bubble (right), dynamic per tab
+//   2. Tab strip  â€” six icon/label tabs in a single row
+//   3. Content panel â€” active tab content, no internal scroll
 //
 // Tabs: Schedule | Stats | News | Social | Connect | Upload
 // Default active tab: Stats
 //
 // YATI MASCOT ASSET RULE:
 //   - Use ONLY: https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png
-//   - Speech bubble rendered in CSS/HTML — NOT baked into the image.
+//   - Speech bubble rendered in CSS/HTML â€” NOT baked into the image.
 //   - Callout text changes dynamically by active tab.
 //
 // SERIALIZATION RULE:
@@ -24,20 +24,20 @@
 //   - Content expands naturally; page scrolls if needed.
 //
 // RESPONSIVE VERTICAL SYSTEM:
-//   All sizing uses cqi (container query inline-size) units — the container is
+//   All sizing uses cqi (container query inline-size) units â€” the container is
 //   established on .yat-back-cq in PlayerCardBack.tsx. This means all sizing
 //   is relative to the CARD WIDTH, not the viewport.
-//   fz-root is flex:1 min-height:0 — fills remaining card height after the hero.
-//   CTA strip and tab strip use flex-shrink:1 with clamp(cqi) — they tighten first.
-//   fz-panel is flex:1 min-height:0 — gets whatever space remains after CTA + tabs.
+//   fz-root is flex:1 min-height:0 â€” fills remaining card height after the hero.
+//   CTA strip and tab strip use flex-shrink:1 with clamp(cqi) â€” they tighten first.
+//   fz-panel is flex:1 min-height:0 â€” gets whatever space remains after CTA + tabs.
 
 import { useEffect, useState } from "react";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const YATI_MASCOT_URL = "https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface StatItem {
   k: string;
@@ -49,7 +49,7 @@ interface FunZoneProps {
   isPitcher: boolean;
   isAllTime: boolean;
   resolvedHsid: string;
-  stats: StatItem[]; // values are pre-formatted strings — no fmt function needed
+  stats: StatItem[]; // values are pre-formatted strings â€” no fmt function needed
   statBarLabel: string;
   /** Pre-computed display name from PlayerCardBack (Server Component) */
   displayName: string;
@@ -73,7 +73,7 @@ interface NewsApiPost {
 }
 
 
-// ─── Tab definitions ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Tab definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type TabId = "schedule" | "stats" | "news" | "social" | "connect" | "upload";
 
@@ -92,7 +92,7 @@ const TABS: Tab[] = [
   { id: "upload",   label: "Upload",   icon: "ri-upload-cloud-line" },
 ];
 
-// ─── CTA copy per tab ─────────────────────────────────────────────────────────
+// â”€â”€â”€ CTA copy per tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getCta(tab: TabId, firstName: string): string {
   switch (tab) {
@@ -111,7 +111,7 @@ function getCta(tab: TabId, firstName: string): string {
   }
 }
 
-// ─── YaTi CTA strip ───────────────────────────────────────────────────────────
+// â”€â”€â”€ YaTi CTA strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function YatiCta({
   ctaText,
@@ -122,18 +122,18 @@ function YatiCta({
 }) {
   return (
     <div className="fz-cta-strip">
-      {/* YaTi mascot — exact production S3 asset, never substituted */}
+      {/* YaTi mascot â€” exact production S3 asset, never substituted */}
       <img
         src={YATI_MASCOT_URL}
         alt="YaTi mascot"
         className="fz-yati-img"
         draggable={false}
       />
-      {/* Speech bubble — rendered in code, tail points left toward mascot */}
+      {/* Speech bubble â€” rendered in code, tail points left toward mascot */}
       <a href={profileHref} className="fz-bubble-link">
         <div className="fz-bubble">
           <span className="fz-bubble-text">{ctaText}</span>
-          {/* Bubble tail — left-pointing triangle on the left edge, toward YaTi */}
+          {/* Bubble tail â€” left-pointing triangle on the left edge, toward YaTi */}
           <span className="fz-bubble-tail" aria-hidden="true" />
         </div>
       </a>
@@ -141,7 +141,7 @@ function YatiCta({
   );
 }
 
-// ─── Tab panel renderers ──────────────────────────────────────────────────────
+// â”€â”€â”€ Tab panel renderers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function SchedulePanel({ player }: { player: Record<string, unknown> }) {
   const nextGame = player.next_game_text || player.next_game_date || null;
@@ -397,7 +397,7 @@ function UploadPanel({ player }: { player: Record<string, unknown> }) {
   );
 }
 
-// ─── FunZone component ────────────────────────────────────────────────────────
+// â”€â”€â”€ FunZone component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function FunZone({
   player,
@@ -425,13 +425,13 @@ export default function FunZone({
   return (
     <div className="fz-root">
       {/*
-        1. CTA strip — YaTi (left) + speech bubble (right)
-           flex-shrink:1 — yields padding before the content panel.
+        1. CTA strip â€” YaTi (left) + speech bubble (right)
+           flex-shrink:1 â€” yields padding before the content panel.
       */}
       <YatiCta ctaText={ctaText} profileHref={profileHref} />
 
       {/*
-        2. Active content panel — flex:1 min-height:0
+        2. Active content panel â€” flex:1 min-height:0
            Gets all remaining vertical space after CTA strip.
            No internal scroll; content expands naturally.
       */}
@@ -445,8 +445,8 @@ export default function FunZone({
       </div>
 
       {/*
-        3. Six-icon tab strip — now at the BOTTOM of Block 5
-           flex-shrink:1 — yields padding before content panel does.
+        3. Six-icon tab strip â€” now at the BOTTOM of Block 5
+           flex-shrink:1 â€” yields padding before content panel does.
       */}
       <nav className="fz-tab-strip" aria-label="FunZone tabs">
         {TABS.map((tab) => (
@@ -463,13 +463,13 @@ export default function FunZone({
         ))}
       </nav>
 
-      {/* Inline styles scoped to FunZone — no global stylesheet changes */}
+      {/* Inline styles scoped to FunZone â€” no global stylesheet changes */}
       {/* All sizing uses cqi (container query inline-size) units.
           The container is .yat-back-cq established in PlayerCardBack.tsx.
-          cqi = % of card width — ensures proportional sizing at any card width. */}
+          cqi = % of card width â€” ensures proportional sizing at any card width. */}
       <style>{`
-        /* ── Root ─────────────────────────────────────────────────────── */
-        /* Fully transparent — cardboard texture from yat-back-texture shows through.
+        /* â”€â”€ Root â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* Fully transparent â€” cardboard texture from yat-back-texture shows through.
            All text uses dark colours for legibility on the light cardboard. */
         .fz-root{
           display:flex;
@@ -480,7 +480,7 @@ export default function FunZone({
           border-top:1px solid rgba(30,22,14,0.25);
         }
 
-        /* ── CTA strip ────────────────────────────────────────────────── */
+        /* â”€â”€ CTA strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         /* All padding/gap/font use cqi so they scale with card width */
         .fz-cta-strip{
           display:flex;
@@ -541,7 +541,7 @@ export default function FunZone({
           border-right:7px solid #fff;
         }
 
-        /* ── Tab strip ────────────────────────────────────────────────── */
+        /* â”€â”€ Tab strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .fz-tab-strip{
           display:flex;
           justify-content:space-around;
@@ -584,9 +584,9 @@ export default function FunZone({
         }
         .fz-tab-btn:hover:not(.fz-tab-active){color:rgba(30,22,14,0.7)}
 
-        /* ── Content panel ────────────────────────────────────────────── */
-        /* flex:1 min-height:0 — gets all remaining space after CTA + tab strips.
-           overflow:hidden — clips content to allocated space so it CANNOT push
+        /* â”€â”€ Content panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* flex:1 min-height:0 â€” gets all remaining space after CTA + tab strips.
+           overflow:hidden â€” clips content to allocated space so it CANNOT push
            the tab strip down at any card width (3-across or 4-across). */
         .fz-panel{
           flex:1;
@@ -596,10 +596,73 @@ export default function FunZone({
           background:transparent;
         }
 
-        /* ── Stats panel ──────────────────────────────────────────────── */
-        .fz-stats{display:flex;flex-direction:column;gap:0}
+        /* â”€â”€ Stats panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .fz-stats{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(5px,1.8cqi,10px);
+          height:100%;
+          min-height:0;
+        }
 
-        /* ── Schedule panel ───────────────────────────────────────────── */
+        .yat-stats-bar{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          min-height:clamp(20px,6.5cqi,34px);
+          padding:clamp(3px,1cqi,6px) clamp(6px,2cqi,12px);
+          border:1px solid rgba(30,22,14,0.22);
+          border-radius:clamp(4px,1.2cqi,7px);
+          background:rgba(255,255,255,0.16);
+          color:rgba(0,0,0,0.88);
+          font:700 clamp(9px,3cqi,15px)/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.055em;
+          text-transform:uppercase;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);
+        }
+
+        .yat-stats-grid{
+          display:grid;
+          grid-template-columns:repeat(3,minmax(0,1fr));
+          gap:clamp(5px,1.7cqi,10px);
+          flex:1;
+          min-height:0;
+        }
+
+        .yat-stat{
+          min-width:0;
+          min-height:clamp(34px,10cqi,58px);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:clamp(5px,1.8cqi,11px);
+          padding:clamp(4px,1.4cqi,8px) clamp(5px,1.8cqi,10px);
+          border:1px solid rgba(30,22,14,0.10);
+          border-radius:clamp(6px,1.8cqi,10px);
+          background:rgba(255,255,255,0.36);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.34),
+            0 1px 2px rgba(30,22,14,0.08);
+        }
+
+        .yat-stat-label{
+          flex:0 0 auto;
+          color:rgba(30,22,14,0.70);
+          font:400 clamp(9px,2.8cqi,15px)/1 Oswald,sans-serif;
+          letter-spacing:.02em;
+          text-transform:uppercase;
+          white-space:nowrap;
+        }
+
+        .yat-stat-val{
+          flex:0 0 auto;
+          color:rgba(0,0,0,0.90);
+          font:700 clamp(16px,5.6cqi,28px)/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.02em;
+          white-space:nowrap;
+        }
+
+        /* â”€â”€ Schedule panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .fz-schedule{display:flex;flex-direction:column;gap:8px}
         .fz-sched-block{display:flex;flex-direction:column;gap:3px}
         .fz-sched-pill{
@@ -620,7 +683,7 @@ export default function FunZone({
           padding-left:2px;
         }
 
-        /* ── News teaser ──────────────────────────────────────────────── */
+        /* â”€â”€ News teaser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         
         .fz-news-featured{
           display:flex;
@@ -685,7 +748,7 @@ export default function FunZone({
         }
 
 
-        /* ── Social panel ─────────────────────────────────────────────── */
+        /* â”€â”€ Social panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .fz-social{display:flex;flex-direction:column;gap:6px}
         .fz-social-tag{
           font:700 clamp(12px,4.5cqi,18px) "Bebas Neue",sans-serif;
@@ -711,7 +774,7 @@ export default function FunZone({
         .fz-social-link:hover{color:rgba(30,22,14,0.9);border-color:rgba(30,22,14,0.4)}
         .fz-social-link i{font-size:clamp(9px,3cqi,13px)}
 
-        /* ── Placeholder (fallback for empty tabs) ────────────────────── */
+        /* â”€â”€ Placeholder (fallback for empty tabs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .fz-placeholder{
           display:flex;
           flex-direction:column;
