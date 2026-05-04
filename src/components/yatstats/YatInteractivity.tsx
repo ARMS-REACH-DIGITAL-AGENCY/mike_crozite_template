@@ -199,9 +199,14 @@ window.__firebase_config = ${firebaseConfigJSON};
     );
     btn.setAttribute('title',yatFlipAllActive?'Flip all cards to front':'Flip all cards to stats');
 
+    var label=btn.querySelector('[data-flip-all-label]');
+    if(label){
+      label.textContent=yatFlipAllActive?'SHOW FRONT':'FLIP ALL';
+    }
+
     var icon=btn.querySelector('i');
     if(icon){
-      icon.className=yatFlipAllActive?'ri-arrow-go-back-line':'ri-flip-horizontal-line';
+      icon.className=yatFlipAllActive?'ri-arrow-go-back-line':'ri-loop-right-line';
     }
   }
 
@@ -979,7 +984,7 @@ function normalizeSchoolResult(p){
     if(p.state)locParts.push(p.state);
     var subtitle=p.schoolName||'';
     var loc=locParts.join(', ');
-    if(loc)subtitle+=(subtitle?' — ':'')+loc;
+    if(loc)subtitle+=(subtitle?' â€” ':'')+loc;
     locDiv.textContent=subtitle;
 
     infoDiv.appendChild(nameDiv);
@@ -1616,7 +1621,7 @@ function resetFiltersForCurrentSection(){
     }
   }
 
-  // Removed: buildNewsLevelChips and buildNewsGradClassChips — use side drawer filters only
+  // Removed: buildNewsLevelChips and buildNewsGradClassChips â€” use side drawer filters only
 
   if(newsFilterName)newsFilterName.addEventListener('input',applyNewsFilters);
   if(newsFilterActive)newsFilterActive.addEventListener('click',function(){
