@@ -1,21 +1,22 @@
+
 // src/components/yatstats/PlayerCardBack.tsx
 // Back face of the flip card.
 //
 // APPROVED LAYOUT (matches printed card aesthetic from screenshot 51578):
-//   ┌─────────────────────────────────────┐  ← cardboard texture, full card
-//   │ ┌───────────────────────────────┐   │  ← 4-sided inset dark border
-//   │ │  HERO IMAGE (action photo)    │   │
-//   │ │  ┌── metadata overlay ──────┐ │   │  ← anchored TOP-LEFT
-//   │ │  │ PLAYER NAME              │ │   │
-//   │ │  │ Team Name                │ │   │
-//   │ │  │ Org / Conference         │ │   │  ← separate line
-//   │ │  │ Position · Level         │ │   │
-//   │ │  │ B/T · H/W                │ │   │
-//   │ │  └──────────────────────────┘ │   │
-//   │ ├───────────────────────────────┤   │
-//   │ │  FUNZONE (CTA + tabs + panel) │   │  ← black text on light cardboard
-//   │ └───────────────────────────────┘   │
-//   └─────────────────────────────────────┘
+//   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â† cardboard texture, full card
+//   â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚  â† 4-sided inset dark border
+//   â”‚ â”‚  HERO IMAGE (action photo)    â”‚   â”‚
+//   â”‚ â”‚  â”Œâ”€â”€ metadata overlay â”€â”€â”€â”€â”€â”€â” â”‚   â”‚  â† anchored TOP-LEFT
+//   â”‚ â”‚  â”‚ PLAYER NAME              â”‚ â”‚   â”‚
+//   â”‚ â”‚  â”‚ Team Name                â”‚ â”‚   â”‚
+//   â”‚ â”‚  â”‚ Org / Conference         â”‚ â”‚   â”‚  â† separate line
+//   â”‚ â”‚  â”‚ Position Â· Level         â”‚ â”‚   â”‚
+//   â”‚ â”‚  â”‚ B/T Â· H/W                â”‚ â”‚   â”‚
+//   â”‚ â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚   â”‚
+//   â”‚ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤   â”‚
+//   â”‚ â”‚  FUNZONE (CTA + tabs + panel) â”‚   â”‚  â† black text on light cardboard
+//   â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
+//   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 //
 // KEY DESIGN DECISIONS:
 //   - Cardboard texture covers the ENTIRE card face (top to bottom, edge to edge)
@@ -27,10 +28,10 @@
 //   - No-image fallback: YatCrest screened back on cardboard (not dark silhouette)
 //
 // IMAGE ROLE RULES:
-//   - players/back/{playerid}.jpg  → back-card hero ACTION image
-//   - players/now/{playerid}.jpg   → NOT used here
-//   - players/then/{playerid}.jpg  → front-card only
-//   - headshotUrl prop             → NOT used as back hero
+//   - players/back/{playerid}.jpg  â†’ back-card hero ACTION image
+//   - players/now/{playerid}.jpg   â†’ NOT used here
+//   - players/then/{playerid}.jpg  â†’ front-card only
+//   - headshotUrl prop             â†’ NOT used as back hero
 //
 // RESPONSIVE SYSTEM:
 //   container-type:inline-size on .yat-back-cq.
@@ -70,7 +71,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
   const backImageSrc = getPlayerBackImageUrl(imageId);
 
-  // ── Stats for FunZone ──────────────────────────────────────────────────────
+  // â”€â”€ Stats for FunZone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const has2026Stats = p.has_2026_stats === true;
 const careerBucketLabel = String(p.career_bucket_label || "CAREER").toUpperCase();
 const statYear = isPitcher ? p.pitch_year : p.stat_year;
@@ -80,26 +81,42 @@ const statBarLabel = has2026Stats
   : `${careerBucketLabel} ${isPitcher ? "PITCHING" : "BATTING"}`;
 
   const batterStats = [
-    { k: "AVG", v: fmt("AVG", p.avg) }, { k: "OBP", v: fmt("OBP", p.obp) },
-    { k: "SLG", v: fmt("SLG", p.slg) }, { k: "OPS", v: fmt("OPS", p.ops) },
-    { k: "HR", v: fmt("HR", p.hr) }, { k: "RBI", v: fmt("RBI", p.rbi) },
-    { k: "H", v: fmt("H", p.h) }, { k: "AB", v: fmt("AB", p.ab) },
-    { k: "R", v: fmt("R", p.r) }, { k: "SB", v: fmt("SB", p.sb) },
-    { k: "2B", v: fmt("2B", p["2b"]) }, { k: "BB", v: fmt("BB", p.bb) },
+    { k: "AVG", v: fmt("AVG", p.avg) },
+    { k: "AB", v: fmt("AB", p.ab) },
+    { k: "H", v: fmt("H", p.h) },
+
+    { k: "OBP", v: fmt("OBP", p.obp) },
+    { k: "R", v: fmt("R", p.r) },
+    { k: "BB", v: fmt("BB", p.bb) },
+
+    { k: "SLG", v: fmt("SLG", p.slg) },
+    { k: "HR", v: fmt("HR", p.hr) },
+    { k: "RBI", v: fmt("RBI", p.rbi) },
+
+    { k: "OPS", v: fmt("OPS", p.ops) },
+    { k: "SB", v: fmt("SB", p.sb) },
+    { k: "GP", v: fmt("GP", p.gp ?? p.pg) },
   ];
   const pitcherStats = [
-  { k: "ERA", v: fmt("ERA", p.era) }, { k: "WHIP", v: fmt("WHIP", p.whip) },
-  { k: "IP", v: fmt("IP", p.ip) },
-  { k: "W-L", v: (p.w !== null && p.l !== null) ? `${p.w}-${p.l}` : "--" },
-  { k: "K", v: fmt("K", p.ko) },
-  { k: "BB", v: fmt("BB", p.bb) },
-  { k: "K/9", v: fmt("K/9", p.so9) }, { k: "K/BB", v: fmt("K/BB", p.so_bb) },
-  { k: "H/9", v: fmt("H/9", p.h9) }, { k: "BB/9", v: fmt("BB/9", p.bb9) },
-  { k: "SV", v: fmt("SV", p.saves) }, { k: "G", v: fmt("G", p.pg) },
-];
+    { k: "IP", v: fmt("IP", p.ip) },
+    { k: "ER", v: fmt("ER", p.er) },
+    { k: "ERA", v: fmt("ERA", p.era) },
+
+    { k: "K", v: fmt("K", p.ko) },
+    { k: "BB", v: fmt("BB", p.bb) },
+    { k: "WHIP", v: fmt("WHIP", p.whip) },
+
+    { k: "K/9", v: fmt("K/9", p.so9) },
+    { k: "BB/9", v: fmt("BB/9", p.bb9) },
+    { k: "K/BB", v: fmt("K/BB", p.so_bb) },
+
+    { k: "W-L", v: (p.w !== null && p.w !== undefined && p.l !== null && p.l !== undefined) ? `${p.w}-${p.l}` : "--" },
+    { k: "SAVES", v: fmt("SV", p.saves) },
+    { k: "GP", v: fmt("GP", p.pg ?? p.gp) },
+  ];
   const stats = isPitcher ? pitcherStats : batterStats;
 
-  // ── Metadata overlay lines ─────────────────────────────────────────────────
+  // â”€â”€ Metadata overlay lines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
   // Team and org/conference are now SEPARATE lines
@@ -110,7 +127,7 @@ const statBarLabel = has2026Stats
     asText(p.position),
     asText(p.level_label) || asText(p.level),
     asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean).join(" Â· ");
 
   const bats = asText(p.bats);
   const throws_ = asText(p.throws);
@@ -118,11 +135,11 @@ const statBarLabel = has2026Stats
   const weight = asText(p.weight);
   const btPart = bats && throws_ ? `B/T ${bats}/${throws_}` : "";
   const hwPart = height && weight ? `${height} / ${weight}` : height || weight ? `${height}${weight}` : "";
-  const btHw = [btPart, hwPart].filter(Boolean).join(" · ");
+  const btHw = [btPart, hwPart].filter(Boolean).join(" Â· ");
 
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
 
-  // ── Cardboard texture noise SVG ────────────────────────────────────────────
+  // â”€â”€ Cardboard texture noise SVG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72 0.68' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.18'/></filter><rect width='200' height='200' filter='url(#n)' opacity='0.55'/></svg>`;
   const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
 
@@ -140,7 +157,7 @@ const statBarLabel = has2026Stats
             {/*
               SafeImage fallback: YatCrest screened back on cardboard.
               The hero bg is set to the cardboard colour so the fallback
-              blends naturally — no dark silhouette.
+              blends naturally â€” no dark silhouette.
             */}
             <SafeImage
               src={backImageSrc}
@@ -148,11 +165,11 @@ const statBarLabel = has2026Stats
               className="yat-back-img"
               placeholderSrc={YATCREST_URL}
             />
-            {/* Cardboard fallback bg — visible only when image fails to load */}
+            {/* Cardboard fallback bg â€” visible only when image fails to load */}
             <div className="yat-back-hero-fallback" aria-hidden="true" />
-            {/* Gradient scrim — top-to-bottom dark so top text stays legible */}
+            {/* Gradient scrim â€” top-to-bottom dark so top text stays legible */}
             <div className="yat-back-scrim" aria-hidden="true" />
-            {/* Metadata overlay — anchored TOP-LEFT */}
+            {/* Metadata overlay â€” anchored TOP-LEFT */}
             <div className="yat-back-meta">
               {displayName && <div className="ybm-name">{displayName}</div>}
               {teamName && <div className="ybm-team">{teamName}</div>}
@@ -162,7 +179,7 @@ const statBarLabel = has2026Stats
             </div>
           </a>
 
-          {/* FunZone — black text on light cardboard */}
+          {/* FunZone â€” black text on light cardboard */}
           <FunZone
             player={p}
             isPitcher={isPitcher}
@@ -177,13 +194,13 @@ const statBarLabel = has2026Stats
       </div>
 
       <style>{`
-        /* ── Container query context ─────────────────────────────────── */
+        /* â”€â”€ Container query context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .yat-back-cq{
           container-type:inline-size;
           container-name:yat-back;
         }
 
-        /* ── Full-card cardboard texture layer ───────────────────────── */
+        /* â”€â”€ Full-card cardboard texture layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .yat-back-texture{
           width:100%;
           height:100%;
@@ -215,7 +232,7 @@ const statBarLabel = has2026Stats
           z-index:0;
         }
 
-        /* ── Inset content column — 4-SIDED border ───────────────────── */
+        /* â”€â”€ Inset content column â€” 4-SIDED border â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .yat-back-inner{
           position:relative;
           z-index:1;
@@ -229,7 +246,7 @@ const statBarLabel = has2026Stats
           overflow:hidden;
         }
 
-        /* ── Hero image band ─────────────────────────────────────────── */
+        /* â”€â”€ Hero image band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .yat-back-hero{
           display:block;
           text-decoration:none;
@@ -239,7 +256,7 @@ const statBarLabel = has2026Stats
           min-height:clamp(60px,28cqi,155px);
           max-height:clamp(85px,40cqi,215px);
           width:100%;
-          /* Cardboard colour as bg — shows when image fails */
+          /* Cardboard colour as bg â€” shows when image fails */
           background:#c2b9ae;
           position:relative;
         }
@@ -268,7 +285,7 @@ const statBarLabel = has2026Stats
           opacity:0.22;
         }
 
-        /* Gradient scrim — left-side only so text pops on left,
+        /* Gradient scrim â€” left-side only so text pops on left,
            player's face/action shows in full colour on the right */
         .yat-back-scrim{
           position:absolute;
@@ -284,7 +301,7 @@ const statBarLabel = has2026Stats
           pointer-events:none;
         }
 
-        /* Metadata overlay — anchored TOP-LEFT */
+        /* Metadata overlay â€” anchored TOP-LEFT */
         .yat-back-meta{
           position:absolute;
           top:0; left:0; right:0;
@@ -319,7 +336,7 @@ const statBarLabel = has2026Stats
           text-transform:uppercase;
           text-shadow:0 1px 3px rgba(0,0,0,.6);
         }
-        /* Lines 4–5: secondary meta */
+        /* Lines 4â€“5: secondary meta */
         .ybm-pos,
         .ybm-bthw{
           font:400 clamp(5px,2.1cqi,9px)/1.35 Oswald,sans-serif;
