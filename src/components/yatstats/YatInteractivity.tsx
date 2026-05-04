@@ -199,11 +199,6 @@ window.__firebase_config = ${firebaseConfigJSON};
     );
     btn.setAttribute('title',yatFlipAllActive?'Flip all cards to front':'Flip all cards to stats');
 
-    var label=btn.querySelector('[data-flip-all-label]');
-    if(label){
-      label.textContent=yatFlipAllActive?'SHOW FRONT':'FLIP ALL';
-    }
-
     var icon=btn.querySelector('[data-flip-all-icon]');
     if(icon){
       icon.style.transform=yatFlipAllActive?'scaleX(-1)':'none';
