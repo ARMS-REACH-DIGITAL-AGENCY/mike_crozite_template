@@ -1,8 +1,8 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
 // Renders Row 2 of the shared shell (sticky identity bar).
 // On player profile pages, extracts playerId directly from the URL pathname
-// (same pattern SharedShell uses for CareerStrip) and renders FavoriteButton
-// next to the search icon. No prop-threading or context required.
+// and renders FavoriteButton next to the search icon.
+// Also renders an icon-only Back to Flip Card link on player profile pages.
 
 'use client';
 
@@ -35,13 +35,19 @@ export default function SchoolContextBar({
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
+
   // Extract playerId and slug from URL: /{hsid}/player/{playerId}/{slug}
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
-  // Derive player display name: prefer context (set by nested layout), fall back to URL slug
+
+  // Derive player display name: prefer context, fall back to URL slug.
   const slugDerivedName = playerRouteMatch?.[2]
-    ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    ? playerRouteMatch[2]
+        .split('-')
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
     : '';
+
   const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
 
   const getPageLabel = () => {
@@ -86,30 +92,39 @@ export default function SchoolContextBar({
           gap: '8px',
         }}
       >
-       {isPlayerProfile && profilePlayerId && schoolData?.hsid && (
-  <a
-    href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`}
-    className="yat-icon-btn"
-    aria-label="Back to Flip Card"
-    title="Back to Flip Card"
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '4px',
-      textDecoration: 'none',
-    }}
-  >
-    <i className="ri-gallery-view-2-line" />
-    <span style={{ fontSize: '13px' }}>Flip Card</span>
-  </a>
-)}
-        
+        {/* Back to Flip Card - player profile pages only */}
+        {isPlayerProfile && profilePlayerId && schoolData?.hsid && (
+          <a
+            href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`}
+            className="yat-icon-btn"
+            aria-label="Back to Flip Card"
+            title="Back to Flip Card"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none',
+            }}
+          >
+            <img
+              src="/img/flip-card-return-icon.png"
+              alt=""
+              aria-hidden="true"
+              style={{
+                width: '30px',
+                height: '30px',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </a>
+        )}
+
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
 
-        {/* FavoriteButton Ã¢â‚¬â€ rendered in Row 2 on player profile pages only */}
+        {/* FavoriteButton - rendered in Row 2 on player profile pages only */}
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
             playerId={profilePlayerId}
