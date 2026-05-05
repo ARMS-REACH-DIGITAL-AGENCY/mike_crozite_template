@@ -419,6 +419,161 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
         END
     ),
 
+
+    batting_2026_bucket_rows AS (
+      SELECT
+        playerid::text AS playerid,
+        CASE
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
+            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          ELSE 'other'
+        END AS bucket,
+        year,
+        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so
+      FROM tbc_batting_2026_season_raw
+      WHERE year = '2026'
+    ),
+
+    batting_2026_by_bucket AS (
+      SELECT
+        playerid,
+        bucket,
+        MAX(year) AS stat_year,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS g,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(ab::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ab,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(r::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS r,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(h::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS h,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(dbl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS "2b",
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(tpl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS "3b",
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hr::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hr,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(rbi::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS rbi,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS so
+      FROM batting_2026_bucket_rows
+      WHERE bucket <> 'other'
+      GROUP BY playerid, bucket
+    ),
+
+    season_batting_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'label', CASE bucket
+              WHEN 'mlb' THEN '2026 MLB BATTING'
+              WHEN 'minors' THEN '2026 MINOR LEAGUE BATTING'
+              WHEN 'college' THEN '2026 COLLEGE BATTING'
+              ELSE '2026 BATTING'
+            END,
+            'type', 'batting',
+            'stats', jsonb_build_object(
+              'avg', CASE WHEN ab > 0 THEN ROUND(h / ab, 3) ELSE NULL END,
+              'ab', ab,
+              'h', h,
+              'obp', CASE WHEN (ab + bb) > 0 THEN ROUND((h + bb) / (ab + bb), 3) ELSE NULL END,
+              'r', r,
+              'bb', bb,
+              'slg', CASE WHEN ab > 0 THEN ROUND((h + "2b" + ("3b" * 2) + (hr * 3)) / ab, 3) ELSE NULL END,
+              'hr', hr,
+              'rbi', rbi,
+              'ops', CASE
+                WHEN ab > 0 AND (ab + bb) > 0 THEN ROUND(((h + bb) / (ab + bb)) + ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab), 3)
+                ELSE NULL
+              END,
+              'sb', sb,
+              'g', g
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'college' THEN 3 ELSE 4 END
+        ) AS season_batting_buckets
+      FROM batting_2026_by_bucket
+      GROUP BY playerid
+    ),
+
+    pitching_2026_bucket_rows AS (
+      SELECT
+        playerid,
+        CASE
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
+            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          ELSE 'other'
+        END AS bucket,
+        year,
+        g, gs, w, l, sv, ip, h, er, bb, so, ip_clean
+      FROM pitching_2026_rows
+    ),
+
+    pitching_2026_by_bucket AS (
+      SELECT
+        playerid,
+        bucket,
+        MAX(year) AS pitch_year,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS pg,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(gs::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS gs,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(w::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS w,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(l::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS l,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sv::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS saves,
+        COALESCE(
+          SUM(
+            (FLOOR(COALESCE(ip_clean::numeric, 0))::int * 3) +
+            CASE split_part(COALESCE(ip_clean, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ),
+          0
+        ) AS outs,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(h::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hits_allowed,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(er::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS er,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ko
+      FROM pitching_2026_bucket_rows
+      WHERE bucket <> 'other'
+      GROUP BY playerid, bucket
+    ),
+
+    season_pitching_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'label', CASE bucket
+              WHEN 'mlb' THEN '2026 MLB PITCHING'
+              WHEN 'minors' THEN '2026 MINOR LEAGUE PITCHING'
+              WHEN 'college' THEN '2026 COLLEGE PITCHING'
+              ELSE '2026 PITCHING'
+            END,
+            'type', 'pitching',
+            'stats', jsonb_build_object(
+              'ip', (FLOOR(outs / 3)::numeric + ((outs % 3)::numeric / 10)),
+              'er', er,
+              'era', CASE WHEN outs > 0 THEN ROUND((er * 9) / (outs::numeric / 3), 2) ELSE NULL END,
+              'ko', ko,
+              'bb', bb,
+              'whip', CASE WHEN outs > 0 THEN ROUND((hits_allowed + bb) / (outs::numeric / 3), 2) ELSE NULL END,
+              'so9', CASE WHEN outs > 0 THEN ROUND((ko * 9) / (outs::numeric / 3), 2) ELSE NULL END,
+              'bb9', CASE WHEN outs > 0 THEN ROUND((bb * 9) / (outs::numeric / 3), 2) ELSE NULL END,
+              'so_bb', CASE WHEN bb > 0 THEN ROUND(ko / bb, 2) ELSE NULL END,
+              'w', w,
+              'l', l,
+              'saves', saves,
+              'pg', pg
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'college' THEN 3 ELSE 4 END
+        ) AS season_pitching_buckets
+      FROM pitching_2026_by_bucket
+      GROUP BY playerid
+    ),
+
     active_playerids AS (
       SELECT DISTINCT playerid::text AS playerid
       FROM tbc_batting_2026_season_raw
@@ -466,6 +621,8 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
       lp.pg, lp.gs, lp.w, lp.l, lp.saves,
       lp.ip, lp.er, lp.ko,
       lp.era, lp.whip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
+      COALESCE(sbb.season_batting_buckets, '[]'::jsonb) AS season_batting_buckets,
+      COALESCE(spb.season_pitching_buckets, '[]'::jsonb) AS season_pitching_buckets,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
           lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
@@ -476,6 +633,8 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
     JOIN active_playerids ap ON sp.playerid::text = ap.playerid
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    LEFT JOIN season_batting_buckets sbb ON sp.playerid::text = sbb.playerid
+    LEFT JOIN season_pitching_buckets spb ON sp.playerid::text = spb.playerid
     ORDER BY
       CASE COALESCE(
         CASE
