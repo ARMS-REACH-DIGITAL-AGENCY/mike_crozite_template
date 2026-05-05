@@ -1761,7 +1761,7 @@ function resetFiltersForCurrentSection(){
     }
   }
 
-  // Removed: buildNewsLevelChips and buildNewsGradClassChips Ã¢â‚¬â€ use side drawer filters only
+  // Removed: buildNewsLevelChips and buildNewsGradClassChips â€” use side drawer filters only
 
   if(newsFilterName)newsFilterName.addEventListener('input',applyNewsFilters);
   if(newsFilterActive)newsFilterActive.addEventListener('click',function(){
