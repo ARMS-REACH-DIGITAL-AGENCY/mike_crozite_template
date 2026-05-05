@@ -635,82 +635,6 @@ function syncStripToVisibleCards() {
     syncFlipAllVisibleCards();
   }
 
-  function getRequestedPlayerAndView(){
-    var params=new URLSearchParams(window.location.search);
-    var player=params.get('player')||'';
-    var view=params.get('view')||'';
-
-    if(!player&&window.location.hash.indexOf('#player-')===0){
-      player=window.location.hash.replace('#player-','');
-    }
-
-    view=String(view||'').toLowerCase().trim();
-    if(view==='all-time'||view==='all_time')view='alltime';
-    if(view!=='active'&&view!=='alltime')view='active';
-
-    return {player:player,view:view};
-  }
-
-  function findPlayerCardById(playerId){
-    if(!playerId)return null;
-
-    var direct=document.getElementById('player-'+playerId);
-    if(direct)return direct;
-
-    var cards=Array.from(document.querySelectorAll('.yat-card[data-playerid]'));
-    for(var i=0;i<cards.length;i++){
-      if(cards[i].getAttribute('data-playerid')===String(playerId))return cards[i];
-    }
-
-    return null;
-  }
-
-  function scrollToRequestedPlayerCard(){
-    var req=getRequestedPlayerAndView();
-    if(!req.player)return false;
-
-    if(typeof showSection==='function'){
-      showSection(req.view,false);
-    }
-
-    var target=findPlayerCardById(req.player);
-    if(!target)return false;
-
-    var wrap=target.closest('[data-player-card-wrap="true"]');
-    if(wrap)wrap.style.display='';
-    target.style.display='';
-
-    target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
-    target.classList.add('yat-card-anchor-highlight');
-
-    setTimeout(function(){
-      target.classList.remove('yat-card-anchor-highlight');
-    },1800);
-
-    return true;
-  }
-
-  function retryScrollToRequestedPlayerCard(){
-    var req=getRequestedPlayerAndView();
-    if(!req.player)return;
-
-    var attempts=0;
-    var timer=window.setInterval(function(){
-      attempts+=1;
-
-      if(scrollToRequestedPlayerCard()||attempts>=30){
-        window.clearInterval(timer);
-      }
-    },150);
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(retryScrollToRequestedPlayerCard,0);
-  });
-  window.addEventListener('load',function(){
-    setTimeout(retryScrollToRequestedPlayerCard,0);
-  });
-
   document.addEventListener('click',function(e){
     var pair=e.target.closest('[data-tab]');
     if(!pair)return;
@@ -734,14 +658,9 @@ function syncStripToVisibleCards() {
 
   window.addEventListener('hashchange',function(){
     var hash=window.location.hash||'';
-    if(hash.indexOf('#sec-')===0){
-      var tab=hash.replace('#sec-','');
-      showSection(tab,false);
-      return;
-    }
-    if(hash.indexOf('#player-')===0){
-      retryScrollToRequestedPlayerCard();
-    }
+    if(hash.indexOf('#sec-')!==0)return;
+    var tab=hash.replace('#sec-','');
+    showSection(tab,false);
   });
 
   var btnMenu=document.getElementById('btnMenu')||document.getElementById('openMenu');
@@ -1043,7 +962,7 @@ function normalizeSchoolResult(p){
   }
 
   function renderPlayerResult(p){
-    var el=document.createElement('div');
+    var el=document.createElement('a');
     el.className='yat-gs-result yat-gs-player';
     el.setAttribute('role','option');
     el.setAttribute('tabindex','0');
@@ -1053,27 +972,21 @@ function normalizeSchoolResult(p){
     var slug=p.slug||'player';
     var micrositeBase=p.micrositeUrl||'';
 
-    var profileHref='';
-    var cardHref='';
-
+    var href='';
     if(playerId){
       if(micrositeBase){
-        var base=micrositeBase.replace(/\/$/,'');
-        profileHref=base+'/player/'+playerId+'/'+slug;
-        cardHref=base+'?view=active&player='+encodeURIComponent(playerId)+'#player-'+encodeURIComponent(playerId);
+        href=micrositeBase.replace(/\\/$/,'')+'/player/'+playerId+'/'+slug;
       }else if(schoolId){
-        profileHref='/' + schoolId + '/player/' + playerId + '/' + slug;
-        cardHref='/' + schoolId + '?view=active&player=' + encodeURIComponent(playerId) + '#player-' + encodeURIComponent(playerId);
+        href='/' + schoolId + '/player/' + playerId + '/' + slug;
       }
     }
 
-    var topLink=document.createElement(profileHref?'a':'div');
-    topLink.className='yat-gs-result-top';
-    if(profileHref){
-      topLink.setAttribute('href',profileHref);
-      topLink.style.textDecoration='none';
-      topLink.style.color='inherit';
+    if(href){
+      el.setAttribute('href',href);
     }
+
+    var topDiv=document.createElement('div');
+    topDiv.className='yat-gs-result-top';
 
     var crestImg=document.createElement('img');
     crestImg.className='yat-gs-result-crest';
@@ -1103,46 +1016,11 @@ function normalizeSchoolResult(p){
     infoDiv.appendChild(nameDiv);
     if(subtitle)infoDiv.appendChild(locDiv);
 
-    topLink.appendChild(crestImg);
-    topLink.appendChild(infoDiv);
-    el.appendChild(topLink);
+    topDiv.appendChild(crestImg);
+    topDiv.appendChild(infoDiv);
+    el.appendChild(topDiv);
 
-    if(profileHref||cardHref){
-      var actions=document.createElement('div');
-      actions.className='yat-gs-player-actions';
-      actions.style.display='flex';
-      actions.style.gap='8px';
-      actions.style.marginTop='8px';
-      actions.style.paddingTop='8px';
-      actions.style.borderTop='1px solid rgba(255,255,255,0.10)';
-
-      function makeActionLink(href,label,primary){
-        var a=document.createElement('a');
-        a.href=href;
-        a.textContent=label;
-        a.style.display='inline-flex';
-        a.style.alignItems='center';
-        a.style.justifyContent='center';
-        a.style.flex='1';
-        a.style.minHeight='28px';
-        a.style.borderRadius='999px';
-        a.style.textDecoration='none';
-        a.style.font='700 10px Oswald,sans-serif';
-        a.style.letterSpacing='.07em';
-        a.style.textTransform='uppercase';
-        a.style.border=primary?'1px solid rgba(255,255,255,0.32)':'1px solid rgba(255,255,255,0.18)';
-        a.style.background=primary?'rgba(255,255,255,0.16)':'rgba(255,255,255,0.07)';
-        a.style.color='inherit';
-        a.addEventListener('click',function(e){
-          e.stopPropagation();
-        });
-        return a;
-      }
-
-      if(profileHref)actions.appendChild(makeActionLink(profileHref,'Profile',true));
-      if(cardHref)actions.appendChild(makeActionLink(cardHref,'Flip Card',false));
-      el.appendChild(actions);
-    }else{
+    if(!href){
       el.setAttribute('aria-disabled','true');
       el.setAttribute('tabindex','-1');
       el.addEventListener('click',function(e){e.preventDefault();});
@@ -1769,7 +1647,7 @@ function resetFiltersForCurrentSection(){
     }
   }
 
-  // Removed: buildNewsLevelChips and buildNewsGradClassChips - use side drawer filters only
+  // Removed: buildNewsLevelChips and buildNewsGradClassChips Ã¢â‚¬â€ use side drawer filters only
 
   if(newsFilterName)newsFilterName.addEventListener('input',applyNewsFilters);
   if(newsFilterActive)newsFilterActive.addEventListener('click',function(){
@@ -2063,16 +1941,8 @@ function resetFiltersForCurrentSection(){
   function handleHash(){
     var h=window.location.hash;
     if(!h)return;
-
-    if(h.indexOf('#sec-')===0){
-      var tid=h.replace('#sec-','');
-      showSection(tid,false);
-      return;
-    }
-
-    if(h.indexOf('#player-')===0){
-      retryScrollToRequestedPlayerCard();
-    }
+    var tid=h.replace('#sec-','');
+    showSection(tid,false);
   }
   handleHash();
   window.addEventListener('hashchange',handleHash);
