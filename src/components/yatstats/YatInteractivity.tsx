@@ -20,7 +20,19 @@ export default function YatInteractivity({
         __html: `
 window.__firebase_config = ${firebaseConfigJSON};
 (function(){
-  function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function cleanText(s){
+    return String(s || '')
+      .replace(/\u00C2\u20AC\u201D/g, '-')
+      .replace(/\u00C2\u20AC"/g, '-')
+      .replace(/\u00E2\u20AC\u201D/g, '-')
+      .replace(/\u00E2\u20AC\u201C/g, '-')
+      .replace(/\u00C2\u2013/g, '-')
+      .replace(/\u00E2\u20AC\u2122/g, "'")
+      .replace(/\u00E2\u20AC\u0153/g, '"')
+      .replace(/\u00E2\u20AC\u009D/g, '"')
+      .replace(/\u00C2/g, '');
+  }
+  function escHtml(s){return cleanText(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   var ORG_NORM={
     'ARIZONA DIAMONDBACKS':'ARIZONA DIAMONDBACKS','ARI':'ARIZONA DIAMONDBACKS','AZ DIAMONDBACKS':'ARIZONA DIAMONDBACKS',
     'ATLANTA BRAVES':'ATLANTA BRAVES','ATL':'ATLANTA BRAVES',
@@ -199,9 +211,14 @@ window.__firebase_config = ${firebaseConfigJSON};
     );
     btn.setAttribute('title',yatFlipAllActive?'Flip all cards to front':'Flip all cards to stats');
 
-    var icon=btn.querySelector('[data-flip-all-icon]');
+    var label=btn.querySelector('[data-flip-all-label]');
+    if(label){
+      label.textContent=yatFlipAllActive?'SHOW FRONT':'FLIP ALL';
+    }
+
+    var icon=btn.querySelector('i');
     if(icon){
-      icon.style.transform=yatFlipAllActive?'scaleX(-1)':'none';
+      icon.className=yatFlipAllActive?'ri-arrow-go-back-line':'ri-loop-right-line';
     }
   }
 
@@ -979,7 +996,7 @@ function normalizeSchoolResult(p){
     if(p.state)locParts.push(p.state);
     var subtitle=p.schoolName||'';
     var loc=locParts.join(', ');
-    if(loc)subtitle+=(subtitle?' â€” ':'')+loc;
+    if(loc)subtitle+=(subtitle?' - ':'')+loc;
     locDiv.textContent=subtitle;
 
     infoDiv.appendChild(nameDiv);
