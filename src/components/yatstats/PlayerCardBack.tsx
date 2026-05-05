@@ -61,6 +61,99 @@ function fmtWinLoss(wins: unknown, losses: unknown): string {
   return `${String(wins).trim()}-${String(losses).trim()}`;
 }
 
+interface RawStatBucket {
+  label?: unknown;
+  type?: unknown;
+  stats?: Record<string, unknown> | null;
+}
+
+interface FunZoneStatBucket {
+  label: string;
+  stats: { k: string; v: string }[];
+}
+
+function asBucketArray(value: unknown): RawStatBucket[] {
+  if (Array.isArray(value)) return value as RawStatBucket[];
+
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as RawStatBucket[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function bucketLabel(bucket: RawStatBucket, fallback: string): string {
+  const label = asText(bucket.label);
+  return label ? label.toUpperCase() : fallback;
+}
+
+function buildBatterBucketStats(stats: Record<string, unknown>) {
+  return [
+    { k: "AVG", v: fmt("AVG", stats.avg) },
+    { k: "AB", v: fmt("AB", stats.ab) },
+    { k: "H", v: fmt("H", stats.h) },
+
+    { k: "OBP", v: fmt("OBP", stats.obp) },
+    { k: "R", v: fmt("R", stats.r) },
+    { k: "BB", v: fmt("BB", stats.bb) },
+
+    { k: "SLG", v: fmt("SLG", stats.slg) },
+    { k: "HR", v: fmt("HR", stats.hr) },
+    { k: "RBI", v: fmt("RBI", stats.rbi) },
+
+    { k: "OPS", v: fmt("OPS", stats.ops) },
+    { k: "SB", v: fmt("SB", stats.sb) },
+    { k: "GP", v: fmt("GP", stats.g) },
+  ];
+}
+
+function buildPitcherBucketStats(stats: Record<string, unknown>) {
+  return [
+    { k: "IP", v: fmt("IP", stats.ip) },
+    { k: "ER", v: fmt("ER", stats.er) },
+    { k: "ERA", v: fmtFixedStat(stats.era, 2) },
+
+    { k: "K", v: fmt("K", stats.ko) },
+    { k: "BB", v: fmt("BB", stats.bb) },
+    { k: "WHIP", v: fmtFixedStat(stats.whip, 2) },
+
+    { k: "K/9", v: fmtFixedStat(stats.so9, 2) },
+    { k: "BB/9", v: fmtFixedStat(stats.bb9, 2) },
+    { k: "K/BB", v: fmtFixedStat(stats.so_bb, 2) },
+
+    { k: "W-L", v: fmtWinLoss(stats.w, stats.l) },
+    { k: "SAVES", v: fmt("SV", stats.saves) },
+    { k: "GP", v: fmt("GP", stats.pg ?? stats.g) },
+  ];
+}
+
+function buildFunZoneBuckets(
+  buckets: RawStatBucket[],
+  fallbackLabel: string,
+  fallbackStats: { k: string; v: string }[],
+  expectedType: "batting" | "pitching"
+): FunZoneStatBucket[] {
+  const mapped = buckets
+    .filter((bucket) => !bucket.type || String(bucket.type).toLowerCase() === expectedType)
+    .map((bucket) => {
+      const stats = bucket.stats || {};
+      return {
+        label: bucketLabel(bucket, fallbackLabel),
+        stats: expectedType === "pitching"
+          ? buildPitcherBucketStats(stats)
+          : buildBatterBucketStats(stats),
+      };
+    })
+    .filter((bucket) => bucket.stats.some((item) => item.v !== "--"));
+
+  return mapped.length ? mapped : [{ label: fallbackLabel, stats: fallbackStats }];
+}
+
 interface PlayerCardBackProps {
   player: Record<string, unknown>;
   resolvedHsid: string;
@@ -122,6 +215,16 @@ const statBarLabel = has2026Stats
     { k: "GP", v: fmt("GP", p.pg ?? p.g) },
   ];
   const stats = isPitcher ? pitcherStats : batterStats;
+
+  const seasonPitchingBuckets = asBucketArray(p.season_pitching_buckets);
+  const seasonBattingBuckets = asBucketArray(p.season_batting_buckets);
+
+  const statBuckets =
+    has2026Stats && isPitcher
+      ? buildFunZoneBuckets(seasonPitchingBuckets, statBarLabel, pitcherStats, "pitching")
+      : has2026Stats
+        ? buildFunZoneBuckets(seasonBattingBuckets, statBarLabel, batterStats, "batting")
+        : [{ label: statBarLabel, stats }];
 
   // -- Metadata overlay lines -------------------------------------------------
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
@@ -194,6 +297,7 @@ const statBarLabel = has2026Stats
             resolvedHsid={resolvedHsid}
             stats={stats}
             statBarLabel={statBarLabel}
+            statBuckets={statBuckets}
             displayName={displayName}
           />
 
