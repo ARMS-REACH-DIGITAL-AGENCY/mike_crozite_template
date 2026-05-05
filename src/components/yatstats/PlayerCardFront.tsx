@@ -288,6 +288,16 @@ function getAccentBorderColor(player: Record<string, unknown>): string {
   return "rgba(255,255,255,0.38)";
 }
 
+function normalizeImageUrl(value: string | null | undefined): string {
+  const text = typeof value === "string" ? value.trim() : "";
+
+  if (!text) return "";
+  if (text.toLowerCase() === "null") return "";
+  if (text.toLowerCase() === "undefined") return "";
+
+  return text;
+}
+
 export default function PlayerCardFront({
   player: p,
   frontImageUrl = null,
@@ -296,12 +306,13 @@ export default function PlayerCardFront({
   const imageId = String(p.playerid || "");
   const isPitcher = p.is_pitcher === true;
 
-  const photoUrl = frontImageUrl || getPlayerThenImageUrl(imageId);
   const thenSilhouetteUrl = getThenSilhouetteUrl({
     isPitcher,
     bats: p.bats,
     throws: p.throws,
   });
+  const photoUrl = normalizeImageUrl(frontImageUrl) || getPlayerThenImageUrl(imageId);
+  const frontBackgroundImage = `url('${photoUrl}'), url('${thenSilhouetteUrl}')`;
 
   const { first, last } = formatNameParts(p);
 
@@ -377,7 +388,7 @@ export default function PlayerCardFront({
         className="yat-bg"
         data-src={photoUrl}
         data-placeholder={thenSilhouetteUrl}
-        style={{ backgroundImage: `url('${photoUrl}')` }}
+        style={{ backgroundImage: frontBackgroundImage }}
       />
       <div className="yat-shade" />
 
