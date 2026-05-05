@@ -1,18 +1,18 @@
 // src/lib/db.ts
-// YAT?STATS Ã¢â‚¬â€ Database helpers
+// YAT?STATS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Database helpers
 // Connects to Neon Postgres via DATABASE_URL env var.
 // All player data is sourced from TheBaseballCube tables.
 //
 // Key tables:
-//   tbc_players_raw              Ã¢â‚¬â€ player identity, position, bats/throws, height/weight, highlevel
-//   tbc_batting_raw              Ã¢â‚¬â€ historical season batting stats archive
-//   tbc_pitching_raw             Ã¢â‚¬â€ historical season pitching stats archive
-//   tbc_batting_2026_season_raw  Ã¢â‚¬â€ live 2026 batting season stats
-//   tbc_pitching_2026_season_raw Ã¢â‚¬â€ live 2026 pitching season stats
-//   player_hsids                 Ã¢â‚¬â€ links playerid -> hsid (high school)
-//   tbc_schools_raw              Ã¢â‚¬â€ high school info (hsid, hsname, colors, nickname) Ã¢â‚¬â€ NOT pro/college teams
-//   school_success               Ã¢â‚¬â€ per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams                        Ã¢â‚¬â€ team_id Ã¢â€ â€™ team_name lookup; populated via scripts/import-teams.ts
+//   tbc_players_raw              ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â player identity, position, bats/throws, height/weight, highlevel
+//   tbc_batting_raw              ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â historical season batting stats archive
+//   tbc_pitching_raw             ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â historical season pitching stats archive
+//   tbc_batting_2026_season_raw  ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â live 2026 batting season stats
+//   tbc_pitching_2026_season_raw ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â live 2026 pitching season stats
+//   player_hsids                 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â links playerid -> hsid (high school)
+//   tbc_schools_raw              ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â high school info (hsid, hsname, colors, nickname) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â NOT pro/college teams
+//   school_success               ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â per-school metadata (rank, counts, staging/microsite URLs, colors)
+//   teams                        ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â team_id ÃƒÂ¢Ã¢â‚¬ Ã¢â‚¬â„¢ team_name lookup; populated via scripts/import-teams.ts
 //
 // "Active" = player has batting or pitching stats from 2026
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -71,7 +71,7 @@ function normalizeHostOrUrl(input: string) {
 }
 
 // ---------------------------------------------------------------------------
-// SINGLE PLAYER Ã¢â‚¬â€ full player identity for profile page
+// SINGLE PLAYER ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â full player identity for profile page
 // Falls back to flip_card_front_stage for YAT-only players not in TBC.
 // ---------------------------------------------------------------------------
 export async function getPlayerById(playerId: string): Promise<any | null> {
@@ -164,7 +164,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 }
 
 // ---------------------------------------------------------------------------
-// ACTIVE ROSTER Ã¢â‚¬â€ players with 2026 stats (homepage)
+// ACTIVE ROSTER ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â players with 2026 stats (homepage)
 //
 // Returns one row per player with their current 2026 season stats.
 // "Active" = has batting OR pitching stats in year 2026.
@@ -518,7 +518,7 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// ALL-TIME ROSTER Ã¢â‚¬â€ every alumni ever tagged to a school (all-time page)
+// ALL-TIME ROSTER ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
 export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
@@ -657,34 +657,163 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         SUM(${n("w")})   AS w,
         SUM(${n("l")})   AS l,
         SUM(${n("sv")})  AS saves,
-        SUM(${n("ip")})  AS ip,
+        /* Baseball IP is not decimal math: 1.1 = 1 inning + 1 out, 1.2 = 1 inning + 2 outs. */
+        COALESCE(
+          SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ),
+          0
+        ) AS outs,
         SUM(${n("h")})   AS h_allowed,
         SUM(${n("er")})  AS er,
         SUM(${n("bb")})  AS bb,
         SUM(${n("so")})  AS ko,
+        (FLOOR(
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) / 3
+        )::numeric + (
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) % 3
+        )::numeric / 10) AS ip,
         CASE
-          WHEN SUM(${n("ip")}) > 0
-          THEN ROUND(SUM(${n("er")}) * 9 / SUM(${n("ip")}), 2)
+          WHEN COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) > 0
+          THEN ROUND(
+            SUM(${n("er")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
           ELSE NULL
         END AS era,
         CASE
-          WHEN SUM(${n("ip")}) > 0
-          THEN ROUND((SUM(${n("bb")}) + SUM(${n("h")})) / SUM(${n("ip")}), 2)
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            (SUM(${n("bb")}) + SUM(${n("h")})) /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
           ELSE NULL
         END AS whip,
         CASE
-          WHEN SUM(${n("ip")}) > 0
-          THEN ROUND(SUM(${n("h")}) * 9 / SUM(${n("ip")}), 2)
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            SUM(${n("h")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
           ELSE NULL
         END AS h9,
         CASE
-          WHEN SUM(${n("ip")}) > 0
-          THEN ROUND(SUM(${n("bb")}) * 9 / SUM(${n("ip")}), 2)
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            SUM(${n("bb")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
           ELSE NULL
         END AS bb9,
         CASE
-          WHEN SUM(${n("ip")}) > 0
-          THEN ROUND(SUM(${n("so")}) * 9 / SUM(${n("ip")}), 2)
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            SUM(${n("so")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
           ELSE NULL
         END AS so9,
         CASE
@@ -861,7 +990,7 @@ export async function findPlayersBySlug(slug: string, hsid?: string): Promise<Pl
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER SCHOOL Ã¢â‚¬â€ which school(s) a player is linked to
+// PLAYER SCHOOL ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â which school(s) a player is linked to
 // ---------------------------------------------------------------------------
 export async function getPlayerSchool(playerId: string): Promise<any | null> {
   const sql = `
@@ -876,7 +1005,7 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 }
 
 // ---------------------------------------------------------------------------
-// SEASON-BY-SEASON BATTING STATS Ã¢â‚¬â€ all years for a player
+// SEASON-BY-SEASON BATTING STATS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -906,7 +1035,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SEASON-BY-SEASON PITCHING STATS Ã¢â‚¬â€ all years for a player
+// SEASON-BY-SEASON PITCHING STATS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
   const sql = `
@@ -938,7 +1067,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// CAREER AGGREGATE STATS Ã¢â‚¬â€ totals across all seasons
+// CAREER AGGREGATE STATS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
   const n = (col: string) =>
@@ -989,13 +1118,118 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
       SUM(${n('g')}) AS g, SUM(${n('gs')}) AS gs,
       SUM(${n('w')}) AS w, SUM(${n('l')}) AS l,
       SUM(${n('sv')}) AS saves,
-      SUM(${n('ip')}) AS ip,
+      COALESCE(
+        SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ),
+        0
+      ) AS outs,
+      (
+        FLOOR(
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) / 3
+        )::numeric
+        +
+        (
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) % 3
+        )::numeric / 10
+      ) AS ip,
       SUM(${n('h')}) AS h,
       SUM(${n('er')}) AS er,
       SUM(${n('so')}) AS ko, SUM(${n('bb')}) AS bb,
-      CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND(SUM(${n('er')}) * 9 / SUM(${n('ip')}), 2) ELSE NULL END AS era,
-      CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND((SUM(${n('bb')}) + SUM(${n('h')})) / SUM(${n('ip')}), 2) ELSE NULL END AS whip,
-      CASE WHEN SUM(${n('ip')}) > 0 THEN ROUND(SUM(${n('so')}) * 9 / SUM(${n('ip')}), 2) ELSE NULL END AS k9,
+      CASE
+        WHEN COALESCE(SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ), 0) > 0
+        THEN ROUND(
+          SUM(${n('er')}) * 9 /
+          (COALESCE(SUM(
+            (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0)::numeric / 3),
+          2
+        )
+        ELSE NULL
+      END AS era,
+      CASE
+        WHEN COALESCE(SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ), 0) > 0
+        THEN ROUND(
+          (SUM(${n('bb')}) + SUM(${n('h')})) /
+          (COALESCE(SUM(
+            (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0)::numeric / 3),
+          2
+        )
+        ELSE NULL
+      END AS whip,
+      CASE
+        WHEN COALESCE(SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ), 0) > 0
+        THEN ROUND(
+          SUM(${n('so')}) * 9 /
+          (COALESCE(SUM(
+            (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0)::numeric / 3),
+          2
+        )
+        ELSE NULL
+      END AS k9,
       CASE WHEN SUM(${n('bb')}) > 0 THEN ROUND(SUM(${n('so')}) / SUM(${n('bb')}), 2) ELSE NULL END AS kbb
     FROM public.v_tbc_pitching_all_seasons_resolved
     WHERE playerid::text = $1
@@ -1010,7 +1244,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 }
 
 // ---------------------------------------------------------------------------
-// TEAM CONTEXT Ã¢â‚¬â€ optional organization / conference metadata for a team.
+// TEAM CONTEXT ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â optional organization / conference metadata for a team.
 // ---------------------------------------------------------------------------
 export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
   try {
@@ -1030,7 +1264,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 }
 
 // ---------------------------------------------------------------------------
-// TEAM SCHEDULE Ã¢â‚¬â€ chronological game feed for a given team_id.
+// TEAM SCHEDULE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â chronological game feed for a given team_id.
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
@@ -1045,7 +1279,7 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER GAME LOG Ã¢â‚¬â€ per-game batting stats for a player on a given team.
+// PLAYER GAME LOG ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â per-game batting stats for a player on a given team.
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingGameLog(playerId: string, teamId: string): Promise<any[]> {
   try {
@@ -1072,7 +1306,7 @@ export async function getPlayerPitchingGameLog(playerId: string, teamId: string)
 }
 
 // ---------------------------------------------------------------------------
-// NEWS ARTICLES Ã¢â‚¬â€ from news_articles table (populated by Webz.io cron job)
+// NEWS ARTICLES ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â from news_articles table (populated by Webz.io cron job)
 // ---------------------------------------------------------------------------
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
@@ -1141,7 +1375,7 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER PHOTOS Ã¢â‚¬â€ uploaded career-progression photos for the filmstrip.
+// PLAYER PHOTOS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â uploaded career-progression photos for the filmstrip.
 // ---------------------------------------------------------------------------
 export async function getDesignatedPlayerImage(
   imageId: string,
@@ -1221,7 +1455,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// FLIP CARD FRONT STAGE Ã¢â‚¬â€ staging table for UI rendering
+// FLIP CARD FRONT STAGE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â staging table for UI rendering
 // ---------------------------------------------------------------------------
 export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `
@@ -1273,7 +1507,7 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
 }
 
 // ---------------------------------------------------------------------------
-// ROSTER TRUTH Ã¢â‚¬â€ resolved current team + transactions
+// ROSTER TRUTH ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â resolved current team + transactions
 // ---------------------------------------------------------------------------
 export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
   try {
@@ -1313,7 +1547,7 @@ export async function getPlayerTransactions(playerid: string, limit = 20): Promi
 }
 
 // ---------------------------------------------------------------------------
-// Schema bootstrap Ã¢â‚¬â€ ensure auxiliary tables exist so JOINs never crash.
+// Schema bootstrap ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ensure auxiliary tables exist so JOINs never crash.
 // ---------------------------------------------------------------------------
 declare global {
   // eslint-disable-next-line no-var
