@@ -1,3 +1,4 @@
+
 // src/components/yatstats/shell/SchoolContextBar.tsx
 // Renders Row 2 of the shared shell (sticky identity bar).
 // On player profile pages, extracts playerId directly from the URL pathname
@@ -86,11 +87,23 @@ export default function SchoolContextBar({
           gap: '8px',
         }}
       >
+        {/* Back to Flip Card - only on player profile pages */}
+        {isPlayerProfile && profilePlayerId && schoolData?.hsid && (
+          <a
+            href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`}
+            className="yat-icon-btn"
+            aria-label={`Back to ${resolvedPlayerName || ''}'s flip card`}
+            title={`Back to ${resolvedPlayerName || ''}'s flip card`}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <i className="ri-gallery-view-2-line" />
+          </a>
+        )}
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
 
-        {/* FavoriteButton â€” rendered in Row 2 on player profile pages only */}
+        {/* FavoriteButton Ã¢â‚¬â€ rendered in Row 2 on player profile pages only */}
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
             playerId={profilePlayerId}
