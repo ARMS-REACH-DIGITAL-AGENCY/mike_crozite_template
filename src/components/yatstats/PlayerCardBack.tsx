@@ -218,13 +218,17 @@ const statBarLabel = has2026Stats
 
   const seasonPitchingBuckets = asBucketArray(p.season_pitching_buckets);
   const seasonBattingBuckets = asBucketArray(p.season_batting_buckets);
+  const careerPitchingBuckets = asBucketArray(p.career_pitching_buckets);
+  const careerBattingBuckets = asBucketArray(p.career_batting_buckets);
 
   const statBuckets =
     has2026Stats && isPitcher
       ? buildFunZoneBuckets(seasonPitchingBuckets, statBarLabel, pitcherStats, "pitching")
       : has2026Stats
         ? buildFunZoneBuckets(seasonBattingBuckets, statBarLabel, batterStats, "batting")
-        : [{ label: statBarLabel, stats }];
+        : isPitcher
+          ? buildFunZoneBuckets(careerPitchingBuckets, statBarLabel, pitcherStats, "pitching")
+          : buildFunZoneBuckets(careerBattingBuckets, statBarLabel, batterStats, "batting");
 
   // -- Metadata overlay lines -------------------------------------------------
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
