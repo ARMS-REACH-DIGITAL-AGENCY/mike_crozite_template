@@ -1,3 +1,4 @@
+
 // src/components/yatstats/YatInteractivity.tsx
 // Inline client-side script: theme toggle, card flip, section navigation,
 // drawer open/close, hero inline search, player drawer search, filter logic
@@ -662,6 +663,52 @@ function syncStripToVisibleCards() {
     var tab=hash.replace('#sec-','');
     showSection(tab,false);
   });
+
+  // --- Auto-scroll to a player card if URL contains ?player=<id> or #player-<id> ---
+  function getRequestedPlayerAndView(){
+    var params = new URLSearchParams(window.location.search);
+    var player = params.get('player');
+    var view = params.get('view');
+    if(!player && window.location.hash.indexOf('#player-') === 0){
+      player = window.location.hash.replace('#player-', '');
+    }
+    return { player: player, view: view };
+  }
+
+  function scrollToPlayerFromUrl(){
+    var req = getRequestedPlayerAndView();
+    if(!req.player) return false;
+    // If view param present, switch to that gallery section (active or alltime)
+    if(req.view){
+      var viewTab = req.view;
+      var sectionBtn = document.querySelector('[data-tab="' + viewTab + '"]');
+      if(sectionBtn && !sectionBtn.classList.contains('active')){
+        (sectionBtn as HTMLElement).click();
+      }
+    }
+    var target = document.getElementById('player-' + req.player) || document.querySelector('.yat-card[data-playerid="' + req.player + '"]');
+    if(!target) return false;
+    // Scroll and highlight
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('yat-card-anchor-highlight');
+    setTimeout(function(){
+      target.classList.remove('yat-card-anchor-highlight');
+    }, 1800);
+    return true;
+  }
+
+  function initCardScroll(){
+    var attempts = 0;
+    var timer = window.setInterval(function(){
+      attempts++;
+      if(scrollToPlayerFromUrl() || attempts >= 30){
+        window.clearInterval(timer);
+      }
+    }, 150);
+  }
+
+  window.addEventListener('load', initCardScroll);
+  window.addEventListener('hashchange', initCardScroll);
 
   var btnMenu=document.getElementById('btnMenu')||document.getElementById('openMenu');
   var closeLeft=document.getElementById('closeLeft');
@@ -1647,7 +1694,7 @@ function resetFiltersForCurrentSection(){
     }
   }
 
-  // Removed: buildNewsLevelChips and buildNewsGradClassChips â€” use side drawer filters only
+  // Removed: buildNewsLevelChips and buildNewsGradClassChips Ã¢â‚¬â€ use side drawer filters only
 
   if(newsFilterName)newsFilterName.addEventListener('input',applyNewsFilters);
   if(newsFilterActive)newsFilterActive.addEventListener('click',function(){
