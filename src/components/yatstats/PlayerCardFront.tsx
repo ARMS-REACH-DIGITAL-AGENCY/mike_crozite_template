@@ -297,7 +297,11 @@ export default function PlayerCardFront({
   const isPitcher = p.is_pitcher === true;
 
   const photoUrl = frontImageUrl || getPlayerThenImageUrl(imageId);
-  const thenSilhouetteUrl = getThenSilhouetteUrl(isPitcher);
+  const thenSilhouetteUrl = getThenSilhouetteUrl({
+    isPitcher,
+    bats: p.bats,
+    throws: p.throws,
+  });
 
   const { first, last } = formatNameParts(p);
 
