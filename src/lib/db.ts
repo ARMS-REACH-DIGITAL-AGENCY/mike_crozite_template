@@ -727,10 +727,10 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       SELECT
         playerid::text AS playerid,
         CASE
-          WHEN upper(coalesce(highlevel, '')) IN ('MLB') THEN 'mlb'
-          WHEN upper(coalesce(highlevel, '')) IN ('TRIPLE-A','AAA','DOUBLE-A','AA','HIGH-A','A+','LOW-A','SINGLE-A','A','A-','ROOKIE','RK','ROK','MINORS','INDY','INDEPENDENT','INT''L','INTERNATIONAL') THEN 'minors'
-          WHEN upper(coalesce(highlevel, '')) LIKE 'NCAA%'
-            OR upper(coalesce(highlevel, '')) IN ('NCAA','D1','D2','D3','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','JRCOLLEGE','NJCAA') THEN 'college'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
+            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
           ELSE 'other'
         END AS bucket,
         COUNT(DISTINCT year) AS batting_seasons,
@@ -800,14 +800,53 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         END
     ),
 
+    career_batting_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'type', 'batting',
+            'label', CASE bucket
+              WHEN 'mlb' THEN 'MLB CAREER BATTING'
+              WHEN 'minors' THEN 'MINOR LEAGUE CAREER BATTING'
+              WHEN 'college' THEN 'COLLEGE CAREER BATTING'
+              ELSE 'CAREER BATTING'
+            END,
+            'stats', jsonb_build_object(
+              'g', g,
+              'ab', ab,
+              'r', r,
+              'h', h,
+              '2b', "2b",
+              '3b', "3b",
+              'hr', hr,
+              'rbi', rbi,
+              'sb', sb,
+              'bb', bb,
+              'so', so,
+              'tb', tb,
+              'avg', avg,
+              'obp', obp,
+              'slg', slg,
+              'ops', ops
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'college' THEN 3 ELSE 4 END
+        ) AS career_batting_buckets
+      FROM career_batting_by_bucket
+      WHERE bucket <> 'other'
+      GROUP BY playerid
+    ),
+
     career_pitching_by_bucket AS (
       SELECT
         playerid::text AS playerid,
         CASE
-          WHEN upper(coalesce(highlevel, '')) IN ('MLB') THEN 'mlb'
-          WHEN upper(coalesce(highlevel, '')) IN ('TRIPLE-A','AAA','DOUBLE-A','AA','HIGH-A','A+','LOW-A','SINGLE-A','A','A-','ROOKIE','RK','ROK','MINORS','INDY','INDEPENDENT','INT''L','INTERNATIONAL') THEN 'minors'
-          WHEN upper(coalesce(highlevel, '')) LIKE 'NCAA%'
-            OR upper(coalesce(highlevel, '')) IN ('NCAA','D1','D2','D3','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','JRCOLLEGE','NJCAA') THEN 'college'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
+            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
+          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
           ELSE 'other'
         END AS bucket,
         COUNT(DISTINCT year) AS pitching_seasons,
@@ -1005,6 +1044,47 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
         END
     ),
 
+    career_pitching_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'type', 'pitching',
+            'label', CASE bucket
+              WHEN 'mlb' THEN 'MLB CAREER PITCHING'
+              WHEN 'minors' THEN 'MINOR LEAGUE CAREER PITCHING'
+              WHEN 'college' THEN 'COLLEGE CAREER PITCHING'
+              ELSE 'CAREER PITCHING'
+            END,
+            'stats', jsonb_build_object(
+              'pg', pg,
+              'g', pg,
+              'gs', gs,
+              'w', w,
+              'l', l,
+              'saves', saves,
+              'outs', outs,
+              'ip', ip,
+              'h_allowed', h_allowed,
+              'er', er,
+              'bb', bb,
+              'ko', ko,
+              'era', era,
+              'whip', whip,
+              'h9', h9,
+              'bb9', bb9,
+              'so9', so9,
+              'so_bb', so_bb
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'college' THEN 3 ELSE 4 END
+        ) AS career_pitching_buckets
+      FROM career_pitching_by_bucket
+      WHERE bucket <> 'other'
+      GROUP BY playerid
+    ),
+
     active_2026 AS (
       SELECT DISTINCT playerid::text AS playerid
       FROM tbc_batting_2026_season_raw
@@ -1033,6 +1113,8 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
       lbl.bat_level AS current_level,
       lpl.pitch_year,
       COALESCE(cp.career_bucket_label, cb.career_bucket_label, 'CAREER') AS career_bucket_label,
+      cbb.career_batting_buckets,
+      cpb.career_pitching_buckets,
 
       cb.g,
       cb.ab,
@@ -1084,6 +1166,8 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
     LEFT JOIN latest_pitching_level lpl ON sp.playerid::text = lpl.playerid
     LEFT JOIN career_batting        cb  ON sp.playerid::text = cb.playerid
     LEFT JOIN career_pitching       cp  ON sp.playerid::text = cp.playerid
+    LEFT JOIN career_batting_buckets  cbb ON sp.playerid::text = cbb.playerid
+    LEFT JOIN career_pitching_buckets cpb ON sp.playerid::text = cpb.playerid
     LEFT JOIN active_2026           a26 ON sp.playerid::text = a26.playerid
 
     ORDER BY
