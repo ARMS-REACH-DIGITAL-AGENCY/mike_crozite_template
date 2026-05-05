@@ -86,6 +86,25 @@ export default function SchoolContextBar({
           gap: '8px',
         }}
       >
+       {isPlayerProfile && profilePlayerId && schoolData?.hsid && (
+  <a
+    href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`}
+    className="yat-icon-btn"
+    aria-label="Back to Flip Card"
+    title="Back to Flip Card"
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '4px',
+      textDecoration: 'none',
+    }}
+  >
+    <i className="ri-gallery-view-2-line" />
+    <span style={{ fontSize: '13px' }}>Flip Card</span>
+  </a>
+)}
+        
         <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
           <i className="ri-search-line" />
         </button>
