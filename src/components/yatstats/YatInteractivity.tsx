@@ -289,18 +289,32 @@ window.__firebase_config = ${firebaseConfigJSON};
     }
 
     var searchBtn=e.target.closest('#openSearch');
-    if(searchBtn){
-      e.preventDefault();
-      yatOpenGlobalSearch();
-      return;
-    }
+if(searchBtn){
+  e.preventDefault();
+  yatOpenGlobalSearch();
+  return;
+}
 
-        var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
-    if(closeBtn){
-      e.preventDefault();
-      yatCloseDrawers();
-      return;
-    }
+var searchCloseBtn=e.target.closest('#gsClose, #gsOverlay');
+if(searchCloseBtn){
+  e.preventDefault();
+  e.stopPropagation();
+
+  if(typeof closeGsModal === 'function'){
+    closeGsModal();
+  }else{
+    yatCloseGlobalSearch();
+  }
+
+  return;
+}
+
+var closeBtn=e.target.closest('#closeLeft, #closeFilters, #closeAccount, #drawerMask');
+if(closeBtn){
+  e.preventDefault();
+  yatCloseDrawers();
+  return;
+}
 
     var resetBtn=e.target.closest('#filtersReset, #filtersReset2');
     if(resetBtn){
