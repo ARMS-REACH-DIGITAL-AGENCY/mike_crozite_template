@@ -18,6 +18,7 @@
 //  Slot              | Source                                          | Fallback
 //  ──────────────────┼─────────────────────────────────────────────────┼─────────
 //  FRONT FLIP CARD   | player_photos WHERE image_role='YATSTATS_FRONT' | legacy players/then/{imageId}.jpg
+//                    |                                                  | → handedness-specific THEN silhouette
 //  LEFT_ANCHOR       | player_photos WHERE image_role='LEFT_ANCHOR'    | legacy players/then/{imageId}.jpg
 //  RIGHT_ANCHOR      | player_photos WHERE image_role='RIGHT_ANCHOR'   | HEADSHOT image (same asset, different context)
 //                    |                                                  | → silhouette if neither exists
@@ -133,15 +134,55 @@ export function getPlayerNowImageUrl(imageId: string): string {
 
 // ─── SILHOUETTES (always the only allowed fallback) ───────────────────────────
 
+function normalizeHandedness(value: unknown): "L" | "R" | "" {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return "";
+
+  if (normalized === "L" || normalized === "LEFT" || normalized === "L/L") return "L";
+  if (normalized === "R" || normalized === "RIGHT" || normalized === "R/R") return "R";
+
+  if (normalized.startsWith("L")) return "L";
+  if (normalized.startsWith("R")) return "R";
+
+  return "";
+}
+
+export interface ThenSilhouetteInput {
+  isPitcher?: boolean;
+  bats?: unknown;
+  throws?: unknown;
+}
+
 /**
  * Silhouette for the LEFT_ANCHOR / YATSTATS_FRONT slot (front card, career strip left bookend).
- * This is the ONLY allowed fallback when no designated image exists.
- * Never substitute a NOW image or alternate player image.
+ *
+ * This is ONLY for flip-card gallery front/THEN images. It must not be used by Block 3,
+ * which has its own HEADSHOT/now silhouette behavior.
+ *
+ * Fallback rules:
+ * - Pitcher + throws right -> /img/pitcher_right_silhouette.jpg
+ * - Pitcher + throws left  -> /img/pitcher_left_silhouette.jpg
+ * - Batter + bats right    -> /img/batter_right_silhouette.jpg
+ * - Batter + bats left     -> /img/batter_left_silhouette.jpg
+ *
+ * Unknown handedness falls back to right-handed by role because that avoids empty cards.
  */
-export function getThenSilhouetteUrl(isPitcher: boolean): string {
-  return isPitcher
-    ? "/img/then-pitcher-silhouette.png"
-    : "/img/then-batter-silhouette.png";
+export function getThenSilhouetteUrl(input: boolean | ThenSilhouetteInput): string {
+  const isPitcher = typeof input === "boolean" ? input : input.isPitcher === true;
+  const bats = typeof input === "boolean" ? "" : normalizeHandedness(input.bats);
+  const throwsHand = typeof input === "boolean" ? "" : normalizeHandedness(input.throws);
+
+  if (isPitcher) {
+    return throwsHand === "L"
+      ? "/img/pitcher_left_silhouette.jpg"
+      : "/img/pitcher_right_silhouette.jpg";
+  }
+
+  return bats === "L"
+    ? "/img/batter_left_silhouette.jpg"
+    : "/img/batter_right_silhouette.jpg";
 }
 
 /**
