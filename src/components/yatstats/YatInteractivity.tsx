@@ -110,6 +110,30 @@ window.__firebase_config = ${firebaseConfigJSON};
   function normalizeOrg(raw){var k=(raw||'').trim().toUpperCase();return ORG_NORM[k]||k;}
   window.__YAT_HSID='${resolvedHsid}';
 
+  function yatUpdateThemeButton(isLight){
+    var btn=document.getElementById('theme-toggle');
+    if(btn){
+      var ic=btn.querySelector('i');
+      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
+    }
+  }
+
+  function yatSetTheme(theme){
+    var isLight=theme==='light';
+    document.body.classList.toggle('light-theme',isLight);
+    document.documentElement.classList.toggle('light-theme',isLight);
+    try{localStorage.setItem('yat-theme',isLight?'light':'dark');}catch(e){}
+    yatUpdateThemeButton(isLight);
+  }
+
+  function yatApplySavedTheme(){
+    var saved='dark';
+    try{saved=localStorage.getItem('yat-theme')||'dark';}catch(e){}
+    yatSetTheme(saved==='light'?'light':'dark');
+  }
+
+  yatApplySavedTheme();
+
     function yatOpenLeftDrawer(){
     document.body.classList.add('drawer-left-open', 'drawer-open');
     document.body.classList.remove('drawer-right-open', 'drawer-account-open');
@@ -137,14 +161,8 @@ window.__firebase_config = ${firebaseConfigJSON};
   }
 
   function yatToggleTheme(){
-    var isLight=document.body.classList.toggle('light-theme');
-    localStorage.setItem('yat-theme',isLight?'light':'dark');
-
-    var btn=document.getElementById('theme-toggle');
-    if(btn){
-      var ic=btn.querySelector('i');
-      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
-    }
+    var isLight=!document.body.classList.contains('light-theme');
+    yatSetTheme(isLight?'light':'dark');
   }
 
   function yatOpenGlobalSearch(){
@@ -407,21 +425,9 @@ if(closeBtn){
     loadBgImages(undefined);
   }
 
-  var saved=localStorage.getItem('yat-theme');
-  if(saved==='light')document.body.classList.add('light-theme');
-  var btn=document.getElementById('theme-toggle');
-  if(btn){
-    btn.addEventListener('click',function(){
-      var isLight=document.body.classList.toggle('light-theme');
-      localStorage.setItem('yat-theme',isLight?'light':'dark');
-      var ic=btn.querySelector('i');
-      if(ic)ic.className=isLight?'ri-moon-line':'ri-sun-line';
-    });
-    if(saved==='light'){
-      var ic=btn.querySelector('i');
-      if(ic)ic.className='ri-moon-line';
-    }
-  }
+  // Theme is handled by delegated click listener above.
+  // This keeps the icon in sync on every page, including player profiles.
+  yatApplySavedTheme();
 
   document.addEventListener('click',function(e){
     var card=e.target.closest('.yat-card');
@@ -633,7 +639,103 @@ function syncStripToVisibleCards() {
 
     syncStripToSection(key);
     syncFlipAllVisibleCards();
+    revealRequestedPlayerCard(false);
   }
+
+  var yatPlayerAnchorScrolled=false;
+
+  function getRequestedPlayerId(){
+    var params=new URLSearchParams(window.location.search);
+    var player=params.get('player')||'';
+
+    if(!player&&window.location.hash.indexOf('#player-')===0){
+      player=window.location.hash.replace('#player-','');
+    }
+
+    return String(player||'').trim();
+  }
+
+  function getRequestedView(){
+    var params=new URLSearchParams(window.location.search);
+    var view=String(params.get('view')||'active').toLowerCase().trim();
+
+    if(view==='all-time'||view==='all_time')view='alltime';
+    if(view!=='active'&&view!=='alltime')view='active';
+
+    return view;
+  }
+
+  function findRequestedPlayerCard(playerId){
+    if(!playerId)return null;
+
+    return document.getElementById('player-'+playerId) ||
+      document.querySelector('.yat-card[data-playerid="'+playerId+'"]');
+  }
+
+  function revealRequestedPlayerCard(shouldScroll){
+    var playerId=getRequestedPlayerId();
+    if(!playerId)return false;
+
+    var target=findRequestedPlayerCard(playerId);
+    if(!target)return false;
+
+    var wrap=target.closest('[data-player-card-wrap="true"]');
+    if(wrap){
+      wrap.style.display='';
+      wrap.removeAttribute('hidden');
+      wrap.classList.remove('is-hidden');
+    }
+
+    target.style.display='';
+    target.removeAttribute('hidden');
+    target.classList.remove('is-hidden');
+
+    if(shouldScroll&&!yatPlayerAnchorScrolled){
+      target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
+      target.classList.add('yat-card-anchor-highlight');
+
+      setTimeout(function(){
+        target.classList.remove('yat-card-anchor-highlight');
+      },1800);
+
+      yatPlayerAnchorScrolled=true;
+    }
+
+    return true;
+  }
+
+  function retryRevealRequestedPlayerCard(){
+    var playerId=getRequestedPlayerId();
+    if(!playerId)return;
+
+    yatPlayerAnchorScrolled=false;
+
+    var requestedView=getRequestedView();
+    if(typeof showSection==='function'){
+      showSection(requestedView,false);
+    }
+
+    var attempts=0;
+    var timer=window.setInterval(function(){
+      attempts+=1;
+
+      try{
+        if(typeof applyFilters==='function')applyFilters();
+      }catch(e){}
+
+      if(revealRequestedPlayerCard(true)||attempts>=30){
+        window.clearInterval(timer);
+      }
+    },150);
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(retryRevealRequestedPlayerCard,0);
+  });
+
+  window.addEventListener('load',function(){
+    setTimeout(retryRevealRequestedPlayerCard,0);
+  });
 
   document.addEventListener('click',function(e){
     var pair=e.target.closest('[data-tab]');
@@ -658,9 +760,15 @@ function syncStripToVisibleCards() {
 
   window.addEventListener('hashchange',function(){
     var hash=window.location.hash||'';
-    if(hash.indexOf('#sec-')!==0)return;
-    var tab=hash.replace('#sec-','');
-    showSection(tab,false);
+    if(hash.indexOf('#sec-')===0){
+      var tab=hash.replace('#sec-','');
+      showSection(tab,false);
+      return;
+    }
+
+    if(hash.indexOf('#player-')===0){
+      retryRevealRequestedPlayerCard();
+    }
   });
 
   var btnMenu=document.getElementById('btnMenu')||document.getElementById('openMenu');
@@ -1349,6 +1457,12 @@ try {
 } catch (err) {
   console.error('YAT flip-all sync failed', err);
 }
+
+try {
+  revealRequestedPlayerCard(false);
+} catch (err) {
+  console.error('YAT player anchor reveal failed', err);
+}
   }
 
   document.addEventListener('change', function(e){
@@ -1941,8 +2055,16 @@ function resetFiltersForCurrentSection(){
   function handleHash(){
     var h=window.location.hash;
     if(!h)return;
-    var tid=h.replace('#sec-','');
-    showSection(tid,false);
+
+    if(h.indexOf('#sec-')===0){
+      var tid=h.replace('#sec-','');
+      showSection(tid,false);
+      return;
+    }
+
+    if(h.indexOf('#player-')===0){
+      retryRevealRequestedPlayerCard();
+    }
   }
   handleHash();
   window.addEventListener('hashchange',handleHash);
