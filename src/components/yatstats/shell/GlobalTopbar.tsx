@@ -21,7 +21,7 @@ function requestFavoritesDrawer() {
 function dockDesktopDrawers() {
   if (typeof window === 'undefined') return;
 
-  const shouldDock = window.innerWidth >= DOCKED_DRAWER_MIN_WIDTH && !window.location.pathname.includes('/player/');
+  const shouldDock = window.innerWidth >= DOCKED_DRAWER_MIN_WIDTH;
 
   if (shouldDock) {
     document.body.classList.add('yat-desktop-docked-drawers', 'drawer-left-open', 'drawer-favorites-open', 'drawer-open');
