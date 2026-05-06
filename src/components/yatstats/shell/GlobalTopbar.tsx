@@ -8,6 +8,12 @@ function openAccountDrawer() {
   document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
 }
 
+function requestFavoritesDrawer() {
+  document.body.classList.add('drawer-favorites-open', 'drawer-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-account-open');
+  window.dispatchEvent(new CustomEvent('yat:open-favorites'));
+}
+
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   return (
     <div className="yat-topbar">
@@ -33,7 +39,17 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <i className="ri-sun-line" />
         </button>
 
-        <button id="openFavorites" className="yat-icon-btn" aria-label="Open favorites" title="Open favorites">
+        <button
+          id="openFavorites"
+          className="yat-icon-btn"
+          aria-label="Open favorites"
+          title="Open favorites"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            requestFavoritesDrawer();
+          }}
+        >
           <i className="ri-star-line" />
         </button>
       </div>
