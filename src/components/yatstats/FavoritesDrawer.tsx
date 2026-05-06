@@ -1,6 +1,28 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+type YatUser = {
+  uid?: string;
+  email?: string | null;
+  homeHsid?: string | null;
+  role?: string | null;
+};
+
+type FavoritePlayer = {
+  player_id: string;
+  school_id?: string | null;
+  display_name?: string | null;
+};
+
+function readYatUser(): YatUser | null {
+  try {
+    const raw = localStorage.getItem('yat-user');
+    return raw ? (JSON.parse(raw) as YatUser) : null;
+  } catch {
+    return null;
+  }
+}
 
 function openFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
@@ -11,7 +33,91 @@ function closeFavoritesDrawer() {
   document.body.classList.remove('drawer-favorites-open', 'drawer-open');
 }
 
-export default function FavoritesDrawer() {
+function openAccountDrawer(tab: 'signin' | 'register' = 'register') {
+  document.body.classList.add('drawer-account-open', 'drawer-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
+  window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: tab }));
+}
+
+function visibleCardNodes(): HTMLElement[] {
+  return Array.from(document.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
+}
+
+function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
+  const idSet = new Set(playerIds.map(String));
+
+  visibleCardNodes().forEach((card) => {
+    const playerId = card.getAttribute('data-playerid') || '';
+    card.style.display = !enabled || idSet.has(playerId) ? '' : 'none';
+  });
+
+  window.dispatchEvent(
+    new CustomEvent('yat:favorites-filter-changed', {
+      detail: { enabled, playerIds },
+    })
+  );
+}
+
+export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }) {
+  const [scope, setScope] = useState<'home' | 'all'>('home');
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [players, setPlayers] = useState<FavoritePlayer[]>([]);
+  const [playerIds, setPlayerIds] = useState<string[]>([]);
+  const [lockedReason, setLockedReason] = useState<string | null>(null);
+  const [isSuperfan, setIsSuperfan] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasUser, setHasUser] = useState(false);
+
+  const loadFavorites = useCallback(async (nextScope: 'home' | 'all' = scope) => {
+    const user = readYatUser();
+    const uid = user?.uid;
+
+    if (!uid) {
+      setHasUser(false);
+      setPlayers([]);
+      setPlayerIds([]);
+      setLockedReason('VISITOR');
+      setIsSuperfan(false);
+      applyFavoriteDeck([], false);
+      return;
+    }
+
+    setHasUser(true);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `/api/favorites?uid=${encodeURIComponent(uid)}&hsid=${encodeURIComponent(currentHsid)}&scope=${nextScope}`,
+        { cache: 'no-store' }
+      );
+      const data = await response.json();
+
+      const favoritePlayers: FavoritePlayer[] = Array.isArray(data.favoritePlayers)
+        ? data.favoritePlayers
+        : Array.isArray(data.favorites)
+          ? data.favorites
+          : [];
+      const ids = Array.isArray(data.playerIds)
+        ? data.playerIds.map(String)
+        : favoritePlayers.map((p) => String(p.player_id));
+
+      setPlayers(favoritePlayers);
+      setPlayerIds(ids);
+      setLockedReason(data.lockedReason || null);
+      setIsSuperfan(Boolean(data.isSuperfan));
+
+      if (showOnlyFavorites) {
+        applyFavoriteDeck(ids, true);
+      }
+    } catch {
+      setPlayers([]);
+      setPlayerIds([]);
+      setLockedReason('LOAD_ERROR');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentHsid, scope, showOnlyFavorites]);
+
   useEffect(() => {
     function handleClick(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
@@ -20,6 +126,7 @@ export default function FavoritesDrawer() {
       if (target.closest('#openFavorites')) {
         event.preventDefault();
         openFavoritesDrawer();
+        void loadFavorites(scope);
         return;
       }
 
@@ -33,14 +140,41 @@ export default function FavoritesDrawer() {
       if (event.key === 'Escape') closeFavoritesDrawer();
     }
 
+    function handleRefresh() {
+      void loadFavorites(scope);
+    }
+
     document.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeydown);
+    window.addEventListener('yat-auth-success', handleRefresh);
+    window.addEventListener('yat-favorites-changed', handleRefresh);
+    window.addEventListener('yat-sign-out', handleRefresh);
 
     return () => {
       document.removeEventListener('click', handleClick);
       document.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('yat-auth-success', handleRefresh);
+      window.removeEventListener('yat-favorites-changed', handleRefresh);
+      window.removeEventListener('yat-sign-out', handleRefresh);
     };
-  }, []);
+  }, [loadFavorites, scope]);
+
+  useEffect(() => {
+    applyFavoriteDeck(playerIds, showOnlyFavorites);
+  }, [playerIds, showOnlyFavorites]);
+
+  const chooseScope = (nextScope: 'home' | 'all') => {
+    setScope(nextScope);
+    void loadFavorites(nextScope);
+  };
+
+  const lockedMessage = (() => {
+    if (lockedReason === 'SUPERFAN_REQUIRED') return 'All Schools favorites require Super Fan access.';
+    if (lockedReason === 'FOREIGN_MICROSITE') return 'Your Home School favorites are connected to your home microsite.';
+    if (lockedReason === 'NO_HOME_HSID') return 'Your account is missing a Home School. Sign out and back in from your home microsite.';
+    if (lockedReason === 'LOAD_ERROR') return 'Could not load favorites. Try again.';
+    return '';
+  })();
 
   return (
     <>
@@ -63,19 +197,114 @@ export default function FavoritesDrawer() {
         </div>
 
         <div className="yat-drawer-content">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, font: '700 12px Oswald, sans-serif', textTransform: 'uppercase' }}>
-            <input type="checkbox" disabled />
-            Show My Favorites
-          </label>
+          {!hasUser ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ color: 'var(--muted)', font: '400 13px/1.45 Oswald, sans-serif' }}>
+                Sign up or log in to favorite players. Your signup microsite becomes your Home School.
+              </div>
+              <button
+                type="button"
+                onClick={() => openAccountDrawer('register')}
+                style={{
+                  padding: '10px 12px',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  font: '700 12px Oswald, sans-serif',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                Sign Up / Log In
+              </button>
+            </div>
+          ) : (
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, font: '700 12px Oswald, sans-serif', textTransform: 'uppercase' }}>
+                <input
+                  type="checkbox"
+                  checked={showOnlyFavorites}
+                  onChange={(event) => setShowOnlyFavorites(event.target.checked)}
+                />
+                Show My Favorites
+              </label>
 
-          <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
-            <div style={{ font: '700 12px Oswald, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-              Favorite Players
-            </div>
-            <div style={{ color: 'var(--muted)', font: '400 12px/1.45 Oswald, sans-serif' }}>
-              Favorites list wiring comes next. This drawer is now separated from filters.
-            </div>
-          </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => chooseScope('home')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    border: '1px solid var(--line)',
+                    borderRadius: 8,
+                    background: scope === 'home' ? 'rgba(255,255,255,.14)' : 'transparent',
+                    color: 'var(--fg)',
+                    font: '700 11px Oswald, sans-serif',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Home School
+                </button>
+                <button
+                  type="button"
+                  onClick={() => chooseScope('all')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    border: '1px solid var(--line)',
+                    borderRadius: 8,
+                    background: scope === 'all' ? 'rgba(255,255,255,.14)' : 'transparent',
+                    color: isSuperfan ? 'var(--fg)' : '#ffd166',
+                    font: '700 11px Oswald, sans-serif',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                >
+                  All Schools ★
+                </button>
+              </div>
+
+              {lockedMessage && (
+                <div style={{ color: '#ffd166', font: '400 12px/1.45 Oswald, sans-serif' }}>
+                  {lockedMessage}
+                </div>
+              )}
+
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ font: '700 12px Oswald, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Favorite Players {isLoading ? '...' : `(${players.length})`}
+                </div>
+
+                {players.length === 0 && !isLoading ? (
+                  <div style={{ color: 'var(--muted)', font: '400 12px/1.45 Oswald, sans-serif' }}>
+                    No favorite players found yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {players.map((player) => (
+                      <a
+                        key={`${player.player_id}-${player.school_id || ''}`}
+                        href={`/${player.school_id || currentHsid}/player/${player.player_id}`}
+                        style={{
+                          display: 'block',
+                          padding: '9px 0',
+                          borderBottom: '1px solid var(--line)',
+                          font: '700 13px Oswald, sans-serif',
+                          textTransform: 'uppercase',
+                          color: 'var(--fg)',
+                        }}
+                      >
+                        {player.display_name || player.player_id}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </aside>
 
