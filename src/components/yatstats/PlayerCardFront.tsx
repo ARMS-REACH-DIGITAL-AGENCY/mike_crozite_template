@@ -180,7 +180,6 @@ function tryFormatGameDate(
   const nowLocalDateKey = getLocalDateKey(new Date(), safeTimeZone);
   const parsedGameTimeUtc = new Date(gameTimeUtc);
 
-  // Prefer the real UTC timestamp and the same local timezone shown on the card.
   if (!Number.isNaN(parsedGameTimeUtc.getTime())) {
     const gameLocalDateKey = getLocalDateKey(parsedGameTimeUtc, safeTimeZone);
     const formatted = formatGameDateInTimeZone(parsedGameTimeUtc, safeTimeZone);
@@ -216,13 +215,11 @@ function tryFormatGameDate(
     };
   }
 
-  // Backend may send: TODAY | April 27, 2026
   if (raw.toUpperCase().startsWith("TODAY |")) {
     const datePart = raw.split("|").slice(1).join("|").trim();
     return formatDatePart(datePart) || { dayLine: "TODAY", dateLine: datePart };
   }
 
-  // Backend may send: Monday | April 27, 2026
   const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 2) {
     const datePart = parts.slice(1).join(" | ");
@@ -383,7 +380,7 @@ export default function PlayerCardFront({
   };
 
   return (
-    <div className="yat-face yat-front">
+    <div className="yat-face yat-front yat-front-cq">
       <div
         className="yat-bg"
         data-src={photoUrl}
@@ -392,85 +389,25 @@ export default function PlayerCardFront({
       />
       <div className="yat-shade" />
 
-      <div
-        className="yat-front-content"
-        style={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-end",
-          padding: "14px 12px 12px",
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) auto",
-            alignItems: "end",
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              gap: 0,
-            }}
-          >
-            <div
-              className="yat-name"
-              style={{
-                fontFamily: 'Indigo, "Bebas Neue", sans-serif',
-                fontSize: 30,
-                lineHeight: 0.88,
-                textTransform: "uppercase",
-                textShadow: "0 2px 10px rgba(0,0,0,0.48)",
-              }}
-            >
+      <div className="yat-front-content">
+        <div className="yat-front-bottom-row">
+          <div className="yat-front-left-meta">
+            <div className="yat-name yat-front-name">
               <span>{first || "--"}</span>
               <span>{last || ""}</span>
             </div>
 
-            <div
-              style={{
-                marginTop: 3,
-                fontSize: 13,
-                fontWeight: 700,
-                lineHeight: 1.04,
-                color: "rgba(255,255,255,0.96)",
-                textShadow: "0 1px 6px rgba(0,0,0,0.35)",
-              }}
-            >
+            <div className="yat-front-team-name">
               {currentTeamName}
             </div>
 
             {currentOrgOrConferenceName && (
-              <div
-                style={{
-                  marginTop: 1,
-                  fontSize: 10,
-                  fontWeight: 400,
-                  lineHeight: 1.04,
-                  color: "rgba(255,255,255,0.82)",
-                  textShadow: "0 1px 5px rgba(0,0,0,0.28)",
-                }}
-              >
+              <div className="yat-front-org-name">
                 {currentOrgOrConferenceName}
               </div>
             )}
 
-            <div
-              style={{
-                marginTop: 6,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 3,
-              }}
-            >
+            <div className="yat-front-chip-stack">
               <span className="front-chip" style={chipStyle}>
                 {statusLabel}
               </span>
@@ -493,14 +430,7 @@ export default function PlayerCardFront({
               )}
 
               {rosterYears.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    flexWrap: "wrap",
-                    marginTop: 1,
-                  }}
-                >
+                <div className="yat-front-year-dots">
                   {rosterYears.map((y) => (
                     <div key={y} className="yat-dot">
                       {y.slice(-2)}
@@ -511,62 +441,26 @@ export default function PlayerCardFront({
             </div>
           </div>
 
-          <div
-            style={{
-              minWidth: 126,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              justifyContent: "flex-end",
-              gap: 5,
-            }}
-          >
+          <div className="yat-front-right-meta">
             {showNextGameBlock && (
-              <>
+              <div className="yat-front-next-game">
                 <span className="front-chip" style={chipStyle}>
                   {nextGameStatusLabel}
                 </span>
 
-                <div
-                  style={{
-                    textAlign: "right",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    lineHeight: 1.15,
-                    color: "#fff",
-                    textShadow: "0 1px 6px rgba(0,0,0,0.35)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                  }}
-                >
+                <div className="yat-front-next-game-text">
                   <span>{nextGameDateLine}</span>
                   <span>{nextGameOpponentLine}</span>
                   <span>{nextGameTimeLine}</span>
                 </div>
-              </>
+              </div>
             )}
 
             <span
+              className="yat-front-flip-button"
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                minHeight: 24,
-                padding: "0 10px",
-                borderRadius: 6,
                 background: accent,
                 border: `1px solid ${accentBorder}`,
-                color: "#fff",
-                fontSize: 10,
-                fontWeight: 900,
-                lineHeight: 1,
-                letterSpacing: "0.03em",
-                textTransform: "uppercase",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
-                marginTop: 2,
-                whiteSpace: "nowrap",
               }}
             >
               <span>FLIP FOR STATS</span>
@@ -575,6 +469,219 @@ export default function PlayerCardFront({
           </div>
         </div>
       </div>
+
+      <style>{`
+        .yat-front-cq {
+          container-type: inline-size;
+          container-name: yat-front;
+        }
+
+        .yat-front-content {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          padding: clamp(9px, 4.5cqi, 14px) clamp(8px, 3.8cqi, 12px) clamp(8px, 3.8cqi, 12px);
+        }
+
+        .yat-front-bottom-row {
+          width: 100%;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(84px, 36%);
+          align-items: end;
+          gap: clamp(6px, 3cqi, 12px);
+        }
+
+        .yat-front-left-meta,
+        .yat-front-right-meta {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .yat-front-left-meta {
+          align-items: flex-start;
+          gap: 0;
+        }
+
+        .yat-front-right-meta {
+          align-items: flex-end;
+          justify-content: flex-end;
+          gap: clamp(3px, 1.7cqi, 5px);
+        }
+
+        .yat-front-name {
+          font-family: Indigo, "Bebas Neue", sans-serif;
+          font-size: clamp(22px, 13.5cqi, 42px);
+          line-height: 0.86;
+          text-transform: uppercase;
+          text-shadow: 0 2px 10px rgba(0,0,0,0.48);
+          max-width: 100%;
+          overflow-wrap: normal;
+          word-break: normal;
+        }
+
+        .yat-front-name span {
+          display: block;
+          max-width: 100%;
+        }
+
+        .yat-front-team-name {
+          margin-top: clamp(2px, 1.2cqi, 4px);
+          max-width: 100%;
+          font-size: clamp(8px, 4cqi, 13px);
+          font-weight: 700;
+          line-height: 1.02;
+          color: rgba(255,255,255,0.96);
+          text-shadow: 0 1px 6px rgba(0,0,0,0.35);
+          overflow-wrap: anywhere;
+        }
+
+        .yat-front-org-name {
+          margin-top: 1px;
+          max-width: 100%;
+          font-size: clamp(7px, 3cqi, 10px);
+          font-weight: 400;
+          line-height: 1.03;
+          color: rgba(255,255,255,0.82);
+          text-shadow: 0 1px 5px rgba(0,0,0,0.28);
+          overflow-wrap: anywhere;
+        }
+
+        .yat-front-chip-stack {
+          margin-top: clamp(4px, 2.2cqi, 6px);
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: clamp(2px, 1.2cqi, 3px);
+          max-width: 100%;
+        }
+
+        .yat-front-chip-stack .front-chip,
+        .yat-front-next-game .front-chip {
+          max-width: 100%;
+          white-space: nowrap;
+          font-size: clamp(7px, 3cqi, 10px);
+          line-height: 1;
+          padding: clamp(3px, 1.2cqi, 5px) clamp(5px, 2.1cqi, 8px);
+        }
+
+        .yat-front-year-dots {
+          display: flex;
+          gap: clamp(2px, 1.2cqi, 4px);
+          flex-wrap: wrap;
+          margin-top: 1px;
+          max-width: 100%;
+        }
+
+        .yat-front-year-dots .yat-dot {
+          width: clamp(17px, 7cqi, 23px);
+          height: clamp(17px, 7cqi, 23px);
+          font-size: clamp(8px, 3cqi, 11px);
+        }
+
+        .yat-front-next-game {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: clamp(2px, 1.2cqi, 5px);
+          max-width: 100%;
+        }
+
+        .yat-front-next-game-text {
+          text-align: right;
+          font-size: clamp(7px, 3cqi, 10px);
+          font-weight: 700;
+          line-height: 1.1;
+          color: #fff;
+          text-shadow: 0 1px 6px rgba(0,0,0,0.35);
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          max-width: 100%;
+        }
+
+        .yat-front-flip-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: clamp(5px, 2cqi, 8px);
+          min-height: clamp(20px, 8cqi, 24px);
+          padding: 0 clamp(7px, 3cqi, 10px);
+          border-radius: clamp(4px, 2cqi, 6px);
+          color: #fff;
+          font-size: clamp(8px, 3.2cqi, 10px);
+          font-weight: 900;
+          line-height: 1;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.24);
+          margin-top: 2px;
+          white-space: nowrap;
+          max-width: 100%;
+        }
+
+        @container yat-front (max-width: 230px) {
+          .yat-front-bottom-row {
+            grid-template-columns: minmax(0, 1fr) minmax(72px, 34%);
+            gap: 5px;
+          }
+
+          .yat-front-name {
+            font-size: clamp(19px, 12cqi, 27px);
+          }
+
+          .yat-front-team-name {
+            font-size: clamp(7px, 3.4cqi, 10px);
+          }
+
+          .yat-front-org-name {
+            font-size: clamp(6px, 2.8cqi, 8px);
+          }
+
+          .yat-front-next-game-text {
+            display: none;
+          }
+
+          .yat-front-next-game .front-chip {
+            font-size: clamp(6px, 2.8cqi, 8px);
+            padding: 3px 5px;
+          }
+
+          .yat-front-flip-button {
+            min-height: 20px;
+            padding: 0 7px;
+            font-size: 8px;
+          }
+        }
+
+        @container yat-front (max-width: 190px) {
+          .yat-front-content {
+            padding: 8px 7px 8px;
+          }
+
+          .yat-front-bottom-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+          }
+
+          .yat-front-right-meta {
+            align-items: flex-start;
+          }
+
+          .yat-front-next-game {
+            display: none;
+          }
+
+          .yat-front-name {
+            font-size: clamp(19px, 13cqi, 25px);
+          }
+
+          .yat-front-flip-button {
+            align-self: flex-end;
+          }
+        }
+      `}</style>
     </div>
   );
 }
