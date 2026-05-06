@@ -318,6 +318,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       }
     }
 
+    function handleOpenFavoritesEvent() {
+      openFavoritesDrawer();
+      void loadFavorites();
+    }
+
     function handleKeydown(event: KeyboardEvent) {
       if (event.key === 'Escape') closeFavoritesDrawer();
     }
@@ -328,6 +333,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
     document.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeydown);
+    window.addEventListener('yat:open-favorites', handleOpenFavoritesEvent);
     window.addEventListener('yat-auth-success', handleRefresh);
     window.addEventListener('yat-favorites-changed', handleRefresh);
     window.addEventListener('yat-sign-out', handleRefresh);
@@ -335,6 +341,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     return () => {
       document.removeEventListener('click', handleClick);
       document.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('yat:open-favorites', handleOpenFavoritesEvent);
       window.removeEventListener('yat-auth-success', handleRefresh);
       window.removeEventListener('yat-favorites-changed', handleRefresh);
       window.removeEventListener('yat-sign-out', handleRefresh);
