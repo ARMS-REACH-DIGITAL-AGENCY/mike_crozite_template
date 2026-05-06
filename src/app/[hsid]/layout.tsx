@@ -289,7 +289,7 @@ const allStripRows = sortActivePlayers(stripMerged);
           <i className="ri-close-line" />
         </button>
 
-        <div className="yat-drawer-content">
+        <div className="yat-drawer-content yat-left-nav-content">
           <h3>NAVIGATION</h3>
 
           <div className="yat-drawer-nav">
@@ -326,6 +326,25 @@ const allStripRows = sortActivePlayers(stripMerged);
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
             <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ'S</a>
           </div>
+        </div>
+
+        <div className="yat-drawer-content yat-left-search-content">
+          <div className="yat-search-drawer-title" id="gsTitle">Find a School or Player</div>
+          <div className="yat-search-drawer-sub">Browse schools and players across the YAT?STATS network</div>
+          <div className="yat-gs-input-wrap">
+            <i className="ri-search-line" aria-hidden="true" />
+            <input
+              id="gsInput"
+              type="search"
+              className="yat-gs-input"
+              placeholder="Search by school or player..."
+              autoComplete="off"
+              aria-label="Search schools or players"
+              aria-controls="gsResults"
+              aria-autocomplete="list"
+            />
+          </div>
+          <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
         </div>
       </aside>
 
@@ -439,7 +458,6 @@ const allStripRows = sortActivePlayers(stripMerged);
         </div>
       </aside>
 
-      <GlobalSearchModal />
       <div id="drawerMask" className="yat-drawer-mask" />
 
       <YatInteractivity
