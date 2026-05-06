@@ -28,6 +28,7 @@ import type { Metadata } from 'next';
 import YatStyles from '@/components/yatstats/YatStyles';
 import YatInteractivity from '@/components/yatstats/YatInteractivity';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
+import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
 import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
@@ -73,7 +74,6 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'HS',
   ]);
 
-  // Baseline statuses we want available even if not currently present on this school.
   statuses.add('ACTIVE');
   statuses.add('RETIRED');
   statuses.add('FREE AGENT');
@@ -165,11 +165,6 @@ export default async function HsidLayout({
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get('host') || '';
-  // Resolve school:
-  // 1. Always try getSchoolByHsid(hsid) first — this is the player's actual school
-  //    when the URL is /{numericHsid}/player/... (cross-school search result)
-  // 2. If hsid is non-numeric (e.g. 'hamilton' from a custom domain), fall back to
-  //    host-based lookup so custom domains still work.
   let school: Record<string, unknown> | null = null;
   try {
     school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
@@ -185,11 +180,8 @@ export default async function HsidLayout({
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
-  // Subdomain passed to AccountDrawer — MUST be the numeric hsid (e.g. '5004'),
-  // not the name slug (e.g. 'hamilton'), so home_hsid in user_profiles is always numeric.
   const subdomain = resolvedHsid || hsid || 'unknown';
-  // Build school data for the context providerr
-    const schoolData = {
+  const schoolData = {
     hsid: resolvedHsid,
     hsName: schoolName,
     hsLocation: location,
@@ -238,12 +230,6 @@ export default async function HsidLayout({
         : null,
   };
 
-  // Row 3 strip — full school player universe, same source as Block 5.
-  // TBC all-time rows enriched with stage overlay + stage-only rows (YAT00001–YAT00008 etc.).
-  // All players included regardless of status so Block 3 can stay in sync with Block 5
-  // after filters change. Default visibility is controlled by applyFilters() on load.
-  // Strip order uses Active sort (Level → Grad Class → Roster Years → Last Name)
-  // so it matches the default Active-page card order in Block 5.
   const [allStageRows, rawAllTimeRoster] = await Promise.all([
   getFlipCardFrontStageByHsid(resolvedHsid),
   getAllTimeRosterByHsid(resolvedHsid),
@@ -256,7 +242,6 @@ const statusFilterOptions = buildStatusFilterOptions(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
 
-  // TBC all-time rows, enriched with stage overlay
   const stripSeenIds = new Set<string>();
   const stripMerged: Record<string, unknown>[] = [];
   for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
@@ -265,16 +250,12 @@ const statusFilterOptions = buildStatusFilterOptions(
     stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
     stripSeenIds.add(id);
   }
-  // Stage-only rows not in TBC all-time (includes YAT00001–YAT00008)
   for (const p of allStageRows as Record<string, unknown>[]) {
     const id = String(p.playerid);
     if (!stripSeenIds.has(id)) {
       stripMerged.push({ ...p });
     }
   }
- // Row 3 must contain the full hsid universe.
-// Visibility/order is controlled client-side so Block 3 can mirror Block 5
-// after section changes and filter changes.
 const allStripRows = sortActivePlayers(stripMerged);
 
   const stripPlayers = allStripRows.map((p) => {
@@ -293,12 +274,8 @@ const allStripRows = sortActivePlayers(stripMerged);
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
-      {/* Shared Styles — must be rendered before any visual content */}
       <YatStyles />
 
-      {/* The SharedShell component renders Rows 1-4 and wraps {children} as Row 5.
-          On player profile routes, row3Content overrides the gallery strip in Row 3
-          and row4Content overrides the empty placeholder in Row 4. */}
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
@@ -307,7 +284,6 @@ const allStripRows = sortActivePlayers(stripMerged);
         {children}
       </SharedShell>
 
-      {/* LEFT DRAWER */}
       <aside className="yat-drawer yat-drawer-left" id="drawerLeft">
         <button className="yat-icon-btn yat-close-btn" id="closeLeft" aria-label="Close navigation">
           <i className="ri-close-line" />
@@ -317,7 +293,6 @@ const allStripRows = sortActivePlayers(stripMerged);
           <h3>NAVIGATION</h3>
 
           <div className="yat-drawer-nav">
-            {/* MY HOME SCHOOL — shown only when logged in; home crest + link back to home microsite */}
             <a
               className="yat-drawer-nav-item yat-drawer-home-school"
               id="drawerHomeSchoolLink"
@@ -334,7 +309,6 @@ const allStripRows = sortActivePlayers(stripMerged);
               <span>MY HOME SCHOOL</span>
             </a>
 
-            {/* CURRENTLY VISITING — always shown; crest changes with current microsite */}
             <a className="yat-drawer-nav-item yat-drawer-visiting-school" href={`/${resolvedHsid}`}>
               <img
                 src={crestUrl}
@@ -355,8 +329,8 @@ const allStripRows = sortActivePlayers(stripMerged);
         </div>
       </aside>
 
-      {/* Right Drawers */}
       <AccountDrawer subdomain={subdomain} />
+      <FavoritesDrawer />
 
    <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
   <div
@@ -389,27 +363,7 @@ const allStripRows = sortActivePlayers(stripMerged);
   </div>
 
   <div className="yat-drawer-content" id="filters">
-
-          {/* ── SHOW MY FAVORITES ─────────────────────────────────────────────
-              Two checkboxes always visible. Clicking while not authenticated
-              or wrong tier opens the Account drawer via JS auth-gate.        */}
-          <details className="yat-filter-group" id="filterFavsGroup" open>
-            <summary>Show My Favorites</summary>
-            <div className="yat-filter-options">
-              <label>
-                <input type="checkbox" id="filterFavsHome" value="favs-home" />{' '}
-                Home School
-              </label>
-              <label style={{ marginTop: '6px' }}>
-                <input type="checkbox" id="filterFavsAll" value="favs-all" />{' '}
-                All Schools{' '}
-                <span style={{ fontSize: '10px', color: '#FFD700', fontFamily: '"Bebas Neue", Oswald, sans-serif', letterSpacing: '.04em' }}>⭐ SUPERFAN</span>
-              </label>
-            </div>
-          </details>
-
-          {/* ── BY STATUS (always open) ─────────────────────────────────────── */}
-		<details className="yat-filter-group" open>
+          <details className="yat-filter-group" open>
   			<summary>By Status</summary>
   			<div className="yat-filter-options" id="filterStatus">
    			 <label className="yat-filter-select-all">
@@ -429,35 +383,7 @@ const allStripRows = sortActivePlayers(stripMerged);
             <div className="yat-filter-options" id="filterGradClass">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
               {[
-                '2025',
-                '2024',
-                '2023',
-                '2022',
-                '2021',
-                '2020',
-                '2019',
-                '2018',
-                '2017',
-                '2016',
-                '2015',
-                '2014',
-                '2013',
-                '2012',
-                '2011',
-                '2010',
-                '2009',
-                '2008',
-                '2007',
-                '2006',
-                '2005',
-                '2004',
-                '2003',
-                '2002',
-                '2001',
-                '2000',
-                '1990-1999',
-                '1980-1989',
-                'PRE-1980',
+                '2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
               ].map((year) => (
                 <label key={year}>
                   <input type="checkbox" value={year} /> {year}
@@ -483,20 +409,7 @@ const allStripRows = sortActivePlayers(stripMerged);
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
               {[
-                'MLB',
-                'TRIPLE-A',
-                'DOUBLE-A',
-                'HIGH-A',
-                'LOW-A',
-                'ROOKIE',
-                'INDY',
-                "INT'L",
-                'NCAA-D1',
-                'NCAA-D2',
-                'NCAA-D3',
-                'NAIA',
-                'JUCO',
-                'HIGH SCHOOL',
+                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}
@@ -529,7 +442,6 @@ const allStripRows = sortActivePlayers(stripMerged);
       <GlobalSearchModal />
       <div id="drawerMask" className="yat-drawer-mask" />
 
-{/* Shared Interactivity — must be rendered last */}
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
