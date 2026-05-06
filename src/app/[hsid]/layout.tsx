@@ -330,7 +330,7 @@ const allStripRows = sortActivePlayers(stripMerged);
       </aside>
 
       <AccountDrawer subdomain={subdomain} />
-      <FavoritesDrawer />
+      <FavoritesDrawer currentHsid={resolvedHsid} />
 
    <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
   <div
