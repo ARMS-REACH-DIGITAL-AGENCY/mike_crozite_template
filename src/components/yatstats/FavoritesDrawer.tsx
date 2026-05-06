@@ -87,21 +87,88 @@ function openAccountDrawer(tab: 'signin' | 'register' = 'register') {
   window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: tab }));
 }
 
-function visibleCardNodes(): HTMLElement[] {
-  return Array.from(document.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
+function cardContainerFromCard(card: HTMLElement): HTMLElement {
+  return (card.closest('[data-player-card-wrap="true"]') as HTMLElement | null) || card;
+}
+
+function currentGrid(): HTMLElement | null {
+  const visibleSection = document.querySelector('.yat-section.visible') as HTMLElement | null;
+  return (
+    visibleSection?.querySelector('.yat-grid') ||
+    document.querySelector('#active-grid') ||
+    document.querySelector('.yat-grid')
+  ) as HTMLElement | null;
+}
+
+function getGridCardItems(grid: HTMLElement): HTMLElement[] {
+  const directWrapped = Array.from(grid.querySelectorAll(':scope > [data-player-card-wrap="true"]')) as HTMLElement[];
+  if (directWrapped.length) return directWrapped;
+
+  const directCards = Array.from(grid.querySelectorAll(':scope > .yat-card[data-playerid]')) as HTMLElement[];
+  if (directCards.length) return directCards;
+
+  const nestedCards = Array.from(grid.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
+  return nestedCards.map(cardContainerFromCard);
+}
+
+function ensureOriginalOrder(grid: HTMLElement, items: HTMLElement[]) {
+  items.forEach((item, index) => {
+    if (!item.dataset.favoriteOriginalIndex) {
+      item.dataset.favoriteOriginalIndex = String(index);
+    }
+  });
+}
+
+function getItemPlayerId(item: HTMLElement): string {
+  return item.getAttribute('data-playerid') || item.querySelector('.yat-card[data-playerid]')?.getAttribute('data-playerid') || '';
+}
+
+function restoreOriginalGridOrder(grid: HTMLElement, items: HTMLElement[]) {
+  [...items]
+    .sort((a, b) => Number(a.dataset.favoriteOriginalIndex || 0) - Number(b.dataset.favoriteOriginalIndex || 0))
+    .forEach((item) => {
+      item.style.display = item.dataset.defaultHidden === 'retired' ? 'none' : '';
+      grid.appendChild(item);
+    });
 }
 
 function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
-  const idSet = new Set(playerIds.map(String));
+  const grid = currentGrid();
+  if (!grid) return;
 
-  visibleCardNodes().forEach((card) => {
-    const playerId = card.getAttribute('data-playerid') || '';
-    card.style.display = !enabled || idSet.has(playerId) ? '' : 'none';
+  const items = getGridCardItems(grid);
+  ensureOriginalOrder(grid, items);
+
+  if (!enabled) {
+    restoreOriginalGridOrder(grid, items);
+    window.dispatchEvent(
+      new CustomEvent('yat:favorites-filter-changed', {
+        detail: { enabled, playerIds: [] },
+      })
+    );
+    return;
+  }
+
+  const orderedIds = playerIds.map(String);
+  const idSet = new Set(orderedIds);
+  const itemByPlayerId = new Map<string, HTMLElement>();
+
+  items.forEach((item) => {
+    const playerId = getItemPlayerId(item);
+    if (playerId && !itemByPlayerId.has(playerId)) itemByPlayerId.set(playerId, item);
+    item.style.display = 'none';
+  });
+
+  orderedIds.forEach((playerId) => {
+    const item = itemByPlayerId.get(playerId);
+    if (!item) return;
+    item.style.display = '';
+    grid.appendChild(item);
   });
 
   window.dispatchEvent(
     new CustomEvent('yat:favorites-filter-changed', {
-      detail: { enabled, playerIds },
+      detail: { enabled, playerIds: orderedIds.filter((id) => idSet.has(id)) },
     })
   );
 }
