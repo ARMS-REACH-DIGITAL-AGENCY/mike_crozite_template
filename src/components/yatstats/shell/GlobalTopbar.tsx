@@ -16,6 +16,10 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         <button id="theme-toggle" className="yat-icon-btn" aria-label="Toggle light/dark theme">
           <i className="ri-sun-line" />
         </button>
+
+        <button id="openFavorites" className="yat-icon-btn" aria-label="Open favorites" title="Open favorites">
+          <i className="ri-star-line" />
+        </button>
       </div>
 
       <nav className="yat-topnav" aria-label="Desktop navigation">
