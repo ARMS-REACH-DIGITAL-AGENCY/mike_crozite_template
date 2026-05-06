@@ -213,6 +213,10 @@ function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
   window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: orderedIds } }));
 }
 
+function playerHeadshotUrl(playerId: string) {
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
+}
+
 function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; currentHsid: string }) {
   if (!players.length) {
     return <div style={{ color: 'var(--muted)', font: '400 12px/1.45 Oswald, sans-serif' }}>No favorite players found yet.</div>;
@@ -220,22 +224,37 @@ function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; cu
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {players.map((player) => (
-        <a
-          key={`${player.player_id}-${player.school_id || ''}`}
-          href={`/${player.school_id || currentHsid}/player/${player.player_id}`}
-          style={{
-            display: 'block',
-            padding: '9px 0',
-            borderBottom: '1px solid var(--line)',
-            font: '700 13px Oswald, sans-serif',
-            textTransform: 'uppercase',
-            color: 'var(--fg)',
-          }}
-        >
-          {player.display_name || player.player_id}
-        </a>
-      ))}
+      {players.map((player) => {
+        const playerId = String(player.player_id);
+        return (
+          <a
+            key={`${player.player_id}-${player.school_id || ''}`}
+            href={`/${player.school_id || currentHsid}/player/${player.player_id}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              minHeight: 40,
+              padding: '7px 0',
+              borderBottom: '1px solid var(--line)',
+              font: '700 13px Oswald, sans-serif',
+              textTransform: 'uppercase',
+              color: 'var(--fg)',
+            }}
+          >
+            <img
+              src={playerHeadshotUrl(playerId)}
+              alt=""
+              aria-hidden="true"
+              style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 3, flex: '0 0 auto', background: 'rgba(255,255,255,.08)' }}
+              onError={(event) => {
+                event.currentTarget.style.visibility = 'hidden';
+              }}
+            />
+            <span>{player.display_name || player.player_id}</span>
+          </a>
+        );
+      })}
     </div>
   );
 }
@@ -423,9 +442,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
               {!showSuperfanList ? (
                 <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
-                  <div style={{ font: '700 12px Oswald, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-                    Home Team Profile List {isLoading ? '...' : `(${homePlayers.length})`}
-                  </div>
                   <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
                 </div>
               ) : !isSuperfan ? (
@@ -439,18 +455,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 </div>
               ) : (
                 <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <div style={{ font: '700 12px Oswald, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-                      Home Team ({homePlayers.length})
-                    </div>
-                    <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
-                  </div>
-                  <div>
-                    <div style={{ font: '700 12px Oswald, sans-serif', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-                      Super Fan ({superfanPlayers.length})
-                    </div>
-                    <FavoriteLinks players={superfanPlayers} currentHsid={currentHsid} />
-                  </div>
+                  <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
+                  <FavoriteLinks players={superfanPlayers} currentHsid={currentHsid} />
                 </div>
               )}
             </>
