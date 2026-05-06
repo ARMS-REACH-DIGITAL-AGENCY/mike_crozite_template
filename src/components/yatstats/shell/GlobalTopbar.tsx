@@ -246,6 +246,102 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           overflow: auto;
         }
 
+        /* FunZone compression pass: keep back-card stats scroll-free and readable. */
+        .fz-cta-strip {
+          min-height: 34px !important;
+          max-height: 42px !important;
+          gap: clamp(2px, 1cqi, 5px) !important;
+          padding: clamp(2px, .8cqi, 4px) clamp(4px, 1.6cqi, 8px) !important;
+        }
+
+        .fz-yati-img {
+          width: clamp(22px, 6.5cqi, 34px) !important;
+          max-height: 34px !important;
+          align-self: center !important;
+        }
+
+        .fz-bubble {
+          min-height: 24px !important;
+          display: flex !important;
+          align-items: center !important;
+          padding: clamp(2px, .8cqi, 4px) clamp(4px, 1.5cqi, 8px) !important;
+          border-radius: 6px !important;
+        }
+
+        .fz-bubble-text {
+          font-size: clamp(5px, 1.9cqi, 8px) !important;
+          line-height: 1.12 !important;
+        }
+
+        .fz-panel {
+          padding: clamp(3px, 1.1cqi, 6px) clamp(4px, 1.5cqi, 8px) !important;
+        }
+
+        .fz-stats-shell,
+        .fz-stats {
+          gap: clamp(2px, .8cqi, 4px) !important;
+        }
+
+        .fz-stat-bucket-tabs {
+          display: flex !important;
+          flex-wrap: nowrap !important;
+          gap: 2px !important;
+          min-height: 17px !important;
+        }
+
+        .fz-stat-bucket-btn {
+          flex: 1 1 0 !important;
+          height: 17px !important;
+          min-height: 17px !important;
+          padding: 1px 4px !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          font-size: clamp(5px, 1.6cqi, 7px) !important;
+          line-height: 1 !important;
+          border-radius: 4px !important;
+        }
+
+        .yat-stats-bar {
+          min-height: 15px !important;
+          padding: 1px 4px !important;
+          margin: 0 !important;
+          font-size: clamp(7px, 2.2cqi, 10px) !important;
+          line-height: 1 !important;
+          border-radius: 4px !important;
+        }
+
+        .yat-stats-grid {
+          gap: clamp(2px, .75cqi, 4px) !important;
+          grid-template-rows: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        .yat-stat {
+          min-height: 0 !important;
+          gap: 0 !important;
+          padding: 1px 2px !important;
+          border-radius: 4px !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        .yat-stat-label {
+          font-size: clamp(5px, 1.55cqi, 7px) !important;
+          line-height: .9 !important;
+          margin: 0 !important;
+        }
+
+        .yat-stat-val {
+          font-size: clamp(12px, 4.35cqi, 20px) !important;
+          line-height: .95 !important;
+          margin: 0 !important;
+        }
+
+        .fz-tab-btn {
+          padding: clamp(2px, .8cqi, 4px) 1px !important;
+        }
+
         @media (min-width: 1120px) {
           body.yat-desktop-docked-drawers.drawer-open {
             overflow: auto;
