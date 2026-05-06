@@ -120,10 +120,6 @@ export default function SchoolContextBar({
           </a>
         )}
 
-        <button id="openSearch" className="yat-icon-btn" aria-label="Open global search">
-          <i className="ri-search-line" />
-        </button>
-
         {/* FavoriteButton - rendered in Row 2 on player profile pages only */}
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton
