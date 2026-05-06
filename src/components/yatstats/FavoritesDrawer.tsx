@@ -13,6 +13,12 @@ type FavoritePlayer = {
   player_id: string;
   school_id?: string | null;
   display_name?: string | null;
+  current_team_name?: string | null;
+  current_org_or_conference_name?: string | null;
+  level_label?: string | null;
+  status_label?: string | null;
+  class_of?: string | null;
+  roster_years?: string[] | null;
 };
 
 function readYatUser(): YatUser | null {
@@ -87,6 +93,35 @@ function openAccountDrawer(tab: 'signin' | 'register' = 'register') {
   window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: tab }));
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function playerSlug(name: string): string {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function playerHeadshotUrl(playerId: string) {
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
+}
+
+function playerFrontImageUrl(playerId: string) {
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${encodeURIComponent(playerId)}.jpg`;
+}
+
+function lastNameFromDisplayName(name: string): string {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return (parts[parts.length - 1] || '').toUpperCase();
+}
+
 function cardContainerFromCard(card: HTMLElement): HTMLElement {
   return (card.closest('[data-player-card-wrap="true"]') as HTMLElement | null) || card;
 }
@@ -134,8 +169,14 @@ function getItemPlayerId(item: HTMLElement): string {
   return item.getAttribute('data-playerid') || item.querySelector('.yat-card[data-playerid]')?.getAttribute('data-playerid') || '';
 }
 
+function removeSyntheticFavorites(grid: HTMLElement) {
+  grid.querySelectorAll('[data-superfan-synthetic="true"]').forEach((node) => node.remove());
+}
+
 function restoreOriginalGridOrder(grid: HTMLElement, items: HTMLElement[]) {
+  removeSyntheticFavorites(grid);
   [...items]
+    .filter((item) => item.dataset.superfanSynthetic !== 'true')
     .sort((a, b) => Number(a.dataset.favoriteOriginalIndex || 0) - Number(b.dataset.favoriteOriginalIndex || 0))
     .forEach((item) => {
       item.style.display = item.dataset.defaultHidden === 'retired' ? 'none' : '';
@@ -143,7 +184,91 @@ function restoreOriginalGridOrder(grid: HTMLElement, items: HTMLElement[]) {
     });
 }
 
-function syncInteractionStrip(playerIds: string[], enabled: boolean) {
+function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string): HTMLElement {
+  const playerId = String(player.player_id);
+  const schoolId = String(player.school_id || currentHsid);
+  const name = String(player.display_name || playerId);
+  const status = String(player.status_label || 'ACTIVE').toUpperCase();
+  const level = String(player.level_label || '');
+  const team = String(player.current_team_name || '--');
+  const org = String(player.current_org_or_conference_name || '');
+  const classOf = String(player.class_of || '');
+  const slug = playerSlug(name);
+
+  const wrap = document.createElement('div');
+  wrap.dataset.playerCardWrap = 'true';
+  wrap.dataset.playerid = playerId;
+  wrap.dataset.superfanSynthetic = 'true';
+  wrap.style.display = '';
+
+  wrap.innerHTML = `
+    <article
+      id="player-${escapeHtml(playerId)}"
+      class="yat-card yat-card-superfan-synthetic"
+      data-name="${escapeHtml(name.toLowerCase())}"
+      data-playerid="${escapeHtml(playerId)}"
+      data-level="${escapeHtml(level)}"
+      data-org="${escapeHtml(org)}"
+      data-gradclass="${escapeHtml(classOf)}"
+      data-rosteryears=""
+      data-status="${escapeHtml(status)}"
+      data-slug="${escapeHtml(slug)}"
+    >
+      <div class="yat-card-inner">
+        <div class="yat-flip">
+          <a href="/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}" style="display:block;height:100%;text-decoration:none;color:inherit;">
+            <div class="yat-card-face yat-card-front" style="position:relative;min-height:420px;background:#050505;overflow:hidden;">
+              <img src="${escapeHtml(playerFrontImageUrl(playerId))}" alt="${escapeHtml(name)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.78;" onerror="this.src='${escapeHtml(playerHeadshotUrl(playerId))}';this.onerror=function(){this.style.display='none'}" />
+              <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,.08), rgba(0,0,0,.9));"></div>
+              <div style="position:absolute;left:18px;right:18px;bottom:18px;">
+                <div style="font:900 42px/0.88 Oswald, sans-serif;text-transform:uppercase;letter-spacing:-.04em;color:#fff;">${escapeHtml(name)}</div>
+                <div style="margin-top:10px;font:700 14px/1.1 Oswald, sans-serif;color:#fff;">${escapeHtml(team)}</div>
+                ${org ? `<div style="font:400 12px/1.1 Oswald, sans-serif;color:#cfcfcf;">${escapeHtml(org)}</div>` : ''}
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
+                  <span style="border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 7px;font:700 11px Oswald,sans-serif;color:#fff;text-transform:uppercase;">${escapeHtml(status)}</span>
+                  ${level ? `<span style="border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 7px;font:700 11px Oswald,sans-serif;color:#fff;text-transform:uppercase;">${escapeHtml(level)}</span>` : ''}
+                  ${classOf ? `<span style="border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 7px;font:700 11px Oswald,sans-serif;color:#fff;text-transform:uppercase;">CLASS OF ${escapeHtml(classOf)}</span>` : ''}
+                </div>
+                <div style="margin-top:14px;font:700 10px Oswald,sans-serif;color:#ffd166;text-transform:uppercase;letter-spacing:.08em;">Super Fan Favorite</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </article>
+  `;
+
+  return wrap;
+}
+
+function removeSyntheticStripSlots(strip: HTMLElement) {
+  strip.querySelectorAll('[data-superfan-synthetic="true"]').forEach((node) => node.remove());
+}
+
+function createSyntheticStripSlot(player: FavoritePlayer, currentHsid: string): HTMLElement {
+  const playerId = String(player.player_id);
+  const name = String(player.display_name || playerId);
+  const schoolId = String(player.school_id || currentHsid);
+  const slug = playerSlug(name);
+  const slot = document.createElement('a');
+  slot.href = `/${encodeURIComponent(schoolId)}/player/${encodeURIComponent(playerId)}/${encodeURIComponent(slug)}`;
+  slot.className = 'gallery-slot gallery-slot-link';
+  slot.dataset.playerid = playerId;
+  slot.dataset.status = String(player.status_label || 'ACTIVE').toUpperCase();
+  slot.dataset.superfanSynthetic = 'true';
+  slot.title = name;
+  slot.style.display = '';
+  slot.innerHTML = `
+    <div class="gallery-slot-media">
+      <img src="${escapeHtml(playerHeadshotUrl(playerId))}" alt="${escapeHtml(name)}" class="gallery-slot-img" onerror="this.src='/img/headshot-silhouette.png';this.onerror=null" />
+      <div class="gallery-slot-gradient"></div>
+      <div class="gallery-slot-name-overlay">${escapeHtml(lastNameFromDisplayName(name))}</div>
+    </div>
+  `;
+  return slot;
+}
+
+function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean, currentHsid: string) {
   const strip = document.querySelector('.gallery-strip-inner') as HTMLElement | null;
   if (!strip) return;
 
@@ -155,7 +280,9 @@ function syncInteractionStrip(playerIds: string[], enabled: boolean) {
   });
 
   if (!enabled) {
+    removeSyntheticStripSlots(strip);
     [...slots]
+      .filter((slot) => slot.dataset.superfanSynthetic !== 'true')
       .sort((a, b) => Number(a.dataset.favoriteOriginalIndex || 0) - Number(b.dataset.favoriteOriginalIndex || 0))
       .forEach((slot) => {
         slot.style.display = slot.dataset.defaultHidden === 'retired' ? 'none' : '';
@@ -164,22 +291,28 @@ function syncInteractionStrip(playerIds: string[], enabled: boolean) {
     return;
   }
 
+  removeSyntheticStripSlots(strip);
+  const freshSlots = Array.from(strip.querySelectorAll('.gallery-slot[data-playerid]')) as HTMLElement[];
   const slotByPlayerId = new Map<string, HTMLElement>();
-  slots.forEach((slot) => {
+  freshSlots.forEach((slot) => {
     const playerId = slot.getAttribute('data-playerid') || '';
     if (playerId && !slotByPlayerId.has(playerId)) slotByPlayerId.set(playerId, slot);
     slot.style.display = 'none';
   });
 
-  playerIds.map(String).forEach((playerId) => {
-    const slot = slotByPlayerId.get(playerId);
-    if (!slot) return;
-    slot.style.display = '';
-    strip.appendChild(slot);
+  players.forEach((player) => {
+    const playerId = String(player.player_id);
+    const existing = slotByPlayerId.get(playerId);
+    if (existing) {
+      existing.style.display = '';
+      strip.appendChild(existing);
+      return;
+    }
+    strip.appendChild(createSyntheticStripSlot(player, currentHsid));
   });
 }
 
-function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
+function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string) {
   const grid = currentGrid();
   if (!grid) return;
 
@@ -188,33 +321,35 @@ function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
 
   if (!enabled) {
     restoreOriginalGridOrder(grid, items);
-    syncInteractionStrip([], false);
+    syncInteractionStrip([], false, currentHsid);
     window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: [] } }));
     return;
   }
 
-  const orderedIds = playerIds.map(String);
+  removeSyntheticFavorites(grid);
+
+  const freshItems = getGridCardItems(grid).filter((item) => item.dataset.superfanSynthetic !== 'true');
   const itemByPlayerId = new Map<string, HTMLElement>();
 
-  items.forEach((item) => {
+  freshItems.forEach((item) => {
     const playerId = getItemPlayerId(item);
     if (playerId && !itemByPlayerId.has(playerId)) itemByPlayerId.set(playerId, item);
     item.style.display = 'none';
   });
 
-  orderedIds.forEach((playerId) => {
-    const item = itemByPlayerId.get(playerId);
-    if (!item) return;
-    item.style.display = '';
-    grid.appendChild(item);
+  players.forEach((player) => {
+    const playerId = String(player.player_id);
+    const existing = itemByPlayerId.get(playerId);
+    if (existing) {
+      existing.style.display = '';
+      grid.appendChild(existing);
+      return;
+    }
+    grid.appendChild(createSyntheticFavoriteCard(player, currentHsid));
   });
 
-  syncInteractionStrip(orderedIds, true);
-  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: orderedIds } }));
-}
-
-function playerHeadshotUrl(playerId: string) {
-  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
+  syncInteractionStrip(players, true, currentHsid);
+  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
 }
 
 function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; currentHsid: string }) {
@@ -226,10 +361,12 @@ function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; cu
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {players.map((player) => {
         const playerId = String(player.player_id);
+        const name = String(player.display_name || playerId);
+        const slug = playerSlug(name);
         return (
           <a
             key={`${player.player_id}-${player.school_id || ''}`}
-            href={`/${player.school_id || currentHsid}/player/${player.player_id}`}
+            href={`/${player.school_id || currentHsid}/player/${player.player_id}/${slug}`}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -251,7 +388,7 @@ function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; cu
                 event.currentTarget.style.visibility = 'hidden';
               }}
             />
-            <span>{player.display_name || player.player_id}</span>
+            <span>{name}</span>
           </a>
         );
       })}
@@ -286,7 +423,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       setSuperfanPlayers([]);
       setLockedReason('VISITOR');
       setIsSuperfan(false);
-      applyFavoriteDeck([], false);
+      applyFavoriteDeck([], false, currentHsid);
       setIsLoading(false);
       return;
     }
@@ -381,9 +518,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   }, [loadFavorites]);
 
   useEffect(() => {
-    const ids = displayedPlayers.map((player) => String(player.player_id));
-    applyFavoriteDeck(ids, showGalleryView);
-  }, [displayedPlayers, showGalleryView]);
+    applyFavoriteDeck(displayedPlayers, showGalleryView, currentHsid);
+  }, [displayedPlayers, showGalleryView, currentHsid]);
 
   const handleGalleryViewChange = (checked: boolean) => {
     if (checked && (isPlayerProfilePage() || !currentGrid())) {
