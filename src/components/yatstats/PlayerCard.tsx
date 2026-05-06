@@ -25,6 +25,12 @@ interface PlayerCardProps {
   isAllTime?: boolean;
 }
 
+function statValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const cleaned = String(value).replace(/[^0-9.-]/g, "").trim();
+  return cleaned;
+}
+
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
   // level_label comes from flip_card_front_stage (already normalized).
   // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
@@ -52,6 +58,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   );
 
   const playerWithSlug = { ...p, slug };
+  const gp = statValue(p.g || p.pg);
 
   return (
        <article
@@ -65,6 +72,24 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-rosteryears={Array.isArray(rosterYears) ? rosterYears.join(",") : ""}
       data-status={status}
       data-slug={slug}
+      data-stat-gp={gp}
+      data-stat-avg={statValue(p.avg)}
+      data-stat-obp={statValue(p.obp)}
+      data-stat-slg={statValue(p.slg)}
+      data-stat-ops={statValue(p.ops)}
+      data-stat-hr={statValue(p.hr)}
+      data-stat-rbi={statValue(p.rbi)}
+      data-stat-r={statValue(p.r)}
+      data-stat-h={statValue(p.h)}
+      data-stat-sb={statValue(p.sb)}
+      data-stat-ab={statValue(p.ab)}
+      data-stat-era={statValue(p.era)}
+      data-stat-whip={statValue(p.whip)}
+      data-stat-k={statValue(p.ko)}
+      data-stat-bb={statValue(p.bb)}
+      data-stat-ip={statValue(p.ip)}
+      data-stat-w={statValue(p.w)}
+      data-stat-sv={statValue(p.saves)}
     >
       <div className="yat-card-inner">
         <div className="yat-flip">
