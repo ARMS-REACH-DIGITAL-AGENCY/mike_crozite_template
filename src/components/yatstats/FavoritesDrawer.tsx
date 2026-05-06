@@ -1,10 +1,47 @@
 'use client';
 
+import { useEffect } from 'react';
+
+function openFavoritesDrawer() {
+  document.body.classList.add('drawer-favorites-open', 'drawer-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-account-open');
+}
+
 function closeFavoritesDrawer() {
   document.body.classList.remove('drawer-favorites-open', 'drawer-open');
 }
 
 export default function FavoritesDrawer() {
+  useEffect(() => {
+    function handleClick(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      if (target.closest('#openFavorites')) {
+        event.preventDefault();
+        openFavoritesDrawer();
+        return;
+      }
+
+      if (target.id === 'drawerMask' && document.body.classList.contains('drawer-favorites-open')) {
+        event.preventDefault();
+        closeFavoritesDrawer();
+      }
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeFavoritesDrawer();
+    }
+
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKeydown);
+
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKeydown);
+    };
+  }, []);
+
   return (
     <>
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
