@@ -98,9 +98,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Server-side canonical home_hsid enforcement ───────────────────────────
-    // This is the authoritative gate — the client-side check in FavoriteButton.tsx
-    // is a UX convenience only. Fans may only favorite players from their home school.
     const profile = await getUserProfile(firebaseUid);
     if (!profile) {
       return NextResponse.json(
@@ -127,15 +124,12 @@ export async function POST(req: NextRequest) {
         );
       }
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
-    // 1. Persist to PostgreSQL (canonical storage)
     const { created } = await saveFavorite(firebaseUid, playerId, {
       armsContactId: contactId ?? null,
       schoolId: schoolId ?? null,
     });
 
-    // 2. Tag the GHL contact (secondary / non-fatal)
     if (contactId) {
       const tagPrefix = isSuperfan ? "superfav" : "fav";
       const tag = `${tagPrefix}:${playerId}`;
@@ -160,7 +154,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── GET — fetch all favorites for a user ────────────────────────────────────
+// ── GET — fetch scoped favorites for a user ─────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -173,33 +167,37 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const favorites = await getFavorites(firebaseUid);
-    const currentHsid = searchParams.get("hsid");
     const scope = searchParams.get("scope") || "home";
-
     const profile = await getUserProfile(firebaseUid);
     const isSuperfan = isSuperfanProfile(profile);
+    const homeHsid = profile?.home_hsid ? String(profile.home_hsid) : null;
 
-    let visibleFavorites = favorites;
+    const favorites = await getFavorites(firebaseUid);
+    const allPlayerIds = favorites.map((f) => String(f.player_id));
+    const allFavoritePlayers = await getFavoriteDetails(firebaseUid, allPlayerIds);
+
+    let favoritePlayers = allFavoritePlayers;
     let lockedReason: string | null = null;
 
-    if (!isSuperfan) {
-      if (!profile?.home_hsid) {
-        visibleFavorites = [];
-        lockedReason = "NO_HOME_HSID";
-      } else if (scope === "all") {
-        visibleFavorites = [];
+    if (!profile) {
+      favoritePlayers = [];
+      lockedReason = "NO_PROFILE";
+    } else if (!homeHsid) {
+      favoritePlayers = [];
+      lockedReason = "NO_HOME_HSID";
+    } else if (scope === "all") {
+      if (!isSuperfan) {
+        favoritePlayers = [];
         lockedReason = "SUPERFAN_REQUIRED";
-      } else if (currentHsid && currentHsid !== profile.home_hsid) {
-        visibleFavorites = [];
-        lockedReason = "FOREIGN_MICROSITE";
-      } else {
-        visibleFavorites = favorites.filter((f) => !f.school_id || f.school_id === profile.home_hsid);
       }
+      // Superfans see all schools here.
+    } else {
+      // Home School tab always means only favorites from the user's home school,
+      // even when the user is a Super Fan.
+      favoritePlayers = allFavoritePlayers.filter((p) => String(p.school_id || "") === homeHsid);
     }
 
-    const playerIds = visibleFavorites.map((f) => f.player_id);
-    const favoritePlayers = await getFavoriteDetails(firebaseUid, playerIds);
+    const playerIds = favoritePlayers.map((p) => String(p.player_id));
 
     return NextResponse.json({
       success: true,
@@ -209,7 +207,7 @@ export async function GET(req: NextRequest) {
       scope,
       lockedReason,
       isSuperfan,
-      homeHsid: profile?.home_hsid ?? null,
+      homeHsid,
       plan: profile?.plan ?? "fan",
     });
   } catch (error) {
