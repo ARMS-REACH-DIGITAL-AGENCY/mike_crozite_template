@@ -7,6 +7,8 @@
 //
 // GET    /api/favorites?uid=<firebaseUid>&hsid=<currentHsid>&scope=home|all
 //   Returns favorite player IDs plus one-row-per-player drawer items.
+//   scope=home returns only the user's home school favorites.
+//   scope=all returns only cross-school Super Fan favorites, excluding home school favorites.
 //
 // DELETE /api/favorites
 //   Body: { firebaseUid, playerId }
@@ -85,11 +87,10 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
   return rows;
 }
 
-// ── POST — save a favorite ───────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { firebaseUid, contactId, playerId, playerName, schoolId, type } = body;
+    const { firebaseUid, contactId, playerId, playerName, schoolId } = body;
 
     if (!firebaseUid || !playerId) {
       return NextResponse.json(
@@ -154,7 +155,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── GET — fetch scoped favorites for a user ─────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -189,11 +189,10 @@ export async function GET(req: NextRequest) {
       if (!isSuperfan) {
         favoritePlayers = [];
         lockedReason = "SUPERFAN_REQUIRED";
+      } else {
+        favoritePlayers = allFavoritePlayers.filter((p) => String(p.school_id || "") !== homeHsid);
       }
-      // Superfans see all schools here.
     } else {
-      // Home School tab always means only favorites from the user's home school,
-      // even when the user is a Super Fan.
       favoritePlayers = allFavoritePlayers.filter((p) => String(p.school_id || "") === homeHsid);
     }
 
@@ -219,7 +218,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ── DELETE — remove a favorite ───────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
