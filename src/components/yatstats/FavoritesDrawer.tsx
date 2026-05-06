@@ -111,7 +111,7 @@ function getGridCardItems(grid: HTMLElement): HTMLElement[] {
   return nestedCards.map(cardContainerFromCard);
 }
 
-function ensureOriginalOrder(grid: HTMLElement, items: HTMLElement[]) {
+function ensureOriginalOrder(items: HTMLElement[]) {
   items.forEach((item, index) => {
     if (!item.dataset.favoriteOriginalIndex) {
       item.dataset.favoriteOriginalIndex = String(index);
@@ -132,15 +132,52 @@ function restoreOriginalGridOrder(grid: HTMLElement, items: HTMLElement[]) {
     });
 }
 
+function syncInteractionStrip(playerIds: string[], enabled: boolean) {
+  const strip = document.querySelector('.gallery-strip-inner') as HTMLElement | null;
+  if (!strip) return;
+
+  const slots = Array.from(strip.querySelectorAll('.gallery-slot[data-playerid]')) as HTMLElement[];
+  slots.forEach((slot, index) => {
+    if (!slot.dataset.favoriteOriginalIndex) {
+      slot.dataset.favoriteOriginalIndex = String(index);
+    }
+  });
+
+  if (!enabled) {
+    [...slots]
+      .sort((a, b) => Number(a.dataset.favoriteOriginalIndex || 0) - Number(b.dataset.favoriteOriginalIndex || 0))
+      .forEach((slot) => {
+        slot.style.display = slot.dataset.defaultHidden === 'retired' ? 'none' : '';
+        strip.appendChild(slot);
+      });
+    return;
+  }
+
+  const slotByPlayerId = new Map<string, HTMLElement>();
+  slots.forEach((slot) => {
+    const playerId = slot.getAttribute('data-playerid') || '';
+    if (playerId && !slotByPlayerId.has(playerId)) slotByPlayerId.set(playerId, slot);
+    slot.style.display = 'none';
+  });
+
+  playerIds.map(String).forEach((playerId) => {
+    const slot = slotByPlayerId.get(playerId);
+    if (!slot) return;
+    slot.style.display = '';
+    strip.appendChild(slot);
+  });
+}
+
 function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
   const grid = currentGrid();
   if (!grid) return;
 
   const items = getGridCardItems(grid);
-  ensureOriginalOrder(grid, items);
+  ensureOriginalOrder(items);
 
   if (!enabled) {
     restoreOriginalGridOrder(grid, items);
+    syncInteractionStrip([], false);
     window.dispatchEvent(
       new CustomEvent('yat:favorites-filter-changed', {
         detail: { enabled, playerIds: [] },
@@ -165,6 +202,8 @@ function applyFavoriteDeck(playerIds: string[], enabled: boolean) {
     item.style.display = '';
     grid.appendChild(item);
   });
+
+  syncInteractionStrip(orderedIds, true);
 
   window.dispatchEvent(
     new CustomEvent('yat:favorites-filter-changed', {
