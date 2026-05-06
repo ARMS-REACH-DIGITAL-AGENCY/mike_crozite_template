@@ -48,8 +48,6 @@ function dockDesktopDrawers() {
 
   document.body.classList.remove('yat-desktop-docked-drawers');
 
-  // Mobile browser chrome and keyboard opening can fire resize events.
-  // Do not collapse the left drawer while the user is actively using search.
   if (window.innerWidth < DOCKED_DRAWER_MIN_WIDTH) {
     if (document.body.classList.contains('yat-left-search-mode')) {
       document.body.classList.add('drawer-left-open', 'drawer-open');
@@ -74,9 +72,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
     const interceptSearchClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest('#openSearch')) return;
-
-      // Capture-phase guard: the legacy YatInteractivity listener still knows about
-      // the old modal. Stop it from immediately fighting the new left-drawer search.
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -100,70 +95,25 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
     <>
       <div className="yat-topbar">
         <div className="yat-topbar-left">
-          <button
-            id="btnMenu"
-            className="yat-icon-btn"
-            aria-label="Open navigation"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              showLeftNavigationDrawer();
-            }}
-          >
+          <button id="btnMenu" className="yat-icon-btn" aria-label="Open navigation" onClick={(event) => { event.preventDefault(); event.stopPropagation(); showLeftNavigationDrawer(); }}>
             <i className="ri-menu-line" />
           </button>
-
-          <button
-            id="btnAccount"
-            className="yat-icon-btn"
-            aria-label="Open account drawer"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              openAccountDrawer();
-            }}
-          >
+          <button id="btnAccount" className="yat-icon-btn" aria-label="Open account drawer" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openAccountDrawer(); }}>
             <i className="ri-user-line" />
           </button>
-
           <button id="theme-toggle" className="yat-icon-btn" aria-label="Toggle light/dark theme">
             <i className="ri-sun-line" />
           </button>
-
-          <button
-            id="openFavorites"
-            className="yat-icon-btn"
-            aria-label="Open favorites"
-            title="Open favorites"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              requestFavoritesDrawer();
-            }}
-          >
+          <button id="openFavorites" className="yat-icon-btn" aria-label="Open favorites" title="Open favorites" onClick={(event) => { event.preventDefault(); event.stopPropagation(); requestFavoritesDrawer(); }}>
             <i className="ri-heart-line" />
           </button>
-
-          <button
-            id="openSearch"
-            className="yat-icon-btn"
-            aria-label="Open global search"
-            title="Open global search"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              showLeftSearchDrawer();
-            }}
-          >
+          <button id="openSearch" className="yat-icon-btn" aria-label="Open global search" title="Open global search" onClick={(event) => { event.preventDefault(); event.stopPropagation(); showLeftSearchDrawer(); }}>
             <i className="ri-search-line" />
           </button>
         </div>
 
         <nav className="yat-topnav" aria-label="Desktop navigation">
-          <a className="yat-topnav-item" href={`/${hsid}`}>
-            <span>WHERE THEY</span>
-            <strong>YAT?</strong>
-          </a>
+          <a className="yat-topnav-item" href={`/${hsid}`}><span>WHERE THEY</span><strong>YAT?</strong></a>
           <a className="yat-topnav-item" data-tab="news" href="#sec-news"><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
           <a className="yat-topnav-item" data-tab="alltime" href="#sec-alltime"><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
           <a className="yat-topnav-item" data-tab="current" href="#sec-current"><span>2026</span><strong>TEAM</strong></a>
@@ -193,21 +143,26 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         #drawerLeft .yat-gs-input-wrap { margin-bottom: 10px; }
         #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--footerH) - 130px); overflow: auto; }
 
-        /* FunZone compression pass: keep back-card stats scroll-free and readable. */
+        /* FunZone readability pass: remove redundant stats headers and restore bigger mobile stat cells. */
         .fz-cta-strip { min-height: 34px !important; max-height: 42px !important; gap: clamp(2px, 1cqi, 5px) !important; padding: clamp(2px, .8cqi, 4px) clamp(4px, 1.6cqi, 8px) !important; }
         .fz-yati-img { width: clamp(22px, 6.5cqi, 34px) !important; max-height: 34px !important; align-self: center !important; }
         .fz-bubble { min-height: 24px !important; display: flex !important; align-items: center !important; padding: clamp(2px, .8cqi, 4px) clamp(4px, 1.5cqi, 8px) !important; border-radius: 6px !important; }
         .fz-bubble-text { font-size: clamp(5px, 1.9cqi, 8px) !important; line-height: 1.12 !important; }
-        .fz-panel { padding: clamp(3px, 1.1cqi, 6px) clamp(4px, 1.5cqi, 8px) !important; }
-        .fz-stats-shell, .fz-stats { gap: clamp(2px, .8cqi, 4px) !important; }
-        .fz-stat-bucket-tabs { display: flex !important; flex-wrap: nowrap !important; gap: 2px !important; min-height: 17px !important; }
-        .fz-stat-bucket-btn { flex: 1 1 0 !important; height: 17px !important; min-height: 17px !important; padding: 1px 4px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: clamp(5px, 1.6cqi, 7px) !important; line-height: 1 !important; border-radius: 4px !important; }
-        .yat-stats-bar { min-height: 15px !important; padding: 1px 4px !important; margin: 0 !important; font-size: clamp(7px, 2.2cqi, 10px) !important; line-height: 1 !important; border-radius: 4px !important; }
-        .yat-stats-grid { gap: clamp(2px, .75cqi, 4px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
-        .yat-stat { min-height: 0 !important; gap: 0 !important; padding: 1px 2px !important; border-radius: 4px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; }
-        .yat-stat-label { font-size: clamp(5px, 1.55cqi, 7px) !important; line-height: .9 !important; margin: 0 !important; }
-        .yat-stat-val { font-size: clamp(12px, 4.35cqi, 20px) !important; line-height: .95 !important; margin: 0 !important; }
-        .fz-tab-btn { padding: clamp(2px, .8cqi, 4px) 1px !important; }
+        .fz-panel { padding: clamp(4px, 1.35cqi, 8px) clamp(5px, 1.8cqi, 10px) !important; }
+        .fz-stats-shell, .fz-stats { gap: clamp(4px, 1.2cqi, 7px) !important; }
+
+        .fz-stat-bucket-tabs { display: flex !important; flex-wrap: nowrap !important; gap: 3px !important; min-height: 22px !important; }
+        .fz-stat-bucket-btn { flex: 1 1 0 !important; height: 22px !important; min-height: 22px !important; padding: 2px 5px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: clamp(7px, 2.1cqi, 10px) !important; line-height: 1 !important; border-radius: 5px !important; }
+
+        /* If bucket tabs exist, they ARE the stats header. Do not render a second row repeating the selected bucket. */
+        .fz-stat-bucket-tabs + .fz-stats .yat-stats-bar { display: none !important; }
+
+        .yat-stats-bar { min-height: 22px !important; padding: 2px 6px !important; margin: 0 !important; font-size: clamp(10px, 3cqi, 15px) !important; line-height: 1 !important; border-radius: 5px !important; }
+        .yat-stats-grid { gap: clamp(5px, 1.35cqi, 8px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
+        .yat-stat { min-height: 0 !important; gap: 2px !important; padding: 3px 4px !important; border-radius: 8px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; }
+        .yat-stat-label { font-size: clamp(10px, 3.1cqi, 15px) !important; line-height: .95 !important; margin: 0 !important; opacity: .62 !important; }
+        .yat-stat-val { font-size: clamp(23px, 7.6cqi, 34px) !important; line-height: .92 !important; margin: 0 !important; }
+        .fz-tab-btn { padding: clamp(3px, 1cqi, 5px) 1px !important; }
 
         @media (min-width: 1120px) {
           body.yat-desktop-docked-drawers.drawer-open { overflow: auto; }
