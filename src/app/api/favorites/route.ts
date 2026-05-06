@@ -5,10 +5,11 @@
 //   Body: { firebaseUid, contactId?, playerId, playerName?, schoolId?, type? }
 //   Persists to PostgreSQL user_favorites and tags the GHL contact.
 //
-// GET    /api/favorites?uid=<firebaseUid>&hsid=<currentHsid>&scope=home|all
+// GET    /api/favorites?uid=<firebaseUid>&hsid=<currentHsid>&scope=home|all|button
 //   Returns favorite player IDs plus one-row-per-player drawer items.
 //   scope=home returns only the user's home school favorites.
 //   scope=all returns only cross-school Super Fan favorites, excluding home school favorites.
+//   scope=button returns all favorites for exact player-button state checks.
 //
 // DELETE /api/favorites
 //   Body: { firebaseUid, playerId }
@@ -179,7 +180,9 @@ export async function GET(req: NextRequest) {
     let favoritePlayers = allFavoritePlayers;
     let lockedReason: string | null = null;
 
-    if (!profile) {
+    if (scope === "button") {
+      favoritePlayers = allFavoritePlayers;
+    } else if (!profile) {
       favoritePlayers = [];
       lockedReason = "NO_PROFILE";
     } else if (!homeHsid) {
