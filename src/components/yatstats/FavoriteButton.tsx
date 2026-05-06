@@ -20,8 +20,6 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
 interface YatUser {
   uid: string;
   contactId?: string | null;
@@ -32,15 +30,10 @@ interface YatUser {
 }
 
 interface FavoriteButtonProps {
-  /** Canonical player ID (player_id in DB). Never slug or display name. */
   playerId: string;
-  /** Display name used only for toast/confirmation messages. */
   playerName: string;
-  /** The hsid of the school this player belongs to. Used for cross-school check. */
   playerHsid: string;
 }
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function readYatUser(): YatUser | null {
   try {
@@ -52,7 +45,6 @@ function readYatUser(): YatUser | null {
   }
 }
 
-/** Read the cached plan from localStorage (written by AccountDrawer after login/register). */
 function readIsSuperfan(): boolean {
   try {
     return localStorage.getItem('yat-plan') === 'superfan';
@@ -61,13 +53,10 @@ function readIsSuperfan(): boolean {
   }
 }
 
-/** Open the Account Drawer (matches the CSS class pattern used by YatInteractivity). */
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-right-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
 }
-
-// ── Component ────────────────────────────────────────────────────────────────
 
 export default function FavoriteButton({
   playerId,
@@ -75,83 +64,70 @@ export default function FavoriteButton({
   playerHsid,
 }: FavoriteButtonProps) {
   const schoolData = useContext(SchoolContext);
-  // Use playerName if provided; fall back to playerId for toast messages
   const displayName = playerName || playerId;
 
   const [isFavorited, setIsFavorited] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // true until we've fetched persisted state
+  const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<string>('');
   const [toastType, setToastType] = useState<'success' | 'info' | 'warn'>('success');
 
-  // ── Show a temporary toast message ────────────────────────────────────────
   const showToast = useCallback((msg: string, type: 'success' | 'info' | 'warn' = 'success') => {
     setToast(msg);
     setToastType(type);
     setTimeout(() => setToast(''), 3500);
   }, []);
 
-  // ── Fetch persisted favorites on mount ────────────────────────────────────
   useEffect(() => {
     const user = readYatUser();
     if (!user?.uid) {
+      setIsFavorited(false);
       setIsLoading(false);
       return;
     }
-    fetch(`/api/favorites?uid=${encodeURIComponent(user.uid)}`)
+
+    setIsLoading(true);
+    fetch(`/api/favorites?uid=${encodeURIComponent(user.uid)}&scope=button`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
-        if (data?.playerIds && Array.isArray(data.playerIds)) {
-          setIsFavorited(data.playerIds.includes(playerId));
-        }
+        const ids = Array.isArray(data?.playerIds) ? data.playerIds.map(String) : [];
+        setIsFavorited(ids.includes(String(playerId)));
       })
-      .catch(() => { /* non-fatal — button just stays in default unsaved state */ })
+      .catch(() => setIsFavorited(false))
       .finally(() => setIsLoading(false));
   }, [playerId]);
 
-  // ── Listen for yat-auth-success (AccountDrawer fires this after login+fav) ─
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
-      // Only update this button if the event matches our player
-      if (!detail.playerId || detail.playerId === playerId) {
+      if (!detail.playerId || String(detail.playerId) === String(playerId)) {
         setIsFavorited(true);
         showToast(`${displayName} added to your favorites`);
       }
     };
     window.addEventListener('yat-auth-success', handler);
     return () => window.removeEventListener('yat-auth-success', handler);
-  }, [playerId, playerName, displayName, showToast]);
+  }, [playerId, displayName, showToast]);
 
-  // ── Core click handler ────────────────────────────────────────────────────
   const handleClick = useCallback(async () => {
     const user = readYatUser();
 
-    // ── Case 1: Visitor (not logged in) ──────────────────────────────────────
-    // uid alone is sufficient — contactId may be null if GHL lookup is still pending.
     if (!user?.uid) {
       try {
         sessionStorage.setItem('pending_fav_pid', playerId);
         sessionStorage.setItem('pending_fav_name', displayName);
-      } catch { /* non-fatal */ }
+      } catch {}
       openAccountDrawer();
       return;
     }
 
     const isSuperfan = readIsSuperfan();
     const currentHsid = schoolData?.hsid ?? playerHsid;
-    // isSameSchool is true only when the user's canonical home_hsid matches the
-    // current school. The previous null wildcard (!user.homeHsid) is removed:
-    // accounts with no home_hsid set are now blocked until data is cleaned up.
     const isSameSchool =
-      user.homeHsid === currentHsid ||   // home matches the shell's school
-      user.homeHsid === playerHsid;      // home matches the player's own school
+      user.homeHsid === currentHsid ||
+      user.homeHsid === playerHsid;
 
-    // ── Case 2: Fan trying to favorite a cross-school player (or no home set) ─
     if (!isSuperfan && !isSameSchool) {
       if (!user.homeHsid) {
-        // Account has no home_hsid — this can happen if registration partially failed.
-        // Opening the account drawer and signing in again will trigger the login API
-        // recovery path which backfills home_hsid from the current microsite.
         showToast(
           'Account setup incomplete. Please sign out and sign back in to finish setting up your account.',
           'warn'
@@ -160,7 +136,7 @@ export default function FavoriteButton({
       } else {
         try {
           sessionStorage.setItem('pending_superfan', '1');
-        } catch { /* non-fatal */ }
+        } catch {}
         showToast(
           'Global favoriting requires a Superfan subscription. Upgrade in your account.',
           'warn'
@@ -170,11 +146,9 @@ export default function FavoriteButton({
       return;
     }
 
-    // ── Case 3: Fan (same school) or Super Fan — toggle favorite ─────────────
     setIsLoading(true);
     try {
       if (isFavorited) {
-        // Remove favorite
         const res = await fetch('/api/favorites', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
@@ -184,11 +158,11 @@ export default function FavoriteButton({
         if (data?.success) {
           setIsFavorited(false);
           showToast(`${displayName} removed from favorites`, 'info');
+          window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {
           showToast('Could not remove favorite. Please try again.', 'warn');
         }
       } else {
-        // Add favorite
         const type = isSuperfan ? 'superfan' : 'fan';
         const res = await fetch('/api/favorites', {
           method: 'POST',
@@ -206,6 +180,7 @@ export default function FavoriteButton({
         if (data?.success) {
           setIsFavorited(true);
           showToast(`${displayName} added to your favorites`);
+          window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {
           showToast('Could not save favorite. Please try again.', 'warn');
         }
@@ -215,9 +190,8 @@ export default function FavoriteButton({
     } finally {
       setIsLoading(false);
     }
-  }, [isFavorited, playerId, playerName, displayName, playerHsid, schoolData, showToast]);
+  }, [isFavorited, playerId, displayName, playerHsid, schoolData, showToast]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
   const toastColors: Record<typeof toastType, string> = {
     success: '#16a34a',
     info: 'var(--muted, #888)',
@@ -258,7 +232,6 @@ export default function FavoriteButton({
         {isFavorited ? 'FAVORITED' : 'FAVORITE'}
       </button>
 
-      {/* Toast notification */}
       {toast && (
         <div
           role="status"
