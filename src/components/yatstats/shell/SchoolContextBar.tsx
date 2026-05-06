@@ -135,6 +135,9 @@ export default function SchoolContextBar({
 
         {isGallery && (
           <>
+            <button id="openFavorites" className="yat-icon-btn" aria-label="Open favorites" title="Open favorites">
+              <i className="ri-star-line" />
+            </button>
             <button
               id="flipAllCards"
               className="yat-icon-btn"
