@@ -7,6 +7,22 @@ import { useEffect } from 'react';
 
 const DOCKED_DRAWER_MIN_WIDTH = 1120;
 
+function showLeftNavigationDrawer() {
+  document.body.classList.add('drawer-left-open', 'drawer-open');
+  document.body.classList.remove('yat-left-search-mode', 'drawer-right-open', 'drawer-account-open');
+}
+
+function showLeftSearchDrawer() {
+  document.body.classList.add('drawer-left-open', 'drawer-open', 'yat-left-search-mode');
+  document.body.classList.remove('drawer-right-open', 'drawer-account-open');
+
+  setTimeout(() => {
+    const input = document.getElementById('gsInput') as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+  }, 60);
+}
+
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
@@ -14,7 +30,7 @@ function openAccountDrawer() {
 
 function requestFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-right-open', 'drawer-account-open');
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
 
@@ -33,7 +49,7 @@ function dockDesktopDrawers() {
   document.body.classList.remove('yat-desktop-docked-drawers');
 
   if (window.innerWidth < DOCKED_DRAWER_MIN_WIDTH) {
-    document.body.classList.remove('drawer-left-open', 'drawer-favorites-open', 'drawer-open');
+    document.body.classList.remove('drawer-left-open', 'drawer-favorites-open', 'drawer-open', 'yat-left-search-mode');
   }
 }
 
@@ -62,7 +78,16 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
     <>
       <div className="yat-topbar">
         <div className="yat-topbar-left">
-          <button id="btnMenu" className="yat-icon-btn" aria-label="Open navigation">
+          <button
+            id="btnMenu"
+            className="yat-icon-btn"
+            aria-label="Open navigation"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              showLeftNavigationDrawer();
+            }}
+          >
             <i className="ri-menu-line" />
           </button>
 
@@ -94,7 +119,21 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
               requestFavoritesDrawer();
             }}
           >
-            <i className="ri-star-line" />
+            <i className="ri-heart-line" />
+          </button>
+
+          <button
+            id="openSearch"
+            className="yat-icon-btn"
+            aria-label="Open global search"
+            title="Open global search"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              showLeftSearchDrawer();
+            }}
+          >
+            <i className="ri-search-line" />
           </button>
         </div>
 
@@ -171,6 +210,42 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
       </div>
 
       <style jsx global>{`
+        #drawerLeft .yat-left-search-content {
+          display: none;
+        }
+
+        body.yat-left-search-mode #drawerLeft .yat-left-nav-content {
+          display: none;
+        }
+
+        body.yat-left-search-mode #drawerLeft .yat-left-search-content {
+          display: block;
+        }
+
+        #drawerLeft .yat-search-drawer-title {
+          margin: 0 0 4px;
+          font: 900 15px/1 Oswald, sans-serif;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+        }
+
+        #drawerLeft .yat-search-drawer-sub {
+          margin: 0 0 12px;
+          color: var(--muted);
+          font: 400 10px/1.35 Oswald, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+        }
+
+        #drawerLeft .yat-gs-input-wrap {
+          margin-bottom: 10px;
+        }
+
+        #drawerLeft .yat-gs-results {
+          max-height: calc(100vh - var(--row1-h) - var(--footerH) - 130px);
+          overflow: auto;
+        }
+
         @media (min-width: 1120px) {
           body.yat-desktop-docked-drawers.drawer-open {
             overflow: auto;
