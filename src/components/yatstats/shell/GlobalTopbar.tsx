@@ -1,6 +1,13 @@
 // src/components/yatstats/shell/GlobalTopbar.tsx
 // Renders Row 1 of the shared shell
 
+'use client';
+
+function openAccountDrawer() {
+  document.body.classList.add('drawer-account-open', 'drawer-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
+}
+
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   return (
     <div className="yat-topbar">
@@ -9,7 +16,16 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <i className="ri-menu-line" />
         </button>
 
-        <button id="btnAccount" className="yat-icon-btn" aria-label="Open account drawer">
+        <button
+          id="btnAccount"
+          className="yat-icon-btn"
+          aria-label="Open account drawer"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openAccountDrawer();
+          }}
+        >
           <i className="ri-user-line" />
         </button>
 
