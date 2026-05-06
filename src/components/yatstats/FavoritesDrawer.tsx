@@ -24,6 +24,54 @@ function readYatUser(): YatUser | null {
   }
 }
 
+function writeYatUserFromSession(session: Record<string, unknown>) {
+  const uid = String(session.uid || '');
+  if (!uid) return null;
+
+  const user: YatUser = {
+    uid,
+    email: typeof session.email === 'string' ? session.email : null,
+    homeHsid: typeof session.homeHsid === 'string' ? session.homeHsid : null,
+    role: typeof session.role === 'string' ? session.role : 'fan',
+  };
+
+  try {
+    localStorage.setItem(
+      'yat-user',
+      JSON.stringify({
+        ...user,
+        contactId: session.contactId ?? null,
+        firstName: session.firstName ?? null,
+        homeSchoolName: session.homeSchoolName ?? null,
+        homeSchoolLocation: session.homeSchoolLocation ?? null,
+        homeMicrositeUrl: session.homeMicrositeUrl ?? null,
+      })
+    );
+    localStorage.setItem('yat-plan', typeof session.plan === 'string' ? session.plan : 'fan');
+  } catch {}
+
+  return user;
+}
+
+async function getCurrentUser(): Promise<YatUser | null> {
+  const localUser = readYatUser();
+  if (localUser?.uid) return localUser;
+
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    const data = await response.json();
+    if (data?.authenticated && data?.session?.uid) {
+      return writeYatUserFromSession(data.session as Record<string, unknown>);
+    }
+  } catch {}
+
+  return null;
+}
+
 function openFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-account-open');
@@ -67,10 +115,13 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const [isSuperfan, setIsSuperfan] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasUser, setHasUser] = useState(false);
+  const [checkedSession, setCheckedSession] = useState(false);
 
   const loadFavorites = useCallback(async (nextScope: 'home' | 'all' = scope) => {
-    const user = readYatUser();
+    setIsLoading(true);
+    const user = await getCurrentUser();
     const uid = user?.uid;
+    setCheckedSession(true);
 
     if (!uid) {
       setHasUser(false);
@@ -79,11 +130,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       setLockedReason('VISITOR');
       setIsSuperfan(false);
       applyFavoriteDeck([], false);
+      setIsLoading(false);
       return;
     }
 
     setHasUser(true);
-    setIsLoading(true);
 
     try {
       const response = await fetch(
@@ -171,7 +222,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const lockedMessage = (() => {
     if (lockedReason === 'SUPERFAN_REQUIRED') return 'All Schools favorites require Super Fan access.';
     if (lockedReason === 'FOREIGN_MICROSITE') return 'Your Home School favorites are connected to your home microsite.';
-    if (lockedReason === 'NO_HOME_HSID') return 'Your account is missing a Home School. Sign out and back in from your home microsite.';
+    if (lockedReason === 'NO_HOME_HSID') return '';
     if (lockedReason === 'LOAD_ERROR') return 'Could not load favorites. Try again.';
     return '';
   })();
@@ -197,7 +248,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         </div>
 
         <div className="yat-drawer-content">
-          {!hasUser ? (
+          {isLoading && !checkedSession ? (
+            <div style={{ color: 'var(--muted)', font: '400 13px/1.45 Oswald, sans-serif' }}>
+              Loading favorites...
+            </div>
+          ) : !hasUser ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ color: 'var(--muted)', font: '400 13px/1.45 Oswald, sans-serif' }}>
                 Sign up or log in to favorite players. Your signup microsite becomes your Home School.
