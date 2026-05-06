@@ -5,8 +5,8 @@
 //   Body: { firebaseUid, contactId?, playerId, playerName?, schoolId?, type? }
 //   Persists to PostgreSQL user_favorites and tags the GHL contact.
 //
-// GET    /api/favorites?uid=<firebaseUid>
-//   Returns the list of player_ids the user has favorited.
+// GET    /api/favorites?uid=<firebaseUid>&hsid=<currentHsid>&scope=home|all
+//   Returns favorite player IDs plus one-row-per-player drawer items.
 //
 // DELETE /api/favorites
 //   Body: { firebaseUid, playerId }
@@ -14,7 +14,76 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
+import { query } from "@/lib/db";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
+
+function isSuperfanProfile(profile: Awaited<ReturnType<typeof getUserProfile>>) {
+  if (!profile) return false;
+  return (
+    profile.plan === "superfan" ||
+    profile.role === "superfan" ||
+    profile.subscription_status === "active" ||
+    profile.subscription_status === "trialing"
+  );
+}
+
+async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
+  if (!playerIds.length) return [];
+
+  const { rows } = await query(
+    `
+    with favorite_rows as (
+      select
+        uf.player_id::text as player_id,
+        uf.school_id::text as favorite_school_id,
+        uf.created_at
+      from public.user_favorites uf
+      where uf.firebase_uid = $1
+        and uf.player_id = any($2::text[])
+    ),
+    stage_one as (
+      select distinct on (f.playerid::text)
+        f.playerid::text as player_id,
+        f.hsid::text as stage_hsid,
+        coalesce(
+          nullif(trim(f.display_name), ''),
+          nullif(trim(concat_ws(' ', f.first_name, f.last_name)), ''),
+          f.playerid::text
+        ) as display_name,
+        f.current_team_name,
+        f.current_org_or_conference_name,
+        f.level_label,
+        f.status_label
+      from public.flip_card_front_stage f
+      where f.playerid::text = any($2::text[])
+      order by f.playerid::text, f.hsid::text
+    ),
+    tbc_one as (
+      select
+        p.playerid::text as player_id,
+        nullif(trim(concat_ws(' ', p.firstname, p.lastname)), '') as tbc_display_name
+      from public.tbc_players_raw p
+      where p.playerid::text = any($2::text[])
+    )
+    select
+      fr.player_id,
+      coalesce(fr.favorite_school_id, s.stage_hsid) as school_id,
+      coalesce(s.display_name, t.tbc_display_name, fr.player_id) as display_name,
+      s.current_team_name,
+      s.current_org_or_conference_name,
+      s.level_label,
+      s.status_label,
+      fr.created_at
+    from favorite_rows fr
+    left join stage_one s on s.player_id = fr.player_id
+    left join tbc_one t on t.player_id = fr.player_id
+    order by coalesce(s.display_name, t.tbc_display_name, fr.player_id)
+    `,
+    [firebaseUid, playerIds]
+  );
+
+  return rows;
+}
 
 // ── POST — save a favorite ───────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -39,7 +108,7 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
-    const isSuperfan = profile.plan === "superfan";
+    const isSuperfan = isSuperfanProfile(profile);
     if (!isSuperfan) {
       if (!profile.home_hsid) {
         return NextResponse.json(
@@ -105,31 +174,41 @@ export async function GET(req: NextRequest) {
     }
 
     const favorites = await getFavorites(firebaseUid);
-    const currentHsid = searchParams.get("hsid"); // optional: current microsite context
+    const currentHsid = searchParams.get("hsid");
+    const scope = searchParams.get("scope") || "home";
 
-    // For Fans (non-Super Fan), filter favorites to only return those from their home school.
-    // This prevents cross-school favorites (created before enforcement) from
-    // appearing in the gallery filter on the wrong microsite.
     const profile = await getUserProfile(firebaseUid);
-    let playerIds: string[];
-    if (profile && profile.plan !== "superfan" && profile.home_hsid) {
-      if (currentHsid && currentHsid !== profile.home_hsid) {
-        // User is browsing a foreign microsite — they have no favorites here
-        playerIds = [];
+    const isSuperfan = isSuperfanProfile(profile);
+
+    let visibleFavorites = favorites;
+    let lockedReason: string | null = null;
+
+    if (!isSuperfan) {
+      if (!profile?.home_hsid) {
+        visibleFavorites = [];
+        lockedReason = "NO_HOME_HSID";
+      } else if (scope === "all") {
+        visibleFavorites = [];
+        lockedReason = "SUPERFAN_REQUIRED";
+      } else if (currentHsid && currentHsid !== profile.home_hsid) {
+        visibleFavorites = [];
+        lockedReason = "FOREIGN_MICROSITE";
       } else {
-        // Return only favorites from their home school
-        playerIds = favorites
-          .filter((f) => !f.school_id || f.school_id === profile.home_hsid)
-          .map((f) => f.player_id);
+        visibleFavorites = favorites.filter((f) => !f.school_id || f.school_id === profile.home_hsid);
       }
-    } else {
-      // Superfan or null home_hsid (legacy): return all favorites
-      playerIds = favorites.map((f) => f.player_id);
     }
+
+    const playerIds = visibleFavorites.map((f) => f.player_id);
+    const favoritePlayers = await getFavoriteDetails(firebaseUid, playerIds);
 
     return NextResponse.json({
       success: true,
       playerIds,
+      favoritePlayers,
+      favorites: favoritePlayers,
+      scope,
+      lockedReason,
+      isSuperfan,
       homeHsid: profile?.home_hsid ?? null,
       plan: profile?.plan ?? "fan",
     });
