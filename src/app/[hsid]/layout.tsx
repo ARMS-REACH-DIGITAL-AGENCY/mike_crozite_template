@@ -10,14 +10,9 @@ import {
   getSchoolByUrl,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
-  getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import {
-  getPlayerNowImageUrl,
-  getPlayerThenImageUrl,
-} from '@/lib/playerImage';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
 import { notFound } from 'next/navigation';
@@ -29,9 +24,9 @@ import YatStyles from '@/components/yatstats/YatStyles';
 import YatInteractivity from '@/components/yatstats/YatInteractivity';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
-import GlobalSearchModal from '@/components/yatstats/GlobalSearchModal';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
+import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -136,7 +131,7 @@ export async function generateMetadata({
 
   return {
     title: `${schoolName} | YAT?STATS`,
-        icons: {
+    icons: {
       icon: [
         { url: crestUrl, type: 'image/png', sizes: '192x192' },
         { url: crestUrl, type: 'image/png', sizes: '512x512' },
@@ -212,10 +207,10 @@ export default async function HsidLayout({
           ? Number(school.yatstats_national_rank)
           : null,
 
- stateRank:
-  school.yatstats_state_rank != null
-    ? String(school.yatstats_state_rank).trim()
-    : null,
+    stateRank:
+      school.yatstats_state_rank != null
+        ? String(school.yatstats_state_rank).trim()
+        : null,
 
     allTime:
       typeof school.atnla === 'number'
@@ -231,13 +226,13 @@ export default async function HsidLayout({
   };
 
   const [allStageRows, rawAllTimeRoster] = await Promise.all([
-  getFlipCardFrontStageByHsid(resolvedHsid),
-  getAllTimeRosterByHsid(resolvedHsid),
-]);
+    getFlipCardFrontStageByHsid(resolvedHsid),
+    getAllTimeRosterByHsid(resolvedHsid),
+  ]);
 
-const statusFilterOptions = buildStatusFilterOptions(
-  allStageRows as Record<string, unknown>[]
-);
+  const statusFilterOptions = buildStatusFilterOptions(
+    allStageRows as Record<string, unknown>[]
+  );
   const stripStageMap = new Map(
     (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
   );
@@ -256,21 +251,21 @@ const statusFilterOptions = buildStatusFilterOptions(
       stripMerged.push({ ...p });
     }
   }
-const allStripRows = sortActivePlayers(stripMerged);
+  const allStripRows = sortActivePlayers(stripMerged);
 
   const stripPlayers = allStripRows.map((p) => {
-  const playerId = String(p.playerid);
-  const status = String(p.status_label || p.status || '').toUpperCase().trim();
+    const playerId = String(p.playerid);
+    const status = String(p.status_label || p.status || '').toUpperCase().trim();
 
-  return {
-    id: playerId,
-    name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-    image: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
-    nowImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
-    thenImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`,
-    status,
-  };
-});
+    return {
+      id: playerId,
+      name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
+      image: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
+      nowImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
+      thenImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`,
+      status,
+    };
+  });
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
@@ -300,12 +295,12 @@ const allStripRows = sortActivePlayers(stripMerged);
               data-home-nav="true"
               style={{ display: 'none' }}
             >
-	              <img
-	                id="drawerHomeCrestImg"
-	                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-	                alt="Home school crest"
-	                className="yat-drawer-crest-thumb"
-	              />
+              <img
+                id="drawerHomeCrestImg"
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt="Home school crest"
+                className="yat-drawer-crest-thumb"
+              />
               <span>MY HOME SCHOOL</span>
             </a>
 
@@ -351,51 +346,51 @@ const allStripRows = sortActivePlayers(stripMerged);
       <AccountDrawer subdomain={subdomain} />
       <FavoritesDrawer currentHsid={resolvedHsid} />
 
-   <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
-  <div
-    className="yat-drawer-header"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '10px',
-      padding: '12px 14px',
-      borderBottom: '1px solid var(--line)',
-    }}
-  >
-    <h3 style={{ margin: 0 }}>FILTERS</h3>
+      <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
+        <div
+          className="yat-drawer-header"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            padding: '12px 14px',
+            borderBottom: '1px solid var(--line)',
+          }}
+        >
+          <h3 style={{ margin: 0 }}>SORT &amp; FILTER</h3>
 
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <button
-        id="filtersReset"
-        className="yat-icon-btn"
-        aria-label="Reset filters"
-        title="Reset filters"
-      >
-        <i className="ri-restart-line" />
-      </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              id="filtersReset"
+              className="yat-icon-btn"
+              aria-label="Reset filters"
+              title="Reset filters"
+            >
+              <i className="ri-restart-line" />
+            </button>
 
-      <button className="yat-icon-btn" id="closeFilters" aria-label="Close filters">
-        <i className="ri-close-line" />
-      </button>
-    </div>
-  </div>
+            <button className="yat-icon-btn" id="closeFilters" aria-label="Close filters">
+              <i className="ri-close-line" />
+            </button>
+          </div>
+        </div>
 
-  <div className="yat-drawer-content" id="filters">
+        <div className="yat-drawer-content" id="filters">
           <details className="yat-filter-group" open>
-  			<summary>By Status</summary>
-  			<div className="yat-filter-options" id="filterStatus">
-   			 <label className="yat-filter-select-all">
-     			 <input type="checkbox" data-select-all="filterStatus" /> Select All
-   			 </label>
+            <summary>By Status</summary>
+            <div className="yat-filter-options" id="filterStatus">
+              <label className="yat-filter-select-all">
+                <input type="checkbox" data-select-all="filterStatus" /> Select All
+              </label>
 
-    		{statusFilterOptions.map((s) => (
-      			<label key={s}>
-      			  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
-      			</label>
-    		))}
-		  </div>
-		</details>
+              {statusFilterOptions.map((s) => (
+                <label key={s}>
+                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
+                </label>
+              ))}
+            </div>
+          </details>
 
           <details className="yat-filter-group">
             <summary>By Graduating Class</summary>
@@ -460,6 +455,7 @@ const allStripRows = sortActivePlayers(stripMerged);
 
       <div id="drawerMask" className="yat-drawer-mask" />
 
+      <SortFilterDrawerControls />
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
