@@ -143,7 +143,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         #drawerLeft .yat-gs-input-wrap { margin-bottom: 10px; }
         #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--footerH) - 130px); overflow: auto; }
 
-        /* FunZone readability pass: remove redundant stats headers and restore bigger mobile stat cells. */
+        /* FunZone readability pass: one stat header row, tighter CTA, larger readable stat values. */
         .fz-cta-strip { min-height: 34px !important; max-height: 42px !important; gap: clamp(2px, 1cqi, 5px) !important; padding: clamp(2px, .8cqi, 4px) clamp(4px, 1.6cqi, 8px) !important; }
         .fz-yati-img { width: clamp(22px, 6.5cqi, 34px) !important; max-height: 34px !important; align-self: center !important; }
         .fz-bubble { min-height: 24px !important; display: flex !important; align-items: center !important; padding: clamp(2px, .8cqi, 4px) clamp(4px, 1.5cqi, 8px) !important; border-radius: 6px !important; }
@@ -154,7 +154,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         .fz-stat-bucket-tabs { display: flex !important; flex-wrap: nowrap !important; gap: 3px !important; min-height: 22px !important; }
         .fz-stat-bucket-btn { flex: 1 1 0 !important; height: 22px !important; min-height: 22px !important; padding: 2px 5px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: clamp(7px, 2.1cqi, 10px) !important; line-height: 1 !important; border-radius: 5px !important; }
 
-        /* If bucket tabs exist, they ARE the stats header. Do not render a second row repeating the selected bucket. */
         .fz-stat-bucket-tabs + .fz-stats .yat-stats-bar { display: none !important; }
 
         .yat-stats-bar { min-height: 22px !important; padding: 2px 6px !important; margin: 0 !important; font-size: clamp(10px, 3cqi, 15px) !important; line-height: 1 !important; border-radius: 5px !important; }
