@@ -31,6 +31,16 @@ function statValue(value: unknown): string {
   return cleaned;
 }
 
+function truthyFlag(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    return v === "true" || v === "t" || v === "1" || v === "yes" || v === "y";
+  }
+  return false;
+}
+
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
   // level_label comes from flip_card_front_stage (already normalized).
   // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
@@ -59,6 +69,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   const playerWithSlug = { ...p, slug };
   const gp = statValue(p.g || p.pg);
+  const has2026Stats = truthyFlag(p.has_2026_stats) || (!isAllTime && status === "ACTIVE" && gp !== "");
 
   return (
        <article
@@ -71,6 +82,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-gradclass={gc}
       data-rosteryears={Array.isArray(rosterYears) ? rosterYears.join(",") : ""}
       data-status={status}
+      data-has-2026-stats={has2026Stats ? "true" : "false"}
       data-slug={slug}
       data-stat-gp={gp}
       data-stat-avg={statValue(p.avg)}
