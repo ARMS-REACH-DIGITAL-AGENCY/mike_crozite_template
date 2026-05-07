@@ -159,7 +159,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         .fz-bubble { min-height: 20px !important; display: flex !important; align-items: center !important; padding: clamp(2px, .8cqw, 4px) clamp(4px, 1.5cqw, 8px) !important; border-radius: 6px !important; }
         .fz-bubble-text { font-size: clamp(5px, 2.7cqw, 8px) !important; line-height: 1.05 !important; }
         .fz-panel { padding: clamp(3px, 1.6cqw, 6px) clamp(4px, 1.8cqw, 8px) !important; }
-        .fz-stats-shell, .fz-stats { gap: clamp(2px, 1.35cqw, 5px) !important; }
+        .fz-stats-shell, .fz-stats { gap: clamp(3px, 1.55cqw, 6px) !important; }
 
         .fz-stat-bucket-tabs { display: flex !important; flex-wrap: nowrap !important; gap: 2px !important; min-height: 18px !important; }
         .fz-stat-bucket-btn { flex: 1 1 0 !important; height: 18px !important; min-height: 18px !important; padding: 1px 3px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: clamp(5px, 3cqw, 8px) !important; line-height: 1 !important; border-radius: 5px !important; }
@@ -167,11 +167,20 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         .fz-stat-bucket-tabs + .fz-stats .yat-stats-bar { display: none !important; }
 
         .yat-stats-bar { min-height: 18px !important; padding: 2px 5px !important; margin: 0 !important; font-size: clamp(7px, 3.6cqw, 11px) !important; line-height: 1 !important; border-radius: 5px !important; }
-        .yat-stats-grid { gap: clamp(2px, 1.45cqw, 5px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
-        .yat-stat { min-height: 0 !important; gap: 0 !important; padding: 1px 2px !important; border-radius: 6px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important; }
-        .yat-stat-label { font-size: clamp(6px, 3.1cqw, 9px) !important; line-height: .9 !important; margin: 0 !important; opacity: .62 !important; white-space: nowrap !important; }
-        .yat-stat-val { font-size: clamp(16px, 10.5cqw, 24px) !important; line-height: .88 !important; margin: 0 !important; letter-spacing: -.03em !important; white-space: nowrap !important; max-width: 100% !important; }
+        .yat-stats-grid { gap: clamp(3px, 1.7cqw, 6px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
+        .yat-stat { min-height: 0 !important; gap: 2px !important; padding: 2px 3px !important; border-radius: 6px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important; }
+        .yat-stat-label { font-size: clamp(6px, 3cqw, 9px) !important; line-height: .95 !important; margin: 0 !important; opacity: .62 !important; white-space: nowrap !important; }
+        .yat-stat-val { font-size: clamp(15px, 9.5cqw, 22px) !important; line-height: .9 !important; margin: 0 !important; letter-spacing: -.03em !important; white-space: nowrap !important; max-width: 100% !important; }
         .fz-tab-btn { padding: clamp(2px, 1cqw, 4px) 1px !important; }
+
+        .yat-footer {
+          left: 0 !important;
+          right: 0 !important;
+          width: 100% !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          z-index: 70 !important;
+        }
 
         @media (min-width: 1240px) {
           body.drawer-open.drawer-left-open .yat-row2-shell,
@@ -214,9 +223,8 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers .yat-row3-shell,
           body.yat-desktop-docked-drawers .yat-row4-shell,
           body.yat-desktop-docked-drawers .yat-row5-shell,
-          body.yat-desktop-docked-drawers .yat-row6-shell,
-          body.yat-desktop-docked-drawers .yat-footer { margin-left: clamp(240px, 17vw, 290px); margin-right: clamp(280px, 19vw, 340px); }
-          body.yat-desktop-docked-drawers .yat-footer { left: clamp(240px, 17vw, 290px); right: clamp(280px, 19vw, 340px); width: auto; margin-left: 0; margin-right: 0; }
+          body.yat-desktop-docked-drawers .yat-row6-shell { margin-left: clamp(240px, 17vw, 290px); margin-right: clamp(280px, 19vw, 340px); }
+          body.yat-desktop-docked-drawers .yat-footer { left: 0 !important; right: 0 !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
           body.yat-desktop-docked-drawers .yat-schoolrow,
           body.yat-desktop-docked-drawers .gallery-strip,
           body.yat-desktop-docked-drawers .yat-grid,
