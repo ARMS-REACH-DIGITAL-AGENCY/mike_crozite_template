@@ -354,40 +354,18 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
 
 function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; currentHsid: string }) {
   if (!players.length) {
-    return <div style={{ color: 'var(--muted)', font: '400 12px/1.45 Oswald, sans-serif' }}>No favorite players found yet.</div>;
+    return <div className="yat-favorite-empty">No favorite players found yet.</div>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="yat-favorite-link-list">
       {players.map((player) => {
         const playerId = String(player.player_id);
         const name = String(player.display_name || playerId);
         const slug = playerSlug(name);
         return (
-          <a
-            key={`${player.player_id}-${player.school_id || ''}`}
-            href={`/${player.school_id || currentHsid}/player/${player.player_id}/${slug}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              minHeight: 40,
-              padding: '7px 0',
-              borderBottom: '1px solid var(--line)',
-              font: '700 13px Oswald, sans-serif',
-              textTransform: 'uppercase',
-              color: 'var(--fg)',
-            }}
-          >
-            <img
-              src={playerHeadshotUrl(playerId)}
-              alt=""
-              aria-hidden="true"
-              style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 3, flex: '0 0 auto', background: 'rgba(255,255,255,.08)' }}
-              onError={(event) => {
-                event.currentTarget.style.visibility = 'hidden';
-              }}
-            />
+          <a key={`${player.player_id}-${player.school_id || ''}`} href={`/${player.school_id || currentHsid}/player/${player.player_id}/${slug}`} className="yat-favorite-player-link">
+            <img src={playerHeadshotUrl(playerId)} alt="" aria-hidden="true" className="yat-favorite-thumb" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
             <span>{name}</span>
           </a>
         );
@@ -550,39 +528,39 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
         <div className="yat-drawer-content">
           {isLoading && !checkedSession ? (
-            <div style={{ color: 'var(--muted)', font: '400 13px/1.45 Oswald, sans-serif' }}>Loading favorites...</div>
+            <div className="yat-favorite-empty">Loading favorites...</div>
           ) : !hasUser ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ color: 'var(--muted)', font: '400 13px/1.45 Oswald, sans-serif' }}>Sign up or log in to favorite players. Your signup microsite becomes your Home School.</div>
+              <div className="yat-favorite-empty">Sign up or log in to favorite players. Your signup microsite becomes your Home School.</div>
               <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--fg)', color: 'var(--bg)', font: '700 12px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
                 Sign Up / Log In
               </button>
             </div>
           ) : (
             <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, font: '700 12px Oswald, sans-serif', textTransform: 'uppercase' }}>
+              <label className="yat-favorite-gallery-toggle">
                 <input type="checkbox" checked={showGalleryView} onChange={(event) => handleGalleryViewChange(event.target.checked)} />
                 Flip Card Gallery View
               </label>
 
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => setShowSuperfanList(false)} style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, background: !showSuperfanList ? 'rgba(255,255,255,.14)' : 'transparent', color: 'var(--fg)', font: '700 11px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
+                <button type="button" onClick={() => setShowSuperfanList(false)} className={!showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
                   Home Team Profile List
                 </button>
-                <button type="button" onClick={() => setShowSuperfanList(true)} style={{ flex: 1, padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, background: showSuperfanList ? 'rgba(255,255,255,.14)' : 'transparent', color: isSuperfan ? 'var(--fg)' : '#ffd166', font: '700 11px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
+                <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
                   Super Fan Profile List
                 </button>
               </div>
 
-              {lockedMessage && <div style={{ color: '#ffd166', font: '400 12px/1.45 Oswald, sans-serif' }}>{lockedMessage}</div>}
+              {lockedMessage && <div className="yat-favorite-lock-message">{lockedMessage}</div>}
 
               {!showSuperfanList ? (
-                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4 }}>
+                <div className="yat-favorite-list-wrap">
                   <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
                 </div>
               ) : !isSuperfan ? (
-                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ color: '#ffd166', font: '700 13px/1.45 Oswald, sans-serif', textTransform: 'uppercase' }}>
+                <div className="yat-favorite-list-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div className="yat-favorite-lock-message">
                     Super Fan access unlocks cross-school favorite player lists.
                   </div>
                   <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: '#ffd166', color: '#111', font: '700 12px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
@@ -590,7 +568,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                   </button>
                 </div>
               ) : (
-                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="yat-favorite-list-wrap yat-favorite-two-col">
                   <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
                   <FavoriteLinks players={superfanPlayers} currentHsid={currentHsid} />
                 </div>
@@ -603,6 +581,92 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       <style jsx global>{`
         body.drawer-favorites-open #drawerFavorites { transform: translateX(0); }
         body.drawer-favorites-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
+
+        #drawerFavorites .yat-favorite-empty,
+        #drawerFavorites .yat-favorite-lock-message {
+          color: var(--muted);
+          font: 500 13px/1.45 Oswald, sans-serif;
+          letter-spacing: .02em;
+        }
+
+        #drawerFavorites .yat-favorite-lock-message {
+          color: #ffd166;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+
+        #drawerFavorites .yat-favorite-gallery-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 38px;
+          border-bottom: 1px solid var(--line);
+          font: 700 13px/1 Oswald, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+        }
+
+        #drawerFavorites .yat-favorite-tab {
+          flex: 1;
+          min-height: 38px;
+          padding: 8px 10px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          background: transparent;
+          color: var(--fg);
+          font: 700 12px/1.1 Oswald, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+
+        #drawerFavorites .yat-favorite-tab.active {
+          background: rgba(255,255,255,.14);
+        }
+
+        #drawerFavorites .yat-favorite-list-wrap {
+          border-top: 1px solid var(--line);
+          margin-top: 4px;
+          padding-top: 12px;
+        }
+
+        #drawerFavorites .yat-favorite-two-col {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+
+        #drawerFavorites .yat-favorite-link-list {
+          display: flex;
+          flex-direction: column;
+        }
+
+        #drawerFavorites .yat-favorite-player-link {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-height: 46px;
+          padding: 8px 0;
+          border-bottom: 1px solid var(--line);
+          color: var(--fg);
+          font: 700 13px/1.1 Oswald, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          text-decoration: none;
+        }
+
+        #drawerFavorites .yat-favorite-player-link:hover {
+          color: #ffd166;
+        }
+
+        #drawerFavorites .yat-favorite-thumb {
+          width: 28px;
+          height: 28px;
+          object-fit: cover;
+          border-radius: 3px;
+          flex: 0 0 auto;
+          background: rgba(255,255,255,.08);
+        }
       `}</style>
     </>
   );
