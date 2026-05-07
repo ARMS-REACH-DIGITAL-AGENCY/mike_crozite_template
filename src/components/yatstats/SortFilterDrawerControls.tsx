@@ -51,7 +51,13 @@ function getNumericStat(card: HTMLElement, key: string): number | null {
   if (!cleaned) return null;
 
   const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (!Number.isFinite(parsed)) return null;
+
+  return parsed;
+}
+
+function hasCurrentSeasonStats(card: HTMLElement): boolean {
+  return card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true';
 }
 
 function getVisibleCards(section: HTMLElement): HTMLElement[] {
@@ -124,12 +130,17 @@ function applyFlipCardSort() {
 
   const metric = checked.value;
   const sortedCards = [...cards].sort((a, b) => {
-    const av = getNumericStat(a, metric);
-    const bv = getNumericStat(b, metric);
+    const aCurrent = hasCurrentSeasonStats(a);
+    const bCurrent = hasCurrentSeasonStats(b);
     const aw = getCardWrap(a);
     const bw = getCardWrap(b);
     const ai = Number(aw.dataset.sortOriginalIndex || 0);
     const bi = Number(bw.dataset.sortOriginalIndex || 0);
+
+    if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+
+    const av = aCurrent ? getNumericStat(a, metric) : null;
+    const bv = bCurrent ? getNumericStat(b, metric) : null;
 
     if (av == null && bv == null) return ai - bi;
     if (av == null) return 1;
@@ -151,7 +162,7 @@ function applyFlipCardSort() {
 
   if (status) {
     const label = checked.dataset.label || checked.value.toUpperCase();
-    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Players without that stat stay at the bottom.`;
+    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Only players with 2026 stats are ranked first; everyone else stays below them.`;
   }
 }
 
@@ -173,8 +184,8 @@ function installSortFilterDrawer() {
       <summary>Sort Cards By Stats</summary>
       <div class="yat-sort-controls">
         <div class="yat-sort-direction" role="group" aria-label="Sort direction">
-          <label><input type="radio" name="yat-sort-direction" value="desc" checked /> High to Low</label>
-          <label><input type="radio" name="yat-sort-direction" value="asc" /> Low to High</label>
+          <label><input type="radio" name="yat-sort-direction" value="desc" checked /> <span>High to Low</span></label>
+          <label><input type="radio" name="yat-sort-direction" value="asc" /> <span>Low to High</span></label>
         </div>
         <div class="yat-sort-options">
           ${SORT_METRICS.map((metric) => `
