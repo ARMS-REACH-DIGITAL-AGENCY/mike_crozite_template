@@ -5,7 +5,8 @@
 
 import { useEffect } from 'react';
 
-const DOCKED_DRAWER_MIN_WIDTH = 1120;
+const DOCKED_DRAWER_AUTO_WIDTH = 1600;
+const DOCKED_DRAWER_MIN_WIDTH = 1240;
 
 function showLeftNavigationDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open');
@@ -37,25 +38,33 @@ function requestFavoritesDrawer() {
 function dockDesktopDrawers() {
   if (typeof window === 'undefined') return;
 
-  const shouldDock = window.innerWidth >= DOCKED_DRAWER_MIN_WIDTH;
+  const canAutoDockBothDrawers = window.innerWidth >= DOCKED_DRAWER_AUTO_WIDTH;
+  const mustCollapseDrawers = window.innerWidth < DOCKED_DRAWER_MIN_WIDTH;
 
-  if (shouldDock) {
-    document.body.classList.add('yat-desktop-docked-drawers', 'drawer-left-open', 'drawer-favorites-open', 'drawer-open');
+  document.body.classList.toggle('yat-desktop-docked-drawers', canAutoDockBothDrawers);
+
+  if (canAutoDockBothDrawers) {
+    document.body.classList.add('drawer-left-open', 'drawer-favorites-open', 'drawer-open');
     document.body.classList.remove('drawer-account-open', 'drawer-right-open');
     window.dispatchEvent(new CustomEvent('yat:open-favorites'));
     return;
   }
 
-  document.body.classList.remove('yat-desktop-docked-drawers');
-
-  if (window.innerWidth < DOCKED_DRAWER_MIN_WIDTH) {
+  if (mustCollapseDrawers) {
     if (document.body.classList.contains('yat-left-search-mode')) {
       document.body.classList.add('drawer-left-open', 'drawer-open');
       document.body.classList.remove('drawer-favorites-open', 'drawer-right-open', 'drawer-account-open');
       return;
     }
 
-    document.body.classList.remove('drawer-left-open', 'drawer-favorites-open', 'drawer-open', 'yat-left-search-mode');
+    document.body.classList.remove(
+      'drawer-left-open',
+      'drawer-favorites-open',
+      'drawer-right-open',
+      'drawer-account-open',
+      'drawer-open',
+      'yat-left-search-mode',
+    );
   }
 }
 
@@ -143,33 +152,60 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         #drawerLeft .yat-gs-input-wrap { margin-bottom: 10px; }
         #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--footerH) - 130px); overflow: auto; }
 
-        /* Flip-card backs must scale from the CARD width, not the browser width.
-           With both drawers open, a 1150px browser can leave only about 600px for the gallery.
-           The card is now the sizing container, so browser zoom and drawer width no longer inflate the stat text. */
         .yat-card { container-type: inline-size; container-name: yat-card; }
 
-        .fz-cta-strip { min-height: 30px !important; max-height: 38px !important; gap: clamp(2px, 1cqw, 5px) !important; padding: clamp(2px, .8cqw, 4px) clamp(4px, 1.6cqw, 8px) !important; }
-        .fz-yati-img { width: clamp(20px, 10cqw, 31px) !important; max-height: 31px !important; align-self: center !important; }
-        .fz-bubble { min-height: 22px !important; display: flex !important; align-items: center !important; padding: clamp(2px, .8cqw, 4px) clamp(4px, 1.5cqw, 8px) !important; border-radius: 6px !important; }
-        .fz-bubble-text { font-size: clamp(5px, 2.9cqw, 8px) !important; line-height: 1.1 !important; }
-        .fz-panel { padding: clamp(4px, 1.8cqw, 7px) clamp(5px, 2cqw, 9px) !important; }
-        .fz-stats-shell, .fz-stats { gap: clamp(3px, 1.6cqw, 6px) !important; }
+        .fz-cta-strip { min-height: 28px !important; max-height: 36px !important; gap: clamp(2px, 1cqw, 5px) !important; padding: clamp(2px, .8cqw, 4px) clamp(4px, 1.6cqw, 8px) !important; }
+        .fz-yati-img { width: clamp(18px, 9cqw, 28px) !important; max-height: 28px !important; align-self: center !important; }
+        .fz-bubble { min-height: 20px !important; display: flex !important; align-items: center !important; padding: clamp(2px, .8cqw, 4px) clamp(4px, 1.5cqw, 8px) !important; border-radius: 6px !important; }
+        .fz-bubble-text { font-size: clamp(5px, 2.7cqw, 8px) !important; line-height: 1.05 !important; }
+        .fz-panel { padding: clamp(3px, 1.6cqw, 6px) clamp(4px, 1.8cqw, 8px) !important; }
+        .fz-stats-shell, .fz-stats { gap: clamp(2px, 1.35cqw, 5px) !important; }
 
-        .fz-stat-bucket-tabs { display: flex !important; flex-wrap: nowrap !important; gap: 3px !important; min-height: 20px !important; }
-        .fz-stat-bucket-btn { flex: 1 1 0 !important; height: 20px !important; min-height: 20px !important; padding: 2px 4px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: clamp(6px, 3.4cqw, 9px) !important; line-height: 1 !important; border-radius: 5px !important; }
+        .fz-stat-bucket-tabs { display: flex !important; flex-wrap: nowrap !important; gap: 2px !important; min-height: 18px !important; }
+        .fz-stat-bucket-btn { flex: 1 1 0 !important; height: 18px !important; min-height: 18px !important; padding: 1px 3px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: clamp(5px, 3cqw, 8px) !important; line-height: 1 !important; border-radius: 5px !important; }
 
         .fz-stat-bucket-tabs + .fz-stats .yat-stats-bar { display: none !important; }
 
-        .yat-stats-bar { min-height: 19px !important; padding: 2px 5px !important; margin: 0 !important; font-size: clamp(8px, 4.1cqw, 12px) !important; line-height: 1 !important; border-radius: 5px !important; }
-        .yat-stats-grid { gap: clamp(3px, 1.8cqw, 6px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
-        .yat-stat { min-height: 0 !important; gap: 1px !important; padding: 2px 3px !important; border-radius: 7px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important; }
-        .yat-stat-label { font-size: clamp(7px, 3.8cqw, 10px) !important; line-height: .92 !important; margin: 0 !important; opacity: .62 !important; white-space: nowrap !important; }
-        .yat-stat-val { font-size: clamp(18px, 12.2cqw, 27px) !important; line-height: .9 !important; margin: 0 !important; letter-spacing: -.02em !important; white-space: nowrap !important; max-width: 100% !important; }
-        .fz-tab-btn { padding: clamp(3px, 1.2cqw, 5px) 1px !important; }
+        .yat-stats-bar { min-height: 18px !important; padding: 2px 5px !important; margin: 0 !important; font-size: clamp(7px, 3.6cqw, 11px) !important; line-height: 1 !important; border-radius: 5px !important; }
+        .yat-stats-grid { gap: clamp(2px, 1.45cqw, 5px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
+        .yat-stat { min-height: 0 !important; gap: 0 !important; padding: 1px 2px !important; border-radius: 6px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important; }
+        .yat-stat-label { font-size: clamp(6px, 3.1cqw, 9px) !important; line-height: .9 !important; margin: 0 !important; opacity: .62 !important; white-space: nowrap !important; }
+        .yat-stat-val { font-size: clamp(16px, 10.5cqw, 24px) !important; line-height: .88 !important; margin: 0 !important; letter-spacing: -.03em !important; white-space: nowrap !important; max-width: 100% !important; }
+        .fz-tab-btn { padding: clamp(2px, 1cqw, 4px) 1px !important; }
 
-        @media (min-width: 1120px) {
-          body.yat-desktop-docked-drawers.drawer-open { overflow: auto; }
+        @media (min-width: 1240px) {
+          body.drawer-open.drawer-left-open .yat-row2-shell,
+          body.drawer-open.drawer-left-open .yat-row3-shell,
+          body.drawer-open.drawer-left-open .yat-row4-shell,
+          body.drawer-open.drawer-left-open .yat-row5-shell,
+          body.drawer-open.drawer-left-open .yat-row6-shell {
+            margin-left: clamp(240px, 17vw, 290px);
+          }
+
+          body.drawer-open.drawer-favorites-open .yat-row2-shell,
+          body.drawer-open.drawer-favorites-open .yat-row3-shell,
+          body.drawer-open.drawer-favorites-open .yat-row4-shell,
+          body.drawer-open.drawer-favorites-open .yat-row5-shell,
+          body.drawer-open.drawer-favorites-open .yat-row6-shell {
+            margin-right: clamp(280px, 19vw, 340px);
+          }
+
+          body.drawer-open.drawer-left-open #drawerLeft,
+          body.drawer-open.drawer-favorites-open #drawerFavorites {
+            top: var(--row1-h);
+            bottom: var(--footerH);
+            height: auto;
+            z-index: 55;
+            transform: translateX(0) !important;
+          }
+
+          body.drawer-open.drawer-left-open #drawerLeft { width: clamp(240px, 17vw, 290px); }
+          body.drawer-open.drawer-favorites-open #drawerFavorites { width: clamp(280px, 19vw, 340px); }
+
+          body.drawer-open .yat-drawer-mask,
           body.yat-desktop-docked-drawers .yat-drawer-mask { display: none !important; opacity: 0 !important; pointer-events: none !important; }
+
+          body.yat-desktop-docked-drawers.drawer-open { overflow: auto; }
           body.yat-desktop-docked-drawers #drawerLeft,
           body.yat-desktop-docked-drawers #drawerFavorites { top: var(--row1-h); bottom: var(--footerH); height: auto; z-index: 55; transform: translateX(0) !important; }
           body.yat-desktop-docked-drawers #drawerLeft { width: clamp(240px, 17vw, 290px); }
@@ -190,15 +226,28 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
         }
 
-        @media (min-width: 1120px) and (max-width: 1500px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        @media (min-width: 1120px) and (max-width: 1280px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-        @media (max-width: 1119px) {
+        @media (min-width: 1600px) and (max-width: 1849px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        @media (min-width: 1240px) and (max-width: 1599px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 1239px) {
           body.yat-desktop-docked-drawers .yat-row2-shell,
           body.yat-desktop-docked-drawers .yat-row3-shell,
           body.yat-desktop-docked-drawers .yat-row4-shell,
           body.yat-desktop-docked-drawers .yat-row5-shell,
           body.yat-desktop-docked-drawers .yat-row6-shell,
-          body.yat-desktop-docked-drawers .yat-footer { margin-left: 0; margin-right: 0; }
+          body.yat-desktop-docked-drawers .yat-footer,
+          body.drawer-open.drawer-left-open .yat-row2-shell,
+          body.drawer-open.drawer-left-open .yat-row3-shell,
+          body.drawer-open.drawer-left-open .yat-row4-shell,
+          body.drawer-open.drawer-left-open .yat-row5-shell,
+          body.drawer-open.drawer-left-open .yat-row6-shell,
+          body.drawer-open.drawer-favorites-open .yat-row2-shell,
+          body.drawer-open.drawer-favorites-open .yat-row3-shell,
+          body.drawer-open.drawer-favorites-open .yat-row4-shell,
+          body.drawer-open.drawer-favorites-open .yat-row5-shell,
+          body.drawer-open.drawer-favorites-open .yat-row6-shell {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+          }
         }
       `}</style>
     </>
