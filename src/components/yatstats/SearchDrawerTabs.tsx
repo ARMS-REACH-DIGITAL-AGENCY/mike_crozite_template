@@ -72,10 +72,11 @@ export default function SearchDrawerTabs() {
   useEffect(() => {
     const drawer = document.querySelector('#drawerLeft .yat-left-search-content') as HTMLElement | null;
     const searchInput = document.getElementById('gsInput') as HTMLInputElement | null;
-    const results = document.getElementById('gsResults') as HTMLElement | null;
-    if (!drawer || !searchInput || !results) return;
+    const searchResults = document.getElementById('gsResults') as HTMLElement | null;
+    if (!drawer || !searchInput || !searchResults) return;
 
     const input = searchInput;
+    const results = searchResults;
 
     if (!document.getElementById('yatSearchModeTabs')) {
       const tabs = document.createElement('div');
