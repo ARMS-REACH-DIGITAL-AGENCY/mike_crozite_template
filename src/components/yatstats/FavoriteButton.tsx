@@ -99,9 +99,18 @@ export default function FavoriteButton({
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
-      if (!detail.playerId || String(detail.playerId) === String(playerId)) {
+
+      // Plain login/register/session rehydrate events are not favorite events.
+      // Only mark this button as favorited when the account drawer confirms that
+      // this specific pending favorite was actually saved.
+      if (
+        detail.favoriteSaved === true &&
+        detail.playerId &&
+        String(detail.playerId) === String(playerId)
+      ) {
         setIsFavorited(true);
         showToast(`${displayName} added to your favorites`);
+        window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       }
     };
     window.addEventListener('yat-auth-success', handler);
@@ -115,6 +124,7 @@ export default function FavoriteButton({
       try {
         sessionStorage.setItem('pending_fav_pid', playerId);
         sessionStorage.setItem('pending_fav_name', displayName);
+        sessionStorage.setItem('pending_fav_hsid', playerHsid);
       } catch {}
       openAccountDrawer();
       return;
