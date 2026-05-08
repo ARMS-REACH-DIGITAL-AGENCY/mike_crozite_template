@@ -23,27 +23,6 @@ const SORT_METRICS = [
   { key: 'sv', label: 'Saves' },
 ];
 
-const STAT_LABEL_ALIASES: Record<string, string[]> = {
-  gp: ['GP', 'G'],
-  avg: ['AVG'],
-  ops: ['OPS'],
-  obp: ['OBP'],
-  slg: ['SLG'],
-  hr: ['HR'],
-  rbi: ['RBI'],
-  h: ['H'],
-  r: ['R'],
-  sb: ['SB'],
-  ab: ['AB'],
-  era: ['ERA'],
-  whip: ['WHIP'],
-  k: ['K', 'SO'],
-  bb: ['BB'],
-  ip: ['IP'],
-  w: ['W', 'W-L'],
-  sv: ['SV', 'SAVES'],
-};
-
 function statAttrName(key: string) {
   return `stat${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 }
@@ -87,34 +66,13 @@ function parseStatNumber(raw: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function getNumericStatFromGrid(card: HTMLElement, key: string): number | null {
-  const aliases = (STAT_LABEL_ALIASES[key] || [key]).map((v) => v.toUpperCase());
-  const stats = Array.from(card.querySelectorAll('.yat-stat')) as HTMLElement[];
-
-  for (const stat of stats) {
-    const label = String(stat.querySelector('.yat-stat-label')?.textContent || '').trim().toUpperCase();
-    if (!aliases.includes(label)) continue;
-
-    const value = stat.querySelector('.yat-stat-val')?.textContent || '';
-    return parseStatNumber(value);
-  }
-
-  return null;
-}
-
 function getNumericStat(card: HTMLElement, key: string): number | null {
   const raw = card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || '';
-  const dataValue = parseStatNumber(raw);
-  if (dataValue != null) return dataValue;
-
-  return getNumericStatFromGrid(card, key);
+  return parseStatNumber(raw);
 }
 
 function hasCurrentSeasonStats(card: HTMLElement): boolean {
-  if (card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true') return true;
-
-  const bars = Array.from(card.querySelectorAll('.yat-stats-bar, .fz-stat-bucket-btn, .fz-stats-title'));
-  return bars.some((bar) => String(bar.textContent || '').toUpperCase().includes('2026'));
+  return card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true';
 }
 
 function getVisibleCards(section: HTMLElement): HTMLElement[] {
@@ -186,7 +144,7 @@ function applyFlipCardSort() {
   }
 
   if (!isActiveAlumniSection(section)) {
-    if (status) status.textContent = 'Sorting career/all-time cards will be added after Active Alumni sorting is finalized.';
+    if (status) status.textContent = 'Career/all-time sorting will be handled separately later.';
     return;
   }
 
@@ -199,7 +157,8 @@ function applyFlipCardSort() {
     const aCurrent = hasCurrentSeasonStats(a);
     const bCurrent = hasCurrentSeasonStats(b);
 
-    // Active Alumni sorts rank only cards with 2026 stats. Career/no-2026 cards stay underneath.
+    // ACTIVE ALUMNI RULE: sort only true 2026 season stat cards.
+    // Cards without data-has-2026-stats=true are never ranked by career numbers.
     if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
     if (!aCurrent && !bCurrent) return ai - bi;
 
@@ -226,7 +185,7 @@ function applyFlipCardSort() {
 
   if (status) {
     const label = checked.dataset.label || checked.value.toUpperCase();
-    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Active Alumni sort uses 2026 stats only; players without 2026 stats stay below.`;
+    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Active Alumni sort uses 2026 stats only.`;
   }
 }
 
