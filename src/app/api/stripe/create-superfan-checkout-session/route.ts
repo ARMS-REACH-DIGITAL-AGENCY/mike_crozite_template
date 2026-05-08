@@ -4,11 +4,6 @@
  * Creates a Stripe Checkout session for the recurring monthly Superfan subscription.
  * The session includes the Firebase UID in metadata so the webhook can update
  * the user profile after payment.
- *
- * Required env vars:
- *   STRIPE_SECRET_KEY
- *   STRIPE_SUPERFAN_PRICE_ID
- *   NEXT_PUBLIC_APP_URL  (or NEXTAUTH_URL / VERCEL_URL as fallback)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,14 +13,23 @@ import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 export const runtime = "nodejs";
 
 function getAppBaseUrl(req: NextRequest): string {
+  const origin = req.headers.get("origin") || "";
+  if (origin) {
+    try {
+      return new URL(origin).origin;
+    } catch {}
+  }
+
+  const referer = req.headers.get("referer") || "";
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {}
+  }
+
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  // Fall back to the request origin
-  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-  if (origin) {
-    try { return new URL(origin).origin; } catch { /* ignore */ }
-  }
   return "https://yatstats.com";
 }
 
@@ -53,7 +57,15 @@ export async function POST(req: NextRequest) {
 
     const stripe = new Stripe(secretKey);
 
-    // Load or create the user profile so we can reuse an existing Stripe customer
+    // Fail early with a clear error if the configured price ID is wrong or inactive.
+    const price = await stripe.prices.retrieve(priceId);
+    if (!price.active) {
+      return NextResponse.json(
+        { error: "The configured Superfan Stripe price is inactive." },
+        { status: 503 }
+      );
+    }
+
     let profile = await getUserProfile(firebaseUid);
     if (!profile) {
       profile = await upsertUserProfile(firebaseUid, { email, plan: "fan" });
@@ -67,11 +79,19 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${base}/superfan/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/superfan/cancel`,
+      client_reference_id: firebaseUid,
+      customer_update: existingCustomer ? { name: "auto", address: "auto" } : undefined,
       metadata: {
         firebaseUid,
+        email,
+        source: "yatstats-superfan-checkout",
       },
       subscription_data: {
-        metadata: { firebaseUid },
+        metadata: {
+          firebaseUid,
+          email,
+          source: "yatstats-superfan-checkout",
+        },
       },
     };
 
@@ -82,6 +102,13 @@ export async function POST(req: NextRequest) {
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
+
+    if (!session.url) {
+      return NextResponse.json(
+        { error: "Stripe did not return a checkout URL." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
   } catch (error) {
