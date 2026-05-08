@@ -156,8 +156,8 @@ export default function SchoolContextBar({
                 alt=""
                 aria-hidden="true"
                 style={{
-                  width: '30px',
-                  height: '30px',
+                  width: '15px',
+                  height: '15px',
                   objectFit: 'contain',
                   display: 'block',
                 }}
