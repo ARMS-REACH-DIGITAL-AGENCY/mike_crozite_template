@@ -1,16 +1,16 @@
 // src/lib/sportsblaze.ts
 // Server-only SportsBlaze adapter for YAT?STATS.
 //
-// Purpose:
-// Convert provider boxscore data into YAT-owned alumni activity objects that can be
-// rendered inside the existing Hamilton Where They YAT? experience: Alumni Watch,
-// FlipCard backs, Profile Current YAT Status, FunZone prompts, and YaTi notes.
-//
-// Important: never expose SPORTSBLAZE_KEY to browser/client components.
+// This file now does exactly one thing for the trial: call SportsBlaze from the
+// server and display the real provider payload normalized into YAT?STATS-shaped
+// live game objects. It does not invent Hamilton alumni, player stat lines, or
+// fake schedules. Missing key / failed API calls are shown as errors.
+
+export type SportsBlazeMode = "live" | "missing-key" | "api-error";
 
 export type YatAlumniActivity = {
   provider: "sportsblaze";
-  mode: "live" | "mock" | "error-fallback";
+  mode: SportsBlazeMode;
   league: string;
   date: string;
   sourceUrl?: string;
@@ -21,36 +21,32 @@ export type YatAlumniActivity = {
     location: string;
   };
   summary: {
-    activeToday: number;
+    providerGames: number;
     finalGames: number;
     upcomingGames: number;
     liveGames: number;
     matchedPlayers: number;
   };
-  alumni: YatAlumniCard[];
+  games: SportsBlazeGameCard[];
   rawShape?: {
     topLevelKeys: string[];
     gameArrayPath: string;
     gameCount: number;
   };
+  rawSample?: unknown;
   error?: string;
 };
 
-export type YatAlumniCard = {
-  yatPlayerId: string;
-  name: string;
-  currentTeam: string;
-  opponent: string;
+export type SportsBlazeGameCard = {
+  id: string;
   status: "FINAL" | "LIVE" | "SCHEDULED" | "UNKNOWN";
-  gameLabel: string;
-  lastYat: string;
-  nextYat: string;
-  yatiNote: string;
-  statline: Record<string, string | number>;
-  cta: {
-    primary: string;
-    secondary: string;
-  };
+  label: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: string;
+  awayScore: string;
+  venue?: string;
+  startsAt?: string;
 };
 
 type SportsBlazeFetchOptions = {
@@ -68,7 +64,12 @@ export async function getSportsBlazeHamiltonWatch(options: SportsBlazeFetchOptio
   const key = process.env.SPORTSBLAZE_KEY;
 
   if (!key) {
-    return buildMockActivity({ league, date, mode: "mock" });
+    return buildErrorActivity({
+      league,
+      date,
+      mode: "missing-key",
+      error: "SPORTSBLAZE_KEY is not available to this Vercel deployment. Add it to the mike-crozite-template project for the Preview environment, then redeploy this branch.",
+    });
   }
 
   const url = `https://api.sportsblaze.com/${league}/v1/boxscores/daily/${date}.json?key=${encodeURIComponent(key)}`;
@@ -81,11 +82,11 @@ export async function getSportsBlazeHamiltonWatch(options: SportsBlazeFetchOptio
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      return buildMockActivity({
+      return buildErrorActivity({
         league,
         date,
-        mode: "error-fallback",
-        error: `SportsBlaze HTTP ${response.status}${body ? `: ${body.slice(0, 160)}` : ""}`,
+        mode: "api-error",
+        error: `SportsBlaze HTTP ${response.status}${body ? `: ${body.slice(0, 260)}` : ""}`,
       });
     }
 
@@ -93,14 +94,13 @@ export async function getSportsBlazeHamiltonWatch(options: SportsBlazeFetchOptio
     return normalizeSportsBlazeToYatActivity(raw, {
       league,
       date,
-      mode: "live",
       sourceUrl: url.replace(/key=[^&]+/, "key=***"),
     });
   } catch (error) {
-    return buildMockActivity({
+    return buildErrorActivity({
       league,
       date,
-      mode: "error-fallback",
+      mode: "api-error",
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -108,25 +108,15 @@ export async function getSportsBlazeHamiltonWatch(options: SportsBlazeFetchOptio
 
 function normalizeSportsBlazeToYatActivity(
   raw: unknown,
-  meta: { league: string; date: string; mode: "live"; sourceUrl: string }
+  meta: { league: string; date: string; sourceUrl: string }
 ): YatAlumniActivity {
   const obj = isRecord(raw) ? raw : {};
   const { games, path } = findFirstArray(obj, ["games", "boxscores", "data", "events", "schedule"]);
-  const normalizedGames = games.filter(isRecord);
-
-  const finalGames = normalizedGames.filter((g) => normalizeStatus(g) === "FINAL").length;
-  const liveGames = normalizedGames.filter((g) => normalizeStatus(g) === "LIVE").length;
-  const upcomingGames = normalizedGames.filter((g) => normalizeStatus(g) === "SCHEDULED").length;
-
-  // Trial bridge: the NFL sample is not a Hamilton baseball feed, so the adapter
-  // demonstrates how provider game/player facts become YAT modules. Once baseball
-  // coverage and provider player IDs are confirmed, these rows should be created by
-  // sportsblaze_player_map -> yat_playerid matching.
-  const alumni = buildDemoAlumniCards(normalizedGames, meta.league);
+  const normalizedGames = games.filter(isRecord).map((game, index) => toGameCard(game, index));
 
   return {
     provider: "sportsblaze",
-    mode: meta.mode,
+    mode: "live",
     league: meta.league.toUpperCase(),
     date: meta.date,
     sourceUrl: meta.sourceUrl,
@@ -137,67 +127,27 @@ function normalizeSportsBlazeToYatActivity(
       location: "Chandler, AZ",
     },
     summary: {
-      activeToday: Math.max(alumni.length, normalizedGames.length),
-      finalGames,
-      upcomingGames,
-      liveGames,
-      matchedPlayers: alumni.length,
+      providerGames: normalizedGames.length,
+      finalGames: normalizedGames.filter((g) => g.status === "FINAL").length,
+      upcomingGames: normalizedGames.filter((g) => g.status === "SCHEDULED").length,
+      liveGames: normalizedGames.filter((g) => g.status === "LIVE").length,
+      matchedPlayers: 0,
     },
-    alumni,
+    games: normalizedGames,
     rawShape: {
       topLevelKeys: Object.keys(obj).slice(0, 24),
       gameArrayPath: path,
       gameCount: normalizedGames.length,
     },
+    rawSample: normalizedGames.length ? games[0] : obj,
   };
 }
 
-function buildDemoAlumniCards(games: Record<string, unknown>[], league: string): YatAlumniCard[] {
-  const firstGame = games[0] || {};
-  const secondGame = games[1] || firstGame;
-  const firstStatus = normalizeStatus(firstGame);
-  const secondStatus = normalizeStatus(secondGame);
-
-  const firstHome = readTeam(firstGame, "home");
-  const firstAway = readTeam(firstGame, "away");
-  const secondHome = readTeam(secondGame, "home");
-  const secondAway = readTeam(secondGame, "away");
-
-  return [
-    {
-      yatPlayerId: "cody-bellinger-demo",
-      name: "Cody Bellinger",
-      currentTeam: firstHome.name || "New York Yankees",
-      opponent: firstAway.name || "Opponent TBD",
-      status: firstStatus,
-      gameLabel: gameLabel(firstHome, firstAway, firstStatus),
-      lastYat: firstStatus === "FINAL" ? `Final: ${String(firstHome.score ?? "--")}-${String(firstAway.score ?? "--")}` : "Game activity pending",
-      nextYat: firstStatus === "SCHEDULED" ? "Scheduled today" : "Next game pulled from provider schedule",
-      yatiNote: `YaTi: SportsBlaze returned ${league.toUpperCase()} game context. Map this provider player/team row to the YAT playerid, then this becomes Cody's live FlipCard note.`,
-      statline: { source: "SportsBlaze", status: firstStatus, teamScore: String(firstHome.score ?? "--") },
-      cta: { primary: "Open Profile", secondary: "Add to Dream Team" },
-    },
-    {
-      yatPlayerId: "roch-cholowsky-demo",
-      name: "Roch Cholowsky",
-      currentTeam: secondAway.name || "UCLA Bruins",
-      opponent: secondHome.name || "Opponent TBD",
-      status: secondStatus,
-      gameLabel: gameLabel(secondHome, secondAway, secondStatus),
-      lastYat: secondStatus === "FINAL" ? `Final: ${String(secondAway.score ?? "--")}-${String(secondHome.score ?? "--")}` : "Awaiting first pitch / tip-off",
-      nextYat: secondStatus === "SCHEDULED" ? "Game today" : "Upcoming schedule slot",
-      yatiNote: "YaTi: This is the exact place where Webz.io story context and SportsBlaze stat context merge into a school-centered alumni moment.",
-      statline: { source: "SportsBlaze", status: secondStatus, opponent: secondHome.name || "TBD" },
-      cta: { primary: "Follow Roch", secondary: "Send Attaboy" },
-    },
-  ];
-}
-
-function buildMockActivity(input: {
+function buildErrorActivity(input: {
   league: string;
   date: string;
-  mode: "mock" | "error-fallback";
-  error?: string;
+  mode: "missing-key" | "api-error";
+  error: string;
 }): YatAlumniActivity {
   return {
     provider: "sportsblaze",
@@ -207,57 +157,17 @@ function buildMockActivity(input: {
     generatedAt: new Date().toISOString(),
     school: { hsid: "5004", name: "Hamilton High School", location: "Chandler, AZ" },
     summary: {
-      activeToday: 3,
-      finalGames: 1,
-      upcomingGames: 2,
+      providerGames: 0,
+      finalGames: 0,
+      upcomingGames: 0,
       liveGames: 0,
-      matchedPlayers: 3,
+      matchedPlayers: 0,
     },
-    alumni: [
-      {
-        yatPlayerId: "cody-bellinger-demo",
-        name: "Cody Bellinger",
-        currentTeam: "New York Yankees",
-        opponent: "Boston Red Sox",
-        status: "SCHEDULED",
-        gameLabel: "Yankees vs Red Sox · Today 4:05 PM",
-        lastYat: "1-for-4 · 2B · RBI",
-        nextYat: "Today · 4:05 PM",
-        yatiNote: "YaTi: Cody has a game today. This is a perfect Fan/Superfan alert and sponsor impression moment.",
-        statline: { AB: 4, H: 1, "2B": 1, RBI: 1 },
-        cta: { primary: "Open Profile", secondary: "Add to Dream Team" },
-      },
-      {
-        yatPlayerId: "roch-cholowsky-demo",
-        name: "Roch Cholowsky",
-        currentTeam: "UCLA Bruins",
-        opponent: "Stanford Cardinal",
-        status: "SCHEDULED",
-        gameLabel: "UCLA vs Stanford · Tonight 6:00 PM",
-        lastYat: "2-for-4 · HR · 3 RBI",
-        nextYat: "Tonight · 6:00 PM",
-        yatiNote: "YaTi: Roch is heating up. This belongs on the FlipCard back, profile status strip, and FunZone prompt.",
-        statline: { AB: 4, H: 2, HR: 1, RBI: 3 },
-        cta: { primary: "Follow Roch", secondary: "Send Attaboy" },
-      },
-      {
-        yatPlayerId: "nolan-gorman-demo",
-        name: "Nolan Gorman",
-        currentTeam: "St. Louis Cardinals",
-        opponent: "Chicago Cubs",
-        status: "FINAL",
-        gameLabel: "Cardinals 5 · Cubs 3 · Final",
-        lastYat: "1-for-4 · RBI · R",
-        nextYat: "Tomorrow · TBD",
-        yatiNote: "YaTi: Nolan produced a run in a final game. This is a clean post-game alumni activity event.",
-        statline: { AB: 4, H: 1, RBI: 1, R: 1 },
-        cta: { primary: "View Game Log", secondary: "Share Attaboy" },
-      },
-    ],
+    games: [],
     rawShape: {
-      topLevelKeys: ["mock"],
-      gameArrayPath: "mock fixture - set SPORTSBLAZE_KEY for live provider call",
-      gameCount: 1,
+      topLevelKeys: [],
+      gameArrayPath: "not called",
+      gameCount: 0,
     },
     error: input.error,
   };
@@ -283,11 +193,32 @@ function findFirstArray(root: Record<string, unknown>, keys: string[]): { games:
   return { games: [], path: "not found" };
 }
 
-function normalizeStatus(game: Record<string, unknown>): YatAlumniCard["status"] {
-  const raw = String(game.status || game.game_status || game.state || game.statusText || "").toLowerCase();
-  if (raw.includes("final") || raw === "closed" || raw === "complete") return "FINAL";
+function toGameCard(game: Record<string, unknown>, index: number): SportsBlazeGameCard {
+  const status = normalizeStatus(game);
+  const home = readTeam(game, "home");
+  const away = readTeam(game, "away");
+  const startsAt = String(game.start_time || game.startTime || game.scheduled || game.date || game.game_time || "").trim();
+  const venue = String(game.venue || game.stadium || game.location || "").trim();
+  const id = String(game.id || game.game_id || game.event_id || `${index + 1}`);
+
+  return {
+    id,
+    status,
+    label: gameLabel(home, away, status, startsAt),
+    homeTeam: home.name || "Home",
+    awayTeam: away.name || "Away",
+    homeScore: String(home.score ?? "--"),
+    awayScore: String(away.score ?? "--"),
+    venue: venue || undefined,
+    startsAt: startsAt || undefined,
+  };
+}
+
+function normalizeStatus(game: Record<string, unknown>): SportsBlazeGameCard["status"] {
+  const raw = String(game.status || game.game_status || game.state || game.statusText || game.status_text || "").toLowerCase();
+  if (raw.includes("final") || raw === "closed" || raw === "complete" || raw === "completed") return "FINAL";
   if (raw.includes("live") || raw.includes("progress") || raw.includes("inning") || raw.includes("quarter")) return "LIVE";
-  if (raw.includes("scheduled") || raw.includes("pre") || raw.includes("not started")) return "SCHEDULED";
+  if (raw.includes("scheduled") || raw.includes("pre") || raw.includes("not started") || raw.includes("upcoming")) return "SCHEDULED";
   return "UNKNOWN";
 }
 
@@ -295,26 +226,35 @@ function readTeam(game: Record<string, unknown>, side: "home" | "away"): { name:
   const direct = game[side];
   if (isRecord(direct)) {
     return {
-      name: String(direct.name || direct.team || direct.full_name || direct.display_name || direct.abbreviation || ""),
-      score: direct.score ?? direct.points ?? direct.runs,
+      name: String(direct.name || direct.team || direct.full_name || direct.display_name || direct.abbreviation || direct.alias || ""),
+      score: direct.score ?? direct.points ?? direct.runs ?? direct.total,
+    };
+  }
+
+  const teamObj = game[`${side}_team`] || game[`${side}Team`];
+  if (isRecord(teamObj)) {
+    return {
+      name: String(teamObj.name || teamObj.team || teamObj.full_name || teamObj.display_name || teamObj.abbreviation || teamObj.alias || ""),
+      score: game[`${side}_score`] ?? game[`${side}Score`] ?? teamObj.score ?? teamObj.points,
     };
   }
 
   return {
-    name: String(game[`${side}_team`] || game[`${side}Team`] || game[`${side}_name`] || ""),
-    score: game[`${side}_score`] ?? game[`${side}Score`],
+    name: String(game[`${side}_team`] || game[`${side}Team`] || game[`${side}_name`] || game[`${side}Name`] || ""),
+    score: game[`${side}_score`] ?? game[`${side}Score`] ?? game[`${side}_points`] ?? game[`${side}Points`],
   };
 }
 
 function gameLabel(
   home: { name: string; score?: unknown },
   away: { name: string; score?: unknown },
-  status: YatAlumniCard["status"]
+  status: SportsBlazeGameCard["status"],
+  startsAt?: string
 ): string {
   const homeName = home.name || "Home";
   const awayName = away.name || "Away";
   if (status === "FINAL" || status === "LIVE") {
     return `${awayName} ${String(away.score ?? "--")} @ ${homeName} ${String(home.score ?? "--")} · ${status}`;
   }
-  return `${awayName} @ ${homeName} · ${status}`;
+  return `${awayName} @ ${homeName}${startsAt ? ` · ${startsAt}` : ""} · ${status}`;
 }
