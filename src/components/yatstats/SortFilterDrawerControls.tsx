@@ -114,6 +114,32 @@ function syncStripToSortedCards(cards: HTMLElement[]) {
   });
 }
 
+function restoreDefaultCardOrder() {
+  const section = getVisibleGallerySection();
+  if (!section) return;
+
+  const grid = getGrid(section);
+  if (!grid) return;
+
+  const cards = Array.from(section.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
+  const wraps = cards.map(getCardWrap);
+
+  wraps.forEach((wrap, index) => {
+    if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index);
+  });
+
+  const sortedWraps = [...new Set(wraps)].sort(
+    (a, b) => Number(a.dataset.sortOriginalIndex || 0) - Number(b.dataset.sortOriginalIndex || 0),
+  );
+
+  sortedWraps.forEach((wrap) => grid.appendChild(wrap));
+  syncStripToSortedCards(getVisibleCards(section));
+}
+
+function isSortSelected() {
+  return Boolean(document.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked'));
+}
+
 function applyFlipCardSort() {
   const checked = document.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked');
   const dir = document.querySelector<HTMLInputElement>('input[name="yat-sort-direction"]:checked')?.value === 'asc' ? 'asc' : 'desc';
@@ -133,12 +159,6 @@ function applyFlipCardSort() {
   });
 
   if (!checked) {
-    const sortedWraps = [...new Set(wraps)].sort(
-      (a, b) => Number(a.dataset.sortOriginalIndex || 0) - Number(b.dataset.sortOriginalIndex || 0),
-    );
-
-    sortedWraps.forEach((wrap) => grid.appendChild(wrap));
-    syncStripToSortedCards(getVisibleCards(section));
     if (status) status.textContent = 'Default roster order.';
     return;
   }
@@ -187,6 +207,11 @@ function applyFlipCardSort() {
     const label = checked.dataset.label || checked.value.toUpperCase();
     status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Active Alumni sort uses 2026 stats only.`;
   }
+}
+
+function rerunSortIfActive(delay = 80) {
+  if (!isSortSelected()) return;
+  window.setTimeout(applyFlipCardSort, delay);
 }
 
 function installSortFilterDrawer() {
@@ -249,20 +274,20 @@ function installSortFilterDrawer() {
     });
     const desc = document.querySelector<HTMLInputElement>('input[name="yat-sort-direction"][value="desc"]');
     if (desc) desc.checked = true;
-    applyFlipCardSort();
+    restoreDefaultCardOrder();
+    const status = document.getElementById('yatSortStatus');
+    if (status) status.textContent = 'Default roster order.';
   });
 
   filters.querySelectorAll('input, select').forEach((input) => {
-    input.addEventListener('change', () => window.setTimeout(applyFlipCardSort, 80));
-    input.addEventListener('input', () => window.setTimeout(applyFlipCardSort, 80));
+    input.addEventListener('change', () => rerunSortIfActive(80));
+    input.addEventListener('input', () => rerunSortIfActive(80));
   });
 
-  window.addEventListener('yat:favorites-filter-changed', () => window.setTimeout(applyFlipCardSort, 80));
-  window.addEventListener('hashchange', () => window.setTimeout(applyFlipCardSort, 120));
-  document.addEventListener('click', () => window.setTimeout(applyFlipCardSort, 80), true);
+  window.addEventListener('yat:favorites-filter-changed', () => rerunSortIfActive(80));
+  window.addEventListener('hashchange', () => rerunSortIfActive(120));
 
   (window as unknown as { yatApplyFlipCardSort?: () => void }).yatApplyFlipCardSort = applyFlipCardSort;
-  window.setTimeout(applyFlipCardSort, 150);
 }
 
 export default function SortFilterDrawerControls() {
