@@ -58,6 +58,23 @@ function hasReal2026Stats(p: Record<string, unknown>): boolean {
   });
 }
 
+function isHighSchoolPlayer(p: Record<string, unknown> | undefined): boolean {
+  if (!p) return false;
+
+  const candidates = [
+    p.level_label,
+    p.display_level_label,
+    p.level,
+    p.highlevel,
+    p.current_level,
+  ];
+
+  return candidates.some((value) => {
+    const label = String(value || "").trim().toUpperCase();
+    return label === "HIGH SCHOOL" || label === "HS";
+  });
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
   const { hsid } = await params;
   const headersList = await headers();
@@ -136,62 +153,60 @@ export default async function SchoolPage({
 
   // ---------------------------------------------------------------------------
   // Build union datasets — TBC rows + stage-only rows, merged by playerid.
-  // Stage-only players (YAT00001–YAT00008 etc.) are included even with no TBC row.
+  // Stage-only players are included even with no TBC row.
+  // HIGH SCHOOL stage rows are intentionally routed to the 2026 Team gallery only,
+  // not Active Alumni or Next-Level All-Time.
   // ---------------------------------------------------------------------------
+  const stageRows = flipFrontStageRows as Record<string, unknown>[];
+  const currentTeamRoster = sortActivePlayers(stageRows.filter(isHighSchoolPlayer).map((p) => ({ ...p })));
   const stageMap = new Map(
-    (flipFrontStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+    stageRows.map((p) => [String(p.playerid), p])
   );
 
-  // activeMerged: only rows from the active/current-season query path.
-  // These rows may or may not actually have stat values, so we filter them later
-  // before allowing them to set has_2026_stats=true.
   const activeSeenIds = new Set<string>();
   const activeMerged: Record<string, unknown>[] = [];
 
   for (const p of activeRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
+    const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
 
-    // Stage supplies display/current-team/profile fields.
-    // TBC active row supplies 2026 stats when present.
-    activeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+    if (isHighSchoolPlayer(mergedRow)) continue;
 
+    activeMerged.push(mergedRow);
     activeSeenIds.add(id);
   }
 
-  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
+  for (const p of stageRows) {
     const id = String(p.playerid);
-    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE") {
+    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE" && !isHighSchoolPlayer(p)) {
       activeMerged.push({ ...p });
     }
   }
 
-  // allTimeFrontRoster: union of TBC all-time + all stage rows, merged by playerid.
-  // Stage supplies card/profile metadata. TBC all-time row supplies career stats.
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Record<string, unknown>[] = [];
 
   for (const p of allTimeRoster as Record<string, unknown>[]) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
+    const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
 
-    allTimeMerged.push(stageRow ? { ...stageRow, ...p } : { ...p });
+    if (isHighSchoolPlayer(mergedRow)) continue;
+
+    allTimeMerged.push(mergedRow);
     allTimeSeenIds.add(id);
   }
 
-  for (const p of flipFrontStageRows as Record<string, unknown>[]) {
+  for (const p of stageRows) {
     const id = String(p.playerid);
-    if (!allTimeSeenIds.has(id)) {
+    if (!allTimeSeenIds.has(id) && !isHighSchoolPlayer(p)) {
       allTimeMerged.push({ ...p });
     }
   }
 
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
 
-  // Active section shows the full player universe, but overlays 2026 stats only
-  // for players who have real current-season batting/pitching values.
-  // This prevents blank ACTIVE/stage rows from overwriting career stats and then
-  // falsely labeling the back of the card as "2026 BATTING/PITCHING".
   const activeStatsMap = new Map(
     (activeMerged as Record<string, unknown>[])
       .filter((p) => hasReal2026Stats(p))
@@ -209,10 +224,10 @@ export default async function SchoolPage({
 
   const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
 
-  // ---------------------------------------------------------------------------
-  // Batch-fetch images — include all IDs from the full universe.
-  // ---------------------------------------------------------------------------
-  const allRosterIds = Array.from(new Set(allTimeMerged.map((p) => String(p.playerid))));
+  const allRosterIds = Array.from(new Set([
+    ...allTimeMerged.map((p) => String(p.playerid)),
+    ...currentTeamRoster.map((p) => String(p.playerid)),
+  ]));
 
   const [frontImageMap, headshotMap] = await Promise.all([
     getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
@@ -222,9 +237,6 @@ export default async function SchoolPage({
   return (
     <>
       {/* ACTIVE ALUMNI — Row 5 content */}
-      {/* Full school universe rendered here. Default ACTIVE-only view is enforced */}
-      {/* by JS filter initial state (resetFiltersForCurrentSection on load). */}
-      {/* Active sort: Level → Grad Class → Roster Years → Last Name. */}
       <section id="sec-active" className="yat-section visible">
         {isFallbackSchoolState ? (
           <div className="yat-placeholder">
@@ -260,20 +272,20 @@ export default async function SchoolPage({
                 BACK TO HOME
               </a>
               <a
-  href="https://home.yatstats.com"
-  style={{
-    display: "inline-block",
-    border: "1px solid rgba(255,255,255,.18)",
-    color: "#fff",
-    fontFamily: '"Bebas Neue",Oswald,sans-serif',
-    fontSize: "14px",
-    letterSpacing: ".1em",
-    padding: "10px 24px",
-    borderRadius: "4px",
-  }}
->
-  USE GLOBAL SEARCH
-</a>
+                href="https://home.yatstats.com"
+                style={{
+                  display: "inline-block",
+                  border: "1px solid rgba(255,255,255,.18)",
+                  color: "#fff",
+                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
+                  fontSize: "14px",
+                  letterSpacing: ".1em",
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                }}
+              >
+                USE GLOBAL SEARCH
+              </a>
             </div>
           </div>
         ) : (
@@ -355,12 +367,26 @@ export default async function SchoolPage({
 
       {/* CURRENT TEAM */}
       <section id="sec-current" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🏟️</div>
-          <div className="yat-placeholder-title">Current Team Roster</div>
-          <div className="yat-placeholder-body">
-            The current {schoolName} varsity roster will appear here once the season begins.
-          </div>
+        <div className="yat-grid" id="current-grid">
+          {currentTeamRoster.length === 0 ? (
+            <div className="yat-empty">
+              <div className="yat-empty-icon">🏟️</div>
+              <div className="yat-empty-title">Current Team Roster</div>
+              <div className="yat-empty-sub">
+                The current {schoolName} varsity roster will appear here once the season begins.
+              </div>
+            </div>
+          ) : (
+            currentTeamRoster.map((p) => (
+              <PlayerCard
+                key={`current-${String(p.playerid)}`}
+                player={p}
+                resolvedHsid={resolvedHsid}
+                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
+                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+              />
+            ))
+          )}
         </div>
       </section>
 
