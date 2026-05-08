@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const qRaw = (searchParams.get("q") || "").trim();
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "30", 10), 1), 50);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "40", 10), 1), 75);
 
     if (!qRaw) {
       return NextResponse.json({ teams: [] }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
@@ -34,24 +34,40 @@ export async function GET(req: NextRequest) {
 
     const pattern = `%${qRaw}%`;
     const sql = `
-      select distinct on (f.playerid::text, f.hsid::text)
-        f.playerid::text as playerid,
-        coalesce(nullif(f.first_name, ''), split_part(coalesce(f.display_name, ''), ' ', 1)) as firstname,
-        coalesce(nullif(f.last_name, ''), regexp_replace(coalesce(f.display_name, ''), '^\\S+\\s*', '')) as lastname,
-        f.display_name,
-        f.hsid::text as hsid,
-        f.current_team_name,
-        f.current_org_or_conference_name,
-        f.level_label,
-        ss.hsname,
-        ss.hslocation
-      from flip_card_front_stage f
-      left join school_success ss on ss.hsid::text = f.hsid::text
-      where
-        coalesce(f.current_team_name, '') ilike $1
-        or coalesce(f.current_org_or_conference_name, '') ilike $1
-        or coalesce(f.level_label, '') ilike $1
-      order by f.playerid::text, f.hsid::text, f.current_team_name nulls last, f.last_name nulls last, f.first_name nulls last
+      with matches as (
+        select distinct on (f.playerid::text, f.hsid::text, coalesce(f.current_team_name, ''), coalesce(f.level_label, ''))
+          f.playerid::text as playerid,
+          coalesce(nullif(f.first_name, ''), split_part(coalesce(f.display_name, ''), ' ', 1)) as firstname,
+          coalesce(nullif(f.last_name, ''), regexp_replace(coalesce(f.display_name, ''), '^\\S+\\s*', '')) as lastname,
+          f.display_name,
+          f.hsid::text as hsid,
+          f.current_team_name,
+          f.current_org_or_conference_name,
+          f.level_label,
+          ss.hsname,
+          ss.hslocation
+        from flip_card_front_stage f
+        left join school_success ss on ss.hsid::text = f.hsid::text
+        where
+          coalesce(f.current_team_name, '') ilike $1
+          or coalesce(f.current_org_or_conference_name, '') ilike $1
+          or coalesce(f.level_label, '') ilike $1
+        order by
+          f.playerid::text,
+          f.hsid::text,
+          coalesce(f.current_team_name, ''),
+          coalesce(f.level_label, ''),
+          f.last_name nulls last,
+          f.first_name nulls last
+      )
+      select *
+      from matches
+      order by
+        current_team_name asc nulls last,
+        level_label asc nulls last,
+        lastname asc nulls last,
+        firstname asc nulls last,
+        playerid asc
       limit $2
     `;
 
