@@ -154,7 +154,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         #drawerLeft .yat-gs-input-wrap { margin-bottom: 10px; position: relative; display: flex; align-items: center; }
         #drawerLeft .yat-gs-input-wrap i { position: absolute; right: 11px; left: auto; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: .78; z-index: 2; }
         #drawerLeft .yat-gs-input { padding-left: 10px !important; padding-right: 36px !important; }
-        #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--footerH) - 130px); overflow: auto; }
+        #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--row2-h) - var(--footerH) - 170px); overflow: auto; }
 
         #drawerFavorites { width: min(86vw, var(--yat-right-drawer-w)) !important; }
 
@@ -188,6 +188,27 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           z-index: 70 !important;
         }
 
+        body.drawer-left-open #drawerLeft,
+        body.drawer-right-open #drawerFilters,
+        body.drawer-account-open #drawerAccount,
+        body.drawer-favorites-open #drawerFavorites {
+          top: calc(var(--row1-h) + var(--row2-h)) !important;
+          bottom: var(--footerH) !important;
+          height: auto !important;
+          z-index: 55 !important;
+          transform: translateX(0) !important;
+        }
+
+        body.drawer-left-open .yat-drawer-mask,
+        body.drawer-right-open .yat-drawer-mask,
+        body.drawer-account-open .yat-drawer-mask,
+        body.drawer-favorites-open .yat-drawer-mask {
+          top: calc(var(--row1-h) + var(--row2-h)) !important;
+          bottom: var(--footerH) !important;
+          height: auto !important;
+          z-index: 50 !important;
+        }
+
         @media (min-width: 1240px) {
           body.drawer-open.drawer-left-open .yat-row2-shell,
           body.drawer-open.drawer-left-open .yat-row3-shell,
@@ -201,15 +222,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.drawer-open.drawer-favorites-open .yat-row5-shell,
           body.drawer-open.drawer-favorites-open .yat-row6-shell { margin-right: var(--yat-right-drawer-w); }
 
-          body.drawer-open.drawer-left-open #drawerLeft,
-          body.drawer-open.drawer-favorites-open #drawerFavorites {
-            top: var(--row1-h);
-            bottom: var(--footerH);
-            height: auto;
-            z-index: 55;
-            transform: translateX(0) !important;
-          }
-
           body.drawer-open.drawer-left-open #drawerLeft { width: var(--yat-left-drawer-w); }
           body.drawer-open.drawer-favorites-open #drawerFavorites { width: var(--yat-right-drawer-w) !important; }
 
@@ -217,8 +229,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers .yat-drawer-mask { display: none !important; opacity: 0 !important; pointer-events: none !important; }
 
           body.yat-desktop-docked-drawers.drawer-open { overflow: auto; }
-          body.yat-desktop-docked-drawers #drawerLeft,
-          body.yat-desktop-docked-drawers #drawerFavorites { top: var(--row1-h); bottom: var(--footerH); height: auto; z-index: 55; transform: translateX(0) !important; }
           body.yat-desktop-docked-drawers #drawerLeft { width: var(--yat-left-drawer-w); }
           body.yat-desktop-docked-drawers #drawerFavorites { width: var(--yat-right-drawer-w) !important; }
           body.yat-desktop-docked-drawers .yat-row2-shell,
