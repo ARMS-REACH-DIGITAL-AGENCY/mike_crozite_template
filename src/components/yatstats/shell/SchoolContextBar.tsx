@@ -1,9 +1,4 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
-// Renders Row 2 of the shared shell (sticky identity bar).
-// On player profile pages, extracts playerId directly from the URL pathname
-// and renders FavoriteButton next to the search icon.
-// Also renders an icon-only Back to Flip Card link on player profile pages.
-
 'use client';
 
 import { useContext } from 'react';
@@ -20,35 +15,20 @@ interface SchoolContextBarProps {
 }
 
 function formatSlugToLabel(slug: string): string {
-  return slug
-    .split('-')
-    .filter(Boolean)
-    .map((part) => part.toUpperCase())
-    .join(' ');
+  return slug.split('-').filter(Boolean).map((part) => part.toUpperCase()).join(' ');
 }
 
-export default function SchoolContextBar({
-  isPlayerProfile,
-  isGallery,
-  isNews,
-}: SchoolContextBarProps) {
+export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
-
-  // Extract playerId and slug from URL: /{hsid}/player/{playerId}/{slug}
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
-
-  // Derive player display name: prefer context, fall back to URL slug.
   const slugDerivedName = playerRouteMatch?.[2]
-    ? playerRouteMatch[2]
-        .split('-')
-        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ')
+    ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : '';
-
   const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
+  const resolvedPlayerHsid = playerProfile?.playerHsid || schoolData?.hsid || '';
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
@@ -56,119 +36,37 @@ export default function SchoolContextBar({
       const slug = segments[segments.length - 1] || '';
       return slug ? formatSlugToLabel(slug) : 'PLAYER PROFILE';
     }
-
     if (isNews) return 'ACTIVE ALUMNI NEWS';
     if (isGallery) return 'ACTIVE BASEBALL ALUMNI';
-
     return '';
   };
 
   return (
     <div className="yat-schoolrow">
       <a href={`/${schoolData?.hsid || ''}`} aria-label="Go to school microsite homepage">
-        <img
-          src={schoolData?.crestUrl || CREST_FALLBACK_PATH}
-          alt={`${schoolData?.hsName || 'School'} crest`}
-          className="yat-crest"
-          onError={(e) => {
-            e.currentTarget.src = CREST_FALLBACK_PATH;
-          }}
-        />
+        <img src={schoolData?.crestUrl || CREST_FALLBACK_PATH} alt={`${schoolData?.hsName || 'School'} crest`} className="yat-crest" onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }} />
       </a>
-
       <div className="yat-schooltext">
         <div className="small">{schoolData?.hsLocation || '...'}</div>
         <div className="big1">{schoolData?.hsName || '...'}</div>
-        <div id="yatSectionLabel" className="big2">
-          {getPageLabel()}
-        </div>
+        <div id="yatSectionLabel" className="big2">{getPageLabel()}</div>
       </div>
-
-      <div
-        style={{
-          marginLeft: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}
-      >
-        {/* Back to Flip Card - player profile pages only */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isPlayerProfile && profilePlayerId && schoolData?.hsid && (
-          <a
-            href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`}
-            className="yat-icon-btn"
-            aria-label="Back to Flip Card"
-            title="Back to Flip Card"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textDecoration: 'none',
-            }}
-          >
-            <img
-              src="/img/flip-card-return-icon.png"
-              alt=""
-              aria-hidden="true"
-              style={{
-                width: '20px',
-                height: '20px',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
+          <a href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+            <img src="/img/flip-card-return-icon.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }} />
           </a>
         )}
-
-        {/* FavoriteButton - rendered in Row 2 on player profile pages only */}
         {isPlayerProfile && profilePlayerId && (
-          <FavoriteButton
-            playerId={profilePlayerId}
-            playerName={resolvedPlayerName}
-            playerHsid={schoolData?.hsid ?? ''}
-          />
+          <FavoriteButton playerId={profilePlayerId} playerName={resolvedPlayerName} playerHsid={resolvedPlayerHsid} />
         )}
-
         {isGallery && (
           <>
-            <button
-              id="flipAllCards"
-              className="yat-icon-btn"
-              aria-label="Flip all cards to stats"
-              aria-pressed="false"
-              title="Flip all cards to stats"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '34px',
-                height: '34px',
-                padding: 0,
-                border: 'none',
-                background: 'transparent',
-                color: 'inherit',
-                opacity: 1,
-              }}
-            >
-              <img
-                data-flip-all-icon="true"
-                src="/img/flip-all-icon.review.png"
-                alt=""
-                aria-hidden="true"
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  objectFit: 'contain',
-                  display: 'block',
-                }}
-              />
+            <button id="flipAllCards" className="yat-icon-btn" aria-label="Flip all cards to stats" aria-pressed="false" title="Flip all cards to stats" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
+              <img data-flip-all-icon="true" src="/img/flip-all-icon.review.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }} />
             </button>
-            <button id="openFilters" className="yat-icon-btn" aria-label="Open filters">
-              <i className="ri-filter-3-line" />
-            </button>
-            <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters">
-              <i className="ri-restart-line" />
-            </button>
+            <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
+            <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters"><i className="ri-restart-line" /></button>
           </>
         )}
       </div>
