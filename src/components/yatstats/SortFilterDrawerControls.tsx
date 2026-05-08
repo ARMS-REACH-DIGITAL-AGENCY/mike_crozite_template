@@ -2,26 +2,47 @@
 
 import { useEffect } from 'react';
 
-const SORT_METRICS = [
-  { key: 'gp', label: 'Games Played' },
-  { key: 'avg', label: 'Batting Average' },
-  { key: 'ops', label: 'OPS' },
-  { key: 'obp', label: 'On-Base %' },
-  { key: 'slg', label: 'Slugging %' },
-  { key: 'hr', label: 'Home Runs' },
-  { key: 'rbi', label: 'RBI' },
-  { key: 'h', label: 'Hits' },
-  { key: 'r', label: 'Runs' },
-  { key: 'sb', label: 'Stolen Bases' },
-  { key: 'ab', label: 'At Bats' },
-  { key: 'era', label: 'ERA' },
-  { key: 'whip', label: 'WHIP' },
-  { key: 'k', label: 'Strikeouts' },
-  { key: 'bb', label: 'Walks' },
-  { key: 'ip', label: 'Innings Pitched' },
-  { key: 'w', label: 'Wins' },
-  { key: 'sv', label: 'Saves' },
+type SortMetric = {
+  key: string;
+  label: string;
+  shortLabel: string;
+  group: 'batting' | 'pitching';
+  defaultDirection?: 'asc' | 'desc';
+};
+
+const SORT_METRICS: SortMetric[] = [
+  { key: 'avg', label: 'Batting Average', shortLabel: 'AVG', group: 'batting', defaultDirection: 'desc' },
+  { key: 'ab', label: 'At Bats', shortLabel: 'AB', group: 'batting', defaultDirection: 'desc' },
+  { key: 'h', label: 'Hits', shortLabel: 'H', group: 'batting', defaultDirection: 'desc' },
+  { key: 'obp', label: 'On-Base %', shortLabel: 'OBP', group: 'batting', defaultDirection: 'desc' },
+  { key: 'r', label: 'Runs', shortLabel: 'R', group: 'batting', defaultDirection: 'desc' },
+  { key: 'bb', label: 'Walks', shortLabel: 'BB', group: 'batting', defaultDirection: 'desc' },
+  { key: 'slg', label: 'Slugging %', shortLabel: 'SLG', group: 'batting', defaultDirection: 'desc' },
+  { key: 'hr', label: 'Home Runs', shortLabel: 'HR', group: 'batting', defaultDirection: 'desc' },
+  { key: 'rbi', label: 'RBI', shortLabel: 'RBI', group: 'batting', defaultDirection: 'desc' },
+  { key: 'ops', label: 'OPS', shortLabel: 'OPS', group: 'batting', defaultDirection: 'desc' },
+  { key: 'sb', label: 'Stolen Bases', shortLabel: 'SB', group: 'batting', defaultDirection: 'desc' },
+  { key: 'gp', label: 'Games Played', shortLabel: 'GP', group: 'batting', defaultDirection: 'desc' },
+
+  { key: 'ip', label: 'Innings Pitched', shortLabel: 'IP', group: 'pitching', defaultDirection: 'desc' },
+  { key: 'er', label: 'Earned Runs', shortLabel: 'ER', group: 'pitching', defaultDirection: 'asc' },
+  { key: 'era', label: 'ERA', shortLabel: 'ERA', group: 'pitching', defaultDirection: 'asc' },
+  { key: 'k', label: 'Strikeouts', shortLabel: 'K', group: 'pitching', defaultDirection: 'desc' },
+  { key: 'bb', label: 'Walks Allowed', shortLabel: 'BB', group: 'pitching', defaultDirection: 'asc' },
+  { key: 'whip', label: 'WHIP', shortLabel: 'WHIP', group: 'pitching', defaultDirection: 'asc' },
+  { key: 'k9', label: 'K/9', shortLabel: 'K/9', group: 'pitching', defaultDirection: 'desc' },
+  { key: 'bb9', label: 'BB/9', shortLabel: 'BB/9', group: 'pitching', defaultDirection: 'asc' },
+  { key: 'kbb', label: 'K/BB', shortLabel: 'K/BB', group: 'pitching', defaultDirection: 'desc' },
+  { key: 'wl', label: 'Wins', shortLabel: 'W-L', group: 'pitching', defaultDirection: 'desc' },
+  { key: 'sv', label: 'Saves', shortLabel: 'SAVES', group: 'pitching', defaultDirection: 'desc' },
+  { key: 'gp', label: 'Games Played', shortLabel: 'GP', group: 'pitching', defaultDirection: 'desc' },
 ];
+
+function getMetric(key: string, group?: string | null) {
+  return SORT_METRICS.find((metric) => metric.key === key && (!group || metric.group === group))
+    || SORT_METRICS.find((metric) => metric.key === key)
+    || null;
+}
 
 function statAttrName(key: string) {
   return `stat${key.charAt(0).toUpperCase()}${key.slice(1)}`;
@@ -140,9 +161,18 @@ function isSortSelected() {
   return Boolean(document.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked'));
 }
 
+function selectedDirection(): 'asc' | 'desc' {
+  return document.querySelector<HTMLInputElement>('input[name="yat-sort-direction"]:checked')?.value === 'asc' ? 'asc' : 'desc';
+}
+
+function setDirection(direction: 'asc' | 'desc') {
+  const radio = document.querySelector<HTMLInputElement>(`input[name="yat-sort-direction"][value="${direction}"]`);
+  if (radio) radio.checked = true;
+}
+
 function applyFlipCardSort() {
   const checked = document.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked');
-  const dir = document.querySelector<HTMLInputElement>('input[name="yat-sort-direction"]:checked')?.value === 'asc' ? 'asc' : 'desc';
+  const dir = selectedDirection();
   const status = document.getElementById('yatSortStatus');
   const section = getVisibleGallerySection();
 
@@ -169,6 +199,7 @@ function applyFlipCardSort() {
   }
 
   const metric = checked.value;
+  const metricGroup = checked.dataset.group || '';
   const sortedCards = [...cards].sort((a, b) => {
     const aw = getCardWrap(a);
     const bw = getCardWrap(b);
@@ -204,7 +235,8 @@ function applyFlipCardSort() {
   syncStripToSortedCards(getVisibleCards(section));
 
   if (status) {
-    const label = checked.dataset.label || checked.value.toUpperCase();
+    const metricInfo = getMetric(metric, metricGroup);
+    const label = checked.dataset.label || metricInfo?.label || checked.value.toUpperCase();
     status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Active Alumni sort uses 2026 stats only.`;
   }
 }
@@ -212,6 +244,16 @@ function applyFlipCardSort() {
 function rerunSortIfActive(delay = 80) {
   if (!isSortSelected()) return;
   window.setTimeout(applyFlipCardSort, delay);
+}
+
+function metricOption(metric: SortMetric) {
+  return `
+    <label class="yat-sort-option yat-sort-option-${metric.group}">
+      <input type="checkbox" name="yat-sort-stat" value="${metric.key}" data-label="${metric.label}" data-group="${metric.group}" data-default-direction="${metric.defaultDirection || 'desc'}" />
+      <span class="yat-sort-short">${metric.shortLabel}</span>
+      <span class="yat-sort-full">${metric.label}</span>
+    </label>
+  `;
 }
 
 function installSortFilterDrawer() {
@@ -223,6 +265,8 @@ function installSortFilterDrawer() {
   if (heading) heading.textContent = 'SORT & FILTER';
 
   if (!document.getElementById('yatSortControls')) {
+    const battingMetrics = SORT_METRICS.filter((metric) => metric.group === 'batting');
+    const pitchingMetrics = SORT_METRICS.filter((metric) => metric.group === 'pitching');
     const sortGroup = document.createElement('details');
     sortGroup.id = 'yatSortControls';
     sortGroup.className = 'yat-filter-group yat-sort-group';
@@ -235,13 +279,19 @@ function installSortFilterDrawer() {
           <label><input type="radio" name="yat-sort-direction" value="desc" checked /> <span>High to Low</span></label>
           <label><input type="radio" name="yat-sort-direction" value="asc" /> <span>Low to High</span></label>
         </div>
-        <div class="yat-sort-options">
-          ${SORT_METRICS.map((metric) => `
-            <label>
-              <input type="checkbox" name="yat-sort-stat" value="${metric.key}" data-label="${metric.label}" />
-              <span>${metric.label}</span>
-            </label>
-          `).join('')}
+        <div class="yat-sort-columns">
+          <div class="yat-sort-column">
+            <div class="yat-sort-column-title">Batting</div>
+            <div class="yat-sort-options yat-sort-options-batting">
+              ${battingMetrics.map(metricOption).join('')}
+            </div>
+          </div>
+          <div class="yat-sort-column">
+            <div class="yat-sort-column-title">Pitching</div>
+            <div class="yat-sort-options yat-sort-options-pitching">
+              ${pitchingMetrics.map(metricOption).join('')}
+            </div>
+          </div>
         </div>
         <button type="button" id="yatSortReset" class="yat-sort-reset">Reset Sort</button>
         <div id="yatSortStatus" class="yat-sort-status">Default roster order.</div>
@@ -258,6 +308,8 @@ function installSortFilterDrawer() {
         statBoxes.forEach((other) => {
           if (other !== box) other.checked = false;
         });
+        const preferredDirection = box.dataset.defaultDirection === 'asc' ? 'asc' : 'desc';
+        setDirection(preferredDirection);
       }
       window.setTimeout(applyFlipCardSort, 0);
     });
@@ -316,16 +368,31 @@ export default function SortFilterDrawerControls() {
         gap: 7px;
       }
 
+      .yat-sort-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: start;
+      }
+
+      .yat-sort-column-title {
+        margin: 0 0 5px;
+        color: var(--muted);
+        font: 600 11px Oswald, sans-serif;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }
+
       .yat-sort-direction label,
       .yat-sort-options label {
         display: flex;
         align-items: center;
-        gap: 8px;
-        min-height: 32px;
+        gap: 6px;
+        min-height: 30px;
         border: 1px solid var(--line);
         border-radius: 7px;
         background: rgba(255, 255, 255, 0.04);
-        padding: 6px 8px;
+        padding: 5px 7px;
         color: var(--ink);
         font: 400 12px Oswald, sans-serif;
         letter-spacing: 0;
@@ -339,10 +406,31 @@ export default function SortFilterDrawerControls() {
         gap: 5px;
       }
 
-      .yat-sort-options input:checked + span,
+      .yat-sort-short {
+        flex: 0 0 auto;
+        min-width: 26px;
+        font-weight: 700;
+        letter-spacing: .04em;
+      }
+
+      .yat-sort-full {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .yat-sort-options input:checked + .yat-sort-short,
       .yat-sort-direction input:checked + span {
         color: #ffd166;
         font-weight: 600;
+      }
+
+      .yat-sort-options input:checked ~ .yat-sort-full {
+        color: #ffd166;
       }
 
       .yat-sort-reset {
@@ -360,6 +448,12 @@ export default function SortFilterDrawerControls() {
         color: var(--muted);
         font: 400 11px/1.35 Oswald, sans-serif;
         letter-spacing: .03em;
+      }
+
+      @media (max-width: 420px) {
+        .yat-sort-columns {
+          grid-template-columns: 1fr;
+        }
       }
     `}</style>
   );
