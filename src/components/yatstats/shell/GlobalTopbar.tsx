@@ -195,7 +195,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           top: calc(var(--row1-h) + var(--row2-h)) !important;
           bottom: var(--footerH) !important;
           height: auto !important;
-          z-index: 55 !important;
+          z-index: 64 !important;
           transform: translateX(0) !important;
         }
 
@@ -206,7 +206,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           top: calc(var(--row1-h) + var(--row2-h)) !important;
           bottom: var(--footerH) !important;
           height: auto !important;
-          z-index: 50 !important;
+          z-index: 63 !important;
         }
 
         @media (min-width: 1240px) {
