@@ -28,6 +28,7 @@ import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
 import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
+import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -458,6 +459,7 @@ export default async function HsidLayout({
 
       <SortFilterDrawerControls />
       <SearchDrawerTabs />
+      <FilterAnchorGuard />
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
