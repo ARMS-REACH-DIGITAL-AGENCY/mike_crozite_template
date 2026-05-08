@@ -5,7 +5,8 @@
 // and the FavoriteButton in Row 2 without needing middleware headers.
 import { ReactNode } from 'react';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById } from '@/lib/db';
+import { getPlayerById, getResolvedCurrentTeam } from '@/lib/db';
+import ProfilePageEnhancer from '@/components/yatstats/ProfilePageEnhancer';
 
 export default async function PlayerLayout({
   children,
@@ -16,13 +17,59 @@ export default async function PlayerLayout({
 }) {
   const { hsid, playerId } = await params;
 
-  // Lightweight single-row lookup for display name.
-  // Used by FavoriteButton in Row 2 (SchoolContextBar). Non-fatal if it fails.
+  // Lightweight single-row lookup for display name and profile-row metadata.
+  // Non-fatal if it fails.
   let playerName = '';
+  let meta = {
+    playerId,
+    hsid,
+    displayName: '',
+    statusLabel: '',
+    currentTeamName: '',
+    levelLabel: '',
+    position: '',
+    batsThrows: '',
+    heightWeight: '',
+    classOf: '',
+  };
+
   try {
-    const player = await getPlayerById(playerId);
+    const [player, resolvedCurrentTeam] = await Promise.all([
+      getPlayerById(playerId),
+      getResolvedCurrentTeam(playerId),
+    ]);
+
     if (player) {
-      playerName = `${(player.firstname || '').trim()} ${(player.lastname || '').trim()}`.trim();
+      const firstName = String(player.firstname || player.first_name || '').trim();
+      const lastName = String(player.lastname || player.last_name || '').trim();
+      playerName = `${firstName} ${lastName}`.trim();
+
+      const latestYear = Number(player.stat_year || player.pitch_year || player.year || 0);
+      const statusLabel = String(
+        player.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')
+      ).trim().toUpperCase();
+
+      const bats = String(player.bats || '').trim();
+      const throwsValue = String(player.throws || player.throwing_hand || '').trim();
+      const height = String(player.height || '').trim();
+      const weight = String(player.weight || '').trim();
+
+      meta = {
+        playerId,
+        hsid,
+        displayName: playerName || playerId,
+        statusLabel,
+        currentTeamName: String(
+          resolvedCurrentTeam?.team_name || player.current_team_name || player.team_name || ''
+        ).trim(),
+        levelLabel: String(
+          resolvedCurrentTeam?.level || player.level_label || player.level || ''
+        ).trim().toUpperCase(),
+        position: String(player.position || player.pos || '').trim().toUpperCase(),
+        batsThrows: bats && throwsValue ? `${bats}/${throwsValue}` : bats || throwsValue,
+        heightWeight: height && weight ? `${height} / ${weight}` : height || weight,
+        classOf: String(player.class_of || player.grad_year || '').trim(),
+      };
     }
   } catch {
     // non-fatal — FavoriteButton will still render; toast will show playerId as fallback
@@ -34,6 +81,7 @@ export default async function PlayerLayout({
       playerName={playerName}
       playerHsid={hsid}
     >
+      <ProfilePageEnhancer meta={meta} />
       {children}
     </PlayerProfileContextProvider>
   );
