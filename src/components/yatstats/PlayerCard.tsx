@@ -96,11 +96,16 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-stat-sb={statValue(p.sb)}
       data-stat-ab={statValue(p.ab)}
       data-stat-era={statValue(p.era)}
+      data-stat-er={statValue(p.er)}
       data-stat-whip={statValue(p.whip)}
       data-stat-k={statValue(p.ko)}
       data-stat-bb={statValue(p.bb)}
       data-stat-ip={statValue(p.ip)}
+      data-stat-k9={statValue(p.so9)}
+      data-stat-bb9={statValue(p.bb9)}
+      data-stat-kbb={statValue(p.so_bb)}
       data-stat-w={statValue(p.w)}
+      data-stat-wl={statValue(p.w)}
       data-stat-sv={statValue(p.saves)}
     >
       <div className="yat-card-inner">
