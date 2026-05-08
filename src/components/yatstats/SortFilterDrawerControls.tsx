@@ -38,6 +38,10 @@ const SORT_METRICS: SortMetric[] = [
   { key: 'gp', label: 'Games Played', shortLabel: 'GP', group: 'pitching', defaultDirection: 'desc' },
 ];
 
+function getSortRoot(): HTMLElement | null {
+  return document.getElementById('yatSortControls');
+}
+
 function getMetric(key: string, group?: string | null) {
   return SORT_METRICS.find((metric) => metric.key === key && (!group || metric.group === group))
     || SORT_METRICS.find((metric) => metric.key === key)
@@ -157,21 +161,31 @@ function restoreDefaultCardOrder() {
   syncStripToSortedCards(getVisibleCards(section));
 }
 
+function getSelectedSortInput(): HTMLInputElement | null {
+  return getSortRoot()?.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked') || null;
+}
+
 function isSortSelected() {
-  return Boolean(document.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked'));
+  return Boolean(getSelectedSortInput());
 }
 
 function selectedDirection(): 'asc' | 'desc' {
-  return document.querySelector<HTMLInputElement>('input[name="yat-sort-direction"]:checked')?.value === 'asc' ? 'asc' : 'desc';
+  const root = getSortRoot();
+  const checked = root?.querySelector<HTMLInputElement>('input[name="yat-sort-direction"]:checked');
+  return checked?.value === 'asc' ? 'asc' : 'desc';
 }
 
 function setDirection(direction: 'asc' | 'desc') {
-  const radio = document.querySelector<HTMLInputElement>(`input[name="yat-sort-direction"][value="${direction}"]`);
-  if (radio) radio.checked = true;
+  const root = getSortRoot();
+  if (!root) return;
+
+  root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
+    radio.checked = radio.value === direction;
+  });
 }
 
 function applyFlipCardSort() {
-  const checked = document.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked');
+  const checked = getSelectedSortInput();
   const dir = selectedDirection();
   const status = document.getElementById('yatSortStatus');
   const section = getVisibleGallerySection();
@@ -301,7 +315,10 @@ function installSortFilterDrawer() {
     filters.insertBefore(sortGroup, filters.firstChild);
   }
 
-  const statBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="yat-sort-stat"]'));
+  const root = getSortRoot();
+  if (!root) return;
+
+  const statBoxes = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-stat"]'));
   statBoxes.forEach((box) => {
     box.addEventListener('change', () => {
       if (box.checked) {
@@ -315,23 +332,29 @@ function installSortFilterDrawer() {
     });
   });
 
-  document.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
-    radio.addEventListener('change', () => window.setTimeout(applyFlipCardSort, 0));
-    radio.addEventListener('click', () => window.setTimeout(applyFlipCardSort, 0));
+  root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      setDirection(radio.value === 'asc' ? 'asc' : 'desc');
+      window.setTimeout(applyFlipCardSort, 0);
+    });
+    radio.addEventListener('click', () => {
+      setDirection(radio.value === 'asc' ? 'asc' : 'desc');
+      window.setTimeout(applyFlipCardSort, 0);
+    });
   });
 
   document.getElementById('yatSortReset')?.addEventListener('click', () => {
     statBoxes.forEach((box) => {
       box.checked = false;
     });
-    const desc = document.querySelector<HTMLInputElement>('input[name="yat-sort-direction"][value="desc"]');
-    if (desc) desc.checked = true;
+    setDirection('desc');
     restoreDefaultCardOrder();
     const status = document.getElementById('yatSortStatus');
     if (status) status.textContent = 'Default roster order.';
   });
 
   filters.querySelectorAll('input, select').forEach((input) => {
+    if (root.contains(input)) return;
     input.addEventListener('change', () => rerunSortIfActive(80));
     input.addEventListener('input', () => rerunSortIfActive(80));
   });
