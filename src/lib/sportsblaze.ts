@@ -171,10 +171,10 @@ function buildDemoAlumniCards(games: Record<string, unknown>[], league: string):
       opponent: firstAway.name || "Opponent TBD",
       status: firstStatus,
       gameLabel: gameLabel(firstHome, firstAway, firstStatus),
-      lastYat: firstStatus === "FINAL" ? `Final: ${firstHome.score ?? "--"}-${firstAway.score ?? "--"}` : "Game activity pending",
+      lastYat: firstStatus === "FINAL" ? `Final: ${String(firstHome.score ?? "--")}-${String(firstAway.score ?? "--")}` : "Game activity pending",
       nextYat: firstStatus === "SCHEDULED" ? "Scheduled today" : "Next game pulled from provider schedule",
       yatiNote: `YaTi: SportsBlaze returned ${league.toUpperCase()} game context. Map this provider player/team row to the YAT playerid, then this becomes Cody's live FlipCard note.`,
-      statline: { source: "SportsBlaze", status: firstStatus, teamScore: firstHome.score ?? "--" },
+      statline: { source: "SportsBlaze", status: firstStatus, teamScore: String(firstHome.score ?? "--") },
       cta: { primary: "Open Profile", secondary: "Add to Dream Team" },
     },
     {
@@ -184,7 +184,7 @@ function buildDemoAlumniCards(games: Record<string, unknown>[], league: string):
       opponent: secondHome.name || "Opponent TBD",
       status: secondStatus,
       gameLabel: gameLabel(secondHome, secondAway, secondStatus),
-      lastYat: secondStatus === "FINAL" ? `Final: ${secondAway.score ?? "--"}-${secondHome.score ?? "--"}` : "Awaiting first pitch / tip-off",
+      lastYat: secondStatus === "FINAL" ? `Final: ${String(secondAway.score ?? "--")}-${String(secondHome.score ?? "--")}` : "Awaiting first pitch / tip-off",
       nextYat: secondStatus === "SCHEDULED" ? "Game today" : "Upcoming schedule slot",
       yatiNote: "YaTi: This is the exact place where Webz.io story context and SportsBlaze stat context merge into a school-centered alumni moment.",
       statline: { source: "SportsBlaze", status: secondStatus, opponent: secondHome.name || "TBD" },
@@ -314,7 +314,7 @@ function gameLabel(
   const homeName = home.name || "Home";
   const awayName = away.name || "Away";
   if (status === "FINAL" || status === "LIVE") {
-    return `${awayName} ${away.score ?? "--"} @ ${homeName} ${home.score ?? "--"} · ${status}`;
+    return `${awayName} ${String(away.score ?? "--")} @ ${homeName} ${String(home.score ?? "--")} · ${status}`;
   }
   return `${awayName} @ ${homeName} · ${status}`;
 }
