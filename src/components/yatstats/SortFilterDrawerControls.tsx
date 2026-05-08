@@ -2,13 +2,16 @@
 
 import { useEffect } from 'react';
 
+type SortDirection = 'asc' | 'desc';
 type SortMetric = {
   key: string;
   label: string;
   shortLabel: string;
   group: 'batting' | 'pitching';
-  defaultDirection?: 'asc' | 'desc';
+  defaultDirection?: SortDirection;
 };
+
+let currentSortDirection: SortDirection = 'desc';
 
 const SORT_METRICS: SortMetric[] = [
   { key: 'avg', label: 'Batting Average', shortLabel: 'AVG', group: 'batting', defaultDirection: 'desc' },
@@ -169,18 +172,24 @@ function isSortSelected() {
   return Boolean(getSelectedSortInput());
 }
 
-function selectedDirection(): 'asc' | 'desc' {
+function selectedDirection(): SortDirection {
   const root = getSortRoot();
-  const checked = root?.querySelector<HTMLInputElement>('input[name="yat-sort-direction"]:checked');
-  return checked?.value === 'asc' ? 'asc' : 'desc';
+  const locked = root?.dataset.yatSortDirection === 'asc' ? 'asc' : root?.dataset.yatSortDirection === 'desc' ? 'desc' : null;
+  if (locked) return locked;
+  return currentSortDirection;
 }
 
-function setDirection(direction: 'asc' | 'desc') {
+function setDirection(direction: SortDirection) {
+  currentSortDirection = direction;
   const root = getSortRoot();
   if (!root) return;
 
+  root.dataset.yatSortDirection = direction;
   root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
     radio.checked = radio.value === direction;
+    radio.defaultChecked = radio.value === direction;
+    const label = radio.closest('label');
+    label?.classList.toggle('yat-sort-direction-active', radio.value === direction);
   });
 }
 
@@ -222,8 +231,6 @@ function applyFlipCardSort() {
     const aCurrent = hasCurrentSeasonStats(a);
     const bCurrent = hasCurrentSeasonStats(b);
 
-    // ACTIVE ALUMNI RULE: sort only true 2026 season stat cards.
-    // Cards without data-has-2026-stats=true are never ranked by career numbers.
     if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
     if (!aCurrent && !bCurrent) return ai - bi;
 
@@ -290,7 +297,7 @@ function installSortFilterDrawer() {
       <summary>Sort Cards By Stats</summary>
       <div class="yat-sort-controls">
         <div class="yat-sort-direction" role="group" aria-label="Sort direction">
-          <label><input type="radio" name="yat-sort-direction" value="desc" checked /> <span>High to Low</span></label>
+          <label><input type="radio" name="yat-sort-direction" value="desc" /> <span>High to Low</span></label>
           <label><input type="radio" name="yat-sort-direction" value="asc" /> <span>Low to High</span></label>
         </div>
         <div class="yat-sort-columns">
@@ -318,6 +325,8 @@ function installSortFilterDrawer() {
   const root = getSortRoot();
   if (!root) return;
 
+  setDirection(currentSortDirection);
+
   const statBoxes = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-stat"]'));
   statBoxes.forEach((box) => {
     box.addEventListener('change', () => {
@@ -325,22 +334,20 @@ function installSortFilterDrawer() {
         statBoxes.forEach((other) => {
           if (other !== box) other.checked = false;
         });
-        const preferredDirection = box.dataset.defaultDirection === 'asc' ? 'asc' : 'desc';
-        setDirection(preferredDirection);
+        setDirection(box.dataset.defaultDirection === 'asc' ? 'asc' : 'desc');
       }
       window.setTimeout(applyFlipCardSort, 0);
     });
   });
 
   root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
+    const handleDirection = (event: Event) => {
+      event.stopPropagation();
       setDirection(radio.value === 'asc' ? 'asc' : 'desc');
       window.setTimeout(applyFlipCardSort, 0);
-    });
-    radio.addEventListener('click', () => {
-      setDirection(radio.value === 'asc' ? 'asc' : 'desc');
-      window.setTimeout(applyFlipCardSort, 0);
-    });
+    };
+    radio.addEventListener('change', handleDirection);
+    radio.addEventListener('click', handleDirection);
   });
 
   document.getElementById('yatSortReset')?.addEventListener('click', () => {
@@ -447,7 +454,8 @@ export default function SortFilterDrawerControls() {
       }
 
       .yat-sort-options input:checked + .yat-sort-short,
-      .yat-sort-direction input:checked + span {
+      .yat-sort-direction input:checked + span,
+      .yat-sort-direction-active span {
         color: #ffd166;
         font-weight: 600;
       }
