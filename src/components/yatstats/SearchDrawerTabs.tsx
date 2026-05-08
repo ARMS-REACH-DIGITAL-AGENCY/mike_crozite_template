@@ -71,9 +71,11 @@ async function fetchJson(url: string) {
 export default function SearchDrawerTabs() {
   useEffect(() => {
     const drawer = document.querySelector('#drawerLeft .yat-left-search-content') as HTMLElement | null;
-    const input = document.getElementById('gsInput') as HTMLInputElement | null;
+    const searchInput = document.getElementById('gsInput') as HTMLInputElement | null;
     const results = document.getElementById('gsResults') as HTMLElement | null;
-    if (!drawer || !input || !results) return;
+    if (!drawer || !searchInput || !results) return;
+
+    const input = searchInput;
 
     if (!document.getElementById('yatSearchModeTabs')) {
       const tabs = document.createElement('div');
