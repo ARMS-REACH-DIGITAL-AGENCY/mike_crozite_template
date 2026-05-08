@@ -327,7 +327,6 @@ export default async function HsidLayout({
           <div className="yat-search-drawer-title" id="gsTitle">Find a School or Player</div>
           <div className="yat-search-drawer-sub">Browse schools and players across the YAT?STATS network</div>
           <div className="yat-gs-input-wrap">
-            <i className="ri-search-line" aria-hidden="true" />
             <input
               id="gsInput"
               type="search"
@@ -338,6 +337,7 @@ export default async function HsidLayout({
               aria-controls="gsResults"
               aria-autocomplete="list"
             />
+            <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
           </div>
           <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
         </div>
