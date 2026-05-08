@@ -26,40 +26,140 @@ function schoolUrl(program: any) {
   return `/${encodeURIComponent(String(program.hsid || program.schoolId || ''))}`;
 }
 
+function splitSchoolLocation(raw: unknown) {
+  const parts = String(raw || '').split(',');
+  return {
+    city: (parts[0] || '').trim(),
+    state: (parts.slice(1).join(',') || '').trim(),
+  };
+}
+
+function cleanLocation(city?: unknown, state?: unknown, fallback?: unknown) {
+  const c = String(city || '').trim();
+  const s = String(state || '').trim();
+  if (c && s) return `${c}, ${s}`;
+  if (c) return c;
+  if (s) return s;
+  return String(fallback || '').trim();
+}
+
+function schoolCrestUrl(hsid: unknown, fallback?: unknown) {
+  const custom = String(fallback || '').trim();
+  if (custom) return custom;
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/school-logos/${esc(hsid)}.png`;
+}
+
+function teamLogoPlaceholder() {
+  return 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/team-placeholder.png';
+}
+
 function renderPlayerRows(players: any[], emptyText: string) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
-  return players.map((p) => {
-    const name = String(p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.playerId || 'Player');
-    const school = String(p.schoolName || '');
-    const metaBits = [school, p.currentTeamName, p.levelLabel].filter(Boolean).join(' • ');
-    return `
-      <a class="yat-search-result-row" href="${esc(playerUrl(p))}">
-        <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${esc(p.playerId || p.playerid)}.jpg" alt="" class="yat-search-thumb" onerror="this.style.visibility='hidden'" />
-        <span class="yat-search-row-text">
-          <strong>${esc(name)}</strong>
-          ${metaBits ? `<small>${esc(metaBits)}</small>` : ''}
-        </span>
-      </a>
-    `;
-  }).join('');
+
+  return `
+    <div class="yat-search-section-label">Players</div>
+    <div class="yat-search-card-list">
+      ${players.map((p) => {
+        const name = String(p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.playerId || 'Player');
+        const school = String(p.schoolName || '').trim();
+        const location = cleanLocation(p.city, p.state);
+        const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+        return `
+          <a class="yat-search-card yat-search-player-card" href="${esc(playerUrl(p))}">
+            <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+            <span class="yat-search-row-text">
+              <strong>${esc(name)}</strong>
+              ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
+            </span>
+          </a>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function renderSchoolRows(programs: any[], emptyText: string) {
   if (!programs.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
-  return programs.map((s) => {
-    const name = String(s.hsname || s.schoolName || 'School');
-    const loc = String(s.hslocation || s.location || '');
-    const hsid = String(s.hsid || s.schoolId || '');
-    return `
-      <a class="yat-search-result-row" href="${esc(schoolUrl(s))}">
-        <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/school-logos/${esc(hsid)}.png" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.style.visibility='hidden'" />
-        <span class="yat-search-row-text">
-          <strong>${esc(name)}</strong>
-          ${loc ? `<small>${esc(loc)}</small>` : ''}
-        </span>
-      </a>
-    `;
-  }).join('');
+
+  const grouped = new Map<string, any[]>();
+  programs.forEach((s) => {
+    const loc = splitSchoolLocation(s.hslocation || s.location);
+    const key = String(s.regionid || loc.state || 'OTHER').toUpperCase();
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(s);
+  });
+
+  return Array.from(grouped.entries()).map(([state, rows]) => `
+    <div class="yat-search-section-label">${esc(state)}</div>
+    <div class="yat-search-card-list yat-search-school-list">
+      ${rows.map((s) => {
+        const hsid = String(s.hsid || s.schoolId || '');
+        const name = String(s.hsname || s.schoolName || 'School');
+        const loc = String(s.hslocation || s.location || '');
+        const live = String(s.microsite_url || s.micrositeUrl || '').trim();
+        const badge = live ? 'Live' : (s.current_aa || s.mlb || s.atnla ? 'Candidate' : 'Not Active');
+        return `
+          <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}">
+            <div class="yat-search-school-topline">
+              <img src="${esc(schoolCrestUrl(hsid))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+              <span class="yat-search-row-text">
+                <strong>${esc(name)}</strong>
+                ${loc ? `<small>${esc(loc)}</small>` : ''}
+              </span>
+              <span class="yat-search-school-badge ${live ? 'live' : badge === 'Candidate' ? 'candidate' : ''}">${esc(badge)}</span>
+            </div>
+            <div class="yat-search-school-stats">
+              <span><strong>${esc(s.current_aa ?? 0)}</strong><small>Active</small></span>
+              <span><strong>${esc(s.mlb ?? 0)}</strong><small>MLB</small></span>
+              <span><strong>${s.yatstats_national_rank ? `#${esc(s.yatstats_national_rank)}` : '--'}</strong><small>Nat'l</small></span>
+              <span><strong>${s.yatstats_state_rank ? `#${esc(s.yatstats_state_rank)}` : '--'}</strong><small>State</small></span>
+              <span><strong>${esc(s.atnla ?? 0)}</strong><small>All-Time</small></span>
+              <span><strong>${esc(s.drafted_ratio || (s.drafted_hs && s.drafted ? `${s.drafted_hs}/${s.drafted}` : '--'))}</strong><small>Drafted</small></span>
+            </div>
+          </a>
+        `;
+      }).join('')}
+    </div>
+  `).join('');
+}
+
+function renderTeamRows(players: any[], emptyText: string) {
+  if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
+
+  const grouped = new Map<string, any[]>();
+  players.forEach((p) => {
+    const team = String(p.currentTeamName || p.current_team_name || 'Current Team Unknown').trim() || 'Current Team Unknown';
+    const level = String(p.levelLabel || p.level_label || '').trim();
+    const key = `${team}${level ? ` - ${level}` : ''}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(p);
+  });
+
+  return Array.from(grouped.entries()).map(([teamLevel, rows]) => `
+    <div class="yat-search-team-group">
+      <div class="yat-search-team-heading">
+        <img src="${esc(teamLogoPlaceholder())}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+        <span>${esc(teamLevel)}</span>
+      </div>
+      <div class="yat-search-card-list">
+        ${rows.map((p) => {
+          const name = String(p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.playerId || 'Player');
+          const school = String(p.schoolName || '').trim();
+          const location = cleanLocation(p.city, p.state);
+          const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+          return `
+            <a class="yat-search-card yat-search-team-player-card" href="${esc(playerUrl(p))}">
+              <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+              <span class="yat-search-row-text">
+                <strong>${esc(name)}</strong>
+                ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
+              </span>
+            </a>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 async function fetchJson(url: string) {
@@ -73,19 +173,27 @@ export default function SearchDrawerTabs() {
     const drawer = document.querySelector('#drawerLeft .yat-left-search-content') as HTMLElement | null;
     const searchInput = document.getElementById('gsInput') as HTMLInputElement | null;
     const searchResults = document.getElementById('gsResults') as HTMLElement | null;
+    const title = document.getElementById('gsTitle');
+    const sub = drawer?.querySelector('.yat-search-drawer-sub') as HTMLElement | null;
     if (!drawer || !searchInput || !searchResults) return;
 
     const input = searchInput;
     const results = searchResults;
+
+    if (title) title.textContent = 'Search the YAT?STATS Database';
+    if (sub) sub.textContent = "Browse by the player's name, the high school he attended, or by his current college or professional team";
+    input.placeholder = 'Search by name, school, or team...';
+
+    const oldModeLabel = drawer.querySelector('.yat-search-mode-label');
+    if (oldModeLabel) oldModeLabel.remove();
 
     if (!document.getElementById('yatSearchModeTabs')) {
       const tabs = document.createElement('div');
       tabs.id = 'yatSearchModeTabs';
       tabs.className = 'yat-search-mode-tabs';
       tabs.innerHTML = `
-        <div class="yat-search-mode-label">Search for a player by</div>
         <div class="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
-          <button type="button" class="yat-search-mode-btn active" data-search-mode="name">Name</button>
+          <button type="button" class="yat-search-mode-btn active" data-search-mode="name">Player Name</button>
           <button type="button" class="yat-search-mode-btn" data-search-mode="school">High School</button>
           <button type="button" class="yat-search-mode-btn" data-search-mode="team">Current Team</button>
         </div>
@@ -96,14 +204,6 @@ export default function SearchDrawerTabs() {
     let mode: SearchMode = 'name';
     let timer: ReturnType<typeof setTimeout> | null = null;
     let requestId = 0;
-
-    const setMode = (next: SearchMode) => {
-      mode = next;
-      drawer.querySelectorAll<HTMLElement>('[data-search-mode]').forEach((button) => {
-        button.classList.toggle('active', button.dataset.searchMode === next);
-      });
-      runSearch();
-    };
 
     const renderLoading = () => {
       results.innerHTML = '<div class="yat-search-empty">Searching...</div>';
@@ -135,57 +235,74 @@ export default function SearchDrawerTabs() {
           return;
         }
 
-        const data = await fetchJson(`/api/teams/search?q=${encodeURIComponent(q)}&limit=40`);
+        const data = await fetchJson(`/api/teams/search?q=${encodeURIComponent(q)}&limit=75`);
         if (thisRequest !== requestId) return;
-        results.innerHTML = renderPlayerRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
+        results.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
       } catch {
         if (thisRequest === requestId) results.innerHTML = '<div class="yat-search-empty">Search failed. Try again.</div>';
       }
     }
 
+    const setMode = (next: SearchMode) => {
+      mode = next;
+      drawer.querySelectorAll<HTMLElement>('[data-search-mode]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.searchMode === next);
+      });
+      runSearch();
+    };
+
     function scheduleSearch(event?: Event) {
-      event?.stopPropagation();
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      event?.stopImmediatePropagation?.();
       if (timer) clearTimeout(timer);
       timer = setTimeout(runSearch, 180);
     }
 
-    input.addEventListener('input', scheduleSearch, true);
-    input.addEventListener('keyup', scheduleSearch, true);
-    input.addEventListener('search', scheduleSearch, true);
+    drawer.addEventListener('input', scheduleSearch, true);
+    drawer.addEventListener('keyup', scheduleSearch, true);
+    drawer.addEventListener('search', scheduleSearch, true);
 
     drawer.querySelectorAll<HTMLButtonElement>('[data-search-mode]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
         const next = button.dataset.searchMode as SearchMode;
         if (next) setMode(next);
-      });
+      }, true);
     });
 
     results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
 
     return () => {
-      input.removeEventListener('input', scheduleSearch, true);
-      input.removeEventListener('keyup', scheduleSearch, true);
-      input.removeEventListener('search', scheduleSearch, true);
+      drawer.removeEventListener('input', scheduleSearch, true);
+      drawer.removeEventListener('keyup', scheduleSearch, true);
+      drawer.removeEventListener('search', scheduleSearch, true);
     };
   }, []);
 
   return (
     <style jsx global>{`
-      #drawerLeft .yat-search-mode-label {
-        margin: 10px 0 6px;
-        color: var(--muted);
-        font: 400 11px/1 Oswald, sans-serif;
-        letter-spacing: .06em;
-        text-transform: uppercase;
+      #drawerLeft .yat-search-drawer-title {
+        margin-bottom: 4px !important;
+        font-size: 18px !important;
       }
+
+      #drawerLeft .yat-search-drawer-sub {
+        max-width: 330px;
+        margin-bottom: 12px !important;
+        font-size: 10px !important;
+        line-height: 1.35 !important;
+      }
+
+      #drawerLeft .yat-search-mode-label { display: none !important; }
 
       #drawerLeft .yat-search-mode-buttons {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         gap: 6px;
-        margin-bottom: 10px;
+        margin: 10px 0 12px;
       }
 
       #drawerLeft .yat-search-mode-btn {
@@ -194,7 +311,7 @@ export default function SearchDrawerTabs() {
         border-radius: 7px;
         background: rgba(255,255,255,.04);
         color: var(--ink);
-        font: 400 12px/1.05 Oswald, sans-serif;
+        font: 400 11px/1.05 Oswald, sans-serif;
         text-transform: uppercase;
         cursor: pointer;
       }
@@ -210,39 +327,59 @@ export default function SearchDrawerTabs() {
         padding: 8px 0;
       }
 
-      #drawerLeft .yat-search-result-row {
+      #drawerLeft .yat-search-section-label {
+        margin: 12px 0 8px;
+        color: var(--muted);
+        font: 800 10px/1 Oswald, sans-serif;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+      }
+
+      #drawerLeft .yat-search-card-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      #drawerLeft .yat-search-card {
         display: flex;
         align-items: center;
         gap: 10px;
-        min-height: 48px;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--line);
+        min-height: 56px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255,255,255,.045);
         color: var(--ink);
         text-decoration: none;
       }
 
-      #drawerLeft .yat-search-result-row:hover { color: var(--fg); }
+      #drawerLeft .yat-search-card:hover {
+        color: var(--fg);
+        background: rgba(255,255,255,.08);
+      }
 
       #drawerLeft .yat-search-thumb {
-        width: 30px;
-        height: 30px;
+        width: 36px;
+        height: 36px;
         object-fit: cover;
-        border-radius: 3px;
+        border-radius: 5px;
         flex: 0 0 auto;
         background: rgba(255,255,255,.08);
       }
 
-      #drawerLeft .yat-search-school-thumb { object-fit: contain; }
+      #drawerLeft .yat-search-school-thumb,
+      #drawerLeft .yat-search-team-thumb { object-fit: contain; }
 
       #drawerLeft .yat-search-row-text {
         display: flex;
         min-width: 0;
         flex-direction: column;
-        gap: 2px;
+        gap: 3px;
       }
 
       #drawerLeft .yat-search-row-text strong {
-        font: 400 14px/1.05 Oswald, sans-serif;
+        font: 700 14px/1.05 Oswald, sans-serif;
         text-transform: uppercase;
       }
 
@@ -250,6 +387,93 @@ export default function SearchDrawerTabs() {
         color: var(--muted);
         font: 400 10px/1.2 Oswald, sans-serif;
         text-transform: uppercase;
+      }
+
+      #drawerLeft .yat-search-school-card {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      #drawerLeft .yat-search-school-topline {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+      }
+
+      #drawerLeft .yat-search-school-badge {
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 5px;
+        padding: 4px 6px;
+        color: var(--muted);
+        font: 700 8px/1 Oswald, sans-serif;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      #drawerLeft .yat-search-school-badge.live {
+        border-color: rgba(0,255,140,.55);
+        color: #00ff8c;
+      }
+
+      #drawerLeft .yat-search-school-badge.candidate {
+        border-color: rgba(255,209,102,.7);
+        color: #ffd166;
+      }
+
+      #drawerLeft .yat-search-school-stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 1px;
+        border-top: 1px solid var(--line);
+        padding-top: 7px;
+      }
+
+      #drawerLeft .yat-search-school-stats span {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+      }
+
+      #drawerLeft .yat-search-school-stats strong {
+        color: var(--fg);
+        font: 900 14px/1 Oswald, sans-serif;
+        white-space: nowrap;
+      }
+
+      #drawerLeft .yat-search-school-stats small {
+        color: var(--muted);
+        font: 400 7px/1.1 Oswald, sans-serif;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      #drawerLeft .yat-search-team-group { margin: 12px 0 4px; }
+
+      #drawerLeft .yat-search-team-heading {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 7px;
+        color: var(--fg);
+        font: 800 12px/1.1 Oswald, sans-serif;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+      }
+
+      #drawerLeft .yat-search-team-player-card {
+        min-height: 52px;
+        border-radius: 0;
+        border-width: 0 0 1px;
+        background: transparent;
+        padding-left: 0;
+        padding-right: 0;
       }
     `}</style>
   );
