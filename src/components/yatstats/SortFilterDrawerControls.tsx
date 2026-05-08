@@ -23,6 +23,27 @@ const SORT_METRICS = [
   { key: 'sv', label: 'Saves' },
 ];
 
+const STAT_LABEL_ALIASES: Record<string, string[]> = {
+  gp: ['GP', 'G'],
+  avg: ['AVG'],
+  ops: ['OPS'],
+  obp: ['OBP'],
+  slg: ['SLG'],
+  hr: ['HR'],
+  rbi: ['RBI'],
+  h: ['H'],
+  r: ['R'],
+  sb: ['SB'],
+  ab: ['AB'],
+  era: ['ERA'],
+  whip: ['WHIP'],
+  k: ['K', 'SO'],
+  bb: ['BB'],
+  ip: ['IP'],
+  w: ['W', 'W-L'],
+  sv: ['SV', 'SAVES'],
+};
+
 function statAttrName(key: string) {
   return `stat${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 }
@@ -37,6 +58,10 @@ function getVisibleGallerySection(): HTMLElement | null {
   return null;
 }
 
+function isActiveAlumniSection(section: HTMLElement | null) {
+  return section?.id === 'sec-active';
+}
+
 function getCardWrap(card: HTMLElement): HTMLElement {
   return (card.closest('[data-player-card-wrap="true"]') as HTMLElement | null) || card;
 }
@@ -45,19 +70,51 @@ function getGrid(section: HTMLElement): HTMLElement | null {
   return (section.querySelector('.yat-grid') || section.querySelector('#active-grid')) as HTMLElement | null;
 }
 
-function getNumericStat(card: HTMLElement, key: string): number | null {
-  const raw = card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || '';
-  const cleaned = String(raw).replace(/[^0-9.-]/g, '').trim();
+function parseStatNumber(raw: unknown): number | null {
+  const text = String(raw ?? '').trim();
+  if (!text || text === '--') return null;
+
+  if (text.includes('-')) {
+    const first = text.split('-')[0];
+    const firstParsed = Number(String(first).replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(firstParsed) ? firstParsed : null;
+  }
+
+  const cleaned = text.replace(/[^0-9.-]/g, '').trim();
   if (!cleaned) return null;
 
   const parsed = Number(cleaned);
-  if (!Number.isFinite(parsed)) return null;
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
-  return parsed;
+function getNumericStatFromGrid(card: HTMLElement, key: string): number | null {
+  const aliases = (STAT_LABEL_ALIASES[key] || [key]).map((v) => v.toUpperCase());
+  const stats = Array.from(card.querySelectorAll('.yat-stat')) as HTMLElement[];
+
+  for (const stat of stats) {
+    const label = String(stat.querySelector('.yat-stat-label')?.textContent || '').trim().toUpperCase();
+    if (!aliases.includes(label)) continue;
+
+    const value = stat.querySelector('.yat-stat-val')?.textContent || '';
+    return parseStatNumber(value);
+  }
+
+  return null;
+}
+
+function getNumericStat(card: HTMLElement, key: string): number | null {
+  const raw = card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || '';
+  const dataValue = parseStatNumber(raw);
+  if (dataValue != null) return dataValue;
+
+  return getNumericStatFromGrid(card, key);
 }
 
 function hasCurrentSeasonStats(card: HTMLElement): boolean {
-  return card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true';
+  if (card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true') return true;
+
+  const bars = Array.from(card.querySelectorAll('.yat-stats-bar, .fz-stat-bucket-btn, .fz-stats-title'));
+  return bars.some((bar) => String(bar.textContent || '').toUpperCase().includes('2026'));
 }
 
 function getVisibleCards(section: HTMLElement): HTMLElement[] {
@@ -128,19 +185,26 @@ function applyFlipCardSort() {
     return;
   }
 
+  if (!isActiveAlumniSection(section)) {
+    if (status) status.textContent = 'Sorting career/all-time cards will be added after Active Alumni sorting is finalized.';
+    return;
+  }
+
   const metric = checked.value;
   const sortedCards = [...cards].sort((a, b) => {
-    const aCurrent = hasCurrentSeasonStats(a);
-    const bCurrent = hasCurrentSeasonStats(b);
     const aw = getCardWrap(a);
     const bw = getCardWrap(b);
     const ai = Number(aw.dataset.sortOriginalIndex || 0);
     const bi = Number(bw.dataset.sortOriginalIndex || 0);
+    const aCurrent = hasCurrentSeasonStats(a);
+    const bCurrent = hasCurrentSeasonStats(b);
 
+    // Active Alumni sorts rank only cards with 2026 stats. Career/no-2026 cards stay underneath.
     if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+    if (!aCurrent && !bCurrent) return ai - bi;
 
-    const av = aCurrent ? getNumericStat(a, metric) : null;
-    const bv = bCurrent ? getNumericStat(b, metric) : null;
+    const av = getNumericStat(a, metric);
+    const bv = getNumericStat(b, metric);
 
     if (av == null && bv == null) return ai - bi;
     if (av == null) return 1;
@@ -162,7 +226,7 @@ function applyFlipCardSort() {
 
   if (status) {
     const label = checked.dataset.label || checked.value.toUpperCase();
-    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Only players with 2026 stats are ranked first; everyone else stays below them.`;
+    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Active Alumni sort uses 2026 stats only; players without 2026 stats stay below.`;
   }
 }
 
@@ -211,12 +275,13 @@ function installSortFilterDrawer() {
           if (other !== box) other.checked = false;
         });
       }
-      applyFlipCardSort();
+      window.setTimeout(applyFlipCardSort, 0);
     });
   });
 
   document.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
-    radio.addEventListener('change', applyFlipCardSort);
+    radio.addEventListener('change', () => window.setTimeout(applyFlipCardSort, 0));
+    radio.addEventListener('click', () => window.setTimeout(applyFlipCardSort, 0));
   });
 
   document.getElementById('yatSortReset')?.addEventListener('click', () => {
@@ -229,8 +294,8 @@ function installSortFilterDrawer() {
   });
 
   filters.querySelectorAll('input, select').forEach((input) => {
-    input.addEventListener('change', () => window.setTimeout(applyFlipCardSort, 50));
-    input.addEventListener('input', () => window.setTimeout(applyFlipCardSort, 50));
+    input.addEventListener('change', () => window.setTimeout(applyFlipCardSort, 80));
+    input.addEventListener('input', () => window.setTimeout(applyFlipCardSort, 80));
   });
 
   window.addEventListener('yat:favorites-filter-changed', () => window.setTimeout(applyFlipCardSort, 80));
@@ -277,10 +342,11 @@ export default function SortFilterDrawerControls() {
         border-radius: 7px;
         background: rgba(255, 255, 255, 0.04);
         padding: 6px 8px;
-        color: var(--fg);
-        font: 800 11px/1.1 Oswald, sans-serif;
-        letter-spacing: .04em;
+        color: var(--ink);
+        font: 400 12px Oswald, sans-serif;
+        letter-spacing: 0;
         text-transform: uppercase;
+        cursor: pointer;
       }
 
       .yat-sort-options {
@@ -292,6 +358,7 @@ export default function SortFilterDrawerControls() {
       .yat-sort-options input:checked + span,
       .yat-sort-direction input:checked + span {
         color: #ffd166;
+        font-weight: 600;
       }
 
       .yat-sort-reset {
@@ -300,7 +367,7 @@ export default function SortFilterDrawerControls() {
         border-radius: 7px;
         background: rgba(255, 255, 255, .08);
         color: var(--fg);
-        font: 900 11px Oswald, sans-serif;
+        font: 400 12px Oswald, sans-serif;
         text-transform: uppercase;
         cursor: pointer;
       }
