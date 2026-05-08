@@ -27,6 +27,7 @@ import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
+import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -331,9 +332,9 @@ export default async function HsidLayout({
               id="gsInput"
               type="search"
               className="yat-gs-input"
-              placeholder="Search by school or player..."
+              placeholder="Search by name, school, or team..."
               autoComplete="off"
-              aria-label="Search schools or players"
+              aria-label="Search YAT?STATS"
               aria-controls="gsResults"
               aria-autocomplete="list"
             />
@@ -456,6 +457,7 @@ export default async function HsidLayout({
       <div id="drawerMask" className="yat-drawer-mask" />
 
       <SortFilterDrawerControls />
+      <SearchDrawerTabs />
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
