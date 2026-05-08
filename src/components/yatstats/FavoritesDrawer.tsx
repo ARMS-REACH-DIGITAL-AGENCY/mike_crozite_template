@@ -585,14 +585,15 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         #drawerFavorites .yat-favorite-empty,
         #drawerFavorites .yat-favorite-lock-message {
           color: var(--muted);
-          font: 500 13px/1.45 Oswald, sans-serif;
-          letter-spacing: .02em;
+          font: 400 13px/1.45 Oswald, sans-serif;
+          letter-spacing: 0;
         }
 
         #drawerFavorites .yat-favorite-lock-message {
           color: #ffd166;
-          font-weight: 700;
+          font-weight: 600;
           text-transform: uppercase;
+          letter-spacing: .03em;
         }
 
         #drawerFavorites .yat-favorite-gallery-toggle {
@@ -601,9 +602,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           gap: 8px;
           min-height: 38px;
           border-bottom: 1px solid var(--line);
-          font: 700 13px/1 Oswald, sans-serif;
-          letter-spacing: .04em;
+          font: 400 14px Oswald, sans-serif;
+          letter-spacing: 0;
           text-transform: uppercase;
+          color: var(--ink);
         }
 
         #drawerFavorites .yat-favorite-tab {
@@ -613,15 +615,16 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           border: 1px solid var(--line);
           border-radius: 8px;
           background: transparent;
-          color: var(--fg);
-          font: 700 12px/1.1 Oswald, sans-serif;
-          letter-spacing: .04em;
+          color: var(--ink);
+          font: 400 13px/1.1 Oswald, sans-serif;
+          letter-spacing: 0;
           text-transform: uppercase;
           cursor: pointer;
         }
 
         #drawerFavorites .yat-favorite-tab.active {
           background: rgba(255,255,255,.14);
+          color: var(--fg);
         }
 
         #drawerFavorites .yat-favorite-list-wrap {
@@ -645,18 +648,24 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           display: flex;
           align-items: center;
           gap: 10px;
-          min-height: 46px;
+          min-height: 44px;
           padding: 8px 0;
           border-bottom: 1px solid var(--line);
-          color: var(--fg);
-          font: 700 13px/1.1 Oswald, sans-serif;
-          letter-spacing: .04em;
+          color: var(--ink);
+          font: 400 14px Oswald, sans-serif;
+          letter-spacing: 0;
           text-transform: uppercase;
           text-decoration: none;
         }
 
         #drawerFavorites .yat-favorite-player-link:hover {
-          color: #ffd166;
+          color: var(--fg);
+        }
+
+        #drawerFavorites .yat-favorite-player-link span {
+          display: block;
+          min-width: 0;
+          white-space: normal;
         }
 
         #drawerFavorites .yat-favorite-thumb {
