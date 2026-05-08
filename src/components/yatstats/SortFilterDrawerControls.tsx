@@ -12,6 +12,8 @@ type SortMetric = {
 };
 
 let currentSortDirection: SortDirection = 'desc';
+let favoritesSortEnabled = false;
+let favoriteSortPlayerIds = new Set<string>();
 
 const SORT_METRICS: SortMetric[] = [
   { key: 'avg', label: 'Batting Average', shortLabel: 'AVG', group: 'batting', defaultDirection: 'desc' },
@@ -75,6 +77,10 @@ function getCardWrap(card: HTMLElement): HTMLElement {
 
 function getGrid(section: HTMLElement): HTMLElement | null {
   return (section.querySelector('.yat-grid') || section.querySelector('#active-grid')) as HTMLElement | null;
+}
+
+function getPlayerId(card: HTMLElement): string {
+  return card.getAttribute('data-playerid') || '';
 }
 
 function parseStatNumber(raw: unknown): number | null {
@@ -193,6 +199,23 @@ function setDirection(direction: SortDirection) {
   });
 }
 
+function favoriteScopeCards(cards: HTMLElement[]): HTMLElement[] {
+  if (!favoritesSortEnabled || !favoriteSortPlayerIds.size) return cards;
+
+  return cards.filter((card) => favoriteSortPlayerIds.has(getPlayerId(card)));
+}
+
+function enforceFavoriteVisibility(cards: HTMLElement[]) {
+  if (!favoritesSortEnabled || !favoriteSortPlayerIds.size) return;
+
+  cards.forEach((card) => {
+    const wrap = getCardWrap(card);
+    const isFavorite = favoriteSortPlayerIds.has(getPlayerId(card));
+    wrap.style.display = isFavorite ? '' : 'none';
+    if (isFavorite) wrap.removeAttribute('hidden');
+  });
+}
+
 function applyFlipCardSort() {
   const checked = getSelectedSortInput();
   const dir = selectedDirection();
@@ -211,8 +234,11 @@ function applyFlipCardSort() {
     if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index);
   });
 
+  enforceFavoriteVisibility(cards);
+
   if (!checked) {
-    if (status) status.textContent = 'Default roster order.';
+    if (status) status.textContent = favoritesSortEnabled ? 'Favorites gallery order.' : 'Default roster order.';
+    if (favoritesSortEnabled) syncStripToSortedCards(getVisibleCards(section));
     return;
   }
 
@@ -223,7 +249,8 @@ function applyFlipCardSort() {
 
   const metric = checked.value;
   const metricGroup = checked.dataset.group || '';
-  const sortedCards = [...cards].sort((a, b) => {
+  const scopedCards = favoriteScopeCards(cards);
+  const sortedCards = [...scopedCards].sort((a, b) => {
     const aw = getCardWrap(a);
     const bw = getCardWrap(b);
     const ai = Number(aw.dataset.sortOriginalIndex || 0);
@@ -253,12 +280,13 @@ function applyFlipCardSort() {
     grid.appendChild(wrap);
   });
 
-  syncStripToSortedCards(getVisibleCards(section));
+  syncStripToSortedCards(favoritesSortEnabled ? sortedCards : getVisibleCards(section));
 
   if (status) {
     const metricInfo = getMetric(metric, metricGroup);
     const label = checked.dataset.label || metricInfo?.label || checked.value.toUpperCase();
-    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}. Active Alumni sort uses 2026 stats only.`;
+    const scope = favoritesSortEnabled ? ' Favorite gallery sort uses selected favorites only.' : ' Active Alumni sort uses 2026 stats only.';
+    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}.${scope}`;
   }
 }
 
@@ -357,7 +385,7 @@ function installSortFilterDrawer() {
     setDirection('desc');
     restoreDefaultCardOrder();
     const status = document.getElementById('yatSortStatus');
-    if (status) status.textContent = 'Default roster order.';
+    if (status) status.textContent = favoritesSortEnabled ? 'Favorites gallery order.' : 'Default roster order.';
   });
 
   filters.querySelectorAll('input, select').forEach((input) => {
@@ -366,7 +394,12 @@ function installSortFilterDrawer() {
     input.addEventListener('input', () => rerunSortIfActive(80));
   });
 
-  window.addEventListener('yat:favorites-filter-changed', () => rerunSortIfActive(80));
+  window.addEventListener('yat:favorites-filter-changed', (event) => {
+    const detail = (event as CustomEvent<{ enabled?: boolean; playerIds?: string[] }>).detail || {};
+    favoritesSortEnabled = Boolean(detail.enabled);
+    favoriteSortPlayerIds = new Set((detail.playerIds || []).map((id) => String(id)));
+    rerunSortIfActive(80);
+  });
   window.addEventListener('hashchange', () => rerunSortIfActive(120));
 
   (window as unknown as { yatApplyFlipCardSort?: () => void }).yatApplyFlipCardSort = applyFlipCardSort;
