@@ -13,6 +13,7 @@ type ProfileMeta = {
   batsThrows: string;
   heightWeight: string;
   classOf: string;
+  teamAffiliationStatus?: string;
 };
 
 function esc(value: unknown) {
@@ -22,6 +23,20 @@ function esc(value: unknown) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function normalize(value: unknown) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function teamLabel(meta: ProfileMeta) {
+  const status = normalize(meta.statusLabel);
+  const affiliation = normalize(meta.teamAffiliationStatus);
+
+  if (affiliation === 'CURRENT' && status === 'ACTIVE') return 'Current Team';
+  if (affiliation === 'RETIRED_LAST_KNOWN' || status === 'RETIRED') return 'Last Known Team';
+  if (affiliation === 'FORMER') return 'Previous Team';
+  return 'Team';
 }
 
 function chip(value: string, label: string, extraClass = '') {
@@ -44,7 +59,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       row4.innerHTML = `
         <div class="pp-meta-chips" aria-label="Player bio metadata">
           ${chip(meta.statusLabel, 'Status', meta.statusLabel.toUpperCase() === 'ACTIVE' ? 'pp-meta-active' : '')}
-          ${chip(meta.currentTeamName, 'Current Team')}
+          ${chip(meta.currentTeamName, teamLabel(meta))}
           ${chip(meta.levelLabel, 'Level')}
           ${chip(meta.position, 'Position')}
           ${chip(meta.batsThrows, 'B/T')}
