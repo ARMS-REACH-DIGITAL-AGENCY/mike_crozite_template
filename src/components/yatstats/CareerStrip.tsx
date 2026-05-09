@@ -5,20 +5,10 @@
 // career-slot class so each image renders at its natural aspect ratio rather
 // than the fixed 72px width used for headshot thumbnails on the gallery page.
 //
-// Image loading strategy:
-//   Each slot uses a direct <img src> tag. If the image fails to load (403 or 404),
-//   the slot is hidden. This matches the original behaviour before the silhouette patch.
-//
-//   NOTE: Some players/then/{id}.jpg objects in S3 have a private ACL and return 403.
-//   The correct fix for those players is to set public-read ACL on the S3 objects.
-//   Silhouette substitution was reverted — it made the S3 ACL problem visible on the
-//   profile page when it was previously invisible on the gallery page.
-//
 // LINK BEHAVIOUR:
-//   The first slot (HS "then" image) links back to the player's flip card on the
-//   active alumni gallery page — /{hsid}#player-{playerId} — identical to clicking
-//   a headshot thumbnail in the gallery strip on the gallery page.
-//   The back and now slots are plain (no link) unless specified otherwise.
+//   The first slot (HS "then" image) links back to the player's canonical
+//   high-school microsite flip card using the player profile context URL.
+//   Example: https://mount-lebanon.pa.yatstats.com/2705?view=active&player=173395#player-173395
 "use client";
 
 import { useContext } from "react";
@@ -26,6 +16,21 @@ import { SchoolContext } from "@/context/SchoolContext";
 import { usePlayerProfile } from "@/context/PlayerProfileContext";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
+
+function joinSchoolUrl(base: string, suffix = "") {
+  const cleanBase = String(base || "").replace(/\/$/, "");
+  return cleanBase ? `${cleanBase}${suffix}` : suffix || "/";
+}
+
+function flipCardHref(playerSchoolUrl: string | undefined, hsid: string, playerId: string) {
+  if (!playerSchoolUrl && !hsid) return undefined;
+
+  const base = playerSchoolUrl || `/${encodeURIComponent(hsid)}`;
+  return joinSchoolUrl(
+    base,
+    `?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`
+  );
+}
 
 function CareerSlot({
   src,
@@ -46,7 +51,6 @@ function CareerSlot({
         objectPosition: "top center",
       }}
       onError={(e) => {
-        // Hide the parent slot entirely when the image 404s/403s
         const slot = (e.currentTarget as HTMLImageElement).closest(".career-slot");
         if (slot) (slot as HTMLElement).style.display = "none";
       }}
@@ -75,20 +79,11 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
   const schoolData = useContext(SchoolContext);
   const playerProfile = usePlayerProfile();
 
-  const hsid = String(
-    playerProfile?.playerHsid ||
-    schoolData?.hsid ||
-    ""
-  ).trim();
-
-  // Link the HS "then" image back to the player's flip card on the numeric school route.
-  // Example: /5004#player-180827
-  const flipCardHref = hsid
-    ? `/${encodeURIComponent(hsid)}#player-${encodeURIComponent(playerId)}`
-    : undefined;
+  const hsid = String(playerProfile?.playerHsid || schoolData?.hsid || "").trim();
+  const href = flipCardHref(playerProfile?.playerSchoolUrl, hsid, playerId);
 
   const slots = [
-    { src: `${S3_BASE}/players/then/${playerId}.jpg`, href: flipCardHref },
+    { src: `${S3_BASE}/players/then/${playerId}.jpg`, href },
     { src: `${S3_BASE}/players/back/${playerId}.jpg` },
     { src: `${S3_BASE}/players/now/${playerId}.jpg` },
   ];
@@ -96,8 +91,8 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
   return (
     <div className="gallery-strip" id="playerCareerStrip">
       <div className="gallery-strip-inner">
-        {slots.map(({ src, href }, idx) => (
-          <CareerSlot key={idx} src={src} href={href} />
+        {slots.map(({ src, href: slotHref }, idx) => (
+          <CareerSlot key={idx} src={src} href={slotHref} />
         ))}
       </div>
     </div>
