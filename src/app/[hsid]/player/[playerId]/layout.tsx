@@ -3,6 +3,28 @@ import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
 import ProfilePageEnhancer from '@/components/yatstats/ProfilePageEnhancer';
 
+function slugifySchoolName(name: string) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildMicrositeUrl(hsid: string, hsname?: string, hslocation?: string) {
+  const schoolSlug = slugifySchoolName(hsname || '');
+  const locParts = String(hslocation || '').split(',');
+  const statePart = (locParts.slice(1).join(',') || '').trim();
+  const stateSlug = String(statePart || '').toLowerCase().trim();
+
+  if (hsid && schoolSlug && stateSlug) {
+    return `https://${schoolSlug}.${stateSlug}.yatstats.com/${hsid}`;
+  }
+
+  return hsid ? `/${hsid}` : '';
+}
+
 export default async function PlayerLayout({
   children,
   params,
@@ -13,6 +35,7 @@ export default async function PlayerLayout({
   const { hsid, playerId } = await params;
   let playerName = '';
   let canonicalPlayerHsid = hsid;
+  let playerSchoolUrl = hsid ? `/${hsid}` : '';
   let meta = {
     playerId,
     hsid,
@@ -30,15 +53,22 @@ export default async function PlayerLayout({
     const [player, resolvedCurrentTeam, stageHsidResult] = await Promise.all([
       getPlayerById(playerId),
       getResolvedCurrentTeam(playerId),
-      query<{ hsid: string }>(
-        'select hsid::text as hsid from flip_card_front_stage where playerid::text = $1 order by updated_at desc nulls last limit 1',
+      query<{ hsid: string; hsname: string | null; hslocation: string | null }>(
+        `select f.hsid::text as hsid, ss.hsname, ss.hslocation
+         from flip_card_front_stage f
+         left join school_success ss on ss.hsid::text = f.hsid::text
+         where f.playerid::text = $1
+         order by f.updated_at desc nulls last
+         limit 1`,
         [playerId]
-      ).catch(() => ({ rows: [] as { hsid: string }[] })),
+      ).catch(() => ({ rows: [] as { hsid: string; hsname: string | null; hslocation: string | null }[] })),
     ]);
 
-    const stageHsid = String(stageHsidResult.rows[0]?.hsid || '').trim();
+    const stageSchool = stageHsidResult.rows[0];
+    const stageHsid = String(stageSchool?.hsid || '').trim();
     const playerHsid = String(player?.hsid || '').trim();
     canonicalPlayerHsid = stageHsid || playerHsid || hsid;
+    playerSchoolUrl = buildMicrositeUrl(canonicalPlayerHsid, stageSchool?.hsname || undefined, stageSchool?.hslocation || undefined);
 
     if (player) {
       const firstName = String(player.firstname || player.first_name || '').trim();
@@ -67,7 +97,7 @@ export default async function PlayerLayout({
   } catch {}
 
   return (
-    <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid}>
+    <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfilePageEnhancer meta={meta} />
       {children}
     </PlayerProfileContextProvider>
