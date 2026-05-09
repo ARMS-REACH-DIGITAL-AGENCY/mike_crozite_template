@@ -30,6 +30,9 @@ import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerCont
 import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 
+const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+const UNCOMMITTED_BADGE_URL = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
+
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
 }
@@ -108,6 +111,37 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
 
     return a.localeCompare(b);
   });
+}
+
+function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
+  const status = normalizeStatusLabel(p.status_label || p.status);
+  const level = normalizeStatusLabel(
+    p.current_level_label || p.display_level_label || p.level_label || p.level
+  );
+
+  return status === 'HIGH SCHOOL' || status === 'COMMIT' || level === 'HIGH SCHOOL' || level === 'HS';
+}
+
+function getStripImageForPlayer(p: Record<string, unknown>, playerId: string) {
+  if (isHighSchoolStripPlayer(p)) {
+    const committedTeamId = String(p.committed_teamid || '').trim();
+
+    return {
+      image: committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL,
+      nowImage: committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL,
+      thenImage: committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL,
+      fallbackImage: UNCOMMITTED_BADGE_URL,
+      imageFit: 'contain' as const,
+    };
+  }
+
+  return {
+    image: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    nowImage: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    thenImage: `${YAT_ASSETS_BASE}/players/then/${playerId}.jpg`,
+    fallbackImage: '/img/headshot-silhouette.png',
+    imageFit: 'cover' as const,
+  };
 }
 
 export const runtime = 'nodejs';
@@ -258,13 +292,12 @@ export default async function HsidLayout({
   const stripPlayers = allStripRows.map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
+    const stripImages = getStripImageForPlayer(p, playerId);
 
     return {
       id: playerId,
       name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
-      image: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
-      nowImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${playerId}.jpg`,
-      thenImage: `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg`,
+      ...stripImages,
       status,
     };
   });
