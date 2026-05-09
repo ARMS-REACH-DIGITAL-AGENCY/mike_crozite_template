@@ -25,6 +25,17 @@ function buildMicrositeUrl(hsid: string, hsname?: string, hslocation?: string) {
   return hsid ? `/${hsid}` : '';
 }
 
+function normalizeTeamAffiliationStatus(value: unknown, statusLabel: string, teamName: string) {
+  const raw = String(value || '').trim().toUpperCase();
+  if (raw) return raw;
+
+  const status = String(statusLabel || '').trim().toUpperCase();
+  if (status === 'ACTIVE' && teamName) return 'CURRENT';
+  if (status === 'RETIRED' && teamName) return 'RETIRED_LAST_KNOWN';
+  if (teamName) return 'FORMER';
+  return 'UNKNOWN';
+}
+
 export default async function PlayerLayout({
   children,
   params,
@@ -47,53 +58,77 @@ export default async function PlayerLayout({
     batsThrows: '',
     heightWeight: '',
     classOf: '',
+    teamAffiliationStatus: 'UNKNOWN',
   };
 
   try {
-    const [player, resolvedCurrentTeam, stageHsidResult] = await Promise.all([
+    const [player, resolvedCurrentTeam, stageResult] = await Promise.all([
       getPlayerById(playerId),
       getResolvedCurrentTeam(playerId),
-      query<{ hsid: string; hsname: string | null; hslocation: string | null }>(
-        `select f.hsid::text as hsid, ss.hsname, ss.hslocation
+      query<{
+        hsid: string;
+        hsname: string | null;
+        hslocation: string | null;
+        current_team_name: string | null;
+        current_org_or_conference_name: string | null;
+        level_label: string | null;
+        status_label: string | null;
+        display_status_label: string | null;
+        display_level_label: string | null;
+        team_affiliation_status: string | null;
+      }>(
+        `select
+           f.hsid::text as hsid,
+           ss.hsname,
+           ss.hslocation,
+           f.current_team_name,
+           f.current_org_or_conference_name,
+           f.level_label,
+           f.status_label,
+           f.display_status_label,
+           f.display_level_label,
+           f.team_affiliation_status
          from flip_card_front_stage f
          left join school_success ss on ss.hsid::text = f.hsid::text
          where f.playerid::text = $1
          order by f.updated_at desc nulls last
          limit 1`,
         [playerId]
-      ).catch(() => ({ rows: [] as { hsid: string; hsname: string | null; hslocation: string | null }[] })),
+      ).catch(() => ({ rows: [] as any[] })),
     ]);
 
-    const stageSchool = stageHsidResult.rows[0];
-    const stageHsid = String(stageSchool?.hsid || '').trim();
+    const stage = stageResult.rows[0];
+    const stageHsid = String(stage?.hsid || '').trim();
     const playerHsid = String(player?.hsid || '').trim();
     canonicalPlayerHsid = stageHsid || playerHsid || hsid;
-    playerSchoolUrl = buildMicrositeUrl(canonicalPlayerHsid, stageSchool?.hsname || undefined, stageSchool?.hslocation || undefined);
+    playerSchoolUrl = buildMicrositeUrl(canonicalPlayerHsid, stage?.hsname || undefined, stage?.hslocation || undefined);
 
-    if (player) {
-      const firstName = String(player.firstname || player.first_name || '').trim();
-      const lastName = String(player.lastname || player.last_name || '').trim();
-      playerName = `${firstName} ${lastName}`.trim();
-      const latestYear = Number(player.stat_year || player.pitch_year || player.year || 0);
-      const statusLabel = String(player.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')).trim().toUpperCase();
-      const bats = String(player.bats || '').trim();
-      const throwsValue = String(player.throws || player.throwing_hand || '').trim();
-      const height = String(player.height || '').trim();
-      const weight = String(player.weight || '').trim();
+    const firstName = String(player?.firstname || player?.first_name || '').trim();
+    const lastName = String(player?.lastname || player?.last_name || '').trim();
+    playerName = `${firstName} ${lastName}`.trim();
+    const latestYear = Number(player?.stat_year || player?.pitch_year || player?.year || 0);
+    const statusLabel = String(stage?.display_status_label || stage?.status_label || player?.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')).trim().toUpperCase();
+    const bats = String(player?.bats || '').trim();
+    const throwsValue = String(player?.throws || player?.throwing_hand || '').trim();
+    const height = String(player?.height || '').trim();
+    const weight = String(player?.weight || '').trim();
+    const teamName = String(resolvedCurrentTeam?.team_name || stage?.current_team_name || player?.current_team_name || player?.team_name || '').trim();
+    const levelLabel = String(resolvedCurrentTeam?.level || stage?.display_level_label || stage?.level_label || player?.level_label || player?.level || '').trim().toUpperCase();
+    const affiliationStatus = normalizeTeamAffiliationStatus(stage?.team_affiliation_status, statusLabel, teamName);
 
-      meta = {
-        playerId,
-        hsid: canonicalPlayerHsid,
-        displayName: playerName || playerId,
-        statusLabel,
-        currentTeamName: String(resolvedCurrentTeam?.team_name || player.current_team_name || player.team_name || '').trim(),
-        levelLabel: String(resolvedCurrentTeam?.level || player.level_label || player.level || '').trim().toUpperCase(),
-        position: String(player.position || player.pos || '').trim().toUpperCase(),
-        batsThrows: bats && throwsValue ? `${bats}/${throwsValue}` : bats || throwsValue,
-        heightWeight: height && weight ? `${height} / ${weight}` : height || weight,
-        classOf: String(player.class_of || player.grad_year || '').trim(),
-      };
-    }
+    meta = {
+      playerId,
+      hsid: canonicalPlayerHsid,
+      displayName: playerName || String(stage?.current_team_name || playerId),
+      statusLabel,
+      currentTeamName: teamName,
+      levelLabel,
+      position: String(player?.position || player?.pos || '').trim().toUpperCase(),
+      batsThrows: bats && throwsValue ? `${bats}/${throwsValue}` : bats || throwsValue,
+      heightWeight: height && weight ? `${height} / ${weight}` : height || weight,
+      classOf: String(player?.class_of || player?.grad_year || '').trim(),
+      teamAffiliationStatus: affiliationStatus,
+    };
   } catch {}
 
   return (
