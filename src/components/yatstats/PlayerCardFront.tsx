@@ -119,7 +119,6 @@ const MONTH_INDEX: Record<string, number> = {
   august: 7,
   september: 8,
   october: 9,
-  november: 10,
   december: 11,
 };
 
@@ -295,6 +294,20 @@ function normalizeImageUrl(value: string | null | undefined): string {
   return text;
 }
 
+function formatCommitStatusLabel(player: Record<string, unknown>, statusLabel: string): string {
+  if (statusLabel.toUpperCase() !== "COMMIT") return statusLabel;
+
+  const committedTeamName = asText(player.committed_team_name);
+  const committedLevelLabel = asText(player.committed_level_label).toUpperCase();
+
+  if (!committedTeamName) return statusLabel;
+
+  return [
+    `COMMITTED TO ${committedTeamName}`,
+    committedLevelLabel,
+  ].filter(Boolean).join(" - ").toUpperCase();
+}
+
 export default function PlayerCardFront({
   player: p,
   frontImageUrl = null,
@@ -329,6 +342,7 @@ export default function PlayerCardFront({
 
   const statusLabel = statusLabelRaw.toUpperCase();
   const levelLabel = levelLabelRaw.toUpperCase();
+  const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
 
   const currentTeamName = asText(p.current_team_name) || "--";
   const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
@@ -408,8 +422,8 @@ export default function PlayerCardFront({
             )}
 
             <div className="yat-front-chip-stack">
-              <span className="front-chip" style={chipStyle}>
-                {statusLabel}
+              <span className={statusLabel === "COMMIT" ? "front-chip front-chip--commit" : "front-chip"} style={chipStyle} title={statusPillLabel}>
+                {statusPillLabel}
               </span>
 
               <span className="front-chip" style={chipStyle}>
@@ -559,11 +573,18 @@ export default function PlayerCardFront({
 
         .yat-front-chip-stack .front-chip,
         .yat-front-next-game .front-chip {
+          display: inline-block;
           max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
           white-space: nowrap;
           font-size: clamp(7px, 3cqi, 10px);
           line-height: 1;
           padding: clamp(3px, 1.2cqi, 5px) clamp(5px, 2.1cqi, 8px);
+        }
+
+        .yat-front-chip-stack .front-chip--commit {
+          max-width: min(100%, 210px);
         }
 
         .yat-front-year-dots {
