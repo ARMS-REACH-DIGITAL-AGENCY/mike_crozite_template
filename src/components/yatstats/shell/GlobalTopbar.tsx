@@ -68,6 +68,10 @@ function dockDesktopDrawers() {
   }
 }
 
+function schoolSectionHref(hsid: string, section: string) {
+  return `/${encodeURIComponent(hsid)}#sec-${section}`;
+}
+
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   useEffect(() => {
     dockDesktopDrawers();
@@ -87,18 +91,37 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
       showLeftSearchDrawer();
     };
 
+    const interceptPlayerProfileSectionNav = (event: MouseEvent) => {
+      if (window.location.pathname.indexOf('/player/') === -1) return;
+
+      const target = event.target as HTMLElement | null;
+      const navItem = target?.closest('[data-tab]') as HTMLElement | null;
+      if (!navItem || navItem.closest('#drawerAccount')) return;
+
+      const tab = navItem.dataset.tab;
+      if (!tab) return;
+
+      const section = tab === 'team' ? 'current' : tab;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      window.location.href = schoolSectionHref(hsid, section);
+    };
+
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', dockDesktopDrawers);
     document.addEventListener('click', interceptSearchClick, true);
+    document.addEventListener('click', interceptPlayerProfileSectionNav, true);
 
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', dockDesktopDrawers);
       document.removeEventListener('click', interceptSearchClick, true);
+      document.removeEventListener('click', interceptPlayerProfileSectionNav, true);
       document.body.classList.remove('yat-desktop-docked-drawers');
     };
-  }, []);
+  }, [hsid]);
 
   return (
     <>
@@ -123,14 +146,14 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
 
         <nav className="yat-topnav" aria-label="Desktop navigation">
           <a className="yat-topnav-item" href={`/${hsid}`}><span>WHERE THEY</span><strong>YAT?</strong></a>
-          <a className="yat-topnav-item" data-tab="news" href="#sec-news"><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
-          <a className="yat-topnav-item" data-tab="alltime" href="#sec-alltime"><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
-          <a className="yat-topnav-item" data-tab="current" href="#sec-current"><span>2026</span><strong>TEAM</strong></a>
-          <a className="yat-topnav-item" data-tab="fantasy" href="#sec-fantasy"><span>FANTASY</span><strong>BRACKET</strong></a>
-          <a className="yat-topnav-item" data-tab="mentor" href="#sec-mentor"><span>MENTORSHIP</span><strong>MARKETPLACE</strong></a>
-          <a className="yat-topnav-item" data-tab="partner" href="#sec-partner"><span>PARTNER</span><strong>PROGRAM</strong></a>
-          <a className="yat-topnav-item" data-tab="about" href="#sec-about"><span>ABOUT</span><strong>US</strong></a>
-          <a className="yat-topnav-item" data-tab="faq" href="#sec-faq"><strong>FAQ'S</strong></a>
+          <a className="yat-topnav-item" data-tab="news" href={schoolSectionHref(hsid, 'news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
+          <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
+          <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>2026</span><strong>TEAM</strong></a>
+          <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
+          <a className="yat-topnav-item" data-tab="mentor" href={schoolSectionHref(hsid, 'mentor')}><span>MENTORSHIP</span><strong>MARKETPLACE</strong></a>
+          <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
+          <a className="yat-topnav-item" data-tab="about" href={schoolSectionHref(hsid, 'about')}><span>ABOUT</span><strong>US</strong></a>
+          <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ'S</strong></a>
         </nav>
 
         <div className="yat-wordmark-wrap">
