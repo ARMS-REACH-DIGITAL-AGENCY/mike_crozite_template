@@ -17,6 +17,12 @@ function playerUrl(player: any) {
   const hsid = encodeURIComponent(String(player.schoolId || player.hsid || ''));
   const playerId = encodeURIComponent(String(player.playerId || player.playerid || ''));
   const slug = encodeURIComponent(String(player.slug || `${player.firstName || ''}-${player.lastName || ''}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')));
+  const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');
+
+  if (microsite) {
+    return `${microsite}/player/${playerId}/${slug}`;
+  }
+
   return `/${hsid}/player/${playerId}/${slug}`;
 }
 
