@@ -18,6 +18,10 @@ function formatSlugToLabel(slug: string): string {
   return slug.split('-').filter(Boolean).map((part) => part.toUpperCase()).join(' ');
 }
 
+function playerFlipCardHref(playerHsid: string, playerId: string): string {
+  return `/${encodeURIComponent(playerHsid)}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
+}
+
 export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
@@ -52,8 +56,8 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
         <div id="yatSectionLabel" className="big2">{getPageLabel()}</div>
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {isPlayerProfile && profilePlayerId && schoolData?.hsid && (
-          <a href={`/${schoolData.hsid}?view=active&player=${profilePlayerId}#player-${profilePlayerId}`} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+        {isPlayerProfile && profilePlayerId && resolvedPlayerHsid && (
+          <a href={playerFlipCardHref(resolvedPlayerHsid, profilePlayerId)} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
             <img src="/img/flip-card-return-icon.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }} />
           </a>
         )}
