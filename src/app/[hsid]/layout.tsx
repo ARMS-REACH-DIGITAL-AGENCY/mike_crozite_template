@@ -31,7 +31,7 @@ import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-const UNCOMMITTED_BADGE_URL = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
+const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
