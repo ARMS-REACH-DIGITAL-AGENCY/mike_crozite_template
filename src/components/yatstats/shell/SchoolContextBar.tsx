@@ -18,8 +18,14 @@ function formatSlugToLabel(slug: string): string {
   return slug.split('-').filter(Boolean).map((part) => part.toUpperCase()).join(' ');
 }
 
-function playerFlipCardHref(playerHsid: string, playerId: string): string {
-  return `/${encodeURIComponent(playerHsid)}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
+function joinSchoolUrl(base: string, suffix = ''): string {
+  const cleanBase = String(base || '').replace(/\/$/, '');
+  return cleanBase ? `${cleanBase}${suffix}` : suffix || '/';
+}
+
+function playerFlipCardHref(playerSchoolUrl: string | undefined, playerHsid: string, playerId: string): string {
+  const base = playerSchoolUrl || `/${encodeURIComponent(playerHsid)}`;
+  return joinSchoolUrl(base, `?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
 }
 
 export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }: SchoolContextBarProps) {
@@ -33,6 +39,7 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
     : '';
   const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
   const resolvedPlayerHsid = playerProfile?.playerHsid || schoolData?.hsid || '';
+  const resolvedPlayerSchoolUrl = playerProfile?.playerSchoolUrl;
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
@@ -45,9 +52,13 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
     return '';
   };
 
+  const schoolHomeHref = isPlayerProfile && resolvedPlayerSchoolUrl
+    ? joinSchoolUrl(resolvedPlayerSchoolUrl)
+    : `/${schoolData?.hsid || ''}`;
+
   return (
     <div className="yat-schoolrow">
-      <a href={`/${schoolData?.hsid || ''}`} aria-label="Go to school microsite homepage">
+      <a href={schoolHomeHref} aria-label="Go to school microsite homepage">
         <img src={schoolData?.crestUrl || CREST_FALLBACK_PATH} alt={`${schoolData?.hsName || 'School'} crest`} className="yat-crest" onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }} />
       </a>
       <div className="yat-schooltext">
@@ -57,7 +68,7 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isPlayerProfile && profilePlayerId && resolvedPlayerHsid && (
-          <a href={playerFlipCardHref(resolvedPlayerHsid, profilePlayerId)} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+          <a href={playerFlipCardHref(resolvedPlayerSchoolUrl, resolvedPlayerHsid, profilePlayerId)} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
             <img src="/img/flip-card-return-icon.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }} />
           </a>
         )}
