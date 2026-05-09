@@ -10,6 +10,8 @@ type Player = {
   image?: string | null;
   nowImage?: string | null;
   thenImage?: string | null;
+  fallbackImage?: string | null;
+  imageFit?: 'cover' | 'contain';
   status?: string | null;
   isPitcher?: boolean;
 };
@@ -29,6 +31,12 @@ function getLastName(name: string): string {
 
   if (parts.length === 0) return '';
   return parts[parts.length - 1].toUpperCase();
+}
+
+function cleanSrc(value?: string | null): string {
+  const text = String(value || '').trim();
+  if (!text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') return '';
+  return text;
 }
 
 export default function InteractionStrip({
@@ -106,6 +114,12 @@ export default function InteractionStrip({
           display: block;
         }
 
+        .gallery-slot-img--contain {
+          object-fit: contain;
+          padding: 4px;
+          background: #050505;
+        }
+
         .gallery-slot-gradient {
           position: absolute;
           left: 0;
@@ -162,47 +176,39 @@ export default function InteractionStrip({
           {showActiveStrip ? (
             players.map((p) => {
               const lastName = getLastName(p.name);
-           const nowSrc =
-              p.nowImage && p.nowImage.trim() !== ''
-                ? p.nowImage
-                : p.image && p.image.trim() !== ''
-                  ? p.image
-                  : HEADSHOT_FALLBACK_SRC;
-            
-            const thenSrc =
-              p.thenImage && p.thenImage.trim() !== ''
-                ? p.thenImage
-                : nowSrc;
-            
-            const initialSrc = nowSrc;
-            const status = String(p.status || '').toUpperCase().trim();
-            const isRetired = status === 'RETIRED';
+              const fallbackSrc = cleanSrc(p.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+              const nowSrc = cleanSrc(p.nowImage) || cleanSrc(p.image) || fallbackSrc;
+              const thenSrc = cleanSrc(p.thenImage) || nowSrc;
+              const initialSrc = nowSrc;
+              const status = String(p.status || '').toUpperCase().trim();
+              const isRetired = status === 'RETIRED';
+              const imageFit = p.imageFit === 'contain' ? 'contain' : 'cover';
 
-            return (
-              <a
-                key={p.id}
-                href="javascript:void(0)"
-                className="gallery-slot gallery-slot-link"
-                data-playerid={p.id}
-                data-status={status}
-                data-default-hidden={isRetired ? 'retired' : undefined}
-                style={{ display: isRetired ? 'none' : undefined }}
-                title={p.name}
-              >
+              return (
+                <a
+                  key={p.id}
+                  href="javascript:void(0)"
+                  className="gallery-slot gallery-slot-link"
+                  data-playerid={p.id}
+                  data-status={status}
+                  data-default-hidden={isRetired ? 'retired' : undefined}
+                  style={{ display: isRetired ? 'none' : undefined }}
+                  title={p.name}
+                >
                   <div className="gallery-slot-media">
                     <img
                       src={initialSrc}
                       alt={p.name}
-                      className="gallery-slot-img"
+                      className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
                       data-then-src={thenSrc}
                       onError={(e) => {
                         const img = e.currentTarget;
-                    
+
                         if (img.dataset.fallbackApplied === 'true') return;
-                    
+
                         img.dataset.fallbackApplied = 'true';
-                        img.src = HEADSHOT_FALLBACK_SRC;
+                        img.src = fallbackSrc;
                       }}
                     />
                     <div className="gallery-slot-gradient" />
