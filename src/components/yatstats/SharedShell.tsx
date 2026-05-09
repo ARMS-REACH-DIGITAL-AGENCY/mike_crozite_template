@@ -15,6 +15,11 @@ type StripPlayer = {
   id: string;
   name: string;
   image?: string;
+  nowImage?: string;
+  thenImage?: string;
+  fallbackImage?: string;
+  imageFit?: 'cover' | 'contain';
+  status?: string;
 };
 
 type SchoolMeta = {
@@ -24,6 +29,10 @@ type SchoolMeta = {
   stateRank: string | null;
   allTime: number | null;
   draftedRatio: string | null;
+  currentRosterSize?: number | null;
+  collegeCommits?: number | null;
+  overallRecord?: string | null;
+  regionRecord?: string | null;
 };
 
 export default function SharedShell({
