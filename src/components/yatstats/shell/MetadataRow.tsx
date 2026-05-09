@@ -1,6 +1,8 @@
 // src/components/yatstats/shell/MetadataRow.tsx
 'use client';
 
+import { useEffect, useState } from 'react';
+
 type SchoolMeta = {
   activeAlumni: number | null;
   mlb: number | null;
@@ -8,6 +10,10 @@ type SchoolMeta = {
   stateRank: string | null;
   allTime: number | null;
   draftedRatio: string | null;
+  currentRosterSize?: number | null;
+  collegeCommits?: number | null;
+  overallRecord?: string | null;
+  regionRecord?: string | null;
 };
 
 interface MetadataRowProps {
@@ -16,7 +22,7 @@ interface MetadataRowProps {
   schoolMeta: SchoolMeta;
 }
 
-function chipValue(value: string | number | null, prefix = '') {
+function chipValue(value: string | number | null | undefined, prefix = '') {
   if (value == null || value === '') return '—';
   return `${prefix}${value}`;
 }
@@ -26,7 +32,7 @@ function MetaChip({
   label,
   highlight = false,
 }: {
-  value: string | number | null;
+  value: string | number | null | undefined;
   label: string;
   highlight?: boolean;
 }) {
@@ -40,13 +46,65 @@ function MetaChip({
   );
 }
 
+function getCurrentSectionFromDom(): string {
+  if (typeof document === 'undefined') return '';
+  const visible = document.querySelector('.yat-section.visible');
+  if (!visible?.id) return '';
+  return visible.id.replace(/^sec-/, '');
+}
+
+function getCurrentSection(): string {
+  if (typeof window === 'undefined') return '';
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace('#sec-', '');
+  return getCurrentSectionFromDom();
+}
+
 export default function MetadataRow({
   isPlayerProfile,
   isGallery,
   schoolMeta,
 }: MetadataRowProps) {
+  const [activeSection, setActiveSection] = useState('');
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncSection = () => {
+      window.setTimeout(() => setActiveSection(getCurrentSection()), 0);
+    };
+
+    syncSection();
+    window.addEventListener('hashchange', syncSection);
+    window.addEventListener('popstate', syncSection);
+    document.addEventListener('click', syncSection, true);
+
+    return () => {
+      window.removeEventListener('hashchange', syncSection);
+      window.removeEventListener('popstate', syncSection);
+      document.removeEventListener('click', syncSection, true);
+    };
+  }, []);
+
   if (isGallery || pathname.includes('/news')) {
+    if (activeSection === 'current') {
+      return (
+        <div className="yat-shell-meta-wrap yat-shell-meta-wrap--current-team">
+          <div
+            className="yat-gs-stats yat-shell-meta-stats yat-shell-meta-stats--current-team"
+            role="group"
+            aria-label="Current team metadata"
+          >
+            <MetaChip value={chipValue(schoolMeta.currentRosterSize)} label="ROSTER SIZE" highlight />
+            <MetaChip value={chipValue(schoolMeta.collegeCommits)} label="COLLEGE COMMITS" />
+            <MetaChip value={chipValue(schoolMeta.overallRecord)} label="OVERALL RECORD" />
+            <MetaChip value={chipValue(schoolMeta.regionRecord)} label="REGION RECORD" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="yat-shell-meta-wrap">
         <div
