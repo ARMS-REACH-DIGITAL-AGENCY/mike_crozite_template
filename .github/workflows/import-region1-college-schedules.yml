@@ -1,0 +1,51 @@
+name: Import Region 1 College Schedules
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without writing to Neon"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      seed_flip_card_stage:
+        description: "Seed next-game fields into flip_card_front_stage after import"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+  schedule:
+    # During the investor-demo push, run every morning UTC.
+    - cron: "15 12 * * *"
+
+jobs:
+  import-region1-schedules:
+    name: Import Region 1 / JUCO schedules
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+      SEED_FLIP_CARD_STAGE: ${{ github.event.inputs.seed_flip_card_stage || 'true' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Import Region 1 college schedules
+        run: node scripts/import-region1-college-schedules.mjs
