@@ -221,6 +221,18 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
+  const [allStageRows, rawAllTimeRoster] = await Promise.all([
+    getFlipCardFrontStageByHsid(resolvedHsid),
+    getAllTimeRosterByHsid(resolvedHsid),
+  ]);
+
+  const stageRows = allStageRows as Record<string, unknown>[];
+  const currentRosterRows = stageRows.filter((p) => isHighSchoolStripPlayer(p));
+  const collegeCommitCount = currentRosterRows.filter(
+    (p) => normalizeStatusLabel(p.status_label || p.status) === 'COMMIT'
+      || String(p.committed_teamid || '').trim() !== ''
+  ).length;
+
   const schoolMeta = {
     activeAlumni:
       typeof school.current_aa === 'number'
@@ -259,18 +271,16 @@ export default async function HsidLayout({
       school.drafted_hs != null && school.drafted != null
         ? `${school.drafted_hs}/${school.drafted}`
         : null,
+
+    currentRosterSize: currentRosterRows.length,
+    collegeCommits: collegeCommitCount,
+    overallRecord: String(school.current_team_overall_record || school.overall_record || '19-9'),
+    regionRecord: String(school.current_team_region_record || school.region_record || '4-4'),
   };
 
-  const [allStageRows, rawAllTimeRoster] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
-  ]);
-
-  const statusFilterOptions = buildStatusFilterOptions(
-    allStageRows as Record<string, unknown>[]
-  );
+  const statusFilterOptions = buildStatusFilterOptions(stageRows);
   const stripStageMap = new Map(
-    (allStageRows as Record<string, unknown>[]).map((p) => [String(p.playerid), p])
+    stageRows.map((p) => [String(p.playerid), p])
   );
 
   const stripSeenIds = new Set<string>();
@@ -281,7 +291,7 @@ export default async function HsidLayout({
     stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
     stripSeenIds.add(id);
   }
-  for (const p of allStageRows as Record<string, unknown>[]) {
+  for (const p of stageRows) {
     const id = String(p.playerid);
     if (!stripSeenIds.has(id)) {
       stripMerged.push({ ...p });
