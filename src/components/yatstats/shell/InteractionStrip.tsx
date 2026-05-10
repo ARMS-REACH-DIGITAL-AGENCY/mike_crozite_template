@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 
@@ -48,11 +48,53 @@ function isHighSchoolStatus(value?: string | null): boolean {
   return status === 'HIGH SCHOOL' || status === 'COMMIT';
 }
 
-function getInitialSection(): string {
-  if (typeof window === 'undefined') return 'active';
+function getSectionFromDom(): string {
+  if (typeof document === 'undefined') return '';
+  const visible = document.querySelector('.yat-section.visible');
+  if (!visible?.id) return '';
+  return visible.id.replace(/^sec-/, '') || '';
+}
+
+function getSectionFromHash(): string {
+  if (typeof window === 'undefined') return '';
   const hash = window.location.hash || '';
-  if (hash.startsWith('#sec-')) return hash.replace('#sec-', '') || 'active';
-  return 'active';
+  if (!hash.startsWith('#sec-')) return '';
+  return hash.replace('#sec-', '') || '';
+}
+
+function getCurrentSection(): string {
+  return getSectionFromDom() || getSectionFromHash() || 'active';
+}
+
+function scrollToPlayerCard(playerId: string, isCurrentTeamTab: boolean) {
+  if (typeof document === 'undefined') return;
+
+  const safeId = String(playerId || '').trim();
+  if (!safeId) return;
+
+  const section = isCurrentTeamTab
+    ? document.getElementById('sec-current')
+    : document.getElementById('sec-active') || document.getElementById('sec-alltime');
+
+  const target =
+    section?.querySelector(`#player-${CSS.escape(safeId)}`) ||
+    section?.querySelector(`.yat-card[data-playerid="${CSS.escape(safeId)}"]`) ||
+    document.getElementById(`player-${safeId}`) ||
+    document.querySelector(`.yat-card[data-playerid="${CSS.escape(safeId)}"]`);
+
+  if (!target) return;
+
+  const wrap = target.closest('[data-player-card-wrap="true"]') as HTMLElement | null;
+  if (wrap) {
+    wrap.style.display = '';
+    wrap.removeAttribute('hidden');
+    wrap.classList.remove('is-hidden');
+  }
+
+  (target as HTMLElement).style.display = '';
+  target.removeAttribute('hidden');
+  target.classList.remove('is-hidden');
+  target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
 }
 
 export default function InteractionStrip({
@@ -64,7 +106,7 @@ export default function InteractionStrip({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [activeSection, setActiveSection] = useState(getInitialSection);
+  const [activeSection, setActiveSection] = useState(getCurrentSection);
 
   const showActiveStrip = isGallery || isNews;
   const showProfilePlaceholder = isPlayerProfile;
@@ -87,27 +129,35 @@ export default function InteractionStrip({
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    let frame = 0;
 
     const syncSection = () => {
-      window.setTimeout(() => {
-        const hash = window.location.hash || '';
-        if (hash.startsWith('#sec-')) {
-          setActiveSection(hash.replace('#sec-', '') || 'active');
-          window.setTimeout(updateScrollState, 0);
-        }
-      }, 0);
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        setActiveSection(getCurrentSection());
+        window.setTimeout(updateScrollState, 0);
+      });
     };
 
     syncSection();
+
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
     document.addEventListener('click', syncSection, true);
 
+    const observer = new MutationObserver(syncSection);
+    document.querySelectorAll('.yat-section').forEach((section) => {
+      observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+    });
+
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
       document.removeEventListener('click', syncSection, true);
+      observer.disconnect();
     };
   }, []);
 
@@ -138,6 +188,14 @@ export default function InteractionStrip({
     });
   };
 
+  const handleSlotClick = (event: MouseEvent<HTMLAnchorElement>, playerId: string) => {
+    event.preventDefault();
+
+    if (isCurrentTeamTab) {
+      scrollToPlayerCard(playerId, true);
+    }
+  };
+
   if (!showActiveStrip && !showProfilePlaceholder) {
     return null;
   }
@@ -160,6 +218,12 @@ export default function InteractionStrip({
           background: #000;
         }
 
+        .gallery-current-slot-link .gallery-slot-media {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
         .gallery-slot-img {
           width: 100%;
           height: 100%;
@@ -169,8 +233,15 @@ export default function InteractionStrip({
 
         .gallery-slot-img--contain {
           object-fit: contain;
+          object-position: center center;
           padding: 5px;
           background: #050505;
+        }
+
+        .gallery-current-slot-link .gallery-slot-img--contain {
+          object-fit: contain;
+          object-position: center center;
+          padding: 6px;
         }
 
         .gallery-slot-gradient {
@@ -213,7 +284,7 @@ export default function InteractionStrip({
         }
       `}</style>
 
-      <div className="gallery-strip">
+      <div className="gallery-strip" data-active-section={activeSection}>
         {showActiveStrip && (
           <button
             type="button"
@@ -242,7 +313,7 @@ export default function InteractionStrip({
 
               return (
                 <a
-                  key={p.id}
+                  key={`${activeSection}-${p.id}`}
                   href="javascript:void(0)"
                   className={linkClassName}
                   data-playerid={p.id}
@@ -250,6 +321,7 @@ export default function InteractionStrip({
                   data-default-hidden={isRetired ? 'retired' : undefined}
                   style={{ display: isRetired ? 'none' : undefined }}
                   title={p.name}
+                  onClick={(event) => handleSlotClick(event, p.id)}
                 >
                   <div className="gallery-slot-media">
                     <img
