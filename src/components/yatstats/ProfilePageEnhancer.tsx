@@ -205,7 +205,8 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
-      :root { --row3-h: 86px; --row4-h: 52px; }
+      :root { --row3-h: 86px; --row4-h: 52px; --profile-tabs-h: 68px; }
+      body { padding-bottom: calc(var(--footerH) + var(--profile-tabs-h) + env(safe-area-inset-bottom, 0px)) !important; }
       .yat-row3-shell { min-height: var(--row3-h) !important; }
       .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
       .yat-row4-profile-populated { display: flex; align-items: stretch; padding: 0 !important; min-height: var(--row4-h); }
@@ -219,6 +220,25 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .gl-row4-tick { position: relative; z-index: 1; height: 100%; border: 0; background: transparent; color: #f5c85a; cursor: pointer; display: grid; place-items: start center; padding-top: 11px; text-transform: uppercase; }
       .gl-row4-pin { display: block; width: 9px; height: 9px; background: #f5c85a; border: 2px solid #0b0b0b; box-shadow: 0 0 13px rgba(245,200,90,.75); }
       .gl-row4-label { margin-top: 6px; color: rgba(255,255,255,.9); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .1em; }
+
+      .pp-funzone-outer, .pp-funzone { min-height: calc(100svh - var(--row1-h) - var(--row2-h) - var(--row3-h) - var(--row4-h) - var(--footerH)); }
+      .pp-funzone { padding-bottom: calc(var(--profile-tabs-h) + 22px) !important; }
+      .pp-fz-panel { scroll-margin-bottom: calc(var(--profile-tabs-h) + var(--footerH) + 24px) !important; }
+      .pp-fz-tabs-shell {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: calc(var(--footerH) + env(safe-area-inset-bottom, 0px)) !important;
+        height: var(--profile-tabs-h) !important;
+        z-index: 90 !important;
+        background: rgba(12,12,12,.985) !important;
+        border-top: 1px solid rgba(255,255,255,.12) !important;
+        box-shadow: 0 -10px 26px rgba(0,0,0,.58) !important;
+      }
+      .pp-fz-tabs { width: min(100%, 1280px) !important; height: var(--profile-tabs-h) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; align-items: stretch !important; }
+      .pp-fz-tab { height: var(--profile-tabs-h) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-width: 0 !important; }
+      .yat-footer { z-index: 100 !important; }
+
       .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
       .glu-kicker { color: #f5c85a; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
@@ -234,7 +254,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(245,200,90,.75); border-radius: 0; background: rgba(245,200,90,.12); color: #f5c85a; font: 800 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
-      @media (max-width: 760px) { :root { --row3-h: 80px; --row4-h: 52px; } .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); } .gl-row4-bio { padding: 5px 8px; gap: 4px; } .gl-bio-main { font-size: 13px; } .gl-bio-sub { font-size: 8px; } .gl-row4-scroll { grid-template-columns: repeat(6, 92px); } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) { :root { --row3-h: 80px; --row4-h: 52px; --profile-tabs-h: 72px; } .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); } .gl-row4-bio { padding: 5px 8px; gap: 4px; } .gl-bio-main { font-size: 13px; } .gl-bio-sub { font-size: 8px; } .gl-row4-scroll { grid-template-columns: repeat(6, 92px); } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; padding-bottom: calc(var(--profile-tabs-h) + 24px); } .glu-form { grid-template-columns: 1fr; } }
     `}</style>
   );
 }
