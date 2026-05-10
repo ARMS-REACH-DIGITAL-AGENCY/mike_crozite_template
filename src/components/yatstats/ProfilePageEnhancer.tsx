@@ -27,31 +27,19 @@ function esc(value: unknown) {
     .replaceAll("'", '&#39;');
 }
 
-function normalize(value: unknown) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function teamLabel(meta: ProfileMeta) {
-  const status = normalize(meta.statusLabel);
-  const affiliation = normalize(meta.teamAffiliationStatus);
-
-  if (affiliation === 'CURRENT' && status === 'ACTIVE') return 'Current Team';
-  if (affiliation === 'RETIRED_LAST_KNOWN' || status === 'RETIRED') return 'Last Known Team';
-  if (affiliation === 'FORMER') return 'Previous Team';
-  return 'Team';
-}
-
 function fallbackReturnUrl(meta: ProfileMeta) {
   return `/${encodeURIComponent(meta.hsid)}?view=active&player=${encodeURIComponent(meta.playerId)}#player-${encodeURIComponent(meta.playerId)}`;
 }
 
 function buildTimeline(meta: ProfileMeta) {
-  const bioBits = [
-    meta.statusLabel,
-    meta.currentTeamName,
-    meta.levelLabel,
-    meta.position,
-  ].filter(Boolean).join(' · ');
+  const bioItems = [
+    ['Team', meta.currentTeamName],
+    ['Level', meta.levelLabel],
+    ['Status', meta.statusLabel],
+    ['Pos', meta.position],
+    ['B/T', meta.batsThrows],
+    [meta.heightWeight ? 'H/W' : 'Class', meta.heightWeight || meta.classOf],
+  ].filter(([, value]) => value);
 
   const ticks = [
     ['Youth', 'Youth Baseball'],
@@ -63,10 +51,11 @@ function buildTimeline(meta: ProfileMeta) {
   ];
 
   return `
-    <div class="gl-row4" aria-label="Golden Line timeline">
-      <div class="gl-row4-bio">
-        <span class="gl-row4-name">${esc(meta.displayName || 'Player')}</span>
-        <span class="gl-row4-meta">${esc(bioBits || 'Career timeline')}</span>
+    <div class="gl-row4" aria-label="Golden Line timeline navigation">
+      <div class="gl-row4-bio" aria-label="Player bio snapshot">
+        ${bioItems.map(([label, value]) => `
+          <span class="gl-bio-item"><b>${esc(label)}</b><em>${esc(value)}</em></span>
+        `).join('')}
       </div>
       <div class="gl-row4-scroll">
         <div class="gl-row4-line" aria-hidden="true"></div>
@@ -88,17 +77,21 @@ function buildUploadPanel(meta: ProfileMeta) {
       <div class="glu-explainer">
         <div class="glu-kicker">The Golden Line</div>
         <h2>Upload a memory from ${esc(firstName)}'s baseball journey.</h2>
-        <p>Add a photo from youth baseball, school ball, college, pro ball, or a fan moment. This is the living scrapbook side of YAT?STATS — the people, places, and memories behind the stats.</p>
+        <p>Add a photo from youth baseball, school ball, college, pro ball, or a fan moment. The date helps place the memory in chronological order.</p>
       </div>
       <form class="glu-form" id="goldenLineUploadForm">
+        <input type="hidden" name="playerName" value="${esc(meta.displayName || '')}" />
         <label>Photo stage
           <select name="stage" id="goldenLineStageSelect">
             ${STAGES.map((stage) => `<option value="${esc(stage)}">${esc(stage)}</option>`).join('')}
           </select>
         </label>
+        <label>Date photo was taken<input name="photoTakenDate" type="date" /></label>
         <label>Your name<input name="contributorName" placeholder="Mom, Dad, Coach, Teammate, Fan..." /></label>
+        <label>Email for review updates<input name="contributorEmail" type="email" placeholder="you@example.com" /></label>
+        <label>Phone / text optional<input name="contributorPhone" type="tel" placeholder="Optional" /></label>
         <label>Relationship / role<input name="relationship" placeholder="Parent, coach, teammate, alumni, fan..." /></label>
-        <label>Memory title<input name="title" placeholder="Example: First travel ball tournament" /></label>
+        <label class="glu-wide">Memory title<input name="title" placeholder="Example: First travel ball tournament" /></label>
         <label class="glu-wide">Caption / memory<textarea name="caption" rows="3" placeholder="I remember this because..."></textarea></label>
         <label>Upload photo<input name="photo" id="goldenLinePhotoInput" type="file" accept="image/*" required /></label>
         <div class="glu-preview" id="goldenLinePreview"><span>Selected photo preview</span></div>
@@ -142,14 +135,15 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       } catch {}
       const select = document.querySelector('#goldenLineStageSelect') as HTMLSelectElement | null;
       if (select) select.value = stage;
-      window.location.hash = 'ppTab-upload';
     };
 
     const handleTimelineClick = (event: Event) => {
       const target = event.target as HTMLElement | null;
       const button = target?.closest?.('[data-gl-stage]') as HTMLElement | null;
       if (!button) return;
-      setUploadStage(button.getAttribute('data-gl-stage') || 'Youth Baseball');
+      const stage = button.getAttribute('data-gl-stage') || 'Youth Baseball';
+      setUploadStage(stage);
+      window.dispatchEvent(new CustomEvent('yat:golden-line-scroll-stage', { detail: { stage } }));
     };
 
     const handleStageEvent = () => {
@@ -179,13 +173,18 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       const formData = new FormData(form);
       formData.set('playerId', meta.playerId);
       formData.set('hsid', meta.hsid);
+      formData.set('playerName', meta.displayName || '');
+      formData.set('pageUrl', window.location.href);
       if (button) button.disabled = true;
-      if (status) status.textContent = 'Uploading memory...';
+      if (status) status.textContent = 'Uploading memory and notifying ARMS...';
       try {
         const res = await fetch('/api/player-moments', { method: 'POST', body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || 'Upload failed');
-        if (status) status.textContent = 'Uploaded. It is pending review and should appear in the Golden Line after refresh.';
+        const sync = data?.moment?.arms_sync_status;
+        if (status) status.textContent = sync === 'failed'
+          ? 'Saved for review. ARMS sync needs attention.'
+          : 'Uploaded. It is pending review and was queued for ARMS.';
         form.reset();
         const preview = document.querySelector('#goldenLinePreview') as HTMLElement | null;
         if (preview) preview.innerHTML = '<span>Selected photo preview</span>';
@@ -213,125 +212,22 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
-      :root { --row3-h: 86px; --row4-h: 42px; }
-
+      :root { --row3-h: 86px; --row4-h: 52px; }
       .yat-row3-shell { min-height: var(--row3-h) !important; }
-      .yat-row3-shell .gallery-strip,
-      .yat-row3-shell .golden-line-strip {
-        min-height: var(--row3-h) !important;
-        height: var(--row3-h) !important;
-      }
-
-      .yat-row4-profile-populated {
-        display: flex;
-        align-items: stretch;
-        padding: 0 !important;
-        min-height: var(--row4-h);
-      }
-
-      .gl-row4 {
-        width: 100%;
-        height: var(--row4-h);
-        display: grid;
-        grid-template-columns: minmax(165px, 230px) minmax(0, 1fr);
-        align-items: stretch;
-        background: #090909;
-        border-top: 1px solid rgba(245,200,90,.22);
-        border-bottom: 1px solid rgba(255,255,255,.08);
-      }
-
-      .gl-row4-bio {
-        display: flex;
-        min-width: 0;
-        flex-direction: column;
-        justify-content: center;
-        padding: 5px 12px;
-        border-right: 1px solid rgba(255,255,255,.1);
-        text-transform: uppercase;
-      }
-
-      .gl-row4-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: #f4f4f4;
-        font: 800 16px/1 "Bebas Neue", Oswald, sans-serif;
-        letter-spacing: .05em;
-      }
-
-      .gl-row4-meta {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: rgba(255,255,255,.62);
-        font: 700 8px/1 Oswald, sans-serif;
-        letter-spacing: .1em;
-        margin-top: 3px;
-      }
-
-      .gl-row4-scroll {
-        position: relative;
-        min-width: 0;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
-        display: grid;
-        grid-template-columns: repeat(6, minmax(108px, 1fr));
-        align-items: center;
-        padding: 0 18px;
-      }
-
+      .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
+      .yat-row4-profile-populated { display: flex; align-items: stretch; padding: 0 !important; min-height: var(--row4-h); }
+      .gl-row4 { width: 100%; height: var(--row4-h); display: grid; grid-template-columns: minmax(188px, 260px) minmax(0, 1fr); align-items: stretch; background: #090909; border-top: 1px solid rgba(245,200,90,.22); border-bottom: 1px solid rgba(255,255,255,.08); }
+      .gl-row4-bio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; align-content: center; padding: 5px 10px; border-right: 1px solid rgba(255,255,255,.1); text-transform: uppercase; }
+      .gl-bio-item { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px; align-items: baseline; }
+      .gl-bio-item b { color: #f5c85a; font: 800 7px/1 Oswald, sans-serif; letter-spacing: .09em; }
+      .gl-bio-item em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.82); font: normal 800 9px/1 Oswald, sans-serif; letter-spacing: .06em; }
+      .gl-row4-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; display: grid; grid-template-columns: repeat(6, minmax(108px, 1fr)); align-items: center; padding: 0 18px; }
       .gl-row4-scroll::-webkit-scrollbar { display: none; }
-
-      .gl-row4-line {
-        position: absolute;
-        left: 18px;
-        right: 18px;
-        top: 17px;
-        height: 2px;
-        background: linear-gradient(90deg, rgba(245,200,90,.1), #f5c85a, rgba(245,200,90,.1));
-        box-shadow: 0 0 14px rgba(245,200,90,.38);
-      }
-
-      .gl-row4-tick {
-        position: relative;
-        z-index: 1;
-        height: 100%;
-        border: 0;
-        background: transparent;
-        color: #f5c85a;
-        cursor: pointer;
-        display: grid;
-        place-items: start center;
-        padding-top: 8px;
-        text-transform: uppercase;
-      }
-
-      .gl-row4-pin {
-        display: block;
-        width: 9px;
-        height: 9px;
-        background: #f5c85a;
-        border: 2px solid #0b0b0b;
-        box-shadow: 0 0 13px rgba(245,200,90,.75);
-      }
-
-      .gl-row4-label {
-        margin-top: 5px;
-        color: rgba(255,255,255,.9);
-        font: 800 10px/1 Oswald, sans-serif;
-        letter-spacing: .1em;
-      }
-
-      .glu-panel {
-        width: min(980px, 100%);
-        margin: 0 auto;
-        padding: 20px 18px 14px;
-        display: grid;
-        grid-template-columns: minmax(220px, 34%) minmax(0, 1fr);
-        gap: 22px;
-        color: #f5f5f5;
-      }
+      .gl-row4-line { position: absolute; left: 18px; right: 18px; top: 20px; height: 2px; background: linear-gradient(90deg, rgba(245,200,90,.1), #f5c85a, rgba(245,200,90,.1)); box-shadow: 0 0 14px rgba(245,200,90,.38); }
+      .gl-row4-tick { position: relative; z-index: 1; height: 100%; border: 0; background: transparent; color: #f5c85a; cursor: pointer; display: grid; place-items: start center; padding-top: 11px; text-transform: uppercase; }
+      .gl-row4-pin { display: block; width: 9px; height: 9px; background: #f5c85a; border: 2px solid #0b0b0b; box-shadow: 0 0 13px rgba(245,200,90,.75); }
+      .gl-row4-label { margin-top: 6px; color: rgba(255,255,255,.9); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .1em; }
+      .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
       .glu-kicker { color: #f5c85a; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
       .glu-explainer h2 { margin: 8px 0 10px; font: 800 clamp(28px, 4vw, 48px)/.92 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
@@ -346,16 +242,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(245,200,90,.75); border-radius: 0; background: rgba(245,200,90,.12); color: #f5c85a; font: 800 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
-
-      @media (max-width: 760px) {
-        :root { --row3-h: 80px; --row4-h: 40px; }
-        .gl-row4 { grid-template-columns: 120px minmax(0, 1fr); }
-        .gl-row4-name { font-size: 13px; }
-        .gl-row4-meta { display: none; }
-        .gl-row4-scroll { grid-template-columns: repeat(6, 92px); }
-        .glu-panel { grid-template-columns: 1fr; padding-top: 16px; }
-        .glu-form { grid-template-columns: 1fr; }
-      }
+      @media (max-width: 760px) { :root { --row3-h: 80px; --row4-h: 52px; } .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); } .gl-row4-bio { grid-template-columns: 1fr; gap: 1px; padding: 4px 8px; } .gl-bio-item:nth-child(n+4) { display:none; } .gl-row4-scroll { grid-template-columns: repeat(6, 92px); } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
     `}</style>
   );
 }
