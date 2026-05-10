@@ -69,6 +69,7 @@ export default function GoldenLineUploadPanel() {
   const isLoggedIn = Boolean(session?.uid && session?.email);
   const isSuperfan = Boolean(session?.isSuperfan || normalizePlan(session?.plan) === 'superfan');
   const contributorName = useMemo(() => getDisplayName(session), [session]);
+  const sessionEmail = String(session?.email || '').trim();
 
   async function refreshSession() {
     setSessionLoading(true);
@@ -148,7 +149,7 @@ export default function GoldenLineUploadPanel() {
     formData.set('firebaseUid', session?.uid || '');
     formData.set('contactId', session?.contactId || '');
     formData.set('contributorName', contributorName || 'YAT?STATS Fan');
-    formData.set('contributorEmail', session?.email || '');
+    formData.set('contributorEmail', sessionEmail);
     formData.set('contributorRole', session?.role || 'fan');
     formData.set('contributorPlan', session?.plan || (isSuperfan ? 'superfan' : 'fan'));
 
@@ -217,8 +218,8 @@ export default function GoldenLineUploadPanel() {
           </p>
           <div className="glu-identity-card">
             <span>Signed in as</span>
-            <strong>{contributorName || session.email}</strong>
-            <em>{session.email}</em>
+            <strong>{contributorName || sessionEmail}</strong>
+            <em>{sessionEmail}</em>
           </div>
           <div className="glu-gate-actions">
             <button type="button" onClick={() => openAccountDrawer('signin')}>Open Account</button>
@@ -239,8 +240,8 @@ export default function GoldenLineUploadPanel() {
         </p>
         <div className="glu-identity-card">
           <span>Submitting as</span>
-          <strong>{contributorName || session.email}</strong>
-          <em>{session.email}</em>
+          <strong>{contributorName || sessionEmail}</strong>
+          <em>{sessionEmail}</em>
         </div>
       </div>
 
