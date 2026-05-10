@@ -32,14 +32,8 @@ function fallbackReturnUrl(meta: ProfileMeta) {
 }
 
 function buildTimeline(meta: ProfileMeta) {
-  const bioItems = [
-    ['Team', meta.currentTeamName],
-    ['Level', meta.levelLabel],
-    ['Status', meta.statusLabel],
-    ['Pos', meta.position],
-    ['B/T', meta.batsThrows],
-    [meta.heightWeight ? 'H/W' : 'Class', meta.heightWeight || meta.classOf],
-  ].filter(([, value]) => value);
+  const primary = [meta.currentTeamName, meta.levelLabel, meta.statusLabel].filter(Boolean).join(' · ');
+  const secondary = [meta.position, meta.batsThrows, meta.heightWeight || meta.classOf].filter(Boolean).join(' · ');
 
   const ticks = [
     ['Youth', 'Youth Baseball'],
@@ -53,9 +47,8 @@ function buildTimeline(meta: ProfileMeta) {
   return `
     <div class="gl-row4" aria-label="Golden Line timeline navigation">
       <div class="gl-row4-bio" aria-label="Player bio snapshot">
-        ${bioItems.map(([label, value]) => `
-          <span class="gl-bio-item"><b>${esc(label)}</b><em>${esc(value)}</em></span>
-        `).join('')}
+        <span class="gl-bio-main">${esc(primary || 'Career Snapshot')}</span>
+        <span class="gl-bio-sub">${esc(secondary || 'Golden Line')}</span>
       </div>
       <div class="gl-row4-scroll">
         <div class="gl-row4-line" aria-hidden="true"></div>
@@ -217,10 +210,9 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
       .yat-row4-profile-populated { display: flex; align-items: stretch; padding: 0 !important; min-height: var(--row4-h); }
       .gl-row4 { width: 100%; height: var(--row4-h); display: grid; grid-template-columns: minmax(188px, 260px) minmax(0, 1fr); align-items: stretch; background: #090909; border-top: 1px solid rgba(245,200,90,.22); border-bottom: 1px solid rgba(255,255,255,.08); }
-      .gl-row4-bio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; align-content: center; padding: 5px 10px; border-right: 1px solid rgba(255,255,255,.1); text-transform: uppercase; }
-      .gl-bio-item { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px; align-items: baseline; }
-      .gl-bio-item b { color: #f5c85a; font: 800 7px/1 Oswald, sans-serif; letter-spacing: .09em; }
-      .gl-bio-item em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.82); font: normal 800 9px/1 Oswald, sans-serif; letter-spacing: .06em; }
+      .gl-row4-bio { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 6px 12px; border-right: 1px solid rgba(255,255,255,.1); text-transform: uppercase; background: linear-gradient(90deg, rgba(245,200,90,.05), transparent); }
+      .gl-bio-main { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#f4f4f4; font:800 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing:.05em; }
+      .gl-bio-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.68); font:700 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
       .gl-row4-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; display: grid; grid-template-columns: repeat(6, minmax(108px, 1fr)); align-items: center; padding: 0 18px; }
       .gl-row4-scroll::-webkit-scrollbar { display: none; }
       .gl-row4-line { position: absolute; left: 18px; right: 18px; top: 20px; height: 2px; background: linear-gradient(90deg, rgba(245,200,90,.1), #f5c85a, rgba(245,200,90,.1)); box-shadow: 0 0 14px rgba(245,200,90,.38); }
@@ -242,7 +234,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(245,200,90,.75); border-radius: 0; background: rgba(245,200,90,.12); color: #f5c85a; font: 800 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
-      @media (max-width: 760px) { :root { --row3-h: 80px; --row4-h: 52px; } .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); } .gl-row4-bio { grid-template-columns: 1fr; gap: 1px; padding: 4px 8px; } .gl-bio-item:nth-child(n+4) { display:none; } .gl-row4-scroll { grid-template-columns: repeat(6, 92px); } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) { :root { --row3-h: 80px; --row4-h: 52px; } .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); } .gl-row4-bio { padding: 5px 8px; gap: 4px; } .gl-bio-main { font-size: 13px; } .gl-bio-sub { font-size: 8px; } .gl-row4-scroll { grid-template-columns: repeat(6, 92px); } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
     `}</style>
   );
 }
