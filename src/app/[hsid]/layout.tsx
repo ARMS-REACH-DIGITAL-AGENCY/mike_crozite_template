@@ -113,13 +113,19 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
   });
 }
 
-function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
-  const status = normalizeStatusLabel(p.status_label || p.status);
-  const level = normalizeStatusLabel(
-    p.current_level_label || p.display_level_label || p.level_label || p.level
-  );
+function isCurrentHighSchoolRosterStatus(value: unknown): boolean {
+  const status = normalizeStatusLabel(value);
+  return status === 'COMMIT' || status === 'UNCOMMITTED';
+}
 
-  return status === 'HIGH SCHOOL' || status === 'COMMIT' || level === 'HIGH SCHOOL' || level === 'HS';
+function isHighSchoolLevel(value: unknown): boolean {
+  const level = normalizeStatusLabel(value);
+  return level === 'HIGH SCHOOL' || level === 'HS';
+}
+
+function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
+  return isCurrentHighSchoolRosterStatus(p.status_label || p.status) ||
+    isHighSchoolLevel(p.current_level_label || p.display_level_label || p.level_label || p.level);
 }
 
 function getStripImageForPlayer(p: Record<string, unknown>, playerId: string) {
