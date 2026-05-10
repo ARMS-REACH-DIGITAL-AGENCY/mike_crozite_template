@@ -298,14 +298,10 @@ function formatCommitStatusLabel(player: Record<string, unknown>, statusLabel: s
   if (statusLabel.toUpperCase() !== "COMMIT") return statusLabel;
 
   const committedTeamName = asText(player.committed_team_name);
-  const committedLevelLabel = asText(player.committed_level_label).toUpperCase();
 
   if (!committedTeamName) return statusLabel;
 
-  return [
-    `COMMITTED TO ${committedTeamName}`,
-    committedLevelLabel,
-  ].filter(Boolean).join(" - ").toUpperCase();
+  return `${committedTeamName} Commit`.toUpperCase();
 }
 
 export default function PlayerCardFront({
