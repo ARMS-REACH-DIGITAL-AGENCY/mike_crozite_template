@@ -97,6 +97,74 @@ function buildUploadPanel(meta: ProfileMeta) {
   `;
 }
 
+function readPxVar(name: string, fallback: number) {
+  if (typeof window === 'undefined') return fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function forceProfileTabsAboveFooter() {
+  const tabsShell = document.querySelector('.pp-fz-tabs-shell') as HTMLElement | null;
+  const tabs = document.querySelector('.pp-fz-tabs') as HTMLElement | null;
+  const footer = document.querySelector('.yat-footer') as HTMLElement | null;
+  const funzone = document.querySelector('.pp-funzone') as HTMLElement | null;
+  const outer = document.querySelector('.pp-funzone-outer') as HTMLElement | null;
+
+  const footerHeight = Math.max(footer?.getBoundingClientRect().height || 0, readPxVar('--footerH', 64));
+  const tabsHeight = window.matchMedia('(max-width: 760px)').matches ? 72 : 68;
+  const safeBottom = Math.max(0, window.innerHeight - (window.visualViewport?.height || window.innerHeight));
+
+  document.documentElement.style.setProperty('--profile-tabs-h', `${tabsHeight}px`);
+  document.body.style.paddingBottom = `${footerHeight + tabsHeight + safeBottom + 12}px`;
+
+  if (footer) {
+    footer.style.zIndex = '10020';
+    footer.style.position = 'fixed';
+    footer.style.left = '0';
+    footer.style.right = '0';
+    footer.style.bottom = '0';
+  }
+
+  if (tabsShell) {
+    tabsShell.style.position = 'fixed';
+    tabsShell.style.left = '0';
+    tabsShell.style.right = '0';
+    tabsShell.style.bottom = `${footerHeight + safeBottom}px`;
+    tabsShell.style.height = `${tabsHeight}px`;
+    tabsShell.style.zIndex = '10010';
+    tabsShell.style.display = 'block';
+    tabsShell.style.visibility = 'visible';
+    tabsShell.style.opacity = '1';
+    tabsShell.style.background = 'rgba(12,12,12,.985)';
+    tabsShell.style.borderTop = '1px solid rgba(255,255,255,.12)';
+    tabsShell.style.boxShadow = '0 -10px 26px rgba(0,0,0,.58)';
+    tabsShell.style.transform = 'none';
+  }
+
+  if (tabs) {
+    tabs.style.width = 'min(100%, 1280px)';
+    tabs.style.height = `${tabsHeight}px`;
+    tabs.style.margin = '0 auto';
+    tabs.style.display = 'grid';
+    tabs.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
+    tabs.style.alignItems = 'stretch';
+  }
+
+  document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
+    tab.style.height = `${tabsHeight}px`;
+    tab.style.display = 'flex';
+    tab.style.flexDirection = 'column';
+    tab.style.alignItems = 'center';
+    tab.style.justifyContent = 'center';
+    tab.style.gap = '4px';
+    tab.style.minWidth = '0';
+  });
+
+  if (funzone) funzone.style.paddingBottom = `${tabsHeight + 22}px`;
+  if (outer) outer.style.paddingBottom = `${tabsHeight + footerHeight + safeBottom + 8}px`;
+}
+
 export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
   useEffect(() => {
     const row4 = document.querySelector('.yat-row4-shell') as HTMLElement | null;
@@ -189,16 +257,30 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       }
     };
 
+    const applyChrome = () => requestAnimationFrame(forceProfileTabsAboveFooter);
+    const observer = new MutationObserver(applyChrome);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
     document.addEventListener('click', handleTimelineClick);
     document.addEventListener('change', handlePreview);
     document.addEventListener('submit', handleSubmit);
+    window.addEventListener('resize', applyChrome);
+    window.visualViewport?.addEventListener('resize', applyChrome);
+    window.visualViewport?.addEventListener('scroll', applyChrome);
     window.addEventListener('yat:golden-line-stage', handleStageEvent);
     handleStageEvent();
+    applyChrome();
+    window.setTimeout(applyChrome, 250);
+    window.setTimeout(applyChrome, 1000);
 
     return () => {
+      observer.disconnect();
       document.removeEventListener('click', handleTimelineClick);
       document.removeEventListener('change', handlePreview);
       document.removeEventListener('submit', handleSubmit);
+      window.removeEventListener('resize', applyChrome);
+      window.visualViewport?.removeEventListener('resize', applyChrome);
+      window.visualViewport?.removeEventListener('scroll', applyChrome);
       window.removeEventListener('yat:golden-line-stage', handleStageEvent);
     };
   }, [meta]);
@@ -221,23 +303,25 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .gl-row4-pin { display: block; width: 9px; height: 9px; background: #f5c85a; border: 2px solid #0b0b0b; box-shadow: 0 0 13px rgba(245,200,90,.75); }
       .gl-row4-label { margin-top: 6px; color: rgba(255,255,255,.9); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .1em; }
 
-      .pp-funzone-outer, .pp-funzone { min-height: calc(100svh - var(--row1-h) - var(--row2-h) - var(--row3-h) - var(--row4-h) - var(--footerH)); }
-      .pp-funzone { padding-bottom: calc(var(--profile-tabs-h) + 22px) !important; }
-      .pp-fz-panel { scroll-margin-bottom: calc(var(--profile-tabs-h) + var(--footerH) + 24px) !important; }
       .pp-fz-tabs-shell {
         position: fixed !important;
         left: 0 !important;
         right: 0 !important;
         bottom: calc(var(--footerH) + env(safe-area-inset-bottom, 0px)) !important;
         height: var(--profile-tabs-h) !important;
-        z-index: 90 !important;
+        z-index: 10010 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
         background: rgba(12,12,12,.985) !important;
         border-top: 1px solid rgba(255,255,255,.12) !important;
         box-shadow: 0 -10px 26px rgba(0,0,0,.58) !important;
       }
       .pp-fz-tabs { width: min(100%, 1280px) !important; height: var(--profile-tabs-h) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; align-items: stretch !important; }
       .pp-fz-tab { height: var(--profile-tabs-h) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-width: 0 !important; }
-      .yat-footer { z-index: 100 !important; }
+      .pp-funzone { padding-bottom: calc(var(--profile-tabs-h) + 22px) !important; }
+      .pp-fz-panel { scroll-margin-bottom: calc(var(--profile-tabs-h) + var(--footerH) + 24px) !important; }
+      .yat-footer { z-index: 10020 !important; }
 
       .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
