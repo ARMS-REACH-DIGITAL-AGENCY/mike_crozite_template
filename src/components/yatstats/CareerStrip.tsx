@@ -1,6 +1,6 @@
 // src/components/yatstats/CareerStrip.tsx
 // Golden Line card strip for player profile Row 3.
-// Row 4 is the timeline navigation; Row 3 holds the memory cards.
+// Row 4 is the timeline navigation; Row 3 holds real memory cards plus subtle empty-card placeholders.
 "use client";
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +21,7 @@ type CareerMoment = {
   relationship?: string;
   photoTakenDate?: string | null;
   isUploadPrompt?: boolean;
+  isGhost?: boolean;
   uploaded?: boolean;
 };
 
@@ -35,6 +36,8 @@ type SubmittedMoment = {
   photo_taken_date?: string | null;
   photo_taken_year?: number | null;
 };
+
+const GHOST_STAGES = ["Youth Baseball", "College", "Minor Leagues", "Major Leagues"];
 
 function joinSchoolUrl(base: string, suffix = "") {
   const cleanBase = String(base || "").replace(/\/$/, "");
@@ -66,16 +69,60 @@ function yearLabel(value?: string | null, fallback = "Memory") {
   return parts[0] || fallback;
 }
 
-function promptMoments(playerId: string, playerName: string, href?: string): CareerMoment[] {
+function promptMoment(playerName: string): CareerMoment {
   const firstName = playerName.split(" ")[0] || "this player";
+  return {
+    id: "add-memory",
+    year: "Add",
+    stage: "Fan Memory",
+    title: "Add a memory",
+    caption: `Upload a youth, school, college, pro, family, or fan photo from ${firstName}'s baseball journey.`,
+    isUploadPrompt: true,
+  };
+}
+
+function archiveMoments(playerId: string, href?: string): CareerMoment[] {
   return [
-    { id: "youth", year: "Before HS", stage: "Youth Baseball", title: "Before the lights", caption: `Upload a Little League, travel ball, backyard, or early baseball photo of ${firstName}.`, isUploadPrompt: true },
-    { id: "middle", year: "Middle", stage: "Middle School", title: "The in-between years", caption: "Help fill the gap between youth baseball and the varsity years.", isUploadPrompt: true },
-    { id: "high-school", year: "High School", stage: "High School", title: "The hometown chapter", caption: "Games, teammates, coaches, dugout moments, and memories from people who were there.", src: `${S3_BASE}/players/then/${playerId}.jpg`, href },
-    { id: "college", year: "College", stage: "College", title: "Next-level chapter", caption: "Commitment day, campus visits, first college appearance, or photos with fans and family.", isUploadPrompt: true },
-    { id: "minors", year: "Minors", stage: "Minor Leagues", title: "The grind", caption: "Road trips, small parks, autographs, prospect moments, and the climb.", src: `${S3_BASE}/players/back/${playerId}.jpg`, isUploadPrompt: true },
-    { id: "majors", year: "MLB", stage: "Major Leagues", title: "The dream stage", caption: "Big-league debut, ballpark memories, signed items, or a fan moment you never forgot.", src: `${S3_BASE}/players/now/${playerId}.jpg`, isUploadPrompt: true },
+    {
+      id: "high-school",
+      year: "High School",
+      stage: "High School",
+      title: "The hometown chapter",
+      caption: "Games, teammates, coaches, dugout moments, and memories from people who were there.",
+      src: `${S3_BASE}/players/then/${playerId}.jpg`,
+      href,
+      contributor: "YAT?STATS archive",
+    },
+    {
+      id: "minors",
+      year: "Minors",
+      stage: "Minor Leagues",
+      title: "The grind",
+      caption: "Road trips, small parks, autographs, prospect moments, and the climb.",
+      src: `${S3_BASE}/players/back/${playerId}.jpg`,
+      contributor: "YAT?STATS archive",
+    },
+    {
+      id: "majors",
+      year: "MLB",
+      stage: "Major Leagues",
+      title: "The dream stage",
+      caption: "Big-league debut, ballpark memories, signed items, or a fan moment you never forgot.",
+      src: `${S3_BASE}/players/now/${playerId}.jpg`,
+      contributor: "YAT?STATS archive",
+    },
   ];
+}
+
+function ghostMoment(stage: string): CareerMoment {
+  return {
+    id: `ghost-${stage.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    year: "Open Slot",
+    stage,
+    title: "Memory spot available",
+    caption: `Help fill this ${stage} chapter of the Golden Line.`,
+    isGhost: true,
+  };
 }
 
 function MomentImage({ src, title }: { src?: string; title: string }) {
@@ -85,8 +132,8 @@ function MomentImage({ src, title }: { src?: string; title: string }) {
   if (failed || !src) {
     return (
       <span className="gl-image-fallback" aria-hidden="true">
-        <i className="ri-image-add-line" />
-        <span>Add Photo</span>
+        <i className="ri-user-add-line" />
+        <span>Open Slot</span>
       </span>
     );
   }
@@ -106,7 +153,6 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
   const href = flipCardHref(playerProfile?.playerSchoolUrl, hsid, playerId);
 
   const moments = useMemo(() => {
-    const base = promptMoments(playerId, playerName, href);
     const uploads = submittedMoments.map((item): CareerMoment => ({
       id: `upload-${item.id}`,
       year: yearLabel(item.photo_taken_date, item.photo_taken_year ? String(item.photo_taken_year) : "Fan Upload"),
@@ -119,11 +165,24 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
       photoTakenDate: item.photo_taken_date,
       uploaded: true,
     }));
-    return [...base, ...uploads].sort((a, b) => {
-      if (a.uploaded && b.uploaded) return String(a.photoTakenDate || "9999").localeCompare(String(b.photoTakenDate || "9999"));
+
+    const realMoments = [...archiveMoments(playerId, href), ...uploads].sort((a, b) => {
       const stageDiff = stageRank(a.stage) - stageRank(b.stage);
       if (stageDiff !== 0) return stageDiff;
+      if (a.uploaded && b.uploaded) return String(a.photoTakenDate || "9999").localeCompare(String(b.photoTakenDate || "9999"));
       return Number(a.uploaded) - Number(b.uploaded);
+    });
+
+    const existingStages = new Set(realMoments.map((moment) => moment.stage));
+    const ghostSlots = GHOST_STAGES.filter((stage) => !existingStages.has(stage)).map(ghostMoment);
+
+    return [promptMoment(playerName), ...realMoments, ...ghostSlots].sort((a, b) => {
+      if (a.isUploadPrompt) return -1;
+      if (b.isUploadPrompt) return 1;
+      const stageDiff = stageRank(a.stage) - stageRank(b.stage);
+      if (stageDiff !== 0) return stageDiff;
+      if (a.isGhost !== b.isGhost) return a.isGhost ? 1 : -1;
+      return 0;
     });
   }, [playerId, playerName, href, submittedMoments]);
 
@@ -157,9 +216,9 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
     return () => window.removeEventListener("yat:golden-line-scroll-stage", onScrollStage);
   }, []);
 
-  function openUpload(moment: CareerMoment) {
+  function openUpload(moment?: CareerMoment) {
     try {
-      sessionStorage.setItem("yat:goldenLineStage", moment.stage || "Youth Baseball");
+      sessionStorage.setItem("yat:goldenLineStage", moment?.stage || "Fan Memory");
       window.dispatchEvent(new CustomEvent("yat:golden-line-stage"));
     } catch {}
     window.location.hash = "ppTab-upload";
@@ -171,15 +230,16 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         <div>
           <span className="gl-kicker">The Golden Line</span>
           <span className="gl-title">Career Path</span>
-          <button className="gl-add" type="button" onClick={() => openUpload(moments[0])}>+ Add Photo</button>
+          <button className="gl-add" type="button" onClick={() => openUpload()}>+ Add Photo</button>
         </div>
       </div>
 
       <div className="gl-track-wrap" ref={trackRef}>
         <div className="gl-track" role="list" aria-label={`${playerName} career memories`}>
           {moments.map((moment, idx) => (
-            <div className={`gl-slot gl-slot-${idx % 6}`} key={moment.id} role="listitem" data-card-stage={moment.stage}>
-              <button type="button" className={`gl-card ${moment.isUploadPrompt ? "gl-card-prompt" : ""}`} onClick={() => moment.isUploadPrompt ? openUpload(moment) : setActiveMoment(moment)} aria-label={`Open ${moment.title}`}>
+            <div className={`gl-slot gl-slot-${idx % 6} ${moment.isGhost ? "gl-slot-ghost" : ""}`} key={moment.id} role="listitem" data-card-stage={moment.stage}>
+              <button type="button" className={`gl-card ${moment.isUploadPrompt ? "gl-card-prompt" : ""} ${moment.isGhost ? "gl-card-ghost" : ""}`} onClick={() => moment.isUploadPrompt || moment.isGhost ? openUpload(moment) : setActiveMoment(moment)} aria-label={`Open ${moment.title}`}>
+                {moment.isGhost ? <span className="gl-ghost-stack" aria-hidden="true" /> : null}
                 <span className="gl-photo"><MomentImage src={moment.src} title={moment.title} /></span>
                 <span className="gl-copy">
                   <span className="gl-year">{moment.year}</span>
@@ -224,21 +284,26 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         .gl-add { display: block; pointer-events: auto; margin-top: 5px; border: 1px solid rgba(245,200,90,.72); border-radius: 0; padding: 5px 8px 4px; background: rgba(0,0,0,.58); color: #f5c85a; font: 800 9px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
         .gl-track-wrap { height: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-left: 142px; padding-right: 18px; }
         .gl-track-wrap::-webkit-scrollbar { display: none; }
-        .gl-track { height: 100%; min-width: 1030px; display: grid; grid-template-columns: repeat(7, 118px); align-items: end; gap: 10px; padding-bottom: 8px; }
+        .gl-track { height: 100%; min-width: 860px; display: grid; grid-template-columns: repeat(8, 118px); align-items: end; gap: 10px; padding-bottom: 8px; }
         .gl-slot { transform: translateY(0) rotate(-1.2deg); }
         .gl-slot-1 { transform: translateY(-4px) rotate(1deg); } .gl-slot-2 { transform: translateY(0) rotate(-.6deg); } .gl-slot-3 { transform: translateY(-5px) rotate(.8deg); } .gl-slot-4 { transform: translateY(0) rotate(-.8deg); } .gl-slot-5 { transform: translateY(-4px) rotate(1deg); }
+        .gl-slot-ghost { margin-left: -34px; opacity: .82; z-index: 0; }
         .gl-card { position: relative; display: grid; grid-template-columns: 56px minmax(0,1fr); align-items: stretch; width: 118px; height: 84px; padding: 4px; border: 1px solid rgba(255,255,255,.18); border-radius: 0; background: linear-gradient(135deg, rgba(29,29,29,.98), rgba(7,7,7,.92)); color: #fff; text-align: left; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.34); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
         .gl-card:hover, .gl-card:focus-visible { transform: translateY(-4px) scale(1.03); border-color: rgba(245,200,90,.94); box-shadow: 0 0 18px rgba(245,200,90,.22), 0 10px 24px rgba(0,0,0,.5); outline: none; }
-        .gl-card-prompt { border-style: dashed; }
+        .gl-card-prompt { border-color: rgba(245,200,90,.72); background: linear-gradient(135deg, rgba(40,32,15,.98), rgba(10,10,10,.94)); }
+        .gl-card-ghost { border-style: dashed; border-color: rgba(245,200,90,.36); background: linear-gradient(135deg, rgba(28,28,28,.72), rgba(5,5,5,.84)); }
+        .gl-ghost-stack, .gl-ghost-stack::before { content:""; position:absolute; inset:5px; border:1px solid rgba(245,200,90,.26); background:rgba(255,255,255,.025); transform:translate(5px,-5px); z-index:-1; }
+        .gl-ghost-stack::before { inset:3px; transform:translate(6px,-6px); }
         .gl-photo { display: block; width: 54px; height: 76px; overflow: hidden; border: 1px solid rgba(245,200,90,.5); border-radius: 0; background: #111; }
         .gl-photo img, .gl-modal-media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
-        .gl-image-fallback { width: 100%; height: 100%; display: grid; align-content: center; justify-items: center; gap: 4px; color: rgba(245,200,90,.88); background: linear-gradient(135deg, #272727, #0e0e0e); font-size: 18px; }
+        .gl-image-fallback { width: 100%; height: 100%; display: grid; align-content: center; justify-items: center; gap: 4px; color: rgba(245,200,90,.78); background: linear-gradient(135deg, #252525, #0b0b0b); font-size: 18px; }
         .gl-image-fallback span { font: 800 7px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         .gl-copy { min-width: 0; padding: 4px 1px 3px 6px; align-self: stretch; display: flex; flex-direction: column; }
         .gl-year, .gl-stage, .gl-card-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
         .gl-year { color: #f5c85a; font: 800 8px/1 Oswald, sans-serif; letter-spacing: .1em; }
         .gl-stage { margin-top: 4px; color: rgba(255,255,255,.92); font: 800 12px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .05em; }
         .gl-card-title { margin-top: auto; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: rgba(255,255,255,.68); font: 700 8px/1.05 Oswald, sans-serif; letter-spacing: .06em; }
+        .gl-card-ghost .gl-copy, .gl-card-ghost .gl-photo { opacity: .64; }
         .gl-modal-backdrop { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.78); backdrop-filter: blur(6px); }
         .gl-modal { position: relative; width: min(920px,96vw); max-height: min(720px,92vh); overflow: hidden; display: grid; grid-template-columns: minmax(260px,42%) minmax(0,1fr); border: 1px solid rgba(245,200,90,.48); border-radius: 0; background: linear-gradient(135deg, #191919, #070707); color: #f4f4f4; box-shadow: 0 24px 80px rgba(0,0,0,.72), 0 0 38px rgba(245,200,90,.18); }
         .gl-close { position: absolute; top: 10px; right: 12px; z-index: 2; width: 34px; height: 34px; border: 1px solid rgba(255,255,255,.2); border-radius: 0; background: rgba(0,0,0,.58); color: #fff; font: 300 28px/1 Arial, sans-serif; cursor: pointer; }
@@ -252,7 +317,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         .gl-comment-box { display: grid; gap: 5px; padding: 14px; border-left: 3px solid #f5c85a; background: rgba(255,255,255,.06); }
         .gl-comment-box strong { font: 800 12px/1 Oswald, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
         .gl-comment-box span { color: rgba(255,255,255,.72); font: 400 14px/1.35 system-ui, sans-serif; }
-        @media (max-width: 760px) { .gl-header { left: 8px; } .gl-track-wrap { padding-left: 112px; } .gl-track { min-width: 920px; grid-template-columns: repeat(7, 108px); gap: 8px; } .gl-card { width: 108px; height: 77px; grid-template-columns: 50px minmax(0,1fr); } .gl-photo { width: 48px; height: 69px; } .gl-modal { grid-template-columns: 1fr; overflow-y: auto; } .gl-modal-media { min-height: 230px; max-height: 38vh; } .gl-modal-body { padding: 24px 20px 22px; } }
+        @media (max-width: 760px) { .gl-header { left: 8px; } .gl-track-wrap { padding-left: 112px; } .gl-track { min-width: 760px; grid-template-columns: repeat(8, 108px); gap: 8px; } .gl-slot-ghost { margin-left: -30px; } .gl-card { width: 108px; height: 77px; grid-template-columns: 50px minmax(0,1fr); } .gl-photo { width: 48px; height: 69px; } .gl-modal { grid-template-columns: 1fr; overflow-y: auto; } .gl-modal-media { min-height: 230px; max-height: 38vh; } .gl-modal-body { padding: 24px 20px 22px; } }
       `}</style>
     </div>
   );
