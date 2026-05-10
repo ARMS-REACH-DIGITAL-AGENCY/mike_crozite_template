@@ -1,13 +1,26 @@
 // src/app/api/player-moments/route.ts
 // Golden Line fan-photo submission endpoint.
-// Saves pending submissions in Postgres, optionally creates/updates a HighLevel
-// contact, tags the contact, and optionally fires a GHL workflow webhook.
+// Saves pending submissions in Postgres, creates/updates a HighLevel contact,
+// tags the contact, and optionally fires a GHL workflow webhook.
 
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { addTagToGHLContact, findOrCreateGhlContact } from "@/lib/gohighlevel";
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+type YatSession = {
+  uid?: string;
+  email?: string;
+  contactId?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  plan?: string | null;
+  isSuperfan?: boolean;
+  homeHsid?: string | null;
+  homeSchoolName?: string | null;
+};
 
 async function ensureTable() {
   await query(`
@@ -31,6 +44,11 @@ async function ensureTable() {
     alter table public.player_moment_submissions
       add column if not exists contributor_email text,
       add column if not exists contributor_phone text,
+      add column if not exists contributor_firebase_uid text,
+      add column if not exists contributor_role text,
+      add column if not exists contributor_plan text,
+      add column if not exists contributor_home_hsid text,
+      add column if not exists contributor_home_school_name text,
       add column if not exists player_name text,
       add column if not exists page_url text,
       add column if not exists photo_taken_date date,
@@ -51,10 +69,44 @@ async function ensureTable() {
     create index if not exists player_moment_submissions_status_created_idx
     on public.player_moment_submissions (status, created_at desc)
   `);
+
+  await query(`
+    create index if not exists player_moment_submissions_contributor_uid_idx
+    on public.player_moment_submissions (contributor_firebase_uid, created_at desc)
+  `);
 }
 
 function clean(value: FormDataEntryValue | null, fallback = "") {
   return String(value ?? fallback).trim();
+}
+
+function normalizePlan(value: unknown) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getSession(req: NextRequest): YatSession | null {
+  const raw = req.cookies.get("yat-session")?.value;
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as YatSession;
+    if (!parsed?.uid || !parsed?.email) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function isSuperfanSession(session: YatSession | null) {
+  if (!session) return false;
+  return Boolean(session.isSuperfan || normalizePlan(session.plan) === "superfan");
+}
+
+function getContributorName(session: YatSession) {
+  const first = String(session.firstName || "").trim();
+  const last = String(session.lastName || "").trim();
+  const name = [first, last].filter(Boolean).join(" ").trim();
+  return name || String(session.email || "YAT?STATS Fan").trim();
 }
 
 function parsePhotoDate(value: string) {
@@ -98,22 +150,23 @@ async function postToArmsWebhook(payload: Record<string, unknown>) {
 }
 
 async function syncSubmissionToArms(moment: any) {
-  let ghlContactId: string | null = null;
+  let ghlContactId: string | null = moment.ghl_contact_id || null;
 
-  if (moment.contributor_email) {
+  if (!ghlContactId && moment.contributor_email) {
     const { firstName, lastName } = splitName(moment.contributor_name || "YAT?STATS Fan");
     ghlContactId = await findOrCreateGhlContact(moment.contributor_email, firstName, lastName, moment.hsid || undefined, "YAT?STATS Golden Line");
+  }
 
-    if (ghlContactId) {
-      await Promise.allSettled([
-        addTagToGHLContact(ghlContactId, "yatstats"),
-        addTagToGHLContact(ghlContactId, "golden-line-memory"),
-        addTagToGHLContact(ghlContactId, "needs-photo-review"),
-        addTagToGHLContact(ghlContactId, `player:${safeTag(moment.playerid)}`),
-        addTagToGHLContact(ghlContactId, `stage:${safeTag(moment.stage)}`),
-        moment.hsid ? addTagToGHLContact(ghlContactId, `hsid:${safeTag(moment.hsid)}`) : Promise.resolve(),
-      ]);
-    }
+  if (ghlContactId) {
+    await Promise.allSettled([
+      addTagToGHLContact(ghlContactId, "yatstats"),
+      addTagToGHLContact(ghlContactId, "golden-line-memory"),
+      addTagToGHLContact(ghlContactId, "needs-photo-review"),
+      addTagToGHLContact(ghlContactId, "superfan-upload"),
+      addTagToGHLContact(ghlContactId, `player:${safeTag(moment.playerid)}`),
+      addTagToGHLContact(ghlContactId, `stage:${safeTag(moment.stage)}`),
+      moment.hsid ? addTagToGHLContact(ghlContactId, `hsid:${safeTag(moment.hsid)}`) : Promise.resolve(),
+    ]);
   }
 
   const webhookResult = await postToArmsWebhook({
@@ -128,9 +181,14 @@ async function syncSubmissionToArms(moment: any) {
     caption: moment.caption,
     photoTakenDate: moment.photo_taken_date,
     photoTakenYear: moment.photo_taken_year,
+    contributorFirebaseUid: moment.contributor_firebase_uid,
     contributorName: moment.contributor_name,
     contributorEmail: moment.contributor_email,
     contributorPhone: moment.contributor_phone,
+    contributorRole: moment.contributor_role,
+    contributorPlan: moment.contributor_plan,
+    contributorHomeHsid: moment.contributor_home_hsid,
+    contributorHomeSchoolName: moment.contributor_home_school_name,
     relationship: moment.relationship,
     status: moment.status,
     pageUrl: moment.page_url,
@@ -153,6 +211,11 @@ const returningSql = `
   contributor_name,
   contributor_email,
   contributor_phone,
+  contributor_firebase_uid,
+  contributor_role,
+  contributor_plan,
+  contributor_home_hsid,
+  contributor_home_school_name,
   relationship,
   player_name,
   page_url,
@@ -196,6 +259,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await ensureTable();
+
+    const session = getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Sign in is required before submitting a Golden Line memory." }, { status: 401 });
+    }
+
+    if (!isSuperfanSession(session)) {
+      return NextResponse.json({ error: "Golden Line photo uploads are currently available to Superfans only." }, { status: 403 });
+    }
+
     const formData = await req.formData();
 
     const playerId = clean(formData.get("playerId"));
@@ -205,9 +278,14 @@ export async function POST(req: NextRequest) {
     const stage = clean(formData.get("stage"), "Youth Baseball");
     const title = clean(formData.get("title"), `${stage} memory`);
     const caption = clean(formData.get("caption"));
-    const contributorName = clean(formData.get("contributorName"), "Fan submission");
-    const contributorEmail = clean(formData.get("contributorEmail")).toLowerCase();
+    const contributorName = getContributorName(session);
+    const contributorEmail = String(session.email || "").trim().toLowerCase();
     const contributorPhone = clean(formData.get("contributorPhone"));
+    const contributorFirebaseUid = String(session.uid || "").trim();
+    const contributorRole = String(session.role || "fan").trim() || "fan";
+    const contributorPlan = String(session.plan || "superfan").trim() || "superfan";
+    const contributorHomeHsid = String(session.homeHsid || "").trim();
+    const contributorHomeSchoolName = String(session.homeSchoolName || "").trim();
     const relationship = clean(formData.get("relationship"));
     const { photoTakenDate, photoTakenYear, sortDate } = parsePhotoDate(clean(formData.get("photoTakenDate")));
     const file = formData.get("photo");
@@ -222,11 +300,20 @@ export async function POST(req: NextRequest) {
 
     const { rows } = await query(
       `insert into public.player_moment_submissions (
-        playerid, hsid, stage, title, caption, contributor_name, contributor_email, contributor_phone, relationship,
-        player_name, page_url, photo_taken_date, photo_taken_year, sort_date, image_data_url, image_mime_type, status, arms_sync_status
-      ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'pending','queued')
+        playerid, hsid, stage, title, caption,
+        contributor_name, contributor_email, contributor_phone, contributor_firebase_uid, contributor_role, contributor_plan,
+        contributor_home_hsid, contributor_home_school_name, relationship,
+        player_name, page_url, photo_taken_date, photo_taken_year, sort_date,
+        image_data_url, image_mime_type, status, ghl_contact_id, arms_sync_status
+      ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,'pending',$22,'queued')
       returning ${returningSql}`,
-      [playerId, hsid || null, stage, title, caption, contributorName, contributorEmail || null, contributorPhone || null, relationship, playerName || null, pageUrl || null, photoTakenDate, photoTakenYear, sortDate, imageDataUrl, file.type]
+      [
+        playerId, hsid || null, stage, title, caption,
+        contributorName, contributorEmail || null, contributorPhone || null, contributorFirebaseUid, contributorRole, contributorPlan,
+        contributorHomeHsid || null, contributorHomeSchoolName || null, relationship,
+        playerName || null, pageUrl || null, photoTakenDate, photoTakenYear, sortDate,
+        imageDataUrl, file.type, session.contactId || null,
+      ]
     );
 
     let moment = rows[0];
