@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 
@@ -39,6 +39,22 @@ function cleanSrc(value?: string | null): string {
   return text;
 }
 
+function normalizeStatus(value?: string | null): string {
+  return String(value || '').trim().toUpperCase();
+}
+
+function isHighSchoolStatus(value?: string | null): boolean {
+  const status = normalizeStatus(value);
+  return status === 'HIGH SCHOOL' || status === 'COMMIT';
+}
+
+function getInitialSection(): string {
+  if (typeof window === 'undefined') return 'active';
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace('#sec-', '') || 'active';
+  return 'active';
+}
+
 export default function InteractionStrip({
   isPlayerProfile = false,
   isGallery = false,
@@ -48,9 +64,20 @@ export default function InteractionStrip({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [activeSection, setActiveSection] = useState(getInitialSection);
 
   const showActiveStrip = isGallery || isNews;
   const showProfilePlaceholder = isPlayerProfile;
+  const isCurrentTeamTab = activeSection === 'current';
+
+  const visiblePlayers = useMemo(() => {
+    if (!showActiveStrip) return [];
+
+    return players.filter((p) => {
+      const isHighSchool = isHighSchoolStatus(p.status);
+      return isCurrentTeamTab ? isHighSchool : !isHighSchool;
+    });
+  }, [players, showActiveStrip, isCurrentTeamTab]);
 
   const updateScrollState = () => {
     const el = scrollRef.current;
@@ -58,6 +85,31 @@ export default function InteractionStrip({
     setCanScrollLeft(el.scrollLeft > 0);
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth);
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncSection = () => {
+      window.setTimeout(() => {
+        const hash = window.location.hash || '';
+        if (hash.startsWith('#sec-')) {
+          setActiveSection(hash.replace('#sec-', '') || 'active');
+          window.setTimeout(updateScrollState, 0);
+        }
+      }, 0);
+    };
+
+    syncSection();
+    window.addEventListener('hashchange', syncSection);
+    window.addEventListener('popstate', syncSection);
+    document.addEventListener('click', syncSection, true);
+
+    return () => {
+      window.removeEventListener('hashchange', syncSection);
+      window.removeEventListener('popstate', syncSection);
+      document.removeEventListener('click', syncSection, true);
+    };
+  }, []);
 
   useEffect(() => {
     if (!showActiveStrip) return;
@@ -73,7 +125,7 @@ export default function InteractionStrip({
       el.removeEventListener('scroll', updateScrollState);
       window.removeEventListener('resize', updateScrollState);
     };
-  }, [players.length, showActiveStrip]);
+  }, [visiblePlayers.length, showActiveStrip, isCurrentTeamTab]);
 
   const scrollByAmount = (dir: 'left' | 'right') => {
     const el = scrollRef.current;
@@ -93,7 +145,8 @@ export default function InteractionStrip({
   return (
     <>
       <style jsx>{`
-        .gallery-slot-link {
+        .gallery-slot-link,
+        .gallery-current-slot-link {
           display: block;
           text-decoration: none;
           color: inherit;
@@ -116,7 +169,7 @@ export default function InteractionStrip({
 
         .gallery-slot-img--contain {
           object-fit: contain;
-          padding: 4px;
+          padding: 5px;
           background: #050505;
         }
 
@@ -174,21 +227,24 @@ export default function InteractionStrip({
 
         <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
           {showActiveStrip ? (
-            players.map((p) => {
+            visiblePlayers.map((p) => {
               const lastName = getLastName(p.name);
               const fallbackSrc = cleanSrc(p.fallbackImage) || HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(p.nowImage) || cleanSrc(p.image) || fallbackSrc;
               const thenSrc = cleanSrc(p.thenImage) || nowSrc;
               const initialSrc = nowSrc;
-              const status = String(p.status || '').toUpperCase().trim();
+              const status = normalizeStatus(p.status);
               const isRetired = status === 'RETIRED';
               const imageFit = p.imageFit === 'contain' ? 'contain' : 'cover';
+              const linkClassName = isCurrentTeamTab
+                ? 'gallery-slot gallery-current-slot-link'
+                : 'gallery-slot gallery-slot-link';
 
               return (
                 <a
                   key={p.id}
                   href="javascript:void(0)"
-                  className="gallery-slot gallery-slot-link"
+                  className={linkClassName}
                   data-playerid={p.id}
                   data-status={status}
                   data-default-hidden={isRetired ? 'retired' : undefined}
