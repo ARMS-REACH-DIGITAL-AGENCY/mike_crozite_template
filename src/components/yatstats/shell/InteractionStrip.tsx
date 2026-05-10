@@ -45,7 +45,7 @@ function normalizeStatus(value?: string | null): string {
 
 function isHighSchoolStatus(value?: string | null): boolean {
   const status = normalizeStatus(value);
-  return status === 'HIGH SCHOOL' || status === 'COMMIT';
+  return status === 'HIGH SCHOOL' || status === 'COMMIT' || status === 'UNCOMMITTED';
 }
 
 function getSectionFromDom(): string {
