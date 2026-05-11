@@ -5,7 +5,7 @@
 
 export default function ProfileStatsStyles() {
   return (
-    <style jsx global>{`
+    <style>{`
       /* ─────────────────────────────────────────────────────────────
          Player Profile Stats Tab: Baseball-card-back treatment
          Applies only to Block 5 / Profile FunZone stats content.
