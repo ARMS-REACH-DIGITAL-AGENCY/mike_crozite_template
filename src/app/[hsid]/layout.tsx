@@ -228,11 +228,18 @@ export default async function HsidLayout({
   };
 
   const [allStageRows, rawAllTimeRoster] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
+    getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
+      console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
+      return [];
+    }),
+    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
+      console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
+      return [];
+    }),
   ]);
 
-  const stageRows = allStageRows as Record<string, unknown>[];
+  const stageRows = Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : [];
+  const allTimeRosterRows = Array.isArray(rawAllTimeRoster) ? (rawAllTimeRoster as Record<string, unknown>[]) : [];
   const currentRosterRows = stageRows.filter((p) => isHighSchoolStripPlayer(p));
   const collegeCommitCount = currentRosterRows.filter(
     (p) => normalizeStatusLabel(p.status_label || p.status) === 'COMMIT'
@@ -291,7 +298,7 @@ export default async function HsidLayout({
 
   const stripSeenIds = new Set<string>();
   const stripMerged: Record<string, unknown>[] = [];
-  for (const p of rawAllTimeRoster as Record<string, unknown>[]) {
+  for (const p of allTimeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stripStageMap.get(id);
     stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
