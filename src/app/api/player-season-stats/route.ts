@@ -1,14 +1,13 @@
 // src/app/api/player-season-stats/route.ts
 // Season-by-season player stats feed for the player profile Stats FunZone.
-// Uses the existing DB helpers so the API inherits historical TBC rows and live 2026 rows.
+// Reads directly from the canonical raw TBC tables so profile pages show the
+// same playerid rows visible in Neon, instead of relying on older summary helpers.
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getPlayerBattingStats,
-  getPlayerPitchingStats,
-  getPlayerCareerBatting,
-  getPlayerCareerPitching,
-} from '@/lib/db';
+import { query } from '@/lib/db';
+
+const BATTING_TABLES = ['tbc_batting_raw', 'tbc_batting_2026_season_raw'] as const;
+const PITCHING_TABLES = ['tbc_pitching_raw', 'tbc_pitching_2026_season_raw'] as const;
 
 function value(row: any, ...keys: string[]) {
   for (const key of keys) {
@@ -26,8 +25,9 @@ function clean(row: any) {
 
 function battingRow(row: any) {
   return clean({
+    source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'team_name', 'teamname', 'team'),
+    team: value(row, 'team_name', 'teamname', 'team', 'teamid'),
     league: value(row, 'league', 'lg'),
     level: value(row, 'level', 'highlevel'),
     mlb: value(row, 'mlb', 'mlborg', 'org'),
@@ -52,8 +52,9 @@ function battingRow(row: any) {
 
 function pitchingRow(row: any) {
   return clean({
+    source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'team_name', 'teamname', 'team'),
+    team: value(row, 'team_name', 'teamname', 'team', 'teamid'),
     league: value(row, 'league', 'lg'),
     level: value(row, 'level', 'highlevel'),
     mlb: value(row, 'mlb', 'mlborg', 'org'),
@@ -95,6 +96,43 @@ function byYearThenTeam(a: any, b: any) {
   return String(a.team || '').localeCompare(String(b.team || ''));
 }
 
+function dedupe(rows: any[]) {
+  const seen = new Set<string>();
+  const out: any[] = [];
+  for (const row of rows) {
+    const key = [row.year, row.team, row.league, row.level, row.source].map((v) => String(v ?? '')).join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+async function tableExists(tableName: string) {
+  const { rows } = await query(
+    `select to_regclass($1) as table_name`,
+    [`public.${tableName}`]
+  );
+  return Boolean(rows[0]?.table_name);
+}
+
+async function readPlayerRows(tableName: string, playerId: string) {
+  if (!(await tableExists(tableName))) return [];
+
+  // Table names are constants above, not user input. SELECT * is intentional here
+  // because the raw TBC schemas vary slightly between historical and live tables.
+  const { rows } = await query(
+    `select *, $2::text as _source
+     from public.${tableName}
+     where playerid::text = $1
+     order by nullif(regexp_replace(coalesce(year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
+              coalesce(team_name::text, teamid::text, '')`,
+    [playerId, tableName]
+  );
+
+  return rows;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const playerId = req.nextUrl.searchParams.get('playerId');
@@ -102,15 +140,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'playerId is required' }, { status: 400 });
     }
 
-    const [battingRaw, pitchingRaw, careerBatting, careerPitching] = await Promise.all([
-      getPlayerBattingStats(playerId),
-      getPlayerPitchingStats(playerId),
-      getPlayerCareerBatting(playerId),
-      getPlayerCareerPitching(playerId),
+    const [battingRaw, batting2026, pitchingRaw, pitching2026] = await Promise.all([
+      readPlayerRows(BATTING_TABLES[0], playerId),
+      readPlayerRows(BATTING_TABLES[1], playerId),
+      readPlayerRows(PITCHING_TABLES[0], playerId),
+      readPlayerRows(PITCHING_TABLES[1], playerId),
     ]);
 
-    const batting = (battingRaw || []).map(battingRow).sort(byYearThenTeam);
-    const pitching = (pitchingRaw || []).map(pitchingRow).sort(byYearThenTeam);
+    const batting = dedupe([...battingRaw, ...batting2026].map(battingRow)).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingRaw, ...pitching2026].map(pitchingRow)).sort(byYearThenTeam);
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
       : 'batting';
@@ -119,10 +157,14 @@ export async function GET(req: NextRequest) {
       success: true,
       playerId,
       primaryType,
+      counts: {
+        battingHistorical: battingRaw.length,
+        batting2026: batting2026.length,
+        pitchingHistorical: pitchingRaw.length,
+        pitching2026: pitching2026.length,
+      },
       batting,
       pitching,
-      careerBatting: careerBatting ? battingRow(careerBatting) : null,
-      careerPitching: careerPitching ? pitchingRow(careerPitching) : null,
     });
   } catch (error: any) {
     console.error('player-season-stats failed:', error);
