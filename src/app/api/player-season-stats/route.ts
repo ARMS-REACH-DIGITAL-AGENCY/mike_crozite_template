@@ -27,26 +27,43 @@ function battingRow(row: any) {
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'team_name', 'teamname', 'team', 'teamid'),
-    league: value(row, 'league', 'lg'),
-    level: value(row, 'level', 'highlevel'),
-    mlb: value(row, 'mlb', 'mlborg', 'org'),
+    team: value(row, 'team_lookup', 'teamid'),
+    league: value(row, 'league_lookup'),
+    level: value(row, 'highlevel'),
+    mlb: value(row, 'mlb_lookup', 'mlbyears'),
     age: value(row, 'age'),
     g: value(row, 'g'),
     ab: value(row, 'ab'),
     r: value(row, 'r'),
     h: value(row, 'h'),
-    dbl: value(row, '2b', 'dbl'),
-    tpl: value(row, '3b', 'tpl'),
+    dbl: value(row, 'dbl'),
+    tpl: value(row, 'tpl'),
     hr: value(row, 'hr'),
     rbi: value(row, 'rbi'),
     sb: value(row, 'sb'),
+    cs: value(row, 'cs'),
     bb: value(row, 'bb'),
-    so: value(row, 'so', 'ko'),
-    avg: value(row, 'avg'),
+    so: value(row, 'so'),
+    hbp: value(row, 'hbp'),
+    sh: value(row, 'sh'),
+    sf: value(row, 'sf'),
+    ibb: value(row, 'ibb'),
+    gdp: value(row, 'gdp'),
+    tb: value(row, 'tb'),
+    pa: value(row, 'pa'),
+    xbh: value(row, 'xbh'),
+    sgl: value(row, 'sgl'),
+    avg: value(row, 'bavg'),
     obp: value(row, 'obp'),
     slg: value(row, 'slg'),
     ops: value(row, 'ops'),
+    seca: value(row, 'seca'),
+    iso: value(row, 'iso'),
+    babip: value(row, 'babip'),
+    bb_pct: value(row, 'bb_pct'),
+    so_pct: value(row, 'so_pct'),
+    so_bb: value(row, 'so_bb'),
+    ab_hr: value(row, 'ab_hr'),
   });
 }
 
@@ -54,38 +71,38 @@ function pitchingRow(row: any) {
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'team_name', 'teamname', 'team', 'teamid'),
-    league: value(row, 'league', 'lg'),
-    level: value(row, 'level', 'highlevel'),
-    mlb: value(row, 'mlb', 'mlborg', 'org'),
+    team: value(row, 'team_lookup', 'teamid'),
+    league: value(row, 'league_lookup'),
+    level: value(row, 'highlevel'),
+    mlb: value(row, 'mlb_lookup', 'mlbyears'),
     age: value(row, 'age'),
     w: value(row, 'w'),
     l: value(row, 'l'),
     era: value(row, 'era'),
-    g: value(row, 'g', 'pg'),
+    g: value(row, 'g'),
     gs: value(row, 'gs'),
     cg: value(row, 'cg'),
     sho: value(row, 'sho'),
     gr: value(row, 'gr'),
     gf: value(row, 'gf'),
-    sv: value(row, 'sv', 'saves'),
+    sv: value(row, 'sv'),
     ip: value(row, 'ip'),
-    h: value(row, 'h', 'hits_allowed'),
+    h: value(row, 'h'),
     r: value(row, 'r'),
     er: value(row, 'er'),
     hr: value(row, 'hr'),
     bb: value(row, 'bb'),
-    so: value(row, 'so', 'ko'),
+    so: value(row, 'so'),
     wp: value(row, 'wp'),
     bk: value(row, 'bk'),
-    hb: value(row, 'hb', 'hbp'),
+    hb: value(row, 'hb'),
     whip: value(row, 'whip'),
     h9: value(row, 'h9'),
     hr9: value(row, 'hr9'),
     bb9: value(row, 'bb9'),
-    so9: value(row, 'so9', 'k9'),
+    so9: value(row, 'so9'),
     ra9: value(row, 'ra9'),
-    so_bb: value(row, 'so_bb', 'kbb'),
+    so_bb: value(row, 'so_bb'),
   });
 }
 
@@ -119,14 +136,22 @@ async function tableExists(tableName: string) {
 async function readPlayerRows(tableName: string, playerId: string) {
   if (!(await tableExists(tableName))) return [];
 
-  // Table names are constants above, not user input. SELECT * is intentional here
+  // Table names are constants above, not user input. SELECT r.* is intentional here
   // because the raw TBC schemas vary slightly between historical and live tables.
+  // Raw stat tables do not have team_name or league columns; they use teamid.
+  // Join teams if available, but never require that lookup for the stats to render.
   const { rows } = await query(
-    `select *, $2::text as _source
-     from public.${tableName}
-     where playerid::text = $1
-     order by nullif(regexp_replace(coalesce(year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
-              coalesce(team_name::text, teamid::text, '')`,
+    `select
+       r.*,
+       coalesce(t.team_name::text, r.teamid::text) as team_lookup,
+       coalesce(t.league::text, t.conference::text, '') as league_lookup,
+       coalesce(t.organization::text, t.mlb_org::text, '') as mlb_lookup,
+       $2::text as _source
+     from public.${tableName} r
+     left join public.teams t on t.team_id::text = r.teamid::text
+     where r.playerid::text = $1
+     order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
+              r.teamid::text`,
     [playerId, tableName]
   );
 
