@@ -27,6 +27,28 @@ function esc(value: unknown) {
     .replaceAll("'", '&#39;');
 }
 
+function yearOf(value: unknown): number | null {
+  const match = String(value ?? '').match(/\d{4}/);
+  const year = match ? Number(match[0]) : NaN;
+  return Number.isFinite(year) ? year : null;
+}
+
+function estimateBirthYear(meta: ProfileMeta) {
+  const currentYear = new Date().getFullYear();
+  const classYear = yearOf(meta.classOf);
+  if (classYear) return classYear - 18;
+  return currentYear - 24;
+}
+
+function buildYearTicks(start: number, end: number) {
+  const span = Math.max(1, end - start);
+  const step = span > 34 ? 5 : span > 18 ? 4 : span > 12 ? 3 : 2;
+  const ticks: number[] = [start];
+  for (let y = Math.ceil((start + 1) / step) * step; y < end; y += step) ticks.push(y);
+  ticks.push(end);
+  return Array.from(new Set(ticks)).sort((a, b) => a - b);
+}
+
 function fallbackReturnUrl(meta: ProfileMeta) {
   return `/${encodeURIComponent(meta.hsid)}?view=active&player=${encodeURIComponent(meta.playerId)}#player-${encodeURIComponent(meta.playerId)}`;
 }
@@ -34,28 +56,22 @@ function fallbackReturnUrl(meta: ProfileMeta) {
 function buildTimeline(meta: ProfileMeta) {
   const primary = [meta.currentTeamName, meta.levelLabel, meta.statusLabel].filter(Boolean).join(' · ');
   const secondary = [meta.position, meta.batsThrows, meta.heightWeight || meta.classOf].filter(Boolean).join(' · ');
-
-  const ticks = [
-    ['Youth', 'Youth Baseball'],
-    ['Middle', 'Middle School'],
-    ['HS', 'High School'],
-    ['College', 'College'],
-    ['Minors', 'Minor Leagues'],
-    ['MLB', 'Major Leagues'],
-  ];
+  const currentYear = new Date().getFullYear();
+  const birthYear = estimateBirthYear(meta);
+  const ticks = buildYearTicks(birthYear, currentYear);
 
   return `
-    <div class="gl-row4" aria-label="Golden Line timeline navigation">
+    <div class="gl-row4" aria-label="Golden Line calendar timeline">
       <div class="gl-row4-bio" aria-label="Player bio snapshot">
         <span class="gl-bio-main">${esc(primary || 'Career Snapshot')}</span>
         <span class="gl-bio-sub">${esc(secondary || 'Golden Line')}</span>
       </div>
-      <div class="gl-row4-scroll">
+      <div class="gl-row4-scroll" aria-label="Calendar year markers from estimated birth year to today">
         <div class="gl-row4-line" aria-hidden="true"></div>
-        ${ticks.map(([shortLabel, stage], idx) => `
-          <button class="gl-row4-tick gl-row4-tick-${idx}" type="button" data-gl-stage="${esc(stage)}">
+        ${ticks.map((year, idx) => `
+          <button class="gl-row4-tick gl-row4-tick-${idx}" type="button" data-gl-stage="Fan Memory" data-gl-year="${year}">
             <span class="gl-row4-pin"></span>
-            <span class="gl-row4-label">${esc(shortLabel)}</span>
+            <span class="gl-row4-label">${idx === 0 ? 'DOB' : year === currentYear ? 'TODAY' : String(year)}</span>
           </button>
         `).join('')}
       </div>
@@ -202,17 +218,37 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       const target = event.target as HTMLElement | null;
       const button = target?.closest?.('[data-gl-stage]') as HTMLElement | null;
       if (!button) return;
-      const stage = button.getAttribute('data-gl-stage') || 'Youth Baseball';
+      const stage = button.getAttribute('data-gl-stage') || 'Fan Memory';
+      const year = button.getAttribute('data-gl-year') || '';
       setUploadStage(stage);
-      window.dispatchEvent(new CustomEvent('yat:golden-line-scroll-stage', { detail: { stage } }));
+      const dateInput = document.querySelector('input[name="photoTakenDate"]') as HTMLInputElement | null;
+      if (dateInput && year) dateInput.value = `${year}-01-01`;
+      window.dispatchEvent(new CustomEvent('yat:golden-line-scroll-stage', { detail: { stage, year } }));
     };
 
     const handleStageEvent = () => {
       try {
-        const stage = sessionStorage.getItem('yat:goldenLineStage') || 'Youth Baseball';
+        const stage = sessionStorage.getItem('yat:goldenLineStage') || 'Fan Memory';
         const select = document.querySelector('#goldenLineStageSelect') as HTMLSelectElement | null;
         if (select) select.value = stage;
       } catch {}
+    };
+
+    const handleTabClick = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest?.('.pp-fz-tab') as HTMLAnchorElement | null;
+      if (!link) return;
+      const hash = link.getAttribute('href') || '';
+      if (!hash.startsWith('#ppTab-')) return;
+      event.preventDefault();
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+      document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
+        panel.style.display = `#${panel.id}` === hash ? 'block' : 'none';
+      });
+      document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
+        tab.classList.toggle('pp-fz-tab-active', tab.getAttribute('href') === hash);
+      });
+      requestAnimationFrame(forceProfileTabsAboveFooter);
     };
 
     const handlePreview = (event: Event) => {
@@ -262,6 +298,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
     document.addEventListener('click', handleTimelineClick);
+    document.addEventListener('click', handleTabClick, true);
     document.addEventListener('change', handlePreview);
     document.addEventListener('submit', handleSubmit);
     window.addEventListener('resize', applyChrome);
@@ -276,6 +313,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     return () => {
       observer.disconnect();
       document.removeEventListener('click', handleTimelineClick);
+      document.removeEventListener('click', handleTabClick, true);
       document.removeEventListener('change', handlePreview);
       document.removeEventListener('submit', handleSubmit);
       window.removeEventListener('resize', applyChrome);
@@ -296,10 +334,10 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .gl-row4-bio { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 6px 12px; border-right: 1px solid rgba(255,255,255,.1); text-transform: uppercase; background: linear-gradient(90deg, rgba(245,200,90,.05), transparent); }
       .gl-bio-main { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#f4f4f4; font:800 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing:.05em; }
       .gl-bio-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.68); font:700 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
-      .gl-row4-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; display: grid; grid-template-columns: repeat(6, minmax(108px, 1fr)); align-items: center; padding: 0 18px; }
+      .gl-row4-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; display: flex; align-items: center; gap: 0; padding: 0 18px; }
       .gl-row4-scroll::-webkit-scrollbar { display: none; }
       .gl-row4-line { position: absolute; left: 18px; right: 18px; top: 20px; height: 2px; background: linear-gradient(90deg, rgba(245,200,90,.1), #f5c85a, rgba(245,200,90,.1)); box-shadow: 0 0 14px rgba(245,200,90,.38); }
-      .gl-row4-tick { position: relative; z-index: 1; height: 100%; border: 0; background: transparent; color: #f5c85a; cursor: pointer; display: grid; place-items: start center; padding-top: 11px; text-transform: uppercase; }
+      .gl-row4-tick { position: relative; z-index: 1; height: 100%; min-width: 94px; border: 0; background: transparent; color: #f5c85a; cursor: pointer; display: grid; place-items: start center; padding-top: 11px; text-transform: uppercase; }
       .gl-row4-pin { display: block; width: 9px; height: 9px; background: #f5c85a; border: 2px solid #0b0b0b; box-shadow: 0 0 13px rgba(245,200,90,.75); }
       .gl-row4-label { margin-top: 6px; color: rgba(255,255,255,.9); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .1em; }
 
@@ -319,6 +357,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       }
       .pp-fz-tabs { width: min(100%, 1280px) !important; height: var(--profile-tabs-h) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; align-items: stretch !important; }
       .pp-fz-tab { height: var(--profile-tabs-h) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-width: 0 !important; }
+      .pp-fz-tab-active { color: #fff !important; }
       .pp-funzone { padding-bottom: calc(var(--profile-tabs-h) + 22px) !important; }
       .pp-fz-panel { scroll-margin-bottom: calc(var(--profile-tabs-h) + var(--footerH) + 24px) !important; }
       .yat-footer { z-index: 10020 !important; }
@@ -338,7 +377,19 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(245,200,90,.75); border-radius: 0; background: rgba(245,200,90,.12); color: #f5c85a; font: 800 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
-      @media (max-width: 760px) { :root { --row3-h: 80px; --row4-h: 52px; --profile-tabs-h: 72px; } .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); } .gl-row4-bio { padding: 5px 8px; gap: 4px; } .gl-bio-main { font-size: 13px; } .gl-bio-sub { font-size: 8px; } .gl-row4-scroll { grid-template-columns: repeat(6, 92px); } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; padding-bottom: calc(var(--profile-tabs-h) + 24px); } .glu-form { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) {
+        :root { --row3-h: 80px; --row4-h: 52px; --profile-tabs-h: 72px; }
+        .yat-row4-shell { position: sticky !important; top: calc(var(--row1-h) + var(--row2-h) + var(--row3-h)) !important; z-index: 1000 !important; }
+        .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); }
+        .gl-row4-bio { padding: 5px 8px; gap: 4px; }
+        .gl-bio-main { font-size: 13px; }
+        .gl-bio-sub { font-size: 8px; }
+        .gl-row4-scroll { padding: 0 12px; }
+        .gl-row4-line { left: 12px; right: 12px; }
+        .gl-row4-tick { min-width: 78px; }
+        .glu-panel { grid-template-columns: 1fr; padding-top: 16px; padding-bottom: calc(var(--profile-tabs-h) + 24px); }
+        .glu-form { grid-template-columns: 1fr; }
+      }
     `}</style>
   );
 }
