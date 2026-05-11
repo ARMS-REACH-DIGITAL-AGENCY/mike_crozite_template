@@ -22,43 +22,32 @@ import PlayerCard from "@/components/yatstats/PlayerCard";
 
 export const runtime = "nodejs";
 
-function hasReal2026Stats(p: Record<string, unknown>): boolean {
+type Row = Record<string, unknown>;
+type ImageMap = Map<string, { image_url?: string | null }>;
+
+function asRows(value: unknown): Row[] {
+  return Array.isArray(value) ? (value as Row[]) : [];
+}
+
+function emptyImageMap(): ImageMap {
+  return new Map<string, { image_url?: string | null }>();
+}
+
+function hasReal2026Stats(p: Row): boolean {
   const statKeys = [
-    "avg",
-    "obp",
-    "slg",
-    "ops",
-    "hr",
-    "rbi",
-    "h",
-    "ab",
-    "r",
-    "sb",
-    "bb",
-    "era",
-    "whip",
-    "ip",
-    "w",
-    "l",
-    "ko",
-    "so9",
-    "so_bb",
-    "h9",
-    "bb9",
-    "saves",
-    "pg",
+    "avg", "obp", "slg", "ops", "hr", "rbi", "h", "ab", "r", "sb", "bb",
+    "era", "whip", "ip", "w", "l", "ko", "so9", "so_bb", "h9", "bb9", "saves", "pg",
   ];
 
   return statKeys.some((key) => {
     const value = p[key];
     if (value === null || value === undefined) return false;
-
     const text = String(value).trim();
     return text !== "" && text !== "--";
   });
 }
 
-function isHighSchoolPlayer(p: Record<string, unknown> | undefined): boolean {
+function isHighSchoolPlayer(p: Row | undefined): boolean {
   if (!p) return false;
 
   const candidates = [
@@ -67,6 +56,7 @@ function isHighSchoolPlayer(p: Record<string, unknown> | undefined): boolean {
     p.level,
     p.highlevel,
     p.current_level,
+    p.current_level_label,
   ];
 
   return candidates.some((value) => {
@@ -75,20 +65,31 @@ function isHighSchoolPlayer(p: Record<string, unknown> | undefined): boolean {
   });
 }
 
+async function resolveSchool(hsid: string, host: string): Promise<Row | null> {
+  try {
+    const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
+    if (hostSchool) return hostSchool as Row;
+    return (await getSchoolByHsid(hsid)) as Row | null;
+  } catch (error) {
+    console.error("school lookup failed", { hsid, host, error });
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
   const { hsid } = await params;
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
-  const school = hostSchool || await getSchoolByHsid(hsid);
-  const name = (school as Record<string, unknown>)?.hsname as string || "Your School";
-  const loc = (school as Record<string, unknown>)?.hslocation as string || "";
-  const locParts = loc.split(",").map((s: string) => s.trim());
+  const school = await resolveSchool(hsid, host);
+
+  const name = String(school?.hsname || "Your School");
+  const loc = String(school?.hslocation || "");
+  const locParts = loc.split(",").map((s) => s.trim());
   const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
-  const schoolHsid = (school as Record<string, unknown>)?.hsid as string || hsid;
+  const schoolHsid = String(school?.hsid || hsid);
   const crestUrl = getSchoolCrestUrl(schoolHsid);
-  const canonicalUrl = getCanonicalBaseUrl(school as Record<string, unknown> | null, schoolHsid);
+  const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
 
   return {
     title: titleParts.join(" | "),
@@ -104,6 +105,26 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   };
 }
 
+function Placeholder({ icon, title, body }: { icon: string; title: string; body: React.ReactNode }) {
+  return (
+    <div className="yat-placeholder">
+      <div className="yat-placeholder-icon">{icon}</div>
+      <div className="yat-placeholder-title">{title}</div>
+      <div className="yat-placeholder-body">{body}</div>
+    </div>
+  );
+}
+
+function EmptyGrid({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+  return (
+    <div className="yat-empty">
+      <div className="yat-empty-icon">{icon}</div>
+      <div className="yat-empty-title">{title}</div>
+      <div className="yat-empty-sub">{sub}</div>
+    </div>
+  );
+}
+
 export default async function SchoolPage({
   params,
   searchParams,
@@ -116,17 +137,10 @@ export default async function SchoolPage({
   const headersList = await headers();
   const host = headersList.get("host") || "";
 
-  let school: Record<string, unknown> | null = null;
-  try {
-    school = (host ? await getSchoolByUrl(`https://${host}`) : null) as Record<string, unknown> | null;
-    if (!school) school = await getSchoolByHsid(hsid) as Record<string, unknown> | null;
-  } catch {
-    notFound();
-  }
+  const school = await resolveSchool(hsid, host);
   if (!school) notFound();
 
-  // Redirect numeric hsid paths to the school's custom domain (skip on preview deployments)
-  const micrositeUrl = (school as Record<string, unknown>).microsite_url as string | undefined;
+  const micrositeUrl = school.microsite_url as string | undefined;
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
   if (micrositeUrl && isNumericHsid && !isPreview) {
@@ -134,45 +148,44 @@ export default async function SchoolPage({
   }
 
   const resolvedHsid = String(school.hsid ?? hsid);
-
+  const schoolName = formatSchoolName(String(school.hsname || ""));
   const schoolState =
     qp.schoolState === "inactive"
       ? "inactive"
       : qp.schoolState === "potential"
         ? "potential"
         : null;
-
   const isFallbackSchoolState = schoolState === "potential" || schoolState === "inactive";
-  const schoolName = formatSchoolName(String(school.hsname || ""));
 
-  const [activeRoster, allTimeRoster, flipFrontStageRows] = await Promise.all([
-    getActiveRosterByHsid(resolvedHsid),
-    getAllTimeRosterByHsid(resolvedHsid),
-    getFlipCardFrontStageByHsid(resolvedHsid),
+  const [activeRosterResult, allTimeRosterResult, flipFrontStageResult] = await Promise.all([
+    getActiveRosterByHsid(resolvedHsid).catch((error) => {
+      console.error("getActiveRosterByHsid failed", { resolvedHsid, error });
+      return [];
+    }),
+    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
+      console.error("getAllTimeRosterByHsid failed", { resolvedHsid, error });
+      return [];
+    }),
+    getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
+      console.error("getFlipCardFrontStageByHsid failed", { resolvedHsid, error });
+      return [];
+    }),
   ]);
 
-  // ---------------------------------------------------------------------------
-  // Build union datasets — TBC rows + stage-only rows, merged by playerid.
-  // Stage-only players are included even with no TBC row.
-  // HIGH SCHOOL stage rows are intentionally routed to the 2026 Team gallery only,
-  // not Active Alumni or Next-Level All-Time.
-  // ---------------------------------------------------------------------------
-  const stageRows = flipFrontStageRows as Record<string, unknown>[];
+  const activeRosterRows = asRows(activeRosterResult);
+  const allTimeRosterRows = asRows(allTimeRosterResult);
+  const stageRows = asRows(flipFrontStageResult);
+
   const currentTeamRoster = sortActivePlayers(stageRows.filter(isHighSchoolPlayer).map((p) => ({ ...p })));
-  const stageMap = new Map(
-    stageRows.map((p) => [String(p.playerid), p])
-  );
+  const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
   const activeSeenIds = new Set<string>();
-  const activeMerged: Record<string, unknown>[] = [];
-
-  for (const p of activeRoster as Record<string, unknown>[]) {
+  const activeMerged: Row[] = [];
+  for (const p of activeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-
     if (isHighSchoolPlayer(mergedRow)) continue;
-
     activeMerged.push(mergedRow);
     activeSeenIds.add(id);
   }
@@ -185,15 +198,12 @@ export default async function SchoolPage({
   }
 
   const allTimeSeenIds = new Set<string>();
-  const allTimeMerged: Record<string, unknown>[] = [];
-
-  for (const p of allTimeRoster as Record<string, unknown>[]) {
+  const allTimeMerged: Row[] = [];
+  for (const p of allTimeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-
     if (isHighSchoolPlayer(mergedRow)) continue;
-
     allTimeMerged.push(mergedRow);
     allTimeSeenIds.add(id);
   }
@@ -206,115 +216,78 @@ export default async function SchoolPage({
   }
 
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
-
   const activeStatsMap = new Map(
-    (activeMerged as Record<string, unknown>[])
-      .filter((p) => hasReal2026Stats(p))
-      .map((p) => [String(p.playerid), p])
+    activeMerged.filter(hasReal2026Stats).map((p) => [String(p.playerid), p])
   );
 
   const activeDisplayRoster = allTimeMerged.map((p) => {
     const id = String(p.playerid);
     const activeStatsRow = activeStatsMap.get(id);
-
-    return activeStatsRow
-      ? { ...p, ...activeStatsRow, has_2026_stats: true }
-      : { ...p, has_2026_stats: false };
+    return activeStatsRow ? { ...p, ...activeStatsRow, has_2026_stats: true } : { ...p, has_2026_stats: false };
   });
 
   const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
-
   const allRosterIds = Array.from(new Set([
     ...allTimeMerged.map((p) => String(p.playerid)),
     ...currentTeamRoster.map((p) => String(p.playerid)),
-  ]));
+  ])).filter(Boolean);
 
   const [frontImageMap, headshotMap] = await Promise.all([
-    getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT"),
-    getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT"),
+    allRosterIds.length
+      ? getBatchDesignatedPlayerImages(allRosterIds, "YATSTATS_FRONT").catch((error) => {
+          console.error("getBatchDesignatedPlayerImages failed", { resolvedHsid, imageType: "YATSTATS_FRONT", error });
+          return emptyImageMap();
+        })
+      : Promise.resolve(emptyImageMap()),
+    allRosterIds.length
+      ? getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT").catch((error) => {
+          console.error("getBatchDesignatedPlayerImages failed", { resolvedHsid, imageType: "HEADSHOT", error });
+          return emptyImageMap();
+        })
+      : Promise.resolve(emptyImageMap()),
   ]);
 
   return (
     <>
-      {/* ACTIVE ALUMNI — Row 5 content */}
       <section id="sec-active" className="yat-section visible">
         {isFallbackSchoolState ? (
-          <div className="yat-placeholder">
-            <div className="yat-placeholder-icon">⚾</div>
-            <div className="yat-placeholder-title">
-              {schoolState === "potential"
-                ? "THIS SCHOOL HAS SOMETHING TO FOLLOW"
-                : "WE DO NOT CURRENTLY HAVE DATA ON ANY ACTIVE ALUMNI"}
-            </div>
-            <div className="yat-placeholder-body">
-              {schoolState === "potential"
-                ? `YAT?STATS currently shows some active baseball alumni tied to ${schoolName}, but this school does not yet have a live microsite.`
-                : `At this time, YAT?STATS does not currently show data on any active baseball alumni for ${schoolName}.`}
-              <br />
-              <br />
-              You can still browse this school, use global search, or return to the YAT?STATS home page.
-              <br />
-              <br />
-              <a
-                href="https://home.yatstats.com"
-                style={{
-                  display: "inline-block",
-                  background: "#ffc107",
-                  color: "#000",
-                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                  fontSize: "14px",
-                  letterSpacing: ".1em",
-                  padding: "10px 24px",
-                  borderRadius: "4px",
-                  marginRight: "10px",
-                }}
-              >
-                BACK TO HOME
-              </a>
-              <a
-                href="https://home.yatstats.com"
-                style={{
-                  display: "inline-block",
-                  border: "1px solid rgba(255,255,255,.18)",
-                  color: "#fff",
-                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                  fontSize: "14px",
-                  letterSpacing: ".1em",
-                  padding: "10px 24px",
-                  borderRadius: "4px",
-                }}
-              >
-                USE GLOBAL SEARCH
-              </a>
-            </div>
-          </div>
+          <Placeholder
+            icon="⚾"
+            title={schoolState === "potential" ? "THIS SCHOOL HAS SOMETHING TO FOLLOW" : "WE DO NOT CURRENTLY HAVE DATA ON ANY ACTIVE ALUMNI"}
+            body={
+              <>
+                {schoolState === "potential"
+                  ? `YAT?STATS currently shows some active baseball alumni tied to ${schoolName}, but this school does not yet have a live microsite.`
+                  : `At this time, YAT?STATS does not currently show data on any active baseball alumni for ${schoolName}.`}
+                <br /><br />
+                You can still browse this school, use global search, or return to the YAT?STATS home page.
+              </>
+            }
+          />
         ) : (
           <div className="yat-grid" id="active-grid">
             {activeSortedRoster.length === 0 ? (
-              <div className="yat-empty">
-                <div className="yat-empty-icon">⚾</div>
-                <div className="yat-empty-title">No players found</div>
-                <div className="yat-empty-sub">Check back as we continue building the database</div>
-              </div>
+              <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
             ) : (
               activeSortedRoster.map((p) => {
                 const status = String(p.status_label || p.status || '').toUpperCase().trim();
                 const isRetired = status === 'RETIRED';
+                const playerId = String(p.playerid);
 
                 return (
                   <div
-                    key={`active-wrap-${String(p.playerid)}`}
+                    key={`active-wrap-${playerId}`}
                     data-player-card-wrap="true"
-                    data-playerid={String(p.playerid)}
+                    data-playerid={playerId}
                     data-default-hidden={isRetired ? 'retired' : undefined}
                     style={{ display: isRetired ? 'none' : undefined }}
                   >
                     <PlayerCard
-                      key={`active-${String(p.playerid)}`}
+                      key={`active-${playerId}`}
                       player={p}
                       resolvedHsid={resolvedHsid}
-                      frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-                      headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
+                      frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
+                      headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
                     />
                   </div>
                 );
@@ -324,38 +297,31 @@ export default async function SchoolPage({
         )}
       </section>
 
-      {/* ALL-TIME LIST */}
       <section id="sec-alltime" className="yat-section">
         <div className="yat-grid" id="alltime-grid">
           {allTimeFrontRoster.length === 0 ? (
-            <div className="yat-empty">
-              <div className="yat-empty-icon">⚾</div>
-              <div className="yat-empty-title">No alumni found</div>
-              <div className="yat-empty-sub">Check back as we continue building the database</div>
-            </div>
+            <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
-            allTimeFrontRoster.map((p) => (
-              <PlayerCard
-                key={`alltime-${String(p.playerid)}`}
-                player={p}
-                resolvedHsid={resolvedHsid}
-                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-                isAllTime
-              />
-            ))
+            allTimeFrontRoster.map((p) => {
+              const playerId = String(p.playerid);
+              return (
+                <PlayerCard
+                  key={`alltime-${playerId}`}
+                  player={p}
+                  resolvedHsid={resolvedHsid}
+                  frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
+                  headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                  isAllTime
+                />
+              );
+            })
           )}
         </div>
       </section>
 
-      {/* NEWS */}
       <section id="sec-news" className="yat-section">
         <div className="yat-news-wrap">
-          <div className="yat-news-header">
-            <div>
-            </div>
-          </div>
-          
+          <div className="yat-news-header"><div /></div>
           <div className="yat-grid" id="news-grid">
             <div className="yat-news-loading">
               <div className="yat-news-loading-spinner" />
@@ -365,101 +331,69 @@ export default async function SchoolPage({
         </div>
       </section>
 
-      {/* CURRENT TEAM */}
       <section id="sec-current" className="yat-section">
         <div className="yat-grid" id="current-grid">
           {currentTeamRoster.length === 0 ? (
-            <div className="yat-empty">
-              <div className="yat-empty-icon">🏟️</div>
-              <div className="yat-empty-title">Current Team Roster</div>
-              <div className="yat-empty-sub">
-                The current {schoolName} varsity roster will appear here once the season begins.
-              </div>
-            </div>
+            <EmptyGrid icon="🏟️" title="Current Team Roster" sub={`The current ${schoolName} varsity roster will appear here once the season begins.`} />
           ) : (
-            currentTeamRoster.map((p) => (
-              <PlayerCard
-                key={`current-${String(p.playerid)}`}
-                player={p}
-                resolvedHsid={resolvedHsid}
-                frontImageUrl={frontImageMap.get(String(p.playerid))?.image_url ?? null}
-                headshotUrl={headshotMap.get(String(p.playerid))?.image_url ?? null}
-              />
-            ))
+            currentTeamRoster.map((p) => {
+              const playerId = String(p.playerid);
+              return (
+                <PlayerCard
+                  key={`current-${playerId}`}
+                  player={p}
+                  resolvedHsid={resolvedHsid}
+                  frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
+                  headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                />
+              );
+            })
           )}
         </div>
       </section>
 
-      {/* FANTASY BRACKET */}
       <section id="sec-fantasy" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🏆</div>
-          <div className="yat-placeholder-title">Fantasy Bracket Tournament</div>
-          <div className="yat-placeholder-body">
-            School-vs-school bracket gameplay and alumni performance tournament experience. Coming soon.
-          </div>
-        </div>
+        <Placeholder icon="🏆" title="Fantasy Bracket Tournament" body="School-vs-school bracket gameplay and alumni performance tournament experience. Coming soon." />
       </section>
 
-      {/* MENTOR */}
       <section id="sec-mentor" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🤝</div>
-          <div className="yat-placeholder-title">Mentorship Marketplace</div>
-          <div className="yat-placeholder-body">
-            Connect with {schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.
-          </div>
-        </div>
+        <Placeholder icon="🤝" title="Mentorship Marketplace" body={`Connect with ${schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.`} />
       </section>
 
-      {/* PARTNER */}
       <section id="sec-partner" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">🤝</div>
-          <div className="yat-placeholder-title">PCD Action Partner Program</div>
-          <div className="yat-placeholder-body">
-            Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
-            <br />
-            <br />
-            <a
-              href="mailto:pete@yatstats.com"
-              style={{
-                display: "inline-block",
-                background: "#00e676",
-                color: "#000",
-                fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                fontSize: "14px",
-                letterSpacing: ".1em",
-                padding: "10px 24px",
-                borderRadius: "4px",
-              }}
-            >
-              Get In Touch
-            </a>
-          </div>
-        </div>
+        <Placeholder
+          icon="🤝"
+          title="PCD Action Partner Program"
+          body={
+            <>
+              Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
+              <br /><br />
+              <a
+                href="mailto:pete@yatstats.com"
+                style={{
+                  display: "inline-block",
+                  background: "#00e676",
+                  color: "#000",
+                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
+                  fontSize: "14px",
+                  letterSpacing: ".1em",
+                  padding: "10px 24px",
+                  borderRadius: "4px",
+                }}
+              >
+                Get In Touch
+              </a>
+            </>
+          }
+        />
       </section>
 
-      {/* ABOUT */}
       <section id="sec-about" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">ℹ️</div>
-          <div className="yat-placeholder-title">About YAT?STATS</div>
-          <div className="yat-placeholder-body">
-            YAT?STATS helps schools, families, fans, and sponsors follow where players go after high school and celebrate their next-level journeys.
-          </div>
-        </div>
+        <Placeholder icon="ℹ️" title="About YAT?STATS" body="YAT?STATS helps schools, families, fans, and sponsors follow where players go after high school and celebrate their next-level journeys." />
       </section>
 
-      {/* FAQ */}
       <section id="sec-faq" className="yat-section">
-        <div className="yat-placeholder">
-          <div className="yat-placeholder-icon">❓</div>
-          <div className="yat-placeholder-title">FAQ&apos;s</div>
-          <div className="yat-placeholder-body">
-            Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon.
-          </div>
-        </div>
+        <Placeholder icon="❓" title="FAQ&apos;s" body="Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon." />
       </section>
     </>
   );
