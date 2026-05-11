@@ -24,13 +24,14 @@ function clean(row: any) {
 }
 
 function battingRow(row: any) {
+  const orgOrConference = value(row, 'current_org_or_conference_name');
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
     team: value(row, 'current_team_name', 'teamid'),
-    league: value(row, 'current_org_or_conference_name'),
+    league: orgOrConference,
     level: value(row, 'level_label', 'highlevel'),
-    mlb: value(row, 'mlbyears'),
+    org_conf: orgOrConference,
     age: value(row, 'age'),
     g: value(row, 'g'),
     ab: value(row, 'ab'),
@@ -68,13 +69,14 @@ function battingRow(row: any) {
 }
 
 function pitchingRow(row: any) {
+  const orgOrConference = value(row, 'current_org_or_conference_name');
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
     team: value(row, 'current_team_name', 'teamid'),
-    league: value(row, 'current_org_or_conference_name'),
+    league: orgOrConference,
     level: value(row, 'level_label', 'highlevel'),
-    mlb: value(row, 'mlbyears'),
+    org_conf: orgOrConference,
     age: value(row, 'age'),
     w: value(row, 'w'),
     l: value(row, 'l'),
