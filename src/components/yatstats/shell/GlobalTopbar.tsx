@@ -118,7 +118,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', dockDesktopDrawers);
       document.removeEventListener('click', interceptSearchClick, true);
-      document.removeEventListener('click', interceptPlayerProfileSectionNav, true);
       document.body.classList.remove('yat-desktop-docked-drawers');
     };
   }, [hsid]);
@@ -201,6 +200,112 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         .yat-stat-label { font-size: clamp(6px, 3cqw, 9px) !important; line-height: 1 !important; margin: 0 !important; opacity: .62 !important; white-space: nowrap !important; }
         .yat-stat-val { font-size: clamp(14px, 8.7cqw, 20px) !important; line-height: .92 !important; margin: 0 !important; letter-spacing: -.02em !important; white-space: nowrap !important; max-width: 100% !important; }
         .fz-tab-btn { padding: clamp(2px, 1cqw, 4px) 1px !important; }
+
+        /* Mobile profile FunZone fix: keep content in normal flow and center the six-icon row. */
+        @media (max-width: 767px) {
+          .pp-funzone-outer,
+          .pp-funzone {
+            min-height: 0 !important;
+            height: auto !important;
+          }
+
+          .pp-funzone {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .pp-fz-panel {
+            min-height: 0 !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 10px 10px 8px !important;
+            scroll-margin-top: calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + var(--row4-h) + 8px) !important;
+            scroll-margin-bottom: calc(var(--profile-tabs-h, 64px) + var(--footerH, 64px) + 12px) !important;
+          }
+
+          .pp-fz-panel-default,
+          #ppTab-schedule:target,
+          #ppTab-stats:target,
+          #ppTab-news:target,
+          #ppTab-social:target,
+          #ppTab-connect:target,
+          #ppTab-upload:target {
+            display: block !important;
+          }
+
+          #ppTab-schedule:target ~ #ppTab-stats.pp-fz-panel-default,
+          #ppTab-news:target ~ #ppTab-stats.pp-fz-panel-default,
+          #ppTab-social:target ~ #ppTab-stats.pp-fz-panel-default,
+          #ppTab-connect:target ~ #ppTab-stats.pp-fz-panel-default,
+          #ppTab-upload:target ~ #ppTab-stats.pp-fz-panel-default {
+            display: none !important;
+          }
+
+          .pp-fz-tabs-shell {
+            position: sticky !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: var(--footerH, 64px) !important;
+            width: 100% !important;
+            height: var(--profile-tabs-h, 64px) !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: stretch !important;
+            overflow: hidden !important;
+            z-index: 10010 !important;
+            background: rgba(12,12,12,.985) !important;
+            border-top: 1px solid rgba(255,255,255,.12) !important;
+            box-shadow: 0 -10px 26px rgba(0,0,0,.58) !important;
+          }
+
+          .pp-fz-tabs {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: 520px !important;
+            height: var(--profile-tabs-h, 64px) !important;
+            margin: 0 auto !important;
+            padding: 0 8px !important;
+            display: grid !important;
+            grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+            align-items: stretch !important;
+            overflow: visible !important;
+            scrollbar-width: none !important;
+          }
+
+          .pp-fz-tab {
+            box-sizing: border-box !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            height: var(--profile-tabs-h, 64px) !important;
+            padding: 8px 1px 7px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 4px !important;
+            text-align: center !important;
+            font-size: clamp(7px, 2.15vw, 9px) !important;
+            letter-spacing: .06em !important;
+            line-height: 1 !important;
+          }
+
+          .pp-fz-tab i {
+            font-size: clamp(18px, 5.2vw, 24px) !important;
+            line-height: 1 !important;
+          }
+
+          .pp-fz-tab span {
+            display: block !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+          }
+        }
 
         .yat-footer {
           left: 0 !important;
