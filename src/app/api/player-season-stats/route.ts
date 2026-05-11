@@ -1,7 +1,8 @@
 // src/app/api/player-season-stats/route.ts
 // Season-by-season player stats feed for the player profile Stats FunZone.
-// Reads directly from the canonical raw TBC tables so profile pages show the
-// same playerid rows visible in Neon, instead of relying on older summary helpers.
+// Reads directly from the canonical raw TBC stat tables.
+// Important: these raw stat tables use teamid, highlevel, and mlbyears.
+// Do not assume team_name, league, or teams.team_id exists.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
@@ -27,10 +28,10 @@ function battingRow(row: any) {
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'team_lookup', 'teamid'),
-    league: value(row, 'league_lookup'),
+    team: value(row, 'teamid'),
+    league: '',
     level: value(row, 'highlevel'),
-    mlb: value(row, 'mlb_lookup', 'mlbyears'),
+    mlb: value(row, 'mlbyears'),
     age: value(row, 'age'),
     g: value(row, 'g'),
     ab: value(row, 'ab'),
@@ -71,10 +72,10 @@ function pitchingRow(row: any) {
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'team_lookup', 'teamid'),
-    league: value(row, 'league_lookup'),
+    team: value(row, 'teamid'),
+    league: '',
     level: value(row, 'highlevel'),
-    mlb: value(row, 'mlb_lookup', 'mlbyears'),
+    mlb: value(row, 'mlbyears'),
     age: value(row, 'age'),
     w: value(row, 'w'),
     l: value(row, 'l'),
@@ -117,7 +118,7 @@ function dedupe(rows: any[]) {
   const seen = new Set<string>();
   const out: any[] = [];
   for (const row of rows) {
-    const key = [row.year, row.team, row.league, row.level, row.source].map((v) => String(v ?? '')).join('|');
+    const key = [row.year, row.team, row.level, row.source].map((v) => String(v ?? '')).join('|');
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);
@@ -136,22 +137,14 @@ async function tableExists(tableName: string) {
 async function readPlayerRows(tableName: string, playerId: string) {
   if (!(await tableExists(tableName))) return [];
 
-  // Table names are constants above, not user input. SELECT r.* is intentional here
-  // because the raw TBC schemas vary slightly between historical and live tables.
-  // Raw stat tables do not have team_name or league columns; they use teamid.
-  // Join teams if available, but never require that lookup for the stats to render.
+  // The table name is from the constants above, not user input.
+  // Keep this deliberately simple: no team lookup joins until the teams schema is confirmed.
   const { rows } = await query(
-    `select
-       r.*,
-       coalesce(t.team_name::text, r.teamid::text) as team_lookup,
-       coalesce(t.league::text, t.conference::text, '') as league_lookup,
-       coalesce(t.organization::text, t.mlb_org::text, '') as mlb_lookup,
-       $2::text as _source
-     from public.${tableName} r
-     left join public.teams t on t.team_id::text = r.teamid::text
-     where r.playerid::text = $1
-     order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
-              r.teamid::text`,
+    `select *, $2::text as _source
+     from public.${tableName}
+     where playerid::text = $1
+     order by nullif(regexp_replace(coalesce(year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
+              teamid::text`,
     [playerId, tableName]
   );
 
