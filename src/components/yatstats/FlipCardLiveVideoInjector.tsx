@@ -5,8 +5,9 @@ import { useEffect, useRef } from "react";
 const LIVE_FEED = {
   title: "NAIA Opening Round Live Feed",
   subtitle: "Georgia Gwinnett vs Talladega",
-  embedUrl: "https://www.youtube.com/embed/live_stream?channel=UC_adDX1a74YUXjJ5JIQVjGQ&autoplay=1&mute=1&playsinline=1&rel=0",
-  watchUrl: "https://www.youtube.com/@GGC_Athletics/live",
+  videoId: "YljqG6zA3-E",
+  embedUrl: "https://www.youtube.com/embed/YljqG6zA3-E?autoplay=0&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1",
+  watchUrl: "https://www.youtube.com/live/YljqG6zA3-E",
 };
 
 const FEATURED_PLAYER_NAMES = new Set([
@@ -91,6 +92,7 @@ function ensureStyles() {
       flex: 1;
       min-height: 0;
       background: #050505;
+      cursor: pointer;
     }
     .fz-live-video-frame iframe {
       position: absolute;
@@ -99,6 +101,39 @@ function ensureStyles() {
       height: 100%;
       border: 0;
       display: block;
+      z-index: 1;
+    }
+    .fz-live-video-play-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.38));
+      pointer-events: auto;
+    }
+    .fz-live-video-play-button {
+      width: clamp(44px, 18cqi, 76px);
+      height: clamp(44px, 18cqi, 76px);
+      display: grid;
+      place-items: center;
+      border: 2px solid rgba(245,200,90,.88);
+      border-radius: 999px;
+      background: rgba(0,0,0,.72);
+      color: #f5c85a;
+      box-shadow: 0 0 22px rgba(245,200,90,.24), 0 10px 30px rgba(0,0,0,.56);
+    }
+    .fz-live-video-play-button::before {
+      content: "";
+      width: 0;
+      height: 0;
+      margin-left: 4px;
+      border-top: clamp(10px, 4cqi, 16px) solid transparent;
+      border-bottom: clamp(10px, 4cqi, 16px) solid transparent;
+      border-left: clamp(15px, 6cqi, 24px) solid currentColor;
+    }
+    .fz-live-video-frame.is-playing .fz-live-video-play-overlay {
+      display: none;
     }
     .fz-live-video-actions {
       display: flex;
@@ -156,19 +191,31 @@ export default function FlipCardLiveVideoInjector({
             <span class="fz-live-video-title">${LIVE_FEED.title}</span>
           </div>
           <div class="fz-live-video-subtitle">${LIVE_FEED.subtitle}</div>
-          <div class="fz-live-video-frame">
+          <div class="fz-live-video-frame" data-video-id="${LIVE_FEED.videoId}">
             <iframe
               src="${LIVE_FEED.embedUrl}"
               title="${LIVE_FEED.title}"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowfullscreen
             ></iframe>
+            <button class="fz-live-video-play-overlay" type="button" aria-label="Play live feed">
+              <span class="fz-live-video-play-button"></span>
+            </button>
           </div>
           <div class="fz-live-video-actions">
             <a href="${LIVE_FEED.watchUrl}" target="_blank" rel="noopener noreferrer">Open Live Feed</a>
           </div>
         </div>
       `;
+
+      const frame = panel.querySelector(".fz-live-video-frame") as HTMLElement | null;
+      const iframe = panel.querySelector(".fz-live-video-frame iframe") as HTMLIFrameElement | null;
+      const overlay = panel.querySelector(".fz-live-video-play-overlay") as HTMLButtonElement | null;
+      overlay?.addEventListener("click", () => {
+        if (!frame || !iframe) return;
+        iframe.src = `https://www.youtube.com/embed/${LIVE_FEED.videoId}?autoplay=1&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1`;
+        frame.classList.add("is-playing");
+      });
     };
 
     apply();
