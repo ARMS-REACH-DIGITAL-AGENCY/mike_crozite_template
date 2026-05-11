@@ -1,8 +1,7 @@
 // src/app/api/player-season-stats/route.ts
 // Season-by-season player stats feed for the player profile Stats FunZone.
-// Reads directly from the canonical raw TBC stat tables.
-// Important: these raw stat tables use teamid, highlevel, and mlbyears.
-// Do not assume team_name, league, or teams.team_id exists.
+// Reads directly from the canonical raw TBC stat tables and enriches teamid via
+// public.teamid_universe_mapping, which is the canonical YAT?STATS team mapping table.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
@@ -28,9 +27,9 @@ function battingRow(row: any) {
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'teamid'),
-    league: '',
-    level: value(row, 'highlevel'),
+    team: value(row, 'current_team_name', 'teamid'),
+    league: value(row, 'current_org_or_conference_name'),
+    level: value(row, 'level_label', 'highlevel'),
     mlb: value(row, 'mlbyears'),
     age: value(row, 'age'),
     g: value(row, 'g'),
@@ -72,9 +71,9 @@ function pitchingRow(row: any) {
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
-    team: value(row, 'teamid'),
-    league: '',
-    level: value(row, 'highlevel'),
+    team: value(row, 'current_team_name', 'teamid'),
+    league: value(row, 'current_org_or_conference_name'),
+    level: value(row, 'level_label', 'highlevel'),
     mlb: value(row, 'mlbyears'),
     age: value(row, 'age'),
     w: value(row, 'w'),
@@ -137,14 +136,19 @@ async function tableExists(tableName: string) {
 async function readPlayerRows(tableName: string, playerId: string) {
   if (!(await tableExists(tableName))) return [];
 
-  // The table name is from the constants above, not user input.
-  // Keep this deliberately simple: no team lookup joins until the teams schema is confirmed.
+  // Table name is from constants above, not user input.
   const { rows } = await query(
-    `select *, $2::text as _source
-     from public.${tableName}
-     where playerid::text = $1
-     order by nullif(regexp_replace(coalesce(year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
-              teamid::text`,
+    `select
+       r.*,
+       m.current_team_name,
+       m.current_org_or_conference_name,
+       m.level_label,
+       $2::text as _source
+     from public.${tableName} r
+     left join public.teamid_universe_mapping m on m.teamid::text = r.teamid::text
+     where r.playerid::text = $1
+     order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
+              coalesce(m.current_team_name, r.teamid::text)`,
     [playerId, tableName]
   );
 
