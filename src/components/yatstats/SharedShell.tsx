@@ -9,7 +9,7 @@ import GlobalTopbar from './shell/GlobalTopbar';
 import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
-import CareerStrip from './CareerStrip';
+import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 
 type StripPlayer = {
   id: string;
@@ -86,7 +86,7 @@ export default function SharedShell({
           {row3Content
             ? row3Content
             : profilePlayerId
-            ? <CareerStrip playerId={profilePlayerId} />
+            ? <ZoomableCareerTimeline playerId={profilePlayerId} />
             : (
                 <InteractionStrip
                   isPlayerProfile={isPlayerProfile}
