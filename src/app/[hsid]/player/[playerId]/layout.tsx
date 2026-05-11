@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
 import ProfilePageEnhancer from '@/components/yatstats/ProfilePageEnhancer';
+import ProfileStatsStyles from '@/components/yatstats/ProfileStatsStyles';
 
 function slugifySchoolName(name: string) {
   return String(name || '')
@@ -134,6 +135,7 @@ export default async function PlayerLayout({
   return (
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfilePageEnhancer meta={meta} />
+      <ProfileStatsStyles />
       {children}
     </PlayerProfileContextProvider>
   );
