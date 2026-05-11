@@ -35,15 +35,19 @@ function fmt(value: unknown) {
 function table(title: string, rows: Row[], columns: readonly (readonly [string, string])[]) {
   if (!rows.length) return '';
   return `
-    <section class="psi-card">
-      <div class="psi-ribbon"><span>Want the stats?</span> <strong>${esc(title)}</strong></div>
+    <section class="psi-card" data-table-title="${esc(title)}">
+      <div class="psi-ribbon">
+        <span class="psi-kicker">YAT?STATS DATA VIEW</span>
+        <strong>${esc(title)}</strong>
+        <em>Click a column heading to sort</em>
+      </div>
       <div class="psi-table-wrap">
         <table class="psi-table">
-          <thead><tr>${columns.map(([key, label]) => `<th class="${key === 'team' ? 'team' : ''}">${esc(label)}</th>`).join('')}</tr></thead>
+          <thead><tr>${columns.map(([key, label]) => `<th class="${key === 'team' ? 'team' : ''}" data-sort-key="${esc(key)}"><button type="button">${esc(label)}<span class="psi-sort-mark"></span></button></th>`).join('')}</tr></thead>
           <tbody>
-            ${rows.map((row, idx) => `
+            ${rows.map((row) => `
               <tr>
-                ${columns.map(([key]) => `<td class="${['team','league','mlb'].includes(key) ? 'linkish' : ''}">${fmt(row[key])}</td>`).join('')}
+                ${columns.map(([key]) => `<td data-key="${esc(key)}" class="${['team','league','mlb'].includes(key) ? 'linkish' : ''}">${fmt(row[key])}</td>`).join('')}
               </tr>
             `).join('')}
           </tbody>
@@ -56,24 +60,180 @@ function table(title: string, rows: Row[], columns: readonly (readonly [string, 
 function css() {
   return `
     <style id="profile-stats-injector-css">
-      #ppTab-stats { background:#101010 !important; padding:8px 10px calc(var(--profile-tabs-h,68px) + 14px) !important; overflow:auto !important; color:#050505 !important; }
-      #ppTab-stats .psi-shell { width:100%; background:#101010; }
-      #ppTab-stats .psi-card { width:100%; border:1px solid #a69755; background:#e6e6e6; margin:0 0 14px; box-shadow:none; }
-      #ppTab-stats .psi-ribbon { display:flex; gap:6px; align-items:center; padding:5px 8px; background:#f5efad; border-bottom:1px solid #777; font:700 12px/1 Arial, sans-serif; color:#111; }
-      #ppTab-stats .psi-ribbon strong { color:#0645ad; text-decoration:underline; font-weight:700; }
-      #ppTab-stats .psi-table-wrap { width:100%; overflow-x:auto; background:#e6e6e6; }
-      #ppTab-stats .psi-table { min-width:1180px; width:100%; border-collapse:collapse; font:700 12px/1.15 Arial, Helvetica, sans-serif; color:#050505; }
-      #ppTab-stats .psi-table th { padding:3px 5px; border:1px solid #111; background:#626262; color:#fff; text-align:left; white-space:nowrap; text-transform:lowercase; }
-      #ppTab-stats .psi-table td { padding:3px 5px; border:1px solid #111; background:#f1f1f1; white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; color:#050505; }
-      #ppTab-stats .psi-table tr:nth-child(even) td { background:#dcdcdc; }
-      #ppTab-stats .psi-table tr:hover td { background:#d8edf5; }
-      #ppTab-stats .psi-table td:nth-child(1), #ppTab-stats .psi-table td:nth-child(2), #ppTab-stats .psi-table td:nth-child(3), #ppTab-stats .psi-table td:nth-child(4), #ppTab-stats .psi-table td:nth-child(5) { text-align:left; }
-      #ppTab-stats .psi-table .team { min-width:170px; }
-      #ppTab-stats .psi-table .linkish { color:#0645ad; text-decoration:underline; }
+      #ppTab-stats {
+        background:
+          radial-gradient(circle at 18% 0%, rgba(245,200,90,.14), transparent 24%),
+          linear-gradient(180deg, #121212 0%, #070707 100%) !important;
+        padding: 10px 14px calc(var(--profile-tabs-h,68px) + 16px) !important;
+        overflow: auto !important;
+        color: #f4f0e6 !important;
+      }
+      #ppTab-stats .psi-shell { width: 100%; background: transparent; }
+      #ppTab-stats .psi-card {
+        width: 100%;
+        border: 1px solid rgba(245,200,90,.44);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+          #0c0c0c;
+        margin: 0 0 14px;
+        box-shadow: 0 14px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08);
+      }
+      #ppTab-stats .psi-ribbon {
+        display: grid;
+        grid-template-columns: auto minmax(0,1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 10px;
+        background:
+          linear-gradient(90deg, rgba(245,200,90,.22), rgba(245,200,90,.055) 44%, rgba(255,255,255,.02)),
+          #090909;
+        border-bottom: 1px solid rgba(245,200,90,.32);
+        color: #f5c85a;
+      }
+      #ppTab-stats .psi-kicker {
+        padding: 4px 7px;
+        border: 1px solid rgba(245,200,90,.42);
+        background: rgba(245,200,90,.08);
+        font: 900 9px/1 Oswald, Arial, sans-serif;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: rgba(245,200,90,.9);
+        white-space: nowrap;
+      }
+      #ppTab-stats .psi-ribbon strong {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #fff;
+        font: 900 22px/.9 "Bebas Neue", Oswald, Arial, sans-serif;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      #ppTab-stats .psi-ribbon em {
+        color: rgba(255,255,255,.52);
+        font: 700 10px/1.1 Oswald, Arial, sans-serif;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        font-style: normal;
+        white-space: nowrap;
+      }
+      #ppTab-stats .psi-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        background: #080808;
+        scrollbar-color: rgba(245,200,90,.7) rgba(255,255,255,.08);
+        scrollbar-width: thin;
+      }
+      #ppTab-stats .psi-table {
+        min-width: 1180px;
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font: 700 12px/1.15 Arial, Helvetica, sans-serif;
+        color: #f4f0e6;
+      }
+      #ppTab-stats .psi-table th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 0;
+        border-right: 1px solid rgba(245,200,90,.16);
+        border-bottom: 1px solid rgba(245,200,90,.5);
+        background: linear-gradient(180deg, #24211a, #111);
+        color: #f5c85a;
+        text-align: left;
+        white-space: nowrap;
+        text-transform: uppercase;
+      }
+      #ppTab-stats .psi-table th button {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 5px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 7px 7px;
+        font: 900 10px/1 Oswald, Arial, sans-serif;
+        letter-spacing: .11em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      #ppTab-stats .psi-table th:nth-child(1) button,
+      #ppTab-stats .psi-table th:nth-child(2) button,
+      #ppTab-stats .psi-table th:nth-child(3) button,
+      #ppTab-stats .psi-table th:nth-child(4) button,
+      #ppTab-stats .psi-table th:nth-child(5) button { justify-content: flex-start; }
+      #ppTab-stats .psi-table th button:hover { background: rgba(245,200,90,.12); color: #fff; }
+      #ppTab-stats .psi-sort-mark { width: 0; height: 0; opacity: .55; }
+      #ppTab-stats .psi-table th.is-sort-asc .psi-sort-mark::after { content: '▲'; font-size: 8px; }
+      #ppTab-stats .psi-table th.is-sort-desc .psi-sort-mark::after { content: '▼'; font-size: 8px; }
+      #ppTab-stats .psi-table td {
+        padding: 6px 7px;
+        border-right: 1px solid rgba(255,255,255,.055);
+        border-bottom: 1px solid rgba(255,255,255,.075);
+        background: rgba(255,255,255,.035);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+        color: rgba(255,255,255,.84);
+      }
+      #ppTab-stats .psi-table tr:nth-child(even) td { background: rgba(255,255,255,.065); }
+      #ppTab-stats .psi-table tr:hover td { background: rgba(245,200,90,.13); color: #fff; }
+      #ppTab-stats .psi-table td:nth-child(1),
+      #ppTab-stats .psi-table td:nth-child(2),
+      #ppTab-stats .psi-table td:nth-child(3),
+      #ppTab-stats .psi-table td:nth-child(4),
+      #ppTab-stats .psi-table td:nth-child(5) { text-align: left; }
+      #ppTab-stats .psi-table td:nth-child(1) { color: #f5c85a; font-weight: 900; }
+      #ppTab-stats .psi-table .team { min-width: 210px; }
+      #ppTab-stats .psi-table .linkish { color: #fff; text-decoration: none; font-weight: 900; }
+      #ppTab-stats .psi-table td[data-key="league"],
+      #ppTab-stats .psi-table td[data-key="level"],
+      #ppTab-stats .psi-table td[data-key="mlb"] { color: rgba(245,200,90,.82); }
       #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:rgba(255,255,255,.78); background:#101010; font:800 13px/1.35 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
-      @media (max-width:860px) { #ppTab-stats { padding:6px 6px calc(var(--profile-tabs-h,72px) + 12px) !important; } #ppTab-stats .psi-table { font-size:11px; } #ppTab-stats .psi-table th, #ppTab-stats .psi-table td { padding:3px 4px; } }
+      @media (max-width:860px) {
+        #ppTab-stats { padding: 8px 6px calc(var(--profile-tabs-h,72px) + 12px) !important; }
+        #ppTab-stats .psi-ribbon { grid-template-columns: 1fr; gap: 5px; }
+        #ppTab-stats .psi-ribbon em { display: none; }
+        #ppTab-stats .psi-table { font-size:11px; }
+        #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:5px 5px; }
+      }
     </style>
   `;
+}
+
+function attachSortHandlers(panel: HTMLElement) {
+  const tables = Array.from(panel.querySelectorAll<HTMLTableElement>('.psi-table'));
+  tables.forEach((tableEl) => {
+    const headers = Array.from(tableEl.querySelectorAll<HTMLTableCellElement>('th[data-sort-key]'));
+    const tbody = tableEl.querySelector('tbody');
+    if (!tbody) return;
+
+    headers.forEach((header, index) => {
+      const button = header.querySelector('button');
+      button?.addEventListener('click', () => {
+        const direction = header.classList.contains('is-sort-asc') ? 'desc' : 'asc';
+        headers.forEach((h) => h.classList.remove('is-sort-asc', 'is-sort-desc'));
+        header.classList.add(direction === 'asc' ? 'is-sort-asc' : 'is-sort-desc');
+
+        const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr'));
+        rows.sort((a, b) => {
+          const av = a.children[index]?.textContent?.trim() || '';
+          const bv = b.children[index]?.textContent?.trim() || '';
+          const an = Number(av.replace(/[^0-9.-]/g, ''));
+          const bn = Number(bv.replace(/[^0-9.-]/g, ''));
+          const numeric = av !== '' && bv !== '' && Number.isFinite(an) && Number.isFinite(bn);
+          const result = numeric ? an - bn : av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+          return direction === 'asc' ? result : -result;
+        });
+        rows.forEach((row) => tbody.appendChild(row));
+      });
+    });
+  });
 }
 
 export default function ProfileStatsInjector({ playerId }: { playerId: string }) {
@@ -102,6 +262,7 @@ export default function ProfileStatsInjector({ playerId }: { playerId: string })
         panel.innerHTML = html
           ? `${css()}<div class="psi-shell">${html}</div>`
           : `${css()}<div class="psi-empty">No season-by-season stats found for this player yet.</div>`;
+        attachSortHandlers(panel);
       })
       .catch((err) => {
         if (cancelled) return;
