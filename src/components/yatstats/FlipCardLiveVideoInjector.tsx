@@ -4,16 +4,13 @@ import { useEffect, useRef } from "react";
 
 const LIVE_FEED = {
   title: "NAIA Opening Round Live Feed",
-  subtitle: "Marian University vs Louisiana Christian",
-  embedUrl: "https://www.youtube.com/embed/loWvcQcsruQ?autoplay=1&mute=1&playsinline=1&rel=0",
-  watchUrl: "https://www.youtube.com/live/loWvcQcsruQ",
+  subtitle: "Georgia Gwinnett vs Talladega",
+  embedUrl: "https://www.youtube.com/embed/live_stream?channel=UC_adDX1a74YUXjJ5JIQVjGQ&autoplay=1&mute=1&playsinline=1&rel=0",
+  watchUrl: "https://www.youtube.com/@GGC_Athletics/live",
 };
 
-const BETA_PLAYER_NAMES = new Set([
-  "james beneck",
-  "chris adams",
-  "callan gick",
-  "elijah kelly",
+const FEATURED_PLAYER_NAMES = new Set([
+  "shane anderson",
 ]);
 
 function normalize(value: string) {
@@ -24,9 +21,11 @@ function shouldShowLiveVideo(displayName: string, teamName: string) {
   const name = normalize(displayName);
   const team = normalize(teamName);
 
-  if (BETA_PLAYER_NAMES.has(name)) return true;
-  if (team.includes("marian university in")) return BETA_PLAYER_NAMES.has(name);
-  if (team.includes("louisiana christian")) return BETA_PLAYER_NAMES.has(name);
+  if (FEATURED_PLAYER_NAMES.has(name)) return true;
+  if (team.includes("georgia gwinnett")) return true;
+  if (team.includes("ggc")) return true;
+  if (team.includes("gwinnett")) return true;
+  if (team.includes("grizzlies") && team.includes("gwinnett")) return true;
 
   return false;
 }
@@ -166,7 +165,7 @@ export default function FlipCardLiveVideoInjector({
             ></iframe>
           </div>
           <div class="fz-live-video-actions">
-            <a href="${LIVE_FEED.watchUrl}" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
+            <a href="${LIVE_FEED.watchUrl}" target="_blank" rel="noopener noreferrer">Open Live Feed</a>
           </div>
         </div>
       `;
