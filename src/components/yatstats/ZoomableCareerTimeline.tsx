@@ -10,10 +10,12 @@ const ZOOM_EVENT = 'yat:career-timeline-zoom';
 const CARD_W = 52;
 const MOBILE_CARD_W = 46;
 const TIMELINE_GUTTER = 34;
+const FULL_ZOOM = 3.2;
 
 type StatRow = { year?: string | number; age?: string | number; team?: string; level?: string; org_conf?: string; league?: string };
 type MomentKind = 'cta' | 'prompt' | 'season' | 'archive' | 'upload';
 type Moment = { id: string; year: number; label: string; title: string; caption: string; src?: string; kind: MomentKind; href?: string; cardMode?: boolean };
+type UploadSlot = { id: string; year: number; label: string; leftYear: number; rightYear: number };
 type SubmittedMoment = { id: string; title?: string; caption?: string; image_data_url?: string; photo_taken_date?: string | null; photo_taken_year?: number | null };
 
 declare global { interface Window { __yatCareerTimelineSyncing?: boolean } }
@@ -207,8 +209,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       { id: 'archive-hs-card', year: hsYear, label: 'HS', title: 'High school card', caption: 'Return to the original flip card view.', src: `${S3_BASE}/players/then/${playerId}.jpg`, kind: 'archive', href: galleryReturnHref, cardMode: true },
       { id: 'archive-headshot', year: end, label: String(end), title: 'Profile headshot', caption: 'Current interactive-strip image.', src: `${S3_BASE}/players/now/${playerId}.jpg`, kind: 'archive' },
     ];
+    const moments = [...prompts, ...archive, ...seasons, ...uploaded].sort((a, b) => a.year - b.year || Number(Boolean(a.cardMode)) - Number(Boolean(b.cardMode)));
+    const uploadSlots: UploadSlot[] = moments.slice(0, -1).map((leftMoment, index) => {
+      const rightMoment = moments[index + 1];
+      const leftYear = leftMoment.year;
+      const rightYear = rightMoment.year;
+      const slotYear = Math.max(hsYear, Math.round((leftYear + rightYear) / 2));
+      return { id: `slot-${leftMoment.id}-${rightMoment.id}`, year: (leftYear + rightYear) / 2, label: String(slotYear), leftYear, rightYear };
+    });
 
-    return { promptYear, start: hsYear, canvasStart: promptYear, end, span, firstName, ticks: buildTicks(hsYear, end, zoom, promptYear), moments: [...prompts, ...archive, ...seasons, ...uploaded].sort((a, b) => a.year - b.year || Number(Boolean(a.cardMode)) - Number(Boolean(b.cardMode))) };
+    return { promptYear, start: hsYear, canvasStart: promptYear, end, span, firstName, ticks: buildTicks(hsYear, end, zoom, promptYear), moments, uploadSlots };
   }, [stats, uploads, player?.playerName, player?.playerSchoolUrl, playerId, zoom, fallbackFirstName]);
 
   const laneWidth = CARD_W * zoom;
@@ -216,10 +226,37 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const usable = Math.max(1, width - TIMELINE_GUTTER * 2);
   const leftPx = (year: number) => TIMELINE_GUTTER + ((year - model.canvasStart) / model.span) * usable;
 
-  function openUpload() { window.location.hash = 'ppTab-upload'; }
+  function openUpload(year?: number) {
+    try {
+      if (year) {
+        sessionStorage.setItem('yat:goldenLinePrefillYear', String(year));
+        sessionStorage.setItem('yat:goldenLinePrefillDate', `${year}-07-01`);
+        sessionStorage.setItem('yat:goldenLinePrefillPlayerName', String(player?.playerName || ''));
+      }
+    } catch {}
+    window.location.hash = 'ppTab-upload';
+    window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
+  }
+  function expandTimeline() {
+    setZoom(FULL_ZOOM);
+    requestAnimationFrame(() => {
+      const el = windowRef.current;
+      if (el) el.scrollLeft = 0;
+    });
+  }
   function handleMomentClick(moment: Moment) {
-    if (moment.kind === 'prompt' || moment.kind === 'cta') openUpload();
+    if (moment.kind === 'prompt' || moment.kind === 'cta') {
+      expandTimeline();
+      return;
+    }
+    if (moment.kind === 'season') {
+      openUpload(moment.year);
+      return;
+    }
     if (moment.href) window.location.href = moment.href;
+  }
+  function handleUploadSlot(slot: UploadSlot) {
+    openUpload(Math.max(model.start, Math.round((slot.leftYear + slot.rightYear) / 2)));
   }
 
   if (variant === 'images') {
@@ -227,6 +264,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       <section className="zt-shell zt-shell-images" id="playerCareerImages">
         <div className="zt-window zt-window-images" ref={windowRef}>
           <div className="zt-canvas zt-canvas-images" style={{ width }}>
+            {model.uploadSlots.map((slot) => (
+              <button type="button" key={slot.id} className="zt-upload-slot" style={{ left: leftPx(slot.year) }} onClick={() => handleUploadSlot(slot)} title={`Upload a memory around ${slot.label}`}>
+                Upload +
+              </button>
+            ))}
             {model.moments.map((moment) => (
               <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: leftPx(moment.year) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
                 <span className="zt-img-connector" />
@@ -251,6 +293,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-prompt-copy { position: absolute; left: 50%; top: calc(100% + 16px); width: 160px; transform: translateX(-50%); z-index: 5; text-align: left; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9); }
           .zt-prompt-copy b { display: block; font: 700 12px/1.08 system-ui, sans-serif; letter-spacing: .01em; text-transform: none; }
           .zt-prompt-copy strong { display: block; margin-top: 3px; font: 900 13px/1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+          .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:${zoom >= 2.25 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(245,200,90,.65); background:rgba(0,0,0,.72); color:#f5c85a; font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:0 0 12px rgba(245,200,90,.18); }
+          .zt-upload-slot:hover { color:#fff; border-color:#fff; }
           @media (max-width: 760px) { .zt-img-moment { width: ${MOBILE_CARD_W}px; height: 68px; } .zt-img-card { width: ${MOBILE_CARD_W}px; height: 68px; } .zt-img-connector { top: 68px; } .zt-prompt-copy { width: 142px; } }
         `}</style>
       </section>
