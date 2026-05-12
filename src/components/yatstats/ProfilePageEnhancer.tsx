@@ -17,6 +17,8 @@ type ProfileMeta = {
 };
 
 const STAGES = ['Youth Baseball', 'Middle School', 'High School', 'College', 'Minor Leagues', 'Major Leagues', 'Fan Memory'];
+const CLIENT_UPLOAD_TARGET_BYTES = 1_250_000;
+const CLIENT_UPLOAD_MAX_SIDE = 1600;
 
 function esc(value: unknown) {
   return String(value ?? '')
@@ -91,6 +93,58 @@ function forceProfileTabsAboveFooter() {
   if (outer) outer.style.paddingBottom = `${tabsHeight + footerHeight + safeBottom + 8}px`;
 }
 
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Unable to read selected image.')); };
+    img.src = url;
+  });
+}
+
+async function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Unable to compress selected image.')), 'image/jpeg', quality);
+  });
+}
+
+async function prepareUploadFile(file: File) {
+  if (!file.type.startsWith('image/')) throw new Error('Only image uploads are supported.');
+  if (file.size <= CLIENT_UPLOAD_TARGET_BYTES && file.type === 'image/jpeg') return file;
+
+  const img = await loadImage(file);
+  const scale = Math.min(1, CLIENT_UPLOAD_MAX_SIDE / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+  const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+  const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Unable to prepare selected image.');
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let blob = await canvasToBlob(canvas, 0.82);
+  if (blob.size > CLIENT_UPLOAD_TARGET_BYTES) blob = await canvasToBlob(canvas, 0.68);
+  if (blob.size > CLIENT_UPLOAD_TARGET_BYTES) blob = await canvasToBlob(canvas, 0.52);
+
+  const cleanName = file.name.replace(/\.[^.]+$/, '') || 'golden-line-memory';
+  return new File([blob], `${cleanName}.jpg`, { type: 'image/jpeg' });
+}
+
+async function parseApiResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    const trimmed = text.trim();
+    if (/request entity too large|body exceeded|payload too large/i.test(trimmed)) {
+      throw new Error('That photo is still too large after compression. Please choose a smaller image.');
+    }
+    throw new Error(trimmed ? `Upload failed: ${trimmed.slice(0, 180)}` : 'Upload failed: server returned an empty response.');
+  }
+}
+
 export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
   useEffect(() => {
     const row3Host = document.querySelector('.yat-profile-meta-row-host') as HTMLElement | null;
@@ -160,15 +214,22 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       const status = document.querySelector('#goldenLineUploadStatus') as HTMLElement | null;
       const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
       const formData = new FormData(form);
-      formData.set('playerId', meta.playerId);
-      formData.set('hsid', meta.hsid);
-      formData.set('playerName', meta.displayName || '');
-      formData.set('pageUrl', window.location.href);
+      const selectedPhoto = formData.get('photo');
+
       if (button) button.disabled = true;
-      if (status) status.textContent = 'Uploading memory and notifying ARMS...';
       try {
+        if (!(selectedPhoto instanceof File) || selectedPhoto.size === 0) throw new Error('Please choose a photo before submitting.');
+        if (status) status.textContent = selectedPhoto.size > CLIENT_UPLOAD_TARGET_BYTES ? 'Optimizing photo for upload...' : 'Preparing upload...';
+        const preparedPhoto = await prepareUploadFile(selectedPhoto);
+        formData.set('photo', preparedPhoto);
+        formData.set('playerId', meta.playerId);
+        formData.set('hsid', meta.hsid);
+        formData.set('playerName', meta.displayName || '');
+        formData.set('pageUrl', window.location.href);
+
+        if (status) status.textContent = 'Uploading memory and notifying ARMS...';
         const res = await fetch('/api/player-moments', { method: 'POST', body: formData });
-        const data = await res.json();
+        const data = await parseApiResponse(res);
         if (!res.ok) throw new Error(data?.error || 'Upload failed');
         const sync = data?.moment?.arms_sync_status;
         if (status) status.textContent = sync === 'failed' ? 'Saved for review. ARMS sync needs attention.' : 'Uploaded. It is pending review and was queued for ARMS.';
