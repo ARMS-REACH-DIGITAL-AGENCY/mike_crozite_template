@@ -65,6 +65,30 @@ function buildUploadPanel(meta: ProfileMeta) {
     </div>`;
 }
 
+function activeFunZoneHash(preferred?: string) {
+  const candidate = preferred?.startsWith('#ppTab-') ? preferred : window.location.hash;
+  if (candidate?.startsWith('#ppTab-') && document.querySelector(candidate)) return candidate;
+  const active = document.querySelector<HTMLAnchorElement>('.pp-fz-tab-active[href^="#ppTab-"]')?.getAttribute('href');
+  if (active && document.querySelector(active)) return active;
+  if (document.querySelector('#ppTab-stats')) return '#ppTab-stats';
+  const firstPanel = document.querySelector<HTMLElement>('.pp-fz-panel');
+  return firstPanel?.id ? `#${firstPanel.id}` : '#ppTab-stats';
+}
+
+function activateFunZonePanel(preferred?: string) {
+  const hash = activeFunZoneHash(preferred);
+  document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
+    const isActive = `#${panel.id}` === hash;
+    panel.classList.toggle('pp-fz-panel-active', isActive);
+    panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    panel.style.display = isActive ? 'block' : 'none';
+  });
+  document.querySelectorAll<HTMLAnchorElement>('.pp-fz-tab').forEach((tab) => {
+    tab.classList.toggle('pp-fz-tab-active', tab.getAttribute('href') === hash);
+  });
+  return hash;
+}
+
 function keepTabsInsideFunZone() {
   const tabsShell = document.querySelector('.pp-fz-tabs-shell') as HTMLElement | null;
   const tabs = document.querySelector('.pp-fz-tabs') as HTMLElement | null;
@@ -83,19 +107,16 @@ function keepTabsInsideFunZone() {
     footer.style.bottom = '';
     footer.style.zIndex = '';
   }
-
   if (outer) {
     outer.style.position = 'relative';
     outer.style.overflow = 'hidden';
     outer.style.paddingBottom = '';
   }
-
   if (funzone) {
     funzone.style.position = 'relative';
     funzone.style.overflow = 'hidden';
     funzone.style.paddingBottom = '0';
   }
-
   if (tabsShell) {
     tabsShell.style.position = 'absolute';
     tabsShell.style.left = '0';
@@ -111,7 +132,6 @@ function keepTabsInsideFunZone() {
     tabsShell.style.boxShadow = '0 -10px 26px rgba(0,0,0,.58)';
     tabsShell.style.transform = 'none';
   }
-
   if (tabs) {
     tabs.style.width = '100%';
     tabs.style.height = `${tabsHeight}px`;
@@ -120,7 +140,6 @@ function keepTabsInsideFunZone() {
     tabs.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
     tabs.style.alignItems = 'stretch';
   }
-
   document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
     tab.style.height = `${tabsHeight}px`;
     tab.style.display = 'flex';
@@ -131,7 +150,6 @@ function keepTabsInsideFunZone() {
     tab.style.minWidth = '0';
     tab.style.pointerEvents = 'auto';
   });
-
   document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
     panel.style.height = `calc(100% - ${tabsHeight}px)`;
     panel.style.maxHeight = `calc(100% - ${tabsHeight}px)`;
@@ -139,6 +157,7 @@ function keepTabsInsideFunZone() {
     panel.style.overflowX = 'hidden';
     panel.style.paddingBottom = '16px';
   });
+  activateFunZonePanel(window.location.hash);
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {
@@ -160,7 +179,6 @@ async function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise
 async function prepareUploadFile(file: File) {
   if (!file.type.startsWith('image/')) throw new Error('Only image uploads are supported.');
   if (file.size <= CLIENT_UPLOAD_TARGET_BYTES && file.type === 'image/jpeg') return file;
-
   const img = await loadImage(file);
   const scale = Math.min(1, CLIENT_UPLOAD_MAX_SIDE / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
   const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
@@ -171,24 +189,19 @@ async function prepareUploadFile(file: File) {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Unable to prepare selected image.');
   ctx.drawImage(img, 0, 0, width, height);
-
   let blob = await canvasToBlob(canvas, 0.82);
   if (blob.size > CLIENT_UPLOAD_TARGET_BYTES) blob = await canvasToBlob(canvas, 0.68);
   if (blob.size > CLIENT_UPLOAD_TARGET_BYTES) blob = await canvasToBlob(canvas, 0.52);
-
   const cleanName = file.name.replace(/\.[^.]+$/, '') || 'golden-line-memory';
   return new File([blob], `${cleanName}.jpg`, { type: 'image/jpeg' });
 }
 
 async function parseApiResponse(res: Response) {
   const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
+  try { return text ? JSON.parse(text) : {}; }
+  catch {
     const trimmed = text.trim();
-    if (/request entity too large|body exceeded|payload too large/i.test(trimmed)) {
-      throw new Error('That photo is still too large after compression. Please choose a smaller image.');
-    }
+    if (/request entity too large|body exceeded|payload too large/i.test(trimmed)) throw new Error('That photo is still too large after compression. Please choose a smaller image.');
     throw new Error(trimmed ? `Upload failed: ${trimmed.slice(0, 180)}` : 'Upload failed: server returned an empty response.');
   }
 }
@@ -208,7 +221,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       } catch {}
       return fallbackReturnUrl(meta);
     })();
-
     document.querySelectorAll<HTMLAnchorElement>('a[aria-label="Back to Flip Card"], a[title="Back to Flip Card"]').forEach((link) => {
       link.href = returnUrl;
       link.setAttribute('data-return-to-flip-card', 'true');
@@ -224,14 +236,12 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
         if (select) select.value = stage;
       } catch {}
     };
-
     const handlePrefillEvent = (event: Event) => {
       const detail = (event as CustomEvent).detail || {};
       const year = detail.year || sessionStorage.getItem('yat:goldenLinePrefillYear');
       const dateInput = document.querySelector('#goldenLineUploadForm input[name="photoTakenDate"]') as HTMLInputElement | null;
       if (dateInput && year) dateInput.value = `${year}-07-01`;
     };
-
     const handleTabClick = (event: Event) => {
       const target = event.target as HTMLElement | null;
       const link = target?.closest?.('.pp-fz-tab') as HTMLAnchorElement | null;
@@ -240,15 +250,13 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       if (!hash.startsWith('#ppTab-')) return;
       event.preventDefault();
       history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-      document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
-        panel.style.display = `#${panel.id}` === hash ? 'block' : 'none';
-      });
-      document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
-        tab.classList.toggle('pp-fz-tab-active', tab.getAttribute('href') === hash);
-      });
+      activateFunZonePanel(hash);
       requestAnimationFrame(keepTabsInsideFunZone);
     };
-
+    const handleHashChange = () => {
+      activateFunZonePanel(window.location.hash);
+      requestAnimationFrame(keepTabsInsideFunZone);
+    };
     const handlePreview = (event: Event) => {
       const input = event.target as HTMLInputElement | null;
       if (!input || input.id !== 'goldenLinePhotoInput') return;
@@ -258,7 +266,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       const url = URL.createObjectURL(file);
       preview.innerHTML = `<img src="${url}" alt="Selected upload preview" />`;
     };
-
     const handleSubmit = async (event: Event) => {
       const form = event.target as HTMLFormElement | null;
       if (!form || form.id !== 'goldenLineUploadForm') return;
@@ -267,7 +274,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
       const formData = new FormData(form);
       const selectedPhoto = formData.get('photo');
-
       if (button) button.disabled = true;
       try {
         if (!(selectedPhoto instanceof File) || selectedPhoto.size === 0) throw new Error('Please choose a photo before submitting.');
@@ -278,7 +284,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
         formData.set('hsid', meta.hsid);
         formData.set('playerName', meta.displayName || '');
         formData.set('pageUrl', window.location.href);
-
         if (status) status.textContent = 'Uploading memory and notifying ARMS...';
         const res = await fetch('/api/player-moments', { method: 'POST', body: formData });
         const data = await parseApiResponse(res);
@@ -299,25 +304,26 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     const applyChrome = () => requestAnimationFrame(keepTabsInsideFunZone);
     const observer = new MutationObserver(applyChrome);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
-
     document.addEventListener('click', handleTabClick, true);
     document.addEventListener('change', handlePreview);
     document.addEventListener('submit', handleSubmit);
     window.addEventListener('resize', applyChrome);
+    window.addEventListener('hashchange', handleHashChange);
     window.visualViewport?.addEventListener('resize', applyChrome);
     window.addEventListener('yat:golden-line-stage', handleStageEvent);
     window.addEventListener('yat:golden-line-prefill', handlePrefillEvent);
     handleStageEvent();
+    activateFunZonePanel(window.location.hash);
     applyChrome();
-    window.setTimeout(applyChrome, 250);
-    window.setTimeout(applyChrome, 1000);
-
+    window.setTimeout(() => { activateFunZonePanel(window.location.hash); keepTabsInsideFunZone(); }, 250);
+    window.setTimeout(() => { activateFunZonePanel(window.location.hash); keepTabsInsideFunZone(); }, 1000);
     return () => {
       observer.disconnect();
       document.removeEventListener('click', handleTabClick, true);
       document.removeEventListener('change', handlePreview);
       document.removeEventListener('submit', handleSubmit);
       window.removeEventListener('resize', applyChrome);
+      window.removeEventListener('hashchange', handleHashChange);
       window.visualViewport?.removeEventListener('resize', applyChrome);
       window.removeEventListener('yat:golden-line-stage', handleStageEvent);
       window.removeEventListener('yat:golden-line-prefill', handlePrefillEvent);
@@ -338,7 +344,8 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .yat-row4-shell #playerCareerStrip { min-height: var(--row4-h) !important; height: var(--row4-h) !important; }
       .pp-funzone-outer { position: relative !important; height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h) - var(--row4-h) - var(--footerH, 64px)) !important; min-height: 360px !important; overflow: hidden !important; padding-bottom: 0 !important; }
       .pp-funzone { position: relative !important; height: 100% !important; max-height: 100% !important; min-height: 0 !important; overflow: hidden !important; padding-bottom: 0 !important; }
-      .pp-fz-panel { height: calc(100% - var(--profile-tabs-h)) !important; max-height: calc(100% - var(--profile-tabs-h)) !important; overflow-y: auto !important; overflow-x: hidden !important; padding-bottom: 16px !important; }
+      .pp-fz-panel { display: none !important; height: calc(100% - var(--profile-tabs-h)) !important; max-height: calc(100% - var(--profile-tabs-h)) !important; overflow-y: auto !important; overflow-x: hidden !important; padding-bottom: 16px !important; }
+      .pp-fz-panel.pp-fz-panel-active { display: block !important; }
       .yat-profile-career-strip { position: relative; display: grid; grid-template-columns: var(--profile-meta-w) minmax(0, 1fr); background: linear-gradient(90deg, #090909, #111 42%, #050505); border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.12); overflow: hidden; }
       .yat-profile-meta-row-host { width: var(--profile-meta-w); display: block; background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(0,0,0,.92)); border-right: 1px solid rgba(255,255,255,.1); overflow: hidden; }
       .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
