@@ -10,6 +10,7 @@ type StatsPayload = {
   primaryType: 'batting' | 'pitching';
   batting: Row[];
   pitching: Row[];
+  externalRecentStats?: Row[];
 };
 
 const BATTING_COLUMNS = [
@@ -26,8 +27,16 @@ const PITCHING_COLUMNS = [
   ['bb9', 'bb9'], ['so9', 'so9'], ['ra9', 'ra9'], ['so_bb', 'so/bb'],
 ] as const;
 
+const EXTERNAL_RECENT_COLUMNS = [
+  ['date', 'date'], ['team', 'team'], ['league', 'league'], ['level', 'level'], ['opponent', 'game'], ['status', 'status'],
+  ['g', 'g'], ['ab', 'ab'], ['r', 'r'], ['h', 'h'], ['dbl', '2b'], ['tpl', '3b'], ['hr', 'hr'], ['rbi', 'rbi'],
+  ['bb', 'bb'], ['so', 'so'], ['ip', 'ip'], ['er', 'er'], ['era', 'era'], ['whip', 'whip'],
+] as const;
+
 function fmt(value: any) {
   if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return value.slice(0, 10);
+  if (typeof value === 'object') return '';
   return String(value);
 }
 
@@ -49,8 +58,8 @@ function StatTable({ title, rows, columns }: { title: string; rows: Row[]; colum
           </thead>
           <tbody>
             {rows.map((row, idx) => (
-              <tr key={`${row.year || 'row'}-${row.team || idx}-${idx}`}>
-                {columns.map(([key]) => <td key={key} className={key === 'team' || key === 'league' || key === 'mlb' ? 'linkish' : ''}>{fmt(row[key])}</td>)}
+              <tr key={`${row.year || row.date || 'row'}-${row.team || idx}-${idx}`}>
+                {columns.map(([key]) => <td key={key} className={key === 'team' || key === 'league' || key === 'mlb' || key === 'opponent' ? 'linkish' : ''}>{fmt(row[key])}</td>)}
               </tr>
             ))}
           </tbody>
@@ -99,8 +108,9 @@ export default function ProfileSeasonStats({ playerId }: { playerId: string }) {
 
   const batting = payload?.batting || [];
   const pitching = payload?.pitching || [];
+  const externalRecentStats = payload?.externalRecentStats || [];
 
-  if (!batting.length && !pitching.length) {
+  if (!batting.length && !pitching.length && !externalRecentStats.length) {
     return <div className="psy-empty">No season-by-season stats found for this player yet.</div>;
   }
 
@@ -108,6 +118,7 @@ export default function ProfileSeasonStats({ playerId }: { playerId: string }) {
 
   return (
     <div className="psy-stats-shell">
+      <StatTable title="Atlantic League Recent Games" rows={externalRecentStats} columns={EXTERNAL_RECENT_COLUMNS} />
       {primaryIsPitching ? (
         <>
           <StatTable title="Pitching Statistics" rows={pitching} columns={PITCHING_COLUMNS} />
@@ -131,7 +142,7 @@ export default function ProfileSeasonStats({ playerId }: { playerId: string }) {
         .psy-table td { padding: 3px 5px; border: 1px solid #111; background: #f1f1f1; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
         .psy-table tr:nth-child(even) td { background: #dcdcdc; }
         .psy-table tr:hover td { background: #d8edf5; }
-        .psy-table td:nth-child(1), .psy-table td:nth-child(2), .psy-table td:nth-child(3), .psy-table td:nth-child(4), .psy-table td:nth-child(5) { text-align: left; }
+        .psy-table td:nth-child(1), .psy-table td:nth-child(2), .psy-table td:nth-child(3), .psy-table td:nth-child(4), .psy-table td:nth-child(5), .psy-table td:nth-child(6) { text-align: left; }
         .psy-table .team { min-width: 170px; }
         .psy-table .linkish { color: #0645ad; text-decoration: underline; }
         .psy-empty { min-height: 260px; display: grid; place-items: center; padding: 24px; color: rgba(255,255,255,.75); background: #101010; font: 800 13px/1.35 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; text-align: center; }
