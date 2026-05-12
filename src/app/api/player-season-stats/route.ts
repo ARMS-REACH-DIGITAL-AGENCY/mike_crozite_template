@@ -1,10 +1,10 @@
 // src/app/api/player-season-stats/route.ts
 // Season-by-season player stats feed for the player profile Stats FunZone.
-// Reads directly from the canonical raw TBC stat tables and enriches teamid via
-// public.teamid_universe_mapping, which is the canonical YAT?STATS team mapping table.
+// Reads directly from canonical TBC tables and appends source-flexible external stats.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 
 const BATTING_TABLES = ['tbc_batting_raw', 'tbc_batting_2026_season_raw'] as const;
 const PITCHING_TABLES = ['tbc_pitching_raw', 'tbc_pitching_2026_season_raw'] as const;
@@ -174,6 +174,23 @@ function dedupe(rows: any[]) {
   return out;
 }
 
+function externalStatRow(row: any) {
+  const stats = row?.stats || {};
+  return clean({
+    source: row.source_system,
+    year: row.season_year,
+    team: row.team_identifier || 'ALPB',
+    league: 'Atlantic League',
+    level: 'INDY',
+    game: row.source_game_guid,
+    date: row.scheduled_at,
+    opponent: [row.visitor_team_name, row.home_team_name].filter(Boolean).join(' @ '),
+    status: row.status,
+    raw: stats,
+    ...stats,
+  });
+}
+
 async function tableExists(tableName: string) {
   const { rows } = await query(
     `select to_regclass($1) as table_name`,
@@ -185,7 +202,6 @@ async function tableExists(tableName: string) {
 async function readPlayerRows(tableName: string, playerId: string) {
   if (!(await tableExists(tableName))) return [];
 
-  // Table name is from constants above, not user input.
   const { rows } = await query(
     `select
        r.*,
@@ -213,11 +229,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'playerId is required' }, { status: 400 });
     }
 
-    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All] = await Promise.all([
+    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw] = await Promise.all([
       readPlayerRows(BATTING_TABLES[0], playerId),
       readPlayerRows(BATTING_TABLES[1], playerId),
       readPlayerRows(PITCHING_TABLES[0], playerId),
       readPlayerRows(PITCHING_TABLES[1], playerId),
+      getRecentExternalStatsForPlayer(playerId, 10).catch((error) => {
+        console.warn('external stats lookup failed:', error);
+        return [];
+      }),
     ]);
 
     const battingRaw = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
@@ -227,6 +247,7 @@ export async function GET(req: NextRequest) {
 
     const batting = dedupe([...battingRaw, ...batting2026].map(battingRow)).sort(byYearThenTeam);
     const pitching = dedupe([...pitchingRaw, ...pitching2026].map(pitchingRow)).sort(byYearThenTeam);
+    const externalRecentStats = externalRecentRaw.map(externalStatRow);
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
       : 'batting';
@@ -241,6 +262,7 @@ export async function GET(req: NextRequest) {
         batting2026: batting2026.length,
         pitchingHistorical: pitchingRaw.length,
         pitching2026: pitching2026.length,
+        externalRecentStats: externalRecentStats.length,
         filteredOutNameMismatches:
           (battingRawAll.length - battingRaw.length) +
           (batting2026All.length - batting2026.length) +
@@ -249,6 +271,7 @@ export async function GET(req: NextRequest) {
       },
       batting,
       pitching,
+      externalRecentStats,
     });
   } catch (error: any) {
     console.error('player-season-stats failed:', error);
