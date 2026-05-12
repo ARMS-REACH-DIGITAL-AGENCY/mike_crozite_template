@@ -32,6 +32,7 @@ type SubmittedMoment = {
   caption?: string;
   contributor_name?: string;
   relationship?: string;
+  image_url?: string;
   image_data_url?: string;
   photo_taken_date?: string | null;
   photo_taken_year?: number | null;
@@ -159,7 +160,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
       stage: item.stage || "Fan Memory",
       title: item.title || `${item.stage || "Fan"} memory`,
       caption: item.caption || "A fan-submitted Golden Line memory is awaiting review.",
-      src: item.image_data_url,
+      src: item.image_url || item.image_data_url,
       contributor: item.contributor_name || "Fan submission",
       relationship: item.relationship || "",
       photoTakenDate: item.photo_taken_date,
