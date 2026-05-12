@@ -65,6 +65,39 @@ function buildUploadPanel(meta: ProfileMeta) {
     </div>`;
 }
 
+function buildInfluencePanel(meta: ProfileMeta) {
+  const firstName = String(meta.displayName || 'this player').split(' ')[0] || 'this player';
+  return `
+    <div id="ppTab-influence" class="pp-fz-panel">
+      <div class="pp-fz-placeholder pp-influence-panel">
+        <i class="ri-megaphone-line pp-ph-icon" aria-hidden="true"></i>
+        <p><strong>Influence</strong> tools for ${esc(firstName)} will appear here.</p>
+        <p class="pp-fz-small">Future YAT?STATS influence actions can include sharing, sponsor engagement, fan rewards, profile boosts, and Yadaboy activity.</p>
+      </div>
+    </div>`;
+}
+
+function ensureInfluenceTab(meta: ProfileMeta) {
+  const tabs = document.querySelector('.pp-fz-tabs') as HTMLElement | null;
+  const tabsShell = document.querySelector('.pp-fz-tabs-shell') as HTMLElement | null;
+  const funzone = document.querySelector('#playerFunZone') as HTMLElement | null;
+
+  if (funzone && !document.querySelector('#ppTab-influence')) {
+    const uploadPanel = document.querySelector('#ppTab-upload');
+    if (uploadPanel) uploadPanel.insertAdjacentHTML('beforebegin', buildInfluencePanel(meta));
+    else if (tabsShell) tabsShell.insertAdjacentHTML('beforebegin', buildInfluencePanel(meta));
+    else funzone.insertAdjacentHTML('beforeend', buildInfluencePanel(meta));
+  }
+
+  if (tabs) {
+    const uploadTab = tabs.querySelector<HTMLAnchorElement>('a[href="#ppTab-upload"]');
+    if (uploadTab) {
+      uploadTab.href = '#ppTab-influence';
+      uploadTab.innerHTML = '<i class="ri-megaphone-line" aria-hidden="true"></i><span>Influence</span>';
+    }
+  }
+}
+
 function activeFunZoneHash(preferred?: string) {
   const candidate = preferred?.startsWith('#ppTab-') ? preferred : window.location.hash;
   if (candidate?.startsWith('#ppTab-') && document.querySelector(candidate)) return candidate;
@@ -155,6 +188,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       link.setAttribute('data-return-to-flip-card', 'true');
     });
 
+    ensureInfluenceTab(meta);
     const uploadPanel = document.querySelector('#ppTab-upload') as HTMLElement | null;
     if (uploadPanel) uploadPanel.innerHTML = buildUploadPanel(meta);
 
@@ -226,7 +260,10 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       }
     };
 
-    const observer = new MutationObserver(() => activateFunZonePanel(window.location.hash));
+    const observer = new MutationObserver(() => {
+      ensureInfluenceTab(meta);
+      activateFunZonePanel(window.location.hash);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener('click', handleTabClick, true);
     document.addEventListener('change', handlePreview);
@@ -236,8 +273,8 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     window.addEventListener('yat:golden-line-prefill', handlePrefillEvent);
     handleStageEvent();
     activateFunZonePanel(window.location.hash);
-    window.setTimeout(() => activateFunZonePanel(window.location.hash), 250);
-    window.setTimeout(() => activateFunZonePanel(window.location.hash), 1000);
+    window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 250);
+    window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 1000);
     return () => {
       observer.disconnect();
       document.removeEventListener('click', handleTabClick, true);
@@ -254,6 +291,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .pp-fz-panel { display: none; }
       .pp-fz-panel.pp-fz-panel-active { display: block; }
       .pp-fz-tab { pointer-events: auto; }
+      .pp-fz-small { margin-top: 6px; font-size: 12px; opacity: .72; }
       .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
       .yp-meta-team { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fff; font:900 16px/1 Oswald, sans-serif; letter-spacing:.04em; }
       .yp-meta-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.72); font:800 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
