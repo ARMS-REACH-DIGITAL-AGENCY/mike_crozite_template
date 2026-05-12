@@ -89,77 +89,6 @@ function activateFunZonePanel(preferred?: string) {
   return hash;
 }
 
-function keepTabsInsideFunZone() {
-  const tabsShell = document.querySelector('.pp-fz-tabs-shell') as HTMLElement | null;
-  const tabs = document.querySelector('.pp-fz-tabs') as HTMLElement | null;
-  const footer = document.querySelector('.yat-footer') as HTMLElement | null;
-  const funzone = document.querySelector('.pp-funzone') as HTMLElement | null;
-  const outer = document.querySelector('.pp-funzone-outer') as HTMLElement | null;
-  const tabsHeight = window.matchMedia('(max-width: 760px)').matches ? 72 : 68;
-
-  document.documentElement.style.setProperty('--profile-tabs-h', `${tabsHeight}px`);
-  document.body.style.paddingBottom = '';
-
-  if (footer) {
-    footer.style.position = '';
-    footer.style.left = '';
-    footer.style.right = '';
-    footer.style.bottom = '';
-    footer.style.zIndex = '';
-  }
-  if (outer) {
-    outer.style.position = 'relative';
-    outer.style.overflow = 'hidden';
-    outer.style.paddingBottom = '';
-  }
-  if (funzone) {
-    funzone.style.position = 'relative';
-    funzone.style.overflow = 'hidden';
-    funzone.style.paddingBottom = '0';
-  }
-  if (tabsShell) {
-    tabsShell.style.position = 'absolute';
-    tabsShell.style.left = '0';
-    tabsShell.style.right = '0';
-    tabsShell.style.bottom = '0';
-    tabsShell.style.height = `${tabsHeight}px`;
-    tabsShell.style.zIndex = '30';
-    tabsShell.style.display = 'block';
-    tabsShell.style.visibility = 'visible';
-    tabsShell.style.opacity = '1';
-    tabsShell.style.background = 'rgba(12,12,12,.985)';
-    tabsShell.style.borderTop = '1px solid rgba(255,255,255,.12)';
-    tabsShell.style.boxShadow = '0 -10px 26px rgba(0,0,0,.58)';
-    tabsShell.style.transform = 'none';
-  }
-  if (tabs) {
-    tabs.style.width = '100%';
-    tabs.style.height = `${tabsHeight}px`;
-    tabs.style.margin = '0';
-    tabs.style.display = 'grid';
-    tabs.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
-    tabs.style.alignItems = 'stretch';
-  }
-  document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
-    tab.style.height = `${tabsHeight}px`;
-    tab.style.display = 'flex';
-    tab.style.flexDirection = 'column';
-    tab.style.alignItems = 'center';
-    tab.style.justifyContent = 'center';
-    tab.style.gap = '4px';
-    tab.style.minWidth = '0';
-    tab.style.pointerEvents = 'auto';
-  });
-  document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
-    panel.style.height = `calc(100% - ${tabsHeight}px)`;
-    panel.style.maxHeight = `calc(100% - ${tabsHeight}px)`;
-    panel.style.overflowY = 'auto';
-    panel.style.overflowX = 'hidden';
-    panel.style.paddingBottom = '16px';
-  });
-  activateFunZonePanel(window.location.hash);
-}
-
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -251,12 +180,8 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       event.preventDefault();
       history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
       activateFunZonePanel(hash);
-      requestAnimationFrame(keepTabsInsideFunZone);
     };
-    const handleHashChange = () => {
-      activateFunZonePanel(window.location.hash);
-      requestAnimationFrame(keepTabsInsideFunZone);
-    };
+    const handleHashChange = () => activateFunZonePanel(window.location.hash);
     const handlePreview = (event: Event) => {
       const input = event.target as HTMLInputElement | null;
       if (!input || input.id !== 'goldenLinePhotoInput') return;
@@ -301,30 +226,24 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       }
     };
 
-    const applyChrome = () => requestAnimationFrame(keepTabsInsideFunZone);
-    const observer = new MutationObserver(applyChrome);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    const observer = new MutationObserver(() => activateFunZonePanel(window.location.hash));
+    observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener('click', handleTabClick, true);
     document.addEventListener('change', handlePreview);
     document.addEventListener('submit', handleSubmit);
-    window.addEventListener('resize', applyChrome);
     window.addEventListener('hashchange', handleHashChange);
-    window.visualViewport?.addEventListener('resize', applyChrome);
     window.addEventListener('yat:golden-line-stage', handleStageEvent);
     window.addEventListener('yat:golden-line-prefill', handlePrefillEvent);
     handleStageEvent();
     activateFunZonePanel(window.location.hash);
-    applyChrome();
-    window.setTimeout(() => { activateFunZonePanel(window.location.hash); keepTabsInsideFunZone(); }, 250);
-    window.setTimeout(() => { activateFunZonePanel(window.location.hash); keepTabsInsideFunZone(); }, 1000);
+    window.setTimeout(() => activateFunZonePanel(window.location.hash), 250);
+    window.setTimeout(() => activateFunZonePanel(window.location.hash), 1000);
     return () => {
       observer.disconnect();
       document.removeEventListener('click', handleTabClick, true);
       document.removeEventListener('change', handlePreview);
       document.removeEventListener('submit', handleSubmit);
-      window.removeEventListener('resize', applyChrome);
       window.removeEventListener('hashchange', handleHashChange);
-      window.visualViewport?.removeEventListener('resize', applyChrome);
       window.removeEventListener('yat:golden-line-stage', handleStageEvent);
       window.removeEventListener('yat:golden-line-prefill', handlePrefillEvent);
     };
@@ -332,30 +251,15 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
-      :root { --row3-h: 100px; --row4-h: 48px; --profile-tabs-h: 68px; --profile-meta-w: 178px; --profile-meta-w-mobile: 136px; }
-      html, body { height: auto !important; min-height: 100% !important; overflow: auto !important; }
-      body { padding-bottom: 0 !important; }
-      main { height: auto !important; min-height: 0 !important; overflow: visible !important; }
-      .yat-row1-shell, .yat-topbar { position: relative !important; z-index: 4100 !important; }
-      .yat-row2-shell, .yat-schoolrow { position: relative !important; z-index: 4050 !important; }
-      .yat-row3-shell { position: relative !important; z-index: 4000 !important; min-height: var(--row3-h) !important; height: var(--row3-h) !important; overflow: hidden !important; background: #050505 !important; }
-      .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip, .yat-profile-career-strip, .yat-profile-meta-row-host { min-height: var(--row3-h) !important; height: var(--row3-h) !important; max-height: var(--row3-h) !important; overflow: hidden !important; }
-      .yat-row4-shell { position: relative !important; top: auto !important; z-index: 3900 !important; min-height: var(--row4-h) !important; height: var(--row4-h) !important; overflow: hidden !important; background: #050505 !important; }
-      .yat-row4-shell #playerCareerStrip { min-height: var(--row4-h) !important; height: var(--row4-h) !important; }
-      .pp-funzone-outer { position: relative !important; height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h) - var(--row4-h) - var(--footerH, 64px)) !important; min-height: 360px !important; overflow: hidden !important; padding-bottom: 0 !important; }
-      .pp-funzone { position: relative !important; height: 100% !important; max-height: 100% !important; min-height: 0 !important; overflow: hidden !important; padding-bottom: 0 !important; }
-      .pp-fz-panel { display: none !important; height: calc(100% - var(--profile-tabs-h)) !important; max-height: calc(100% - var(--profile-tabs-h)) !important; overflow-y: auto !important; overflow-x: hidden !important; padding-bottom: 16px !important; }
-      .pp-fz-panel.pp-fz-panel-active { display: block !important; }
-      .yat-profile-career-strip { position: relative; display: grid; grid-template-columns: var(--profile-meta-w) minmax(0, 1fr); background: linear-gradient(90deg, #090909, #111 42%, #050505); border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.12); overflow: hidden; }
-      .yat-profile-meta-row-host { width: var(--profile-meta-w); display: block; background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(0,0,0,.92)); border-right: 1px solid rgba(255,255,255,.1); overflow: hidden; }
+      .pp-fz-panel { display: none; }
+      .pp-fz-panel.pp-fz-panel-active { display: block; }
+      .pp-fz-tab { pointer-events: auto; }
       .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
       .yp-meta-team { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fff; font:900 16px/1 Oswald, sans-serif; letter-spacing:.04em; }
       .yp-meta-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.72); font:800 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
-      .pp-fz-tabs-shell { position: absolute !important; left: 0 !important; right: 0 !important; bottom: 0 !important; height: var(--profile-tabs-h) !important; z-index: 30 !important; display: block !important; visibility: visible !important; opacity: 1 !important; background: rgba(12,12,12,.985) !important; border-top: 1px solid rgba(255,255,255,.12) !important; box-shadow: 0 -10px 26px rgba(0,0,0,.58) !important; transform: none !important; }
-      .pp-fz-tabs { width: 100% !important; height: var(--profile-tabs-h) !important; margin: 0 !important; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; align-items: stretch !important; }
-      .pp-fz-tab { height: var(--profile-tabs-h) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-width: 0 !important; pointer-events: auto !important; }
-      .pp-fz-tab-active { color: #fff !important; }
-      .yat-footer { position: relative !important; z-index: 20 !important; }
+      .yat-profile-career-strip, .yat-profile-career-strip * { box-sizing: border-box; }
+      .yat-profile-career-strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .yat-profile-career-strip [class*="image"], .yat-profile-career-strip [class*="photo"] { overflow: hidden; }
       .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
       .glu-kicker { color: #f5c85a; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
@@ -371,7 +275,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(245,200,90,.75); border-radius: 0; background: rgba(245,200,90,.12); color: #f5c85a; font: 800 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
-      @media (max-width: 760px) { :root { --row3-h: 100px; --row4-h: 48px; --profile-tabs-h: 72px; --profile-meta-w: var(--profile-meta-w-mobile); } .pp-funzone-outer { height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h) - var(--row4-h) - var(--footerH, 64px)) !important; min-height: 330px !important; } .yp-meta-strip { padding: 6px 8px; } .yp-meta-team { font-size: 13px; } .yp-meta-sub { font-size: 8px; } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) { .yp-meta-strip { padding: 6px 8px; } .yp-meta-team { font-size: 13px; } .yp-meta-sub { font-size: 8px; } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
     `}</style>
   );
 }
