@@ -54,12 +54,18 @@ function normalizeLevel(value: unknown) {
   return raw;
 }
 
-function TimelineImage({ src, title, kind }: { src?: string; title: string; kind: MomentKind }) {
+function TimelineImage({ src, title, caption, kind, label }: { src?: string; title: string; caption: string; kind: MomentKind; label: string }) {
   const [failed, setFailed] = useState(!src);
   useEffect(() => setFailed(!src), [src]);
-  if (!src || failed || kind === 'prompt' || kind === 'season') {
-    return <span className="zt-empty" aria-hidden="true"><b>Add<br />Moment</b></span>;
+
+  if (kind === 'prompt') {
+    return <span className="zt-prompt-card" aria-hidden="true"><b>{title}</b><strong>{caption}</strong><i>+</i></span>;
   }
+
+  if (!src || failed || kind === 'season') {
+    return <span className="zt-empty" aria-hidden="true"><b>{label}</b></span>;
+  }
+
   return <img src={src} alt={title} loading="lazy" onError={() => setFailed(true)} />;
 }
 
@@ -204,7 +210,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       return { id: `upload-${item.id}`, year: clamp(year, hsYear, end), label: String(year), title: item.title || 'Fan memory', caption: item.caption || 'Fan-submitted Golden Line memory.', src: item.image_data_url, kind: 'upload' };
     });
 
-    const prompts: Moment[] = [{ id: 'prompt-memory', year: promptYear, label: 'Add', title: `Add a moment in time on ${firstName}'s`, caption: 'Career Path Timeline', kind: 'prompt' }];
+    const prompts: Moment[] = [{ id: 'prompt-memory', year: promptYear, label: 'Add', title: `Add a moment in time to ${firstName}'s`, caption: 'Career Path Timeline', kind: 'prompt' }];
     const archive: Moment[] = [
       { id: 'archive-hs-card', year: hsYear, label: 'HS', title: 'High school card', caption: 'Return to the original flip card view.', src: `${S3_BASE}/players/then/${playerId}.jpg`, kind: 'archive', href: galleryReturnHref, cardMode: true },
       { id: 'archive-headshot', year: end, label: String(end), title: 'Profile headshot', caption: 'Current interactive-strip image.', src: `${S3_BASE}/players/now/${playerId}.jpg`, kind: 'archive' },
@@ -272,30 +278,31 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             {model.moments.map((moment) => (
               <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: leftPx(moment.year) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
                 <span className="zt-img-connector" />
-                <span className="zt-img-card"><TimelineImage src={moment.src} title={moment.title} kind={moment.kind} /></span>
-                {moment.kind === 'prompt' ? <span className="zt-prompt-copy"><b>Add A Moment<br />in Time on {model.firstName}'s</b><strong>Career Path Timeline</strong></span> : null}
+                <span className="zt-img-card"><TimelineImage src={moment.src} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} /></span>
               </button>
             ))}
           </div>
         </div>
         <style jsx>{`
-          .zt-shell-images { position: relative; height: 100%; min-height: 100%; overflow: visible; color: #fff; background: transparent; }
-          .zt-window-images { height: 100%; overflow-x: auto; overflow-y: visible; padding-left: 0; scrollbar-width: none; }
+          .zt-shell-images { position: relative; height: 100%; min-height: 100%; overflow: hidden; color: #fff; background: transparent; }
+          .zt-window-images { height: 100%; overflow-x: auto; overflow-y: hidden; padding-left: 0; scrollbar-width: none; }
           .zt-window-images::-webkit-scrollbar { display: none; }
           .zt-canvas-images { position: relative; height: 100%; min-width: 100%; }
           .zt-img-moment { position: absolute; top: 4px; width: ${CARD_W}px; height: ${CARD_H}px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; }
-          .zt-img-card { position: relative; z-index: 2; display: block; width: ${CARD_W}px; height: ${CARD_H}px; border: 1px solid rgba(245,200,90,.74); background: #111; overflow: hidden; box-shadow: 0 0 14px rgba(245,200,90,.16), 0 8px 18px rgba(0,0,0,.38); }
-          .zt-prompt .zt-img-card { border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.7), 0 0 18px rgba(245,200,90,.22); }
-          .zt-img-connector { position: absolute; z-index: 1; left: 50%; top: ${CARD_H}px; width: 2px; height: calc(var(--row4-h, 48px) + 14px); transform: translateX(-50%); background: rgba(245,200,90,.95); box-shadow: 0 0 12px rgba(245,200,90,.34); pointer-events: none; }
+          .zt-img-card { position: relative; z-index: 2; display: block; width: ${CARD_W}px; height: ${CARD_H}px; border: 1px solid rgba(255,255,255,.32); background: #111; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); }
+          .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); }
+          .zt-img-connector { display: none; }
           .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
-          .zt-img-card :global(.zt-empty) { height: 100%; display: grid; place-items: center; color: rgba(245,200,90,.82); background: linear-gradient(135deg,#151515,#050505); }
-          .zt-img-card :global(.zt-empty b) { font: 900 8px/1.15 Oswald,sans-serif; letter-spacing: .1em; text-transform: uppercase; text-align:center; }
-          .zt-prompt-copy { position: absolute; left: 50%; top: calc(100% + 16px); width: 160px; transform: translateX(-50%); z-index: 5; text-align: left; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9); }
-          .zt-prompt-copy b { display: block; font: 700 12px/1.08 system-ui, sans-serif; letter-spacing: .01em; text-transform: none; }
-          .zt-prompt-copy strong { display: block; margin-top: 3px; font: 900 13px/1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
-          .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:${zoom >= 2.25 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(245,200,90,.65); background:rgba(0,0,0,.72); color:#f5c85a; font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:0 0 12px rgba(245,200,90,.18); }
+          .zt-img-card :global(.zt-empty) { height: 100%; display: grid; place-items: center; color: rgba(255,255,255,.68); background: linear-gradient(135deg,#141414,#060606); }
+          .zt-img-card :global(.zt-empty b) { font: 900 10px/1.15 Oswald,sans-serif; letter-spacing: .08em; text-transform: uppercase; text-align:center; }
+          .zt-img-card :global(.zt-prompt-card) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 6px 5px; color: #fff; background: #080808; text-align: center; text-transform: uppercase; }
+          .zt-img-card :global(.zt-prompt-card b) { font: 900 7px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
+          .zt-img-card :global(.zt-prompt-card strong) { font: 900 7px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
+          .zt-img-card :global(.zt-prompt-card i) { font: 900 16px/1 Oswald, sans-serif; font-style: normal; }
+          .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:${zoom >= 2.25 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(255,255,255,.38); background:rgba(0,0,0,.72); color:rgba(255,255,255,.82); font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:none; }
           .zt-upload-slot:hover { color:#fff; border-color:#fff; }
-          @media (max-width: 760px) { .zt-img-moment { width: ${CARD_W}px; height: ${CARD_H}px; } .zt-img-card { width: ${CARD_W}px; height: ${CARD_H}px; } .zt-img-connector { top: ${CARD_H}px; } .zt-prompt-copy { width: 142px; } }
+          @media (max-width: 760px) { .zt-img-moment { width: ${CARD_W}px; height: ${CARD_H}px; } .zt-img-card { width: ${CARD_W}px; height: ${CARD_H}px; } }
+          :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height: var(--row3-h, 96px) !important; height: var(--row3-h, 96px) !important; }
         `}</style>
       </section>
     );
@@ -313,18 +320,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       </div>
       <style jsx>{`
         .zt-shell { position: relative; height: 100%; min-height: 52px; overflow: visible; isolation: isolate; background: linear-gradient(90deg,#101010,#050505); color: #fff; border-top: 0; }
-        .zt-controls { position:absolute; z-index:8; right:12px; top:5px; display:flex; gap:8px; align-items:center; color:rgba(255,255,255,.36); font:800 9px/1 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; opacity:.32; }
-        .zt-controls:hover { opacity:.82; }
-        .zt-controls input { width: 100px; accent-color:#f5c85a; opacity:.35; }
+        .zt-controls { position:absolute; z-index:8; right:12px; top:5px; display:flex; gap:8px; align-items:center; color:rgba(255,255,255,.32); font:800 9px/1 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; opacity:.28; }
+        .zt-controls:hover { opacity:.72; }
+        .zt-controls input { width: 100px; accent-color:#ffffff; opacity:.28; }
         .zt-window { height:100%; overflow-x:auto; overflow-y:visible; padding-left:0; scrollbar-width:none; }
         .zt-window::-webkit-scrollbar { display:none; }
         .zt-canvas { position:relative; height:100%; min-width:100%; }
-        .zt-line { position:absolute; left:0; right:0; top:44%; height:2px; background:linear-gradient(90deg,rgba(245,200,90,.72),rgba(245,200,90,.95),rgba(245,200,90,.72)); box-shadow:0 0 12px rgba(245,200,90,.3); }
+        .zt-line { position:absolute; left:0; right:0; top:44%; height:2px; background:linear-gradient(90deg,rgba(210,165,58,.72),rgba(245,200,90,.95),rgba(210,165,58,.72)); box-shadow:0 0 10px rgba(245,200,90,.22); }
         .zt-tick { position:absolute; top:44%; transform:translateX(-50%); display:grid; justify-items:center; gap:4px; pointer-events:none; z-index:3; }
-        .zt-tick i { width:1px; height:15px; background:rgba(245,200,90,.72); transform:translateY(-7px); }
-        .zt-tick b { color:#f5c85a; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); white-space:nowrap; }
+        .zt-tick i { width:1px; height:15px; background:rgba(255,255,255,.34); transform:translateY(-7px); }
+        .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); white-space:nowrap; }
         .zt-line-pin { position:absolute; top:44%; width:20px; height:20px; transform:translate(-50%, -50%); border:0; background:transparent; padding:0; cursor:pointer; z-index:4; }
-        .zt-line-pin span { position:relative; z-index:2; display:block; width:9px; height:9px; margin:auto; border:1px solid #f5c85a; background:#111; box-shadow:0 0 12px rgba(245,200,90,.62); }
+        .zt-line-pin span { position:relative; z-index:2; display:block; width:9px; height:9px; margin:auto; border:1px solid #fff; background:#111; box-shadow:0 0 8px rgba(255,255,255,.24); }
         @media (max-width: 760px) { .zt-controls { display:none; } }
       `}</style>
     </section>
