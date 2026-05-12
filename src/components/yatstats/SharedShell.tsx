@@ -82,8 +82,7 @@ export default function SharedShell({
             ? row3Content
             : profilePlayerId
             ? (
-                <div className="yat-profile-career-strip" aria-label="Player metadata and Golden Line images">
-                  <div className="yat-profile-meta-row-host" aria-label="Player profile metadata" />
+                <div className="yat-profile-career-strip" aria-label="Golden Line event images">
                   <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
                 </div>
               )
