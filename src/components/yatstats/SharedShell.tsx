@@ -52,8 +52,6 @@ export default function SharedShell({
 }) {
   const pathname = usePathname();
 
-  // Extract playerId directly from the pathname — no middleware or context needed.
-  // Pattern: /{hsid}/player/{playerId}/{slug}
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
 
@@ -61,17 +59,15 @@ export default function SharedShell({
     pathname.includes('/player/') || pathname.includes('/profile/');
   const [isNews, setIsNews] = (typeof window !== 'undefined') 
     ? [window.location.hash === '#sec-news', () => {}] 
-    : [false, () => {}]; // SSR fallback
+    : [false, () => {}];
   const isGallery = !isPlayerProfile;
 
   return (
     <>
-      {/* ROW 1 */}
       <div className="yat-row1-shell">
         <GlobalTopbar hsid={hsid} />
       </div>
 
-      {/* ROW 2 */}
       <div className="yat-row2-shell">
         <SchoolContextBar
           isPlayerProfile={isPlayerProfile}
@@ -81,12 +77,11 @@ export default function SharedShell({
       </div>
 
       <main>
-        {/* ROW 3 — career/gallery strip */}
         <div className="yat-row3-shell">
           {row3Content
             ? row3Content
             : profilePlayerId
-            ? <ZoomableCareerTimeline playerId={profilePlayerId} />
+            ? <div className="yat-profile-meta-row-host" aria-label="Player profile metadata" />
             : (
                 <InteractionStrip
                   isPlayerProfile={isPlayerProfile}
@@ -97,24 +92,25 @@ export default function SharedShell({
               )}
         </div>
 
-        {/* ROW 4 — metadata chips */}
         <div className="yat-row4-shell">
-          {row4Content ? row4Content : (
-            <MetadataRow
-              isPlayerProfile={isPlayerProfile}
-              isGallery={isGallery}
-              schoolMeta={schoolMeta}
-            />
-          )}
+          {row4Content
+            ? row4Content
+            : profilePlayerId
+            ? <ZoomableCareerTimeline playerId={profilePlayerId} />
+            : (
+                <MetadataRow
+                  isPlayerProfile={isPlayerProfile}
+                  isGallery={isGallery}
+                  schoolMeta={schoolMeta}
+                />
+              )}
         </div>
 
-        {/* ROW 5 — page body (FunZone on profile pages) */}
         <div className="yat-row5-shell">
           {children}
         </div>
       </main>
 
-      {/* ROW 6 */}
       <footer className="yat-row6-shell yat-footer">
         <a
           href="https://www.armsreachdigital.com/"
