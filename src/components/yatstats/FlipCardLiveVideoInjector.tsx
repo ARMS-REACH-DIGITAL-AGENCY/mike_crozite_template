@@ -35,6 +35,11 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+function isMobileTouch() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 760px), (pointer: coarse)").matches;
+}
+
 function ensureStyles() {
   if (document.getElementById("yat-flip-live-video-css")) return;
 
@@ -57,28 +62,42 @@ function ensureStyles() {
     .fz-live-video-host.is-detached-player {
       position: fixed;
       z-index: 2147483000;
-      left: auto;
-      right: clamp(10px, 3vw, 22px);
-      top: calc(env(safe-area-inset-top, 0px) + clamp(72px, 13vh, 128px));
+      left: 14px;
+      right: auto;
+      top: calc(env(safe-area-inset-top, 0px) + 92px);
       bottom: auto;
-      width: min(44vw, 340px);
-      height: min(25vw, 192px);
-      min-width: 190px;
-      min-height: 108px;
+      width: 246px;
+      height: 138px;
+      min-width: 220px;
+      min-height: 124px;
       box-shadow: 0 14px 34px rgba(0,0,0,.62), 0 0 0 1px rgba(245,200,90,.45);
     }
     .fz-live-video-host.is-detached-player.is-user-positioned {
       right: auto;
       bottom: auto;
     }
+    @media (min-width: 761px) {
+      .fz-live-video-host.is-detached-player {
+        left: 14px !important;
+        right: auto !important;
+        top: calc(env(safe-area-inset-top, 0px) + 94px) !important;
+        bottom: auto !important;
+        width: 248px;
+        height: 140px;
+      }
+    }
     @media (max-width: 760px) {
       .fz-live-video-host.is-detached-player {
+        left: auto;
         right: 10px;
         top: calc(env(safe-area-inset-top, 0px) + 84px);
-        width: min(48vw, 215px);
-        height: min(27vw, 122px);
-        min-width: 156px;
-        min-height: 88px;
+        width: min(52vw, 230px);
+        height: min(30vw, 130px);
+        min-width: 162px;
+        min-height: 92px;
+      }
+      .fz-live-video-host.is-detached-player.is-user-positioned {
+        right: auto;
       }
     }
     .fz-live-video-host.is-mini-player:not(.is-detached-player) {
@@ -113,8 +132,10 @@ function ensureStyles() {
       touch-action: none;
       user-select: none;
     }
-    .fz-live-video-host.is-detached-player .fz-live-video-head { cursor: grab; }
-    .fz-live-video-host.is-detached-player.is-dragging .fz-live-video-head { cursor: grabbing; }
+    @media (max-width: 760px), (pointer: coarse) {
+      .fz-live-video-host.is-detached-player .fz-live-video-head { cursor: grab; }
+      .fz-live-video-host.is-detached-player.is-dragging .fz-live-video-head { cursor: grabbing; }
+    }
     .fz-live-video-badge {
       color: #fff;
       background: #d71920;
@@ -218,6 +239,8 @@ function ensureStyles() {
 }
 
 function restoreSavedPosition(host: HTMLElement) {
+  if (!isMobileTouch()) return;
+  if (host.classList.contains("is-dragging")) return;
   try {
     const raw = sessionStorage.getItem(DRAG_STORAGE_KEY);
     if (!raw) return;
@@ -232,7 +255,16 @@ function restoreSavedPosition(host: HTMLElement) {
   } catch {}
 }
 
-function makeDraggable(host: HTMLElement) {
+function resetDesktopDock(host: HTMLElement) {
+  if (isMobileTouch()) return;
+  host.style.left = "";
+  host.style.top = "";
+  host.style.right = "";
+  host.style.bottom = "";
+  host.classList.remove("is-user-positioned", "is-dragging");
+}
+
+function makeMobileDraggable(host: HTMLElement) {
   const handle = host.querySelector(".fz-live-video-head") as HTMLElement | null;
   if (!handle || host.dataset.draggableReady === "true") return;
   host.dataset.draggableReady = "true";
@@ -243,11 +275,11 @@ function makeDraggable(host: HTMLElement) {
   let startTop = 0;
   let dragging = false;
 
-  const onMove = (event: PointerEvent) => {
-    if (!dragging) return;
+  const moveTo = (clientX: number, clientY: number) => {
+    if (!dragging || !isMobileTouch()) return;
     const rect = host.getBoundingClientRect();
-    const nextLeft = clamp(startLeft + event.clientX - startX, 6, window.innerWidth - rect.width - 6);
-    const nextTop = clamp(startTop + event.clientY - startY, 6, window.innerHeight - rect.height - 6);
+    const nextLeft = clamp(startLeft + clientX - startX, 6, window.innerWidth - rect.width - 6);
+    const nextTop = clamp(startTop + clientY - startY, 6, window.innerHeight - rect.height - 6);
     host.style.left = `${nextLeft}px`;
     host.style.top = `${nextTop}px`;
     host.style.right = "auto";
@@ -255,7 +287,7 @@ function makeDraggable(host: HTMLElement) {
     host.classList.add("is-user-positioned");
   };
 
-  const onUp = () => {
+  const stop = () => {
     if (!dragging) return;
     dragging = false;
     host.classList.remove("is-dragging");
@@ -263,16 +295,19 @@ function makeDraggable(host: HTMLElement) {
     try {
       sessionStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
     } catch {}
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onUp);
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", stop);
+    window.removeEventListener("pointercancel", stop);
+    window.removeEventListener("touchmove", onTouchMove);
+    window.removeEventListener("touchend", stop);
+    window.removeEventListener("touchcancel", stop);
   };
 
-  handle.addEventListener("pointerdown", (event) => {
-    if (!host.classList.contains("is-detached-player")) return;
+  const start = (clientX: number, clientY: number) => {
+    if (!isMobileTouch() || !host.classList.contains("is-detached-player")) return;
     const rect = host.getBoundingClientRect();
-    startX = event.clientX;
-    startY = event.clientY;
+    startX = clientX;
+    startY = clientY;
     startLeft = rect.left;
     startTop = rect.top;
     dragging = true;
@@ -281,11 +316,40 @@ function makeDraggable(host: HTMLElement) {
     host.style.top = `${rect.top}px`;
     host.style.right = "auto";
     host.style.bottom = "auto";
+  };
+
+  const onPointerMove = (event: PointerEvent) => {
+    event.preventDefault();
+    moveTo(event.clientX, event.clientY);
+  };
+
+  const onTouchMove = (event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    event.preventDefault();
+    moveTo(touch.clientX, touch.clientY);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (!isMobileTouch()) return;
+    event.preventDefault();
+    start(event.clientX, event.clientY);
     try { handle.setPointerCapture(event.pointerId); } catch {}
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
   });
+
+  handle.addEventListener("touchstart", (event) => {
+    if (!isMobileTouch()) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    event.preventDefault();
+    start(touch.clientX, touch.clientY);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", stop);
+    window.addEventListener("touchcancel", stop);
+  }, { passive: false });
 }
 
 export default function FlipCardLiveVideoInjector({
@@ -355,7 +419,7 @@ export default function FlipCardLiveVideoInjector({
       });
     }
 
-    makeDraggable(host);
+    makeMobileDraggable(host);
 
     const syncVisibility = () => {
       const activeBtn = Array.from(card.querySelectorAll(".fz-tab-btn"))
@@ -369,6 +433,7 @@ export default function FlipCardLiveVideoInjector({
       host?.classList.toggle("is-detached-player", activeLabel !== "news" && isPlaying);
 
       if (host?.classList.contains("is-detached-player")) {
+        resetDesktopDock(host);
         restoreSavedPosition(host);
       }
     };
