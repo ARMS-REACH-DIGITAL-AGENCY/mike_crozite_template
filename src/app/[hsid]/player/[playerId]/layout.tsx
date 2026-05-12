@@ -55,6 +55,7 @@ export default async function PlayerLayout({
     displayName: '',
     statusLabel: '',
     currentTeamName: '',
+    orgConferenceName: '',
     levelLabel: '',
     position: '',
     batsThrows: '',
@@ -115,6 +116,7 @@ export default async function PlayerLayout({
     const height = String(player?.height || '').trim();
     const weight = String(player?.weight || '').trim();
     const teamName = String(resolvedCurrentTeam?.team_name || stage?.current_team_name || player?.current_team_name || player?.team_name || '').trim();
+    const orgConferenceName = String(stage?.current_org_or_conference_name || resolvedCurrentTeam?.org_conf || player?.current_org_or_conference_name || player?.org_conf || player?.league || '').trim();
     const levelLabel = String(resolvedCurrentTeam?.level || stage?.display_level_label || stage?.level_label || player?.level_label || player?.level || '').trim().toUpperCase();
     const affiliationStatus = normalizeTeamAffiliationStatus(stage?.team_affiliation_status, statusLabel, teamName);
 
@@ -124,6 +126,7 @@ export default async function PlayerLayout({
       displayName: playerName || String(stage?.current_team_name || playerId),
       statusLabel,
       currentTeamName: teamName,
+      orgConferenceName,
       levelLabel,
       position: String(player?.position || player?.pos || '').trim().toUpperCase(),
       batsThrows: bats && throwsValue ? `${bats}/${throwsValue}` : bats || throwsValue,
@@ -137,7 +140,7 @@ export default async function PlayerLayout({
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfilePageEnhancer meta={meta} />
       <ProfileStatsStyles />
-      <ProfileStatsInjector playerId={playerId} />
+      <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
     </PlayerProfileContextProvider>
   );
