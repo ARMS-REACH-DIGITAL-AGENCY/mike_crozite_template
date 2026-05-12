@@ -15,6 +15,18 @@ const STAGES = ['Youth Baseball', 'Middle School', 'High School', 'College', 'Mi
 const CLIENT_UPLOAD_TARGET_BYTES = 700_000;
 const CLIENT_UPLOAD_MAX_SIDE = 1280;
 
+type SessionPayload = {
+  authenticated?: boolean;
+  session?: {
+    email?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    role?: string | null;
+    plan?: string | null;
+    homeSchoolName?: string | null;
+  };
+};
+
 function esc(value: unknown) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -31,25 +43,56 @@ function normalizeHash(value?: string | null) {
   return '#ppTab-stats';
 }
 
-function buildUploadForm(playerName: string) {
+function sessionDisplayName(session?: SessionPayload['session']) {
+  const first = String(session?.firstName || '').trim();
+  const last = String(session?.lastName || '').trim();
+  return [first, last].filter(Boolean).join(' ').trim() || String(session?.email || 'Signed-in fan').trim();
+}
+
+function buildSignInGate(playerName: string) {
   const firstName = String(playerName || 'this player').split(' ')[0] || 'this player';
+  return `
+    <div class="profile-upload-panel profile-upload-gate">
+      <div class="profile-upload-copy">
+        <div class="profile-upload-kicker">The Golden Line</div>
+        <h2>Sign in to add a memory to ${esc(firstName)}'s timeline.</h2>
+        <p>Fan-submitted photos are tied to a registered YAT?STATS fan account so we know who submitted each memory and can handle review updates safely.</p>
+        <div class="profile-upload-gate-actions">
+          <a href="/login">Log In</a>
+          <a href="/signup">Join Free</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildUploadForm(playerName: string, session?: SessionPayload['session']) {
+  const firstName = String(playerName || 'this player').split(' ')[0] || 'this player';
+  const fanName = sessionDisplayName(session);
+  const fanMeta = [session?.plan || session?.role || 'Fan', session?.homeSchoolName].filter(Boolean).join(' · ');
   return `
     <div class="profile-upload-panel">
       <div class="profile-upload-copy">
         <div class="profile-upload-kicker">The Golden Line</div>
         <h2>Upload a memory from ${esc(firstName)}'s baseball journey.</h2>
-        <p>Add a photo from youth baseball, school ball, college, pro ball, or a fan moment. The date helps place the memory in chronological order.</p>
+        <p>Add a photo from youth baseball, school ball, college, pro ball, or a fan moment. The approximate date is required so the memory lands in the right place.</p>
       </div>
       <form class="profile-upload-form" id="goldenLineUploadForm">
         <input type="hidden" name="playerName" value="${esc(playerName)}" />
-        <label>Photo stage<select name="stage">${STAGES.map((stage) => `<option value="${esc(stage)}">${esc(stage)}</option>`).join('')}</select></label>
-        <label>Date photo was taken<input name="photoTakenDate" type="date" /></label>
-        <label>Your name<input name="contributorName" placeholder="Mom, Dad, Coach, Teammate, Fan..." /></label>
-        <label>Email for review updates<input name="contributorEmail" type="email" placeholder="you@example.com" /></label>
-        <label>Phone / text optional<input name="contributorPhone" type="tel" placeholder="Optional" /></label>
-        <label>Relationship / role<input name="relationship" placeholder="Parent, coach, teammate, alumni, fan..." /></label>
-        <label class="profile-upload-wide">Memory title<input name="title" placeholder="Example: First travel ball tournament" /></label>
-        <label class="profile-upload-wide">Caption / memory<textarea name="caption" rows="4" placeholder="I remember this because..."></textarea></label>
+        <div class="profile-upload-identity profile-upload-wide">
+          <span>Posting as</span>
+          <strong>${esc(fanName)}</strong>
+          ${fanMeta ? `<em>${esc(fanMeta)}</em>` : ''}
+        </div>
+        <label>Memory type<select name="stage">${STAGES.map((stage) => `<option value="${esc(stage)}">${esc(stage)}</option>`).join('')}</select></label>
+        <label>Approx. date taken<input name="photoTakenDate" type="date" required /></label>
+        <label class="profile-upload-wide">Relationship / context<input name="relationship" placeholder="Friend, parent, coach, teammate, fan..." /></label>
+        <label class="profile-upload-wide">Memory title<input name="title" placeholder="Example: From teammate to foe" /></label>
+        <label class="profile-upload-wide">Caption / memory<textarea name="caption" rows="3" placeholder="I remember this because..."></textarea></label>
+        <fieldset class="profile-upload-privacy profile-upload-wide">
+          <legend>Visibility</legend>
+          <label><input type="radio" name="visibility" value="public" checked /> Public after review</label>
+          <label><input type="radio" name="visibility" value="private" /> Private / only my account</label>
+        </fieldset>
         <label>Upload photo<input name="photo" id="goldenLinePhotoInput" type="file" accept="image/*" required /></label>
         <div class="profile-upload-preview" id="goldenLinePreview"><span>Selected photo preview</span></div>
         <div class="profile-upload-actions"><button type="submit">Submit Memory</button><span id="goldenLineUploadStatus">Submitted photos are saved as pending memories.</span></div>
@@ -57,11 +100,24 @@ function buildUploadForm(playerName: string) {
     </div>`;
 }
 
-function ensureUploadForm(playerName: string) {
+async function getSessionPayload(): Promise<SessionPayload> {
+  try {
+    const res = await fetch('/api/auth/session', { cache: 'no-store' });
+    return await res.json();
+  } catch {
+    return { authenticated: false };
+  }
+}
+
+async function ensureUploadForm(playerName: string) {
   const uploadPanel = document.getElementById('ppTab-upload') as HTMLElement | null;
   if (!uploadPanel) return;
-  if (uploadPanel.querySelector('#goldenLineUploadForm')) return;
-  uploadPanel.innerHTML = buildUploadForm(playerName);
+  const sessionPayload = await getSessionPayload();
+  const shouldGate = !sessionPayload.authenticated || !sessionPayload.session?.email;
+  const mode = shouldGate ? 'gate' : 'form';
+  if (uploadPanel.getAttribute('data-upload-mode') === mode && uploadPanel.querySelector(shouldGate ? '.profile-upload-gate' : '#goldenLineUploadForm')) return;
+  uploadPanel.setAttribute('data-upload-mode', mode);
+  uploadPanel.innerHTML = shouldGate ? buildSignInGate(playerName) : buildUploadForm(playerName, sessionPayload.session);
 }
 
 function activate(hashValue?: string | null) {
@@ -169,7 +225,7 @@ async function parseApiResponse(res: Response) {
 
 export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }: { playerId: string; hsid: string; playerName: string }) {
   useEffect(() => {
-    ensureUploadForm(playerName);
+    void ensureUploadForm(playerName);
     activate(window.location.hash);
 
     const onClick = (event: MouseEvent) => {
@@ -179,12 +235,12 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       const hash = normalizeHash(tab.getAttribute('href'));
       event.preventDefault();
       history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-      ensureUploadForm(playerName);
+      void ensureUploadForm(playerName);
       activate(hash);
     };
 
     const onHash = () => {
-      ensureUploadForm(playerName);
+      void ensureUploadForm(playerName);
       activate(window.location.hash);
     };
 
@@ -206,8 +262,10 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
       const formData = new FormData(form);
       const selectedPhoto = formData.get('photo');
+      const dateTaken = String(formData.get('photoTakenDate') || '').trim();
       if (button) button.disabled = true;
       try {
+        if (!dateTaken) throw new Error('Approximate date taken is required.');
         if (!(selectedPhoto instanceof File) || selectedPhoto.size === 0) throw new Error('Please choose a photo before submitting.');
         if (status) status.textContent = 'Optimizing photo for upload...';
         const preparedPhoto = await prepareUploadFile(selectedPhoto);
@@ -238,7 +296,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     window.addEventListener('hashchange', onHash);
 
     const observer = new MutationObserver(() => {
-      ensureUploadForm(playerName);
+      void ensureUploadForm(playerName);
       activate(window.location.hash);
     });
     const zone = document.getElementById('playerFunZone');
@@ -333,27 +391,37 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       #playerFunZone .pp-fz-tab span { font: 900 12px/1 Oswald, sans-serif !important; letter-spacing: .08em !important; text-transform: uppercase !important; }
 
       .profile-upload-panel {
-        width: min(1040px, 100%);
+        width: min(980px, 100%);
         margin: 0 auto;
-        padding: 28px 18px 120px;
+        padding: 24px 18px 112px;
         display: grid;
-        grid-template-columns: minmax(220px, 34%) minmax(0, 1fr);
-        gap: 24px;
+        grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+        gap: 20px;
       }
       .profile-upload-copy { border-left: 5px solid #d2b45c; padding-left: 18px; }
       .profile-upload-kicker { color: #d2b45c; font: 900 12px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
-      .profile-upload-copy h2 { margin: 10px 0 12px; color: #fff; font: 900 clamp(34px, 5vw, 58px)/.9 Oswald, sans-serif; letter-spacing: .02em; text-transform: uppercase; }
-      .profile-upload-copy p { margin: 0; color: rgba(255,255,255,.72); font: 400 16px/1.45 system-ui, sans-serif; }
-      .profile-upload-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; border: 1px solid rgba(210,180,92,.4); background: rgba(255,255,255,.045); }
-      .profile-upload-form label { display: grid; gap: 5px; color: rgba(255,255,255,.72); font: 900 11px/1 Oswald, sans-serif; letter-spacing: .13em; text-transform: uppercase; }
-      .profile-upload-form input, .profile-upload-form select, .profile-upload-form textarea { width: 100%; border: 1px solid rgba(255,255,255,.2); border-radius: 0; background: #090909; color: #fff; padding: 10px; font: 500 14px/1.25 system-ui, sans-serif; }
-      .profile-upload-wide, .profile-upload-actions { grid-column: 1 / -1; }
-      .profile-upload-preview { width: 100%; aspect-ratio: 7 / 5; border: 1px solid rgba(210,180,92,.55); background: #111; display: grid; place-items: center; overflow: hidden; color: rgba(255,255,255,.45); font: 900 10px/1 Oswald, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+      .profile-upload-copy h2 { margin: 10px 0 12px; color: #fff; font: 900 clamp(30px, 4vw, 48px)/.9 Oswald, sans-serif; letter-spacing: .02em; text-transform: uppercase; }
+      .profile-upload-copy p { margin: 0; color: rgba(255,255,255,.72); font: 400 15px/1.42 system-ui, sans-serif; }
+      .profile-upload-gate-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+      .profile-upload-gate-actions a { min-height:38px; display:inline-flex; align-items:center; justify-content:center; padding:0 16px; border:1px solid rgba(210,180,92,.85); color:#d2b45c; text-decoration:none; font:900 12px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+      .profile-upload-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; border: 1px solid rgba(210,180,92,.34); background: rgba(255,255,255,.04); }
+      .profile-upload-form label { display: grid; gap: 5px; color: rgba(255,255,255,.72); font: 900 10px/1 Oswald, sans-serif; letter-spacing: .13em; text-transform: uppercase; }
+      .profile-upload-form input, .profile-upload-form select, .profile-upload-form textarea { width: 100%; border: 1px solid rgba(255,255,255,.2); border-radius: 0; background: #090909; color: #fff; padding: 9px; font: 500 13px/1.25 system-ui, sans-serif; }
+      .profile-upload-wide, .profile-upload-actions, .profile-upload-privacy, .profile-upload-identity { grid-column: 1 / -1; }
+      .profile-upload-identity { display:flex; align-items:center; gap:9px; flex-wrap:wrap; padding:9px 10px; border:1px solid rgba(255,255,255,.16); background:rgba(0,0,0,.38); }
+      .profile-upload-identity span { color:rgba(255,255,255,.55); font:900 10px/1 Oswald,sans-serif; letter-spacing:.13em; text-transform:uppercase; }
+      .profile-upload-identity strong { color:#fff; font:900 15px/1 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; }
+      .profile-upload-identity em { color:rgba(255,255,255,.6); font:700 11px/1 system-ui,sans-serif; font-style:normal; }
+      .profile-upload-privacy { display:grid; gap:8px; margin:0; padding:10px; border:1px solid rgba(255,255,255,.16); }
+      .profile-upload-privacy legend { padding:0 5px; color:rgba(255,255,255,.72); font:900 10px/1 Oswald,sans-serif; letter-spacing:.13em; text-transform:uppercase; }
+      .profile-upload-privacy label { display:flex; align-items:center; gap:8px; color:rgba(255,255,255,.78); font:800 12px/1.2 system-ui,sans-serif; letter-spacing:0; text-transform:none; }
+      .profile-upload-privacy input { width:auto; }
+      .profile-upload-preview { width: 100%; aspect-ratio: 7 / 5; border: 1px solid rgba(210,180,92,.45); background: #111; display: grid; place-items: center; overflow: hidden; color: rgba(255,255,255,.45); font: 900 10px/1 Oswald, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
       .profile-upload-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .profile-upload-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-      .profile-upload-actions button { min-height: 40px; padding: 0 18px; border: 1px solid rgba(210,180,92,.85); border-radius: 0; background: rgba(210,180,92,.12); color: #d2b45c; font: 900 13px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+      .profile-upload-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(210,180,92,.85); border-radius: 0; background: rgba(210,180,92,.12); color: #d2b45c; font: 900 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
       .profile-upload-actions button:disabled { opacity: .55; }
-      .profile-upload-actions span { color: rgba(255,255,255,.72); font: 700 13px/1.35 system-ui, sans-serif; }
+      .profile-upload-actions span { color: rgba(255,255,255,.72); font: 700 12px/1.35 system-ui, sans-serif; }
 
       @media (max-width: 760px) {
         #playerFunZone {
@@ -363,7 +431,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
         }
         #playerFunZone .pp-fz-tab i { font-size: 31px !important; }
         #playerFunZone .pp-fz-tab span { font-size: 12px !important; }
-        .profile-upload-panel { grid-template-columns: 1fr; padding: 24px 18px 130px; }
+        .profile-upload-panel { grid-template-columns: 1fr; padding: 20px 14px 126px; }
         .profile-upload-form { grid-template-columns: 1fr; }
       }
     `}</style>
