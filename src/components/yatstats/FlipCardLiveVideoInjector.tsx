@@ -12,6 +12,7 @@ const LIVE_FEED = {
 };
 
 const FEATURED_PLAYER_NAMES = new Set(["shane anderson"]);
+const DRAG_STORAGE_KEY = "yat:liveVideoMiniPosition";
 
 function normalize(value: string) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -28,6 +29,10 @@ function shouldShowLiveVideo(displayName: string, teamName: string) {
   if (team.includes("grizzlies") && team.includes("gwinnett")) return true;
 
   return false;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function ensureStyles() {
@@ -61,6 +66,10 @@ function ensureStyles() {
       min-width: 190px;
       min-height: 108px;
       box-shadow: 0 14px 34px rgba(0,0,0,.62), 0 0 0 1px rgba(245,200,90,.45);
+    }
+    .fz-live-video-host.is-detached-player.is-user-positioned {
+      right: auto;
+      bottom: auto;
     }
     @media (max-width: 760px) {
       .fz-live-video-host.is-detached-player {
@@ -101,7 +110,11 @@ function ensureStyles() {
       border-bottom: 1px solid rgba(245,200,90,.35);
       background: linear-gradient(90deg, rgba(245,200,90,.18), rgba(245,200,90,.04));
       flex-shrink: 0;
+      touch-action: none;
+      user-select: none;
     }
+    .fz-live-video-host.is-detached-player .fz-live-video-head { cursor: grab; }
+    .fz-live-video-host.is-detached-player.is-dragging .fz-live-video-head { cursor: grabbing; }
     .fz-live-video-badge {
       color: #fff;
       background: #d71920;
@@ -204,6 +217,77 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
+function restoreSavedPosition(host: HTMLElement) {
+  try {
+    const raw = sessionStorage.getItem(DRAG_STORAGE_KEY);
+    if (!raw) return;
+    const pos = JSON.parse(raw) as { left?: number; top?: number };
+    if (typeof pos.left !== "number" || typeof pos.top !== "number") return;
+    const rect = host.getBoundingClientRect();
+    host.style.left = `${clamp(pos.left, 6, window.innerWidth - rect.width - 6)}px`;
+    host.style.top = `${clamp(pos.top, 6, window.innerHeight - rect.height - 6)}px`;
+    host.style.right = "auto";
+    host.style.bottom = "auto";
+    host.classList.add("is-user-positioned");
+  } catch {}
+}
+
+function makeDraggable(host: HTMLElement) {
+  const handle = host.querySelector(".fz-live-video-head") as HTMLElement | null;
+  if (!handle || host.dataset.draggableReady === "true") return;
+  host.dataset.draggableReady = "true";
+
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+  let dragging = false;
+
+  const onMove = (event: PointerEvent) => {
+    if (!dragging) return;
+    const rect = host.getBoundingClientRect();
+    const nextLeft = clamp(startLeft + event.clientX - startX, 6, window.innerWidth - rect.width - 6);
+    const nextTop = clamp(startTop + event.clientY - startY, 6, window.innerHeight - rect.height - 6);
+    host.style.left = `${nextLeft}px`;
+    host.style.top = `${nextTop}px`;
+    host.style.right = "auto";
+    host.style.bottom = "auto";
+    host.classList.add("is-user-positioned");
+  };
+
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    host.classList.remove("is-dragging");
+    const rect = host.getBoundingClientRect();
+    try {
+      sessionStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+    } catch {}
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (!host.classList.contains("is-detached-player")) return;
+    const rect = host.getBoundingClientRect();
+    startX = event.clientX;
+    startY = event.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    dragging = true;
+    host.classList.add("is-dragging", "is-user-positioned");
+    host.style.left = `${rect.left}px`;
+    host.style.top = `${rect.top}px`;
+    host.style.right = "auto";
+    host.style.bottom = "auto";
+    try { handle.setPointerCapture(event.pointerId); } catch {}
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+}
+
 export default function FlipCardLiveVideoInjector({
   displayName,
   teamName,
@@ -271,6 +355,8 @@ export default function FlipCardLiveVideoInjector({
       });
     }
 
+    makeDraggable(host);
+
     const syncVisibility = () => {
       const activeBtn = Array.from(card.querySelectorAll(".fz-tab-btn"))
         .find((btn) => btn.classList.contains("fz-tab-active"));
@@ -281,6 +367,10 @@ export default function FlipCardLiveVideoInjector({
       host?.classList.toggle("is-news-active", activeLabel === "news");
       host?.classList.toggle("is-mini-player", activeLabel !== "news" && isPlaying);
       host?.classList.toggle("is-detached-player", activeLabel !== "news" && isPlaying);
+
+      if (host?.classList.contains("is-detached-player")) {
+        restoreSavedPosition(host);
+      }
     };
 
     syncVisibility();
