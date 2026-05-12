@@ -118,7 +118,7 @@ export default async function PlayerLayout({
 
   return (
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
-      <ProfileFunZoneStabilizer />
+      <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
     </PlayerProfileContextProvider>
