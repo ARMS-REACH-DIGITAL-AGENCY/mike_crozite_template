@@ -9,7 +9,7 @@ const SCROLL_EVENT = 'yat:career-timeline-scroll';
 const ZOOM_EVENT = 'yat:career-timeline-zoom';
 const CARD_W = 52;
 const MOBILE_CARD_W = 46;
-const TIMELINE_GUTTER = 40;
+const TIMELINE_GUTTER = 34;
 
 type StatRow = { year?: string | number; age?: string | number; team?: string; level?: string; org_conf?: string; league?: string };
 type MomentKind = 'cta' | 'prompt' | 'season' | 'archive' | 'upload';
@@ -19,9 +19,9 @@ type SubmittedMoment = { id: string; title?: string; caption?: string; image_dat
 declare global { interface Window { __yatCareerTimelineSyncing?: boolean } }
 
 function readInitialZoom() {
-  if (typeof window === 'undefined') return 1;
+  if (typeof window === 'undefined') return 0.8;
   const saved = Number(sessionStorage.getItem(ZOOM_KEY));
-  return Number.isFinite(saved) ? saved : 1;
+  return Number.isFinite(saved) ? saved : 0.8;
 }
 
 function yearOf(value: unknown): number | null {
@@ -55,12 +55,21 @@ function normalizeLevel(value: unknown) {
 function TimelineImage({ src, title, kind }: { src?: string; title: string; kind: MomentKind }) {
   const [failed, setFailed] = useState(!src);
   useEffect(() => setFailed(!src), [src]);
-  if (kind === 'prompt') return <span className="zt-silhouette" aria-hidden="true"><i /></span>;
-  if (!src || failed) {
-    const icon = kind === 'season' ? 'ri-baseball-line' : 'ri-image-add-line';
-    return <span className="zt-empty" aria-hidden="true"><i className={icon} /><b>{kind === 'season' ? 'Season' : 'Memory'}</b></span>;
+  if (!src || failed || kind === 'prompt' || kind === 'season') {
+    return <span className="zt-empty" aria-hidden="true"><b>Add<br />Moment</b></span>;
   }
   return <img src={src} alt={title} loading="lazy" onError={() => setFailed(true)} />;
+}
+
+function inferFirstName(playerName?: string) {
+  const direct = String(playerName || '').trim();
+  if (direct) return direct.split(' ')[0];
+  if (typeof document !== 'undefined') {
+    const favorite = document.querySelector('button[aria-label*=" to favorites"]')?.getAttribute('aria-label') || '';
+    const match = favorite.match(/^Add\s+(.+?)\s+to favorites/i);
+    if (match?.[1]) return match[1].trim().split(' ')[0];
+  }
+  return 'this player';
 }
 
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
@@ -68,8 +77,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [stats, setStats] = useState<StatRow[]>([]);
   const [uploads, setUploads] = useState<SubmittedMoment[]>([]);
   const [zoom, setZoom] = useState(readInitialZoom);
+  const [fallbackFirstName, setFallbackFirstName] = useState('this player');
   const windowRef = useRef<HTMLDivElement | null>(null);
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
+
+  useEffect(() => {
+    const next = inferFirstName(player?.playerName);
+    setFallbackFirstName(next);
+  }, [player?.playerName]);
 
   useEffect(() => {
     const onZoom = (event: Event) => {
@@ -165,8 +180,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const promptYear = hsYear - 1;
     const end = Math.max(today, firstStatYear);
     const span = Math.max(1, end - promptYear);
-    const fullName = String(player?.playerName || '').trim();
-    const firstName = fullName ? fullName.split(' ')[0] : 'this player';
+    const firstName = inferFirstName(player?.playerName) || fallbackFirstName;
     const galleryReturnHref = player?.playerSchoolUrl
       ? `${player.playerSchoolUrl}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`
       : `#player-${encodeURIComponent(playerId)}`;
@@ -195,10 +209,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     ];
 
     return { promptYear, start: hsYear, canvasStart: promptYear, end, span, firstName, ticks: buildTicks(hsYear, end, zoom, promptYear), moments: [...prompts, ...archive, ...seasons, ...uploaded].sort((a, b) => a.year - b.year || Number(Boolean(a.cardMode)) - Number(Boolean(b.cardMode))) };
-  }, [stats, uploads, player?.playerName, player?.playerSchoolUrl, playerId, zoom]);
+  }, [stats, uploads, player?.playerName, player?.playerSchoolUrl, playerId, zoom, fallbackFirstName]);
 
-  const laneWidth = CARD_W * 1.02;
-  const width = Math.max(360, Math.round(model.span * laneWidth * zoom + TIMELINE_GUTTER * 2));
+  const laneWidth = CARD_W * zoom;
+  const width = Math.max(TIMELINE_GUTTER * 2 + CARD_W, Math.round(model.span * laneWidth + TIMELINE_GUTTER * 2));
   const usable = Math.max(1, width - TIMELINE_GUTTER * 2);
   const leftPx = (year: number) => TIMELINE_GUTTER + ((year - model.canvasStart) / model.span) * usable;
 
@@ -229,12 +243,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-canvas-images { position: relative; height: 100%; min-width: 100%; }
           .zt-img-moment { position: absolute; top: 4px; width: ${CARD_W}px; height: 76px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; }
           .zt-img-card { position: relative; z-index: 2; display: block; width: ${CARD_W}px; height: 76px; border: 1px solid rgba(245,200,90,.74); background: #111; overflow: hidden; box-shadow: 0 0 14px rgba(245,200,90,.16), 0 8px 18px rgba(0,0,0,.38); }
-          .zt-prompt .zt-img-card { border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.7), 0 0 18px rgba(245,200,90,.22); }
+          .zt-prompt .zt-img-card { border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.7), 0 0 18px rgba(245,200,90,.22); }
           .zt-img-connector { position: absolute; z-index: 1; left: 50%; top: 76px; width: 2px; height: calc(var(--row4-h, 48px) + 14px); transform: translateX(-50%); background: rgba(245,200,90,.95); box-shadow: 0 0 12px rgba(245,200,90,.34); pointer-events: none; }
           .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
-          .zt-img-card :global(.zt-empty), .zt-img-card :global(.zt-silhouette) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; color: rgba(245,200,90,.78); background: linear-gradient(135deg,#111,#050505); font-size: 15px; }
-          .zt-img-card :global(.zt-silhouette i) { width: 38px; height: 58px; display: block; background: rgba(255,255,255,.72); clip-path: polygon(48% 0, 64% 10%, 68% 25%, 86% 33%, 100% 45%, 73% 48%, 64% 62%, 84% 100%, 56% 100%, 45% 72%, 29% 100%, 5% 100%, 27% 58%, 16% 42%, 0 38%, 20% 28%, 30% 12%); }
-          .zt-img-card :global(.zt-empty b) { font: 900 7px/1 Oswald,sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+          .zt-img-card :global(.zt-empty) { height: 100%; display: grid; place-items: center; color: rgba(245,200,90,.82); background: linear-gradient(135deg,#151515,#050505); }
+          .zt-img-card :global(.zt-empty b) { font: 900 8px/1.15 Oswald,sans-serif; letter-spacing: .1em; text-transform: uppercase; text-align:center; }
           .zt-prompt-copy { position: absolute; left: 50%; top: calc(100% + 16px); width: 160px; transform: translateX(-50%); z-index: 5; text-align: left; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9); }
           .zt-prompt-copy b { display: block; font: 700 12px/1.08 system-ui, sans-serif; letter-spacing: .01em; text-transform: none; }
           .zt-prompt-copy strong { display: block; margin-top: 3px; font: 900 13px/1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
@@ -256,9 +269,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       </div>
       <style jsx>{`
         .zt-shell { position: relative; height: 100%; min-height: 52px; overflow: visible; isolation: isolate; background: linear-gradient(90deg,#101010,#050505); color: #fff; border-top: 0; }
-        .zt-controls { position:absolute; z-index:8; right:12px; top:5px; display:flex; gap:8px; align-items:center; color:rgba(255,255,255,.5); font:800 9px/1 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; opacity:.55; }
-        .zt-controls:hover { opacity:.95; }
-        .zt-controls input { width: 100px; accent-color:#f5c85a; opacity:.5; }
+        .zt-controls { position:absolute; z-index:8; right:12px; top:5px; display:flex; gap:8px; align-items:center; color:rgba(255,255,255,.36); font:800 9px/1 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; opacity:.32; }
+        .zt-controls:hover { opacity:.82; }
+        .zt-controls input { width: 100px; accent-color:#f5c85a; opacity:.35; }
         .zt-window { height:100%; overflow-x:auto; overflow-y:visible; padding-left:0; scrollbar-width:none; }
         .zt-window::-webkit-scrollbar { display:none; }
         .zt-canvas { position:relative; height:100%; min-width:100%; }
