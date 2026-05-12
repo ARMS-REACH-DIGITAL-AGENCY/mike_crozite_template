@@ -23,6 +23,49 @@ function clean(row: any) {
   );
 }
 
+function normalizeName(name: unknown) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9, ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function compactName(name: unknown) {
+  return normalizeName(name).replace(/[^a-z0-9]+/g, '');
+}
+
+function reversedCompactName(name: unknown) {
+  const normalized = normalizeName(name);
+  if (normalized.includes(',')) {
+    const [last, first] = normalized.split(',').map((part) => part.trim());
+    return compactName(`${first} ${last}`);
+  }
+  const parts = normalized.split(' ').filter(Boolean);
+  if (parts.length < 2) return compactName(normalized);
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  return compactName(`${last} ${first}`);
+}
+
+function rowMatchesExpectedPlayer(row: any, expectedPlayerName: string) {
+  const expected = compactName(expectedPlayerName);
+  if (!expected) return true;
+
+  const rawPlayerName = value(row, 'playername', 'player_name', 'name');
+  if (!rawPlayerName) return true;
+
+  const rowName = compactName(rawPlayerName);
+  const rowReversed = reversedCompactName(rawPlayerName);
+  return rowName === expected || rowReversed === expected;
+}
+
+function filterRowsToExpectedPlayer(rows: any[], expectedPlayerName: string) {
+  if (!expectedPlayerName) return rows;
+  return rows.filter((row) => rowMatchesExpectedPlayer(row, expectedPlayerName));
+}
+
 function battingRow(row: any) {
   const orgOrConference = value(row, 'current_org_or_conference_name');
   return clean({
@@ -164,16 +207,23 @@ async function readPlayerRows(tableName: string, playerId: string) {
 export async function GET(req: NextRequest) {
   try {
     const playerId = req.nextUrl.searchParams.get('playerId');
+    const expectedPlayerName = req.nextUrl.searchParams.get('playerName') || '';
+
     if (!playerId) {
       return NextResponse.json({ error: 'playerId is required' }, { status: 400 });
     }
 
-    const [battingRaw, batting2026, pitchingRaw, pitching2026] = await Promise.all([
+    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All] = await Promise.all([
       readPlayerRows(BATTING_TABLES[0], playerId),
       readPlayerRows(BATTING_TABLES[1], playerId),
       readPlayerRows(PITCHING_TABLES[0], playerId),
       readPlayerRows(PITCHING_TABLES[1], playerId),
     ]);
+
+    const battingRaw = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
+    const batting2026 = filterRowsToExpectedPlayer(batting2026All, expectedPlayerName);
+    const pitchingRaw = filterRowsToExpectedPlayer(pitchingRawAll, expectedPlayerName);
+    const pitching2026 = filterRowsToExpectedPlayer(pitching2026All, expectedPlayerName);
 
     const batting = dedupe([...battingRaw, ...batting2026].map(battingRow)).sort(byYearThenTeam);
     const pitching = dedupe([...pitchingRaw, ...pitching2026].map(pitchingRow)).sort(byYearThenTeam);
@@ -184,12 +234,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       playerId,
+      expectedPlayerName,
       primaryType,
       counts: {
         battingHistorical: battingRaw.length,
         batting2026: batting2026.length,
         pitchingHistorical: pitchingRaw.length,
         pitching2026: pitching2026.length,
+        filteredOutNameMismatches:
+          (battingRawAll.length - battingRaw.length) +
+          (batting2026All.length - batting2026.length) +
+          (pitchingRawAll.length - pitchingRaw.length) +
+          (pitching2026All.length - pitching2026.length),
       },
       batting,
       pitching,
