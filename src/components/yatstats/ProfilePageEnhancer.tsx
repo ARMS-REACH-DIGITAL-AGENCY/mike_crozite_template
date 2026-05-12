@@ -27,55 +27,37 @@ function esc(value: unknown) {
     .replaceAll("'", '&#39;');
 }
 
-function yearOf(value: unknown): number | null {
-  const match = String(value ?? '').match(/\d{4}/);
-  const year = match ? Number(match[0]) : NaN;
-  return Number.isFinite(year) ? year : null;
-}
-
-function estimateBirthYear(meta: ProfileMeta) {
-  const currentYear = new Date().getFullYear();
-  const classYear = yearOf(meta.classOf);
-  if (classYear) return classYear - 18;
-  return currentYear - 24;
-}
-
-function buildYearTicks(start: number, end: number) {
-  const span = Math.max(1, end - start);
-  const step = span > 34 ? 5 : span > 18 ? 4 : span > 12 ? 3 : 2;
-  const ticks: number[] = [start];
-  for (let y = Math.ceil((start + 1) / step) * step; y < end; y += step) ticks.push(y);
-  ticks.push(end);
-  return Array.from(new Set(ticks)).sort((a, b) => a - b);
-}
-
 function fallbackReturnUrl(meta: ProfileMeta) {
   return `/${encodeURIComponent(meta.hsid)}?view=active&player=${encodeURIComponent(meta.playerId)}#player-${encodeURIComponent(meta.playerId)}`;
 }
 
-function buildTimeline(meta: ProfileMeta) {
-  const primary = [meta.currentTeamName, meta.levelLabel, meta.statusLabel].filter(Boolean).join(' · ');
-  const secondary = [meta.position, meta.batsThrows, meta.heightWeight || meta.classOf].filter(Boolean).join(' · ');
-  const currentYear = new Date().getFullYear();
-  const birthYear = estimateBirthYear(meta);
-  const ticks = buildYearTicks(birthYear, currentYear);
+function buildProfileMetaStrip(meta: ProfileMeta) {
+  const chips = [
+    { label: 'TEAM', value: meta.currentTeamName },
+    { label: 'LEVEL', value: meta.levelLabel },
+    { label: 'STATUS', value: meta.statusLabel },
+    { label: 'POS', value: meta.position },
+    { label: 'B/T', value: meta.batsThrows },
+    { label: 'H/W', value: meta.heightWeight },
+    { label: 'CLASS', value: meta.classOf },
+  ].filter((chip) => chip.value);
 
   return `
-    <div class="gl-row4" aria-label="Golden Line calendar timeline">
-      <div class="gl-row4-bio" aria-label="Player bio snapshot">
-        <span class="gl-bio-main">${esc(primary || 'Career Snapshot')}</span>
-        <span class="gl-bio-sub">${esc(secondary || 'Golden Line')}</span>
+    <section class="yp-meta-strip" aria-label="Player profile metadata">
+      <div class="yp-meta-primary">
+        <span class="yp-meta-eyebrow">${esc(meta.teamAffiliationStatus || 'PLAYER SNAPSHOT')}</span>
+        <strong>${esc(meta.currentTeamName || 'Team pending')}</strong>
+        <em>${esc([meta.position, meta.batsThrows, meta.heightWeight].filter(Boolean).join(' · ') || 'Player details')}</em>
       </div>
-      <div class="gl-row4-scroll" aria-label="Calendar year markers from estimated birth year to today">
-        <div class="gl-row4-line" aria-hidden="true"></div>
-        ${ticks.map((year, idx) => `
-          <button class="gl-row4-tick gl-row4-tick-${idx}" type="button" data-gl-stage="Fan Memory" data-gl-year="${year}">
-            <span class="gl-row4-pin"></span>
-            <span class="gl-row4-label">${idx === 0 ? 'DOB' : year === currentYear ? 'TODAY' : String(year)}</span>
-          </button>
+      <div class="yp-meta-chips">
+        ${chips.map((chip) => `
+          <span class="yp-meta-chip">
+            <b>${esc(chip.value)}</b>
+            <small>${esc(chip.label)}</small>
+          </span>
         `).join('')}
       </div>
-    </div>
+    </section>
   `;
 }
 
@@ -183,10 +165,10 @@ function forceProfileTabsAboveFooter() {
 
 export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
   useEffect(() => {
-    const row4 = document.querySelector('.yat-row4-shell') as HTMLElement | null;
-    if (row4) {
-      row4.innerHTML = buildTimeline(meta);
-      row4.classList.add('yat-row4-profile-populated', 'yat-row4-golden-line');
+    const row3Host = document.querySelector('.yat-profile-meta-row-host') as HTMLElement | null;
+    if (row3Host) {
+      row3Host.innerHTML = buildProfileMetaStrip(meta);
+      row3Host.classList.add('yat-profile-meta-row-host-populated');
     }
 
     const returnUrl = (() => {
@@ -212,18 +194,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       } catch {}
       const select = document.querySelector('#goldenLineStageSelect') as HTMLSelectElement | null;
       if (select) select.value = stage;
-    };
-
-    const handleTimelineClick = (event: Event) => {
-      const target = event.target as HTMLElement | null;
-      const button = target?.closest?.('[data-gl-stage]') as HTMLElement | null;
-      if (!button) return;
-      const stage = button.getAttribute('data-gl-stage') || 'Fan Memory';
-      const year = button.getAttribute('data-gl-year') || '';
-      setUploadStage(stage);
-      const dateInput = document.querySelector('input[name="photoTakenDate"]') as HTMLInputElement | null;
-      if (dateInput && year) dateInput.value = `${year}-01-01`;
-      window.dispatchEvent(new CustomEvent('yat:golden-line-scroll-stage', { detail: { stage, year } }));
     };
 
     const handleStageEvent = () => {
@@ -297,7 +267,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     const observer = new MutationObserver(applyChrome);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
-    document.addEventListener('click', handleTimelineClick);
     document.addEventListener('click', handleTabClick, true);
     document.addEventListener('change', handlePreview);
     document.addEventListener('submit', handleSubmit);
@@ -312,7 +281,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
     return () => {
       observer.disconnect();
-      document.removeEventListener('click', handleTimelineClick);
       document.removeEventListener('click', handleTabClick, true);
       document.removeEventListener('change', handlePreview);
       document.removeEventListener('submit', handleSubmit);
@@ -325,21 +293,23 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
-      :root { --row3-h: 86px; --row4-h: 52px; --profile-tabs-h: 68px; }
+      :root { --row3-h: 92px; --row4-h: 96px; --profile-tabs-h: 68px; }
       body { padding-bottom: calc(var(--footerH) + var(--profile-tabs-h) + env(safe-area-inset-bottom, 0px)) !important; }
       .yat-row3-shell { min-height: var(--row3-h) !important; }
-      .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
-      .yat-row4-profile-populated { display: flex; align-items: stretch; padding: 0 !important; min-height: var(--row4-h); }
-      .gl-row4 { width: 100%; height: var(--row4-h); display: grid; grid-template-columns: minmax(188px, 260px) minmax(0, 1fr); align-items: stretch; background: #090909; border-top: 1px solid rgba(245,200,90,.22); border-bottom: 1px solid rgba(255,255,255,.08); }
-      .gl-row4-bio { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 6px 12px; border-right: 1px solid rgba(255,255,255,.1); text-transform: uppercase; background: linear-gradient(90deg, rgba(245,200,90,.05), transparent); }
-      .gl-bio-main { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#f4f4f4; font:800 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing:.05em; }
-      .gl-bio-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.68); font:700 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
-      .gl-row4-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; display: flex; align-items: center; gap: 0; padding: 0 18px; }
-      .gl-row4-scroll::-webkit-scrollbar { display: none; }
-      .gl-row4-line { position: absolute; left: 18px; right: 18px; top: 20px; height: 2px; background: linear-gradient(90deg, rgba(245,200,90,.1), #f5c85a, rgba(245,200,90,.1)); box-shadow: 0 0 14px rgba(245,200,90,.38); }
-      .gl-row4-tick { position: relative; z-index: 1; height: 100%; min-width: 94px; border: 0; background: transparent; color: #f5c85a; cursor: pointer; display: grid; place-items: start center; padding-top: 11px; text-transform: uppercase; }
-      .gl-row4-pin { display: block; width: 9px; height: 9px; background: #f5c85a; border: 2px solid #0b0b0b; box-shadow: 0 0 13px rgba(245,200,90,.75); }
-      .gl-row4-label { margin-top: 6px; color: rgba(255,255,255,.9); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .1em; }
+      .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip, .yat-profile-meta-row-host { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
+      .yat-row4-shell { min-height: var(--row4-h) !important; }
+      .yat-row4-shell #playerCareerStrip { min-height: var(--row4-h) !important; height: var(--row4-h) !important; }
+      .yat-profile-meta-row-host { width: 100%; display: block; background: linear-gradient(90deg, #090909, #111 42%, #050505); border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(245,200,90,.22); overflow: hidden; }
+      .yp-meta-strip { width: 100%; height: 100%; display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); align-items: stretch; color: #fff; text-transform: uppercase; }
+      .yp-meta-primary { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 14px; border-right: 1px solid rgba(255,255,255,.1); background: linear-gradient(90deg, rgba(245,200,90,.08), transparent); }
+      .yp-meta-eyebrow { color: #f5c85a; font: 900 9px/1 Oswald, sans-serif; letter-spacing: .16em; }
+      .yp-meta-primary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font: 900 17px/1 Oswald, sans-serif; letter-spacing: .04em; }
+      .yp-meta-primary em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.7); font: 800 9px/1 Oswald, sans-serif; letter-spacing: .1em; font-style: normal; }
+      .yp-meta-chips { min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(86px, 1fr); overflow-x: auto; scrollbar-width: none; }
+      .yp-meta-chips::-webkit-scrollbar { display: none; }
+      .yp-meta-chip { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border-right: 1px solid rgba(255,255,255,.09); }
+      .yp-meta-chip b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font: 900 15px/1 Oswald, sans-serif; letter-spacing: .04em; }
+      .yp-meta-chip small { color: rgba(245,200,90,.86); font: 900 8px/1 Oswald, sans-serif; letter-spacing: .14em; }
 
       .pp-fz-tabs-shell {
         position: fixed !important;
@@ -378,15 +348,14 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
       @media (max-width: 760px) {
-        :root { --row3-h: 80px; --row4-h: 52px; --profile-tabs-h: 72px; }
+        :root { --row3-h: 72px; --row4-h: 104px; --profile-tabs-h: 72px; }
         .yat-row4-shell { position: sticky !important; top: calc(var(--row1-h) + var(--row2-h) + var(--row3-h)) !important; z-index: 1000 !important; }
-        .gl-row4 { grid-template-columns: 118px minmax(0, 1fr); }
-        .gl-row4-bio { padding: 5px 8px; gap: 4px; }
-        .gl-bio-main { font-size: 13px; }
-        .gl-bio-sub { font-size: 8px; }
-        .gl-row4-scroll { padding: 0 12px; }
-        .gl-row4-line { left: 12px; right: 12px; }
-        .gl-row4-tick { min-width: 78px; }
+        .yp-meta-strip { grid-template-columns: 128px minmax(0, 1fr); }
+        .yp-meta-primary { padding: 6px 8px; }
+        .yp-meta-primary strong { font-size: 13px; }
+        .yp-meta-primary em { font-size: 8px; }
+        .yp-meta-chips { grid-auto-columns: minmax(76px, 1fr); }
+        .yp-meta-chip b { font-size: 13px; }
         .glu-panel { grid-template-columns: 1fr; padding-top: 16px; padding-bottom: calc(var(--profile-tabs-h) + 24px); }
         .glu-form { grid-template-columns: 1fr; }
       }
