@@ -65,41 +65,28 @@ function buildUploadPanel(meta: ProfileMeta) {
     </div>`;
 }
 
-function buildInfluencePanel(meta: ProfileMeta) {
-  const firstName = String(meta.displayName || 'this player').split(' ')[0] || 'this player';
-  return `
-    <div id="ppTab-influence" class="pp-fz-panel">
-      <div class="pp-fz-placeholder pp-influence-panel">
-        <i class="ri-megaphone-line pp-ph-icon" aria-hidden="true"></i>
-        <p><strong>Influence</strong> tools for ${esc(firstName)} will appear here.</p>
-        <p class="pp-fz-small">Future YAT?STATS influence actions can include sharing, sponsor engagement, fan rewards, profile boosts, and Yadaboy activity.</p>
-      </div>
-    </div>`;
-}
-
-function ensureInfluenceTab(meta: ProfileMeta) {
+function repairUploadTab() {
   const tabs = document.querySelector('.pp-fz-tabs') as HTMLElement | null;
-  const tabsShell = document.querySelector('.pp-fz-tabs-shell') as HTMLElement | null;
-  const funzone = document.querySelector('#playerFunZone') as HTMLElement | null;
+  const influencePanel = document.querySelector('#ppTab-influence');
+  influencePanel?.remove();
 
-  if (funzone && !document.querySelector('#ppTab-influence')) {
-    const uploadPanel = document.querySelector('#ppTab-upload');
-    if (uploadPanel) uploadPanel.insertAdjacentHTML('beforebegin', buildInfluencePanel(meta));
-    else if (tabsShell) tabsShell.insertAdjacentHTML('beforebegin', buildInfluencePanel(meta));
-    else funzone.insertAdjacentHTML('beforeend', buildInfluencePanel(meta));
+  if (!tabs) return;
+
+  const influenceTab = tabs.querySelector<HTMLAnchorElement>('a[href="#ppTab-influence"]');
+  if (influenceTab) {
+    influenceTab.href = '#ppTab-upload';
+    influenceTab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Upload</span>';
   }
 
-  if (tabs) {
-    const uploadTab = tabs.querySelector<HTMLAnchorElement>('a[href="#ppTab-upload"]');
-    if (uploadTab) {
-      uploadTab.href = '#ppTab-influence';
-      uploadTab.innerHTML = '<i class="ri-megaphone-line" aria-hidden="true"></i><span>Influence</span>';
-    }
+  const uploadTab = tabs.querySelector<HTMLAnchorElement>('a[href="#ppTab-upload"]');
+  if (uploadTab) {
+    uploadTab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Upload</span>';
   }
 }
 
 function activeFunZoneHash(preferred?: string) {
-  const candidate = preferred?.startsWith('#ppTab-') ? preferred : window.location.hash;
+  const raw = preferred?.startsWith('#ppTab-') ? preferred : window.location.hash;
+  const candidate = raw === '#ppTab-influence' ? '#ppTab-upload' : raw;
   if (candidate?.startsWith('#ppTab-') && document.querySelector(candidate)) return candidate;
   const active = document.querySelector<HTMLAnchorElement>('.pp-fz-tab-active[href^="#ppTab-"]')?.getAttribute('href');
   if (active && document.querySelector(active)) return active;
@@ -109,6 +96,7 @@ function activeFunZoneHash(preferred?: string) {
 }
 
 function activateFunZonePanel(preferred?: string) {
+  repairUploadTab();
   const hash = activeFunZoneHash(preferred);
   document.querySelectorAll<HTMLElement>('#playerFunZone > .pp-fz-panel, .pp-funzone > .pp-fz-panel, .pp-fz-panel').forEach((panel) => {
     const isActive = `#${panel.id}` === hash;
@@ -189,7 +177,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       link.setAttribute('data-return-to-flip-card', 'true');
     });
 
-    ensureInfluenceTab(meta);
+    repairUploadTab();
     const uploadPanel = document.querySelector('#ppTab-upload') as HTMLElement | null;
     if (uploadPanel) uploadPanel.innerHTML = buildUploadPanel(meta);
 
@@ -214,8 +202,9 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       if (!hash.startsWith('#ppTab-')) return;
       event.preventDefault();
       event.stopPropagation();
-      history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-      activateFunZonePanel(hash);
+      const cleanHash = hash === '#ppTab-influence' ? '#ppTab-upload' : hash;
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}${cleanHash}`);
+      activateFunZonePanel(cleanHash);
     };
     const handleHashChange = () => activateFunZonePanel(window.location.hash);
     const handlePreview = (event: Event) => {
@@ -263,7 +252,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     };
 
     const observer = new MutationObserver(() => {
-      ensureInfluenceTab(meta);
+      repairUploadTab();
       activateFunZonePanel(window.location.hash);
     });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -275,9 +264,9 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     window.addEventListener('yat:golden-line-prefill', handlePrefillEvent);
     handleStageEvent();
     activateFunZonePanel(window.location.hash);
-    window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 50);
-    window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 250);
-    window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 1000);
+    window.setTimeout(() => activateFunZonePanel(window.location.hash), 50);
+    window.setTimeout(() => activateFunZonePanel(window.location.hash), 250);
+    window.setTimeout(() => activateFunZonePanel(window.location.hash), 1000);
     return () => {
       observer.disconnect();
       document.removeEventListener('click', handleTabClick, true);
@@ -291,6 +280,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
+      #ppTab-influence { display: none !important; visibility: hidden !important; }
       #playerFunZone { position: relative !important; overflow: hidden !important; }
       #playerFunZone > .pp-fz-panel,
       .pp-funzone > .pp-fz-panel,
@@ -300,14 +290,18 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .pp-fz-panel.pp-fz-panel-active { display: block !important; visibility: visible !important; }
       .pp-fz-panel-active { overflow: auto !important; }
       .pp-fz-tabs-shell { position: sticky !important; bottom: 0 !important; z-index: 30 !important; }
-      .pp-fz-tab { pointer-events: auto; }
-      .pp-fz-small { margin-top: 6px; font-size: 12px; opacity: .72; }
+      .pp-fz-tab { pointer-events: auto; position: relative; }
+      .pp-fz-tab::before, .pp-fz-tab::after, .pp-fz-tab-default::before, .pp-fz-tab-default::after { opacity: 0 !important; transform: none !important; }
+      .pp-fz-tab.pp-fz-tab-active::after { content: '' !important; opacity: 1 !important; position: absolute !important; left: 20% !important; right: 20% !important; top: 0 !important; height: 3px !important; background: #d9b75b !important; display: block !important; }
       .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
       .yp-meta-team { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fff; font:900 16px/1 Oswald, sans-serif; letter-spacing:.04em; }
       .yp-meta-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.72); font:800 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
-      .yat-profile-career-strip, .yat-profile-career-strip * { box-sizing: border-box; }
-      .yat-profile-career-strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .yat-profile-career-strip [class*="image"], .yat-profile-career-strip [class*="photo"] { overflow: hidden; }
+      .yat-row3-shell, .yat-profile-career-strip, .yat-profile-career-strip * { box-sizing: border-box; }
+      .yat-profile-career-strip img, .yat-row3-shell img { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }
+      .yat-profile-career-strip [class*="image"], .yat-profile-career-strip [class*="photo"], .yat-profile-career-strip [class*="tile"], .yat-profile-career-strip [class*="card"] { padding: 0 !important; margin: 0 !important; border: 0 !important; outline: 0 !important; overflow: hidden !important; }
+      .yat-profile-career-strip [class*="image"] *, .yat-profile-career-strip [class*="photo"] *, .yat-profile-career-strip [class*="tile"] *, .yat-profile-career-strip [class*="card"] * { box-sizing: border-box; }
+      .yat-row4-shell, .yat-row4-shell #playerCareerStrip { min-height: 48px; }
+      .yat-row4-shell #playerCareerStrip:empty::before { content: ''; display: block; height: 2px; margin: 23px 0 0; background: linear-gradient(90deg, rgba(217,183,91,.15), rgba(217,183,91,.9), rgba(217,183,91,.15)); }
       .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
       .glu-kicker { color: #f5c85a; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
