@@ -12,6 +12,8 @@ const TAB_IDS = [
 ];
 
 const STAGES = ['Youth Baseball', 'Middle School', 'High School', 'College', 'Minor Leagues', 'Major Leagues', 'Fan Memory'];
+const CLIENT_UPLOAD_TARGET_BYTES = 700_000;
+const CLIENT_UPLOAD_MAX_SIDE = 1280;
 
 function esc(value: unknown) {
   return String(value ?? '')
@@ -92,6 +94,79 @@ function activate(hashValue?: string | null) {
   }
 }
 
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Unable to read selected image.'));
+    };
+    img.src = url;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Unable to compress selected image.'));
+    }, 'image/jpeg', quality);
+  });
+}
+
+async function prepareUploadFile(file: File) {
+  if (!file.type.startsWith('image/')) throw new Error('Only image uploads are supported.');
+
+  const img = await loadImage(file);
+  let maxSide = CLIENT_UPLOAD_MAX_SIDE;
+  let quality = 0.78;
+  let bestBlob: Blob | null = null;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+    const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Unable to prepare selected image.');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await canvasToBlob(canvas, quality);
+    bestBlob = blob;
+    if (blob.size <= CLIENT_UPLOAD_TARGET_BYTES) break;
+    maxSide = Math.max(640, Math.round(maxSide * 0.78));
+    quality = Math.max(0.42, quality - 0.1);
+  }
+
+  if (!bestBlob) throw new Error('Unable to prepare selected image.');
+  if (bestBlob.size > CLIENT_UPLOAD_TARGET_BYTES * 1.35) {
+    throw new Error('That photo is too large to upload from the browser. Please choose a smaller image or screenshot.');
+  }
+
+  const cleanName = file.name.replace(/\.[^.]+$/, '') || 'golden-line-memory';
+  return new File([bestBlob], `${cleanName}.jpg`, { type: 'image/jpeg' });
+}
+
+async function parseApiResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    const trimmed = text.trim();
+    if (/request entity too large|payload too large|body exceeded|function_payload_too_large/i.test(trimmed)) {
+      throw new Error('That photo is still too large after compression. Please choose a smaller image or screenshot.');
+    }
+    throw new Error(trimmed ? `Upload failed: ${trimmed.slice(0, 180)}` : 'Upload failed.');
+  }
+}
+
 export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }: { playerId: string; hsid: string; playerName: string }) {
   useEffect(() => {
     ensureUploadForm(playerName);
@@ -130,22 +205,26 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       const status = document.getElementById('goldenLineUploadStatus');
       const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
       const formData = new FormData(form);
-      formData.set('playerId', playerId);
-      formData.set('hsid', hsid);
-      formData.set('playerName', playerName || '');
-      formData.set('pageUrl', window.location.href);
+      const selectedPhoto = formData.get('photo');
       if (button) button.disabled = true;
-      if (status) status.textContent = 'Uploading memory...';
       try {
+        if (!(selectedPhoto instanceof File) || selectedPhoto.size === 0) throw new Error('Please choose a photo before submitting.');
+        if (status) status.textContent = 'Optimizing photo for upload...';
+        const preparedPhoto = await prepareUploadFile(selectedPhoto);
+        formData.set('photo', preparedPhoto);
+        formData.set('playerId', playerId);
+        formData.set('hsid', hsid);
+        formData.set('playerName', playerName || '');
+        formData.set('pageUrl', window.location.href);
+        if (status) status.textContent = 'Uploading memory...';
         const res = await fetch('/api/player-moments', { method: 'POST', body: formData });
-        const text = await res.text();
-        let data: any = {};
-        try { data = text ? JSON.parse(text) : {}; } catch { throw new Error(text.slice(0, 180) || 'Upload failed.'); }
+        const data = await parseApiResponse(res);
         if (!res.ok) throw new Error(data?.error || 'Upload failed.');
         if (status) status.textContent = 'Uploaded. It is pending review.';
         form.reset();
         const preview = document.getElementById('goldenLinePreview');
         if (preview) preview.innerHTML = '<span>Selected photo preview</span>';
+        window.dispatchEvent(new CustomEvent('yat:golden-line-uploaded', { detail: data?.moment }));
       } catch (error: any) {
         if (status) status.textContent = error?.message || 'Upload failed.';
       } finally {
