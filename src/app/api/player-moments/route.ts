@@ -1,13 +1,15 @@
 // src/app/api/player-moments/route.ts
 // Golden Line fan-photo submission endpoint.
-// Saves pending submissions in Postgres, creates/updates a HighLevel contact,
-// tags the contact, and optionally fires a GHL workflow webhook.
+// Saves pending submissions in Postgres, uploads images to S3 when configured,
+// creates/updates a HighLevel contact, tags the contact, and optionally fires a GHL workflow webhook.
 
 import { NextRequest, NextResponse } from "next/server";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { query } from "@/lib/db";
 import { addTagToGHLContact, findOrCreateGhlContact } from "@/lib/gohighlevel";
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const DEFAULT_S3_REGION = "us-west-2";
 
 type YatSession = {
   uid?: string;
@@ -21,6 +23,50 @@ type YatSession = {
   homeHsid?: string | null;
   homeSchoolName?: string | null;
 };
+
+type StoredImage = {
+  imageUrl: string | null;
+  imageS3Key: string | null;
+  imageDataUrl: string | null;
+};
+
+let cachedS3Client: S3Client | null = null;
+
+function getS3Bucket() {
+  return process.env.YATSTATS_UPLOADS_S3_BUCKET || process.env.AWS_S3_BUCKET || process.env.S3_BUCKET_NAME || "";
+}
+
+function getS3Region() {
+  return process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || DEFAULT_S3_REGION;
+}
+
+function getAssetBaseUrl(bucket: string, region: string) {
+  return (process.env.YATSTATS_UPLOADS_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_YATSTATS_ASSET_BASE_URL || `https://${bucket}.s3.${region}.amazonaws.com`).replace(/\/$/, "");
+}
+
+function getS3Client() {
+  if (cachedS3Client) return cachedS3Client;
+  const region = getS3Region();
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+  cachedS3Client = new S3Client({
+    region,
+    credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined,
+  });
+  return cachedS3Client;
+}
+
+function extensionFromMime(mimeType: string) {
+  if (mimeType.includes("png")) return "png";
+  if (mimeType.includes("webp")) return "webp";
+  if (mimeType.includes("gif")) return "gif";
+  return "jpg";
+}
+
+function safePathPart(value: string) {
+  return String(value || "unknown").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "unknown";
+}
 
 async function ensureTable() {
   await query(`
@@ -56,6 +102,8 @@ async function ensureTable() {
       add column if not exists sort_date date,
       add column if not exists visibility text not null default 'public',
       add column if not exists is_private boolean not null default false,
+      add column if not exists image_url text,
+      add column if not exists image_s3_key text,
       add column if not exists ghl_contact_id text,
       add column if not exists arms_sync_status text not null default 'not_sent',
       add column if not exists arms_sync_error text,
@@ -129,6 +177,47 @@ function safeTag(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9:_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
+async function storeImage(file: File, options: { playerId: string; hsid: string; contributorUid: string; photoTakenYear: number | null }): Promise<StoredImage> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const bucket = getS3Bucket();
+
+  if (!bucket) {
+    return {
+      imageUrl: null,
+      imageS3Key: null,
+      imageDataUrl: `data:${file.type};base64,${buffer.toString("base64")}`,
+    };
+  }
+
+  const region = getS3Region();
+  const ext = extensionFromMime(file.type);
+  const now = new Date();
+  const stamp = now.toISOString().replace(/[^0-9]/g, "").slice(0, 14);
+  const random = Math.random().toString(36).slice(2, 10);
+  const year = options.photoTakenYear ? String(options.photoTakenYear) : "undated";
+  const key = [
+    "player-moments",
+    safePathPart(options.hsid || "unknown-school"),
+    safePathPart(options.playerId),
+    year,
+    `${stamp}-${safePathPart(options.contributorUid)}-${random}.${ext}`,
+  ].join("/");
+
+  await getS3Client().send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: buffer,
+    ContentType: file.type,
+    CacheControl: "public, max-age=31536000, immutable",
+  }));
+
+  return {
+    imageUrl: `${getAssetBaseUrl(bucket, region)}/${key}`,
+    imageS3Key: key,
+    imageDataUrl: null,
+  };
+}
+
 async function postToArmsWebhook(payload: Record<string, unknown>) {
   const webhookUrl = process.env.GHL_GOLDEN_LINE_WEBHOOK_URL || process.env.ARMS_GOLDEN_LINE_WEBHOOK_URL;
   if (!webhookUrl) return { status: "skipped", error: "No GHL_GOLDEN_LINE_WEBHOOK_URL configured" };
@@ -168,6 +257,7 @@ async function syncSubmissionToArms(moment: any) {
     ]);
   }
 
+  const imageUrl = moment.image_url || moment.image_data_url || null;
   const webhookResult = await postToArmsWebhook({
     event: "golden_line_memory_submitted",
     source: "YAT?STATS Player Profile",
@@ -193,8 +283,10 @@ async function syncSubmissionToArms(moment: any) {
     relationship: moment.relationship,
     status: moment.status,
     pageUrl: moment.page_url,
+    imageUrl,
+    imageS3Key: moment.image_s3_key,
     imageMimeType: moment.image_mime_type,
-    hasImage: Boolean(moment.image_data_url),
+    hasImage: Boolean(imageUrl),
     ghlContactId,
     createdAt: moment.created_at,
   });
@@ -225,6 +317,8 @@ const returningSql = `
   sort_date,
   visibility,
   is_private,
+  image_url,
+  image_s3_key,
   image_data_url,
   image_mime_type,
   status,
@@ -300,8 +394,13 @@ export async function POST(req: NextRequest) {
     if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Only image uploads are supported" }, { status: 400 });
     if (file.size > MAX_UPLOAD_BYTES) return NextResponse.json({ error: "Image must be 4MB or smaller for this test uploader" }, { status: 413 });
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+    let storedImage: StoredImage;
+    try {
+      storedImage = await storeImage(file, { playerId, hsid, contributorUid: contributorFirebaseUid, photoTakenYear });
+    } catch (s3Error: any) {
+      console.error("Golden Line S3 upload failed:", s3Error);
+      return NextResponse.json({ error: `Image storage failed: ${String(s3Error?.message || s3Error).slice(0, 220)}` }, { status: 500 });
+    }
 
     const { rows } = await query(
       `insert into public.player_moment_submissions (
@@ -309,15 +408,15 @@ export async function POST(req: NextRequest) {
         contributor_name, contributor_email, contributor_phone, contributor_firebase_uid, contributor_role, contributor_plan,
         contributor_home_hsid, contributor_home_school_name, relationship,
         player_name, page_url, photo_taken_date, photo_taken_year, sort_date,
-        visibility, is_private, image_data_url, image_mime_type, status, ghl_contact_id, arms_sync_status
-      ) values ($1,$2,$3,$4,$5,$6,$7,null,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'pending',$23,'queued')
+        visibility, is_private, image_url, image_s3_key, image_data_url, image_mime_type, status, ghl_contact_id, arms_sync_status
+      ) values ($1,$2,$3,$4,$5,$6,$7,null,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,'pending',$25,'queued')
       returning ${returningSql}`,
       [
         playerId, hsid || null, stage, title, caption,
         contributorName, contributorEmail || null, contributorFirebaseUid, contributorRole, contributorPlan,
         contributorHomeHsid || null, contributorHomeSchoolName || null, relationship,
         playerName || null, pageUrl || null, photoTakenDate, photoTakenYear, sortDate,
-        visibility, isPrivate, imageDataUrl, file.type, session.contactId || null,
+        visibility, isPrivate, storedImage.imageUrl, storedImage.imageS3Key, storedImage.imageDataUrl, file.type, session.contactId || null,
       ]
     );
 
