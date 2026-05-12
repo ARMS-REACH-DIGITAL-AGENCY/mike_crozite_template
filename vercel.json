@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/tbc-safe-ingest",
       "schedule": "5 * * * *"
+    },
+    {
+      "path": "/api/cron/alpb-stats-ingest",
+      "schedule": "25 9 * * *"
     }
   ]
 }
