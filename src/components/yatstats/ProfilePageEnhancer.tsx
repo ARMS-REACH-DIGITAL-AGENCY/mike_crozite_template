@@ -32,31 +32,13 @@ function fallbackReturnUrl(meta: ProfileMeta) {
 }
 
 function buildProfileMetaStrip(meta: ProfileMeta) {
-  const chips = [
-    { label: 'TEAM', value: meta.currentTeamName },
-    { label: 'LEVEL', value: meta.levelLabel },
-    { label: 'STATUS', value: meta.statusLabel },
-    { label: 'POS', value: meta.position },
-    { label: 'B/T', value: meta.batsThrows },
-    { label: 'H/W', value: meta.heightWeight },
-    { label: 'CLASS', value: meta.classOf },
-  ].filter((chip) => chip.value);
+  const top = meta.currentTeamName || 'Team pending';
+  const bottom = [meta.position, meta.batsThrows, meta.heightWeight].filter(Boolean).join(' · ') || [meta.levelLabel, meta.statusLabel].filter(Boolean).join(' · ');
 
   return `
     <section class="yp-meta-strip" aria-label="Player profile metadata">
-      <div class="yp-meta-primary">
-        <span class="yp-meta-eyebrow">${esc(meta.teamAffiliationStatus || 'PLAYER SNAPSHOT')}</span>
-        <strong>${esc(meta.currentTeamName || 'Team pending')}</strong>
-        <em>${esc([meta.position, meta.batsThrows, meta.heightWeight].filter(Boolean).join(' · ') || 'Player details')}</em>
-      </div>
-      <div class="yp-meta-chips">
-        ${chips.map((chip) => `
-          <span class="yp-meta-chip">
-            <b>${esc(chip.value)}</b>
-            <small>${esc(chip.label)}</small>
-          </span>
-        `).join('')}
-      </div>
+      <span class="yp-meta-team">${esc(top)}</span>
+      <span class="yp-meta-sub">${esc(bottom || 'Player details')}</span>
     </section>
   `;
 }
@@ -187,15 +169,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     const uploadPanel = document.querySelector('#ppTab-upload') as HTMLElement | null;
     if (uploadPanel) uploadPanel.innerHTML = buildUploadPanel(meta);
 
-    const setUploadStage = (stage: string) => {
-      try {
-        sessionStorage.setItem('yat:goldenLineStage', stage);
-        window.dispatchEvent(new CustomEvent('yat:golden-line-stage'));
-      } catch {}
-      const select = document.querySelector('#goldenLineStageSelect') as HTMLSelectElement | null;
-      if (select) select.value = stage;
-    };
-
     const handleStageEvent = () => {
       try {
         const stage = sessionStorage.getItem('yat:goldenLineStage') || 'Fan Memory';
@@ -293,23 +266,17 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
-      :root { --row3-h: 92px; --row4-h: 96px; --profile-tabs-h: 68px; }
+      :root { --row3-h: 96px; --row4-h: 48px; --profile-tabs-h: 68px; --profile-meta-w: 178px; --profile-meta-w-mobile: 136px; }
       body { padding-bottom: calc(var(--footerH) + var(--profile-tabs-h) + env(safe-area-inset-bottom, 0px)) !important; }
       .yat-row3-shell { min-height: var(--row3-h) !important; }
-      .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip, .yat-profile-meta-row-host { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
+      .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip, .yat-profile-career-strip, .yat-profile-meta-row-host { min-height: var(--row3-h) !important; height: var(--row3-h) !important; }
       .yat-row4-shell { min-height: var(--row4-h) !important; }
       .yat-row4-shell #playerCareerStrip { min-height: var(--row4-h) !important; height: var(--row4-h) !important; }
-      .yat-profile-meta-row-host { width: 100%; display: block; background: linear-gradient(90deg, #090909, #111 42%, #050505); border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(245,200,90,.22); overflow: hidden; }
-      .yp-meta-strip { width: 100%; height: 100%; display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); align-items: stretch; color: #fff; text-transform: uppercase; }
-      .yp-meta-primary { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 14px; border-right: 1px solid rgba(255,255,255,.1); background: linear-gradient(90deg, rgba(245,200,90,.08), transparent); }
-      .yp-meta-eyebrow { color: #f5c85a; font: 900 9px/1 Oswald, sans-serif; letter-spacing: .16em; }
-      .yp-meta-primary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font: 900 17px/1 Oswald, sans-serif; letter-spacing: .04em; }
-      .yp-meta-primary em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.7); font: 800 9px/1 Oswald, sans-serif; letter-spacing: .1em; font-style: normal; }
-      .yp-meta-chips { min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(86px, 1fr); overflow-x: auto; scrollbar-width: none; }
-      .yp-meta-chips::-webkit-scrollbar { display: none; }
-      .yp-meta-chip { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border-right: 1px solid rgba(255,255,255,.09); }
-      .yp-meta-chip b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font: 900 15px/1 Oswald, sans-serif; letter-spacing: .04em; }
-      .yp-meta-chip small { color: rgba(245,200,90,.86); font: 900 8px/1 Oswald, sans-serif; letter-spacing: .14em; }
+      .yat-profile-career-strip { position: relative; display: grid; grid-template-columns: var(--profile-meta-w) minmax(0, 1fr); background: linear-gradient(90deg, #090909, #111 42%, #050505); border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(245,200,90,.22); overflow: hidden; }
+      .yat-profile-meta-row-host { width: var(--profile-meta-w); display: block; background: linear-gradient(90deg, rgba(245,200,90,.08), rgba(0,0,0,.92)); border-right: 1px solid rgba(255,255,255,.1); overflow: hidden; }
+      .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
+      .yp-meta-team { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fff; font:900 16px/1 Oswald, sans-serif; letter-spacing:.04em; }
+      .yp-meta-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.72); font:800 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
 
       .pp-fz-tabs-shell {
         position: fixed !important;
@@ -348,14 +315,11 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
       @media (max-width: 760px) {
-        :root { --row3-h: 72px; --row4-h: 104px; --profile-tabs-h: 72px; }
+        :root { --row3-h: 84px; --row4-h: 48px; --profile-tabs-h: 72px; --profile-meta-w: var(--profile-meta-w-mobile); }
         .yat-row4-shell { position: sticky !important; top: calc(var(--row1-h) + var(--row2-h) + var(--row3-h)) !important; z-index: 1000 !important; }
-        .yp-meta-strip { grid-template-columns: 128px minmax(0, 1fr); }
-        .yp-meta-primary { padding: 6px 8px; }
-        .yp-meta-primary strong { font-size: 13px; }
-        .yp-meta-primary em { font-size: 8px; }
-        .yp-meta-chips { grid-auto-columns: minmax(76px, 1fr); }
-        .yp-meta-chip b { font-size: 13px; }
+        .yp-meta-strip { padding: 6px 8px; }
+        .yp-meta-team { font-size: 13px; }
+        .yp-meta-sub { font-size: 8px; }
         .glu-panel { grid-template-columns: 1fr; padding-top: 16px; padding-bottom: calc(var(--profile-tabs-h) + 24px); }
         .glu-form { grid-template-columns: 1fr; }
       }
