@@ -7,9 +7,9 @@ const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const ZOOM_KEY = 'yat:careerTimelineZoom';
 const SCROLL_EVENT = 'yat:career-timeline-scroll';
 const ZOOM_EVENT = 'yat:career-timeline-zoom';
-const CARD_W = 52;
-const MOBILE_CARD_W = 46;
-const TIMELINE_GUTTER = 34;
+const CARD_W = 58;
+const CARD_H = 84;
+const TIMELINE_GUTTER = 42;
 const FULL_ZOOM = 3.2;
 
 type StatRow = { year?: string | number; age?: string | number; team?: string; level?: string; org_conf?: string; league?: string };
@@ -283,10 +283,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-window-images { height: 100%; overflow-x: auto; overflow-y: visible; padding-left: 0; scrollbar-width: none; }
           .zt-window-images::-webkit-scrollbar { display: none; }
           .zt-canvas-images { position: relative; height: 100%; min-width: 100%; }
-          .zt-img-moment { position: absolute; top: 4px; width: ${CARD_W}px; height: 76px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; }
-          .zt-img-card { position: relative; z-index: 2; display: block; width: ${CARD_W}px; height: 76px; border: 1px solid rgba(245,200,90,.74); background: #111; overflow: hidden; box-shadow: 0 0 14px rgba(245,200,90,.16), 0 8px 18px rgba(0,0,0,.38); }
+          .zt-img-moment { position: absolute; top: 4px; width: ${CARD_W}px; height: ${CARD_H}px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; }
+          .zt-img-card { position: relative; z-index: 2; display: block; width: ${CARD_W}px; height: ${CARD_H}px; border: 1px solid rgba(245,200,90,.74); background: #111; overflow: hidden; box-shadow: 0 0 14px rgba(245,200,90,.16), 0 8px 18px rgba(0,0,0,.38); }
           .zt-prompt .zt-img-card { border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.7), 0 0 18px rgba(245,200,90,.22); }
-          .zt-img-connector { position: absolute; z-index: 1; left: 50%; top: 76px; width: 2px; height: calc(var(--row4-h, 48px) + 14px); transform: translateX(-50%); background: rgba(245,200,90,.95); box-shadow: 0 0 12px rgba(245,200,90,.34); pointer-events: none; }
+          .zt-img-connector { position: absolute; z-index: 1; left: 50%; top: ${CARD_H}px; width: 2px; height: calc(var(--row4-h, 48px) + 14px); transform: translateX(-50%); background: rgba(245,200,90,.95); box-shadow: 0 0 12px rgba(245,200,90,.34); pointer-events: none; }
           .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
           .zt-img-card :global(.zt-empty) { height: 100%; display: grid; place-items: center; color: rgba(245,200,90,.82); background: linear-gradient(135deg,#151515,#050505); }
           .zt-img-card :global(.zt-empty b) { font: 900 8px/1.15 Oswald,sans-serif; letter-spacing: .1em; text-transform: uppercase; text-align:center; }
@@ -295,7 +295,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-prompt-copy strong { display: block; margin-top: 3px; font: 900 13px/1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
           .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:${zoom >= 2.25 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(245,200,90,.65); background:rgba(0,0,0,.72); color:#f5c85a; font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:0 0 12px rgba(245,200,90,.18); }
           .zt-upload-slot:hover { color:#fff; border-color:#fff; }
-          @media (max-width: 760px) { .zt-img-moment { width: ${MOBILE_CARD_W}px; height: 68px; } .zt-img-card { width: ${MOBILE_CARD_W}px; height: 68px; } .zt-img-connector { top: 68px; } .zt-prompt-copy { width: 142px; } }
+          @media (max-width: 760px) { .zt-img-moment { width: ${CARD_W}px; height: ${CARD_H}px; } .zt-img-card { width: ${CARD_W}px; height: ${CARD_H}px; } .zt-img-connector { top: ${CARD_H}px; } .zt-prompt-copy { width: 142px; } }
         `}</style>
       </section>
     );
