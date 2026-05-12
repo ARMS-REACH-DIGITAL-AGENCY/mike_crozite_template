@@ -171,34 +171,34 @@ function table(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Colu
 function css() {
   return `<style id="profile-stats-injector-css">
     html, body, .pp-funzone-outer, .pp-funzone, #playerFunZone { background:#070707 !important; }
-    #ppTab-stats { background: radial-gradient(circle at 18% 0%, rgba(245,200,90,.14), transparent 24%), linear-gradient(180deg, #121212 0%, #070707 100%) !important; padding:10px 14px calc(var(--profile-tabs-h,68px) + 16px) !important; overflow:auto !important; color:#f4f0e6 !important; }
+    #ppTab-stats { background: radial-gradient(circle at 18% 0%, rgba(255,255,255,.08), transparent 24%), linear-gradient(180deg, #121212 0%, #070707 100%) !important; padding:10px 14px calc(var(--profile-tabs-h,68px) + 16px) !important; overflow:auto !important; color:#f4f0e6 !important; }
     #ppTab-stats .psi-shell { width:100%; background:transparent; }
-    #ppTab-stats .psi-card { width:100%; border:1px solid rgba(245,200,90,.44); background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), #0c0c0c; margin:0 0 14px; box-shadow:0 14px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }
-    #ppTab-stats .psi-player-info { position:sticky; top:0; z-index:12; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 12px; background:linear-gradient(90deg, rgba(5,5,5,.98), rgba(18,18,18,.96)); border-bottom:1px solid rgba(245,200,90,.44); color:#fff; font:900 20px/1.05 Oswald, Arial, sans-serif; letter-spacing:.02em; text-transform:none; }
+    #ppTab-stats .psi-card { width:100%; border:1px solid rgba(255,255,255,.22); background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), #0c0c0c; margin:0 0 14px; box-shadow:0 14px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }
+    #ppTab-stats .psi-player-info { position:sticky; top:0; z-index:12; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 12px; background:linear-gradient(90deg, rgba(5,5,5,.98), rgba(18,18,18,.96)); border-bottom:1px solid rgba(255,255,255,.22); color:#fff; font:900 20px/1.05 Oswald, Arial, sans-serif; letter-spacing:.02em; text-transform:none; }
     #ppTab-stats .psi-player-info span { white-space:nowrap; }
-    #ppTab-stats .psi-player-info i { color:#f5c85a; font-style:normal; opacity:.78; }
-    #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 38px); overflow:auto; background:#080808; scrollbar-color:rgba(245,200,90,.7) rgba(255,255,255,.08); scrollbar-width:thin; }
+    #ppTab-stats .psi-player-info i { color:rgba(255,255,255,.65); font-style:normal; opacity:.78; }
+    #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 38px); overflow:auto; background:#080808; scrollbar-color:rgba(255,255,255,.38) rgba(255,255,255,.08); scrollbar-width:thin; }
     #ppTab-stats .psi-table { min-width:1600px; width:100%; border-collapse:separate; border-spacing:0; font:700 12px/1.15 Arial, Helvetica, sans-serif; color:#f4f0e6; }
-    #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid rgba(245,200,90,.16); border-bottom:1px solid rgba(245,200,90,.5); background:linear-gradient(180deg,#24211a,#111); color:#f5c85a; text-align:left; white-space:nowrap; text-transform:uppercase; }
+    #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(255,255,255,.24); background:linear-gradient(180deg,#202020,#101010); color:#fff; text-align:left; white-space:nowrap; text-transform:uppercase; }
     #ppTab-stats .psi-table th button { width:100%; height:100%; display:flex; align-items:center; justify-content:flex-end; gap:5px; border:0; background:transparent; color:inherit; padding:8px 7px; font:900 11px/1 Oswald, Arial, sans-serif; letter-spacing:.11em; text-transform:uppercase; cursor:pointer; }
     #ppTab-stats .psi-table th:nth-child(1) button, #ppTab-stats .psi-table th:nth-child(2) button, #ppTab-stats .psi-table th:nth-child(3) button, #ppTab-stats .psi-table th:nth-child(4) button, #ppTab-stats .psi-table th:nth-child(5) button { justify-content:flex-start; }
-    #ppTab-stats .psi-table th button:hover { background:rgba(245,200,90,.12); color:#fff; }
+    #ppTab-stats .psi-table th button:hover { background:rgba(255,255,255,.11); color:#fff; }
     #ppTab-stats .psi-sort-mark { width:0; height:0; opacity:.55; }
     #ppTab-stats .psi-table th.is-sort-asc .psi-sort-mark::after { content:'▲'; font-size:8px; }
     #ppTab-stats .psi-table th.is-sort-desc .psi-sort-mark::after { content:'▼'; font-size:8px; }
     #ppTab-stats .psi-table td { padding:6px 7px; border-right:1px solid rgba(255,255,255,.055); border-bottom:1px solid rgba(255,255,255,.075); background:rgba(255,255,255,.035); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; color:rgba(255,255,255,.84); }
     #ppTab-stats .psi-table tbody tr:nth-child(even) td { background:rgba(255,255,255,.065); }
-    #ppTab-stats .psi-table tbody tr:hover td { background:rgba(245,200,90,.13); color:#fff; }
+    #ppTab-stats .psi-table tbody tr:hover td { background:rgba(255,255,255,.12); color:#fff; }
     #ppTab-stats .psi-table td:nth-child(1), #ppTab-stats .psi-table td:nth-child(2), #ppTab-stats .psi-table td:nth-child(3), #ppTab-stats .psi-table td:nth-child(4), #ppTab-stats .psi-table td:nth-child(5) { text-align:left; }
     #ppTab-stats .psi-table th:first-child, #ppTab-stats .psi-table td:first-child { position:sticky; left:0; z-index:9; box-shadow:4px 0 10px rgba(0,0,0,.34); }
     #ppTab-stats .psi-table th:first-child { z-index:11; }
-    #ppTab-stats .psi-table td:first-child { background:#111 !important; color:#f5c85a; font-weight:900; }
+    #ppTab-stats .psi-table td:first-child { background:#111 !important; color:#fff; font-weight:900; }
     #ppTab-stats .psi-table .team { min-width:210px; }
     #ppTab-stats .psi-table .linkish { color:#fff; text-decoration:none; font-weight:900; }
-    #ppTab-stats .psi-table td[data-key="league"], #ppTab-stats .psi-table td[data-key="level"], #ppTab-stats .psi-table td[data-key="org_conf"] { color:rgba(245,200,90,.82); }
-    #ppTab-stats .psi-total-row td { background:linear-gradient(180deg, rgba(245,200,90,.23), rgba(245,200,90,.12)) !important; color:#fff !important; border-top:1px solid rgba(245,200,90,.42); font-weight:900; }
-    #ppTab-stats .psi-total-row td:first-child { background:#1b1609 !important; color:#f5c85a !important; }
-    #ppTab-stats .psi-total-row td:nth-child(2) { color:#f5c85a !important; letter-spacing:.05em; text-transform:uppercase; }
+    #ppTab-stats .psi-table td[data-key="league"], #ppTab-stats .psi-table td[data-key="level"], #ppTab-stats .psi-table td[data-key="org_conf"] { color:rgba(255,255,255,.78); }
+    #ppTab-stats .psi-total-row td { background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.07)) !important; color:#fff !important; border-top:1px solid rgba(255,255,255,.24); font-weight:900; }
+    #ppTab-stats .psi-total-row td:first-child { background:#151515 !important; color:#fff !important; }
+    #ppTab-stats .psi-total-row td:nth-child(2) { color:#fff !important; letter-spacing:.05em; text-transform:uppercase; }
     #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:rgba(255,255,255,.78); background:#101010; font:800 13px/1.35 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
     @media (max-width:860px) { #ppTab-stats { padding:8px 6px calc(var(--profile-tabs-h,72px) + 12px) !important; } #ppTab-stats .psi-player-info { font-size:18px; padding:9px 10px; } #ppTab-stats .psi-table { font-size:11px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:7px 6px; } }
   </style>`;
