@@ -110,11 +110,12 @@ function activeFunZoneHash(preferred?: string) {
 
 function activateFunZonePanel(preferred?: string) {
   const hash = activeFunZoneHash(preferred);
-  document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
+  document.querySelectorAll<HTMLElement>('#playerFunZone > .pp-fz-panel, .pp-funzone > .pp-fz-panel, .pp-fz-panel').forEach((panel) => {
     const isActive = `#${panel.id}` === hash;
     panel.classList.toggle('pp-fz-panel-active', isActive);
     panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-    panel.style.display = isActive ? 'block' : 'none';
+    panel.style.setProperty('display', isActive ? 'block' : 'none', 'important');
+    panel.style.setProperty('visibility', isActive ? 'visible' : 'hidden', 'important');
   });
   document.querySelectorAll<HTMLAnchorElement>('.pp-fz-tab').forEach((tab) => {
     tab.classList.toggle('pp-fz-tab-active', tab.getAttribute('href') === hash);
@@ -212,6 +213,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       const hash = link.getAttribute('href') || '';
       if (!hash.startsWith('#ppTab-')) return;
       event.preventDefault();
+      event.stopPropagation();
       history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
       activateFunZonePanel(hash);
     };
@@ -273,6 +275,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     window.addEventListener('yat:golden-line-prefill', handlePrefillEvent);
     handleStageEvent();
     activateFunZonePanel(window.location.hash);
+    window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 50);
     window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 250);
     window.setTimeout(() => { ensureInfluenceTab(meta); activateFunZonePanel(window.location.hash); }, 1000);
     return () => {
@@ -288,8 +291,15 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
 
   return (
     <style jsx global>{`
-      .pp-fz-panel { display: none; }
-      .pp-fz-panel.pp-fz-panel-active { display: block; }
+      #playerFunZone { position: relative !important; overflow: hidden !important; }
+      #playerFunZone > .pp-fz-panel,
+      .pp-funzone > .pp-fz-panel,
+      .pp-fz-panel { display: none !important; visibility: hidden !important; }
+      #playerFunZone > .pp-fz-panel.pp-fz-panel-active,
+      .pp-funzone > .pp-fz-panel.pp-fz-panel-active,
+      .pp-fz-panel.pp-fz-panel-active { display: block !important; visibility: visible !important; }
+      .pp-fz-panel-active { overflow: auto !important; }
+      .pp-fz-tabs-shell { position: sticky !important; bottom: 0 !important; z-index: 30 !important; }
       .pp-fz-tab { pointer-events: auto; }
       .pp-fz-small { margin-top: 6px; font-size: 12px; opacity: .72; }
       .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
