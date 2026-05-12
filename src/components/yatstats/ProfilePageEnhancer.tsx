@@ -65,32 +65,80 @@ function buildUploadPanel(meta: ProfileMeta) {
     </div>`;
 }
 
-function readPxVar(name: string, fallback: number) {
-  if (typeof window === 'undefined') return fallback;
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  const n = Number.parseFloat(raw);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function forceProfileTabsAboveFooter() {
+function keepTabsInsideFunZone() {
   const tabsShell = document.querySelector('.pp-fz-tabs-shell') as HTMLElement | null;
   const tabs = document.querySelector('.pp-fz-tabs') as HTMLElement | null;
   const footer = document.querySelector('.yat-footer') as HTMLElement | null;
   const funzone = document.querySelector('.pp-funzone') as HTMLElement | null;
   const outer = document.querySelector('.pp-funzone-outer') as HTMLElement | null;
-  const footerHeight = Math.max(footer?.getBoundingClientRect().height || 0, readPxVar('--footerH', 64));
   const tabsHeight = window.matchMedia('(max-width: 760px)').matches ? 72 : 68;
-  const safeBottom = Math.max(0, window.innerHeight - (window.visualViewport?.height || window.innerHeight));
 
   document.documentElement.style.setProperty('--profile-tabs-h', `${tabsHeight}px`);
-  document.body.style.paddingBottom = `${footerHeight + tabsHeight + safeBottom + 12}px`;
+  document.body.style.paddingBottom = '';
 
-  if (footer) Object.assign(footer.style, { zIndex: '10020', position: 'fixed', left: '0', right: '0', bottom: '0' });
-  if (tabsShell) Object.assign(tabsShell.style, { position: 'fixed', left: '0', right: '0', bottom: `${footerHeight + safeBottom}px`, height: `${tabsHeight}px`, zIndex: '10010', display: 'block', visibility: 'visible', opacity: '1', background: 'rgba(12,12,12,.985)', borderTop: '1px solid rgba(255,255,255,.12)', boxShadow: '0 -10px 26px rgba(0,0,0,.58)', transform: 'none' });
-  if (tabs) Object.assign(tabs.style, { width: 'min(100%, 1280px)', height: `${tabsHeight}px`, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', alignItems: 'stretch' });
-  document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => Object.assign(tab.style, { height: `${tabsHeight}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '0' }));
-  if (funzone) funzone.style.paddingBottom = `${tabsHeight + 22}px`;
-  if (outer) outer.style.paddingBottom = `${tabsHeight + footerHeight + safeBottom + 8}px`;
+  if (footer) {
+    footer.style.position = '';
+    footer.style.left = '';
+    footer.style.right = '';
+    footer.style.bottom = '';
+    footer.style.zIndex = '';
+  }
+
+  if (outer) {
+    outer.style.position = 'relative';
+    outer.style.overflow = 'hidden';
+    outer.style.paddingBottom = '';
+  }
+
+  if (funzone) {
+    funzone.style.position = 'relative';
+    funzone.style.overflow = 'hidden';
+    funzone.style.paddingBottom = '0';
+  }
+
+  if (tabsShell) {
+    tabsShell.style.position = 'absolute';
+    tabsShell.style.left = '0';
+    tabsShell.style.right = '0';
+    tabsShell.style.bottom = '0';
+    tabsShell.style.height = `${tabsHeight}px`;
+    tabsShell.style.zIndex = '30';
+    tabsShell.style.display = 'block';
+    tabsShell.style.visibility = 'visible';
+    tabsShell.style.opacity = '1';
+    tabsShell.style.background = 'rgba(12,12,12,.985)';
+    tabsShell.style.borderTop = '1px solid rgba(255,255,255,.12)';
+    tabsShell.style.boxShadow = '0 -10px 26px rgba(0,0,0,.58)';
+    tabsShell.style.transform = 'none';
+  }
+
+  if (tabs) {
+    tabs.style.width = '100%';
+    tabs.style.height = `${tabsHeight}px`;
+    tabs.style.margin = '0';
+    tabs.style.display = 'grid';
+    tabs.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
+    tabs.style.alignItems = 'stretch';
+  }
+
+  document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
+    tab.style.height = `${tabsHeight}px`;
+    tab.style.display = 'flex';
+    tab.style.flexDirection = 'column';
+    tab.style.alignItems = 'center';
+    tab.style.justifyContent = 'center';
+    tab.style.gap = '4px';
+    tab.style.minWidth = '0';
+    tab.style.pointerEvents = 'auto';
+  });
+
+  document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
+    panel.style.height = `calc(100% - ${tabsHeight}px)`;
+    panel.style.maxHeight = `calc(100% - ${tabsHeight}px)`;
+    panel.style.overflowY = 'auto';
+    panel.style.overflowX = 'hidden';
+    panel.style.paddingBottom = '16px';
+  });
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {
@@ -192,9 +240,13 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       if (!hash.startsWith('#ppTab-')) return;
       event.preventDefault();
       history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-      document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => { panel.style.display = `#${panel.id}` === hash ? 'block' : 'none'; });
-      document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => { tab.classList.toggle('pp-fz-tab-active', tab.getAttribute('href') === hash); });
-      requestAnimationFrame(forceProfileTabsAboveFooter);
+      document.querySelectorAll<HTMLElement>('.pp-fz-panel').forEach((panel) => {
+        panel.style.display = `#${panel.id}` === hash ? 'block' : 'none';
+      });
+      document.querySelectorAll<HTMLElement>('.pp-fz-tab').forEach((tab) => {
+        tab.classList.toggle('pp-fz-tab-active', tab.getAttribute('href') === hash);
+      });
+      requestAnimationFrame(keepTabsInsideFunZone);
     };
 
     const handlePreview = (event: Event) => {
@@ -244,7 +296,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       }
     };
 
-    const applyChrome = () => requestAnimationFrame(forceProfileTabsAboveFooter);
+    const applyChrome = () => requestAnimationFrame(keepTabsInsideFunZone);
     const observer = new MutationObserver(applyChrome);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
@@ -253,7 +305,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
     document.addEventListener('submit', handleSubmit);
     window.addEventListener('resize', applyChrome);
     window.visualViewport?.addEventListener('resize', applyChrome);
-    window.visualViewport?.addEventListener('scroll', applyChrome);
     window.addEventListener('yat:golden-line-stage', handleStageEvent);
     window.addEventListener('yat:golden-line-prefill', handlePrefillEvent);
     handleStageEvent();
@@ -268,7 +319,6 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       document.removeEventListener('submit', handleSubmit);
       window.removeEventListener('resize', applyChrome);
       window.visualViewport?.removeEventListener('resize', applyChrome);
-      window.visualViewport?.removeEventListener('scroll', applyChrome);
       window.removeEventListener('yat:golden-line-stage', handleStageEvent);
       window.removeEventListener('yat:golden-line-prefill', handlePrefillEvent);
     };
@@ -277,29 +327,28 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
   return (
     <style jsx global>{`
       :root { --row3-h: 100px; --row4-h: 48px; --profile-tabs-h: 68px; --profile-meta-w: 178px; --profile-meta-w-mobile: 136px; }
-      html, body { height: 100%; overflow: hidden !important; }
-      body { padding-bottom: calc(var(--footerH) + var(--profile-tabs-h) + env(safe-area-inset-bottom, 0px)) !important; }
-      main { height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h) - var(--row4-h) - var(--profile-tabs-h) - var(--footerH, 64px)) !important; min-height: 0 !important; overflow: hidden !important; }
+      html, body { height: auto !important; min-height: 100% !important; overflow: auto !important; }
+      body { padding-bottom: 0 !important; }
+      main { height: auto !important; min-height: 0 !important; overflow: visible !important; }
       .yat-row1-shell, .yat-topbar { position: relative !important; z-index: 4100 !important; }
       .yat-row2-shell, .yat-schoolrow { position: relative !important; z-index: 4050 !important; }
       .yat-row3-shell { position: relative !important; z-index: 4000 !important; min-height: var(--row3-h) !important; height: var(--row3-h) !important; overflow: hidden !important; background: #050505 !important; }
       .yat-row3-shell .gallery-strip, .yat-row3-shell .golden-line-strip, .yat-profile-career-strip, .yat-profile-meta-row-host { min-height: var(--row3-h) !important; height: var(--row3-h) !important; max-height: var(--row3-h) !important; overflow: hidden !important; }
-      .yat-row4-shell { position: sticky !important; top: calc(var(--row1-h, 40px) + var(--row2-h, 84px) + var(--row3-h)) !important; z-index: 3900 !important; min-height: var(--row4-h) !important; height: var(--row4-h) !important; overflow: hidden !important; background: #050505 !important; }
+      .yat-row4-shell { position: relative !important; top: auto !important; z-index: 3900 !important; min-height: var(--row4-h) !important; height: var(--row4-h) !important; overflow: hidden !important; background: #050505 !important; }
       .yat-row4-shell #playerCareerStrip { min-height: var(--row4-h) !important; height: var(--row4-h) !important; }
-      .pp-funzone-outer, .pp-funzone { height: 100% !important; max-height: 100% !important; min-height: 0 !important; overflow: hidden !important; }
-      .pp-fz-panel { height: 100% !important; max-height: 100% !important; overflow-y: auto !important; overflow-x: hidden !important; }
+      .pp-funzone-outer { position: relative !important; height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h) - var(--row4-h) - var(--footerH, 64px)) !important; min-height: 360px !important; overflow: hidden !important; padding-bottom: 0 !important; }
+      .pp-funzone { position: relative !important; height: 100% !important; max-height: 100% !important; min-height: 0 !important; overflow: hidden !important; padding-bottom: 0 !important; }
+      .pp-fz-panel { height: calc(100% - var(--profile-tabs-h)) !important; max-height: calc(100% - var(--profile-tabs-h)) !important; overflow-y: auto !important; overflow-x: hidden !important; padding-bottom: 16px !important; }
       .yat-profile-career-strip { position: relative; display: grid; grid-template-columns: var(--profile-meta-w) minmax(0, 1fr); background: linear-gradient(90deg, #090909, #111 42%, #050505); border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.12); overflow: hidden; }
       .yat-profile-meta-row-host { width: var(--profile-meta-w); display: block; background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(0,0,0,.92)); border-right: 1px solid rgba(255,255,255,.1); overflow: hidden; }
       .yp-meta-strip { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; color: #fff; text-transform: uppercase; }
       .yp-meta-team { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#fff; font:900 16px/1 Oswald, sans-serif; letter-spacing:.04em; }
       .yp-meta-sub { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.72); font:800 9px/1 Oswald, sans-serif; letter-spacing:.1em; }
-      .pp-fz-tabs-shell { position: fixed !important; left: 0 !important; right: 0 !important; bottom: calc(var(--footerH) + env(safe-area-inset-bottom, 0px)) !important; height: var(--profile-tabs-h) !important; z-index: 10010 !important; display: block !important; visibility: visible !important; opacity: 1 !important; background: rgba(12,12,12,.985) !important; border-top: 1px solid rgba(255,255,255,.12) !important; box-shadow: 0 -10px 26px rgba(0,0,0,.58) !important; }
-      .pp-fz-tabs { width: min(100%, 1280px) !important; height: var(--profile-tabs-h) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; align-items: stretch !important; }
-      .pp-fz-tab { height: var(--profile-tabs-h) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-width: 0 !important; }
+      .pp-fz-tabs-shell { position: absolute !important; left: 0 !important; right: 0 !important; bottom: 0 !important; height: var(--profile-tabs-h) !important; z-index: 30 !important; display: block !important; visibility: visible !important; opacity: 1 !important; background: rgba(12,12,12,.985) !important; border-top: 1px solid rgba(255,255,255,.12) !important; box-shadow: 0 -10px 26px rgba(0,0,0,.58) !important; transform: none !important; }
+      .pp-fz-tabs { width: 100% !important; height: var(--profile-tabs-h) !important; margin: 0 !important; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)) !important; align-items: stretch !important; }
+      .pp-fz-tab { height: var(--profile-tabs-h) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-width: 0 !important; pointer-events: auto !important; }
       .pp-fz-tab-active { color: #fff !important; }
-      .pp-funzone { padding-bottom: calc(var(--profile-tabs-h) + 22px) !important; }
-      .pp-fz-panel { scroll-margin-bottom: calc(var(--profile-tabs-h) + var(--footerH) + 24px) !important; }
-      .yat-footer { z-index: 10020 !important; }
+      .yat-footer { position: relative !important; z-index: 20 !important; }
       .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
       .glu-kicker { color: #f5c85a; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
@@ -315,7 +364,7 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button { min-height: 38px; padding: 0 16px; border: 1px solid rgba(245,200,90,.75); border-radius: 0; background: rgba(245,200,90,.12); color: #f5c85a; font: 800 12px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
-      @media (max-width: 760px) { :root { --row3-h: 100px; --row4-h: 48px; --profile-tabs-h: 72px; --profile-meta-w: var(--profile-meta-w-mobile); } .yp-meta-strip { padding: 6px 8px; } .yp-meta-team { font-size: 13px; } .yp-meta-sub { font-size: 8px; } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; padding-bottom: calc(var(--profile-tabs-h) + 24px); } .glu-form { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) { :root { --row3-h: 100px; --row4-h: 48px; --profile-tabs-h: 72px; --profile-meta-w: var(--profile-meta-w-mobile); } .pp-funzone-outer { height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h) - var(--row4-h) - var(--footerH, 64px)) !important; min-height: 330px !important; } .yp-meta-strip { padding: 6px 8px; } .yp-meta-team { font-size: 13px; } .yp-meta-sub { font-size: 8px; } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
     `}</style>
   );
 }
