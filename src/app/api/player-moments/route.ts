@@ -54,6 +54,8 @@ async function ensureTable() {
       add column if not exists photo_taken_date date,
       add column if not exists photo_taken_year integer,
       add column if not exists sort_date date,
+      add column if not exists visibility text not null default 'public',
+      add column if not exists is_private boolean not null default false,
       add column if not exists ghl_contact_id text,
       add column if not exists arms_sync_status text not null default 'not_sent',
       add column if not exists arms_sync_error text,
@@ -80,8 +82,9 @@ function clean(value: FormDataEntryValue | null, fallback = "") {
   return String(value ?? fallback).trim();
 }
 
-function normalizePlan(value: unknown) {
-  return String(value || "").trim().toLowerCase();
+function normalizeVisibility(value: unknown) {
+  const raw = String(value || "public").trim().toLowerCase();
+  return raw === "private" ? "private" : "public";
 }
 
 function getSession(req: NextRequest): YatSession | null {
@@ -95,11 +98,6 @@ function getSession(req: NextRequest): YatSession | null {
   } catch {
     return null;
   }
-}
-
-function isSuperfanSession(session: YatSession | null) {
-  if (!session) return false;
-  return Boolean(session.isSuperfan || normalizePlan(session.plan) === "superfan");
 }
 
 function getContributorName(session: YatSession) {
@@ -162,7 +160,8 @@ async function syncSubmissionToArms(moment: any) {
       addTagToGHLContact(ghlContactId, "yatstats"),
       addTagToGHLContact(ghlContactId, "golden-line-memory"),
       addTagToGHLContact(ghlContactId, "needs-photo-review"),
-      addTagToGHLContact(ghlContactId, "superfan-upload"),
+      addTagToGHLContact(ghlContactId, "fan-upload"),
+      addTagToGHLContact(ghlContactId, `visibility:${safeTag(moment.visibility || "public")}`),
       addTagToGHLContact(ghlContactId, `player:${safeTag(moment.playerid)}`),
       addTagToGHLContact(ghlContactId, `stage:${safeTag(moment.stage)}`),
       moment.hsid ? addTagToGHLContact(ghlContactId, `hsid:${safeTag(moment.hsid)}`) : Promise.resolve(),
@@ -181,6 +180,8 @@ async function syncSubmissionToArms(moment: any) {
     caption: moment.caption,
     photoTakenDate: moment.photo_taken_date,
     photoTakenYear: moment.photo_taken_year,
+    visibility: moment.visibility,
+    isPrivate: Boolean(moment.is_private),
     contributorFirebaseUid: moment.contributor_firebase_uid,
     contributorName: moment.contributor_name,
     contributorEmail: moment.contributor_email,
@@ -222,6 +223,8 @@ const returningSql = `
   photo_taken_date,
   photo_taken_year,
   sort_date,
+  visibility,
+  is_private,
   image_data_url,
   image_mime_type,
   status,
@@ -240,13 +243,17 @@ export async function GET(req: NextRequest) {
 
     if (!playerId) return NextResponse.json({ error: "playerId query parameter is required" }, { status: 400 });
 
+    const session = getSession(req);
+    const viewerUid = String(session?.uid || "").trim();
+
     const { rows } = await query(
       `select ${returningSql}
        from public.player_moment_submissions
        where playerid = $1
+         and (coalesce(is_private, false) = false or contributor_firebase_uid = $2)
        order by coalesce(sort_date, created_at::date) asc, created_at asc
        limit 48`,
-      [String(playerId)]
+      [String(playerId), viewerUid]
     );
 
     return NextResponse.json({ success: true, moments: rows });
@@ -265,32 +272,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Sign in is required before submitting a Golden Line memory." }, { status: 401 });
     }
 
-    if (!isSuperfanSession(session)) {
-      return NextResponse.json({ error: "Golden Line photo uploads are currently available to Superfans only." }, { status: 403 });
-    }
-
     const formData = await req.formData();
 
     const playerId = clean(formData.get("playerId"));
     const hsid = clean(formData.get("hsid"));
     const playerName = clean(formData.get("playerName"));
     const pageUrl = clean(formData.get("pageUrl"));
-    const stage = clean(formData.get("stage"), "Youth Baseball");
+    const stage = clean(formData.get("stage"), "Fan Memory");
     const title = clean(formData.get("title"), `${stage} memory`);
     const caption = clean(formData.get("caption"));
     const contributorName = getContributorName(session);
     const contributorEmail = String(session.email || "").trim().toLowerCase();
-    const contributorPhone = clean(formData.get("contributorPhone"));
     const contributorFirebaseUid = String(session.uid || "").trim();
     const contributorRole = String(session.role || "fan").trim() || "fan";
-    const contributorPlan = String(session.plan || "superfan").trim() || "superfan";
+    const contributorPlan = String(session.plan || "fan").trim() || "fan";
     const contributorHomeHsid = String(session.homeHsid || "").trim();
     const contributorHomeSchoolName = String(session.homeSchoolName || "").trim();
     const relationship = clean(formData.get("relationship"));
+    const visibility = normalizeVisibility(formData.get("visibility"));
+    const isPrivate = visibility === "private";
     const { photoTakenDate, photoTakenYear, sortDate } = parsePhotoDate(clean(formData.get("photoTakenDate")));
     const file = formData.get("photo");
 
     if (!playerId) return NextResponse.json({ error: "playerId is required" }, { status: 400 });
+    if (!photoTakenDate) return NextResponse.json({ error: "Approximate date taken is required." }, { status: 400 });
     if (!(file instanceof File)) return NextResponse.json({ error: "photo file is required" }, { status: 400 });
     if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Only image uploads are supported" }, { status: 400 });
     if (file.size > MAX_UPLOAD_BYTES) return NextResponse.json({ error: "Image must be 4MB or smaller for this test uploader" }, { status: 413 });
@@ -304,15 +309,15 @@ export async function POST(req: NextRequest) {
         contributor_name, contributor_email, contributor_phone, contributor_firebase_uid, contributor_role, contributor_plan,
         contributor_home_hsid, contributor_home_school_name, relationship,
         player_name, page_url, photo_taken_date, photo_taken_year, sort_date,
-        image_data_url, image_mime_type, status, ghl_contact_id, arms_sync_status
-      ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,'pending',$22,'queued')
+        visibility, is_private, image_data_url, image_mime_type, status, ghl_contact_id, arms_sync_status
+      ) values ($1,$2,$3,$4,$5,$6,$7,null,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'pending',$23,'queued')
       returning ${returningSql}`,
       [
         playerId, hsid || null, stage, title, caption,
-        contributorName, contributorEmail || null, contributorPhone || null, contributorFirebaseUid, contributorRole, contributorPlan,
+        contributorName, contributorEmail || null, contributorFirebaseUid, contributorRole, contributorPlan,
         contributorHomeHsid || null, contributorHomeSchoolName || null, relationship,
         playerName || null, pageUrl || null, photoTakenDate, photoTakenYear, sortDate,
-        imageDataUrl, file.type, session.contactId || null,
+        visibility, isPrivate, imageDataUrl, file.type, session.contactId || null,
       ]
     );
 
