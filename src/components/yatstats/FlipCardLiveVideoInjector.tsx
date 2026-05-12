@@ -7,12 +7,11 @@ const LIVE_FEED = {
   subtitle: "Georgia Gwinnett vs Talladega",
   videoId: "YljqG6zA3-E",
   embedUrl: "https://www.youtube.com/embed/YljqG6zA3-E?autoplay=0&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1",
+  playUrl: "https://www.youtube.com/embed/YljqG6zA3-E?autoplay=1&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1",
   watchUrl: "https://www.youtube.com/live/YljqG6zA3-E",
 };
 
-const FEATURED_PLAYER_NAMES = new Set([
-  "shane anderson",
-]);
+const FEATURED_PLAYER_NAMES = new Set(["shane anderson"]);
 
 function normalize(value: string) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -37,6 +36,28 @@ function ensureStyles() {
   const style = document.createElement("style");
   style.id = "yat-flip-live-video-css";
   style.textContent = `
+    .fz-root { position: relative; }
+    .fz-live-video-host {
+      position: absolute;
+      z-index: 18;
+      left: clamp(5px, 2.5cqi, 12px);
+      right: clamp(5px, 2.5cqi, 12px);
+      top: clamp(54px, 18cqi, 92px);
+      bottom: clamp(35px, 12cqi, 58px);
+      display: none;
+      min-height: 0;
+    }
+    .fz-live-video-host.is-news-active,
+    .fz-live-video-host.is-mini-player { display: block; }
+    .fz-live-video-host.is-mini-player {
+      left: auto;
+      top: auto;
+      right: clamp(8px, 3cqi, 14px);
+      bottom: clamp(42px, 13cqi, 64px);
+      width: min(54%, 230px);
+      height: min(37%, 145px);
+      box-shadow: 0 12px 30px rgba(0,0,0,.55), 0 0 0 1px rgba(245,200,90,.35);
+    }
     .fz-live-video-card {
       width: 100%;
       height: 100%;
@@ -44,7 +65,7 @@ function ensureStyles() {
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      background: linear-gradient(135deg, rgba(18,18,18,.94), rgba(4,4,4,.96));
+      background: linear-gradient(135deg, rgba(18,18,18,.96), rgba(4,4,4,.98));
       border: 1px solid rgba(30,22,14,.38);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
     }
@@ -75,6 +96,7 @@ function ensureStyles() {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .fz-live-video-host.is-mini-player .fz-live-video-title { display: none; }
     .fz-live-video-subtitle {
       color: rgba(255,255,255,.78);
       font: 700 clamp(6px,2.1cqi,9px)/1 Oswald, sans-serif;
@@ -87,6 +109,8 @@ function ensureStyles() {
       border-bottom: 1px solid rgba(245,200,90,.18);
       background: rgba(0,0,0,.22);
     }
+    .fz-live-video-host.is-mini-player .fz-live-video-subtitle,
+    .fz-live-video-host.is-mini-player .fz-live-video-actions { display: none; }
     .fz-live-video-frame {
       position: relative;
       flex: 1;
@@ -110,7 +134,10 @@ function ensureStyles() {
       display: grid;
       place-items: center;
       background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.38));
+      border: 0;
+      padding: 0;
       pointer-events: auto;
+      cursor: pointer;
     }
     .fz-live-video-play-button {
       width: clamp(44px, 18cqi, 76px);
@@ -132,9 +159,7 @@ function ensureStyles() {
       border-bottom: clamp(10px, 4cqi, 16px) solid transparent;
       border-left: clamp(15px, 6cqi, 24px) solid currentColor;
     }
-    .fz-live-video-frame.is-playing .fz-live-video-play-overlay {
-      display: none;
-    }
+    .fz-live-video-frame.is-playing .fz-live-video-play-overlay { display: none; }
     .fz-live-video-actions {
       display: flex;
       justify-content: flex-end;
@@ -172,19 +197,16 @@ export default function FlipCardLiveVideoInjector({
 
     const root = rootRef.current;
     const card = root?.closest(".yat-back-cq");
-    if (!card) return;
+    const funZone = card?.querySelector(".fz-root") as HTMLElement | null;
+    if (!card || !funZone) return;
 
-    const apply = () => {
-      const activeBtn = Array.from(card.querySelectorAll(".fz-tab-btn"))
-        .find((btn) => btn.classList.contains("fz-tab-active"));
-      const activeLabel = activeBtn?.textContent?.trim().toLowerCase() || "";
-      if (activeLabel !== "news") return;
+    let host = funZone.querySelector(".fz-live-video-host") as HTMLElement | null;
 
-      const panel = card.querySelector(".fz-panel") as HTMLElement | null;
-      if (!panel || panel.dataset.liveVideoApplied === normalize(displayName)) return;
-
-      panel.dataset.liveVideoApplied = normalize(displayName);
-      panel.innerHTML = `
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "fz-live-video-host";
+      host.dataset.liveVideoOwner = normalize(displayName);
+      host.innerHTML = `
         <div class="fz-live-video-card">
           <div class="fz-live-video-head">
             <span class="fz-live-video-badge">LIVE</span>
@@ -207,19 +229,38 @@ export default function FlipCardLiveVideoInjector({
           </div>
         </div>
       `;
+      funZone.appendChild(host);
 
-      const frame = panel.querySelector(".fz-live-video-frame") as HTMLElement | null;
-      const iframe = panel.querySelector(".fz-live-video-frame iframe") as HTMLIFrameElement | null;
-      const overlay = panel.querySelector(".fz-live-video-play-overlay") as HTMLButtonElement | null;
+      const frame = host.querySelector(".fz-live-video-frame") as HTMLElement | null;
+      const iframe = host.querySelector("iframe") as HTMLIFrameElement | null;
+      const overlay = host.querySelector(".fz-live-video-play-overlay") as HTMLButtonElement | null;
       overlay?.addEventListener("click", () => {
         if (!frame || !iframe) return;
-        iframe.src = `https://www.youtube.com/embed/${LIVE_FEED.videoId}?autoplay=1&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1`;
+        document.querySelectorAll<HTMLIFrameElement>(".fz-live-video-frame.is-playing iframe").forEach((otherIframe) => {
+          if (otherIframe !== iframe) otherIframe.src = LIVE_FEED.embedUrl;
+        });
+        document.querySelectorAll<HTMLElement>(".fz-live-video-frame.is-playing").forEach((otherFrame) => {
+          if (otherFrame !== frame) otherFrame.classList.remove("is-playing");
+        });
+        iframe.src = LIVE_FEED.playUrl;
         frame.classList.add("is-playing");
+        host?.classList.add("has-started");
       });
+    }
+
+    const syncVisibility = () => {
+      const activeBtn = Array.from(card.querySelectorAll(".fz-tab-btn"))
+        .find((btn) => btn.classList.contains("fz-tab-active"));
+      const activeLabel = activeBtn?.textContent?.trim().toLowerCase() || "";
+      const frame = host?.querySelector(".fz-live-video-frame") as HTMLElement | null;
+      const isPlaying = Boolean(frame?.classList.contains("is-playing"));
+
+      host?.classList.toggle("is-news-active", activeLabel === "news");
+      host?.classList.toggle("is-mini-player", activeLabel !== "news" && isPlaying);
     };
 
-    apply();
-    const observer = new MutationObserver(apply);
+    syncVisibility();
+    const observer = new MutationObserver(syncVisibility);
     observer.observe(card, { subtree: true, attributes: true, childList: true });
 
     return () => observer.disconnect();
