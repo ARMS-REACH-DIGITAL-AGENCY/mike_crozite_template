@@ -57,8 +57,8 @@ export default function SharedShell({
 
   const isPlayerProfile =
     pathname.includes('/player/') || pathname.includes('/profile/');
-  const [isNews, setIsNews] = (typeof window !== 'undefined') 
-    ? [window.location.hash === '#sec-news', () => {}] 
+  const [isNews, setIsNews] = (typeof window !== 'undefined')
+    ? [window.location.hash === '#sec-news', () => {}]
     : [false, () => {}];
   const isGallery = !isPlayerProfile;
 
@@ -81,7 +81,12 @@ export default function SharedShell({
           {row3Content
             ? row3Content
             : profilePlayerId
-            ? <div className="yat-profile-meta-row-host" aria-label="Player profile metadata" />
+            ? (
+                <div className="yat-profile-career-strip" aria-label="Player metadata and Golden Line images">
+                  <div className="yat-profile-meta-row-host" aria-label="Player profile metadata" />
+                  <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
+                </div>
+              )
             : (
                 <InteractionStrip
                   isPlayerProfile={isPlayerProfile}
@@ -96,7 +101,7 @@ export default function SharedShell({
           {row4Content
             ? row4Content
             : profilePlayerId
-            ? <ZoomableCareerTimeline playerId={profilePlayerId} />
+            ? <ZoomableCareerTimeline playerId={profilePlayerId} variant="line" />
             : (
                 <MetadataRow
                   isPlayerProfile={isPlayerProfile}
