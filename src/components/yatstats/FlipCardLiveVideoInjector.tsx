@@ -47,9 +47,32 @@ function ensureStyles() {
       display: none;
       min-height: 0;
     }
-    .fz-live-video-host.is-news-active,
+    .fz-live-video-host.is-news-active { display: block; }
     .fz-live-video-host.is-mini-player { display: block; }
-    .fz-live-video-host.is-mini-player {
+    .fz-live-video-host.is-detached-player {
+      position: fixed;
+      z-index: 2147483000;
+      left: auto;
+      right: clamp(10px, 3vw, 22px);
+      top: calc(env(safe-area-inset-top, 0px) + clamp(72px, 13vh, 128px));
+      bottom: auto;
+      width: min(44vw, 340px);
+      height: min(25vw, 192px);
+      min-width: 190px;
+      min-height: 108px;
+      box-shadow: 0 14px 34px rgba(0,0,0,.62), 0 0 0 1px rgba(245,200,90,.45);
+    }
+    @media (max-width: 760px) {
+      .fz-live-video-host.is-detached-player {
+        right: 10px;
+        top: calc(env(safe-area-inset-top, 0px) + 84px);
+        width: min(48vw, 215px);
+        height: min(27vw, 122px);
+        min-width: 156px;
+        min-height: 88px;
+      }
+    }
+    .fz-live-video-host.is-mini-player:not(.is-detached-player) {
       left: auto;
       top: auto;
       right: clamp(8px, 3cqi, 14px);
@@ -257,13 +280,20 @@ export default function FlipCardLiveVideoInjector({
 
       host?.classList.toggle("is-news-active", activeLabel === "news");
       host?.classList.toggle("is-mini-player", activeLabel !== "news" && isPlaying);
+      host?.classList.toggle("is-detached-player", activeLabel !== "news" && isPlaying);
     };
 
     syncVisibility();
     const observer = new MutationObserver(syncVisibility);
     observer.observe(card, { subtree: true, attributes: true, childList: true });
+    window.addEventListener("scroll", syncVisibility, { passive: true });
+    window.addEventListener("resize", syncVisibility);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", syncVisibility);
+      window.removeEventListener("resize", syncVisibility);
+    };
   }, [displayName, teamName]);
 
   return <span ref={rootRef} hidden />;
