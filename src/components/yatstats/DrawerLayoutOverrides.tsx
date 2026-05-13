@@ -10,6 +10,18 @@ export default function DrawerLayoutOverrides() {
         --yat-min-gallery-card-w: 260px;
       }
 
+      /* Block 2 should behave like Block 1: full-width rail, not centered/max-width. */
+      .yat-row2-shell,
+      .yat-row2-shell .yat-schoolrow {
+        width: 100% !important;
+        max-width: none !important;
+      }
+
+      .yat-row2-shell .yat-schoolrow {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+
       .yat-drawer,
       #drawerLeft,
       #drawerFilters,
