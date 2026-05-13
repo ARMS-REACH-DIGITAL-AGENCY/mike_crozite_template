@@ -3,6 +3,7 @@ import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
+import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
 
 function slugifySchoolName(name: string) {
   return String(name || '')
@@ -120,6 +121,7 @@ export default async function PlayerLayout({
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
+      <ProfileFunZoneCleanupStyles />
       {children}
     </PlayerProfileContextProvider>
   );
