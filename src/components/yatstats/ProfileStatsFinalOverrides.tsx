@@ -1,0 +1,99 @@
+'use client';
+
+export default function ProfileStatsFinalOverrides() {
+  return (
+    <style jsx global>{`
+      #playerFunZone {
+        --stats-year-col-w: 34px !important;
+      }
+
+      @media (max-width: 760px) {
+        #playerFunZone {
+          --stats-year-col-w: 34px !important;
+        }
+      }
+
+      /* YEAR: only wide enough for a four-digit season, centered. */
+      #playerFunZone #ppTab-stats .psi-table th.year,
+      #playerFunZone #ppTab-stats .psi-table td[data-key="year"] {
+        width: var(--stats-year-col-w) !important;
+        min-width: var(--stats-year-col-w) !important;
+        max-width: var(--stats-year-col-w) !important;
+        left: 0 !important;
+        text-align: center !important;
+        justify-content: center !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table th.year button {
+        justify-content: center !important;
+        text-align: center !important;
+      }
+
+      /* TEAM must start immediately after the narrowed YEAR column. */
+      #playerFunZone #ppTab-stats .psi-table th.team,
+      #playerFunZone #ppTab-stats .psi-table td[data-key="team"] {
+        left: var(--stats-year-col-w) !important;
+      }
+
+      /* POS should be centered like YEAR / LEVEL / AGE. */
+      #playerFunZone #ppTab-stats .psi-table th.posit,
+      #playerFunZone #ppTab-stats .psi-table td[data-key="posit"] {
+        text-align: center !important;
+        justify-content: center !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table th.posit button {
+        justify-content: center !important;
+        text-align: center !important;
+      }
+
+      /* Freeze panes: top-left header cells and first two body columns must be fully opaque. */
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table thead th.year,
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table thead th.year,
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table thead th.team,
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table thead th.team {
+        background-color: #151515 !important;
+        background-image: linear-gradient(#202020, #101010) !important;
+        color: #f4f0e6 !important;
+        opacity: 1 !important;
+        z-index: 4000 !important;
+      }
+
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] {
+        background-color: #101010 !important;
+        background-image: linear-gradient(#101010, #101010) !important;
+        color: #f4f0e6 !important;
+        opacity: 1 !important;
+      }
+
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
+        background-color: #171717 !important;
+        background-image: linear-gradient(#171717, #171717) !important;
+      }
+
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="team"] {
+        background-color: #5b4718 !important;
+        background-image: linear-gradient(#5b4718, #5b4718) !important;
+        opacity: 1 !important;
+      }
+
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="team"] {
+        background-color: #27210f !important;
+        background-image: linear-gradient(#27210f, #27210f) !important;
+        opacity: 1 !important;
+      }
+    `}</style>
+  );
+}
