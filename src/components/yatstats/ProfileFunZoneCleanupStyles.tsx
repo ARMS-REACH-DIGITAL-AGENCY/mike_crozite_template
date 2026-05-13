@@ -155,6 +155,19 @@ export default function ProfileFunZoneCleanupStyles() {
         background: #222222 !important;
       }
 
+      /* Align Block 5 stats table to the visual left edge of Block 3's first timeline card. */
+      #playerFunZone #ppTab-stats {
+        padding-left: 13px !important;
+        padding-right: 13px !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-card,
+      #playerFunZone #ppTab-stats .psi-table-wrap,
+      #playerFunZone #ppTab-stats .psi-shell {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+
       /* White theme: no black backgrounds in the profile/FunZone surface. */
       html.light-theme,
       body.light-theme,
