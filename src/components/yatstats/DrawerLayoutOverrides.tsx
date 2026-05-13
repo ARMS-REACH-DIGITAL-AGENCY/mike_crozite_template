@@ -10,14 +10,22 @@ export default function DrawerLayoutOverrides() {
         --yat-min-gallery-card-w: 260px;
       }
 
-      /* Block 2 should behave like Block 1: full-width rail, not centered/max-width. */
+      /* Block 2 should behave like Block 1: full-width rail, not centered/max-width, and never pushed by drawers. */
       .yat-row2-shell,
       .yat-row2-shell .yat-schoolrow {
         width: 100% !important;
         max-width: none !important;
       }
 
-      .yat-row2-shell .yat-schoolrow {
+      .yat-row2-shell,
+      .yat-row2-shell .yat-schoolrow,
+      body.drawer-left-open .yat-row2-shell,
+      body.drawer-right-open .yat-row2-shell,
+      body.drawer-account-open .yat-row2-shell,
+      body.drawer-favorites-open .yat-row2-shell,
+      body.drawer-left-open.drawer-right-open .yat-row2-shell,
+      body.drawer-left-open.drawer-account-open .yat-row2-shell,
+      body.drawer-left-open.drawer-favorites-open .yat-row2-shell {
         margin-left: 0 !important;
         margin-right: 0 !important;
       }
@@ -64,7 +72,6 @@ export default function DrawerLayoutOverrides() {
           overflow-y: auto !important;
         }
 
-        body.drawer-left-open .yat-row2-shell,
         body.drawer-left-open .yat-row3-shell,
         body.drawer-left-open .yat-row4-shell,
         body.drawer-left-open .yat-row5-shell,
@@ -72,17 +79,14 @@ export default function DrawerLayoutOverrides() {
           margin-left: var(--yat-side-drawer-w) !important;
         }
 
-        body.drawer-right-open .yat-row2-shell,
         body.drawer-right-open .yat-row3-shell,
         body.drawer-right-open .yat-row4-shell,
         body.drawer-right-open .yat-row5-shell,
         body.drawer-right-open .yat-row6-shell,
-        body.drawer-account-open .yat-row2-shell,
         body.drawer-account-open .yat-row3-shell,
         body.drawer-account-open .yat-row4-shell,
         body.drawer-account-open .yat-row5-shell,
         body.drawer-account-open .yat-row6-shell,
-        body.drawer-favorites-open .yat-row2-shell,
         body.drawer-favorites-open .yat-row3-shell,
         body.drawer-favorites-open .yat-row4-shell,
         body.drawer-favorites-open .yat-row5-shell,
@@ -90,17 +94,14 @@ export default function DrawerLayoutOverrides() {
           margin-right: var(--yat-side-drawer-w) !important;
         }
 
-        body.drawer-left-open.drawer-right-open .yat-row2-shell,
         body.drawer-left-open.drawer-right-open .yat-row3-shell,
         body.drawer-left-open.drawer-right-open .yat-row4-shell,
         body.drawer-left-open.drawer-right-open .yat-row5-shell,
         body.drawer-left-open.drawer-right-open .yat-row6-shell,
-        body.drawer-left-open.drawer-account-open .yat-row2-shell,
         body.drawer-left-open.drawer-account-open .yat-row3-shell,
         body.drawer-left-open.drawer-account-open .yat-row4-shell,
         body.drawer-left-open.drawer-account-open .yat-row5-shell,
         body.drawer-left-open.drawer-account-open .yat-row6-shell,
-        body.drawer-left-open.drawer-favorites-open .yat-row2-shell,
         body.drawer-left-open.drawer-favorites-open .yat-row3-shell,
         body.drawer-left-open.drawer-favorites-open .yat-row4-shell,
         body.drawer-left-open.drawer-favorites-open .yat-row5-shell,
