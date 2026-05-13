@@ -1,3 +1,5 @@
+'use client';
+
 export default function ProfileFunZoneCleanupStyles() {
   return (
     <style jsx global>{`
