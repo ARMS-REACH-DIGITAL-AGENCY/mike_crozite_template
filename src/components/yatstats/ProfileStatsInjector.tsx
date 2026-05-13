@@ -78,7 +78,7 @@ function normalizeLevel(value: unknown) {
   return raw;
 }
 
-function prepRow(row: Row) {
+function prepRow(row: Row): Row {
   return { ...row, level: normalizeLevel(row.level), bt: [row.ba, row.th].filter(Boolean).join('/') };
 }
 
@@ -90,7 +90,7 @@ function rowBucket(row: Row) {
   return level;
 }
 
-function buildBattingTotal(rows: Row[], label = 'Career', bucket = '') {
+function buildBattingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
   const total: Row = { year: 'Tot:', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '', posit: '' };
   sumBattingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const h = num(total.h); const ab = num(total.ab); const bb = num(total.bb); const tb = rows.reduce((sum, row) => sum + num(row.tb), 0);
@@ -101,7 +101,7 @@ function buildBattingTotal(rows: Row[], label = 'Career', bucket = '') {
   return total;
 }
 
-function buildPitchingTotal(rows: Row[], label = 'Career', bucket = '') {
+function buildPitchingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
   const total: Row = { year: 'Tot:', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '' };
   sumPitchingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const outs = rows.reduce((sum, row) => sum + parseIpToOuts(row.ip), 0);
@@ -177,8 +177,10 @@ function css() {
     #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; min-width:54px; max-width:54px; box-shadow:4px 0 10px rgba(0,0,0,.34); }
     #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:54px; z-index:11; min-width:170px; max-width:170px; box-shadow:4px 0 10px rgba(0,0,0,.28); }
     #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table th.team { z-index:16; }
-    #ppTab-stats .psi-table td[data-key="year"] { background:#111 !important; color:#fff; }
-    #ppTab-stats .psi-table td[data-key="team"] { background:#141414 !important; color:#fff; overflow:hidden; text-overflow:ellipsis; }
+    #ppTab-stats .psi-table tbody tr td[data-key="year"], #ppTab-stats .psi-table tbody tr td[data-key="team"] { background:rgba(255,255,255,.035) !important; color:#fff; }
+    #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"], #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background:rgba(255,255,255,.065) !important; }
+    #ppTab-stats .psi-table tbody tr:hover td[data-key="year"], #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background:rgba(255,255,255,.12) !important; color:#fff; }
+    #ppTab-stats .psi-table td[data-key="team"] { overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table th.level, #ppTab-stats .psi-table td[data-key="level"] { min-width:54px; }
     #ppTab-stats .psi-table th.org_conf, #ppTab-stats .psi-table td[data-key="org_conf"] { min-width:120px; max-width:140px; overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table .linkish { color:#fff; text-decoration:none; font-weight:500; }
@@ -194,8 +196,9 @@ function css() {
     html.light-theme #ppTab-stats .psi-table td, body.light-theme #ppTab-stats .psi-table td { background:#fff !important; color:#222 !important; border-color:rgba(0,0,0,.09) !important; }
     html.light-theme #ppTab-stats .psi-table tbody tr:nth-child(even) td, body.light-theme #ppTab-stats .psi-table tbody tr:nth-child(even) td { background:#f7f4ec !important; }
     html.light-theme #ppTab-stats .psi-table tbody tr:hover td, body.light-theme #ppTab-stats .psi-table tbody tr:hover td { background:#eee7d8 !important; color:#000 !important; }
-    html.light-theme #ppTab-stats .psi-table td[data-key="year"], body.light-theme #ppTab-stats .psi-table td[data-key="year"] { background:#f0ede4 !important; color:#111 !important; }
-    html.light-theme #ppTab-stats .psi-table td[data-key="team"], body.light-theme #ppTab-stats .psi-table td[data-key="team"] { background:#f7f4ec !important; color:#111 !important; }
+    html.light-theme #ppTab-stats .psi-table tbody tr td[data-key="year"], body.light-theme #ppTab-stats .psi-table tbody tr td[data-key="year"], html.light-theme #ppTab-stats .psi-table tbody tr td[data-key="team"], body.light-theme #ppTab-stats .psi-table tbody tr td[data-key="team"] { background:#fff !important; color:#111 !important; }
+    html.light-theme #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"], body.light-theme #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"], html.light-theme #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"], body.light-theme #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background:#f7f4ec !important; }
+    html.light-theme #ppTab-stats .psi-table tbody tr:hover td[data-key="year"], body.light-theme #ppTab-stats .psi-table tbody tr:hover td[data-key="year"], html.light-theme #ppTab-stats .psi-table tbody tr:hover td[data-key="team"], body.light-theme #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background:#eee7d8 !important; color:#000 !important; }
     html.light-theme #ppTab-stats .psi-table .linkish, body.light-theme #ppTab-stats .psi-table .linkish { color:#111 !important; }
     html.light-theme #ppTab-stats .psi-total-row td, body.light-theme #ppTab-stats .psi-total-row td { background:#e3ddcf !important; color:#000 !important; }
     html.light-theme #ppTab-stats .psi-empty, body.light-theme #ppTab-stats .psi-empty { background:#fff !important; color:#222 !important; }
