@@ -232,8 +232,6 @@ function css() {
       --psi-cell-bg: rgba(255,255,255,.035);
       --psi-cell-bg-alt: rgba(255,255,255,.065);
       --psi-cell-hover: rgba(255,255,255,.12);
-      --psi-sticky-year-bg: #111;
-      --psi-sticky-team-bg: #141414;
       --psi-total-bg: rgba(214, 178, 83, .32);
       --psi-total-bg-2: rgba(214, 178, 83, .20);
       --psi-total-text: #fff7d6;
@@ -253,8 +251,6 @@ function css() {
       --psi-cell-bg: rgba(255,255,255,.78);
       --psi-cell-bg-alt: rgba(245,236,214,.92);
       --psi-cell-hover: rgba(224,198,126,.38);
-      --psi-sticky-year-bg: #fff7df;
-      --psi-sticky-team-bg: #fff2cb;
       --psi-total-bg: rgba(229, 197, 105, .72);
       --psi-total-bg-2: rgba(241, 216, 145, .78);
       --psi-total-text: #181109;
@@ -267,7 +263,7 @@ function css() {
     #ppTab-stats .psi-shell { width:100%; background:transparent; }
     #ppTab-stats .psi-card { width:100%; border:1px solid var(--psi-border); background:linear-gradient(180deg, var(--psi-card-bg-2), transparent), var(--psi-card-bg); margin:0 0 10px; box-shadow:0 14px 32px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08); }
     #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 24px); overflow:auto; background:var(--psi-panel-bg); scrollbar-color:rgba(150,120,50,.55) rgba(150,120,50,.12); scrollbar-width:thin; }
-    #ppTab-stats .psi-table { min-width:0; width:max-content; border-collapse:separate; border-spacing:0; font:700 9.5px/1.05 Oswald, Arial, sans-serif; color:var(--psi-text); table-layout:auto; }
+    #ppTab-stats .psi-table { min-width:0; width:max-content; border-collapse:separate; border-spacing:0; font:500 9.5px/1.05 Oswald, Arial, sans-serif; color:var(--psi-text); table-layout:auto; }
     #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid var(--psi-border); border-bottom:1px solid var(--psi-border); background:linear-gradient(180deg,var(--psi-head-bg-a),var(--psi-head-bg-b)); color:var(--psi-text); text-align:right; white-space:nowrap; text-transform:uppercase; width:auto; }
     #ppTab-stats .psi-table th button { width:auto; height:100%; display:flex; align-items:center; justify-content:flex-end; gap:2px; border:0; background:transparent; color:inherit; padding:4px 3px; font:900 9px/1 Oswald, Arial, sans-serif; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
     #ppTab-stats .psi-table th.year button,
@@ -276,7 +272,7 @@ function css() {
     #ppTab-stats .psi-table th.team button,
     #ppTab-stats .psi-table th.org_conf button,
     #ppTab-stats .psi-table th.posit button { justify-content:flex-start; }
-    #ppTab-stats .psi-table td { padding:3px 3px; border-right:1px solid rgba(128,128,128,.14); border-bottom:1px solid rgba(128,128,128,.16); background:var(--psi-cell-bg); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right !important; color:var(--psi-muted-text); width:auto; min-width:0; max-width:none; overflow:visible; text-overflow:clip; font-weight:600; }
+    #ppTab-stats .psi-table td { padding:3px 3px; border-right:1px solid rgba(128,128,128,.14); border-bottom:1px solid rgba(128,128,128,.16); background:var(--psi-cell-bg); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right !important; color:var(--psi-muted-text); width:auto; min-width:0; max-width:none; overflow:visible; text-overflow:clip; font-weight:500; }
     #ppTab-stats .psi-table tbody tr:nth-child(even) td { background:var(--psi-cell-bg-alt); }
     #ppTab-stats .psi-table tbody tr:hover td { background:var(--psi-cell-hover); color:var(--psi-text); }
     #ppTab-stats .psi-table td[data-key="team"],
@@ -288,8 +284,12 @@ function css() {
     #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; width:40px; min-width:40px; max-width:40px; box-shadow:4px 0 10px rgba(0,0,0,.18); }
     #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:40px; z-index:11; width:108px; min-width:108px; max-width:108px; box-shadow:4px 0 10px rgba(0,0,0,.14); overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table th.team { z-index:16; }
-    #ppTab-stats .psi-table td[data-key="year"] { background:var(--psi-sticky-year-bg) !important; color:var(--psi-text); }
-    #ppTab-stats .psi-table td[data-key="team"] { background:var(--psi-sticky-team-bg) !important; color:var(--psi-text); }
+    #ppTab-stats .psi-table tbody tr td[data-key="year"],
+    #ppTab-stats .psi-table tbody tr td[data-key="team"] { background:var(--psi-cell-bg) !important; color:var(--psi-text); }
+    #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+    #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background:var(--psi-cell-bg-alt) !important; }
+    #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
+    #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background:var(--psi-cell-hover) !important; color:var(--psi-text); }
     #ppTab-stats .psi-table th.level, #ppTab-stats .psi-table td[data-key="level"] { width:58px; min-width:58px; max-width:58px; overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table th.org_conf, #ppTab-stats .psi-table td[data-key="org_conf"] { width:76px; min-width:76px; max-width:76px; overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table th.age, #ppTab-stats .psi-table td[data-key="age"], #ppTab-stats .psi-table th.posit, #ppTab-stats .psi-table td[data-key="posit"] { width:34px; min-width:34px; max-width:40px; }
