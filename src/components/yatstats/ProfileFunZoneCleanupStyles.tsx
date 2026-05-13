@@ -5,16 +5,6 @@ export default function ProfileFunZoneCleanupStyles() {
     <style jsx global>{`
       #playerFunZone #ppTab-stats .psi-player-info { display: none !important; }
 
-      /* One active tab indicator only. */
-      #playerFunZone .pp-fz-tab::before,
-      #playerFunZone .pp-fz-tab-default::before,
-      #playerFunZone .pp-fz-tab:not(.pp-fz-tab-active)::after,
-      #playerFunZone .pp-fz-tab-default:not(.pp-fz-tab-active)::after {
-        content: none !important;
-        display: none !important;
-        opacity: 0 !important;
-      }
-
       /* Block 4 / career-line metadata band: readable in both themes. */
       .yat-row4-shell,
       .yat-row4-shell #playerCareerStrip,
@@ -86,108 +76,172 @@ export default function ProfileFunZoneCleanupStyles() {
         text-shadow: none !important;
       }
 
-      /* Make the old dark gap in Block 4 light in white theme. */
-      html.light-theme .yat-row4-shell #playerCareerStrip:empty,
-      body.light-theme .yat-row4-shell #playerCareerStrip:empty,
-      html.light-theme .yat-row4-shell #playerCareerStrip:empty::before,
-      body.light-theme .yat-row4-shell #playerCareerStrip:empty::before {
-        background: #f6f0e4 !important;
+      /* FunZone must be one fixed zone: content panel above, icon strip anchored to footer. */
+      .pp-funzone-outer {
+        height: calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important;
+        min-height: 318px !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: block !important;
+        position: relative !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #070707 !important;
       }
 
-      /* Reclaim vertical room in Block 5: no excess strip padding or phantom gap above icons. */
       #playerFunZone {
+        --profile-tabs-h: 50px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        width: 100% !important;
+        position: relative !important;
+        display: block !important;
         overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #070707 !important;
       }
 
       #playerFunZone > .pp-fz-panel,
       .pp-funzone > .pp-fz-panel,
-      .pp-fz-panel {
-        padding-bottom: 0 !important;
-        margin-bottom: 0 !important;
+      #playerFunZone [id^="ppTab-"] {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: var(--profile-tabs-h) !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        display: none !important;
+        visibility: hidden !important;
+        overflow: auto !important;
+        overscroll-behavior: contain !important;
+        margin: 0 !important;
+        padding: 2px 6px 2px !important;
+        background: #070707 !important;
+        color: #f4f0e6 !important;
       }
 
       #playerFunZone > .pp-fz-panel.pp-fz-panel-active,
       .pp-funzone > .pp-fz-panel.pp-fz-panel-active,
-      .pp-fz-panel.pp-fz-panel-active {
+      #playerFunZone [id^="ppTab-"].pp-fz-panel-active {
         display: block !important;
         visibility: visible !important;
-        overflow: auto !important;
+      }
+
+      #playerFunZone > .pp-fz-panel[hidden],
+      #playerFunZone [id^="ppTab-"][hidden] {
+        display: none !important;
       }
 
       #playerFunZone .pp-fz-tabs-shell {
-        position: sticky !important;
+        position: absolute !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: auto !important;
         bottom: 0 !important;
-        z-index: 30 !important;
+        height: var(--profile-tabs-h) !important;
+        min-height: 0 !important;
+        max-height: var(--profile-tabs-h) !important;
+        z-index: 10010 !important;
         margin: 0 !important;
         padding: 0 !important;
-        min-height: 0 !important;
-        background: #070707 !important;
+        overflow: hidden !important;
+        background: rgba(7,7,7,.98) !important;
+        border-top: 1px solid rgba(255,255,255,.12) !important;
+        box-shadow: 0 -5px 12px rgba(0,0,0,.40) !important;
       }
 
       #playerFunZone .pp-fz-tabs {
+        height: var(--profile-tabs-h) !important;
+        min-height: 0 !important;
+        width: 100% !important;
         display: grid !important;
         grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
-        align-items: center !important;
-        justify-items: center !important;
-        width: 100% !important;
-        min-height: 56px !important;
-        height: 56px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #070707 !important;
+        align-items: stretch !important;
+        justify-items: stretch !important;
+        margin: 0 auto !important;
+        padding: 0 3px !important;
+        background: transparent !important;
       }
 
       #playerFunZone .pp-fz-tab {
+        position: relative !important;
         width: 100% !important;
-        height: 56px !important;
+        height: var(--profile-tabs-h) !important;
+        min-height: 0 !important;
         min-width: 0 !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        text-align: center !important;
-        gap: 2px !important;
+        gap: 1px !important;
         margin: 0 !important;
-        padding: 2px 0 0 !important;
-        color: #d8d8d8 !important;
+        padding: 2px 1px 1px !important;
+        color: rgba(255,255,255,.74) !important;
+        text-align: center !important;
+        text-decoration: none !important;
+      }
+
+      #playerFunZone .pp-fz-tab::before,
+      #playerFunZone .pp-fz-tab::after,
+      #playerFunZone .pp-fz-tab-default::before,
+      #playerFunZone .pp-fz-tab-default::after {
+        content: none !important;
+        display: none !important;
+        opacity: 0 !important;
+      }
+
+      #playerFunZone .pp-fz-tab.pp-fz-tab-active {
+        color: #fff !important;
+      }
+
+      #playerFunZone .pp-fz-tab.pp-fz-tab-active::before {
+        content: '' !important;
+        display: block !important;
+        opacity: 1 !important;
+        position: absolute !important;
+        left: 18% !important;
+        right: 18% !important;
+        top: 0 !important;
+        height: 2px !important;
+        background: #d2b45c !important;
       }
 
       #playerFunZone .pp-fz-tab i {
-        font-size: 22px !important;
+        font-size: 19px !important;
         line-height: 1 !important;
         margin: 0 !important;
         padding: 0 !important;
       }
 
       #playerFunZone .pp-fz-tab span {
-        font-size: 10px !important;
-        line-height: 1 !important;
+        font: 900 8px/1 Oswald, Arial, sans-serif !important;
+        letter-spacing: .035em !important;
+        text-transform: uppercase !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
       }
 
-      #playerFunZone .pp-fz-tab.pp-fz-tab-active::after {
-        content: '' !important;
-        opacity: 1 !important;
-        position: absolute !important;
-        left: 22% !important;
-        right: 22% !important;
-        top: 0 !important;
-        height: 3px !important;
-        background: #d9b75b !important;
-        display: block !important;
-      }
-
-      /* Stats grid: Excel-style auto-fit widths and exact header/body alignment. */
+      /* Stats grid: tight padding, exact header/body alignment, sticky first columns. */
       #playerFunZone #ppTab-stats {
-        padding: 6px 13px 0 !important;
+        padding: 2px 13px 2px !important;
       }
 
       #playerFunZone #ppTab-stats .psi-card,
       #playerFunZone #ppTab-stats .psi-table-wrap,
       #playerFunZone #ppTab-stats .psi-shell {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
+        margin: 0 !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table-wrap {
+        max-height: none !important;
+        height: auto !important;
       }
 
       #playerFunZone #ppTab-stats .psi-table {
@@ -268,7 +322,6 @@ export default function ProfileFunZoneCleanupStyles() {
         z-index: 16 !important;
       }
 
-      /* Dark-mode frozen columns: solid, opaque, and still striped. */
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
@@ -295,19 +348,13 @@ export default function ProfileFunZoneCleanupStyles() {
         background-color: #222222 !important;
       }
 
-      /* White theme: no black backgrounds in profile/FunZone surfaces. */
-      html.light-theme body,
-      body.light-theme,
-      html.light-theme main,
-      body.light-theme main,
+      /* Light theme. */
+      html.light-theme .pp-funzone-outer,
+      body.light-theme .pp-funzone-outer,
       html.light-theme #playerFunZone,
       body.light-theme #playerFunZone,
-      html.light-theme #playerFunZone .pp-funzone,
-      body.light-theme #playerFunZone .pp-funzone,
-      html.light-theme #playerFunZone .pp-funzone-outer,
-      body.light-theme #playerFunZone .pp-funzone-outer,
-      html.light-theme #playerFunZone .pp-fz-panel,
-      body.light-theme #playerFunZone .pp-fz-panel,
+      html.light-theme #playerFunZone > .pp-fz-panel,
+      body.light-theme #playerFunZone > .pp-fz-panel,
       html.light-theme #playerFunZone [id^="ppTab-"],
       body.light-theme #playerFunZone [id^="ppTab-"] {
         background: #f6f0e4 !important;
@@ -320,7 +367,7 @@ export default function ProfileFunZoneCleanupStyles() {
       body.light-theme #playerFunZone .pp-fz-tabs {
         background: #fffdf8 !important;
         color: #17130b !important;
-        border-top: 1px solid rgba(74,54,10,.22) !important;
+        border-top-color: rgba(74,54,10,.22) !important;
         box-shadow: 0 -4px 10px rgba(74,54,10,.08) !important;
       }
 
@@ -329,11 +376,7 @@ export default function ProfileFunZoneCleanupStyles() {
       html.light-theme #playerFunZone .pp-fz-tab i,
       body.light-theme #playerFunZone .pp-fz-tab i,
       html.light-theme #playerFunZone .pp-fz-tab span,
-      body.light-theme #playerFunZone .pp-fz-tab span {
-        color: #2b2415 !important;
-        opacity: 1 !important;
-      }
-
+      body.light-theme #playerFunZone .pp-fz-tab span,
       html.light-theme #playerFunZone #ppTab-upload,
       body.light-theme #playerFunZone #ppTab-upload,
       html.light-theme #playerFunZone #ppTab-upload *,
@@ -397,6 +440,36 @@ export default function ProfileFunZoneCleanupStyles() {
       }
 
       @media (max-width: 760px) {
+        .pp-funzone-outer {
+          height: calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important;
+          min-height: 320px !important;
+        }
+
+        #playerFunZone {
+          --profile-tabs-h: 46px !important;
+        }
+
+        #playerFunZone > .pp-fz-panel,
+        .pp-funzone > .pp-fz-panel,
+        #playerFunZone [id^="ppTab-"] {
+          bottom: var(--profile-tabs-h) !important;
+          padding: 2px 4px 2px !important;
+        }
+
+        #playerFunZone #ppTab-stats {
+          padding: 2px 13px 2px !important;
+        }
+
+        #playerFunZone .pp-fz-tabs-shell,
+        #playerFunZone .pp-fz-tabs,
+        #playerFunZone .pp-fz-tab {
+          height: var(--profile-tabs-h) !important;
+          min-height: 0 !important;
+        }
+
+        #playerFunZone .pp-fz-tab i { font-size: 18px !important; }
+        #playerFunZone .pp-fz-tab span { font-size: 7px !important; letter-spacing: .03em !important; }
+
         .yp-meta-strip {
           grid-template-columns: minmax(0, 1fr) !important;
           gap: 2px !important;
@@ -405,8 +478,6 @@ export default function ProfileFunZoneCleanupStyles() {
         }
         .yp-meta-team { font-size: 13px !important; }
         .yp-meta-sub { font-size: 8px !important; }
-        #playerFunZone .pp-fz-tabs,
-        #playerFunZone .pp-fz-tab { height: 54px !important; min-height: 54px !important; }
       }
     `}</style>
   );
