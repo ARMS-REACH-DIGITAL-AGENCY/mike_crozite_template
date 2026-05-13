@@ -121,8 +121,8 @@ export default async function PlayerLayout({
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
-      <ProfileFunZoneCleanupStyles />
       {children}
+      <ProfileFunZoneCleanupStyles />
     </PlayerProfileContextProvider>
   );
 }
