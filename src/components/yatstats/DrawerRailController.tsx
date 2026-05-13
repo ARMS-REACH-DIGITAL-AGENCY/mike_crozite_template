@@ -271,14 +271,6 @@ export default function DrawerRailController() {
       }
     };
 
-    const onBodyClassChange = () => {
-      applyThemeFromStorage();
-      syncRailMode();
-    };
-
-    const observer = new MutationObserver(onBodyClassChange);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', syncRailMode);
     window.addEventListener('pageshow', () => {
@@ -289,7 +281,6 @@ export default function DrawerRailController() {
 
     return () => {
       if (timer) clearTimeout(timer);
-      observer.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', syncRailMode);
       document.removeEventListener('click', onClickCapture, true);
