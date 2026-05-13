@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
 type Column = readonly [string, string];
 type StatsMeta = {
   currentTeamName?: string;
@@ -11,12 +11,12 @@ type StatsMeta = {
   statusLabel?: string;
 };
 
-const battingColumns = [
+const battingColumns: readonly Column[] = [
   ['year', 'YR'], ['team', 'TEAM'], ['level', 'LVL'], ['org_conf', 'ORG'], ['age', 'AGE'], ['bt', 'B/T'], ['class', 'CLS'], ['posit', 'POS'],
   ['g', 'G'], ['ab', 'AB'], ['r', 'R'], ['h', 'H'], ['dbl', '2B'], ['tpl', '3B'], ['hr', 'HR'], ['rbi', 'RBI'], ['sb', 'SB'], ['bb', 'BB'], ['so', 'SO'], ['bavg', 'AVG'], ['obp', 'OBP'], ['slg', 'SLG'], ['ops', 'OPS'],
 ] as const;
 
-const pitchingColumns = [
+const pitchingColumns: readonly Column[] = [
   ['year', 'YR'], ['team', 'TEAM'], ['level', 'LVL'], ['org_conf', 'ORG'], ['age', 'AGE'], ['bt', 'B/T'], ['class', 'CLS'],
   ['w', 'W'], ['l', 'L'], ['g', 'G'], ['gs', 'GS'], ['sv', 'SV'], ['ip', 'IP'], ['h', 'H'], ['r', 'R'], ['er', 'ER'], ['hr', 'HR'], ['bb', 'BB'], ['so', 'SO'], ['era', 'ERA'], ['whip', 'WHIP'], ['so9', 'K/9'], ['so_bb', 'K/BB'],
 ] as const;
@@ -78,7 +78,7 @@ function normalizeLevel(value: unknown) {
   return raw;
 }
 
-function prepRow(row: Row) {
+function prepRow(row: Row): Row {
   return { ...row, level: normalizeLevel(row.level), bt: [row.ba, row.th].filter(Boolean).join('/') };
 }
 
@@ -90,7 +90,7 @@ function rowBucket(row: Row) {
   return level;
 }
 
-function buildBattingTotal(rows: Row[], label = 'Career', bucket = '') {
+function buildBattingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
   const total: Row = { year: 'Tot:', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '', posit: '' };
   sumBattingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const h = num(total.h); const ab = num(total.ab); const bb = num(total.bb); const tb = rows.reduce((sum, row) => sum + num(row.tb), 0);
@@ -101,7 +101,7 @@ function buildBattingTotal(rows: Row[], label = 'Career', bucket = '') {
   return total;
 }
 
-function buildPitchingTotal(rows: Row[], label = 'Career', bucket = '') {
+function buildPitchingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
   const total: Row = { year: 'Tot:', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '' };
   sumPitchingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const outs = rows.reduce((sum, row) => sum + parseIpToOuts(row.ip), 0);
@@ -133,7 +133,7 @@ function totalRows(kind: 'batting' | 'pitching', rows: Row[]) {
 }
 
 function renderCells(row: Row, columns: readonly Column[], extraClass = '') {
-  const clean = prepRow(row);
+  const clean: Row = prepRow(row);
   return columns.map(([key]) => `<td data-key="${esc(key)}" class="${extraClass} ${['team','org_conf'].includes(key) ? 'linkish' : ''}">${fmt(clean[key])}</td>`).join('');
 }
 
