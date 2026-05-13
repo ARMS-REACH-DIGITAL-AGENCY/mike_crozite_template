@@ -23,7 +23,9 @@ const pitchingColumns: readonly Column[] = [
 
 const sumBattingKeys = ['g','ab','r','h','dbl','tpl','hr','rbi','sb','cs','bb','so','hbp','sh','sf','ibb','gdp','tb','pa','xbh','sgl'] as const;
 const sumPitchingKeys = ['w','l','g','gs','cg','sho','gr','gf','sv','h','r','er','hr','bb','so','wp','bk','hb'] as const;
-const levelBuckets = ['MLB', 'AAA', 'AA', 'A+', 'A', 'RK', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO', 'COLLEGE'] as const;
+const levelBuckets = ['MLB', 'AAA', 'AA', 'A+', 'A', 'RK', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO'] as const;
+const minorBuckets = new Set(['AAA', 'AA', 'A+', 'A', 'RK']);
+const collegeBuckets = new Set(['NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO', 'COLLEGE']);
 const twoDecimalKeys = new Set(['era', 'whip', 'h9', 'hr9', 'bb9', 'so9', 'ra9', 'so_bb']);
 
 function esc(value: unknown) {
@@ -175,20 +177,38 @@ function buildPitchingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
   return total;
 }
 
-function getBucketRows(rows: Row[], bucket: string) {
-  if (bucket === 'COLLEGE') return rows.filter((row) => ['NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','JUCO','COLLEGE'].includes(rowBucket(row)));
+function getLevelRows(rows: Row[], bucket: string) {
   return rows.filter((row) => rowBucket(row) === bucket);
+}
+
+function getBucketRows(rows: Row[], bucket: 'MLB' | 'MiLB' | 'COLLEGE') {
+  if (bucket === 'MLB') return rows.filter((row) => rowBucket(row) === 'MLB');
+  if (bucket === 'MiLB') return rows.filter((row) => minorBuckets.has(rowBucket(row)));
+  return rows.filter((row) => collegeBuckets.has(rowBucket(row)));
+}
+
+function marked(row: Row, totalKind: 'level' | 'bucket') {
+  return { ...row, __total_kind: totalKind };
 }
 
 function totalRows(kind: 'batting' | 'pitching', rows: Row[]) {
   const make = kind === 'pitching' ? buildPitchingTotal : buildBattingTotal;
   const out: Row[] = [];
+
   for (const bucket of levelBuckets) {
-    const bucketRows = getBucketRows(rows, bucket);
+    const bucketRows = getLevelRows(rows, bucket);
     if (!bucketRows.length) continue;
-    out.push(make(bucketRows, `${bucket} (${bucketRows.length} yrs)`, bucket));
+    out.push(marked(make(bucketRows, `${bucket} TOTAL`, bucket), 'level'));
   }
-  out.push(make(rows, `All Levels (${rows.length} yrs)`, 'ALL'));
+
+  const mlbRows = getBucketRows(rows, 'MLB');
+  const milbRows = getBucketRows(rows, 'MiLB');
+  const collegeRows = getBucketRows(rows, 'COLLEGE');
+
+  if (mlbRows.length) out.push(marked(make(mlbRows, 'MLB TOTALS', 'MLB'), 'bucket'));
+  if (milbRows.length) out.push(marked(make(milbRows, 'MiLB TOTALS', 'MiLB'), 'bucket'));
+  if (collegeRows.length) out.push(marked(make(collegeRows, 'COLLEGE TOTALS', 'COLLEGE'), 'bucket'));
+
   return out.map(prepRow);
 }
 
@@ -199,7 +219,7 @@ function renderCells(row: Row, columns: readonly Column[], extraClass = '') {
 
 function totalRow(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Column[]) {
   if (!rows.length) return '';
-  return `<tfoot>${totalRows(kind, rows).map((row) => `<tr class="psi-total-row">${renderCells(row, columns)}</tr>`).join('')}</tfoot>`;
+  return `<tfoot>${totalRows(kind, rows).map((row) => `<tr class="psi-total-row ${row.__total_kind === 'bucket' ? 'psi-bucket-total-row' : 'psi-level-total-row'}">${renderCells(row, columns)}</tr>`).join('')}</tfoot>`;
 }
 
 function table(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Column[]) {
@@ -301,6 +321,9 @@ function css() {
     #ppTab-stats .psi-total-row td[data-key="year"],
     #ppTab-stats .psi-total-row td[data-key="team"] { background:linear-gradient(180deg, var(--psi-total-bg), var(--psi-total-bg-2)) !important; color:var(--psi-total-text) !important; }
     #ppTab-stats .psi-total-row td[data-key="team"] { letter-spacing:.02em; text-transform:uppercase; }
+    #ppTab-stats .psi-bucket-total-row td,
+    #ppTab-stats .psi-bucket-total-row td[data-key="year"],
+    #ppTab-stats .psi-bucket-total-row td[data-key="team"] { background:var(--psi-cell-bg-alt) !important; color:var(--psi-text) !important; border-top:2px solid rgba(191,148,43,.72); }
     #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:var(--psi-muted-text); background:var(--psi-card-bg); font:800 13px/1.35 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
     @media (max-width:860px) { #ppTab-stats { padding:6px 4px calc(var(--profile-tabs-h,72px) + 10px) !important; } #ppTab-stats .psi-table { font-size:9px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:3px 2px; } #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { width:38px; min-width:38px; max-width:38px; } #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { width:102px; min-width:102px; max-width:102px; left:38px; } }
   </style>`;
