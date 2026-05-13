@@ -10,7 +10,7 @@ const THEME_KEY = 'yat-theme';
 type DrawerState = {
   left: boolean;
   leftSearch: boolean;
-  right: '' | 'filters' | 'account' | 'favorites';
+  right: '' | 'sort' | 'filters' | 'account' | 'favorites';
 };
 
 function hasLeftOpen() {
@@ -18,6 +18,7 @@ function hasLeftOpen() {
 }
 
 function getRightState(): DrawerState['right'] {
+  if (document.body.classList.contains('drawer-sort-open')) return 'sort';
   if (document.body.classList.contains('drawer-right-open')) return 'filters';
   if (document.body.classList.contains('drawer-account-open')) return 'account';
   if (document.body.classList.contains('drawer-favorites-open')) return 'favorites';
@@ -29,7 +30,7 @@ function hasAnyRightOpen() {
 }
 
 function closeRightRails() {
-  document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
 }
 
 function applyThemeFromStorage() {
@@ -65,7 +66,8 @@ function saveDrawerState() {
 }
 
 function applyRightState(right: DrawerState['right']) {
-  document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  closeRightRails();
+  if (right === 'sort') document.body.classList.add('drawer-sort-open');
   if (right === 'filters') document.body.classList.add('drawer-right-open');
   if (right === 'account') document.body.classList.add('drawer-account-open');
   if (right === 'favorites') {
@@ -176,10 +178,20 @@ export default function DrawerRailController() {
         return;
       }
 
+      if (target.closest('#openSort')) {
+        window.setTimeout(() => {
+          body.classList.add('drawer-sort-open', 'drawer-open');
+          body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+          if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+          syncRailMode();
+        }, 0);
+        return;
+      }
+
       if (target.closest('#openFilters')) {
         window.setTimeout(() => {
           body.classList.add('drawer-right-open', 'drawer-open');
-          body.classList.remove('drawer-account-open', 'drawer-favorites-open');
+          body.classList.remove('drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open');
           if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
           syncRailMode();
         }, 0);
@@ -189,7 +201,7 @@ export default function DrawerRailController() {
       if (target.closest('#btnAccount')) {
         window.setTimeout(() => {
           body.classList.add('drawer-account-open', 'drawer-open');
-          body.classList.remove('drawer-right-open', 'drawer-favorites-open');
+          body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
           if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
           syncRailMode();
         }, 0);
@@ -199,7 +211,7 @@ export default function DrawerRailController() {
       if (target.closest('#openFavorites')) {
         window.setTimeout(() => {
           body.classList.add('drawer-favorites-open', 'drawer-open');
-          body.classList.remove('drawer-right-open', 'drawer-account-open');
+          body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
           if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
           syncRailMode();
         }, 0);
@@ -209,6 +221,14 @@ export default function DrawerRailController() {
       if (target.closest('#closeLeft')) {
         window.setTimeout(() => {
           body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+          syncRailMode();
+        }, 0);
+        return;
+      }
+
+      if (target.closest('#closeSort')) {
+        window.setTimeout(() => {
+          body.classList.remove('drawer-sort-open');
           syncRailMode();
         }, 0);
         return;
