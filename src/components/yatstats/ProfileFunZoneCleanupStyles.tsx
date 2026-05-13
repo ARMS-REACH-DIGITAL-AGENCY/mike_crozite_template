@@ -7,10 +7,17 @@ export default function ProfileFunZoneCleanupStyles() {
         display: none !important;
       }
 
-      #playerFunZone .pp-fz-tab-default::before,
-      #playerFunZone .pp-fz-tab-default::after,
-      #playerFunZone .pp-fz-tab:not(.pp-fz-tab-active)::before,
-      #playerFunZone .pp-fz-tab:not(.pp-fz-tab-active)::after {
+      /* Keep exactly one tab indicator: kill all BEFORE lines, and only allow AFTER on the active tab. */
+      #playerFunZone .pp-fz-tab::before,
+      #playerFunZone .pp-fz-tab-default::before {
+        content: none !important;
+        display: none !important;
+        opacity: 0 !important;
+      }
+
+      #playerFunZone .pp-fz-tab:not(.pp-fz-tab-active)::after,
+      #playerFunZone .pp-fz-tab-default:not(.pp-fz-tab-active)::after {
+        content: none !important;
         display: none !important;
         opacity: 0 !important;
       }
@@ -20,6 +27,7 @@ export default function ProfileFunZoneCleanupStyles() {
         grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
         align-items: center !important;
         justify-items: center !important;
+        width: 100% !important;
       }
 
       #playerFunZone .pp-fz-tab {
@@ -29,6 +37,8 @@ export default function ProfileFunZoneCleanupStyles() {
         justify-content: center !important;
         text-align: center !important;
         gap: 3px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
       }
 
       #playerFunZone .pp-fz-tab i {
