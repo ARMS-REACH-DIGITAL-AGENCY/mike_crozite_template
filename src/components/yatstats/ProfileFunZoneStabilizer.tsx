@@ -169,19 +169,19 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
 
   return <style jsx global>{`
     .pp-funzone-outer, #playerFunZone { background:#070707 !important; }
-    #playerFunZone { --profile-tabs-h:88px; position:relative !important; height:auto !important; min-height:0 !important; overflow:visible !important; display:block !important; padding-bottom:0 !important; }
-    #playerFunZone > .pp-fz-panel { position:static !important; inset:auto !important; display:none !important; visibility:hidden !important; overflow:visible !important; overscroll-behavior:auto !important; background:radial-gradient(circle at 50% 0%, rgba(255,255,255,.045), transparent 38%), #070707 !important; color:#f4f4f4 !important; padding:10px 10px 12px !important; }
+    #playerFunZone { --profile-tabs-h:54px; position:relative !important; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height:300px !important; overflow:hidden !important; display:block !important; padding-bottom:0 !important; }
+    #playerFunZone > .pp-fz-panel { position:absolute !important; inset:0 0 var(--profile-tabs-h) 0 !important; display:none !important; visibility:hidden !important; overflow:auto !important; overscroll-behavior:contain !important; background:radial-gradient(circle at 50% 0%, rgba(255,255,255,.045), transparent 38%), #070707 !important; color:#f4f4f4 !important; padding:8px 8px 10px !important; }
     #playerFunZone > .pp-fz-panel.pp-fz-panel-active { display:block !important; visibility:visible !important; }
     #playerFunZone > .pp-fz-panel[hidden] { display:none !important; }
-    #playerFunZone .pp-fz-tabs-shell { position:sticky !important; left:0 !important; right:0 !important; bottom:var(--footerH,76px) !important; height:var(--profile-tabs-h) !important; z-index:40 !important; background:rgba(7,7,7,.96) !important; border-top:1px solid rgba(255,255,255,.12) !important; box-shadow:0 -10px 26px rgba(0,0,0,.58) !important; }
-    #playerFunZone .pp-fz-tabs { height:100% !important; display:grid !important; grid-template-columns:repeat(6,minmax(0,1fr)) !important; max-width:640px !important; margin:0 auto !important; padding:0 8px !important; }
-    #playerFunZone .pp-fz-tab { position:relative !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:6px !important; color:rgba(255,255,255,.72) !important; text-decoration:none !important; min-width:0 !important; }
+    #playerFunZone .pp-fz-tabs-shell { position:absolute !important; left:0 !important; right:0 !important; bottom:0 !important; height:var(--profile-tabs-h) !important; z-index:40 !important; background:rgba(7,7,7,.98) !important; border-top:1px solid rgba(255,255,255,.12) !important; box-shadow:0 -6px 16px rgba(0,0,0,.42) !important; overflow:hidden !important; }
+    #playerFunZone .pp-fz-tabs { height:100% !important; display:grid !important; grid-template-columns:repeat(6,minmax(0,1fr)) !important; margin:0 auto !important; padding:0 4px !important; }
+    #playerFunZone .pp-fz-tab { position:relative !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:2px !important; padding:3px 1px 2px !important; color:rgba(255,255,255,.72) !important; text-decoration:none !important; min-width:0 !important; }
     #playerFunZone .pp-fz-tab::before, #playerFunZone .pp-fz-tab::after, #playerFunZone .pp-fz-tab-default::before, #playerFunZone .pp-fz-tab-default::after { display:none !important; opacity:0 !important; }
     #playerFunZone .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
-    #playerFunZone .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; opacity:1 !important; position:absolute !important; left:12% !important; right:12% !important; top:0 !important; height:3px !important; background:#d2b45c !important; }
-    #playerFunZone .pp-fz-tab i { font-size:28px !important; line-height:1 !important; }
-    #playerFunZone .pp-fz-tab span { font:900 12px/1 Oswald,sans-serif !important; letter-spacing:.08em !important; text-transform:uppercase !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; max-width:100% !important; }
-    .profile-upload-panel { width:min(980px,100%); margin:0 auto; padding:24px 18px 112px; display:grid; grid-template-columns:minmax(220px,30%) minmax(0,1fr); gap:20px; }
+    #playerFunZone .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; opacity:1 !important; position:absolute !important; left:18% !important; right:18% !important; top:0 !important; height:2px !important; background:#d2b45c !important; }
+    #playerFunZone .pp-fz-tab i { font-size:20px !important; line-height:1 !important; }
+    #playerFunZone .pp-fz-tab span { font:900 8px/1 Oswald,sans-serif !important; letter-spacing:.04em !important; text-transform:uppercase !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; max-width:100% !important; }
+    .profile-upload-panel { width:min(980px,100%); margin:0 auto; padding:24px 18px 76px; display:grid; grid-template-columns:minmax(220px,30%) minmax(0,1fr); gap:20px; }
     .profile-upload-copy { border-left:5px solid #d2b45c; padding-left:18px; }
     .profile-upload-kicker { color:#d2b45c; font:900 12px/1 Oswald,sans-serif; letter-spacing:.18em; text-transform:uppercase; }
     .profile-upload-copy h2 { margin:10px 0 12px; color:#fff; font:900 clamp(30px,4vw,48px)/.9 Oswald,sans-serif; letter-spacing:.02em; text-transform:uppercase; }
@@ -196,14 +196,14 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     .profile-upload-preview img { width:100%; height:100%; object-fit:cover; display:block; }
     .profile-upload-actions button, .profile-upload-gate-actions a { min-height:38px; padding:0 16px; border:1px solid rgba(210,180,92,.85); background:rgba(210,180,92,.12); color:#d2b45c; text-decoration:none; font:900 12px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
     @media (max-width:760px) {
-      #playerFunZone { --profile-tabs-h:82px; height:auto !important; min-height:0 !important; overflow:visible !important; }
-      #playerFunZone > .pp-fz-panel { position:static !important; inset:auto !important; overflow:visible !important; padding:8px 6px 12px !important; }
-      #playerFunZone .pp-fz-tabs-shell { position:sticky !important; bottom:var(--footerH,64px) !important; height:var(--profile-tabs-h) !important; z-index:10010 !important; overflow:hidden !important; }
-      #playerFunZone .pp-fz-tabs { height:var(--profile-tabs-h) !important; max-width:520px !important; padding:0 6px !important; }
-      #playerFunZone .pp-fz-tab { height:var(--profile-tabs-h) !important; padding:7px 1px 6px !important; gap:4px !important; }
-      #playerFunZone .pp-fz-tab i { font-size:clamp(20px,5.4vw,26px) !important; }
-      #playerFunZone .pp-fz-tab span { font-size:clamp(8px,2.35vw,11px) !important; letter-spacing:.06em !important; }
-      .profile-upload-panel { grid-template-columns:1fr; padding:20px 14px 126px; }
+      #playerFunZone { --profile-tabs-h:48px; height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height:300px !important; overflow:hidden !important; }
+      #playerFunZone > .pp-fz-panel { position:absolute !important; inset:0 0 var(--profile-tabs-h) 0 !important; overflow:auto !important; padding:6px 6px 8px !important; }
+      #playerFunZone .pp-fz-tabs-shell { position:absolute !important; bottom:0 !important; height:var(--profile-tabs-h) !important; z-index:10010 !important; overflow:hidden !important; }
+      #playerFunZone .pp-fz-tabs { height:var(--profile-tabs-h) !important; padding:0 3px !important; }
+      #playerFunZone .pp-fz-tab { height:var(--profile-tabs-h) !important; padding:2px 1px 1px !important; gap:1px !important; }
+      #playerFunZone .pp-fz-tab i { font-size:18px !important; }
+      #playerFunZone .pp-fz-tab span { font-size:7px !important; letter-spacing:.03em !important; }
+      .profile-upload-panel { grid-template-columns:1fr; padding:14px 12px 58px; }
       .profile-upload-form { grid-template-columns:1fr; }
     }
   `}</style>;
