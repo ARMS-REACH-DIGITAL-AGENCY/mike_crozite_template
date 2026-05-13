@@ -22,8 +22,8 @@ export default function ProfileFunZoneCleanupStyles() {
         grid-template-columns: minmax(0, 1.35fr) repeat(5, minmax(54px, auto)) !important;
         align-items: center !important;
         gap: 8px !important;
-        padding: 5px 13px !important;
         min-height: 40px !important;
+        padding: 5px 13px !important;
         color: #f4f0e6 !important;
         text-transform: uppercase !important;
       }
@@ -49,34 +49,7 @@ export default function ProfileFunZoneCleanupStyles() {
         color: rgba(244,240,230,.78) !important;
       }
 
-      html.light-theme .yat-row4-shell,
-      body.light-theme .yat-row4-shell,
-      html.light-theme .yat-row4-shell #playerCareerStrip,
-      body.light-theme .yat-row4-shell #playerCareerStrip,
-      html.light-theme .yat-profile-meta-row-host,
-      body.light-theme .yat-profile-meta-row-host,
-      html.light-theme .yat-profile-meta-row-host .yp-meta-strip,
-      body.light-theme .yat-profile-meta-row-host .yp-meta-strip,
-      html.light-theme .profile-row-4,
-      body.light-theme .profile-row-4,
-      html.light-theme .pp-row-4,
-      body.light-theme .pp-row-4,
-      html.light-theme [data-profile-row="4"],
-      body.light-theme [data-profile-row="4"] {
-        background: #f6f0e4 !important;
-        color: #17130b !important;
-      }
-
-      html.light-theme .yp-meta-team,
-      body.light-theme .yp-meta-team,
-      html.light-theme .yp-meta-sub,
-      body.light-theme .yp-meta-sub {
-        color: #17130b !important;
-        opacity: 1 !important;
-        text-shadow: none !important;
-      }
-
-      /* FunZone must be one fixed zone: content panel above, icon strip anchored to footer. */
+      /* Fixed FunZone: content panel above, icon strip anchored to footer. */
       .pp-funzone-outer {
         height: calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important;
         min-height: 318px !important;
@@ -91,8 +64,7 @@ export default function ProfileFunZoneCleanupStyles() {
 
       #playerFunZone {
         --profile-tabs-h: 50px !important;
-        --stats-year-col-w: 64px !important;
-        --stats-team-col-w: max-content !important;
+        --stats-year-col-w: 42px !important;
         height: 100% !important;
         min-height: 0 !important;
         width: 100% !important;
@@ -120,7 +92,7 @@ export default function ProfileFunZoneCleanupStyles() {
         overflow: auto !important;
         overscroll-behavior: contain !important;
         margin: 0 !important;
-        padding: 2px 6px 2px !important;
+        padding: 2px 6px !important;
         background: #070707 !important;
         color: #f4f0e6 !important;
       }
@@ -212,22 +184,63 @@ export default function ProfileFunZoneCleanupStyles() {
       #playerFunZone .pp-fz-tab i { font-size: 19px !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
       #playerFunZone .pp-fz-tab span { font: 900 8px/1 Oswald, Arial, sans-serif !important; letter-spacing: .035em !important; text-transform: uppercase !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
 
-      /* Stats grid: tight padding, sticky top row, frozen first two columns. */
-      #playerFunZone #ppTab-stats { padding: 2px 13px 2px !important; }
+      /* Stats pane: only the table wrapper scrolls. This is required for freeze panes. */
+      #playerFunZone #ppTab-stats {
+        padding: 2px 13px !important;
+        overflow: hidden !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-shell,
       #playerFunZone #ppTab-stats .psi-card,
-      #playerFunZone #ppTab-stats .psi-table-wrap,
-      #playerFunZone #ppTab-stats .psi-shell { margin: 0 !important; }
-      #playerFunZone #ppTab-stats .psi-table-wrap { max-height: none !important; height: 100% !important; overflow: auto !important; position: relative !important; }
-      #playerFunZone #ppTab-stats .psi-table { table-layout: auto !important; width: max-content !important; min-width: max-content !important; border-collapse: separate !important; }
+      #playerFunZone #ppTab-stats .psi-table-wrap {
+        height: 100% !important;
+        max-height: 100% !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-card {
+        display: block !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table-wrap {
+        overflow: auto !important;
+        position: relative !important;
+        isolation: isolate !important;
+        background: #080808 !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table {
+        table-layout: auto !important;
+        width: max-content !important;
+        min-width: max-content !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+      }
+
       #playerFunZone #ppTab-stats .psi-table th,
-      #playerFunZone #ppTab-stats .psi-table td { width: auto !important; min-width: max-content !important; max-width: none !important; white-space: nowrap !important; box-sizing: border-box !important; }
-      #playerFunZone #ppTab-stats .psi-table th button { width: 100% !important; display: flex !important; box-sizing: border-box !important; }
+      #playerFunZone #ppTab-stats .psi-table td {
+        width: auto !important;
+        min-width: max-content !important;
+        max-width: none !important;
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
+      }
 
-      /* Top header row is frozen. */
-      #playerFunZone #ppTab-stats .psi-table thead,
-      #playerFunZone #ppTab-stats .psi-table thead tr { position: sticky !important; top: 0 !important; z-index: 300 !important; }
-      #playerFunZone #ppTab-stats .psi-table thead th { position: sticky !important; top: 0 !important; z-index: 310 !important; }
+      #playerFunZone #ppTab-stats .psi-table th button {
+        width: 100% !important;
+        display: flex !important;
+        box-sizing: border-box !important;
+      }
 
+      /* Top row frozen. */
+      #playerFunZone #ppTab-stats .psi-table thead th {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 300 !important;
+      }
+
+      /* Column alignment. */
       #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit),
       #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit) button { text-align: right !important; justify-content: flex-end !important; }
       #playerFunZone #ppTab-stats .psi-table th.year,
@@ -249,40 +262,59 @@ export default function ProfileFunZoneCleanupStyles() {
       #playerFunZone #ppTab-stats .psi-table th.org_conf button,
       #playerFunZone #ppTab-stats .psi-table th.posit button { text-align: left !important; justify-content: flex-start !important; }
 
-      /* Freeze YEAR and TEAM. YEAR is sized to its content; TEAM auto-fits but remains the second frozen column. */
+      /* First two columns frozen. YEAR is narrow; TEAM auto-fits to content. */
       #playerFunZone #ppTab-stats .psi-table th.year,
       #playerFunZone #ppTab-stats .psi-table td[data-key="year"] {
         position: sticky !important;
         left: 0 !important;
-        z-index: 320 !important;
+        z-index: 310 !important;
         width: var(--stats-year-col-w) !important;
         min-width: var(--stats-year-col-w) !important;
         max-width: var(--stats-year-col-w) !important;
-        background-image: none !important;
         opacity: 1 !important;
+        background-image: none !important;
       }
 
       #playerFunZone #ppTab-stats .psi-table th.team,
       #playerFunZone #ppTab-stats .psi-table td[data-key="team"] {
         position: sticky !important;
         left: var(--stats-year-col-w) !important;
-        z-index: 315 !important;
+        z-index: 305 !important;
         width: auto !important;
         min-width: max-content !important;
         max-width: none !important;
-        background-image: none !important;
         opacity: 1 !important;
+        background-image: none !important;
       }
 
       #playerFunZone #ppTab-stats .psi-table thead th.year,
-      #playerFunZone #ppTab-stats .psi-table thead th.team { z-index: 340 !important; }
+      #playerFunZone #ppTab-stats .psi-table thead th.team {
+        z-index: 330 !important;
+      }
 
-      #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
-      #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: var(--psi-cell-bg, #101010) !important; color: inherit !important; box-shadow: none !important; }
-      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
-      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: var(--psi-cell-bg-alt, #171717) !important; }
-      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
-      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background: var(--psi-cell-hover, #222222) !important; }
+      /* Dark theme frozen columns must be solid, never translucent. */
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] {
+        background: #101010 !important;
+        color: #f4f0e6 !important;
+        box-shadow: none !important;
+      }
+
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
+        background: #171717 !important;
+      }
+
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
+      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"],
+      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] {
+        background: #222222 !important;
+      }
 
       /* Light theme. */
       html.light-theme .pp-funzone-outer,
@@ -291,8 +323,25 @@ export default function ProfileFunZoneCleanupStyles() {
       body.light-theme #playerFunZone,
       html.light-theme #playerFunZone > .pp-fz-panel,
       body.light-theme #playerFunZone > .pp-fz-panel,
-      html.light-theme #playerFunZone [id^="ppTab-"],
-      body.light-theme #playerFunZone [id^="ppTab-"] { background: #f6f0e4 !important; color: #17130b !important; }
+      html.light-theme #playerFunZone [id^="ppTab-"] { background: #f6f0e4 !important; color: #17130b !important; }
+      html.light-theme .yat-row4-shell,
+      body.light-theme .yat-row4-shell,
+      html.light-theme .yat-row4-shell #playerCareerStrip,
+      body.light-theme .yat-row4-shell #playerCareerStrip,
+      html.light-theme .yat-profile-meta-row-host,
+      body.light-theme .yat-profile-meta-row-host,
+      html.light-theme .yat-profile-meta-row-host .yp-meta-strip,
+      body.light-theme .yat-profile-meta-row-host .yp-meta-strip,
+      html.light-theme .profile-row-4,
+      body.light-theme .profile-row-4,
+      html.light-theme .pp-row-4,
+      body.light-theme .pp-row-4,
+      html.light-theme [data-profile-row="4"],
+      body.light-theme [data-profile-row="4"] { background: #f6f0e4 !important; color: #17130b !important; }
+      html.light-theme .yp-meta-team,
+      body.light-theme .yp-meta-team,
+      html.light-theme .yp-meta-sub,
+      body.light-theme .yp-meta-sub { color: #17130b !important; opacity: 1 !important; text-shadow: none !important; }
       html.light-theme #playerFunZone .pp-fz-tabs-shell,
       body.light-theme #playerFunZone .pp-fz-tabs-shell,
       html.light-theme #playerFunZone .pp-fz-tabs,
@@ -343,11 +392,11 @@ export default function ProfileFunZoneCleanupStyles() {
 
       @media (max-width: 760px) {
         .pp-funzone-outer { height: calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height: 320px !important; }
-        #playerFunZone { --profile-tabs-h: 46px !important; --stats-year-col-w: 64px !important; }
+        #playerFunZone { --profile-tabs-h: 46px !important; --stats-year-col-w: 42px !important; }
         #playerFunZone > .pp-fz-panel,
         .pp-funzone > .pp-fz-panel,
-        #playerFunZone [id^="ppTab-"] { bottom: var(--profile-tabs-h) !important; padding: 2px 4px 2px !important; }
-        #playerFunZone #ppTab-stats { padding: 2px 13px 2px !important; }
+        #playerFunZone [id^="ppTab-"] { bottom: var(--profile-tabs-h) !important; padding: 2px 4px !important; }
+        #playerFunZone #ppTab-stats { padding: 2px 13px !important; }
         #playerFunZone .pp-fz-tabs-shell,
         #playerFunZone .pp-fz-tabs,
         #playerFunZone .pp-fz-tab { height: var(--profile-tabs-h) !important; min-height: 0 !important; }
