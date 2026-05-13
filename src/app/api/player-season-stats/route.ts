@@ -8,6 +8,7 @@ import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 
 const BATTING_TABLES = ['tbc_batting_raw', 'tbc_batting_2026_season_raw'] as const;
 const PITCHING_TABLES = ['tbc_pitching_raw', 'tbc_pitching_2026_season_raw'] as const;
+const LIVE_SEASON_YEAR = 2026;
 
 function value(row: any, ...keys: string[]) {
   for (const key of keys) {
@@ -21,6 +22,24 @@ function clean(row: any) {
   return Object.fromEntries(
     Object.entries(row || {}).map(([k, v]) => [k, v === null || v === undefined ? '' : v])
   );
+}
+
+function numericYear(value: unknown) {
+  const match = String(value ?? '').match(/\d{4}/);
+  const year = match ? Number(match[0]) : NaN;
+  return Number.isFinite(year) ? year : null;
+}
+
+function useHistoricalRow(row: any) {
+  const year = numericYear(value(row, 'year'));
+  return year === null || year < LIVE_SEASON_YEAR;
+}
+
+function fixedRate(value: unknown, decimals = 3) {
+  if (value === null || value === undefined || value === '') return value;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value;
+  return n.toFixed(decimals).replace(/^0/, '');
 }
 
 function normalizeName(name: unknown) {
@@ -101,14 +120,14 @@ function battingRow(row: any) {
     pa: value(row, 'pa'),
     xbh: value(row, 'xbh'),
     sgl: value(row, 'sgl'),
-    avg: value(row, 'bavg'),
-    bavg: value(row, 'bavg'),
-    obp: value(row, 'obp'),
-    slg: value(row, 'slg'),
-    ops: value(row, 'ops'),
-    seca: value(row, 'seca'),
-    iso: value(row, 'iso'),
-    babip: value(row, 'babip'),
+    avg: fixedRate(value(row, 'bavg')),
+    bavg: fixedRate(value(row, 'bavg')),
+    obp: fixedRate(value(row, 'obp')),
+    slg: fixedRate(value(row, 'slg')),
+    ops: fixedRate(value(row, 'ops')),
+    seca: fixedRate(value(row, 'seca')),
+    iso: fixedRate(value(row, 'iso')),
+    babip: fixedRate(value(row, 'babip')),
   });
 }
 
@@ -240,13 +259,18 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const battingRaw = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
+    const battingRawMatched = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
     const batting2026 = filterRowsToExpectedPlayer(batting2026All, expectedPlayerName);
-    const pitchingRaw = filterRowsToExpectedPlayer(pitchingRawAll, expectedPlayerName);
+    const pitchingRawMatched = filterRowsToExpectedPlayer(pitchingRawAll, expectedPlayerName);
     const pitching2026 = filterRowsToExpectedPlayer(pitching2026All, expectedPlayerName);
 
-    const batting = dedupe([...battingRaw, ...batting2026].map(battingRow)).sort(byYearThenTeam);
-    const pitching = dedupe([...pitchingRaw, ...pitching2026].map(pitchingRow)).sort(byYearThenTeam);
+    const battingHistorical = battingRawMatched.filter(useHistoricalRow);
+    const pitchingHistorical = pitchingRawMatched.filter(useHistoricalRow);
+    const battingHistorical2026Excluded = battingRawMatched.length - battingHistorical.length;
+    const pitchingHistorical2026Excluded = pitchingRawMatched.length - pitchingHistorical.length;
+
+    const batting = dedupe([...battingHistorical, ...batting2026].map(battingRow)).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingHistorical, ...pitching2026].map(pitchingRow)).sort(byYearThenTeam);
     const externalRecentStats = externalRecentRaw.map(externalStatRow);
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
@@ -258,15 +282,17 @@ export async function GET(req: NextRequest) {
       expectedPlayerName,
       primaryType,
       counts: {
-        battingHistorical: battingRaw.length,
+        battingHistorical: battingHistorical.length,
         batting2026: batting2026.length,
-        pitchingHistorical: pitchingRaw.length,
+        battingHistorical2026Excluded,
+        pitchingHistorical: pitchingHistorical.length,
         pitching2026: pitching2026.length,
+        pitchingHistorical2026Excluded,
         externalRecentStats: externalRecentStats.length,
         filteredOutNameMismatches:
-          (battingRawAll.length - battingRaw.length) +
+          (battingRawAll.length - battingRawMatched.length) +
           (batting2026All.length - batting2026.length) +
-          (pitchingRawAll.length - pitchingRaw.length) +
+          (pitchingRawAll.length - pitchingRawMatched.length) +
           (pitching2026All.length - pitching2026.length),
       },
       batting,
