@@ -1,3 +1,5 @@
+'use client';
+
 export default function DrawerLayoutOverrides() {
   return (
     <style jsx global>{`
