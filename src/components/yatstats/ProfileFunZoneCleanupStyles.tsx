@@ -91,6 +91,8 @@ export default function ProfileFunZoneCleanupStyles() {
 
       #playerFunZone {
         --profile-tabs-h: 50px !important;
+        --stats-year-col-w: 64px !important;
+        --stats-team-col-w: max-content !important;
         height: 100% !important;
         min-height: 0 !important;
         width: 100% !important;
@@ -210,21 +212,21 @@ export default function ProfileFunZoneCleanupStyles() {
       #playerFunZone .pp-fz-tab i { font-size: 19px !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
       #playerFunZone .pp-fz-tab span { font: 900 8px/1 Oswald, Arial, sans-serif !important; letter-spacing: .035em !important; text-transform: uppercase !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
 
-      /* Stats grid: tight padding, exact header/body alignment. */
+      /* Stats grid: tight padding, sticky top row, frozen first two columns. */
       #playerFunZone #ppTab-stats { padding: 2px 13px 2px !important; }
       #playerFunZone #ppTab-stats .psi-card,
       #playerFunZone #ppTab-stats .psi-table-wrap,
       #playerFunZone #ppTab-stats .psi-shell { margin: 0 !important; }
-      #playerFunZone #ppTab-stats .psi-table-wrap { max-height: none !important; height: 100% !important; overflow: auto !important; }
+      #playerFunZone #ppTab-stats .psi-table-wrap { max-height: none !important; height: 100% !important; overflow: auto !important; position: relative !important; }
       #playerFunZone #ppTab-stats .psi-table { table-layout: auto !important; width: max-content !important; min-width: max-content !important; border-collapse: separate !important; }
       #playerFunZone #ppTab-stats .psi-table th,
       #playerFunZone #ppTab-stats .psi-table td { width: auto !important; min-width: max-content !important; max-width: none !important; white-space: nowrap !important; box-sizing: border-box !important; }
       #playerFunZone #ppTab-stats .psi-table th button { width: 100% !important; display: flex !important; box-sizing: border-box !important; }
 
-      /* Top header row sticky again. */
+      /* Top header row is frozen. */
       #playerFunZone #ppTab-stats .psi-table thead,
-      #playerFunZone #ppTab-stats .psi-table thead tr { position: sticky !important; top: 0 !important; z-index: 200 !important; }
-      #playerFunZone #ppTab-stats .psi-table thead th { position: sticky !important; top: 0 !important; z-index: 210 !important; }
+      #playerFunZone #ppTab-stats .psi-table thead tr { position: sticky !important; top: 0 !important; z-index: 300 !important; }
+      #playerFunZone #ppTab-stats .psi-table thead th { position: sticky !important; top: 0 !important; z-index: 310 !important; }
 
       #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit),
       #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit) button { text-align: right !important; justify-content: flex-end !important; }
@@ -247,35 +249,40 @@ export default function ProfileFunZoneCleanupStyles() {
       #playerFunZone #ppTab-stats .psi-table th.org_conf button,
       #playerFunZone #ppTab-stats .psi-table th.posit button { text-align: left !important; justify-content: flex-start !important; }
 
-      /* YEAR and TEAM are no longer frozen columns; they auto-fit like Excel columns. */
+      /* Freeze YEAR and TEAM. YEAR is sized to its content; TEAM auto-fits but remains the second frozen column. */
       #playerFunZone #ppTab-stats .psi-table th.year,
-      #playerFunZone #ppTab-stats .psi-table th.team {
-        left: auto !important;
-        width: auto !important;
-        min-width: max-content !important;
-        max-width: none !important;
-        box-shadow: none !important;
+      #playerFunZone #ppTab-stats .psi-table td[data-key="year"] {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 320 !important;
+        width: var(--stats-year-col-w) !important;
+        min-width: var(--stats-year-col-w) !important;
+        max-width: var(--stats-year-col-w) !important;
+        background-image: none !important;
+        opacity: 1 !important;
       }
 
-      #playerFunZone #ppTab-stats .psi-table td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table th.team,
       #playerFunZone #ppTab-stats .psi-table td[data-key="team"] {
-        position: static !important;
-        left: auto !important;
-        z-index: auto !important;
+        position: sticky !important;
+        left: var(--stats-year-col-w) !important;
+        z-index: 315 !important;
         width: auto !important;
         min-width: max-content !important;
         max-width: none !important;
         background-image: none !important;
-        box-shadow: none !important;
         opacity: 1 !important;
       }
 
+      #playerFunZone #ppTab-stats .psi-table thead th.year,
+      #playerFunZone #ppTab-stats .psi-table thead th.team { z-index: 340 !important; }
+
       #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
-      #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: var(--psi-cell-bg, rgba(255,255,255,.035)) !important; color: inherit !important; }
+      #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: var(--psi-cell-bg, #101010) !important; color: inherit !important; box-shadow: none !important; }
       #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
-      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: var(--psi-cell-bg-alt, rgba(255,255,255,.065)) !important; }
+      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: var(--psi-cell-bg-alt, #171717) !important; }
       #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
-      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background: var(--psi-cell-hover, rgba(255,255,255,.12)) !important; }
+      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background: var(--psi-cell-hover, #222222) !important; }
 
       /* Light theme. */
       html.light-theme .pp-funzone-outer,
@@ -336,7 +343,7 @@ export default function ProfileFunZoneCleanupStyles() {
 
       @media (max-width: 760px) {
         .pp-funzone-outer { height: calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height: 320px !important; }
-        #playerFunZone { --profile-tabs-h: 46px !important; }
+        #playerFunZone { --profile-tabs-h: 46px !important; --stats-year-col-w: 64px !important; }
         #playerFunZone > .pp-fz-panel,
         .pp-funzone > .pp-fz-panel,
         #playerFunZone [id^="ppTab-"] { bottom: var(--profile-tabs-h) !important; padding: 2px 4px 2px !important; }
