@@ -80,6 +80,7 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
             <button id="flipAllCards" className="yat-icon-btn" aria-label="Flip all cards to stats" aria-pressed="false" title="Flip all cards to stats" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
               <img data-flip-all-icon="true" src="/img/flip-all-icon.review.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }} />
             </button>
+            <button id="openSort" className="yat-icon-btn" aria-label="Open sort"><i className="ri-sort-desc" /></button>
             <button id="openFilters" className="yat-icon-btn" aria-label="Open filters"><i className="ri-filter-3-line" /></button>
             <button id="filtersReset2" className="yat-icon-btn" aria-label="Reset filters"><i className="ri-restart-line" /></button>
           </>
