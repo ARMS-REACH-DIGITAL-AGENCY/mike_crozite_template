@@ -29,6 +29,7 @@ import SharedShell from '@/components/yatstats/SharedShell';
 import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
 import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
+import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
@@ -516,6 +517,7 @@ export default async function HsidLayout({
       <SortFilterDrawerControls />
       <SearchDrawerTabs />
       <FilterAnchorGuard />
+      <DrawerLayoutOverrides />
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
