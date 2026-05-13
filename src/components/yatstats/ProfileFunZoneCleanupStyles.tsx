@@ -193,9 +193,7 @@ export default function ProfileFunZoneCleanupStyles() {
         opacity: 0 !important;
       }
 
-      #playerFunZone .pp-fz-tab.pp-fz-tab-active {
-        color: #fff !important;
-      }
+      #playerFunZone .pp-fz-tab.pp-fz-tab-active { color: #fff !important; }
 
       #playerFunZone .pp-fz-tab.pp-fz-tab-active::before {
         content: '' !important;
@@ -209,69 +207,27 @@ export default function ProfileFunZoneCleanupStyles() {
         background: #d2b45c !important;
       }
 
-      #playerFunZone .pp-fz-tab i {
-        font-size: 19px !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
+      #playerFunZone .pp-fz-tab i { font-size: 19px !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+      #playerFunZone .pp-fz-tab span { font: 900 8px/1 Oswald, Arial, sans-serif !important; letter-spacing: .035em !important; text-transform: uppercase !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
 
-      #playerFunZone .pp-fz-tab span {
-        font: 900 8px/1 Oswald, Arial, sans-serif !important;
-        letter-spacing: .035em !important;
-        text-transform: uppercase !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      /* Stats grid: tight padding, exact header/body alignment, sticky first columns. */
-      #playerFunZone #ppTab-stats {
-        padding: 2px 13px 2px !important;
-      }
-
+      /* Stats grid: tight padding, exact header/body alignment. */
+      #playerFunZone #ppTab-stats { padding: 2px 13px 2px !important; }
       #playerFunZone #ppTab-stats .psi-card,
       #playerFunZone #ppTab-stats .psi-table-wrap,
-      #playerFunZone #ppTab-stats .psi-shell {
-        margin: 0 !important;
-      }
-
-      #playerFunZone #ppTab-stats .psi-table-wrap {
-        max-height: none !important;
-        height: auto !important;
-      }
-
-      #playerFunZone #ppTab-stats .psi-table {
-        table-layout: auto !important;
-        width: max-content !important;
-        min-width: max-content !important;
-        border-collapse: separate !important;
-      }
-
+      #playerFunZone #ppTab-stats .psi-shell { margin: 0 !important; }
+      #playerFunZone #ppTab-stats .psi-table-wrap { max-height: none !important; height: 100% !important; overflow: auto !important; }
+      #playerFunZone #ppTab-stats .psi-table { table-layout: auto !important; width: max-content !important; min-width: max-content !important; border-collapse: separate !important; }
       #playerFunZone #ppTab-stats .psi-table th,
-      #playerFunZone #ppTab-stats .psi-table td {
-        width: auto !important;
-        min-width: max-content !important;
-        max-width: none !important;
-        white-space: nowrap !important;
-        box-sizing: border-box !important;
-      }
+      #playerFunZone #ppTab-stats .psi-table td { width: auto !important; min-width: max-content !important; max-width: none !important; white-space: nowrap !important; box-sizing: border-box !important; }
+      #playerFunZone #ppTab-stats .psi-table th button { width: 100% !important; display: flex !important; box-sizing: border-box !important; }
 
-      #playerFunZone #ppTab-stats .psi-table th button {
-        width: 100% !important;
-        display: flex !important;
-        box-sizing: border-box !important;
-      }
+      /* Top header row sticky again. */
+      #playerFunZone #ppTab-stats .psi-table thead,
+      #playerFunZone #ppTab-stats .psi-table thead tr { position: sticky !important; top: 0 !important; z-index: 200 !important; }
+      #playerFunZone #ppTab-stats .psi-table thead th { position: sticky !important; top: 0 !important; z-index: 210 !important; }
 
       #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit),
-      #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit) button {
-        text-align: right !important;
-        justify-content: flex-end !important;
-      }
-
+      #playerFunZone #ppTab-stats .psi-table th:not(.year):not(.team):not(.level):not(.org_conf):not(.age):not(.posit) button { text-align: right !important; justify-content: flex-end !important; }
       #playerFunZone #ppTab-stats .psi-table th.year,
       #playerFunZone #ppTab-stats .psi-table th.level,
       #playerFunZone #ppTab-stats .psi-table th.age,
@@ -280,11 +236,7 @@ export default function ProfileFunZoneCleanupStyles() {
       #playerFunZone #ppTab-stats .psi-table td[data-key="age"],
       #playerFunZone #ppTab-stats .psi-table th.year button,
       #playerFunZone #ppTab-stats .psi-table th.level button,
-      #playerFunZone #ppTab-stats .psi-table th.age button {
-        text-align: center !important;
-        justify-content: center !important;
-      }
-
+      #playerFunZone #ppTab-stats .psi-table th.age button { text-align: center !important; justify-content: center !important; }
       #playerFunZone #ppTab-stats .psi-table th.team,
       #playerFunZone #ppTab-stats .psi-table th.org_conf,
       #playerFunZone #ppTab-stats .psi-table th.posit,
@@ -293,60 +245,37 @@ export default function ProfileFunZoneCleanupStyles() {
       #playerFunZone #ppTab-stats .psi-table td[data-key="posit"],
       #playerFunZone #ppTab-stats .psi-table th.team button,
       #playerFunZone #ppTab-stats .psi-table th.org_conf button,
-      #playerFunZone #ppTab-stats .psi-table th.posit button {
-        text-align: left !important;
-        justify-content: flex-start !important;
-      }
+      #playerFunZone #ppTab-stats .psi-table th.posit button { text-align: left !important; justify-content: flex-start !important; }
 
-      #playerFunZone #ppTab-stats .psi-table th.year,
-      #playerFunZone #ppTab-stats .psi-table td[data-key="year"] {
-        position: sticky !important;
-        left: 0 !important;
-        z-index: 12 !important;
-        width: 46px !important;
-        min-width: 46px !important;
-        max-width: 46px !important;
-      }
-
-      #playerFunZone #ppTab-stats .psi-table th.team,
-      #playerFunZone #ppTab-stats .psi-table td[data-key="team"] {
-        position: sticky !important;
-        left: 46px !important;
-        z-index: 11 !important;
-        min-width: max-content !important;
-        max-width: none !important;
-      }
-
+      /* YEAR and TEAM are no longer frozen columns; they auto-fit like Excel columns. */
       #playerFunZone #ppTab-stats .psi-table th.year,
       #playerFunZone #ppTab-stats .psi-table th.team {
-        z-index: 16 !important;
+        left: auto !important;
+        width: auto !important;
+        min-width: max-content !important;
+        max-width: none !important;
+        box-shadow: none !important;
       }
 
-      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
-      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
-      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
-      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] {
-        background-color: #101010 !important;
+      #playerFunZone #ppTab-stats .psi-table td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table td[data-key="team"] {
+        position: static !important;
+        left: auto !important;
+        z-index: auto !important;
+        width: auto !important;
+        min-width: max-content !important;
+        max-width: none !important;
         background-image: none !important;
+        box-shadow: none !important;
         opacity: 1 !important;
-        background-clip: padding-box !important;
-        color: #f4f0e6 !important;
-        box-shadow: 4px 0 10px rgba(0,0,0,.55), inset -1px 0 rgba(255,255,255,.10) !important;
       }
 
-      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
-      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
-      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
-      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
-        background-color: #171717 !important;
-      }
-
-      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
-      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
-      html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"],
-      body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] {
-        background-color: #222222 !important;
-      }
+      #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: var(--psi-cell-bg, rgba(255,255,255,.035)) !important; color: inherit !important; }
+      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: var(--psi-cell-bg-alt, rgba(255,255,255,.065)) !important; }
+      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background: var(--psi-cell-hover, rgba(255,255,255,.12)) !important; }
 
       /* Light theme. */
       html.light-theme .pp-funzone-outer,
@@ -356,21 +285,11 @@ export default function ProfileFunZoneCleanupStyles() {
       html.light-theme #playerFunZone > .pp-fz-panel,
       body.light-theme #playerFunZone > .pp-fz-panel,
       html.light-theme #playerFunZone [id^="ppTab-"],
-      body.light-theme #playerFunZone [id^="ppTab-"] {
-        background: #f6f0e4 !important;
-        color: #17130b !important;
-      }
-
+      body.light-theme #playerFunZone [id^="ppTab-"] { background: #f6f0e4 !important; color: #17130b !important; }
       html.light-theme #playerFunZone .pp-fz-tabs-shell,
       body.light-theme #playerFunZone .pp-fz-tabs-shell,
       html.light-theme #playerFunZone .pp-fz-tabs,
-      body.light-theme #playerFunZone .pp-fz-tabs {
-        background: #fffdf8 !important;
-        color: #17130b !important;
-        border-top-color: rgba(74,54,10,.22) !important;
-        box-shadow: 0 -4px 10px rgba(74,54,10,.08) !important;
-      }
-
+      body.light-theme #playerFunZone .pp-fz-tabs { background: #fffdf8 !important; color: #17130b !important; border-top-color: rgba(74,54,10,.22) !important; box-shadow: 0 -4px 10px rgba(74,54,10,.08) !important; }
       html.light-theme #playerFunZone .pp-fz-tab,
       body.light-theme #playerFunZone .pp-fz-tab,
       html.light-theme #playerFunZone .pp-fz-tab i,
@@ -380,102 +299,54 @@ export default function ProfileFunZoneCleanupStyles() {
       html.light-theme #playerFunZone #ppTab-upload,
       body.light-theme #playerFunZone #ppTab-upload,
       html.light-theme #playerFunZone #ppTab-upload *,
-      body.light-theme #playerFunZone #ppTab-upload * {
-        color: #17130b !important;
-        text-shadow: none !important;
-        opacity: 1 !important;
-      }
-
+      body.light-theme #playerFunZone #ppTab-upload * { color: #17130b !important; text-shadow: none !important; opacity: 1 !important; }
       html.light-theme #playerFunZone #ppTab-upload input,
       body.light-theme #playerFunZone #ppTab-upload input,
       html.light-theme #playerFunZone #ppTab-upload textarea,
       body.light-theme #playerFunZone #ppTab-upload textarea,
       html.light-theme #playerFunZone #ppTab-upload select,
-      body.light-theme #playerFunZone #ppTab-upload select {
-        background: #fffdf8 !important;
-        color: #17130b !important;
-        border-color: rgba(74,54,10,.35) !important;
-      }
-
+      body.light-theme #playerFunZone #ppTab-upload select { background: #fffdf8 !important; color: #17130b !important; border-color: rgba(74,54,10,.35) !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-card,
       body.light-theme #playerFunZone #ppTab-stats .psi-card,
       html.light-theme #playerFunZone #ppTab-stats .psi-table-wrap,
       body.light-theme #playerFunZone #ppTab-stats .psi-table-wrap,
-      html.light-theme #playerFunZone #ppTab-stats .psi-shell {
-        background: #fffdf8 !important;
-        color: #17130b !important;
-      }
-
+      html.light-theme #playerFunZone #ppTab-stats .psi-shell { background: #fffdf8 !important; color: #17130b !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table thead th,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table thead th {
-        background: linear-gradient(180deg, #eadfbf, #d9c68e) !important;
-        color: #17130b !important;
-      }
-
+      body.light-theme #playerFunZone #ppTab-stats .psi-table thead th { background: linear-gradient(180deg, #eadfbf, #d9c68e) !important; color: #17130b !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td {
-        background: #ffffff !important;
-        color: #2b2415 !important;
-      }
-
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td { background: #ffffff !important; color: #2b2415 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td {
-        background: #f7f1e4 !important;
-      }
-
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td { background: #f7f1e4 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td {
-        background: #eee2c7 !important;
-        color: #17130b !important;
-      }
-
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td { background: #eee2c7 !important; color: #17130b !important; }
+      html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
+      html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: #ffffff !important; color: #2b2415 !important; }
+      html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: #f7f1e4 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-total-row td,
       body.light-theme #playerFunZone #ppTab-stats .psi-total-row td,
       html.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="year"],
       body.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="year"],
       html.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="team"],
-      body.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="team"] {
-        background: linear-gradient(180deg, #e5c569, #f1d891) !important;
-        color: #181109 !important;
-      }
+      body.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="team"] { background: linear-gradient(180deg, #e5c569, #f1d891) !important; color: #181109 !important; }
 
       @media (max-width: 760px) {
-        .pp-funzone-outer {
-          height: calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important;
-          min-height: 320px !important;
-        }
-
-        #playerFunZone {
-          --profile-tabs-h: 46px !important;
-        }
-
+        .pp-funzone-outer { height: calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height: 320px !important; }
+        #playerFunZone { --profile-tabs-h: 46px !important; }
         #playerFunZone > .pp-fz-panel,
         .pp-funzone > .pp-fz-panel,
-        #playerFunZone [id^="ppTab-"] {
-          bottom: var(--profile-tabs-h) !important;
-          padding: 2px 4px 2px !important;
-        }
-
-        #playerFunZone #ppTab-stats {
-          padding: 2px 13px 2px !important;
-        }
-
+        #playerFunZone [id^="ppTab-"] { bottom: var(--profile-tabs-h) !important; padding: 2px 4px 2px !important; }
+        #playerFunZone #ppTab-stats { padding: 2px 13px 2px !important; }
         #playerFunZone .pp-fz-tabs-shell,
         #playerFunZone .pp-fz-tabs,
-        #playerFunZone .pp-fz-tab {
-          height: var(--profile-tabs-h) !important;
-          min-height: 0 !important;
-        }
-
+        #playerFunZone .pp-fz-tab { height: var(--profile-tabs-h) !important; min-height: 0 !important; }
         #playerFunZone .pp-fz-tab i { font-size: 18px !important; }
         #playerFunZone .pp-fz-tab span { font-size: 7px !important; letter-spacing: .03em !important; }
-
-        .yp-meta-strip {
-          grid-template-columns: minmax(0, 1fr) !important;
-          gap: 2px !important;
-          min-height: 38px !important;
-          padding: 4px 13px !important;
-        }
+        .yp-meta-strip { grid-template-columns: minmax(0, 1fr) !important; gap: 2px !important; min-height: 38px !important; padding: 4px 13px !important; }
         .yp-meta-team { font-size: 13px !important; }
         .yp-meta-sub { font-size: 8px !important; }
       }
