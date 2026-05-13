@@ -4,6 +4,7 @@ import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
+import ProfileStatsFinalOverrides from '@/components/yatstats/ProfileStatsFinalOverrides';
 
 function slugifySchoolName(name: string) {
   return String(name || '')
@@ -123,6 +124,7 @@ export default async function PlayerLayout({
       <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
       <ProfileFunZoneCleanupStyles />
+      <ProfileStatsFinalOverrides />
     </PlayerProfileContextProvider>
   );
 }
