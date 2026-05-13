@@ -191,12 +191,6 @@ function setDirection(direction: SortDirection) {
   if (!root) return;
 
   root.dataset.yatSortDirection = direction;
-  root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
-    radio.checked = radio.value === direction;
-    radio.defaultChecked = radio.value === direction;
-    const label = radio.closest('label');
-    label?.classList.toggle('yat-sort-direction-active', radio.value === direction);
-  });
 }
 
 function favoriteScopeCards(cards: HTMLElement[]): HTMLElement[] {
@@ -286,7 +280,7 @@ function applyFlipCardSort() {
     const metricInfo = getMetric(metric, metricGroup);
     const label = checked.dataset.label || metricInfo?.label || checked.value.toUpperCase();
     const scope = favoritesSortEnabled ? ' Favorite gallery sort uses selected favorites only.' : ' Active Alumni sort uses 2026 stats only.';
-    status.textContent = `${label}: ${dir === 'asc' ? 'low to high' : 'high to low'}.${scope}`;
+    status.textContent = `Sorted by ${label}.${scope}`;
   }
 }
 
@@ -305,29 +299,41 @@ function metricOption(metric: SortMetric) {
   `;
 }
 
-function installSortFilterDrawer() {
-  const drawer = document.getElementById('drawerFilters');
-  const filters = document.getElementById('filters');
-  if (!drawer || !filters) return;
+function openSortDrawer() {
+  document.body.classList.add('drawer-sort-open', 'drawer-open');
+  document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+}
 
-  const heading = drawer.querySelector('h3');
-  if (heading) heading.textContent = 'SORT & FILTER';
+function closeSortDrawer() {
+  document.body.classList.remove('drawer-sort-open');
+  if (!document.body.classList.contains('drawer-left-open')) {
+    document.body.classList.remove('drawer-open');
+  }
+}
+
+function installSortDrawer() {
+  const filtersDrawer = document.getElementById('drawerFilters');
+  const filters = document.getElementById('filters');
+  const sortHost = document.getElementById('sortControls');
+  if (!filtersDrawer || !filters || !sortHost) return;
+
+  const filterHeading = filtersDrawer.querySelector('h3');
+  if (filterHeading) filterHeading.textContent = 'FILTER';
+
+  const oldSortRoot = document.getElementById('yatSortControls');
+  if (oldSortRoot && oldSortRoot.parentElement !== sortHost) {
+    oldSortRoot.remove();
+  }
 
   if (!document.getElementById('yatSortControls')) {
     const battingMetrics = SORT_METRICS.filter((metric) => metric.group === 'batting');
     const pitchingMetrics = SORT_METRICS.filter((metric) => metric.group === 'pitching');
-    const sortGroup = document.createElement('details');
+    const sortGroup = document.createElement('section');
     sortGroup.id = 'yatSortControls';
-    sortGroup.className = 'yat-filter-group yat-sort-group';
-    sortGroup.open = false;
+    sortGroup.className = 'yat-sort-group';
 
     sortGroup.innerHTML = `
-      <summary>Sort Cards By Stats</summary>
       <div class="yat-sort-controls">
-        <div class="yat-sort-direction" role="group" aria-label="Sort direction">
-          <label><input type="radio" name="yat-sort-direction" value="desc" /> <span>High to Low</span></label>
-          <label><input type="radio" name="yat-sort-direction" value="asc" /> <span>Low to High</span></label>
-        </div>
         <div class="yat-sort-columns">
           <div class="yat-sort-column">
             <div class="yat-sort-column-title">Batting</div>
@@ -347,7 +353,7 @@ function installSortFilterDrawer() {
       </div>
     `;
 
-    filters.insertBefore(sortGroup, filters.firstChild);
+    sortHost.appendChild(sortGroup);
   }
 
   const root = getSortRoot();
@@ -368,16 +374,6 @@ function installSortFilterDrawer() {
     });
   });
 
-  root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-direction"]').forEach((radio) => {
-    const handleDirection = (event: Event) => {
-      event.stopPropagation();
-      setDirection(radio.value === 'asc' ? 'asc' : 'desc');
-      window.setTimeout(applyFlipCardSort, 0);
-    };
-    radio.addEventListener('change', handleDirection);
-    radio.addEventListener('click', handleDirection);
-  });
-
   document.getElementById('yatSortReset')?.addEventListener('click', () => {
     statBoxes.forEach((box) => {
       box.checked = false;
@@ -389,9 +385,18 @@ function installSortFilterDrawer() {
   });
 
   filters.querySelectorAll('input, select').forEach((input) => {
-    if (root.contains(input)) return;
     input.addEventListener('change', () => rerunSortIfActive(80));
     input.addEventListener('input', () => rerunSortIfActive(80));
+  });
+
+  document.getElementById('openSort')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    openSortDrawer();
+  });
+
+  document.getElementById('closeSort')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    closeSortDrawer();
   });
 
   window.addEventListener('yat:favorites-filter-changed', (event) => {
@@ -407,118 +412,184 @@ function installSortFilterDrawer() {
 
 export default function SortFilterDrawerControls() {
   useEffect(() => {
-    installSortFilterDrawer();
+    installSortDrawer();
   }, []);
 
   return (
-    <style jsx global>{`
-      .yat-sort-group {
-        border-bottom: 1px solid var(--line);
-        margin-bottom: 8px;
-        padding-bottom: 10px;
-      }
-
-      .yat-sort-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding-top: 10px;
-      }
-
-      .yat-sort-direction {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 7px;
-      }
-
-      .yat-sort-columns {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        align-items: start;
-      }
-
-      .yat-sort-column-title {
-        margin: 0 0 5px;
-        color: var(--muted);
-        font: 600 11px Oswald, sans-serif;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-      }
-
-      .yat-sort-direction label,
-      .yat-sort-options label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        min-height: 30px;
-        border: 1px solid var(--line);
-        border-radius: 7px;
-        background: rgba(255, 255, 255, 0.04);
-        padding: 5px 7px;
-        color: var(--ink);
-        font: 400 12px Oswald, sans-serif;
-        letter-spacing: 0;
-        text-transform: uppercase;
-        cursor: pointer;
-      }
-
-      .yat-sort-options {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 5px;
-      }
-
-      .yat-sort-short {
-        flex: 0 0 auto;
-        min-width: 26px;
-        font-weight: 700;
-        letter-spacing: .04em;
-      }
-
-      .yat-sort-full {
-        flex: 1 1 auto;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .yat-sort-options input:checked + .yat-sort-short,
-      .yat-sort-direction input:checked + span,
-      .yat-sort-direction-active span {
-        color: #ffd166;
-        font-weight: 600;
-      }
-
-      .yat-sort-options input:checked ~ .yat-sort-full {
-        color: #ffd166;
-      }
-
-      .yat-sort-reset {
-        min-height: 32px;
-        border: 1px solid var(--line);
-        border-radius: 7px;
-        background: rgba(255, 255, 255, .08);
-        color: var(--fg);
-        font: 400 12px Oswald, sans-serif;
-        text-transform: uppercase;
-        cursor: pointer;
-      }
-
-      .yat-sort-status {
-        color: var(--muted);
-        font: 400 11px/1.35 Oswald, sans-serif;
-        letter-spacing: .03em;
-      }
-
-      @media (max-width: 420px) {
-        .yat-sort-columns {
-          grid-template-columns: 1fr;
+    <>
+      <aside className="yat-drawer yat-drawer-right yat-sort-drawer" id="drawerSort">
+        <div className="yat-drawer-header yat-sort-drawer-header">
+          <h3>SORT</h3>
+          <button className="yat-icon-btn" id="closeSort" aria-label="Close sort">
+            <i className="ri-close-line" />
+          </button>
+        </div>
+        <div className="yat-drawer-content" id="sortControls" />
+      </aside>
+      <style jsx global>{`
+        #drawerSort {
+          transform: translateX(100%);
+          transition: transform .22s ease;
         }
-      }
-    `}</style>
+
+        body.drawer-sort-open #drawerSort {
+          transform: translateX(0) !important;
+        }
+
+        body.drawer-sort-open .yat-drawer-mask {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+
+        .yat-sort-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .yat-sort-drawer-header h3 {
+          margin: 0;
+        }
+
+        .yat-sort-group {
+          border-bottom: 1px solid var(--line);
+          margin-bottom: 8px;
+          padding-bottom: 10px;
+        }
+
+        .yat-sort-controls {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding-top: 10px;
+        }
+
+        .yat-sort-columns {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          align-items: start;
+        }
+
+        .yat-sort-column-title {
+          margin: 0 0 5px;
+          color: var(--muted);
+          font: 600 11px Oswald, sans-serif;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+        }
+
+        .yat-sort-options label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-height: 30px;
+          border: 1px solid var(--line);
+          border-radius: 7px;
+          background: rgba(255, 255, 255, 0.04);
+          padding: 5px 7px;
+          color: var(--ink);
+          font: 400 12px Oswald, sans-serif;
+          letter-spacing: 0;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+
+        .yat-sort-options {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 5px;
+        }
+
+        .yat-sort-short {
+          flex: 0 0 auto;
+          min-width: 26px;
+          font-weight: 700;
+          letter-spacing: .04em;
+        }
+
+        .yat-sort-full {
+          flex: 1 1 auto;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--muted);
+          font-size: 10px;
+        }
+
+        .yat-sort-options input:checked + .yat-sort-short {
+          color: #ffd166;
+          font-weight: 600;
+        }
+
+        .yat-sort-options input:checked ~ .yat-sort-full {
+          color: #ffd166;
+        }
+
+        .yat-sort-reset {
+          min-height: 32px;
+          border: 1px solid var(--line);
+          border-radius: 7px;
+          background: rgba(255, 255, 255, .08);
+          color: var(--fg);
+          font: 400 12px Oswald, sans-serif;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+
+        .yat-sort-status {
+          color: var(--muted);
+          font: 400 11px/1.35 Oswald, sans-serif;
+          letter-spacing: .03em;
+        }
+
+        @media (min-width: 780px) {
+          body.drawer-sort-open #drawerSort {
+            top: calc(var(--row1-h) + var(--row2-h)) !important;
+            bottom: var(--footerH) !important;
+            height: auto !important;
+            z-index: 64 !important;
+          }
+
+          body.drawer-sort-open .yat-row3-shell,
+          body.drawer-sort-open .yat-row4-shell,
+          body.drawer-sort-open .yat-row5-shell,
+          body.drawer-sort-open .yat-row6-shell {
+            margin-right: var(--yat-side-drawer-w, 360px) !important;
+          }
+
+          body.drawer-left-open.drawer-sort-open .yat-row3-shell,
+          body.drawer-left-open.drawer-sort-open .yat-row4-shell,
+          body.drawer-left-open.drawer-sort-open .yat-row5-shell,
+          body.drawer-left-open.drawer-sort-open .yat-row6-shell {
+            margin-left: var(--yat-side-drawer-w, 360px) !important;
+            margin-right: var(--yat-side-drawer-w, 360px) !important;
+          }
+
+          body.drawer-sort-open .yat-grid {
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 779px) {
+          body.drawer-sort-open .yat-drawer-mask {
+            display: block !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .yat-sort-columns {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+    </>
   );
 }
