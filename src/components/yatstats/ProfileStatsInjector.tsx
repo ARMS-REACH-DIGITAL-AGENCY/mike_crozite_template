@@ -12,18 +12,19 @@ type StatsMeta = {
 };
 
 const battingColumns: readonly Column[] = [
-  ['year', 'YR'], ['team', 'TEAM'], ['level', 'LEVEL'], ['org_conf', 'ORG/CONF'], ['age', 'AGE'], ['bt', 'B/T'], ['class', 'CLS'], ['posit', 'POS'],
+  ['year', 'YEAR'], ['team', 'TEAM'], ['level', 'LEVEL'], ['org_conf', 'ORG/CONF'], ['age', 'AGE'], ['posit', 'POS'],
   ['g', 'G'], ['ab', 'AB'], ['r', 'R'], ['h', 'H'], ['dbl', '2B'], ['tpl', '3B'], ['hr', 'HR'], ['rbi', 'RBI'], ['sb', 'SB'], ['cs', 'CS'], ['bb', 'BB'], ['so', 'SO'], ['hbp', 'HBP'], ['sh', 'SH'], ['sf', 'SF'], ['ibb', 'IBB'], ['gdp', 'GDP'], ['tb', 'TB'], ['pa', 'PA'], ['xbh', 'XBH'], ['sgl', '1B'], ['bavg', 'AVG'], ['obp', 'OBP'], ['slg', 'SLG'], ['ops', 'OPS'], ['seca', 'SECA'], ['iso', 'ISO'], ['babip', 'BABIP'],
 ] as const;
 
 const pitchingColumns: readonly Column[] = [
-  ['year', 'YR'], ['team', 'TEAM'], ['level', 'LEVEL'], ['org_conf', 'ORG/CONF'], ['age', 'AGE'], ['bt', 'B/T'], ['class', 'CLS'],
+  ['year', 'YEAR'], ['team', 'TEAM'], ['level', 'LEVEL'], ['org_conf', 'ORG/CONF'], ['age', 'AGE'],
   ['w', 'W'], ['l', 'L'], ['g', 'G'], ['gs', 'GS'], ['cg', 'CG'], ['sho', 'SHO'], ['gr', 'GR'], ['gf', 'GF'], ['sv', 'SV'], ['ip', 'IP'], ['h', 'H'], ['r', 'R'], ['er', 'ER'], ['hr', 'HR'], ['bb', 'BB'], ['so', 'SO'], ['wp', 'WP'], ['bk', 'BK'], ['hb', 'HB'], ['era', 'ERA'], ['whip', 'WHIP'], ['h9', 'H/9'], ['hr9', 'HR/9'], ['bb9', 'BB/9'], ['so9', 'K/9'], ['ra9', 'RA/9'], ['so_bb', 'K/BB'],
 ] as const;
 
 const sumBattingKeys = ['g','ab','r','h','dbl','tpl','hr','rbi','sb','cs','bb','so','hbp','sh','sf','ibb','gdp','tb','pa','xbh','sgl'] as const;
 const sumPitchingKeys = ['w','l','g','gs','cg','sho','gr','gf','sv','h','r','er','hr','bb','so','wp','bk','hb'] as const;
 const levelBuckets = ['MLB', 'AAA', 'AA', 'A+', 'A', 'RK', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO', 'COLLEGE'] as const;
+const twoDecimalKeys = new Set(['era', 'whip', 'h9', 'hr9', 'bb9', 'so9', 'ra9', 'so_bb']);
 
 function esc(value: unknown) {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -62,6 +63,14 @@ function dec(value: number, decimals = 2) {
 function fmt(value: unknown) {
   if (value === null || value === undefined || value === '') return '&nbsp;';
   return esc(value);
+}
+
+function fmtCell(key: string, value: unknown) {
+  if (twoDecimalKeys.has(key)) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n.toFixed(2);
+  }
+  return fmt(value);
 }
 
 function cleanText(value: unknown) {
@@ -127,7 +136,6 @@ function prepRow(row: Row): Row {
     team: abbreviateTeam(row.team),
     org_conf: normalizeOrg(row.org_conf),
     level: normalizeLevel(row.level, row),
-    bt: [row.ba, row.th].map(cleanText).filter(Boolean).join('/'),
   };
 }
 
@@ -136,7 +144,7 @@ function rowBucket(row: Row) {
 }
 
 function buildBattingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
-  const total: Row = { year: 'Total', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '', posit: '' };
+  const total: Row = { year: 'Total', team: label, level: bucket, org_conf: '', age: '', posit: '' };
   sumBattingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const h = num(total.h); const ab = num(total.ab); const bb = num(total.bb); const hbp = num(total.hbp); const sf = num(total.sf); const tb = num(total.tb);
   total.bavg = ab > 0 ? rate(h / ab) : '';
@@ -150,7 +158,7 @@ function buildBattingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
 }
 
 function buildPitchingTotal(rows: Row[], label = 'Career', bucket = ''): Row {
-  const total: Row = { year: 'Total', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '' };
+  const total: Row = { year: 'Total', team: label, level: bucket, org_conf: '', age: '' };
   sumPitchingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const outs = rows.reduce((sum, row) => sum + parseIpToOuts(row.ip), 0);
   const innings = outs / 3;
@@ -186,7 +194,7 @@ function totalRows(kind: 'batting' | 'pitching', rows: Row[]) {
 
 function renderCells(row: Row, columns: readonly Column[], extraClass = '') {
   const clean: Row = prepRow(row);
-  return columns.map(([key]) => `<td data-key="${esc(key)}" class="${extraClass} ${['team','org_conf'].includes(key) ? 'linkish' : ''}">${fmt(clean[key])}</td>`).join('');
+  return columns.map(([key]) => `<td data-key="${esc(key)}" class="${extraClass} ${['team','org_conf'].includes(key) ? 'linkish' : ''}">${fmtCell(key, clean[key])}</td>`).join('');
 }
 
 function totalRow(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Column[]) {
@@ -212,32 +220,36 @@ function table(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Colu
 function css() {
   return `<style id="profile-stats-injector-css">
     html, body, .pp-funzone-outer, .pp-funzone, #playerFunZone { background:#070707 !important; }
-    #ppTab-stats { background: radial-gradient(circle at 18% 0%, rgba(255,255,255,.08), transparent 24%), linear-gradient(180deg, #121212 0%, #070707 100%) !important; padding:6px 8px calc(var(--profile-tabs-h,68px) + 10px) !important; overflow:auto !important; color:#f4f0e6 !important; }
+    #ppTab-stats { background: radial-gradient(circle at 18% 0%, rgba(255,255,255,.08), transparent 24%), linear-gradient(180deg, #121212 0%, #070707 100%) !important; padding:6px 6px calc(var(--profile-tabs-h,68px) + 10px) !important; overflow:auto !important; color:#f4f0e6 !important; }
     #ppTab-stats .psi-shell { width:100%; background:transparent; }
     #ppTab-stats .psi-card { width:100%; border:1px solid rgba(255,255,255,.22); background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), #0c0c0c; margin:0 0 10px; box-shadow:0 14px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }
     #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 24px); overflow:auto; background:#080808; scrollbar-color:rgba(255,255,255,.38) rgba(255,255,255,.08); scrollbar-width:thin; }
-    #ppTab-stats .psi-table { min-width:1480px; width:max-content; border-collapse:separate; border-spacing:0; font:700 10px/1.08 Oswald, Arial, sans-serif; color:#f4f0e6; table-layout:auto; }
-    #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(255,255,255,.24); background:linear-gradient(180deg,#202020,#101010); color:#fff; text-align:left; white-space:nowrap; text-transform:uppercase; }
-    #ppTab-stats .psi-table th button { width:100%; height:100%; display:flex; align-items:center; justify-content:center; gap:3px; border:0; background:transparent; color:inherit; padding:5px 4px; font:900 9px/1 Oswald, Arial, sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
-    #ppTab-stats .psi-table th:nth-child(-n+8) button { justify-content:flex-start; }
-    #ppTab-stats .psi-table td { padding:4px 4px; border-right:1px solid rgba(255,255,255,.055); border-bottom:1px solid rgba(255,255,255,.075); background:rgba(255,255,255,.035); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; color:rgba(255,255,255,.84); min-width:34px; max-width:68px; overflow:hidden; text-overflow:ellipsis; }
+    #ppTab-stats .psi-table { min-width:0; width:max-content; border-collapse:separate; border-spacing:0; font:700 9.5px/1.05 Oswald, Arial, sans-serif; color:#f4f0e6; table-layout:auto; }
+    #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(255,255,255,.24); background:linear-gradient(180deg,#202020,#101010); color:#fff; text-align:left; white-space:nowrap; text-transform:uppercase; width:auto; }
+    #ppTab-stats .psi-table th button { width:auto; height:100%; display:flex; align-items:center; justify-content:center; gap:2px; border:0; background:transparent; color:inherit; padding:4px 3px; font:900 9px/1 Oswald, Arial, sans-serif; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
+    #ppTab-stats .psi-table th:nth-child(-n+5) button { justify-content:flex-start; }
+    #ppTab-stats .psi-table td { padding:3px 3px; border-right:1px solid rgba(255,255,255,.055); border-bottom:1px solid rgba(255,255,255,.075); background:rgba(255,255,255,.035); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right !important; color:rgba(255,255,255,.84); width:auto; min-width:0; max-width:none; overflow:visible; text-overflow:clip; }
     #ppTab-stats .psi-table tbody tr:nth-child(even) td { background:rgba(255,255,255,.065); }
     #ppTab-stats .psi-table tbody tr:hover td { background:rgba(255,255,255,.12); color:#fff; }
-    #ppTab-stats .psi-table td:nth-child(-n+8) { text-align:left; }
-    #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; min-width:50px; max-width:50px; box-shadow:4px 0 10px rgba(0,0,0,.34); }
-    #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:50px; z-index:11; min-width:124px; max-width:124px; box-shadow:4px 0 10px rgba(0,0,0,.28); }
+    #ppTab-stats .psi-table td:nth-child(-n+5) { text-align:left !important; }
+    #ppTab-stats .psi-table td[data-key="w"], #ppTab-stats .psi-table td[data-key="l"], #ppTab-stats .psi-table td[data-key="g"], #ppTab-stats .psi-table td[data-key="gs"], #ppTab-stats .psi-table td[data-key="cg"], #ppTab-stats .psi-table td[data-key="sho"], #ppTab-stats .psi-table td[data-key="gr"], #ppTab-stats .psi-table td[data-key="gf"], #ppTab-stats .psi-table td[data-key="sv"], #ppTab-stats .psi-table td[data-key="ip"], #ppTab-stats .psi-table td[data-key="h"], #ppTab-stats .psi-table td[data-key="r"], #ppTab-stats .psi-table td[data-key="er"], #ppTab-stats .psi-table td[data-key="hr"], #ppTab-stats .psi-table td[data-key="bb"], #ppTab-stats .psi-table td[data-key="so"], #ppTab-stats .psi-table td[data-key="wp"], #ppTab-stats .psi-table td[data-key="bk"], #ppTab-stats .psi-table td[data-key="hb"], #ppTab-stats .psi-table td[data-key="era"], #ppTab-stats .psi-table td[data-key="whip"], #ppTab-stats .psi-table td[data-key="h9"], #ppTab-stats .psi-table td[data-key="hr9"], #ppTab-stats .psi-table td[data-key="bb9"], #ppTab-stats .psi-table td[data-key="so9"], #ppTab-stats .psi-table td[data-key="ra9"], #ppTab-stats .psi-table td[data-key="so_bb"] { text-align:right !important; }
+    #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; width:40px; min-width:40px; max-width:40px; box-shadow:4px 0 10px rgba(0,0,0,.34); }
+    #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:40px; z-index:11; width:108px; min-width:108px; max-width:108px; box-shadow:4px 0 10px rgba(0,0,0,.28); overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table th.team { z-index:16; }
     #ppTab-stats .psi-table td[data-key="year"] { background:#111 !important; color:#fff; font-weight:900; }
     #ppTab-stats .psi-table td[data-key="team"] { background:#141414 !important; color:#fff; font-weight:900; }
-    #ppTab-stats .psi-table th.level, #ppTab-stats .psi-table td[data-key="level"] { min-width:64px; max-width:72px; }
-    #ppTab-stats .psi-table th.org_conf, #ppTab-stats .psi-table td[data-key="org_conf"] { min-width:88px; max-width:100px; }
-    #ppTab-stats .psi-table th.age, #ppTab-stats .psi-table td[data-key="age"], #ppTab-stats .psi-table th.bt, #ppTab-stats .psi-table td[data-key="bt"], #ppTab-stats .psi-table th.class, #ppTab-stats .psi-table td[data-key="class"], #ppTab-stats .psi-table th.posit, #ppTab-stats .psi-table td[data-key="posit"] { min-width:42px; max-width:52px; }
+    #ppTab-stats .psi-table th.level, #ppTab-stats .psi-table td[data-key="level"] { width:58px; min-width:58px; max-width:58px; overflow:hidden; text-overflow:ellipsis; }
+    #ppTab-stats .psi-table th.org_conf, #ppTab-stats .psi-table td[data-key="org_conf"] { width:76px; min-width:76px; max-width:76px; overflow:hidden; text-overflow:ellipsis; }
+    #ppTab-stats .psi-table th.age, #ppTab-stats .psi-table td[data-key="age"], #ppTab-stats .psi-table th.posit, #ppTab-stats .psi-table td[data-key="posit"] { width:34px; min-width:34px; max-width:40px; }
+    #ppTab-stats .psi-table th[data-sort-key="w"], #ppTab-stats .psi-table td[data-key="w"], #ppTab-stats .psi-table th[data-sort-key="l"], #ppTab-stats .psi-table td[data-key="l"], #ppTab-stats .psi-table th[data-sort-key="g"], #ppTab-stats .psi-table td[data-key="g"], #ppTab-stats .psi-table th[data-sort-key="h"], #ppTab-stats .psi-table td[data-key="h"], #ppTab-stats .psi-table th[data-sort-key="r"], #ppTab-stats .psi-table td[data-key="r"], #ppTab-stats .psi-table th[data-sort-key="hr"], #ppTab-stats .psi-table td[data-key="hr"] { width:26px; min-width:26px; max-width:32px; }
+    #ppTab-stats .psi-table th[data-sort-key="gs"], #ppTab-stats .psi-table td[data-key="gs"], #ppTab-stats .psi-table th[data-sort-key="cg"], #ppTab-stats .psi-table td[data-key="cg"], #ppTab-stats .psi-table th[data-sort-key="gr"], #ppTab-stats .psi-table td[data-key="gr"], #ppTab-stats .psi-table th[data-sort-key="gf"], #ppTab-stats .psi-table td[data-key="gf"], #ppTab-stats .psi-table th[data-sort-key="sv"], #ppTab-stats .psi-table td[data-key="sv"], #ppTab-stats .psi-table th[data-sort-key="er"], #ppTab-stats .psi-table td[data-key="er"], #ppTab-stats .psi-table th[data-sort-key="bb"], #ppTab-stats .psi-table td[data-key="bb"], #ppTab-stats .psi-table th[data-sort-key="so"], #ppTab-stats .psi-table td[data-key="so"], #ppTab-stats .psi-table th[data-sort-key="wp"], #ppTab-stats .psi-table td[data-key="wp"], #ppTab-stats .psi-table th[data-sort-key="bk"], #ppTab-stats .psi-table td[data-key="bk"], #ppTab-stats .psi-table th[data-sort-key="hb"], #ppTab-stats .psi-table td[data-key="hb"] { width:30px; min-width:30px; max-width:36px; }
+    #ppTab-stats .psi-table th[data-sort-key="ip"], #ppTab-stats .psi-table td[data-key="ip"], #ppTab-stats .psi-table th[data-sort-key="era"], #ppTab-stats .psi-table td[data-key="era"], #ppTab-stats .psi-table th[data-sort-key="whip"], #ppTab-stats .psi-table td[data-key="whip"], #ppTab-stats .psi-table th[data-sort-key="h9"], #ppTab-stats .psi-table td[data-key="h9"], #ppTab-stats .psi-table th[data-sort-key="hr9"], #ppTab-stats .psi-table td[data-key="hr9"], #ppTab-stats .psi-table th[data-sort-key="bb9"], #ppTab-stats .psi-table td[data-key="bb9"], #ppTab-stats .psi-table th[data-sort-key="so9"], #ppTab-stats .psi-table td[data-key="so9"], #ppTab-stats .psi-table th[data-sort-key="ra9"], #ppTab-stats .psi-table td[data-key="ra9"], #ppTab-stats .psi-table th[data-sort-key="so_bb"], #ppTab-stats .psi-table td[data-key="so_bb"] { width:42px; min-width:42px; max-width:50px; }
     #ppTab-stats .psi-table .linkish { color:#fff; text-decoration:none; font-weight:900; }
     #ppTab-stats .psi-total-row td { background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.07)) !important; color:#fff !important; border-top:1px solid rgba(255,255,255,.24); font-weight:900; }
     #ppTab-stats .psi-total-row td[data-key="year"] { background:#151515 !important; }
-    #ppTab-stats .psi-total-row td[data-key="team"] { background:#171717 !important; letter-spacing:.04em; text-transform:uppercase; }
+    #ppTab-stats .psi-total-row td[data-key="team"] { background:#171717 !important; letter-spacing:.02em; text-transform:uppercase; }
     #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:rgba(255,255,255,.78); background:#101010; font:800 13px/1.35 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
-    @media (max-width:860px) { #ppTab-stats { padding:7px 5px calc(var(--profile-tabs-h,72px) + 10px) !important; } #ppTab-stats .psi-table { font-size:9px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:4px 3px; } #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { min-width:112px; max-width:112px; left:46px; } #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { min-width:46px; max-width:46px; } }
+    @media (max-width:860px) { #ppTab-stats { padding:6px 4px calc(var(--profile-tabs-h,72px) + 10px) !important; } #ppTab-stats .psi-table { font-size:9px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:3px 2px; } #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { width:38px; min-width:38px; max-width:38px; } #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { width:102px; min-width:102px; max-width:102px; left:38px; } }
   </style>`;
 }
 
