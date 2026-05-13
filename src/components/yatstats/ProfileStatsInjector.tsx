@@ -12,18 +12,18 @@ type StatsMeta = {
 };
 
 const battingColumns = [
-  ['year', 'year'], ['team', 'team name'], ['league', 'league'], ['level', 'level'], ['org_conf', 'org/conf'], ['age', 'age'], ['ba', 'b/t'], ['th', 'th'], ['class', 'class'], ['posit', 'pos'],
-  ['g', 'g'], ['ab', 'ab'], ['r', 'r'], ['h', 'h'], ['dbl', '2b'], ['tpl', '3b'], ['hr', 'hr'], ['rbi', 'rbi'], ['sb', 'sb'], ['cs', 'cs'], ['bb', 'bb'], ['so', 'so'], ['hbp', 'hbp'], ['sh', 'sh'], ['sf', 'sf'], ['ibb', 'ibb'], ['gdp', 'gdp'], ['tb', 'tb'], ['pa', 'pa'], ['xbh', 'xbh'], ['sgl', '1b'], ['bavg', 'avg'], ['obp', 'obp'], ['slg', 'slg'], ['ops', 'ops'], ['seca', 'seca'], ['iso', 'iso'], ['babip', 'babip'],
+  ['year', 'YR'], ['team', 'TEAM'], ['level', 'LVL'], ['org_conf', 'ORG'], ['age', 'AGE'], ['bt', 'B/T'], ['class', 'CLS'], ['posit', 'POS'],
+  ['g', 'G'], ['ab', 'AB'], ['r', 'R'], ['h', 'H'], ['dbl', '2B'], ['tpl', '3B'], ['hr', 'HR'], ['rbi', 'RBI'], ['sb', 'SB'], ['bb', 'BB'], ['so', 'SO'], ['bavg', 'AVG'], ['obp', 'OBP'], ['slg', 'SLG'], ['ops', 'OPS'],
 ] as const;
 
 const pitchingColumns = [
-  ['year', 'year'], ['team', 'team name'], ['league', 'league'], ['level', 'level'], ['org_conf', 'org/conf'], ['age', 'age'], ['ba', 'b/t'], ['th', 'th'], ['class', 'class'],
-  ['w', 'w'], ['l', 'l'], ['g', 'g'], ['gs', 'gs'], ['cg', 'cg'], ['sho', 'sho'], ['gr', 'gr'], ['gf', 'gf'], ['sv', 'sv'], ['ip', 'ip'], ['h', 'h'], ['r', 'r'], ['er', 'er'], ['hr', 'hr'], ['bb', 'bb'], ['so', 'so'], ['wp', 'wp'], ['bk', 'bk'], ['hb', 'hb'], ['era', 'era'], ['whip', 'whip'], ['h9', 'h9'], ['hr9', 'hr9'], ['bb9', 'bb9'], ['so9', 'so9'], ['ra9', 'ra9'], ['so_bb', 'so/bb'],
+  ['year', 'YR'], ['team', 'TEAM'], ['level', 'LVL'], ['org_conf', 'ORG'], ['age', 'AGE'], ['bt', 'B/T'], ['class', 'CLS'],
+  ['w', 'W'], ['l', 'L'], ['g', 'G'], ['gs', 'GS'], ['sv', 'SV'], ['ip', 'IP'], ['h', 'H'], ['r', 'R'], ['er', 'ER'], ['hr', 'HR'], ['bb', 'BB'], ['so', 'SO'], ['era', 'ERA'], ['whip', 'WHIP'], ['so9', 'K/9'], ['so_bb', 'K/BB'],
 ] as const;
 
-const sumBattingKeys = ['g','ab','r','h','dbl','tpl','hr','rbi','sb','cs','bb','so','hbp','sh','sf','ibb','gdp','tb','pa','xbh','sgl'] as const;
-const sumPitchingKeys = ['w','l','g','gs','cg','sho','gr','gf','sv','h','r','er','hr','bb','so','wp','bk','hb'] as const;
-const levelBuckets = ['MLB', 'NL', 'MINORS', 'RK', 'A', 'A+', 'AA', 'AAA', 'COLLEGE'] as const;
+const sumBattingKeys = ['g','ab','r','h','dbl','tpl','hr','rbi','sb','bb','so'] as const;
+const sumPitchingKeys = ['w','l','g','gs','sv','h','r','er','hr','bb','so'] as const;
+const levelBuckets = ['MLB', 'MINORS', 'AAA', 'AA', 'A+', 'A', 'RK', 'COLLEGE'] as const;
 
 function esc(value: unknown) {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -56,8 +56,7 @@ function rate(value: number, decimals = 3, trimZero = true) {
 }
 
 function dec(value: number, decimals = 2) {
-  if (!Number.isFinite(value)) return '';
-  return value.toFixed(decimals);
+  return Number.isFinite(value) ? value.toFixed(decimals) : '';
 }
 
 function fmt(value: unknown) {
@@ -69,7 +68,6 @@ function normalizeLevel(value: unknown) {
   const raw = String(value ?? '').trim().toUpperCase();
   if (!raw) return '';
   if (raw.includes('MLB')) return 'MLB';
-  if (raw === 'NL' || raw === 'AL') return 'NL';
   if (raw.includes('TRIPLE') || raw === 'AAA') return 'AAA';
   if (raw.includes('DOUBLE') || raw === 'AA') return 'AA';
   if (raw === 'A+' || raw.includes('HIGH-A') || raw.includes('HIGH A')) return 'A+';
@@ -80,43 +78,39 @@ function normalizeLevel(value: unknown) {
   return raw;
 }
 
+function prepRow(row: Row) {
+  return { ...row, level: normalizeLevel(row.level), bt: [row.ba, row.th].filter(Boolean).join('/') };
+}
+
 function rowBucket(row: Row) {
   const level = normalizeLevel(row.level);
   if (['RK','A','A+','AA','AAA'].includes(level)) return level;
   if (level === 'MLB') return 'MLB';
-  if (level === 'NL') return 'NL';
   if (level === 'COLLEGE') return 'COLLEGE';
   return level;
 }
 
 function buildBattingTotal(rows: Row[], label = 'Career', bucket = '') {
-  const total: Row = { year: 'Tot:', team: label, league: '', level: bucket, org_conf: '', age: '', ba: '', th: '', class: '', posit: '' };
+  const total: Row = { year: 'Tot:', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '', posit: '' };
   sumBattingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
-  const h = num(total.h); const ab = num(total.ab); const bb = num(total.bb); const hbp = num(total.hbp); const sf = num(total.sf); const tb = num(total.tb);
+  const h = num(total.h); const ab = num(total.ab); const bb = num(total.bb); const tb = rows.reduce((sum, row) => sum + num(row.tb), 0);
   total.bavg = ab > 0 ? rate(h / ab) : '';
-  total.obp = (ab + bb + hbp + sf) > 0 ? rate((h + bb + hbp) / (ab + bb + hbp + sf)) : '';
+  total.obp = (ab + bb) > 0 ? rate((h + bb) / (ab + bb)) : '';
   total.slg = ab > 0 ? rate(tb / ab) : '';
   total.ops = total.obp && total.slg ? rate(Number(`0${total.obp}`) + Number(`0${total.slg}`)) : '';
-  total.seca = ab > 0 ? rate((num(total.bb) + (num(total.tb) - h) + num(total.sb) - num(total.cs)) / ab) : '';
-  total.iso = ab > 0 && total.bavg ? rate(Number(`0${total.slg}`) - Number(`0${total.bavg}`)) : '';
-  total.babip = (ab - num(total.hr) - num(total.so) + sf) > 0 ? rate((h - num(total.hr)) / (ab - num(total.hr) - num(total.so) + sf)) : '';
   return total;
 }
 
 function buildPitchingTotal(rows: Row[], label = 'Career', bucket = '') {
-  const total: Row = { year: 'Tot:', team: label, league: '', level: bucket, org_conf: '', age: '', ba: '', th: '', class: '' };
+  const total: Row = { year: 'Tot:', team: label, level: bucket, org_conf: '', age: '', bt: '', class: '' };
   sumPitchingKeys.forEach((key) => { total[key] = rows.reduce((sum, row) => sum + num(row[key]), 0); });
   const outs = rows.reduce((sum, row) => sum + parseIpToOuts(row.ip), 0);
   const innings = outs / 3;
-  const er = num(total.er); const r = num(total.r); const h = num(total.h); const bb = num(total.bb); const hr = num(total.hr); const so = num(total.so);
+  const er = num(total.er); const h = num(total.h); const bb = num(total.bb); const so = num(total.so);
   total.ip = outsToIp(outs);
   total.era = innings > 0 ? dec((er * 9) / innings, 2) : '';
   total.whip = innings > 0 ? dec((h + bb) / innings, 2) : '';
-  total.h9 = innings > 0 ? dec((h * 9) / innings, 2) : '';
-  total.hr9 = innings > 0 ? dec((hr * 9) / innings, 2) : '';
-  total.bb9 = innings > 0 ? dec((bb * 9) / innings, 2) : '';
   total.so9 = innings > 0 ? dec((so * 9) / innings, 2) : '';
-  total.ra9 = innings > 0 ? dec((r * 9) / innings, 2) : '';
   total.so_bb = bb > 0 ? dec(so / bb, 2) : '';
   return total;
 }
@@ -134,12 +128,13 @@ function totalRows(kind: 'batting' | 'pitching', rows: Row[]) {
     if (!bucketRows.length) continue;
     out.push(make(bucketRows, `${bucket} (${bucketRows.length} yrs)`, bucket));
   }
-  out.push(make(rows, `All Levels (${rows.length} yrs)`, 'ALL'));
-  return out;
+  out.push(make(rows, `ALL (${rows.length} yrs)`, 'ALL'));
+  return out.map(prepRow);
 }
 
 function renderCells(row: Row, columns: readonly Column[], extraClass = '') {
-  return columns.map(([key]) => `<td data-key="${esc(key)}" class="${extraClass} ${['team','league','org_conf'].includes(key) ? 'linkish' : ''}">${fmt(row[key])}</td>`).join('');
+  const clean = prepRow(row);
+  return columns.map(([key]) => `<td data-key="${esc(key)}" class="${extraClass} ${['team','org_conf'].includes(key) ? 'linkish' : ''}">${fmt(clean[key])}</td>`).join('');
 }
 
 function totalRow(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Column[]) {
@@ -147,21 +142,15 @@ function totalRow(kind: 'batting' | 'pitching', rows: Row[], columns: readonly C
   return `<tfoot>${totalRows(kind, rows).map((row) => `<tr class="psi-total-row">${renderCells(row, columns)}</tr>`).join('')}</tfoot>`;
 }
 
-function playerInfoRibbon(meta?: StatsMeta) {
-  const items = [meta?.currentTeamName, meta?.orgConferenceName, meta?.levelLabel, meta?.statusLabel].filter(Boolean);
-  if (!items.length) return '';
-  return `<div class="psi-player-info">${items.map((item) => `<span>${esc(item)}</span>`).join('<i>—</i>')}</div>`;
-}
-
-function table(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Column[], meta?: StatsMeta, includeInfo = false) {
+function table(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Column[]) {
   if (!rows.length) return '';
+  const prepped = rows.map(prepRow);
   return `
     <section class="psi-card" data-table-title="${kind}">
-      ${includeInfo ? playerInfoRibbon(meta) : ''}
       <div class="psi-table-wrap">
         <table class="psi-table">
-          <thead><tr>${columns.map(([key, label]) => `<th class="${key === 'year' ? 'year' : key === 'team' ? 'team' : ''}" data-sort-key="${esc(key)}"><button type="button">${esc(label)}<span class="psi-sort-mark"></span></button></th>`).join('')}</tr></thead>
-          <tbody>${rows.map((row) => `<tr>${renderCells(row, columns)}</tr>`).join('')}</tbody>
+          <thead><tr>${columns.map(([key, label]) => `<th class="${key}" data-sort-key="${esc(key)}"><button type="button">${esc(label)}<span class="psi-sort-mark"></span></button></th>`).join('')}</tr></thead>
+          <tbody>${prepped.map((row) => `<tr>${renderCells(row, columns)}</tr>`).join('')}</tbody>
           ${totalRow(kind, rows, columns)}
         </table>
       </div>
@@ -171,36 +160,31 @@ function table(kind: 'batting' | 'pitching', rows: Row[], columns: readonly Colu
 function css() {
   return `<style id="profile-stats-injector-css">
     html, body, .pp-funzone-outer, .pp-funzone, #playerFunZone { background:#070707 !important; }
-    #ppTab-stats { background: radial-gradient(circle at 18% 0%, rgba(255,255,255,.08), transparent 24%), linear-gradient(180deg, #121212 0%, #070707 100%) !important; padding:10px 14px calc(var(--profile-tabs-h,68px) + 16px) !important; overflow:auto !important; color:#f4f0e6 !important; }
+    #ppTab-stats { background: radial-gradient(circle at 18% 0%, rgba(255,255,255,.08), transparent 24%), linear-gradient(180deg, #121212 0%, #070707 100%) !important; padding:8px 10px calc(var(--profile-tabs-h,68px) + 12px) !important; overflow:auto !important; color:#f4f0e6 !important; }
     #ppTab-stats .psi-shell { width:100%; background:transparent; }
-    #ppTab-stats .psi-card { width:100%; border:1px solid rgba(255,255,255,.22); background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), #0c0c0c; margin:0 0 14px; box-shadow:0 14px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }
-    #ppTab-stats .psi-player-info { position:sticky; top:0; z-index:12; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 12px; background:linear-gradient(90deg, rgba(5,5,5,.98), rgba(18,18,18,.96)); border-bottom:1px solid rgba(255,255,255,.22); color:#fff; font:900 20px/1.05 Oswald, Arial, sans-serif; letter-spacing:.02em; text-transform:none; }
-    #ppTab-stats .psi-player-info span { white-space:nowrap; }
-    #ppTab-stats .psi-player-info i { color:rgba(255,255,255,.65); font-style:normal; opacity:.78; }
-    #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 38px); overflow:auto; background:#080808; scrollbar-color:rgba(255,255,255,.38) rgba(255,255,255,.08); scrollbar-width:thin; }
-    #ppTab-stats .psi-table { min-width:1600px; width:100%; border-collapse:separate; border-spacing:0; font:700 12px/1.15 Arial, Helvetica, sans-serif; color:#f4f0e6; }
+    #ppTab-stats .psi-card { width:100%; border:1px solid rgba(255,255,255,.22); background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), #0c0c0c; margin:0 0 12px; box-shadow:0 14px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }
+    #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 30px); overflow:auto; background:#080808; scrollbar-color:rgba(255,255,255,.38) rgba(255,255,255,.08); scrollbar-width:thin; }
+    #ppTab-stats .psi-table { min-width:1180px; width:100%; border-collapse:separate; border-spacing:0; font:700 11px/1.12 Oswald, Arial, sans-serif; color:#f4f0e6; }
     #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(255,255,255,.24); background:linear-gradient(180deg,#202020,#101010); color:#fff; text-align:left; white-space:nowrap; text-transform:uppercase; }
-    #ppTab-stats .psi-table th button { width:100%; height:100%; display:flex; align-items:center; justify-content:flex-end; gap:5px; border:0; background:transparent; color:inherit; padding:8px 7px; font:900 11px/1 Oswald, Arial, sans-serif; letter-spacing:.11em; text-transform:uppercase; cursor:pointer; }
-    #ppTab-stats .psi-table th:nth-child(1) button, #ppTab-stats .psi-table th:nth-child(2) button, #ppTab-stats .psi-table th:nth-child(3) button, #ppTab-stats .psi-table th:nth-child(4) button, #ppTab-stats .psi-table th:nth-child(5) button { justify-content:flex-start; }
-    #ppTab-stats .psi-table th button:hover { background:rgba(255,255,255,.11); color:#fff; }
-    #ppTab-stats .psi-sort-mark { width:0; height:0; opacity:.55; }
-    #ppTab-stats .psi-table th.is-sort-asc .psi-sort-mark::after { content:'▲'; font-size:8px; }
-    #ppTab-stats .psi-table th.is-sort-desc .psi-sort-mark::after { content:'▼'; font-size:8px; }
-    #ppTab-stats .psi-table td { padding:6px 7px; border-right:1px solid rgba(255,255,255,.055); border-bottom:1px solid rgba(255,255,255,.075); background:rgba(255,255,255,.035); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; color:rgba(255,255,255,.84); }
+    #ppTab-stats .psi-table th button { width:100%; height:100%; display:flex; align-items:center; justify-content:flex-end; gap:5px; border:0; background:transparent; color:inherit; padding:7px 6px; font:900 10px/1 Oswald, Arial, sans-serif; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; }
+    #ppTab-stats .psi-table th:nth-child(-n+8) button { justify-content:flex-start; }
+    #ppTab-stats .psi-table td { padding:5px 6px; border-right:1px solid rgba(255,255,255,.055); border-bottom:1px solid rgba(255,255,255,.075); background:rgba(255,255,255,.035); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; color:rgba(255,255,255,.84); }
     #ppTab-stats .psi-table tbody tr:nth-child(even) td { background:rgba(255,255,255,.065); }
     #ppTab-stats .psi-table tbody tr:hover td { background:rgba(255,255,255,.12); color:#fff; }
-    #ppTab-stats .psi-table td:nth-child(1), #ppTab-stats .psi-table td:nth-child(2), #ppTab-stats .psi-table td:nth-child(3), #ppTab-stats .psi-table td:nth-child(4), #ppTab-stats .psi-table td:nth-child(5) { text-align:left; }
-    #ppTab-stats .psi-table th:first-child, #ppTab-stats .psi-table td:first-child { position:sticky; left:0; z-index:9; box-shadow:4px 0 10px rgba(0,0,0,.34); }
-    #ppTab-stats .psi-table th:first-child { z-index:11; }
-    #ppTab-stats .psi-table td:first-child { background:#111 !important; color:#fff; font-weight:900; }
-    #ppTab-stats .psi-table .team { min-width:210px; }
+    #ppTab-stats .psi-table td:nth-child(-n+8) { text-align:left; }
+    #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; min-width:54px; max-width:54px; box-shadow:4px 0 10px rgba(0,0,0,.34); }
+    #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:54px; z-index:11; min-width:170px; max-width:170px; box-shadow:4px 0 10px rgba(0,0,0,.28); }
+    #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table th.team { z-index:16; }
+    #ppTab-stats .psi-table td[data-key="year"] { background:#111 !important; color:#fff; font-weight:900; }
+    #ppTab-stats .psi-table td[data-key="team"] { background:#141414 !important; color:#fff; font-weight:900; overflow:hidden; text-overflow:ellipsis; }
+    #ppTab-stats .psi-table th.level, #ppTab-stats .psi-table td[data-key="level"] { min-width:54px; }
+    #ppTab-stats .psi-table th.org_conf, #ppTab-stats .psi-table td[data-key="org_conf"] { min-width:120px; max-width:140px; overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table .linkish { color:#fff; text-decoration:none; font-weight:900; }
-    #ppTab-stats .psi-table td[data-key="league"], #ppTab-stats .psi-table td[data-key="level"], #ppTab-stats .psi-table td[data-key="org_conf"] { color:rgba(255,255,255,.78); }
     #ppTab-stats .psi-total-row td { background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.07)) !important; color:#fff !important; border-top:1px solid rgba(255,255,255,.24); font-weight:900; }
-    #ppTab-stats .psi-total-row td:first-child { background:#151515 !important; color:#fff !important; }
-    #ppTab-stats .psi-total-row td:nth-child(2) { color:#fff !important; letter-spacing:.05em; text-transform:uppercase; }
+    #ppTab-stats .psi-total-row td[data-key="year"] { background:#151515 !important; }
+    #ppTab-stats .psi-total-row td[data-key="team"] { background:#171717 !important; letter-spacing:.05em; text-transform:uppercase; }
     #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:rgba(255,255,255,.78); background:#101010; font:800 13px/1.35 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
-    @media (max-width:860px) { #ppTab-stats { padding:8px 6px calc(var(--profile-tabs-h,72px) + 12px) !important; } #ppTab-stats .psi-player-info { font-size:18px; padding:9px 10px; } #ppTab-stats .psi-table { font-size:11px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:7px 6px; } }
+    @media (max-width:860px) { #ppTab-stats { padding:7px 5px calc(var(--profile-tabs-h,72px) + 10px) !important; } #ppTab-stats .psi-table { font-size:10px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:6px 5px; } #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { min-width:146px; max-width:146px; left:50px; } #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { min-width:50px; max-width:50px; } }
   </style>`;
 }
 
@@ -245,8 +229,8 @@ export default function ProfileStatsInjector({ playerId, meta }: { playerId: str
         const pitching = Array.isArray(data?.pitching) ? data.pitching : [];
         const primary = data?.primaryType === 'pitching' ? 'pitching' : 'batting';
         const html = primary === 'pitching'
-          ? `${table('pitching', pitching, pitchingColumns, meta, true)}${table('batting', batting, battingColumns, meta, false)}`
-          : `${table('batting', batting, battingColumns, meta, true)}${table('pitching', pitching, pitchingColumns, meta, false)}`;
+          ? `${table('pitching', pitching, pitchingColumns)}${table('batting', batting, battingColumns)}`
+          : `${table('batting', batting, battingColumns)}${table('pitching', pitching, pitchingColumns)}`;
         panel.innerHTML = html ? `${css()}<div class="psi-shell">${html}</div>` : `${css()}<div class="psi-empty">No season-by-season stats found for this player yet.</div>`;
         attachSortHandlers(panel);
       })
