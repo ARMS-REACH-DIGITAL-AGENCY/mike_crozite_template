@@ -44,9 +44,17 @@ export async function GET(req: NextRequest) {
           f.current_team_name,
           f.current_org_or_conference_name,
           f.level_label,
+          m.teamid::text as current_teamid,
           ss.hsname,
           ss.hslocation
         from flip_card_front_stage f
+        left join public.teamid_universe_mapping m
+          on lower(trim(m.current_team_name)) = lower(trim(f.current_team_name))
+         and (
+           coalesce(f.current_org_or_conference_name, '') = ''
+           or coalesce(m.current_org_or_conference_name, '') = ''
+           or lower(trim(m.current_org_or_conference_name)) = lower(trim(f.current_org_or_conference_name))
+         )
         left join school_success ss on ss.hsid::text = f.hsid::text
         where
           coalesce(f.current_team_name, '') ilike $1
@@ -57,6 +65,7 @@ export async function GET(req: NextRequest) {
           f.hsid::text,
           coalesce(f.current_team_name, ''),
           coalesce(f.level_label, ''),
+          m.teamid::text nulls last,
           f.last_name nulls last,
           f.first_name nulls last
       )
@@ -78,6 +87,7 @@ export async function GET(req: NextRequest) {
       const firstName = r.firstname || "";
       const lastName = r.lastname || "";
       const displayName = r.display_name || `${firstName} ${lastName}`.trim();
+      const currentTeamId = r.current_teamid || "";
       return {
         playerId: r.playerid || "",
         firstName,
@@ -90,6 +100,10 @@ export async function GET(req: NextRequest) {
         slug: toPlayerSlug(firstName, lastName || displayName),
         crestUrl: getSchoolCrestUrl(r.hsid),
         currentTeamName: r.current_team_name || "",
+        currentTeamId,
+        current_team_id: currentTeamId,
+        teamid: currentTeamId,
+        teamLogoUrl: currentTeamId ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${currentTeamId}.png` : "",
         currentOrgOrConferenceName: r.current_org_or_conference_name || "",
         levelLabel: r.level_label || "",
       };
