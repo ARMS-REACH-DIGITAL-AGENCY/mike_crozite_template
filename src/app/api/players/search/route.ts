@@ -121,21 +121,8 @@ export async function GET(req: NextRequest) {
         union all
         select * from stage_matches
       )
-      select c.*, hp.image_url as headshot_url
+      select c.*
       from combined c
-      left join lateral (
-        select pp.image_url
-        from player_photos pp
-        where pp.playerid::text = c.playerid::text
-          and pp.approval_status = 'APPROVED'
-          and pp.is_active = true
-          and pp.image_role in ('HEADSHOT', 'RIGHT_ANCHOR')
-        order by case pp.image_role when 'HEADSHOT' then 0 when 'RIGHT_ANCHOR' then 1 else 2 end,
-                 pp.is_primary desc,
-                 pp.date_taken desc nulls last,
-                 pp.created_at desc
-        limit 1
-      ) hp on true
       order by c.lastname nulls last, c.firstname nulls last, c.playerid
       limit $2
     `;
@@ -161,7 +148,7 @@ export async function GET(req: NextRequest) {
         state,
         slug: toPlayerSlug(r.firstname, r.lastname),
         crestUrl: getSchoolCrestUrl(r.hsid),
-        headshotUrl: r.headshot_url || "",
+        headshotUrl: "",
         micrositeUrl,
       };
     });
