@@ -8,6 +8,9 @@ Default target:
 Expected CSV columns:
   teamid,year,page_url
 
+If the row is a TBC college_history page, the script first tries:
+  https://www.thebaseballcube.com/images/colleges/{teamid}.png
+
 Only teamid is required if --logo-url-template is provided.
 Either page_url or year is required for page-scan mode.
 
@@ -20,7 +23,7 @@ Examples:
 
   python scripts/scrape_tbc_team_logos_to_s3.py \
     --input team_logo_targets.csv \
-    --logo-url-template 'https://www.thebaseballcube.com/images/teamlogos/{teamid}.png' \
+    --logo-url-template 'https://www.thebaseballcube.com/images/colleges/{teamid}.png' \
     --upload
 
 Notes:
@@ -257,16 +260,39 @@ def direct_logo_candidates(row: dict[str, str], template: str) -> Iterable[str]:
     yield template.format(teamid=teamid, year=year)
 
 
+def tbc_college_candidate(row: dict[str, str]) -> str | None:
+    teamid = clean_teamid(row.get("teamid", ""))
+    page_url = str(row.get("page_url") or "").strip().lower()
+    if "college_history" in page_url or (teamid.startswith("20") and len(teamid) == 5 and not row.get("year")):
+        return f"https://www.thebaseballcube.com/images/colleges/{teamid}.png"
+    return None
+
+
 def scan_page_candidates(session: requests.Session, row: dict[str, str], delay: float) -> list[str]:
     teamid = clean_teamid(row.get("teamid", ""))
+    candidates: list[str] = []
+
+    college_logo = tbc_college_candidate(row)
+    if college_logo:
+        candidates.append(college_logo)
+
     page_url = build_page_url(row)
     print(f"  scanning {page_url}")
     time.sleep(delay)
     page = session.get(page_url, timeout=30)
     if page.status_code != 200:
         print(f"    page failed {page.status_code}: {page_url}")
-        return []
-    return image_sources_from_page(page.text, page_url, teamid)
+        return candidates
+    candidates.extend(image_sources_from_page(page.text, page_url, teamid))
+
+    out: list[str] = []
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        out.append(candidate)
+    return out
 
 
 def process_row(session, s3, row: dict[str, str], args) -> bool:
@@ -312,7 +338,7 @@ def main() -> int:
     parser.add_argument("--upload", action="store_true", help="Actually upload to S3. Without this, dry-run only.")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--max-candidates", type=int, default=5)
-    parser.add_argument("--logo-url-template", default="", help="Optional direct URL template with {teamid} and {year}")
+    parser.add_argument("--logo-url-template", default="", help="Optional direct logo URL template. Supports {teamid} and {year}.")
     args = parser.parse_args()
 
     rows = read_csv_rows(Path(args.input))
