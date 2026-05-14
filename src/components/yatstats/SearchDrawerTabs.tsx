@@ -53,6 +53,10 @@ function stateFullName(value: unknown) {
   return STATE_NAMES[code] || String(value || 'Other').trim() || 'Other';
 }
 
+function cleanRank(value: unknown) {
+  return String(value || '').trim().replace(/^#/, '').replace(/\s*\([A-Z]{2}\)\s*$/i, '');
+}
+
 function cleanLocation(city?: unknown, state?: unknown, fallback?: unknown) {
   const c = String(city || '').trim();
   const s = String(state || '').trim();
@@ -65,7 +69,7 @@ function cleanLocation(city?: unknown, state?: unknown, fallback?: unknown) {
 function schoolCrestUrl(hsid: unknown, fallback?: unknown) {
   const custom = String(fallback || '').trim();
   if (custom) return custom;
-  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/school-logos/${esc(hsid)}.png`;
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/${esc(hsid)}.png`;
 }
 
 function teamLogoPlaceholder() {
@@ -142,8 +146,8 @@ function renderSchoolRows(programs: any[], emptyText: string) {
               <span><strong>${esc(s.atnla ?? 0)}</strong><small>All-Time</small></span>
               <span><strong>${esc(s.drafted_ratio || (s.drafted_hs && s.drafted ? `${s.drafted_hs}/${s.drafted}` : '--'))}</strong><small>Drafted</small></span>
               <span><strong>${esc(s.mlb ?? 0)}</strong><small>MLB</small></span>
-              <span><strong>${s.yatstats_national_rank ? `#${esc(s.yatstats_national_rank)}` : '--'}</strong><small>Nat'l Rank</small></span>
-              <span><strong>${s.yatstats_state_rank ? `#${esc(s.yatstats_state_rank)}` : '--'}</strong><small>${esc(stateLabel)}</small></span>
+              <span><strong>${s.yatstats_national_rank ? `#${esc(cleanRank(s.yatstats_national_rank))}` : '--'}</strong><small>Nat'l Rank</small></span>
+              <span><strong>${s.yatstats_state_rank ? `#${esc(cleanRank(s.yatstats_state_rank))}` : '--'}</strong><small>${esc(stateLabel)}</small></span>
             </div>
           </a>
         `;
