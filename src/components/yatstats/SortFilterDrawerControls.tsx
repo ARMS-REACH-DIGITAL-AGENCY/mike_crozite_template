@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 type SortDirection = 'asc' | 'desc';
+type SortScope = 'season' | 'career';
 type SortMetric = {
   key: string;
   label: string;
@@ -12,6 +13,7 @@ type SortMetric = {
 };
 
 let currentSortDirection: SortDirection = 'desc';
+let currentSortScope: SortScope = 'season';
 let favoritesSortEnabled = false;
 let favoriteSortPlayerIds = new Set<string>();
 
@@ -28,7 +30,6 @@ const SORT_METRICS: SortMetric[] = [
   { key: 'ops', label: 'OPS', shortLabel: 'OPS', group: 'batting', defaultDirection: 'desc' },
   { key: 'sb', label: 'Stolen Bases', shortLabel: 'SB', group: 'batting', defaultDirection: 'desc' },
   { key: 'gp', label: 'Games Played', shortLabel: 'GP', group: 'batting', defaultDirection: 'desc' },
-
   { key: 'ip', label: 'Innings Pitched', shortLabel: 'IP', group: 'pitching', defaultDirection: 'desc' },
   { key: 'er', label: 'Earned Runs', shortLabel: 'ER', group: 'pitching', defaultDirection: 'asc' },
   { key: 'era', label: 'ERA', shortLabel: 'ERA', group: 'pitching', defaultDirection: 'asc' },
@@ -43,362 +44,190 @@ const SORT_METRICS: SortMetric[] = [
   { key: 'gp', label: 'Games Played', shortLabel: 'GP', group: 'pitching', defaultDirection: 'desc' },
 ];
 
-function getSortRoot(): HTMLElement | null {
-  return document.getElementById('yatSortControls');
-}
-
-function getMetric(key: string, group?: string | null) {
-  return SORT_METRICS.find((metric) => metric.key === key && (!group || metric.group === group))
-    || SORT_METRICS.find((metric) => metric.key === key)
-    || null;
-}
-
-function statAttrName(key: string) {
-  return `stat${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-}
-
+function getSortRoot(): HTMLElement | null { return document.getElementById('yatSortControls'); }
+function getMetric(key: string, group?: string | null) { return SORT_METRICS.find((m) => m.key === key && (!group || m.group === group)) || SORT_METRICS.find((m) => m.key === key) || null; }
+function statAttrName(key: string) { return `stat${key.charAt(0).toUpperCase()}${key.slice(1)}`; }
 function getVisibleGallerySection(): HTMLElement | null {
-  const activeSection = document.getElementById('sec-active');
-  const allTimeSection = document.getElementById('sec-alltime');
-
-  if (activeSection?.classList.contains('visible')) return activeSection;
-  if (allTimeSection?.classList.contains('visible')) return allTimeSection;
-
+  const active = document.getElementById('sec-active');
+  const allTime = document.getElementById('sec-alltime');
+  if (active?.classList.contains('visible')) return active;
+  if (allTime?.classList.contains('visible')) return allTime;
   return null;
 }
-
-function isActiveAlumniSection(section: HTMLElement | null) {
-  return section?.id === 'sec-active';
-}
-
-function getCardWrap(card: HTMLElement): HTMLElement {
-  return (card.closest('[data-player-card-wrap="true"]') as HTMLElement | null) || card;
-}
-
-function getGrid(section: HTMLElement): HTMLElement | null {
-  return (section.querySelector('.yat-grid') || section.querySelector('#active-grid')) as HTMLElement | null;
-}
-
-function getPlayerId(card: HTMLElement): string {
-  return card.getAttribute('data-playerid') || '';
-}
-
+function isActiveAlumniSection(section: HTMLElement | null) { return section?.id === 'sec-active'; }
+function getCardWrap(card: HTMLElement): HTMLElement { return (card.closest('[data-player-card-wrap="true"]') as HTMLElement | null) || card; }
+function getGrid(section: HTMLElement): HTMLElement | null { return (section.querySelector('.yat-grid') || section.querySelector('#active-grid')) as HTMLElement | null; }
+function getPlayerId(card: HTMLElement): string { return card.getAttribute('data-playerid') || ''; }
 function parseStatNumber(raw: unknown): number | null {
   const text = String(raw ?? '').trim();
   if (!text || text === '--') return null;
-
   if (text.includes('-')) {
-    const first = text.split('-')[0];
-    const firstParsed = Number(String(first).replace(/[^0-9.-]/g, ''));
-    return Number.isFinite(firstParsed) ? firstParsed : null;
+    const first = Number(String(text.split('-')[0]).replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(first) ? first : null;
   }
-
-  const cleaned = text.replace(/[^0-9.-]/g, '').trim();
-  if (!cleaned) return null;
-
-  const parsed = Number(cleaned);
+  const parsed = Number(text.replace(/[^0-9.-]/g, '').trim());
   return Number.isFinite(parsed) ? parsed : null;
 }
-
-function getNumericStat(card: HTMLElement, key: string): number | null {
-  const raw = card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || '';
-  return parseStatNumber(raw);
-}
-
-function hasCurrentSeasonStats(card: HTMLElement): boolean {
-  return card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true';
-}
-
+function getNumericStat(card: HTMLElement, key: string): number | null { return parseStatNumber(card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || ''); }
+function hasCurrentSeasonStats(card: HTMLElement): boolean { return card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true'; }
 function getVisibleCards(section: HTMLElement): HTMLElement[] {
   return Array.from(section.querySelectorAll('.yat-card[data-playerid]')).filter((node) => {
     const card = node as HTMLElement;
     const wrap = getCardWrap(card);
-    if (wrap.style.display === 'none') return false;
-    if (wrap.hasAttribute('hidden')) return false;
-    if (card.style.display === 'none') return false;
-    return true;
+    return wrap.style.display !== 'none' && !wrap.hasAttribute('hidden') && card.style.display !== 'none';
   }) as HTMLElement[];
 }
-
 function syncStripToSortedCards(cards: HTMLElement[]) {
   const strip = document.querySelector('.gallery-strip-inner') as HTMLElement | null;
   if (!strip) return;
-
   const slots = Array.from(strip.querySelectorAll('.gallery-slot-link[data-playerid]')) as HTMLElement[];
   const slotMap = new Map<string, HTMLElement>();
-
-  slots.forEach((slot) => {
-    const playerId = slot.getAttribute('data-playerid') || '';
-    if (playerId && !slotMap.has(playerId)) slotMap.set(playerId, slot);
-  });
-
+  slots.forEach((slot) => { const id = slot.getAttribute('data-playerid') || ''; if (id && !slotMap.has(id)) slotMap.set(id, slot); });
   const visibleIds = cards.map((card) => card.getAttribute('data-playerid') || '').filter(Boolean);
-
-  visibleIds.forEach((playerId) => {
-    const slot = slotMap.get(playerId);
-    if (slot) {
-      slot.style.display = '';
-      strip.appendChild(slot);
-    }
-  });
-
-  slots.forEach((slot) => {
-    const playerId = slot.getAttribute('data-playerid') || '';
-    slot.style.display = visibleIds.includes(playerId) ? '' : 'none';
-  });
+  visibleIds.forEach((id) => { const slot = slotMap.get(id); if (slot) { slot.style.display = ''; strip.appendChild(slot); } });
+  slots.forEach((slot) => { const id = slot.getAttribute('data-playerid') || ''; slot.style.display = visibleIds.includes(id) ? '' : 'none'; });
 }
-
 function restoreDefaultCardOrder() {
   const section = getVisibleGallerySection();
-  if (!section) return;
-
-  const grid = getGrid(section);
-  if (!grid) return;
-
+  const grid = section ? getGrid(section) : null;
+  if (!section || !grid) return;
   const cards = Array.from(section.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
   const wraps = cards.map(getCardWrap);
-
-  wraps.forEach((wrap, index) => {
-    if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index);
-  });
-
-  const sortedWraps = [...new Set(wraps)].sort(
-    (a, b) => Number(a.dataset.sortOriginalIndex || 0) - Number(b.dataset.sortOriginalIndex || 0),
-  );
-
-  sortedWraps.forEach((wrap) => grid.appendChild(wrap));
+  wraps.forEach((wrap, index) => { if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index); });
+  [...new Set(wraps)].sort((a, b) => Number(a.dataset.sortOriginalIndex || 0) - Number(b.dataset.sortOriginalIndex || 0)).forEach((wrap) => grid.appendChild(wrap));
   syncStripToSortedCards(getVisibleCards(section));
 }
-
-function getSelectedSortInput(): HTMLInputElement | null {
-  return getSortRoot()?.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked') || null;
-}
-
-function isSortSelected() {
-  return Boolean(getSelectedSortInput());
-}
-
+function getSelectedSortInput(): HTMLInputElement | null { return getSortRoot()?.querySelector<HTMLInputElement>('input[name="yat-sort-stat"]:checked') || null; }
+function isSortSelected() { return Boolean(getSelectedSortInput()); }
 function selectedDirection(): SortDirection {
   const root = getSortRoot();
   const locked = root?.dataset.yatSortDirection === 'asc' ? 'asc' : root?.dataset.yatSortDirection === 'desc' ? 'desc' : null;
-  if (locked) return locked;
-  return currentSortDirection;
+  return locked || currentSortDirection;
 }
-
-function setDirection(direction: SortDirection) {
-  currentSortDirection = direction;
+function selectedScope(): SortScope {
+  const root = getSortRoot();
+  const locked = root?.dataset.yatSortScope === 'career' ? 'career' : root?.dataset.yatSortScope === 'season' ? 'season' : null;
+  return locked || currentSortScope;
+}
+function setDirection(direction: SortDirection) { currentSortDirection = direction; const root = getSortRoot(); if (root) root.dataset.yatSortDirection = direction; }
+function setScope(scope: SortScope) {
+  currentSortScope = scope;
   const root = getSortRoot();
   if (!root) return;
-
-  root.dataset.yatSortDirection = direction;
+  root.dataset.yatSortScope = scope;
+  root.querySelectorAll<HTMLElement>('[data-yat-sort-scope]').forEach((button) => button.classList.toggle('active', button.dataset.yatSortScope === scope));
 }
-
-function favoriteScopeCards(cards: HTMLElement[]): HTMLElement[] {
-  if (!favoritesSortEnabled || !favoriteSortPlayerIds.size) return cards;
-
-  return cards.filter((card) => favoriteSortPlayerIds.has(getPlayerId(card)));
-}
-
+function favoriteScopeCards(cards: HTMLElement[]): HTMLElement[] { return (!favoritesSortEnabled || !favoriteSortPlayerIds.size) ? cards : cards.filter((card) => favoriteSortPlayerIds.has(getPlayerId(card))); }
 function enforceFavoriteVisibility(cards: HTMLElement[]) {
   if (!favoritesSortEnabled || !favoriteSortPlayerIds.size) return;
-
-  cards.forEach((card) => {
-    const wrap = getCardWrap(card);
-    const isFavorite = favoriteSortPlayerIds.has(getPlayerId(card));
-    wrap.style.display = isFavorite ? '' : 'none';
-    if (isFavorite) wrap.removeAttribute('hidden');
-  });
+  cards.forEach((card) => { const wrap = getCardWrap(card); const keep = favoriteSortPlayerIds.has(getPlayerId(card)); wrap.style.display = keep ? '' : 'none'; if (keep) wrap.removeAttribute('hidden'); });
 }
 
 function applyFlipCardSort() {
   const checked = getSelectedSortInput();
   const dir = selectedDirection();
+  const scope = selectedScope();
   const status = document.getElementById('yatSortStatus');
   const section = getVisibleGallerySection();
-
-  if (!section) return;
-
-  const grid = getGrid(section);
-  if (!grid) return;
-
+  const grid = section ? getGrid(section) : null;
+  if (!section || !grid) return;
   const cards = Array.from(section.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
   const wraps = cards.map(getCardWrap);
-
-  wraps.forEach((wrap, index) => {
-    if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index);
-  });
-
+  wraps.forEach((wrap, index) => { if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index); });
   enforceFavoriteVisibility(cards);
-
   if (!checked) {
     if (status) status.textContent = favoritesSortEnabled ? 'Favorites gallery order.' : 'Default roster order.';
     if (favoritesSortEnabled) syncStripToSortedCards(getVisibleCards(section));
     return;
   }
-
   if (!isActiveAlumniSection(section)) {
     if (status) status.textContent = 'Career/all-time sorting will be handled separately later.';
     return;
   }
-
   const metric = checked.value;
   const metricGroup = checked.dataset.group || '';
   const scopedCards = favoriteScopeCards(cards);
   const sortedCards = [...scopedCards].sort((a, b) => {
-    const aw = getCardWrap(a);
-    const bw = getCardWrap(b);
-    const ai = Number(aw.dataset.sortOriginalIndex || 0);
-    const bi = Number(bw.dataset.sortOriginalIndex || 0);
-    const aCurrent = hasCurrentSeasonStats(a);
-    const bCurrent = hasCurrentSeasonStats(b);
-
-    if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
-    if (!aCurrent && !bCurrent) return ai - bi;
-
+    const ai = Number(getCardWrap(a).dataset.sortOriginalIndex || 0);
+    const bi = Number(getCardWrap(b).dataset.sortOriginalIndex || 0);
+    if (scope === 'season') {
+      const aCurrent = hasCurrentSeasonStats(a);
+      const bCurrent = hasCurrentSeasonStats(b);
+      if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+      if (!aCurrent && !bCurrent) return ai - bi;
+    }
     const av = getNumericStat(a, metric);
     const bv = getNumericStat(b, metric);
-
     if (av == null && bv == null) return ai - bi;
     if (av == null) return 1;
     if (bv == null) return -1;
     if (av === bv) return ai - bi;
-
     return dir === 'asc' ? av - bv : bv - av;
   });
-
   const appended = new Set<HTMLElement>();
-  sortedCards.forEach((card) => {
-    const wrap = getCardWrap(card);
-    if (appended.has(wrap)) return;
-    appended.add(wrap);
-    grid.appendChild(wrap);
-  });
-
+  sortedCards.forEach((card) => { const wrap = getCardWrap(card); if (!appended.has(wrap)) { appended.add(wrap); grid.appendChild(wrap); } });
   syncStripToSortedCards(favoritesSortEnabled ? sortedCards : getVisibleCards(section));
-
   if (status) {
     const metricInfo = getMetric(metric, metricGroup);
     const label = checked.dataset.label || metricInfo?.label || checked.value.toUpperCase();
-    const scope = favoritesSortEnabled ? ' Favorite gallery sort uses selected favorites only.' : ' Active Alumni sort uses 2026 stats only.';
-    status.textContent = `Sorted by ${label}.${scope}`;
+    const modeText = scope === 'season' ? '2026 season stats only. Players without 2026 stat rows stay below the ranked group.' : 'career stats.';
+    const fav = favoritesSortEnabled ? ' Favorite gallery sort uses selected favorites only.' : '';
+    status.textContent = `Sorted by ${label}. ${modeText}${fav}`;
   }
 }
-
-function rerunSortIfActive(delay = 80) {
-  if (!isSortSelected()) return;
-  window.setTimeout(applyFlipCardSort, delay);
-}
-
+function rerunSortIfActive(delay = 80) { if (isSortSelected()) window.setTimeout(applyFlipCardSort, delay); }
 function metricOption(metric: SortMetric) {
-  return `
-    <label class="yat-sort-option yat-sort-option-${metric.group}">
-      <input type="checkbox" name="yat-sort-stat" value="${metric.key}" data-label="${metric.label}" data-group="${metric.group}" data-default-direction="${metric.defaultDirection || 'desc'}" />
-      <span class="yat-sort-short">${metric.shortLabel}</span>
-      <span class="yat-sort-full">${metric.label}</span>
-    </label>
-  `;
+  return `<label class="yat-sort-option yat-sort-option-${metric.group}"><input type="checkbox" name="yat-sort-stat" value="${metric.key}" data-label="${metric.label}" data-group="${metric.group}" data-default-direction="${metric.defaultDirection || 'desc'}" /><span class="yat-sort-short">${metric.shortLabel}</span><span class="yat-sort-full">${metric.label}</span></label>`;
 }
-
-function openSortDrawer() {
-  document.body.classList.add('drawer-sort-open', 'drawer-open');
-  document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
-}
-
-function closeSortDrawer() {
-  document.body.classList.remove('drawer-sort-open');
-  if (!document.body.classList.contains('drawer-left-open')) {
-    document.body.classList.remove('drawer-open');
-  }
-}
+function openSortDrawer() { document.body.classList.add('drawer-sort-open', 'drawer-open'); document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open'); }
+function closeSortDrawer() { document.body.classList.remove('drawer-sort-open'); if (!document.body.classList.contains('drawer-left-open')) document.body.classList.remove('drawer-open'); }
 
 function installSortDrawer() {
   const filtersDrawer = document.getElementById('drawerFilters');
   const filters = document.getElementById('filters');
   const sortHost = document.getElementById('sortControls');
   if (!filtersDrawer || !filters || !sortHost) return;
-
   const filterHeading = filtersDrawer.querySelector('h3');
   if (filterHeading) filterHeading.textContent = 'FILTER';
-
   const oldSortRoot = document.getElementById('yatSortControls');
-  if (oldSortRoot && oldSortRoot.parentElement !== sortHost) {
-    oldSortRoot.remove();
-  }
-
+  if (oldSortRoot && oldSortRoot.parentElement !== sortHost) oldSortRoot.remove();
   if (!document.getElementById('yatSortControls')) {
-    const battingMetrics = SORT_METRICS.filter((metric) => metric.group === 'batting');
-    const pitchingMetrics = SORT_METRICS.filter((metric) => metric.group === 'pitching');
+    const battingMetrics = SORT_METRICS.filter((m) => m.group === 'batting');
+    const pitchingMetrics = SORT_METRICS.filter((m) => m.group === 'pitching');
     const sortGroup = document.createElement('section');
     sortGroup.id = 'yatSortControls';
     sortGroup.className = 'yat-sort-group';
-
-    sortGroup.innerHTML = `
-      <div class="yat-sort-controls">
-        <div class="yat-sort-columns">
-          <div class="yat-sort-column">
-            <div class="yat-sort-column-title">Batting</div>
-            <div class="yat-sort-options yat-sort-options-batting">
-              ${battingMetrics.map(metricOption).join('')}
-            </div>
-          </div>
-          <div class="yat-sort-column">
-            <div class="yat-sort-column-title">Pitching</div>
-            <div class="yat-sort-options yat-sort-options-pitching">
-              ${pitchingMetrics.map(metricOption).join('')}
-            </div>
-          </div>
-        </div>
-        <button type="button" id="yatSortReset" class="yat-sort-reset">Reset Sort</button>
-        <div id="yatSortStatus" class="yat-sort-status">Default roster order.</div>
-      </div>
-    `;
-
+    sortGroup.innerHTML = `<div class="yat-sort-controls"><div class="yat-sort-scope-toggle" role="tablist" aria-label="Sort type"><button type="button" class="yat-sort-scope-btn active" data-yat-sort-scope="season">2026 Season</button><button type="button" class="yat-sort-scope-btn" data-yat-sort-scope="career">Career Stats</button></div><div class="yat-sort-columns"><div class="yat-sort-column"><div class="yat-sort-column-title">Batting</div><div class="yat-sort-options yat-sort-options-batting">${battingMetrics.map(metricOption).join('')}</div></div><div class="yat-sort-column"><div class="yat-sort-column-title">Pitching</div><div class="yat-sort-options yat-sort-options-pitching">${pitchingMetrics.map(metricOption).join('')}</div></div></div><button type="button" id="yatSortReset" class="yat-sort-reset">Reset Sort</button><div id="yatSortStatus" class="yat-sort-status">Default roster order.</div></div>`;
     sortHost.appendChild(sortGroup);
   }
-
   const root = getSortRoot();
   if (!root) return;
-
   setDirection(currentSortDirection);
-
+  setScope(currentSortScope);
   const statBoxes = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="yat-sort-stat"]'));
   statBoxes.forEach((box) => {
     box.addEventListener('change', () => {
       if (box.checked) {
-        statBoxes.forEach((other) => {
-          if (other !== box) other.checked = false;
-        });
+        statBoxes.forEach((other) => { if (other !== box) other.checked = false; });
         setDirection(box.dataset.defaultDirection === 'asc' ? 'asc' : 'desc');
       }
       window.setTimeout(applyFlipCardSort, 0);
     });
   });
-
+  root.querySelectorAll<HTMLButtonElement>('[data-yat-sort-scope]').forEach((button) => {
+    button.addEventListener('click', () => { setScope(button.dataset.yatSortScope === 'career' ? 'career' : 'season'); window.setTimeout(applyFlipCardSort, 0); });
+  });
   document.getElementById('yatSortReset')?.addEventListener('click', () => {
-    statBoxes.forEach((box) => {
-      box.checked = false;
-    });
+    statBoxes.forEach((box) => { box.checked = false; });
     setDirection('desc');
+    setScope('season');
     restoreDefaultCardOrder();
     const status = document.getElementById('yatSortStatus');
     if (status) status.textContent = favoritesSortEnabled ? 'Favorites gallery order.' : 'Default roster order.';
   });
-
-  filters.querySelectorAll('input, select').forEach((input) => {
-    input.addEventListener('change', () => rerunSortIfActive(80));
-    input.addEventListener('input', () => rerunSortIfActive(80));
-  });
-
-  document.getElementById('openSort')?.addEventListener('click', (event) => {
-    event.preventDefault();
-    openSortDrawer();
-  });
-
-  document.getElementById('closeSort')?.addEventListener('click', (event) => {
-    event.preventDefault();
-    closeSortDrawer();
-  });
-
+  filters.querySelectorAll('input, select').forEach((input) => { input.addEventListener('change', () => rerunSortIfActive(80)); input.addEventListener('input', () => rerunSortIfActive(80)); });
+  document.getElementById('openSort')?.addEventListener('click', (event) => { event.preventDefault(); openSortDrawer(); });
+  document.getElementById('closeSort')?.addEventListener('click', (event) => { event.preventDefault(); closeSortDrawer(); });
   window.addEventListener('yat:favorites-filter-changed', (event) => {
     const detail = (event as CustomEvent<{ enabled?: boolean; playerIds?: string[] }>).detail || {};
     favoritesSortEnabled = Boolean(detail.enabled);
@@ -406,190 +235,12 @@ function installSortDrawer() {
     rerunSortIfActive(80);
   });
   window.addEventListener('hashchange', () => rerunSortIfActive(120));
-
   (window as unknown as { yatApplyFlipCardSort?: () => void }).yatApplyFlipCardSort = applyFlipCardSort;
 }
 
 export default function SortFilterDrawerControls() {
-  useEffect(() => {
-    installSortDrawer();
-  }, []);
-
-  return (
-    <>
-      <aside className="yat-drawer yat-drawer-right yat-sort-drawer" id="drawerSort">
-        <div className="yat-drawer-header yat-sort-drawer-header">
-          <h3>SORT</h3>
-          <button className="yat-icon-btn" id="closeSort" aria-label="Close sort">
-            <i className="ri-close-line" />
-          </button>
-        </div>
-        <div className="yat-drawer-content" id="sortControls" />
-      </aside>
-      <style jsx global>{`
-        #drawerSort {
-          transform: translateX(100%);
-          transition: transform .22s ease;
-        }
-
-        body.drawer-sort-open #drawerSort {
-          transform: translateX(0) !important;
-        }
-
-        body.drawer-sort-open .yat-drawer-mask {
-          display: none !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-
-        .yat-sort-drawer-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 12px 14px;
-          border-bottom: 1px solid var(--line);
-        }
-
-        .yat-sort-drawer-header h3 {
-          margin: 0;
-        }
-
-        .yat-sort-group {
-          border-bottom: 1px solid var(--line);
-          margin-bottom: 8px;
-          padding-bottom: 10px;
-        }
-
-        .yat-sort-controls {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          padding-top: 10px;
-        }
-
-        .yat-sort-columns {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          align-items: start;
-        }
-
-        .yat-sort-column-title {
-          margin: 0 0 5px;
-          color: var(--muted);
-          font: 600 11px Oswald, sans-serif;
-          letter-spacing: .06em;
-          text-transform: uppercase;
-        }
-
-        .yat-sort-options label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          min-height: 30px;
-          border: 1px solid var(--line);
-          border-radius: 7px;
-          background: rgba(255, 255, 255, 0.04);
-          padding: 5px 7px;
-          color: var(--ink);
-          font: 400 12px Oswald, sans-serif;
-          letter-spacing: 0;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-
-        .yat-sort-options {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 5px;
-        }
-
-        .yat-sort-short {
-          flex: 0 0 auto;
-          min-width: 26px;
-          font-weight: 700;
-          letter-spacing: .04em;
-        }
-
-        .yat-sort-full {
-          flex: 1 1 auto;
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          color: var(--muted);
-          font-size: 10px;
-        }
-
-        .yat-sort-options input:checked + .yat-sort-short {
-          color: #ffd166;
-          font-weight: 600;
-        }
-
-        .yat-sort-options input:checked ~ .yat-sort-full {
-          color: #ffd166;
-        }
-
-        .yat-sort-reset {
-          min-height: 32px;
-          border: 1px solid var(--line);
-          border-radius: 7px;
-          background: rgba(255, 255, 255, .08);
-          color: var(--fg);
-          font: 400 12px Oswald, sans-serif;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-
-        .yat-sort-status {
-          color: var(--muted);
-          font: 400 11px/1.35 Oswald, sans-serif;
-          letter-spacing: .03em;
-        }
-
-        @media (min-width: 780px) {
-          body.drawer-sort-open #drawerSort {
-            top: calc(var(--row1-h) + var(--row2-h)) !important;
-            bottom: var(--footerH) !important;
-            height: auto !important;
-            z-index: 64 !important;
-          }
-
-          body.drawer-sort-open .yat-row3-shell,
-          body.drawer-sort-open .yat-row4-shell,
-          body.drawer-sort-open .yat-row5-shell,
-          body.drawer-sort-open .yat-row6-shell {
-            margin-right: var(--yat-side-drawer-w, 360px) !important;
-          }
-
-          body.drawer-left-open.drawer-sort-open .yat-row3-shell,
-          body.drawer-left-open.drawer-sort-open .yat-row4-shell,
-          body.drawer-left-open.drawer-sort-open .yat-row5-shell,
-          body.drawer-left-open.drawer-sort-open .yat-row6-shell {
-            margin-left: var(--yat-side-drawer-w, 360px) !important;
-            margin-right: var(--yat-side-drawer-w, 360px) !important;
-          }
-
-          body.drawer-sort-open .yat-grid {
-            grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)) !important;
-          }
-        }
-
-        @media (max-width: 779px) {
-          body.drawer-sort-open .yat-drawer-mask {
-            display: block !important;
-            opacity: 1 !important;
-            pointer-events: auto !important;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .yat-sort-columns {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
-    </>
-  );
+  useEffect(() => { installSortDrawer(); }, []);
+  return <><aside className="yat-drawer yat-drawer-right yat-sort-drawer" id="drawerSort"><div className="yat-drawer-header yat-sort-drawer-header"><h3>SORT</h3><button className="yat-icon-btn" id="closeSort" aria-label="Close sort"><i className="ri-close-line" /></button></div><div className="yat-drawer-content" id="sortControls" /></aside><style jsx global>{`
+    #drawerSort{transform:translateX(100%);transition:transform .22s ease}body.drawer-sort-open #drawerSort{transform:translateX(0)!important}body.drawer-sort-open .yat-drawer-mask{display:none!important;opacity:0!important;pointer-events:none!important}.yat-sort-drawer-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.yat-sort-drawer-header h3{margin:0}.yat-sort-group{border-bottom:1px solid var(--line);margin-bottom:8px;padding-bottom:10px}.yat-sort-controls{display:flex;flex-direction:column;gap:10px;padding-top:10px}.yat-sort-scope-toggle{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:6px}.yat-sort-scope-btn{min-height:34px;border:1px solid #111;background:#111;color:#fff;border-radius:4px;font:800 11px/1 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.yat-sort-scope-btn.active{background:#d8b85f;border-color:#d8b85f;color:#111}.yat-sort-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}.yat-sort-column-title{margin:0 0 5px;color:var(--muted);font:600 11px Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase}.yat-sort-options{display:grid;grid-template-columns:1fr;gap:5px}.yat-sort-options label{display:flex;align-items:center;gap:6px;min-height:30px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.04);padding:5px 7px;color:var(--ink);font:400 12px Oswald,sans-serif;text-transform:uppercase;cursor:pointer}.yat-sort-short{flex:0 0 auto;min-width:26px;font-weight:700;letter-spacing:.04em}.yat-sort-full{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:10px}.yat-sort-options input:checked+.yat-sort-short,.yat-sort-options input:checked~.yat-sort-full{color:#ffd166}.yat-sort-reset{min-height:32px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.08);color:var(--fg);font:400 12px Oswald,sans-serif;text-transform:uppercase;cursor:pointer}.yat-sort-status{color:var(--muted);font:400 11px/1.35 Oswald,sans-serif;letter-spacing:.03em}@media (min-width:780px){body.drawer-sort-open #drawerSort{top:calc(var(--row1-h) + var(--row2-h))!important;bottom:var(--footerH)!important;height:auto!important;z-index:64!important}body.drawer-sort-open .yat-row3-shell,body.drawer-sort-open .yat-row4-shell,body.drawer-sort-open .yat-row5-shell,body.drawer-sort-open .yat-row6-shell{margin-right:var(--yat-side-drawer-w,360px)!important}body.drawer-left-open.drawer-sort-open .yat-row3-shell,body.drawer-left-open.drawer-sort-open .yat-row4-shell,body.drawer-left-open.drawer-sort-open .yat-row5-shell,body.drawer-left-open.drawer-sort-open .yat-row6-shell{margin-left:var(--yat-side-drawer-w,360px)!important;margin-right:var(--yat-side-drawer-w,360px)!important}body.drawer-sort-open .yat-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))!important}}@media (max-width:779px){body.drawer-sort-open .yat-drawer-mask{display:block!important;opacity:1!important;pointer-events:auto!important}}@media (max-width:420px){.yat-sort-columns{grid-template-columns:1fr}}
+  `}</style></>;
 }
