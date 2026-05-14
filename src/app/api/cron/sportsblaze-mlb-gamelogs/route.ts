@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ingestSportsBlazeMlbGamelogs, seedSportsBlazeMlbPlayerMap } from '@/lib/sportsblazeMlb';
+import {
+  ingestSportsBlazeMlbDailyBoxscores,
+  ingestSportsBlazeMlbGamelogs,
+  seedSportsBlazeMlbPlayerMap,
+} from '@/lib/sportsblazeMlb';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -27,6 +31,14 @@ function intParam(req: NextRequest, name: string, fallback: number) {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
 
+function csvParam(req: NextRequest, name: string) {
+  const value = req.nextUrl.searchParams.get(name) || '';
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item));
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
@@ -41,8 +53,26 @@ export async function GET(req: NextRequest) {
   const limit = intParam(req, 'limit', 50);
   const mapOnly = boolParam(req, 'mapOnly') || boolParam(req, 'map_only');
   const seedMap = !boolParam(req, 'skipMap') && !boolParam(req, 'skip_map');
+  const mode = (req.nextUrl.searchParams.get('mode') || '').toLowerCase();
 
   try {
+    if (mode === 'recent' || mode === 'daily') {
+      const days = Math.max(1, Math.min(intParam(req, 'days', 4), 7));
+      const dates = csvParam(req, 'dates');
+      const summary = await ingestSportsBlazeMlbDailyBoxscores({
+        days,
+        dates,
+        dryRun,
+      });
+
+      return NextResponse.json({
+        ok: summary.mode === 'live',
+        ranAt: new Date().toISOString(),
+        mode,
+        ...summary,
+      }, { status: summary.mode === 'missing-key' ? 409 : 200 });
+    }
+
     if (mapOnly) {
       const result = await seedSportsBlazeMlbPlayerMap(season, dryRun);
       return NextResponse.json({
