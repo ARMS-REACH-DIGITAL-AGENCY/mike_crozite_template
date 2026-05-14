@@ -2,14 +2,57 @@
 
 import { useEffect, useRef } from "react";
 
-const LIVE_FEED = {
+type VideoFeed = {
+  title: string;
+  subtitle: string;
+  videoId: string;
+  embedUrl: string;
+  playUrl: string;
+  watchUrl: string;
+  badge: string;
+};
+
+function youtubeFeed({
+  title,
+  subtitle,
+  videoId,
+  watchUrl,
+  badge = "VIDEO",
+}: {
+  title: string;
+  subtitle: string;
+  videoId: string;
+  watchUrl?: string;
+  badge?: string;
+}): VideoFeed {
+  const params = "autoplay=0&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1";
+  const playParams = "autoplay=1&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1";
+  return {
+    title,
+    subtitle,
+    videoId,
+    embedUrl: `https://www.youtube.com/embed/${videoId}?${params}`,
+    playUrl: `https://www.youtube.com/embed/${videoId}?${playParams}`,
+    watchUrl: watchUrl || `https://youtu.be/${videoId}`,
+    badge,
+  };
+}
+
+const LIVE_FEED = youtubeFeed({
   title: "NAIA Opening Round Live Feed",
   subtitle: "Georgia Gwinnett vs Talladega",
   videoId: "YljqG6zA3-E",
-  embedUrl: "https://www.youtube.com/embed/YljqG6zA3-E?autoplay=0&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1",
-  playUrl: "https://www.youtube.com/embed/YljqG6zA3-E?autoplay=1&mute=0&playsinline=1&rel=0&controls=1&modestbranding=1",
   watchUrl: "https://www.youtube.com/live/YljqG6zA3-E",
-};
+  badge: "LIVE",
+});
+
+const CHAZ_DELUCA_VIDEO = youtubeFeed({
+  title: "Chaz DeLuca Video",
+  subtitle: "Featured FunZone News Video",
+  videoId: "OX64epuP2Y8",
+  watchUrl: "https://youtu.be/OX64epuP2Y8?feature=shared",
+  badge: "VIDEO",
+});
 
 const FEATURED_PLAYER_NAMES = new Set(["shane anderson"]);
 const DRAG_STORAGE_KEY = "yat:liveVideoMiniPosition";
@@ -18,17 +61,24 @@ function normalize(value: string) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function shouldShowLiveVideo(displayName: string, teamName: string) {
+function normalizeNameForMatch(value: string) {
+  return normalize(value).replace(/[^a-z0-9]/g, "");
+}
+
+function videoFeedFor(displayName: string, teamName: string): VideoFeed | null {
   const name = normalize(displayName);
+  const compactName = normalizeNameForMatch(displayName);
   const team = normalize(teamName);
 
-  if (FEATURED_PLAYER_NAMES.has(name)) return true;
-  if (team.includes("georgia gwinnett")) return true;
-  if (team.includes("ggc")) return true;
-  if (team.includes("gwinnett")) return true;
-  if (team.includes("grizzlies") && team.includes("gwinnett")) return true;
+  if (compactName === "chazdeluca" || compactName === "cesarepasqualedeluca") return CHAZ_DELUCA_VIDEO;
 
-  return false;
+  if (FEATURED_PLAYER_NAMES.has(name)) return LIVE_FEED;
+  if (team.includes("georgia gwinnett")) return LIVE_FEED;
+  if (team.includes("ggc")) return LIVE_FEED;
+  if (team.includes("gwinnett")) return LIVE_FEED;
+  if (team.includes("grizzlies") && team.includes("gwinnett")) return LIVE_FEED;
+
+  return null;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -362,7 +412,8 @@ export default function FlipCardLiveVideoInjector({
   const rootRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
-    if (!shouldShowLiveVideo(displayName, teamName)) return;
+    const feed = videoFeedFor(displayName, teamName);
+    if (!feed) return;
 
     ensureStyles();
 
@@ -380,23 +431,23 @@ export default function FlipCardLiveVideoInjector({
       host.innerHTML = `
         <div class="fz-live-video-card">
           <div class="fz-live-video-head">
-            <span class="fz-live-video-badge">LIVE</span>
-            <span class="fz-live-video-title">${LIVE_FEED.title}</span>
+            <span class="fz-live-video-badge">${feed.badge}</span>
+            <span class="fz-live-video-title">${feed.title}</span>
           </div>
-          <div class="fz-live-video-subtitle">${LIVE_FEED.subtitle}</div>
-          <div class="fz-live-video-frame" data-video-id="${LIVE_FEED.videoId}">
+          <div class="fz-live-video-subtitle">${feed.subtitle}</div>
+          <div class="fz-live-video-frame" data-video-id="${feed.videoId}">
             <iframe
-              src="${LIVE_FEED.embedUrl}"
-              title="${LIVE_FEED.title}"
+              src="${feed.embedUrl}"
+              title="${feed.title}"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowfullscreen
             ></iframe>
-            <button class="fz-live-video-play-overlay" type="button" aria-label="Play live feed">
+            <button class="fz-live-video-play-overlay" type="button" aria-label="Play video">
               <span class="fz-live-video-play-button"></span>
             </button>
           </div>
           <div class="fz-live-video-actions">
-            <a href="${LIVE_FEED.watchUrl}" target="_blank" rel="noopener noreferrer">Open Live Feed</a>
+            <a href="${feed.watchUrl}" target="_blank" rel="noopener noreferrer">Open Video</a>
           </div>
         </div>
       `;
@@ -408,12 +459,12 @@ export default function FlipCardLiveVideoInjector({
       overlay?.addEventListener("click", () => {
         if (!frame || !iframe) return;
         document.querySelectorAll<HTMLIFrameElement>(".fz-live-video-frame.is-playing iframe").forEach((otherIframe) => {
-          if (otherIframe !== iframe) otherIframe.src = LIVE_FEED.embedUrl;
+          if (otherIframe !== iframe) otherIframe.src = feed.embedUrl;
         });
         document.querySelectorAll<HTMLElement>(".fz-live-video-frame.is-playing").forEach((otherFrame) => {
           if (otherFrame !== frame) otherFrame.classList.remove("is-playing");
         });
-        iframe.src = LIVE_FEED.playUrl;
+        iframe.src = feed.playUrl;
         frame.classList.add("is-playing");
         host?.classList.add("has-started");
       });
