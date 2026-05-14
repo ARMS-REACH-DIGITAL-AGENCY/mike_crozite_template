@@ -45,6 +45,21 @@ function classifyTimelineImages() {
   });
 }
 
+function updateGoldenRail() {
+  const root = document.getElementById('playerCareerImages');
+  const scroller = root?.querySelector<HTMLElement>('.zt-window-images');
+  if (!root || !scroller) return;
+
+  const viewport = Math.max(1, scroller.clientWidth || root.clientWidth || 1);
+  const scrollWidth = Math.max(viewport, scroller.scrollWidth || viewport);
+  const maxScroll = Math.max(1, scrollWidth - viewport);
+  const thumbPct = Math.max(8, Math.min(100, (viewport / scrollWidth) * 100));
+  const leftPct = maxScroll <= 1 ? 0 : Math.min(100 - thumbPct, (scroller.scrollLeft / maxScroll) * (100 - thumbPct));
+
+  root.style.setProperty('--zt-rail-thumb-left', `${leftPct}%`);
+  root.style.setProperty('--zt-rail-thumb-width', `${thumbPct}%`);
+}
+
 function layoutGoldenLine() {
   const root = document.getElementById('playerCareerImages');
   const canvas = root?.querySelector<HTMLElement>('.zt-canvas-images');
@@ -80,6 +95,8 @@ function layoutGoldenLine() {
     button.style.left = `${left}px`;
     button.style.marginLeft = '0';
   });
+
+  updateGoldenRail();
 }
 
 function refreshGoldenLine() {
@@ -96,15 +113,26 @@ export default function GoldenLineLogoDesignOverrides() {
     const root = document.getElementById('playerCareerImages') || document.body;
     observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'class', 'style'] });
 
+    const bindScroller = () => {
+      const scroller = document.querySelector<HTMLElement>('#playerCareerImages .zt-window-images');
+      scroller?.removeEventListener('scroll', updateGoldenRail);
+      scroller?.addEventListener('scroll', updateGoldenRail, { passive: true });
+    };
+
+    bindScroller();
     window.addEventListener('load', refreshGoldenLine);
     window.addEventListener('resize', refreshGoldenLine);
     window.addEventListener('yat:career-timeline-zoom', refreshGoldenLine as EventListener);
+    window.addEventListener('yat:career-timeline-zoom', bindScroller as EventListener);
 
     return () => {
+      const scroller = document.querySelector<HTMLElement>('#playerCareerImages .zt-window-images');
+      scroller?.removeEventListener('scroll', updateGoldenRail);
       observer.disconnect();
       window.removeEventListener('load', refreshGoldenLine);
       window.removeEventListener('resize', refreshGoldenLine);
       window.removeEventListener('yat:career-timeline-zoom', refreshGoldenLine as EventListener);
+      window.removeEventListener('yat:career-timeline-zoom', bindScroller as EventListener);
     };
   }, []);
 
@@ -113,6 +141,37 @@ export default function GoldenLineLogoDesignOverrides() {
       #playerCareerImages {
         --zt-tile-w: ${TILE_W}px;
         --zt-cta-w: ${CTA_CARD_W}px;
+        --zt-rail-thumb-left: 0%;
+        --zt-rail-thumb-width: 100%;
+      }
+
+      /* Persistent Golden Line rail. This stays visible even when the native scrollbar hides or content fits. */
+      #playerCareerImages::before {
+        content: '' !important;
+        position: absolute !important;
+        left: var(--zt-cta-w) !important;
+        right: 12px !important;
+        bottom: 0 !important;
+        height: 6px !important;
+        z-index: 45 !important;
+        border-radius: 999px !important;
+        background: rgba(210, 180, 92, .30) !important;
+        box-shadow: inset 0 0 0 1px rgba(120, 88, 24, .18) !important;
+        pointer-events: none !important;
+      }
+
+      #playerCareerImages::after {
+        content: '' !important;
+        position: absolute !important;
+        left: calc(var(--zt-cta-w) + ((100% - var(--zt-cta-w) - 12px) * var(--zt-rail-thumb-left) / 100)) !important;
+        bottom: 0 !important;
+        width: calc((100% - var(--zt-cta-w) - 12px) * var(--zt-rail-thumb-width) / 100) !important;
+        height: 6px !important;
+        z-index: 46 !important;
+        border-radius: 999px !important;
+        background: linear-gradient(90deg, #c19a38, #f0d686, #c19a38) !important;
+        box-shadow: 0 0 6px rgba(210, 180, 92, .45) !important;
+        pointer-events: none !important;
       }
 
       #playerCareerImages .zt-prompt {
@@ -143,6 +202,7 @@ export default function GoldenLineLogoDesignOverrides() {
       #playerCareerImages .zt-window-images {
         padding-left: 0 !important;
         box-sizing: border-box !important;
+        padding-bottom: 8px !important;
       }
 
       #playerCareerImages .zt-window-images::-webkit-scrollbar,
@@ -228,7 +288,6 @@ export default function GoldenLineLogoDesignOverrides() {
         background: #fff !important;
       }
 
-      /* Image captions were too noisy at this size; keep the card visual clean. */
       #playerCareerImages .zt-card-overlay,
       #playerCareerImages .zt-season-caption {
         display: none !important;
