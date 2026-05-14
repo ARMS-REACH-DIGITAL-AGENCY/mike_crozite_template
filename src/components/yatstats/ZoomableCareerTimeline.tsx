@@ -15,11 +15,38 @@ const CLOSED_ZOOM = 1;
 const EXPANDED_ZOOM_THRESHOLD = 2.25;
 const FULL_ZOOM = 3.2;
 
-type StatRow = { year?: string | number; age?: string | number; team?: string; teamid?: string | number; team_id?: string | number; level?: string; org_conf?: string; league?: string };
+type StatRow = {
+  year?: string | number;
+  age?: string | number;
+  team?: string;
+  teamid?: string | number;
+  team_id?: string | number;
+  level?: string;
+  org_conf?: string;
+  league?: string;
+};
 type MomentKind = 'cta' | 'prompt' | 'season' | 'archive' | 'upload';
-type Moment = { id: string; year: number; label: string; title: string; caption: string; src?: string; kind: MomentKind; href?: string; cardMode?: boolean };
+type Moment = {
+  id: string;
+  year: number;
+  label: string;
+  title: string;
+  caption: string;
+  src?: string;
+  srcs?: string[];
+  kind: MomentKind;
+  href?: string;
+  cardMode?: boolean;
+};
 type UploadSlot = { id: string; year: number; label: string; leftYear: number; rightYear: number };
-type SubmittedMoment = { id: string; title?: string; caption?: string; image_data_url?: string; photo_taken_date?: string | null; photo_taken_year?: number | null };
+type SubmittedMoment = {
+  id: string;
+  title?: string;
+  caption?: string;
+  image_data_url?: string;
+  photo_taken_date?: string | null;
+  photo_taken_year?: number | null;
+};
 
 declare global { interface Window { __yatCareerTimelineSyncing?: boolean } }
 
@@ -67,28 +94,53 @@ function cleanTeamLabel(value: unknown) {
   return String(value || '').trim();
 }
 
-function seasonLogoSrc(row: StatRow) {
+function teamLogoCandidates(row: StatRow) {
   const teamId = String(row.teamid || row.team_id || '').trim();
-  if (!teamId || !/^\d+$/.test(teamId)) return undefined;
-  return `${S3_BASE}/teams/${teamId}.png`;
+  if (!teamId || !/^\d+$/.test(teamId)) return [];
+  return Array.from(new Set([
+    `${S3_BASE}/teams/${teamId}.png`,
+    `${S3_BASE}/teams/${teamId}.jpg`,
+    `${S3_BASE}/teams/${teamId}.jpeg`,
+    `${S3_BASE}/teams/${teamId}.webp`,
+    `${S3_BASE}/teams/${teamId}.PNG`,
+    `${S3_BASE}/teams/${teamId}.JPG`,
+    `${S3_BASE}/colleges/${teamId}.png`,
+    `${S3_BASE}/colleges/${teamId}.jpg`,
+  ]));
 }
 
-function TimelineImage({ src, title, caption, kind, label }: { src?: string; title: string; caption: string; kind: MomentKind; label: string }) {
-  const [failed, setFailed] = useState(!src);
-  useEffect(() => setFailed(!src), [src]);
+function TimelineImage({ src, srcs, title, caption, kind, label }: {
+  src?: string;
+  srcs?: string[];
+  title: string;
+  caption: string;
+  kind: MomentKind;
+  label: string;
+}) {
+  const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const currentSrc = sources[sourceIndex];
+  const failed = !currentSrc;
+
+  useEffect(() => setSourceIndex(0), [sources.join('|')]);
 
   if (kind === 'prompt') {
     return <span className="zt-prompt-card" aria-hidden="true"><b>{title}</b><strong>{caption}</strong><i>+</i></span>;
   }
 
-  if (!src || failed) {
-    return <span className="zt-empty" aria-hidden="true"><b>{label}</b><strong>{title}</strong><em>{caption}</em></span>;
+  if (failed) {
+    return <span className={`zt-logo-placeholder zt-logo-placeholder-${kind}`} aria-hidden="true"><b>{label}</b></span>;
   }
 
   return (
     <span className={`zt-image-wrap zt-image-wrap-${kind}`}>
-      <img src={src} alt={title} loading="lazy" onError={() => setFailed(true)} />
-      <span className="zt-card-overlay"><b>{label}</b><strong>{title}</strong><em>{caption}</em></span>
+      <img
+        src={currentSrc}
+        alt={title}
+        loading="lazy"
+        onError={() => setSourceIndex((index) => index + 1)}
+      />
+      {kind !== 'season' && <span className="zt-card-overlay"><b>{label}</b><strong>{title}</strong><em>{caption}</em></span>}
     </span>
   );
 }
@@ -228,13 +280,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       const key = `${year}|${team}|${level}|${org}`;
       if (seen.has(key)) continue;
       seen.add(key);
+      const srcs = teamLogoCandidates(row);
       seasons.push({
         id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
         year,
         label: String(year),
         title: team,
         caption: `${level}${org ? ` · ${org}` : ''}`,
-        src: seasonLogoSrc(row),
+        src: srcs[0],
+        srcs,
         kind: 'season',
       });
     }
@@ -274,7 +328,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     for (let i = 0; i < index; i += 1) left += momentWidth(model.moments[i]);
     return left + momentWidth(model.moments[index]) / 2;
   };
-  const imageLeftPx = (moment: Moment, index: number) => isExpanded ? leftPx(moment.year) : closedLeftPx(index);
+  const imageLeftPx = (moment: Moment, index: number) => {
+    if (index === 0) return closedLeftPx(0);
+    return isExpanded ? leftPx(moment.year) : closedLeftPx(index);
+  };
 
   function openUpload(year?: number) {
     try {
@@ -321,10 +378,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             ))}
             {model.moments.map((moment, index) => {
               const w = momentWidth(moment);
+              const isSeason = moment.kind === 'season';
               return (
                 <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: imageLeftPx(moment, index), width: w }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
                   <span className="zt-img-connector" />
-                  <span className="zt-img-card" style={{ width: w }}><TimelineImage src={moment.src} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} /></span>
+                  <span className="zt-img-card" style={{ width: w }}><TimelineImage src={moment.src} srcs={moment.srcs} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} /></span>
+                  {isSeason && <span className="zt-season-caption"><b>{moment.label}</b><strong>{moment.title}</strong><em>{moment.caption}</em></span>}
                 </button>
               );
             })}
@@ -335,29 +394,32 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-window-images { height: 100%; overflow-x: auto; overflow-y: hidden; padding-left: 0; scrollbar-width: none; }
           .zt-window-images::-webkit-scrollbar { display: none; }
           .zt-canvas-images { position: relative; height: 100%; min-width: 100%; transition: width .24s ease; }
-          .zt-img-moment { position: absolute; top: 4px; height: ${CARD_H}px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: left .24s ease, width .24s ease; }
-          .zt-img-card { position: relative; z-index: 2; display: block; height: ${CARD_H}px; border: 1px solid rgba(255,255,255,.32); background: #111; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); transition: width .24s ease, box-shadow .24s ease; }
+          .zt-img-moment { position: absolute; top: 0; height: 100%; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: left .24s ease, width .24s ease; }
+          .zt-img-card { position: relative; z-index: 2; display: block; height: 100%; border: 1px solid rgba(255,255,255,.32); background: #fff; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); transition: width .24s ease, box-shadow .24s ease; }
           .zt-closed .zt-img-card { box-shadow: none; border-right-color: rgba(255,255,255,.18); }
-          .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); }
+          .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); background:#080808; }
           .zt-img-connector { display: none; }
           .zt-img-card :global(.zt-image-wrap) { position: relative; display:block; width:100%; height:100%; background:#090909; }
-          .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
-          .zt-img-card :global(.zt-image-wrap-season img) { object-fit: contain; object-position: center; padding: 8px 7px 23px; background: radial-gradient(circle at center, #1a1a1a, #050505 72%); }
+          .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: center center; display: block; padding:0; margin:0; }
+          .zt-img-card :global(.zt-image-wrap-season) { background:#fff; display:block; }
+          .zt-img-card :global(.zt-image-wrap-season img) { object-fit: contain; object-position: center center; padding:0; margin:0; background:#fff; }
           .zt-img-card :global(.zt-card-overlay) { position:absolute; left:0; right:0; bottom:0; z-index:3; display:grid; gap:1px; padding:4px 3px 3px; color:#fff; text-align:center; text-transform:uppercase; background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.82) 25%,rgba(0,0,0,.94)); pointer-events:none; }
           .zt-img-card :global(.zt-card-overlay b) { font:900 8px/1 Oswald,sans-serif; letter-spacing:.06em; }
           .zt-img-card :global(.zt-card-overlay strong) { font:900 7px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .zt-img-card :global(.zt-card-overlay em) { font:800 6px/1 Oswald,sans-serif; font-style:normal; letter-spacing:.04em; color:rgba(255,255,255,.78); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .zt-img-card :global(.zt-empty) { height: 100%; display: grid; align-content:center; justify-items:center; gap:2px; padding:5px; color: rgba(255,255,255,.86); background: linear-gradient(135deg,#141414,#060606); text-align:center; text-transform:uppercase; }
-          .zt-img-card :global(.zt-empty b) { font: 900 10px/1.05 Oswald,sans-serif; letter-spacing: .08em; }
-          .zt-img-card :global(.zt-empty strong) { max-width:100%; font:900 7px/1.05 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .zt-img-card :global(.zt-empty em) { max-width:100%; font:800 6px/1.05 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .zt-img-card :global(.zt-logo-placeholder) { height: 100%; display:grid; place-items:center; color:rgba(0,0,0,.35); background:#fff; text-align:center; text-transform:uppercase; }
+          .zt-img-card :global(.zt-logo-placeholder b) { font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; }
           .zt-img-card :global(.zt-prompt-card) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 6px 7px; color: #fff; background: #080808; text-align: center; text-transform: uppercase; }
           .zt-img-card :global(.zt-prompt-card b) { font: 900 9px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
           .zt-img-card :global(.zt-prompt-card strong) { font: 900 9px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
           .zt-img-card :global(.zt-prompt-card i) { font: 900 18px/1 Oswald, sans-serif; font-style: normal; }
-          .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(255,255,255,.38); background:rgba(0,0,0,.72); color:rgba(255,255,255,.82); font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:none; }
+          .zt-season-caption { position:absolute; left:50%; top:calc(100% + 2px); z-index:5; width:90px; transform:translateX(-50%); display:grid; gap:1px; color:#fff; text-align:center; text-transform:uppercase; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,.75); }
+          .zt-season-caption b { font:900 8px/1 Oswald,sans-serif; letter-spacing:.07em; }
+          .zt-season-caption strong { font:900 7px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .zt-season-caption em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.76); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .zt-upload-slot { position:absolute; top:50%; transform:translate(-50%,-50%); z-index:4; display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(255,255,255,.38); background:rgba(0,0,0,.72); color:rgba(255,255,255,.82); font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:none; }
           .zt-upload-slot:hover { color:#fff; border-color:#fff; }
-          @media (max-width: 760px) { .zt-img-moment { height: ${CARD_H}px; } .zt-img-card { height: ${CARD_H}px; } }
+          @media (max-width: 760px) { .zt-img-moment { height: 100%; } .zt-img-card { height: 100%; } }
           :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height: var(--row3-h, 96px) !important; height: var(--row3-h, 96px) !important; }
         `}</style>
       </section>
@@ -371,7 +433,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <div className="zt-canvas" style={{ width: expandedWidth }}>
           <div className="zt-line" />
           {model.ticks.map((year) => <span className="zt-tick" key={year} style={{ left: leftPx(year) }}><i /><b>{year === model.promptYear ? '' : year === model.start ? 'HS' : year === model.end ? 'Today' : year}</b></span>)}
-          {model.moments.map((moment) => <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind}`} style={{ left: leftPx(moment.year) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}><span /></button>)}
+          {model.moments.map((moment, index) => (
+            <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind}`} style={{ left: imageLeftPx(moment, index) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
+              <span />
+              {moment.kind === 'season' && <b className="zt-line-season-label"><i>{moment.label}</i><strong>{moment.title}</strong><em>{moment.caption}</em></b>}
+            </button>
+          ))}
         </div>
       </div>
       <style jsx>{`
@@ -388,6 +455,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); white-space:nowrap; }
         .zt-line-pin { position:absolute; top:44%; width:20px; height:20px; transform:translate(-50%, -50%); border:0; background:transparent; padding:0; cursor:pointer; z-index:4; }
         .zt-line-pin span { position:relative; z-index:2; display:block; width:9px; height:9px; margin:auto; border:1px solid #fff; background:#111; box-shadow:0 0 8px rgba(255,255,255,.24); }
+        .zt-line-season-label { position:absolute; top:15px; left:50%; width:90px; transform:translateX(-50%); display:grid; gap:1px; color:#fff; text-align:center; text-transform:uppercase; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,.75); }
+        .zt-line-season-label i { font:900 8px/1 Oswald,sans-serif; font-style:normal; }
+        .zt-line-season-label strong { font:900 7px/1 Oswald,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-line-season-label em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         @media (max-width: 760px) { .zt-controls { display:none; } }
       `}</style>
     </section>
