@@ -2,6 +2,10 @@
 
 import { useEffect } from 'react';
 
+const PORTRAIT_CARD_W = 69;
+const LANDSCAPE_CARD_W = 134;
+const CTA_CARD_W = 118;
+
 function classifyTimelineImages() {
   document.querySelectorAll<HTMLElement>('#playerCareerImages .zt-image-wrap').forEach((wrap) => {
     const img = wrap.querySelector<HTMLImageElement>('img');
@@ -16,12 +20,13 @@ function classifyTimelineImages() {
 
       const ratio = w / h;
       const isSeason = wrap.classList.contains('zt-image-wrap-season');
-      const targetWidth = isSeason || ratio >= 0.9 ? 134 : 58;
+      const isPortraitCard = ratio < 0.9 && !isSeason;
+      const targetWidth = isPortraitCard ? PORTRAIT_CARD_W : LANDSCAPE_CARD_W;
 
-      wrap.classList.toggle('zt-source-portrait', ratio < 0.9 && !isSeason);
-      wrap.classList.toggle('zt-source-landscape', ratio >= 0.9 || isSeason);
-      moment.classList.toggle('zt-moment-portrait', ratio < 0.9 && !isSeason);
-      moment.classList.toggle('zt-moment-landscape', ratio >= 0.9 || isSeason);
+      wrap.classList.toggle('zt-source-portrait', isPortraitCard);
+      wrap.classList.toggle('zt-source-landscape', !isPortraitCard);
+      moment.classList.toggle('zt-moment-portrait', isPortraitCard);
+      moment.classList.toggle('zt-moment-landscape', !isPortraitCard);
       moment.style.setProperty('--zt-card-w', `${targetWidth}px`);
       card.style.setProperty('--zt-card-w', `${targetWidth}px`);
       wrap.style.setProperty('--zt-logo-bg-url', `url("${img.currentSrc || img.src}")`);
@@ -53,12 +58,12 @@ export default function GoldenLineLogoDesignOverrides() {
   return (
     <style jsx global>{`
       #playerCareerImages {
-        --zt-landscape-card-w: 134px;
-        --zt-portrait-card-w: 58px;
-        --zt-cta-w: 118px;
+        --zt-landscape-card-w: ${LANDSCAPE_CARD_W}px;
+        --zt-portrait-card-w: ${PORTRAIT_CARD_W}px;
+        --zt-cta-w: ${CTA_CARD_W}px;
       }
 
-      /* Keep the Add Moment CTA as a fixed left-hand card, not a moving timeline item. */
+      /* CTA is a fixed left utility card, not part of the scrolling/zooming timeline. */
       #playerCareerImages .zt-prompt {
         left: 0 !important;
         top: 0 !important;
@@ -76,9 +81,8 @@ export default function GoldenLineLogoDesignOverrides() {
         box-shadow: none !important;
       }
 
-      /* Leave space for the fixed CTA so the image timeline starts beside it. */
       #playerCareerImages .zt-window-images {
-        padding-left: var(--zt-cta-w) !important;
+        padding-left: 0 !important;
         box-sizing: border-box !important;
         overflow-x: auto !important;
         overflow-y: hidden !important;
@@ -86,16 +90,23 @@ export default function GoldenLineLogoDesignOverrides() {
         scrollbar-color: rgba(210,180,92,.75) rgba(0,0,0,.18) !important;
       }
 
+      /* Move only the timeline items to the right of the fixed CTA. */
+      #playerCareerImages .zt-img-moment:not(.zt-prompt) {
+        margin-left: var(--zt-cta-w) !important;
+      }
+
       #playerCareerImages .zt-window-images::-webkit-scrollbar {
         display: block !important;
         height: 8px !important;
       }
 
-      #playerCareerImages .zt-window-images::-webkit-scrollbar-track {
+      #playerCareerImages .zt-window-images::-webkit-scrollbar-track,
+      #playerCareerStrip .zt-window::-webkit-scrollbar-track {
         background: rgba(0,0,0,.14) !important;
       }
 
-      #playerCareerImages .zt-window-images::-webkit-scrollbar-thumb {
+      #playerCareerImages .zt-window-images::-webkit-scrollbar-thumb,
+      #playerCareerStrip .zt-window::-webkit-scrollbar-thumb {
         background: rgba(210,180,92,.78) !important;
         border-radius: 999px !important;
       }
@@ -112,16 +123,7 @@ export default function GoldenLineLogoDesignOverrides() {
         height: 8px !important;
       }
 
-      #playerCareerStrip .zt-window::-webkit-scrollbar-track {
-        background: rgba(0,0,0,.14) !important;
-      }
-
-      #playerCareerStrip .zt-window::-webkit-scrollbar-thumb {
-        background: rgba(210,180,92,.78) !important;
-        border-radius: 999px !important;
-      }
-
-      /* Every visible image card keeps its own proportion. Season/logo cards are 7:5; portrait cards stay 5:7. */
+      /* Cards keep their own proportions in both closed and expanded states. */
       #playerCareerImages .zt-img-moment:not(.zt-prompt) {
         width: var(--zt-card-w, var(--zt-portrait-card-w)) !important;
         top: 0 !important;
@@ -137,10 +139,15 @@ export default function GoldenLineLogoDesignOverrides() {
         width: var(--zt-card-w, var(--zt-portrait-card-w)) !important;
         height: 100% !important;
         background: #fff !important;
+        box-shadow: none !important;
       }
 
       #playerCareerImages .zt-season .zt-img-card {
         width: var(--zt-landscape-card-w) !important;
+      }
+
+      #playerCareerImages .zt-moment-portrait .zt-img-card {
+        width: var(--zt-portrait-card-w) !important;
       }
 
       #playerCareerImages .zt-img-card .zt-image-wrap-season {
@@ -178,24 +185,8 @@ export default function GoldenLineLogoDesignOverrides() {
         object-fit: cover !important;
       }
 
-      #playerCareerImages .zt-closed .zt-img-card {
-        border-left-width: 0 !important;
-        border-right-width: 0 !important;
-        box-shadow: -12px 0 18px rgba(0,0,0,.24) !important;
-      }
-
-      #playerCareerImages .zt-closed .zt-img-moment:not(.zt-prompt) + .zt-img-moment:not(.zt-prompt) .zt-img-card::after,
-      #playerCareerImages.zt-closed .zt-img-moment:not(.zt-prompt) + .zt-img-moment:not(.zt-prompt) .zt-img-card::after {
-        content: '' !important;
-        position: absolute !important;
-        inset: 0 auto 0 0 !important;
-        width: 24px !important;
-        z-index: 8 !important;
-        background: linear-gradient(90deg, rgba(0,0,0,.22), rgba(0,0,0,0)) !important;
-        pointer-events: none !important;
-      }
-
-      #playerCareerImages .zt-prompt .zt-img-card::after {
+      /* The overlap/dissolve experiment is removed to preserve baseball-card dimensions. */
+      #playerCareerImages .zt-img-card::after {
         content: none !important;
         display: none !important;
       }
