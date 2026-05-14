@@ -5,6 +5,8 @@ import { useEffect } from 'react';
 type SearchMode = 'name' | 'school' | 'team';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+const YAT_CIRCLE_CREST_FALLBACK = '/img/yatstats-logo-circle.png';
+const HEADSHOT_SILHOUETTE_FALLBACK = '/img/headshot-silhouette.png';
 
 const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
@@ -110,15 +112,15 @@ function teamLogoUrl(item: any) {
   if (custom) return custom;
   const id = teamIdOf(item);
   if (/^\d+$/.test(id)) return `${S3_BASE}/teams/${esc(id)}.png`;
-  return `${S3_BASE}/yatstats/team-placeholder.png`;
+  return YAT_CIRCLE_CREST_FALLBACK;
 }
 
 function schoolLogoFallback() {
-  return `${S3_BASE}/yatstats/yslogo.png`;
+  return YAT_CIRCLE_CREST_FALLBACK;
 }
 
 function playerHeadshotFallback() {
-  return `${S3_BASE}/yatstats/headshot-silhouette.png`;
+  return HEADSHOT_SILHOUETTE_FALLBACK;
 }
 
 function renderPlayerRows(players: any[], emptyText: string) {
