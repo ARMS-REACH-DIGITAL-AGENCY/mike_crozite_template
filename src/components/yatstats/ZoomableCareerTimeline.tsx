@@ -15,7 +15,7 @@ const CLOSED_ZOOM = 1;
 const EXPANDED_ZOOM_THRESHOLD = 2.25;
 const FULL_ZOOM = 3.2;
 
-type StatRow = { year?: string | number; age?: string | number; team?: string; level?: string; org_conf?: string; league?: string };
+type StatRow = { year?: string | number; age?: string | number; team?: string; teamid?: string | number; team_id?: string | number; level?: string; org_conf?: string; league?: string };
 type MomentKind = 'cta' | 'prompt' | 'season' | 'archive' | 'upload';
 type Moment = { id: string; year: number; label: string; title: string; caption: string; src?: string; kind: MomentKind; href?: string; cardMode?: boolean };
 type UploadSlot = { id: string; year: number; label: string; leftYear: number; rightYear: number };
@@ -52,9 +52,25 @@ function normalizeLevel(value: unknown) {
   if (raw.includes('MLB')) return 'MLB';
   if (raw.includes('TRIPLE') || raw === 'AAA') return 'Triple-A';
   if (raw.includes('DOUBLE') || raw === 'AA') return 'Double-A';
-  if (raw.includes('HIGH')) return 'High-A';
+  if (raw.includes('HIGH') || raw === 'A+') return 'High-A';
   if (raw.includes('LOW') || raw === 'A') return 'A Ball';
+  if (raw.includes('ROOKIE') || raw === 'RK') return 'Rookie';
+  if (raw.includes('INDY') || raw.includes('INDEPENDENT')) return 'INDY';
+  if (raw.includes('NCAA-D1')) return 'NCAA-D1';
+  if (raw.includes('NCAA-D2')) return 'NCAA-D2';
+  if (raw.includes('NCAA-D3')) return 'NCAA-D3';
+  if (raw.includes('NJCAA') || raw.includes('JUCO')) return 'JUCO';
   return raw;
+}
+
+function cleanTeamLabel(value: unknown) {
+  return String(value || '').trim();
+}
+
+function seasonLogoSrc(row: StatRow) {
+  const teamId = String(row.teamid || row.team_id || '').trim();
+  if (!teamId || !/^\d+$/.test(teamId)) return undefined;
+  return `${S3_BASE}/teams/${teamId}.png`;
 }
 
 function TimelineImage({ src, title, caption, kind, label }: { src?: string; title: string; caption: string; kind: MomentKind; label: string }) {
@@ -65,11 +81,16 @@ function TimelineImage({ src, title, caption, kind, label }: { src?: string; tit
     return <span className="zt-prompt-card" aria-hidden="true"><b>{title}</b><strong>{caption}</strong><i>+</i></span>;
   }
 
-  if (!src || failed || kind === 'season') {
-    return <span className="zt-empty" aria-hidden="true"><b>{label}</b></span>;
+  if (!src || failed) {
+    return <span className="zt-empty" aria-hidden="true"><b>{label}</b><strong>{title}</strong><em>{caption}</em></span>;
   }
 
-  return <img src={src} alt={title} loading="lazy" onError={() => setFailed(true)} />;
+  return (
+    <span className={`zt-image-wrap zt-image-wrap-${kind}`}>
+      <img src={src} alt={title} loading="lazy" onError={() => setFailed(true)} />
+      <span className="zt-card-overlay"><b>{label}</b><strong>{title}</strong><em>{caption}</em></span>
+    </span>
+  );
 }
 
 function inferFirstName(playerName?: string) {
@@ -200,12 +221,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const seasons: Moment[] = [];
     for (const row of stats) {
       const year = yearOf(row.year);
-      const team = String(row.team || '').trim();
+      const team = cleanTeamLabel(row.team);
       if (!year || !team) continue;
-      const key = `${year}|${team}|${row.level || ''}`;
+      const level = normalizeLevel(row.level);
+      const org = String(row.org_conf || row.league || '').trim();
+      const key = `${year}|${team}|${level}|${org}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      seasons.push({ id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`, year, label: String(year), title: team, caption: `${normalizeLevel(row.level)}${row.org_conf || row.league ? ` · ${row.org_conf || row.league}` : ''}`, kind: 'season' });
+      seasons.push({
+        id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+        year,
+        label: String(year),
+        title: team,
+        caption: `${level}${org ? ` · ${org}` : ''}`,
+        src: seasonLogoSrc(row),
+        kind: 'season',
+      });
     }
 
     const uploaded: Moment[] = uploads.map((item) => {
@@ -309,9 +340,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-closed .zt-img-card { box-shadow: none; border-right-color: rgba(255,255,255,.18); }
           .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); }
           .zt-img-connector { display: none; }
+          .zt-img-card :global(.zt-image-wrap) { position: relative; display:block; width:100%; height:100%; background:#090909; }
           .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
-          .zt-img-card :global(.zt-empty) { height: 100%; display: grid; place-items: center; color: rgba(255,255,255,.68); background: linear-gradient(135deg,#141414,#060606); }
-          .zt-img-card :global(.zt-empty b) { font: 900 10px/1.15 Oswald,sans-serif; letter-spacing: .08em; text-transform: uppercase; text-align:center; }
+          .zt-img-card :global(.zt-image-wrap-season img) { object-fit: contain; object-position: center; padding: 8px 7px 23px; background: radial-gradient(circle at center, #1a1a1a, #050505 72%); }
+          .zt-img-card :global(.zt-card-overlay) { position:absolute; left:0; right:0; bottom:0; z-index:3; display:grid; gap:1px; padding:4px 3px 3px; color:#fff; text-align:center; text-transform:uppercase; background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.82) 25%,rgba(0,0,0,.94)); pointer-events:none; }
+          .zt-img-card :global(.zt-card-overlay b) { font:900 8px/1 Oswald,sans-serif; letter-spacing:.06em; }
+          .zt-img-card :global(.zt-card-overlay strong) { font:900 7px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .zt-img-card :global(.zt-card-overlay em) { font:800 6px/1 Oswald,sans-serif; font-style:normal; letter-spacing:.04em; color:rgba(255,255,255,.78); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .zt-img-card :global(.zt-empty) { height: 100%; display: grid; align-content:center; justify-items:center; gap:2px; padding:5px; color: rgba(255,255,255,.86); background: linear-gradient(135deg,#141414,#060606); text-align:center; text-transform:uppercase; }
+          .zt-img-card :global(.zt-empty b) { font: 900 10px/1.05 Oswald,sans-serif; letter-spacing: .08em; }
+          .zt-img-card :global(.zt-empty strong) { max-width:100%; font:900 7px/1.05 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .zt-img-card :global(.zt-empty em) { max-width:100%; font:800 6px/1.05 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .zt-img-card :global(.zt-prompt-card) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 6px 7px; color: #fff; background: #080808; text-align: center; text-transform: uppercase; }
           .zt-img-card :global(.zt-prompt-card b) { font: 900 9px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
           .zt-img-card :global(.zt-prompt-card strong) { font: 900 9px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
