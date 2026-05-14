@@ -41,6 +41,10 @@ function truthyFlag(value: unknown): boolean {
   return false;
 }
 
+function isYear2026(value: unknown): boolean {
+  return String(value || "").trim() === "2026";
+}
+
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
   // level_label comes from flip_card_front_stage (already normalized).
   // p.level comes from getActiveRosterByHsid (raw TBC value e.g. "JrCollege", "Indy").
@@ -69,7 +73,9 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   const playerWithSlug = { ...p, slug };
   const gp = statValue(p.g || p.pg);
-  const has2026Stats = truthyFlag(p.has_2026_stats) || (!isAllTime && status === "ACTIVE" && gp !== "");
+  // Strict 2026 eligibility for season sorts: do not infer from ACTIVE status + career GP.
+  // This prevents active players without live 2026 stat rows from ranking ahead of real 2026 performers.
+  const has2026Stats = truthyFlag(p.has_2026_stats) || isYear2026(p.stat_year) || isYear2026(p.pitch_year);
 
   return (
        <article
