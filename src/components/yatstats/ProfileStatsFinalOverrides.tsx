@@ -13,6 +13,68 @@ export default function ProfileStatsFinalOverrides() {
         }
       }
 
+      /* Center the stats table/card inside the FunZone stats panel. */
+      #playerFunZone #ppTab-stats {
+        text-align: center !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-shell {
+        width: 100% !important;
+        min-height: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: flex-start !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-card {
+        width: fit-content !important;
+        max-width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        text-align: initial !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table-wrap {
+        width: fit-content !important;
+        max-width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        text-align: initial !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table {
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+
+      /* Center the FunZone icon strip below the container instead of letting it hug the left edge. */
+      #playerFunZone .pp-fz-tabs-shell {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      #playerFunZone .pp-fz-tabs {
+        width: min(100%, 420px) !important;
+        max-width: 420px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        justify-content: center !important;
+      }
+
+      #playerFunZone .pp-fz-tab {
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+      }
+
+      #playerFunZone .pp-fz-tab i {
+        display: block !important;
+        margin: 0 auto !important;
+      }
+
       /* YEAR: only wide enough for a four-digit season, centered. */
       #playerFunZone #ppTab-stats .psi-table th.year,
       #playerFunZone #ppTab-stats .psi-table td[data-key="year"] {
