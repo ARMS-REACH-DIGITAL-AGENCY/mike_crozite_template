@@ -132,7 +132,8 @@ export async function GET(req: NextRequest) {
           and pp.image_role in ('HEADSHOT', 'RIGHT_ANCHOR')
         order by case pp.image_role when 'HEADSHOT' then 0 when 'RIGHT_ANCHOR' then 1 else 2 end,
                  pp.is_primary desc,
-                 pp.id desc
+                 pp.date_taken desc nulls last,
+                 pp.created_at desc
         limit 1
       ) hp on true
       order by c.lastname nulls last, c.firstname nulls last, c.playerid
