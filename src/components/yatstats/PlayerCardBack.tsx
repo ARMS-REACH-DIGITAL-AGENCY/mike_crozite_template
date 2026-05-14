@@ -22,6 +22,7 @@
 
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
+import FeaturedTeamNewsInjector from "@/components/yatstats/FeaturedTeamNewsInjector";
 import FlipCardLiveVideoInjector from "@/components/yatstats/FlipCardLiveVideoInjector";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
@@ -261,8 +262,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
 
   return (
-    <div className="yat-face yat-back yat-back-cq">
+    <div className="yat-face yat-back yat-back-cq" data-player-card-id={imageId}>
       <FlipCardLiveVideoInjector displayName={displayName} teamName={teamName} />
+      <FeaturedTeamNewsInjector player={p} />
       <div className="yat-back-texture">
         <div className="yat-back-inner">
           <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
