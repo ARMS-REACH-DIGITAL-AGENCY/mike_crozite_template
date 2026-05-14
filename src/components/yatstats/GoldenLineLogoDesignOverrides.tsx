@@ -31,7 +31,39 @@ export default function GoldenLineLogoDesignOverrides() {
 
   return (
     <style jsx global>{`
-      /* Golden Line team-logo cards: clean logo on white with same logo screened back as a 10% fill. */
+      /* Golden Line default cards: 7:5 landscape, no gutters, slight closed-state overlap. */
+      #playerCareerImages {
+        --zt-landscape-card-w: 134px;
+        --zt-first-card-left-edge: 13px;
+      }
+
+      #playerCareerImages.zt-closed .zt-img-moment {
+        width: var(--zt-landscape-card-w) !important;
+      }
+
+      #playerCareerImages.zt-closed .zt-img-card {
+        width: var(--zt-landscape-card-w) !important;
+        border-left-width: 0 !important;
+        border-right-width: 0 !important;
+        box-shadow: -12px 0 18px rgba(0,0,0,.24) !important;
+      }
+
+      #playerCareerImages.zt-closed .zt-img-moment:first-of-type,
+      #playerCareerImages.zt-closed .zt-img-moment:first-child {
+        transform: translateX(-66%) !important;
+      }
+
+      #playerCareerImages.zt-closed .zt-img-moment + .zt-img-moment .zt-img-card::after {
+        content: '' !important;
+        position: absolute !important;
+        inset: 0 auto 0 0 !important;
+        width: 24px !important;
+        z-index: 8 !important;
+        background: linear-gradient(90deg, rgba(0,0,0,.22), rgba(0,0,0,0)) !important;
+        pointer-events: none !important;
+      }
+
+      /* Team-logo cards: clean logo on white. No watermark until transparent assets exist. */
       #playerCareerImages .zt-img-card .zt-image-wrap-season {
         position: relative !important;
         isolation: isolate !important;
@@ -43,17 +75,8 @@ export default function GoldenLineLogoDesignOverrides() {
       }
 
       #playerCareerImages .zt-img-card .zt-image-wrap-season::before {
-        content: '' !important;
-        position: absolute !important;
-        inset: -22% !important;
-        z-index: 0 !important;
-        background-image: var(--zt-logo-bg-url) !important;
-        background-repeat: no-repeat !important;
-        background-position: center !important;
-        background-size: 235% auto !important;
-        opacity: .10 !important;
-        filter: grayscale(.15) contrast(1.08) saturate(1.15) !important;
-        pointer-events: none !important;
+        content: none !important;
+        display: none !important;
       }
 
       #playerCareerImages .zt-img-card .zt-image-wrap-season img {
@@ -66,7 +89,7 @@ export default function GoldenLineLogoDesignOverrides() {
         margin: 0 !important;
         object-fit: contain !important;
         object-position: center center !important;
-        background: transparent !important;
+        background: #fff !important;
       }
 
       #playerCareerImages .zt-img-card {
