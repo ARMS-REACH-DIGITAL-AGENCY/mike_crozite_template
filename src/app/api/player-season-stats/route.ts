@@ -87,9 +87,12 @@ function filterRowsToExpectedPlayer(rows: any[], expectedPlayerName: string) {
 
 function battingRow(row: any) {
   const orgOrConference = value(row, 'current_org_or_conference_name');
+  const teamId = value(row, 'teamid');
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
+    teamid: teamId,
+    team_id: teamId,
     team: value(row, 'current_team_name', 'teamid'),
     league: orgOrConference,
     level: value(row, 'level_label', 'highlevel'),
@@ -133,9 +136,12 @@ function battingRow(row: any) {
 
 function pitchingRow(row: any) {
   const orgOrConference = value(row, 'current_org_or_conference_name');
+  const teamId = value(row, 'teamid');
   return clean({
     source: value(row, '_source'),
     year: value(row, 'year'),
+    teamid: teamId,
+    team_id: teamId,
     team: value(row, 'current_team_name', 'teamid'),
     league: orgOrConference,
     level: value(row, 'level_label', 'highlevel'),
@@ -185,7 +191,7 @@ function dedupe(rows: any[]) {
   const seen = new Set<string>();
   const out: any[] = [];
   for (const row of rows) {
-    const key = [row.year, row.team, row.level, row.source].map((v) => String(v ?? '')).join('|');
+    const key = [row.year, row.teamid, row.team, row.level, row.source].map((v) => String(v ?? '')).join('|');
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);
@@ -198,6 +204,8 @@ function externalStatRow(row: any) {
   return clean({
     source: row.source_system,
     year: row.season_year,
+    teamid: row.team_identifier || '',
+    team_id: row.team_identifier || '',
     team: row.team_identifier || 'ALPB',
     league: 'Atlantic League',
     level: 'INDY',
