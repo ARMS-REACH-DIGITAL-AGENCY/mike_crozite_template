@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ok: summary.mode === 'live',
         ranAt: new Date().toISOString(),
-        mode,
+        requestMode: mode,
         ...summary,
       }, { status: summary.mode === 'missing-key' ? 409 : 200 });
     }
