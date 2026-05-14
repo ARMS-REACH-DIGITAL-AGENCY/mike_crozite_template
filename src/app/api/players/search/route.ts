@@ -126,10 +126,12 @@ export async function GET(req: NextRequest) {
       left join lateral (
         select pp.image_url
         from player_photos pp
-        where pp.player_id::text = c.playerid::text
+        where pp.playerid::text = c.playerid::text
           and pp.approval_status = 'APPROVED'
+          and pp.is_active = true
           and pp.image_role in ('HEADSHOT', 'RIGHT_ANCHOR')
         order by case pp.image_role when 'HEADSHOT' then 0 when 'RIGHT_ANCHOR' then 1 else 2 end,
+                 pp.is_primary desc,
                  pp.id desc
         limit 1
       ) hp on true
