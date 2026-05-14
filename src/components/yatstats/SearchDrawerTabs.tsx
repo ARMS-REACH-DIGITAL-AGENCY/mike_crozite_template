@@ -4,6 +4,10 @@ import { useEffect } from 'react';
 
 type SearchMode = 'name' | 'school' | 'team';
 
+const STATE_NAMES: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
+};
+
 function esc(value: unknown) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -40,6 +44,15 @@ function splitSchoolLocation(raw: unknown) {
   };
 }
 
+function cleanStateCode(value: unknown) {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+}
+
+function stateFullName(value: unknown) {
+  const code = cleanStateCode(value);
+  return STATE_NAMES[code] || String(value || 'Other').trim() || 'Other';
+}
+
 function cleanLocation(city?: unknown, state?: unknown, fallback?: unknown) {
   const c = String(city || '').trim();
   const s = String(state || '').trim();
@@ -59,6 +72,10 @@ function teamLogoPlaceholder() {
   return 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/team-placeholder.png';
 }
 
+function schoolLogoFallback() {
+  return 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';
+}
+
 function renderPlayerRows(players: any[], emptyText: string) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
@@ -72,7 +89,7 @@ function renderPlayerRows(players: any[], emptyText: string) {
         const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
         return `
           <a class="yat-search-card yat-search-player-card" href="${esc(playerUrl(p))}">
-            <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+            <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
             <span class="yat-search-row-text">
               <strong>${esc(name)}</strong>
               ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
@@ -90,37 +107,43 @@ function renderSchoolRows(programs: any[], emptyText: string) {
   const grouped = new Map<string, any[]>();
   programs.forEach((s) => {
     const loc = splitSchoolLocation(s.hslocation || s.location);
-    const key = String(s.regionid || loc.state || 'OTHER').toUpperCase();
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(s);
+    const stateCode = cleanStateCode(s.regionid || loc.state || s.state || 'OTHER') || 'OTHER';
+    if (!grouped.has(stateCode)) grouped.set(stateCode, []);
+    grouped.get(stateCode)!.push(s);
   });
 
   return Array.from(grouped.entries()).map(([state, rows]) => `
-    <div class="yat-search-section-label">${esc(state)}</div>
+    <div class="yat-search-section-label yat-search-state-label">${esc(stateFullName(state))}</div>
     <div class="yat-search-card-list yat-search-school-list">
       ${rows.map((s) => {
         const hsid = String(s.hsid || s.schoolId || '');
         const name = String(s.hsname || s.schoolName || 'School');
-        const loc = String(s.hslocation || s.location || '');
+        const loc = splitSchoolLocation(s.hslocation || s.location);
+        const location = cleanLocation(loc.city, loc.state, s.hslocation || s.location);
+        const stateCode = cleanStateCode(s.regionid || loc.state || s.state);
+        const stateLabel = stateCode || 'State';
         const live = String(s.microsite_url || s.micrositeUrl || '').trim();
         const badge = live ? 'Live' : (s.current_aa || s.mlb || s.atnla ? 'Candidate' : 'Not Active');
+        const crest = schoolCrestUrl(hsid, s.crestUrl || s.crest_url || s.logoUrl || s.logo_url || s.schoolLogoUrl || s.school_logo_url);
         return `
           <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}">
             <div class="yat-search-school-topline">
-              <img src="${esc(schoolCrestUrl(hsid))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+              <span class="yat-search-school-crest-link" aria-hidden="true">
+                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+              </span>
               <span class="yat-search-row-text">
                 <strong>${esc(name)}</strong>
-                ${loc ? `<small>${esc(loc)}</small>` : ''}
+                ${location ? `<small>${esc(location)}</small>` : ''}
               </span>
               <span class="yat-search-school-badge ${live ? 'live' : badge === 'Candidate' ? 'candidate' : ''}">${esc(badge)}</span>
             </div>
             <div class="yat-search-school-stats">
               <span><strong>${esc(s.current_aa ?? 0)}</strong><small>Active</small></span>
-              <span><strong>${esc(s.mlb ?? 0)}</strong><small>MLB</small></span>
-              <span><strong>${s.yatstats_national_rank ? `#${esc(s.yatstats_national_rank)}` : '--'}</strong><small>Nat'l</small></span>
-              <span><strong>${s.yatstats_state_rank ? `#${esc(s.yatstats_state_rank)}` : '--'}</strong><small>State</small></span>
               <span><strong>${esc(s.atnla ?? 0)}</strong><small>All-Time</small></span>
               <span><strong>${esc(s.drafted_ratio || (s.drafted_hs && s.drafted ? `${s.drafted_hs}/${s.drafted}` : '--'))}</strong><small>Drafted</small></span>
+              <span><strong>${esc(s.mlb ?? 0)}</strong><small>MLB</small></span>
+              <span><strong>${s.yatstats_national_rank ? `#${esc(s.yatstats_national_rank)}` : '--'}</strong><small>Nat'l Rank</small></span>
+              <span><strong>${s.yatstats_state_rank ? `#${esc(s.yatstats_state_rank)}` : '--'}</strong><small>${esc(stateLabel)}</small></span>
             </div>
           </a>
         `;
@@ -144,7 +167,7 @@ function renderTeamRows(players: any[], emptyText: string) {
   return Array.from(grouped.entries()).map(([teamLevel, rows]) => `
     <div class="yat-search-team-group">
       <div class="yat-search-team-heading">
-        <img src="${esc(teamLogoPlaceholder())}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+        <img src="${esc(teamLogoPlaceholder())}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
         <span>${esc(teamLevel)}</span>
       </div>
       <div class="yat-search-card-list">
@@ -155,7 +178,7 @@ function renderTeamRows(players: any[], emptyText: string) {
           const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
           return `
             <a class="yat-search-card yat-search-team-player-card" href="${esc(playerUrl(p))}">
-              <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';this.onerror=null" />
+              <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
               <span class="yat-search-row-text">
                 <strong>${esc(name)}</strong>
                 ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
@@ -341,6 +364,12 @@ export default function SearchDrawerTabs() {
         text-transform: uppercase;
       }
 
+      #drawerLeft .yat-search-state-label {
+        color: var(--ink);
+        font-size: 11px;
+        letter-spacing: .16em;
+      }
+
       #drawerLeft .yat-search-card-list {
         display: flex;
         flex-direction: column;
@@ -404,10 +433,25 @@ export default function SearchDrawerTabs() {
 
       #drawerLeft .yat-search-school-topline {
         display: grid;
-        grid-template-columns: 38px minmax(0, 1fr) auto;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
         align-items: center;
         gap: 9px;
         width: 100%;
+      }
+
+      #drawerLeft .yat-search-school-crest-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+      }
+
+      #drawerLeft .yat-search-school-card .yat-search-school-thumb {
+        width: 48px;
+        height: 48px;
+        border-radius: 0;
+        background: transparent;
       }
 
       #drawerLeft .yat-search-school-badge {
