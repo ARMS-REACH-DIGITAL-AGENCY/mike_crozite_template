@@ -34,6 +34,16 @@ export type SportsBlazeIngestSummary = {
   errors: string[];
 };
 
+export type SportsBlazeDailyIngestSummary = {
+  mode: SportsBlazeMode;
+  dryRun: boolean;
+  datesChecked: string[];
+  dailyBoxscoresFetched: number;
+  matchedPlayerLines: number;
+  gamesUpserted: number;
+  errors: string[];
+};
+
 function getSportsBlazeKey() {
   return process.env.SPORTSBLAZE_KEY || '';
 }
@@ -50,6 +60,21 @@ function asDateOnly(value: string | null | undefined) {
   if (!value) return null;
   const raw = String(value).trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
+function toIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function recentIsoDates(days: number) {
+  const safeDays = Math.max(1, Math.min(days, 7));
+  const dates: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < safeDays; i += 1) {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+    dates.push(toIsoDate(date));
+  }
+  return dates;
 }
 
 async function sportsBlazeFetch<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
@@ -87,6 +112,10 @@ export async function fetchSportsBlazeMlbPlayerGamelogs(season: number, sportsbl
   return sportsBlazeFetch<JsonRecord>(`/gamelogs/players/${season}/${sportsblazePlayerId}.json`, {
     type: 'Regular Season,Playoffs',
   });
+}
+
+export async function fetchSportsBlazeMlbDailyBoxscores(date: string) {
+  return sportsBlazeFetch<JsonRecord>(`/boxscores/daily/${date}.json`);
 }
 
 function flattenRosterPlayers(rosterPayload: JsonRecord) {
@@ -256,6 +285,22 @@ async function loadMappedPlayers(limit: number) {
   return rows;
 }
 
+async function loadMappedPlayersBySportsBlazeId() {
+  const { rows } = await query(
+    `
+      select *
+      from public.sportsblaze_mlb_player_map
+      where active = true
+        and sportsblaze_player_id is not null
+    `
+  );
+  const mapped = new Map<string, any>();
+  for (const row of rows) {
+    mapped.set(String(row.sportsblaze_player_id), row);
+  }
+  return mapped;
+}
+
 function numberOrNull(value: any) {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
@@ -336,6 +381,154 @@ async function upsertGameLog(params: {
   );
 }
 
+function collectGames(payload: JsonRecord) {
+  if (Array.isArray(payload?.games)) return payload.games;
+  if (Array.isArray(payload?.boxscores)) return payload.boxscores;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function extractGameContext(game: JsonRecord) {
+  return {
+    id: String(game?.id || game?.game?.id || game?.game_id || ''),
+    date: game?.date || game?.game?.date || game?.start_time || null,
+    status: game?.status || game?.game?.status || null,
+    season: game?.season || null,
+    teams: game?.teams || game?.game?.teams || null,
+  };
+}
+
+function isRecord(value: any): value is JsonRecord {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function findPlayerLinesInGame(game: JsonRecord, mappedPlayers: Map<string, any>) {
+  const context = extractGameContext(game);
+  const found: Array<{ mappedPlayer: any; line: JsonRecord }> = [];
+  const seen = new Set<string>();
+
+  function visit(node: any) {
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+
+    if (!isRecord(node)) return;
+
+    const directId = node?.id ? String(node.id) : '';
+    const nestedPlayerId = node?.player?.id ? String(node.player.id) : '';
+    const athleteId = node?.athlete?.id ? String(node.athlete.id) : '';
+    const candidateId = [nestedPlayerId, athleteId, directId].find((id) => mappedPlayers.has(id));
+    const stats = isRecord(node?.stats) ? node.stats : null;
+    const hasStatKeys = Object.keys(node).some((key) => key.startsWith('batting_') || key.startsWith('pitching_') || key.startsWith('fielding_'));
+
+    if (candidateId && (stats || hasStatKeys)) {
+      const mappedPlayer = mappedPlayers.get(candidateId);
+      const gameId = context.id || String(node?.game?.id || node?.game_id || '');
+      const dedupeKey = `${candidateId}:${gameId}:${node?.position || node?.player?.position || ''}:${JSON.stringify(stats || node).slice(0, 80)}`;
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        const lineStats = stats || node;
+        found.push({
+          mappedPlayer,
+          line: {
+            id: gameId,
+            season: context.season,
+            date: context.date,
+            status: context.status,
+            teams: context.teams,
+            played: node?.played || node?.team?.id || node?.team_id || mappedPlayer?.sportsblaze_team_id || null,
+            position: node?.position || node?.player?.position || mappedPlayer?.position || null,
+            started: typeof node?.started === 'boolean' ? node.started : null,
+            stats: lineStats,
+            player: node?.player || node?.athlete || node,
+            raw_line: node,
+            raw_game_summary: {
+              id: context.id,
+              date: context.date,
+              status: context.status,
+              teams: context.teams,
+            },
+          },
+        });
+      }
+    }
+
+    for (const value of Object.values(node)) {
+      if (isRecord(value) || Array.isArray(value)) visit(value);
+    }
+  }
+
+  visit(game);
+  return found;
+}
+
+export async function ingestSportsBlazeMlbDailyBoxscores(options: {
+  dates?: string[];
+  days?: number;
+  dryRun?: boolean;
+}): Promise<SportsBlazeDailyIngestSummary> {
+  const dryRun = Boolean(options.dryRun);
+  const dates = options.dates?.length ? options.dates : recentIsoDates(options.days || 4);
+  const errors: string[] = [];
+
+  if (!getSportsBlazeKey()) {
+    return {
+      mode: 'missing-key',
+      dryRun,
+      datesChecked: dates,
+      dailyBoxscoresFetched: 0,
+      matchedPlayerLines: 0,
+      gamesUpserted: 0,
+      errors: ['SPORTSBLAZE_KEY is missing'],
+    };
+  }
+
+  const mappedPlayers = await loadMappedPlayersBySportsBlazeId();
+  let dailyBoxscoresFetched = 0;
+  let matchedPlayerLines = 0;
+  let gamesUpserted = 0;
+
+  for (const date of dates) {
+    try {
+      const payload = await fetchSportsBlazeMlbDailyBoxscores(date);
+      dailyBoxscoresFetched += 1;
+      const games = collectGames(payload);
+
+      for (const game of games) {
+        const playerLines = findPlayerLinesInGame(game, mappedPlayers);
+        matchedPlayerLines += playerLines.length;
+
+        for (const { mappedPlayer, line } of playerLines) {
+          if (!line?.id) continue;
+          if (!dryRun) {
+            await upsertGameLog({
+              yatstatsPlayerId: String(mappedPlayer.yatstats_playerid),
+              sportsblazePlayerId: String(mappedPlayer.sportsblaze_player_id),
+              game: line,
+              sourceUpdatedAt: payload?.updated ? String(payload.updated) : null,
+            });
+          }
+          gamesUpserted += 1;
+        }
+      }
+    } catch (error: any) {
+      errors.push(`${date}: ${error?.message || String(error)}`);
+    }
+  }
+
+  return {
+    mode: errors.length ? 'api-error' : 'live',
+    dryRun,
+    datesChecked: dates,
+    dailyBoxscoresFetched,
+    matchedPlayerLines,
+    gamesUpserted,
+    errors,
+  };
+}
+
 export async function ingestSportsBlazeMlbGamelogs(options: {
   season: number;
   dryRun?: boolean;
@@ -344,7 +537,7 @@ export async function ingestSportsBlazeMlbGamelogs(options: {
 }): Promise<SportsBlazeIngestSummary> {
   const season = options.season;
   const dryRun = Boolean(options.dryRun);
-  const limit = Math.max(1, Math.min(options.limit || 50, 500));
+  const limit = Math.max(1, Math.min(options.limit || 50, 25));
   const errors: string[] = [];
 
   if (!getSportsBlazeKey()) {
