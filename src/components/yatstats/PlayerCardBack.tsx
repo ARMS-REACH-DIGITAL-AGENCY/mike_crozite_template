@@ -23,6 +23,7 @@
 import SafeImage from "@/components/SafeImage";
 import FunZone from "@/components/yatstats/FunZone";
 import FlipCardLiveVideoInjector from "@/components/yatstats/FlipCardLiveVideoInjector";
+import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
@@ -281,6 +282,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
               {btHw && <div className="ybm-bthw">{btHw}</div>}
             </div>
           </a>
+
+          <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
 
           <FunZone
             player={p}
