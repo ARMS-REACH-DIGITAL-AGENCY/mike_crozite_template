@@ -16,6 +16,34 @@ function buildCorsHeaders(req: NextRequest) {
   };
 }
 
+function slugifySchoolName(name: string) {
+  return String(name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeState(state: string) {
+  return String(state || "").toLowerCase().trim();
+}
+
+function buildMicrositeUrl(hsid?: string, hsname?: string, hslocation?: string) {
+  if (!hsid) return "";
+
+  const schoolSlug = slugifySchoolName(hsname || "");
+  const locParts = String(hslocation || "").split(",");
+  const statePart = (locParts.slice(1).join(",") || "").trim();
+  const stateSlug = normalizeState(statePart);
+
+  if (schoolSlug && stateSlug) {
+    return `https://${schoolSlug}.${stateSlug}.yatstats.com/${hsid}`;
+  }
+
+  return `/${hsid}`;
+}
+
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: buildCorsHeaders(req) });
 }
@@ -88,17 +116,23 @@ export async function GET(req: NextRequest) {
       const lastName = r.lastname || "";
       const displayName = r.display_name || `${firstName} ${lastName}`.trim();
       const currentTeamId = r.current_teamid || "";
+      const schoolId = r.hsid || "";
+      const schoolName = r.hsname || "";
+      const micrositeUrl = buildMicrositeUrl(schoolId, schoolName, r.hslocation || "");
+
       return {
         playerId: r.playerid || "",
         firstName,
         lastName,
         displayName,
-        schoolId: r.hsid || "",
-        schoolName: r.hsname || "",
+        schoolId,
+        schoolName,
         city: (locParts[0] || "").trim(),
         state: (locParts.slice(1).join(",") || "").trim(),
         slug: toPlayerSlug(firstName, lastName || displayName),
         crestUrl: getSchoolCrestUrl(r.hsid),
+        micrositeUrl,
+        microsite_url: micrositeUrl,
         currentTeamName: r.current_team_name || "",
         currentTeamId,
         current_team_id: currentTeamId,
