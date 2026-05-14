@@ -54,6 +54,18 @@ DEFAULT_USER_AGENT = (
 )
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
+GENERIC_IMAGE_MARKERS = {
+    "tbc_logo",
+    "thebaseballcube",
+    "default",
+    "placeholder",
+    "transparent",
+    "spacer",
+    "blank",
+    "pixel",
+    "favicon",
+    "apple-touch-icon",
+}
 
 
 def clean_teamid(value: str) -> str:
@@ -92,6 +104,11 @@ def content_type_for_ext(ext: str) -> str:
     return "image/png"
 
 
+def is_generic_image_url(url: str) -> bool:
+    lowered = url.lower()
+    return any(marker in lowered for marker in GENERIC_IMAGE_MARKERS)
+
+
 def score_image_candidate(img, teamid: str) -> int:
     score = 0
     attrs = " ".join(
@@ -106,6 +123,10 @@ def score_image_candidate(img, teamid: str) -> int:
             for attr in ["href", "class", "id", "title"]
         ).lower()
 
+    src = str(img.get("src") or img.get("data-src") or img.get("data-original") or "")
+    if is_generic_image_url(src) or any(marker in attrs for marker in GENERIC_IMAGE_MARKERS):
+        return -1000
+
     teamid_lower = teamid.lower()
 
     if teamid_lower in attrs:
@@ -114,7 +135,7 @@ def score_image_candidate(img, teamid: str) -> int:
         score += 80
     if "team" in attrs:
         score += 25
-    if "minor" in attrs or "college" in attrs:
+    if "minor" in attrs or "college" in attrs or "school" in attrs:
         score += 10
 
     if "player" in attrs or "headshot" in attrs or "person" in attrs:
@@ -122,7 +143,6 @@ def score_image_candidate(img, teamid: str) -> int:
     if "ad" in attrs or "advert" in attrs or "banner" in attrs or "sponsor" in attrs:
         score -= 100
 
-    src = str(img.get("src") or img.get("data-src") or img.get("data-original") or "")
     if Path(urlparse(src).path).suffix.lower() in IMAGE_EXTENSIONS:
         score += 20
 
@@ -150,6 +170,8 @@ def image_sources_from_page(html: str, page_url: str, teamid: str) -> list[str]:
         if src.startswith("data:"):
             continue
         absolute = urljoin(page_url, src)
+        if is_generic_image_url(absolute):
+            continue
         score = score_image_candidate(img, teamid)
         if score > 0:
             candidates.append((score, absolute))
@@ -157,6 +179,8 @@ def image_sources_from_page(html: str, page_url: str, teamid: str) -> list[str]:
     # Also scan raw HTML for image URLs that contain the teamid.
     for match in re.finditer(r"https?://[^'\"\s)]+", html):
         url = match.group(0)
+        if is_generic_image_url(url):
+            continue
         if teamid in url and Path(urlparse(url).path).suffix.lower() in IMAGE_EXTENSIONS:
             candidates.append((250, url))
 
@@ -185,6 +209,10 @@ def build_page_url(row: dict[str, str]) -> str:
 
 
 def fetch_image(session: requests.Session, url: str, delay: float) -> tuple[bytes, str, str] | None:
+    if is_generic_image_url(url):
+        print(f"    skipped generic image candidate: {url}")
+        return None
+
     time.sleep(delay)
     resp = session.get(url, timeout=30)
     if resp.status_code != 200:
