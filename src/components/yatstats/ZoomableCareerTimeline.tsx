@@ -9,7 +9,10 @@ const SCROLL_EVENT = 'yat:career-timeline-scroll';
 const ZOOM_EVENT = 'yat:career-timeline-zoom';
 const CARD_W = 58;
 const CARD_H = 84;
+const CTA_W = 118;
 const TIMELINE_GUTTER = 42;
+const CLOSED_ZOOM = 1;
+const EXPANDED_ZOOM_THRESHOLD = 2.25;
 const FULL_ZOOM = 3.2;
 
 type StatRow = { year?: string | number; age?: string | number; team?: string; level?: string; org_conf?: string; league?: string };
@@ -21,9 +24,9 @@ type SubmittedMoment = { id: string; title?: string; caption?: string; image_dat
 declare global { interface Window { __yatCareerTimelineSyncing?: boolean } }
 
 function readInitialZoom() {
-  if (typeof window === 'undefined') return 0.8;
+  if (typeof window === 'undefined') return CLOSED_ZOOM;
   const saved = Number(sessionStorage.getItem(ZOOM_KEY));
-  return Number.isFinite(saved) ? saved : 0.8;
+  return Number.isFinite(saved) ? clamp(saved, CLOSED_ZOOM, 3.4) : CLOSED_ZOOM;
 }
 
 function yearOf(value: unknown): number | null {
@@ -136,7 +139,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const onTouchMove = (event: TouchEvent) => {
       if (event.touches.length !== 2 || !pinchRef.current) return;
       event.preventDefault();
-      const next = clamp(pinchRef.current.zoom * (distance(event.touches) / Math.max(1, pinchRef.current.distance)), 0.8, 3.4);
+      const next = clamp(pinchRef.current.zoom * (distance(event.touches) / Math.max(1, pinchRef.current.distance)), CLOSED_ZOOM, 3.4);
       setZoom(next);
     };
     const onTouchEnd = () => { pinchRef.current = null; };
@@ -227,10 +230,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return { promptYear, start: hsYear, canvasStart: promptYear, end, span, firstName, ticks: buildTicks(hsYear, end, zoom, promptYear), moments, uploadSlots };
   }, [stats, uploads, player?.playerName, player?.playerSchoolUrl, playerId, zoom, fallbackFirstName]);
 
+  const isExpanded = zoom >= EXPANDED_ZOOM_THRESHOLD;
   const laneWidth = CARD_W * zoom;
-  const width = Math.max(TIMELINE_GUTTER * 2 + CARD_W, Math.round(model.span * laneWidth + TIMELINE_GUTTER * 2));
-  const usable = Math.max(1, width - TIMELINE_GUTTER * 2);
+  const expandedWidth = Math.max(TIMELINE_GUTTER * 2 + CARD_W, Math.round(model.span * laneWidth + TIMELINE_GUTTER * 2));
+  const closedWidth = TIMELINE_GUTTER * 2 + model.moments.reduce((sum, moment) => sum + (moment.kind === 'prompt' ? CTA_W : CARD_W), 0);
+  const width = isExpanded ? expandedWidth : Math.max(TIMELINE_GUTTER * 2 + CARD_W, closedWidth);
+  const usable = Math.max(1, expandedWidth - TIMELINE_GUTTER * 2);
   const leftPx = (year: number) => TIMELINE_GUTTER + ((year - model.canvasStart) / model.span) * usable;
+  const momentWidth = (moment: Moment) => moment.kind === 'prompt' ? CTA_W : CARD_W;
+  const closedLeftPx = (index: number) => {
+    let left = TIMELINE_GUTTER;
+    for (let i = 0; i < index; i += 1) left += momentWidth(model.moments[i]);
+    return left + momentWidth(model.moments[index]) / 2;
+  };
+  const imageLeftPx = (moment: Moment, index: number) => isExpanded ? leftPx(moment.year) : closedLeftPx(index);
 
   function openUpload(year?: number) {
     try {
@@ -267,41 +280,45 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   if (variant === 'images') {
     return (
-      <section className="zt-shell zt-shell-images" id="playerCareerImages">
+      <section className={`zt-shell zt-shell-images ${isExpanded ? 'zt-expanded' : 'zt-closed'}`} id="playerCareerImages">
         <div className="zt-window zt-window-images" ref={windowRef}>
           <div className="zt-canvas zt-canvas-images" style={{ width }}>
-            {model.uploadSlots.map((slot) => (
+            {isExpanded && model.uploadSlots.map((slot) => (
               <button type="button" key={slot.id} className="zt-upload-slot" style={{ left: leftPx(slot.year) }} onClick={() => handleUploadSlot(slot)} title={`Upload a memory around ${slot.label}`}>
                 Upload +
               </button>
             ))}
-            {model.moments.map((moment) => (
-              <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: leftPx(moment.year) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
-                <span className="zt-img-connector" />
-                <span className="zt-img-card"><TimelineImage src={moment.src} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} /></span>
-              </button>
-            ))}
+            {model.moments.map((moment, index) => {
+              const w = momentWidth(moment);
+              return (
+                <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: imageLeftPx(moment, index), width: w }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
+                  <span className="zt-img-connector" />
+                  <span className="zt-img-card" style={{ width: w }}><TimelineImage src={moment.src} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} /></span>
+                </button>
+              );
+            })}
           </div>
         </div>
         <style jsx>{`
           .zt-shell-images { position: relative; height: 100%; min-height: 100%; overflow: hidden; color: #fff; background: transparent; }
           .zt-window-images { height: 100%; overflow-x: auto; overflow-y: hidden; padding-left: 0; scrollbar-width: none; }
           .zt-window-images::-webkit-scrollbar { display: none; }
-          .zt-canvas-images { position: relative; height: 100%; min-width: 100%; }
-          .zt-img-moment { position: absolute; top: 4px; width: ${CARD_W}px; height: ${CARD_H}px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; }
-          .zt-img-card { position: relative; z-index: 2; display: block; width: ${CARD_W}px; height: ${CARD_H}px; border: 1px solid rgba(255,255,255,.32); background: #111; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); }
+          .zt-canvas-images { position: relative; height: 100%; min-width: 100%; transition: width .24s ease; }
+          .zt-img-moment { position: absolute; top: 4px; height: ${CARD_H}px; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: left .24s ease, width .24s ease; }
+          .zt-img-card { position: relative; z-index: 2; display: block; height: ${CARD_H}px; border: 1px solid rgba(255,255,255,.32); background: #111; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); transition: width .24s ease, box-shadow .24s ease; }
+          .zt-closed .zt-img-card { box-shadow: none; border-right-color: rgba(255,255,255,.18); }
           .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); }
           .zt-img-connector { display: none; }
           .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
           .zt-img-card :global(.zt-empty) { height: 100%; display: grid; place-items: center; color: rgba(255,255,255,.68); background: linear-gradient(135deg,#141414,#060606); }
           .zt-img-card :global(.zt-empty b) { font: 900 10px/1.15 Oswald,sans-serif; letter-spacing: .08em; text-transform: uppercase; text-align:center; }
-          .zt-img-card :global(.zt-prompt-card) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 6px 5px; color: #fff; background: #080808; text-align: center; text-transform: uppercase; }
-          .zt-img-card :global(.zt-prompt-card b) { font: 900 7px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
-          .zt-img-card :global(.zt-prompt-card strong) { font: 900 7px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
-          .zt-img-card :global(.zt-prompt-card i) { font: 900 16px/1 Oswald, sans-serif; font-style: normal; }
-          .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:${zoom >= 2.25 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(255,255,255,.38); background:rgba(0,0,0,.72); color:rgba(255,255,255,.82); font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:none; }
+          .zt-img-card :global(.zt-prompt-card) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 6px 7px; color: #fff; background: #080808; text-align: center; text-transform: uppercase; }
+          .zt-img-card :global(.zt-prompt-card b) { font: 900 9px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
+          .zt-img-card :global(.zt-prompt-card strong) { font: 900 9px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
+          .zt-img-card :global(.zt-prompt-card i) { font: 900 18px/1 Oswald, sans-serif; font-style: normal; }
+          .zt-upload-slot { position:absolute; top:34px; transform:translate(-50%,-50%); z-index:4; display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(255,255,255,.38); background:rgba(0,0,0,.72); color:rgba(255,255,255,.82); font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:none; }
           .zt-upload-slot:hover { color:#fff; border-color:#fff; }
-          @media (max-width: 760px) { .zt-img-moment { width: ${CARD_W}px; height: ${CARD_H}px; } .zt-img-card { width: ${CARD_W}px; height: ${CARD_H}px; } }
+          @media (max-width: 760px) { .zt-img-moment { height: ${CARD_H}px; } .zt-img-card { height: ${CARD_H}px; } }
           :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height: var(--row3-h, 96px) !important; height: var(--row3-h, 96px) !important; }
         `}</style>
       </section>
@@ -310,9 +327,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   return (
     <section className={`zt-shell ${variant === 'line' ? 'zt-shell-line' : ''}`} id="playerCareerStrip">
-      <div className="zt-controls"><span>Zoom</span><input aria-label="Zoom timeline" type="range" min="0.8" max="3.4" step="0.1" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></div>
+      <div className="zt-controls"><span>Zoom</span><input aria-label="Zoom timeline" type="range" min="1" max="3.4" step="0.1" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></div>
       <div className="zt-window" ref={windowRef}>
-        <div className="zt-canvas" style={{ width }}>
+        <div className="zt-canvas" style={{ width: expandedWidth }}>
           <div className="zt-line" />
           {model.ticks.map((year) => <span className="zt-tick" key={year} style={{ left: leftPx(year) }}><i /><b>{year === model.promptYear ? '' : year === model.start ? 'HS' : year === model.end ? 'Today' : year}</b></span>)}
           {model.moments.map((moment) => <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind}`} style={{ left: leftPx(moment.year) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}><span /></button>)}
@@ -320,9 +337,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       </div>
       <style jsx>{`
         .zt-shell { position: relative; height: 100%; min-height: 52px; overflow: visible; isolation: isolate; background: linear-gradient(90deg,#101010,#050505); color: #fff; border-top: 0; }
-        .zt-controls { position:absolute; z-index:8; right:12px; top:5px; display:flex; gap:8px; align-items:center; color:rgba(255,255,255,.32); font:800 9px/1 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; opacity:.28; }
-        .zt-controls:hover { opacity:.72; }
-        .zt-controls input { width: 100px; accent-color:#ffffff; opacity:.28; }
+        .zt-controls { position:absolute; z-index:8; left:10px; top:5px; display:flex; gap:6px; align-items:center; color:rgba(255,255,255,.42); font:800 8px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; opacity:.42; }
+        .zt-controls:hover { opacity:.82; }
+        .zt-controls input { width: 64px; height: 12px; accent-color:#d9b75b; opacity:.58; }
         .zt-window { height:100%; overflow-x:auto; overflow-y:visible; padding-left:0; scrollbar-width:none; }
         .zt-window::-webkit-scrollbar { display:none; }
         .zt-canvas { position:relative; height:100%; min-width:100%; }
