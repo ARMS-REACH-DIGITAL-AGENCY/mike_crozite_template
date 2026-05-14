@@ -10,7 +10,11 @@ const ZOOM_EVENT = 'yat:career-timeline-zoom';
 const CARD_W = 58;
 const CARD_H = 84;
 const CTA_W = 118;
+const SEASON_CARD_W = 134;
+const IMAGE_GUTTER = 13;
 const TIMELINE_GUTTER = 42;
+const CLOSED_OVERLAP = 10;
+const EXPANDED_GAP = 76;
 const CLOSED_ZOOM = 1;
 const EXPANDED_ZOOM_THRESHOLD = 2.25;
 const FULL_ZOOM = 3.2;
@@ -107,6 +111,12 @@ function teamLogoCandidates(row: StatRow) {
     `${S3_BASE}/colleges/${teamId}.png`,
     `${S3_BASE}/colleges/${teamId}.jpg`,
   ]));
+}
+
+function visualMomentWidth(moment: Moment) {
+  if (moment.kind === 'prompt') return CTA_W;
+  if (moment.kind === 'season') return SEASON_CARD_W;
+  return CARD_W;
 }
 
 function TimelineImage({ src, srcs, title, caption, kind, label }: {
@@ -318,20 +328,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const isExpanded = zoom >= EXPANDED_ZOOM_THRESHOLD;
   const laneWidth = CARD_W * zoom;
   const expandedWidth = Math.max(TIMELINE_GUTTER * 2 + CARD_W, Math.round(model.span * laneWidth + TIMELINE_GUTTER * 2));
-  const closedWidth = TIMELINE_GUTTER * 2 + model.moments.reduce((sum, moment) => sum + (moment.kind === 'prompt' ? CTA_W : CARD_W), 0);
-  const width = isExpanded ? expandedWidth : Math.max(TIMELINE_GUTTER * 2 + CARD_W, closedWidth);
   const usable = Math.max(1, expandedWidth - TIMELINE_GUTTER * 2);
   const leftPx = (year: number) => TIMELINE_GUTTER + ((year - model.canvasStart) / model.span) * usable;
-  const momentWidth = (moment: Moment) => moment.kind === 'prompt' ? CTA_W : CARD_W;
-  const closedLeftPx = (index: number) => {
-    let left = TIMELINE_GUTTER;
-    for (let i = 0; i < index; i += 1) left += momentWidth(model.moments[i]);
-    return left + momentWidth(model.moments[index]) / 2;
+  const packedSequenceWidth = (gap: number) => {
+    const content = model.moments.reduce((sum, moment) => sum + visualMomentWidth(moment), 0);
+    return IMAGE_GUTTER * 2 + content + Math.max(0, model.moments.length - 1) * gap;
   };
-  const imageLeftPx = (moment: Moment, index: number) => {
-    if (index === 0) return closedLeftPx(0);
-    return isExpanded ? leftPx(moment.year) : closedLeftPx(index);
+  const imageExpandedWidth = Math.max(packedSequenceWidth(EXPANDED_GAP), 320);
+  const imageClosedWidth = Math.max(packedSequenceWidth(-CLOSED_OVERLAP), 320);
+  const imageWidth = isExpanded ? imageExpandedWidth : imageClosedWidth;
+  const sequenceLeftPx = (index: number, gap: number) => {
+    let left = IMAGE_GUTTER;
+    for (let i = 0; i < index; i += 1) left += visualMomentWidth(model.moments[i]) + gap;
+    return left + visualMomentWidth(model.moments[index]) / 2;
   };
+  const imageLeftPx = (_moment: Moment, index: number) => isExpanded ? sequenceLeftPx(index, EXPANDED_GAP) : sequenceLeftPx(index, -CLOSED_OVERLAP);
+  const uploadSlotLeftPx = (index: number) => {
+    const leftCenter = sequenceLeftPx(index, EXPANDED_GAP);
+    const rightCenter = sequenceLeftPx(index + 1, EXPANDED_GAP);
+    return (leftCenter + rightCenter) / 2;
+  };
+  const lineMomentLeftPx = (moment: Moment, index: number) => index === 0 ? sequenceLeftPx(0, -CLOSED_OVERLAP) : leftPx(moment.year);
 
   function openUpload(year?: number) {
     try {
@@ -370,14 +387,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return (
       <section className={`zt-shell zt-shell-images ${isExpanded ? 'zt-expanded' : 'zt-closed'}`} id="playerCareerImages">
         <div className="zt-window zt-window-images" ref={windowRef}>
-          <div className="zt-canvas zt-canvas-images" style={{ width }}>
-            {isExpanded && model.uploadSlots.map((slot) => (
-              <button type="button" key={slot.id} className="zt-upload-slot" style={{ left: leftPx(slot.year) }} onClick={() => handleUploadSlot(slot)} title={`Upload a memory around ${slot.label}`}>
+          <div className="zt-canvas zt-canvas-images" style={{ width: imageWidth }}>
+            {isExpanded && model.uploadSlots.map((slot, index) => (
+              <button type="button" key={slot.id} className="zt-upload-slot" style={{ left: uploadSlotLeftPx(index) }} onClick={() => handleUploadSlot(slot)} title={`Upload a memory around ${slot.label}`}>
                 Upload +
               </button>
             ))}
             {model.moments.map((moment, index) => {
-              const w = momentWidth(moment);
+              const w = visualMomentWidth(moment);
               const isSeason = moment.kind === 'season';
               return (
                 <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: imageLeftPx(moment, index), width: w }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
@@ -434,7 +451,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <div className="zt-line" />
           {model.ticks.map((year) => <span className="zt-tick" key={year} style={{ left: leftPx(year) }}><i /><b>{year === model.promptYear ? '' : year === model.start ? 'HS' : year === model.end ? 'Today' : year}</b></span>)}
           {model.moments.map((moment, index) => (
-            <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind}`} style={{ left: imageLeftPx(moment, index) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
+            <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind}`} style={{ left: lineMomentLeftPx(moment, index) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
               <span />
               {moment.kind === 'season' && <b className="zt-line-season-label"><i>{moment.label}</i><strong>{moment.title}</strong><em>{moment.caption}</em></b>}
             </button>
