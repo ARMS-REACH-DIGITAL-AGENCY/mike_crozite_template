@@ -7,7 +7,7 @@ type SearchMode = 'name' | 'school' | 'team';
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
 const STATE_NAMES: Record<string, string> = {
-  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kansas', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
 };
 
 function esc(value: unknown) {
@@ -33,6 +33,10 @@ function playerIdOf(player: any) {
 
 function schoolIdOf(item: any) {
   return String(item.schoolId || item.hsid || '').trim();
+}
+
+function teamIdOf(item: any) {
+  return String(item.currentTeamId || item.current_team_id || item.currentTeamid || item.current_teamid || item.teamid || item.teamId || item.team_id || '').trim();
 }
 
 function playerUrl(player: any) {
@@ -101,7 +105,11 @@ function playerHeadshotUrl(player: any) {
   return `${S3_BASE}/players/now/${esc(playerIdOf(player))}.jpg`;
 }
 
-function teamLogoPlaceholder() {
+function teamLogoUrl(item: any) {
+  const custom = String(item.teamLogoUrl || item.team_logo_url || item.currentTeamLogoUrl || item.current_team_logo_url || '').trim();
+  if (custom) return custom;
+  const id = teamIdOf(item);
+  if (/^\d+$/.test(id)) return `${S3_BASE}/teams/${esc(id)}.png`;
   return `${S3_BASE}/yatstats/team-placeholder.png`;
 }
 
@@ -207,37 +215,40 @@ function renderTeamRows(players: any[], emptyText: string) {
     grouped.get(key)!.push(p);
   });
 
-  return Array.from(grouped.entries()).map(([teamLevel, rows]) => `
-    <div class="yat-search-team-group">
-      <div class="yat-search-team-heading">
-        <img src="${esc(teamLogoPlaceholder())}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-        <span>${esc(teamLevel)}</span>
+  return Array.from(grouped.entries()).map(([teamLevel, rows]) => {
+    const first = rows[0] || {};
+    return `
+      <div class="yat-search-team-group">
+        <div class="yat-search-team-heading">
+          <img src="${esc(teamLogoUrl(first))}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+          <span>${esc(teamLevel)}</span>
+        </div>
+        <div class="yat-search-card-list yat-search-team-player-list">
+          ${rows.map((p) => {
+            const name = String(p.displayName || `${p.firstName || p.firstname || ''} ${p.lastName || p.lastname || ''}`.trim() || p.playerId || 'Player');
+            const school = String(p.schoolName || p.hsname || '').trim();
+            const location = cleanLocation(p.city, p.state);
+            const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+            const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
+            return `
+              <div class="yat-search-card yat-search-team-player-card yat-search-player-result">
+                <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
+                  <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
+                </a>
+                <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
+                  <strong>${esc(name)}</strong>
+                  ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
+                </a>
+                <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
+                  <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+                </a>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
-      <div class="yat-search-card-list yat-search-team-player-list">
-        ${rows.map((p) => {
-          const name = String(p.displayName || `${p.firstName || p.firstname || ''} ${p.lastName || p.lastname || ''}`.trim() || p.playerId || 'Player');
-          const school = String(p.schoolName || p.hsname || '').trim();
-          const location = cleanLocation(p.city, p.state);
-          const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
-          const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
-          return `
-            <div class="yat-search-card yat-search-team-player-card yat-search-player-result">
-              <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
-                <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
-              </a>
-              <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
-                <strong>${esc(name)}</strong>
-                ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
-              </a>
-              <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
-                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-              </a>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 async function fetchJson(url: string) {
@@ -391,7 +402,8 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-school-stats strong { color: var(--fg); font: 900 14px/1 Oswald, sans-serif; white-space: nowrap; }
       #drawerLeft .yat-search-school-stats small { color: var(--muted); font: 400 7px/1.1 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; }
       #drawerLeft .yat-search-team-group { margin: 12px 0 4px; }
-      #drawerLeft .yat-search-team-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+      #drawerLeft .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+      #drawerLeft .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
       #drawerLeft .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
       #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
       #drawerLeft .yat-search-player-result a { color: inherit; text-decoration: none; }
