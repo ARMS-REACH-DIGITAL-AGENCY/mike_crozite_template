@@ -4,8 +4,10 @@ import { useEffect } from 'react';
 
 type SearchMode = 'name' | 'school' | 'team';
 
+const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+
 const STATE_NAMES: Record<string, string> = {
-  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kansas', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
 };
 
 function esc(value: unknown) {
@@ -17,17 +19,38 @@ function esc(value: unknown) {
     .replaceAll("'", '&#39;');
 }
 
+function slugify(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function playerIdOf(player: any) {
+  return String(player.playerId || player.playerid || player.id || '').trim();
+}
+
+function schoolIdOf(item: any) {
+  return String(item.schoolId || item.hsid || '').trim();
+}
+
 function playerUrl(player: any) {
-  const hsid = encodeURIComponent(String(player.schoolId || player.hsid || ''));
-  const playerId = encodeURIComponent(String(player.playerId || player.playerid || ''));
-  const slug = encodeURIComponent(String(player.slug || `${player.firstName || ''}-${player.lastName || ''}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')));
+  const hsid = encodeURIComponent(schoolIdOf(player));
+  const playerId = encodeURIComponent(playerIdOf(player));
+  const fallbackSlug = slugify(`${player.firstName || player.firstname || ''}-${player.lastName || player.lastname || ''}`);
+  const slug = encodeURIComponent(String(player.slug || fallbackSlug));
   const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');
 
-  if (microsite) {
-    return `${microsite}/player/${playerId}/${slug}`;
-  }
-
+  if (microsite) return `${microsite}/player/${playerId}/${slug}`;
   return `/${hsid}/player/${playerId}/${slug}`;
+}
+
+function playerFlipCardUrl(player: any) {
+  const playerId = encodeURIComponent(playerIdOf(player));
+  const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');
+  const base = microsite || `/${encodeURIComponent(schoolIdOf(player))}`;
+  return `${base}?view=active&player=${playerId}#player-${playerId}`;
 }
 
 function schoolUrl(program: any) {
@@ -69,15 +92,25 @@ function cleanLocation(city?: unknown, state?: unknown, fallback?: unknown) {
 function schoolCrestUrl(hsid: unknown, fallback?: unknown) {
   const custom = String(fallback || '').trim();
   if (custom) return custom;
-  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/${esc(hsid)}.png`;
+  return `${S3_BASE}/schools/${esc(hsid)}.png`;
+}
+
+function playerHeadshotUrl(player: any) {
+  const custom = String(player.headshotUrl || player.headshot_url || player.playerImageUrl || player.player_image_url || player.imageUrl || player.image_url || player.photoUrl || player.photo_url || '').trim();
+  if (custom) return custom;
+  return `${S3_BASE}/players/now/${esc(playerIdOf(player))}.jpg`;
 }
 
 function teamLogoPlaceholder() {
-  return 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/team-placeholder.png';
+  return `${S3_BASE}/yatstats/team-placeholder.png`;
 }
 
 function schoolLogoFallback() {
-  return 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';
+  return `${S3_BASE}/yatstats/yslogo.png`;
+}
+
+function playerHeadshotFallback() {
+  return `${S3_BASE}/yatstats/headshot-silhouette.png`;
 }
 
 function renderPlayerRows(players: any[], emptyText: string) {
@@ -85,20 +118,26 @@ function renderPlayerRows(players: any[], emptyText: string) {
 
   return `
     <div class="yat-search-section-label">Players</div>
-    <div class="yat-search-card-list">
+    <div class="yat-search-card-list yat-search-player-list">
       ${players.map((p) => {
-        const name = String(p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.playerId || 'Player');
-        const school = String(p.schoolName || '').trim();
+        const name = String(p.displayName || `${p.firstName || p.firstname || ''} ${p.lastName || p.lastname || ''}`.trim() || p.playerId || 'Player');
+        const school = String(p.schoolName || p.hsname || '').trim();
         const location = cleanLocation(p.city, p.state);
         const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+        const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
         return `
-          <a class="yat-search-card yat-search-player-card" href="${esc(playerUrl(p))}">
-            <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-            <span class="yat-search-row-text">
+          <div class="yat-search-card yat-search-player-card yat-search-player-result">
+            <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
+              <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
+            </a>
+            <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
               <strong>${esc(name)}</strong>
               ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
-            </span>
-          </a>
+            </a>
+            <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
+              <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+            </a>
+          </div>
         `;
       }).join('')}
     </div>
@@ -174,20 +213,26 @@ function renderTeamRows(players: any[], emptyText: string) {
         <img src="${esc(teamLogoPlaceholder())}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
         <span>${esc(teamLevel)}</span>
       </div>
-      <div class="yat-search-card-list">
+      <div class="yat-search-card-list yat-search-team-player-list">
         ${rows.map((p) => {
-          const name = String(p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.playerId || 'Player');
-          const school = String(p.schoolName || '').trim();
+          const name = String(p.displayName || `${p.firstName || p.firstname || ''} ${p.lastName || p.lastname || ''}`.trim() || p.playerId || 'Player');
+          const school = String(p.schoolName || p.hsname || '').trim();
           const location = cleanLocation(p.city, p.state);
           const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+          const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
           return `
-            <a class="yat-search-card yat-search-team-player-card" href="${esc(playerUrl(p))}">
-              <img src="${esc(schoolCrestUrl(p.schoolId || p.hsid, p.crestUrl))}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-              <span class="yat-search-row-text">
+            <div class="yat-search-card yat-search-team-player-card yat-search-player-result">
+              <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
+                <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
+              </a>
+              <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
                 <strong>${esc(name)}</strong>
                 ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
-              </span>
-            </a>
+              </a>
+              <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
+                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+              </a>
+            </div>
           `;
         }).join('')}
       </div>
@@ -317,218 +362,46 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      #drawerLeft .yat-search-drawer-title {
-        margin-bottom: 4px !important;
-        font-size: 18px !important;
-      }
-
-      #drawerLeft .yat-search-drawer-sub {
-        max-width: 330px;
-        margin-bottom: 12px !important;
-        font-size: 10px !important;
-        line-height: 1.35 !important;
-      }
-
+      #drawerLeft .yat-search-drawer-title { margin-bottom: 4px !important; font-size: 18px !important; }
+      #drawerLeft .yat-search-drawer-sub { max-width: 330px; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
       #drawerLeft .yat-search-mode-label { display: none !important; }
-
-      #drawerLeft .yat-search-mode-buttons {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 6px;
-        margin: 10px 0 12px;
-      }
-
-      #drawerLeft .yat-search-mode-btn {
-        min-height: 34px;
-        border: 1px solid var(--line);
-        border-radius: 7px;
-        background: rgba(255,255,255,.04);
-        color: var(--ink);
-        font: 400 11px/1.05 Oswald, sans-serif;
-        text-transform: uppercase;
-        cursor: pointer;
-      }
-
-      #drawerLeft .yat-search-mode-btn.active {
-        background: rgba(255,255,255,.14);
-        color: var(--fg);
-      }
-
-      #drawerLeft .yat-search-empty {
-        color: var(--muted);
-        font: 400 13px/1.4 Oswald, sans-serif;
-        padding: 8px 0;
-      }
-
-      #drawerLeft .yat-search-section-label {
-        margin: 12px 0 8px;
-        color: var(--muted);
-        font: 800 10px/1 Oswald, sans-serif;
-        letter-spacing: .18em;
-        text-transform: uppercase;
-      }
-
-      #drawerLeft .yat-search-state-label {
-        color: var(--ink);
-        font-size: 11px;
-        letter-spacing: .16em;
-      }
-
-      #drawerLeft .yat-search-card-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      #drawerLeft .yat-search-card {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-height: 56px;
-        padding: 8px 10px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: rgba(255,255,255,.045);
-        color: var(--ink);
-        text-decoration: none;
-      }
-
-      #drawerLeft .yat-search-card:hover {
-        color: var(--fg);
-        background: rgba(255,255,255,.08);
-      }
-
-      #drawerLeft .yat-search-thumb {
-        width: 36px;
-        height: 36px;
-        object-fit: cover;
-        border-radius: 5px;
-        flex: 0 0 auto;
-        background: rgba(255,255,255,.08);
-      }
-
-      #drawerLeft .yat-search-school-thumb,
-      #drawerLeft .yat-search-team-thumb { object-fit: contain; }
-
-      #drawerLeft .yat-search-row-text {
-        display: flex;
-        min-width: 0;
-        flex-direction: column;
-        gap: 3px;
-      }
-
-      #drawerLeft .yat-search-row-text strong {
-        font: 700 14px/1.05 Oswald, sans-serif;
-        text-transform: uppercase;
-      }
-
-      #drawerLeft .yat-search-row-text small {
-        color: var(--muted);
-        font: 400 10px/1.2 Oswald, sans-serif;
-        text-transform: uppercase;
-      }
-
-      #drawerLeft .yat-search-school-card {
-        align-items: stretch;
-        flex-direction: column;
-        gap: 8px;
-        padding: 10px;
-      }
-
-      #drawerLeft .yat-search-school-topline {
-        display: grid;
-        grid-template-columns: 54px minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 9px;
-        width: 100%;
-      }
-
-      #drawerLeft .yat-search-school-crest-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 50px;
-        height: 50px;
-      }
-
-      #drawerLeft .yat-search-school-card .yat-search-school-thumb {
-        width: 48px;
-        height: 48px;
-        border-radius: 0;
-        background: transparent;
-      }
-
-      #drawerLeft .yat-search-school-badge {
-        border: 1px solid rgba(255,255,255,.18);
-        border-radius: 5px;
-        padding: 4px 6px;
-        color: var(--muted);
-        font: 700 8px/1 Oswald, sans-serif;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      #drawerLeft .yat-search-school-badge.live {
-        border-color: rgba(0,255,140,.55);
-        color: #00ff8c;
-      }
-
-      #drawerLeft .yat-search-school-badge.candidate {
-        border-color: rgba(255,209,102,.7);
-        color: #ffd166;
-      }
-
-      #drawerLeft .yat-search-school-stats {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 1px;
-        border-top: 1px solid var(--line);
-        padding-top: 7px;
-      }
-
-      #drawerLeft .yat-search-school-stats span {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-width: 0;
-      }
-
-      #drawerLeft .yat-search-school-stats strong {
-        color: var(--fg);
-        font: 900 14px/1 Oswald, sans-serif;
-        white-space: nowrap;
-      }
-
-      #drawerLeft .yat-search-school-stats small {
-        color: var(--muted);
-        font: 400 7px/1.1 Oswald, sans-serif;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
+      #drawerLeft .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
+      #drawerLeft .yat-search-mode-btn { min-height: 34px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
+      #drawerLeft .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); }
+      #drawerLeft .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
+      #drawerLeft .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+      #drawerLeft .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
+      #drawerLeft .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
+      #drawerLeft .yat-search-card { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.045); color: var(--ink); text-decoration: none; }
+      #drawerLeft .yat-search-card:hover { color: var(--fg); background: rgba(255,255,255,.08); }
+      #drawerLeft .yat-search-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; flex: 0 0 auto; background: rgba(255,255,255,.08); }
+      #drawerLeft .yat-search-school-thumb, #drawerLeft .yat-search-team-thumb { object-fit: contain; }
+      #drawerLeft .yat-search-row-text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      #drawerLeft .yat-search-row-text strong { font: 700 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
+      #drawerLeft .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
+      #drawerLeft .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
+      #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; }
+      #drawerLeft .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
+      #drawerLeft .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
+      #drawerLeft .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+      #drawerLeft .yat-search-school-badge.live { border-color: rgba(0,255,140,.55); color: #00ff8c; }
+      #drawerLeft .yat-search-school-badge.candidate { border-color: rgba(255,209,102,.7); color: #ffd166; }
+      #drawerLeft .yat-search-school-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--line); padding-top: 7px; }
+      #drawerLeft .yat-search-school-stats span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
+      #drawerLeft .yat-search-school-stats strong { color: var(--fg); font: 900 14px/1 Oswald, sans-serif; white-space: nowrap; }
+      #drawerLeft .yat-search-school-stats small { color: var(--muted); font: 400 7px/1.1 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; }
       #drawerLeft .yat-search-team-group { margin: 12px 0 4px; }
-
-      #drawerLeft .yat-search-team-heading {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        margin-bottom: 7px;
-        color: var(--fg);
-        font: 800 12px/1.1 Oswald, sans-serif;
-        letter-spacing: .05em;
-        text-transform: uppercase;
-      }
-
-      #drawerLeft .yat-search-team-player-card {
-        min-height: 52px;
-        border-radius: 0;
-        border-width: 0 0 1px;
-        background: transparent;
-        padding-left: 0;
-        padding-right: 0;
-      }
+      #drawerLeft .yat-search-team-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+      #drawerLeft .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
+      #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
+      #drawerLeft .yat-search-player-result a { color: inherit; text-decoration: none; }
+      #drawerLeft .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
+      #drawerLeft .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
+      #drawerLeft .yat-search-player-text-link { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      #drawerLeft .yat-search-player-text-link strong { font: 900 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
+      #drawerLeft .yat-search-player-text-link small { color: var(--muted); font: 400 10px/1.15 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #drawerLeft .yat-search-player-flip-link { display: flex; align-items: center; justify-content: flex-end; }
+      #drawerLeft .yat-search-player-hs-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 0; background: transparent; }
     `}</style>
   );
 }
