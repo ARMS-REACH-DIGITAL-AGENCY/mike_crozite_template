@@ -10,6 +10,10 @@ export default function CareerTimelineCtaOverrides() {
         overflow: hidden !important;
       }
 
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt {
+        transform: translateX(calc(-50% + 28px)) !important;
+      }
+
       .zt-img-card .zt-prompt-card,
       .zt-prompt-card {
         position: relative !important;
@@ -27,7 +31,7 @@ export default function CareerTimelineCtaOverrides() {
         outline: 0 !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
-        transform: translateX(10px) !important;
+        transform: none !important;
         background-image:
           linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.18) 52%, rgba(0,0,0,.04)),
           url('/img/career-path-default.jpg') !important;
