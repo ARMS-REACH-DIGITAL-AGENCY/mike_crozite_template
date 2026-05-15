@@ -1,6 +1,15 @@
 export default function CareerTimelineCtaOverrides() {
   return (
     <style dangerouslySetInnerHTML={{ __html: `
+      .zt-img-card:has(.zt-prompt-card),
+      .zt-img-moment.zt-prompt .zt-img-card {
+        border: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+        overflow: hidden !important;
+      }
+
       .zt-img-card .zt-prompt-card,
       .zt-prompt-card {
         position: relative !important;
@@ -12,10 +21,15 @@ export default function CareerTimelineCtaOverrides() {
         min-width: 100% !important;
         align-content: center !important;
         justify-items: center !important;
-        padding: 8px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        outline: 0 !important;
+        box-shadow: none !important;
         box-sizing: border-box !important;
+        transform: translateX(10px) !important;
         background-image:
-          linear-gradient(90deg, rgba(0,0,0,.58), rgba(0,0,0,.28) 52%, rgba(0,0,0,.08)),
+          linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.18) 52%, rgba(0,0,0,.04)),
           url('/img/career-path-default.jpg') !important;
         background-size: cover !important;
         background-position: center center !important;
@@ -48,14 +62,7 @@ export default function CareerTimelineCtaOverrides() {
         text-shadow: 0 2px 4px rgba(0,0,0,.86), 0 0 1px rgba(0,0,0,.9);
       }
 
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt {
-        transform: translateX(-50%) !important;
-      }
-
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment {
-        margin-left: 0 !important;
-      }
-
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment .zt-img-card,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment .zt-image-wrap,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment img {
