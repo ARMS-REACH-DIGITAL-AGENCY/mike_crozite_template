@@ -133,11 +133,12 @@ function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
 function getStripImageForPlayer(p: Record<string, unknown>, playerId: string) {
   if (isHighSchoolStripPlayer(p)) {
     const committedTeamId = String(p.committed_teamid || '').trim();
+    const committedTeamLogoUrl = committedTeamId ? `${YAT_ASSETS_BASE}/teams/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL;
 
     return {
-      image: committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL,
-      nowImage: committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL,
-      thenImage: committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL,
+      image: committedTeamLogoUrl,
+      nowImage: committedTeamLogoUrl,
+      thenImage: committedTeamLogoUrl,
       fallbackImage: UNCOMMITTED_BADGE_URL,
       imageFit: 'contain' as const,
     };
@@ -498,8 +499,7 @@ export default async function HsidLayout({
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" /> Select All</label>
               {ORG_FILTER_LIST.map((org) => (
                 <label key={org}>
-                  <input type="checkbox" value={org} /> {org}
-                </label>
+                  <input type="checkbox" value={org} /> {org}</label>
               ))}
             </div>
           </details>
