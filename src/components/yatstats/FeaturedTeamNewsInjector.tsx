@@ -1,5 +1,9 @@
 "use client";
 
-export default function FeaturedTeamNewsInjector() {
+type FeaturedTeamNewsInjectorProps = {
+  player?: Record<string, unknown>;
+};
+
+export default function FeaturedTeamNewsInjector(_props: FeaturedTeamNewsInjectorProps) {
   return null;
 }
