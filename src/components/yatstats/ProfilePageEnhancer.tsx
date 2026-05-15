@@ -302,6 +302,11 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .yat-profile-career-strip [class*="image"] *, .yat-profile-career-strip [class*="photo"] *, .yat-profile-career-strip [class*="tile"] *, .yat-profile-career-strip [class*="card"] * { box-sizing: border-box; }
       .yat-row4-shell, .yat-row4-shell #playerCareerStrip { min-height: 48px; }
       .yat-row4-shell #playerCareerStrip:empty::before { content: ''; display: block; height: 2px; margin: 23px 0 0; background: linear-gradient(90deg, rgba(217,183,91,.15), rgba(217,183,91,.9), rgba(217,183,91,.15)); }
+      @media (max-width: 760px) {
+        .yat-row3-shell .zt-shell-images.zt-closed .zt-img-moment.zt-prompt {
+          transform: translateX(calc(-50% + 42px)) !important;
+        }
+      }
       .glu-panel { width: min(980px, 100%); margin: 0 auto; padding: 20px 18px 14px; display: grid; grid-template-columns: minmax(220px, 34%) minmax(0, 1fr); gap: 22px; color: #f5f5f5; }
       .glu-explainer { border-left: 4px solid #f5c85a; padding-left: 18px; }
       .glu-kicker { color: #f5c85a; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
