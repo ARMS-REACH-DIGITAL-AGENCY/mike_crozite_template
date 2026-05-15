@@ -222,11 +222,11 @@ export default function InteractionStrip({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle at 50% 42%, #ffffff 0%, #f7f5ee 60%, #ebe6d8 100%);
+          background: #000;
         }
 
-        :global(body:not(.light-theme)) .gallery-current-slot-link .gallery-slot-media {
-          background: radial-gradient(circle at 50% 42%, rgba(255,255,255,.98) 0%, rgba(244,241,232,.96) 58%, rgba(222,216,200,.95) 100%);
+        :global(body.light-theme) .gallery-current-slot-link .gallery-slot-media {
+          background: #fff;
         }
 
         .gallery-slot-img {
@@ -240,13 +240,13 @@ export default function InteractionStrip({
           object-fit: contain;
           object-position: center center;
           padding: 5px;
-          background: transparent;
+          background: #050505;
         }
 
         .gallery-current-slot-link .gallery-slot-img--contain {
           object-fit: contain;
           object-position: center center;
-          padding: 8px 8px 24px;
+          padding: 6px;
           background: transparent;
         }
 
@@ -264,17 +264,6 @@ export default function InteractionStrip({
             rgba(0, 0, 0, 0.65) 18%,
             rgba(0, 0, 0, 0.45) 34%,
             rgba(0, 0, 0, 0.2) 44%,
-            rgba(0, 0, 0, 0) 100%
-          );
-        }
-
-        .gallery-current-slot-link .gallery-slot-gradient {
-          height: 38%;
-          background: linear-gradient(
-            to top,
-            rgba(0, 0, 0, 0.76) 0%,
-            rgba(0, 0, 0, 0.48) 34%,
-            rgba(0, 0, 0, 0.16) 62%,
             rgba(0, 0, 0, 0) 100%
           );
         }
