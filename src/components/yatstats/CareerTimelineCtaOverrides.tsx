@@ -75,6 +75,43 @@ export default function CareerTimelineCtaOverrides() {
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment img {
         margin-left: 0 !important;
       }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive {
+        width: auto !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+      }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-image-wrap,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap {
+        width: auto !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        background: transparent !important;
+        border: 2px solid rgba(255,255,255,.72) !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload img,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive img {
+        width: auto !important;
+        max-width: none !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        object-position: center center !important;
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-card-overlay,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-card-overlay {
+        display: none !important;
+      }
     ` }} />
   );
 }
