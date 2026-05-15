@@ -108,8 +108,6 @@ function teamLogoCandidates(row: StatRow) {
     `${S3_BASE}/teams/${teamId}.webp`,
     `${S3_BASE}/teams/${teamId}.PNG`,
     `${S3_BASE}/teams/${teamId}.JPG`,
-    `${S3_BASE}/colleges/${teamId}.png`,
-    `${S3_BASE}/colleges/${teamId}.jpg`,
   ]));
 }
 
@@ -476,7 +474,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-line-season-label i { font:900 8px/1 Oswald,sans-serif; font-style:normal; }
         .zt-line-season-label strong { font:900 7px/1 Oswald,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-line-season-label em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        @media (max-width: 760px) { .zt-controls { display:none; } }
+        .zt-line-prompt span { border-color:#d9b75b; background:#d9b75b; box-shadow:0 0 12px rgba(217,183,91,.45); }
+        .zt-line-archive span { border-color:#fff; }
+        .zt-line-upload span { border-color:#7fd8ff; background:#7fd8ff; }
+        .zt-shell-line { background: transparent; }
+        .zt-shell-line .zt-controls { display:none; }
       `}</style>
     </section>
   );
