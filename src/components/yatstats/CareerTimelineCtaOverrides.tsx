@@ -43,22 +43,6 @@ export default function CareerTimelineCtaOverrides() {
         text-shadow: 0 2px 4px rgba(0,0,0,.86), 0 0 1px rgba(0,0,0,.9);
       }
 
-      .zt-img-card .zt-prompt-card::after,
-      .zt-prompt-card::after {
-        content: '';
-        position: absolute;
-        z-index: 1;
-        left: -9%;
-        bottom: 9%;
-        width: 92%;
-        height: 22%;
-        border-bottom: 4px solid rgba(246,194,48,.95);
-        border-radius: 0 0 100% 100%;
-        transform: rotate(-5deg);
-        filter: drop-shadow(0 0 4px rgba(246,194,48,.58));
-        pointer-events: none;
-      }
-
       @media (min-width: 760px) {
         .zt-img-card .zt-prompt-card::before,
         .zt-prompt-card::before {
