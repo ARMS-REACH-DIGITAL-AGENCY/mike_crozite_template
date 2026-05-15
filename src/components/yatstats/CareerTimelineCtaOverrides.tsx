@@ -1,19 +1,31 @@
 export default function CareerTimelineCtaOverrides() {
   return (
     <style dangerouslySetInnerHTML={{ __html: `
-      .zt-img-card:has(.zt-prompt-card),
-      .zt-img-moment.zt-prompt .zt-img-card {
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt {
+        transform: translateX(calc(-50% + 82px)) !important;
+        overflow: visible !important;
         border: 0 !important;
+        outline: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+      }
+
+      .zt-img-card:has(.zt-prompt-card),
+      .zt-img-moment.zt-prompt .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-img-card {
+        border: 0 !important;
+        border-color: transparent !important;
         box-shadow: none !important;
         padding: 0 !important;
         margin: 0 !important;
         background: transparent !important;
-        overflow: visible !important;
+        overflow: hidden !important;
       }
 
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt {
-        transform: translateX(calc(-50% + 28px)) !important;
-        overflow: visible !important;
+      .zt-img-moment.zt-prompt .zt-img-card::before,
+      .zt-img-moment.zt-prompt .zt-img-card::after {
+        display: none !important;
+        content: none !important;
       }
 
       .zt-img-card .zt-prompt-card,
@@ -32,6 +44,7 @@ export default function CareerTimelineCtaOverrides() {
         box-shadow: none !important;
         box-sizing: border-box !important;
         transform: none !important;
+        background-color: transparent !important;
         background-image: url('/img/career-path-default.jpg') !important;
         background-size: 100% 100% !important;
         background-position: center center !important;
