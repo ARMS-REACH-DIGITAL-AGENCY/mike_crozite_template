@@ -6,9 +6,14 @@ export default function CareerTimelineCtaOverrides() {
         position: relative !important;
         isolation: isolate !important;
         overflow: hidden !important;
+        display: grid !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 100% !important;
         align-content: center !important;
         justify-items: center !important;
         padding: 8px !important;
+        box-sizing: border-box !important;
         background-image:
           linear-gradient(90deg, rgba(0,0,0,.58), rgba(0,0,0,.28) 52%, rgba(0,0,0,.08)),
           url('/img/career-path-default.jpg') !important;
