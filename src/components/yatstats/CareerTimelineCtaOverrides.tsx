@@ -48,6 +48,20 @@ export default function CareerTimelineCtaOverrides() {
         text-shadow: 0 2px 4px rgba(0,0,0,.86), 0 0 1px rgba(0,0,0,.9);
       }
 
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt {
+        transform: translateX(-50%) !important;
+      }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment {
+        margin-left: 0 !important;
+      }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment .zt-image-wrap,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt + .zt-img-moment img {
+        margin-left: 0 !important;
+      }
+
       @media (min-width: 760px) {
         .zt-img-card .zt-prompt-card::before,
         .zt-prompt-card::before {
