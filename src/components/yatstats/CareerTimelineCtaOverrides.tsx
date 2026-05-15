@@ -1,7 +1,7 @@
 export default function CareerTimelineCtaOverrides() {
   return (
-    <style jsx global>{`
-      .zt-img-card :global(.zt-prompt-card),
+    <style dangerouslySetInnerHTML={{ __html: `
+      .zt-img-card .zt-prompt-card,
       .zt-prompt-card {
         position: relative !important;
         isolation: isolate !important;
@@ -17,16 +17,16 @@ export default function CareerTimelineCtaOverrides() {
         background-repeat: no-repeat !important;
       }
 
-      .zt-img-card :global(.zt-prompt-card b),
-      .zt-img-card :global(.zt-prompt-card strong),
-      .zt-img-card :global(.zt-prompt-card i),
+      .zt-img-card .zt-prompt-card b,
+      .zt-img-card .zt-prompt-card strong,
+      .zt-img-card .zt-prompt-card i,
       .zt-prompt-card b,
       .zt-prompt-card strong,
       .zt-prompt-card i {
         display: none !important;
       }
 
-      .zt-img-card :global(.zt-prompt-card)::before,
+      .zt-img-card .zt-prompt-card::before,
       .zt-prompt-card::before {
         content: 'The baseball journey doesn\'t end at graduation.\\A Neither should the story.';
         white-space: pre-line;
@@ -43,7 +43,7 @@ export default function CareerTimelineCtaOverrides() {
         text-shadow: 0 2px 4px rgba(0,0,0,.86), 0 0 1px rgba(0,0,0,.9);
       }
 
-      .zt-img-card :global(.zt-prompt-card)::after,
+      .zt-img-card .zt-prompt-card::after,
       .zt-prompt-card::after {
         content: '';
         position: absolute;
@@ -60,11 +60,11 @@ export default function CareerTimelineCtaOverrides() {
       }
 
       @media (min-width: 760px) {
-        .zt-img-card :global(.zt-prompt-card)::before,
+        .zt-img-card .zt-prompt-card::before,
         .zt-prompt-card::before {
           font-size: 12px;
         }
       }
-    `}</style>
+    ` }} />
   );
 }
