@@ -10,6 +10,10 @@ export default function CareerTimelineCtaOverrides() {
         background: transparent !important;
       }
 
+      .zt-window-images .zt-canvas-images > .zt-upload-slot:first-child {
+        transform: translate(calc(-50% + 82px), -50%) !important;
+      }
+
       .zt-img-card:has(.zt-prompt-card),
       .zt-img-moment.zt-prompt .zt-img-card,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-img-card {
