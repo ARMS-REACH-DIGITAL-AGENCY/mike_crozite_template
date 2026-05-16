@@ -49,12 +49,18 @@ export default function CareerTimelineCtaOverrides() {
         background: transparent !important;
       }
 
+      .zt-window-images .zt-canvas-images .zt-img-card {
+        border-top: 0 !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 4px solid #ffd200 !important;
+        box-shadow: none !important;
+        box-sizing: border-box !important;
+      }
+
       .zt-img-card:has(.zt-prompt-card),
       .zt-img-moment.zt-prompt .zt-img-card,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-img-card {
-        border: 0 !important;
-        border-color: transparent !important;
-        box-shadow: none !important;
         padding: 0 !important;
         margin: 0 !important;
         background: transparent !important;
@@ -119,7 +125,6 @@ export default function CareerTimelineCtaOverrides() {
         min-width: 58px !important;
         height: 100% !important;
         background: #090909 !important;
-        border: 0 !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
         overflow: hidden !important;
@@ -143,7 +148,6 @@ export default function CareerTimelineCtaOverrides() {
       .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap {
         height: 100% !important;
         background: #090909 !important;
-        border: 2px solid rgba(255,255,255,.72) !important;
         box-sizing: border-box !important;
         overflow: hidden !important;
       }
