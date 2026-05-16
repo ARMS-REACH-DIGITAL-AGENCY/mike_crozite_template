@@ -10,6 +10,7 @@ const STRIP_HEIGHT = 84;
 const PROMPT_WIDTH = 118;
 const PHOTO_WIDTH = 58;
 const OUTFIELD_YELLOW = "#ffd200";
+const EXTRA_UPLOAD_SPACE = 76;
 
 export default function CareerTimelineCtaOverrides() {
   useEffect(() => {
@@ -22,13 +23,92 @@ export default function CareerTimelineCtaOverrides() {
       window.dispatchEvent(new CustomEvent(ZOOM_EVENT, { detail: { zoom, source: "career-cta-override" } }));
     }
 
+    function numberFromLeft(node: HTMLElement) {
+      const raw = node.dataset.yatOriginalLeft || node.style.left || "0";
+      const value = Number(String(raw).replace("px", ""));
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function rememberOriginalLeft(node: HTMLElement) {
+      if (!node.dataset.yatOriginalLeft) {
+        node.dataset.yatOriginalLeft = node.style.left || "0px";
+      }
+    }
+
+    function rememberOriginalWidth(node: HTMLElement) {
+      if (!node.dataset.yatOriginalWidth) {
+        node.dataset.yatOriginalWidth = node.style.width || `${node.getBoundingClientRect().width || 0}px`;
+      }
+    }
+
+    function resetExpandedSpacing(canvas: HTMLElement) {
+      const moments = Array.from(canvas.querySelectorAll(".zt-img-moment")) as HTMLElement[];
+      const slots = Array.from(canvas.querySelectorAll(".zt-upload-slot")) as HTMLElement[];
+      moments.forEach((node) => {
+        if (node.dataset.yatOriginalLeft) node.style.left = node.dataset.yatOriginalLeft;
+      });
+      slots.forEach((node) => {
+        if (node.dataset.yatOriginalLeft) node.style.left = node.dataset.yatOriginalLeft;
+      });
+      if (canvas.dataset.yatOriginalWidth) canvas.style.width = canvas.dataset.yatOriginalWidth;
+    }
+
+    function syncExpandedSpacing() {
+      const shell = document.querySelector(".zt-shell-images") as HTMLElement | null;
+      const canvas = document.querySelector(".zt-window-images .zt-canvas-images") as HTMLElement | null;
+      if (!shell || !canvas) return;
+
+      if (!shell.classList.contains(EXPANDED_CLASS)) {
+        resetExpandedSpacing(canvas);
+        return;
+      }
+
+      rememberOriginalWidth(canvas);
+
+      const moments = Array.from(canvas.querySelectorAll(".zt-img-moment")) as HTMLElement[];
+      const slots = Array.from(canvas.querySelectorAll(".zt-upload-slot")) as HTMLElement[];
+      if (moments.length < 2) return;
+
+      const sortedMoments = moments
+        .map((node) => {
+          rememberOriginalLeft(node);
+          return { node, left: numberFromLeft(node) };
+        })
+        .sort((a, b) => a.left - b.left);
+
+      sortedMoments.forEach(({ node, left }, index) => {
+        node.style.left = `${left + index * EXTRA_UPLOAD_SPACE}px`;
+      });
+
+      const sortedSlots = slots
+        .map((node) => {
+          rememberOriginalLeft(node);
+          return { node, left: numberFromLeft(node) };
+        })
+        .sort((a, b) => a.left - b.left);
+
+      sortedSlots.forEach(({ node, left }, index) => {
+        node.style.left = `${left + (index + 0.5) * EXTRA_UPLOAD_SPACE}px`;
+      });
+
+      const originalWidth = Number(String(canvas.dataset.yatOriginalWidth || canvas.style.width || "0").replace("px", ""));
+      if (Number.isFinite(originalWidth) && originalWidth > 0) {
+        canvas.style.width = `${originalWidth + Math.max(0, sortedMoments.length - 1) * EXTRA_UPLOAD_SPACE}px`;
+      }
+    }
+
     function syncClosedMontage() {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         const shell = document.querySelector(".zt-shell-images") as HTMLElement | null;
         const canvas = document.querySelector(".zt-window-images .zt-canvas-images") as HTMLElement | null;
-        if (!shell || !canvas || shell.classList.contains(EXPANDED_CLASS)) return;
+        if (!shell || !canvas) return;
+        if (shell.classList.contains(EXPANDED_CLASS)) {
+          syncExpandedSpacing();
+          return;
+        }
 
+        resetExpandedSpacing(canvas);
         const moments = Array.from(canvas.querySelectorAll(".zt-img-moment")) as HTMLElement[];
         let cursor = 0;
 
@@ -85,6 +165,7 @@ export default function CareerTimelineCtaOverrides() {
       const shouldClose = Boolean(shell?.classList.contains(EXPANDED_CLASS));
       setTimelineZoom(shouldClose ? CLOSED_ZOOM : FULL_ZOOM);
       window.setTimeout(syncClosedMontage, 80);
+      window.setTimeout(syncExpandedSpacing, 160);
     }
 
     const observer = new MutationObserver(syncClosedMontage);
@@ -96,6 +177,7 @@ export default function CareerTimelineCtaOverrides() {
     document.addEventListener("load", syncClosedMontage, true);
     syncClosedMontage();
     window.setTimeout(syncClosedMontage, 250);
+    window.setTimeout(syncExpandedSpacing, 350);
     window.setTimeout(syncClosedMontage, 1000);
 
     return () => {
@@ -138,18 +220,13 @@ export default function CareerTimelineCtaOverrides() {
       .zt-window-images .zt-canvas-images .zt-img-card {
         height: ${STRIP_HEIGHT}px !important;
         border: 0 !important;
+        border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
       }
 
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-img-card,
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-img-card {
-        border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
-      }
-
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-img-card,
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-prompt-card,
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-season .zt-img-card {
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-prompt-card {
         border-bottom: 0 !important;
       }
 
@@ -259,6 +336,13 @@ export default function CareerTimelineCtaOverrides() {
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-card-overlay,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-card-overlay {
         display: none !important;
+      }
+
+      .zt-window-images .zt-upload-slot {
+        min-width: 46px !important;
+        height: 22px !important;
+        border-color: rgba(255, 210, 0, .72) !important;
+        color: #fff !important;
       }
 
       .zt-shell-line .zt-line {
