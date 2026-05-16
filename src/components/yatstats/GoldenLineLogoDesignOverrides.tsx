@@ -11,7 +11,7 @@ const MIN_PHOTO_W = 34;
 const MAX_PHOTO_W = 210;
 const SEASON_LOGO_W = 100;
 const OUTFIELD_YELLOW = '#ffd200';
-const YELLOW_LINE_W = 2.5;
+const YELLOW_LINE_W = 2;
 
 function isExpanded() {
   return Boolean(document.querySelector('#playerCareerImages.zt-expanded'));
@@ -38,7 +38,7 @@ function classifyTimelineImages() {
     const img = wrap.querySelector<HTMLImageElement>('img');
     const moment = wrap.closest<HTMLElement>('.zt-img-moment');
     const card = wrap.closest<HTMLElement>('.zt-img-card');
-    if (!img || !moment || !card) return;
+    if (!img || !moment || !card || moment.classList.contains('zt-upload')) return;
 
     const apply = () => {
       const w = img.naturalWidth || 0;
@@ -75,9 +75,8 @@ function layoutGoldenLine() {
   if (!root || !canvas) return;
 
   const gap = getGap();
-  const moments = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment:not(.zt-prompt)'));
-  const uploads = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-upload-slot'));
-
+  const moments = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment:not(.zt-prompt):not(.zt-upload):not(.zt-upload-slot)'));
+  const uploads = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment.zt-upload, .zt-upload-slot'));
   const seams: number[] = [];
 
   if (prompt) {
@@ -105,6 +104,7 @@ function layoutGoldenLine() {
     moment.style.marginLeft = '0';
     moment.style.transform = 'none';
     moment.style.setProperty('--zt-card-w', `${w}px`);
+    moment.style.top = '0px';
     if (card) {
       card.style.width = `${w}px`;
       card.style.setProperty('--zt-card-w', `${w}px`);
@@ -120,7 +120,9 @@ function layoutGoldenLine() {
   uploads.forEach((button, index) => {
     const left = seams[index] ?? CTA_CARD_W;
     button.style.left = `${left}px`;
+    button.style.top = `${CARD_H / 2}px`;
     button.style.marginLeft = '0';
+    button.style.transform = 'translate(-50%, -50%)';
   });
 }
 
@@ -214,18 +216,29 @@ export default function GoldenLineLogoDesignOverrides() {
         --zt-line-w: ${YELLOW_LINE_W}px;
       }
 
-      /* No fixed overlay rail. The yellow line is attached to each image card so it scrolls with the image. */
       #playerCareerImages::before,
       #playerCareerImages::after {
         content: none !important;
         display: none !important;
       }
 
+      #playerCareerImages,
+      #playerCareerImages .zt-shell-images,
+      #playerCareerImages .zt-window-images,
+      #playerCareerImages .zt-canvas-images,
+      #playerCareerStrip .zt-shell-images,
+      #playerCareerStrip .zt-window,
+      #playerCareerStrip .zt-canvas {
+        height: ${CARD_H}px !important;
+        min-height: ${CARD_H}px !important;
+        max-height: ${CARD_H}px !important;
+      }
+
       #playerCareerImages .zt-prompt {
         left: 0 !important;
         top: 0 !important;
         width: var(--zt-cta-w) !important;
-        height: 100% !important;
+        height: ${CARD_H}px !important;
         min-width: var(--zt-cta-w) !important;
         transform: none !important;
         z-index: 30 !important;
@@ -233,7 +246,7 @@ export default function GoldenLineLogoDesignOverrides() {
 
       #playerCareerImages .zt-prompt .zt-img-card {
         width: var(--zt-cta-w) !important;
-        height: 100% !important;
+        height: ${CARD_H}px !important;
         min-width: var(--zt-cta-w) !important;
         background: #080808 !important;
         border: 0 !important;
@@ -273,30 +286,25 @@ export default function GoldenLineLogoDesignOverrides() {
         height: 0 !important;
       }
 
-      #playerCareerImages .zt-canvas-images {
-        height: ${CARD_H}px !important;
-      }
-
-      #playerCareerImages .zt-img-moment:not(.zt-prompt),
+      #playerCareerImages .zt-img-moment:not(.zt-prompt):not(.zt-upload),
       #playerCareerImages .zt-img-card {
         width: var(--zt-card-w, auto) !important;
         height: ${CARD_H}px !important;
         min-width: 0 !important;
         top: 0 !important;
         background: transparent !important;
-        box-shadow: none !important;
+        border: 0 !important;
       }
 
       #playerCareerImages .zt-img-card {
-        border: 0 !important;
-        border-bottom: var(--zt-line-w) solid var(--zt-outfield-yellow) !important;
         box-sizing: border-box !important;
         overflow: hidden !important;
+        box-shadow: inset 0 calc(-1 * var(--zt-line-w)) 0 var(--zt-outfield-yellow) !important;
       }
 
       #playerCareerImages .zt-prompt .zt-img-card {
         border: 0 !important;
-        border-bottom: 0 !important;
+        box-shadow: none !important;
       }
 
       #playerCareerImages .zt-img-card::after,
@@ -338,6 +346,7 @@ export default function GoldenLineLogoDesignOverrides() {
         display: none !important;
       }
 
+      #playerCareerImages .zt-img-moment.zt-upload,
       #playerCareerImages .zt-upload-slot {
         width: 28px !important;
         min-width: 28px !important;
@@ -352,25 +361,29 @@ export default function GoldenLineLogoDesignOverrides() {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        transform: translate(-50%, -50%) !important;
         z-index: 12 !important;
+        box-shadow: none !important;
       }
 
+      #playerCareerImages .zt-img-moment.zt-upload::before,
       #playerCareerImages .zt-upload-slot::before {
         content: '+' !important;
         font: 900 19px/1 Oswald, Arial, sans-serif !important;
         color: #fff !important;
       }
 
-      #playerCareerImages .zt-upload-slot::after {
+      #playerCareerImages.zt-expanded .zt-img-moment.zt-upload::after,
+      #playerCareerImages.zt-expanded .zt-upload-slot::after {
         content: '' !important;
         position: absolute !important;
         left: 50% !important;
-        bottom: -39px !important;
-        width: var(--zt-line-w) !important;
-        height: 14px !important;
+        bottom: -37px !important;
+        width: ${EXPANDED_GAP}px !important;
+        height: 16px !important;
         transform: translateX(-50%) !important;
-        background: var(--zt-outfield-yellow) !important;
+        background:
+          linear-gradient(var(--zt-outfield-yellow), var(--zt-outfield-yellow)) center bottom / 100% var(--zt-line-w) no-repeat,
+          linear-gradient(var(--zt-outfield-yellow), var(--zt-outfield-yellow)) center bottom / var(--zt-line-w) 14px no-repeat !important;
         pointer-events: none !important;
       }
     `}</style>
