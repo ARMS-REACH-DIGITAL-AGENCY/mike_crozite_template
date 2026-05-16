@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 const CARD_H = 100;
 const CTA_CARD_W = 118;
-const TIMELINE_CARD_W = 200;
+const DEFAULT_CARD_W = 100;
 const CLOSED_GAP = 0;
 const EXPANDED_GAP = 76;
 const MIN_PHOTO_W = 34;
@@ -12,18 +12,18 @@ const MAX_PHOTO_W = 210;
 const SEASON_LOGO_W = 100;
 const OUTFIELD_YELLOW = '#ffd200';
 const YELLOW_LINE_W = 2;
-const FORCE_OPEN_STRIP = true;
 
 function uploadTabIsActive() {
-  return FORCE_OPEN_STRIP || window.location.hash === '#ppTab-upload';
+  return window.location.hash === '#ppTab-upload';
 }
 
 function normalizeExpandedState() {
   const root = document.getElementById('playerCareerImages');
-  document.body.classList.toggle('yat-golden-line-upload-mode', uploadTabIsActive());
+  const expanded = uploadTabIsActive();
+  document.body.classList.toggle('yat-golden-line-upload-mode', expanded);
   if (!root) return;
-  root.classList.toggle('zt-expanded', uploadTabIsActive());
-  root.classList.toggle('zt-closed', !uploadTabIsActive());
+  root.classList.toggle('zt-expanded', expanded);
+  root.classList.toggle('zt-closed', !expanded);
 }
 
 function isExpanded() {
@@ -50,7 +50,7 @@ function getMomentWidth(moment: HTMLElement) {
   const value = Number(moment.dataset.ztCardW || moment.style.getPropertyValue('--zt-card-w').replace('px', ''));
   if (Number.isFinite(value) && value > 0) return value;
   if (moment.classList.contains('zt-prompt')) return CTA_CARD_W;
-  return TIMELINE_CARD_W;
+  return DEFAULT_CARD_W;
 }
 
 function classifyTimelineImages() {
@@ -69,7 +69,8 @@ function classifyTimelineImages() {
       const aspect = w / h;
       const isPortraitSource = aspect < 0.9 && !isSeason;
       const isLandscapeSource = aspect > 1.12 && !isSeason;
-      const cardW = isExpanded() ? TIMELINE_CARD_W : isSeason ? SEASON_LOGO_W : clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
+      const naturalPhotoW = clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
+      const cardW = isSeason ? SEASON_LOGO_W : naturalPhotoW;
 
       wrap.classList.toggle('zt-source-portrait', isPortraitSource);
       wrap.classList.toggle('zt-source-landscape', isLandscapeSource);
@@ -261,7 +262,7 @@ export default function GoldenLineLogoDesignOverrides() {
     <style jsx global>{`
       #playerCareerImages {
         --zt-cta-w: ${CTA_CARD_W}px;
-        --zt-card-w: ${TIMELINE_CARD_W}px;
+        --zt-card-w: ${DEFAULT_CARD_W}px;
         --zt-outfield-yellow: ${OUTFIELD_YELLOW};
         --zt-line-w: ${YELLOW_LINE_W}px;
       }
@@ -334,8 +335,8 @@ export default function GoldenLineLogoDesignOverrides() {
 
       #playerCareerImages .zt-img-moment:not(.zt-prompt),
       #playerCareerImages .zt-img-card {
-        width: var(--zt-card-w, ${TIMELINE_CARD_W}px) !important;
-        min-width: var(--zt-card-w, ${TIMELINE_CARD_W}px) !important;
+        width: var(--zt-card-w, ${DEFAULT_CARD_W}px) !important;
+        min-width: var(--zt-card-w, ${DEFAULT_CARD_W}px) !important;
         top: 0 !important;
         background: transparent !important;
         border: 0 !important;
