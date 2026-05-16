@@ -8,17 +8,8 @@ const EXPANDED_CLASS = "zt-expanded";
 const ZOOM_EVENT = "yat:career-timeline-zoom";
 const STRIP_HEIGHT = 84;
 const PROMPT_WIDTH = 118;
-
-function clampWidth(width: number) {
-  if (!Number.isFinite(width) || width <= 0) return 58;
-  return Math.max(34, Math.min(220, Math.round(width)));
-}
-
-function getNaturalMontageWidth(moment: HTMLElement) {
-  const img = moment.querySelector("img") as HTMLImageElement | null;
-  if (!img || !img.naturalWidth || !img.naturalHeight) return 58;
-  return clampWidth(STRIP_HEIGHT * (img.naturalWidth / img.naturalHeight));
-}
+const PHOTO_WIDTH = 58;
+const OUTFIELD_YELLOW = "#ffd200";
 
 export default function CareerTimelineCtaOverrides() {
   useEffect(() => {
@@ -42,13 +33,13 @@ export default function CareerTimelineCtaOverrides() {
         let cursor = 0;
 
         moments.forEach((moment) => {
-          const isPhoto = moment.classList.contains("zt-upload") || moment.classList.contains("zt-archive");
           const isPrompt = moment.classList.contains("zt-prompt");
+          const isPhoto = moment.classList.contains("zt-upload") || moment.classList.contains("zt-archive");
           const card = moment.querySelector(".zt-img-card") as HTMLElement | null;
           const wrap = moment.querySelector(".zt-image-wrap") as HTMLElement | null;
           const img = moment.querySelector("img") as HTMLImageElement | null;
 
-          const width = isPrompt ? PROMPT_WIDTH : isPhoto ? getNaturalMontageWidth(moment) : clampWidth(moment.offsetWidth || 58);
+          const width = isPrompt ? PROMPT_WIDTH : isPhoto ? PHOTO_WIDTH : PHOTO_WIDTH;
           const center = cursor + width / 2;
 
           moment.style.left = `${center}px`;
@@ -61,14 +52,16 @@ export default function CareerTimelineCtaOverrides() {
             card.style.minWidth = `${width}px`;
             card.style.height = `${STRIP_HEIGHT}px`;
           }
+
           if (wrap) {
             wrap.style.width = `${width}px`;
             wrap.style.minWidth = `${width}px`;
             wrap.style.height = `${STRIP_HEIGHT}px`;
           }
+
           if (img && isPhoto) {
-            img.style.width = `${width}px`;
-            img.style.height = `${STRIP_HEIGHT}px`;
+            img.style.width = "100%";
+            img.style.height = "100%";
           }
 
           cursor += width;
@@ -121,19 +114,21 @@ export default function CareerTimelineCtaOverrides() {
       .zt-shell-images,
       .zt-window-images,
       .zt-canvas-images {
-        height: 84px !important;
-        min-height: 84px !important;
-        max-height: 84px !important;
+        height: ${STRIP_HEIGHT}px !important;
+        min-height: ${STRIP_HEIGHT}px !important;
+        max-height: ${STRIP_HEIGHT}px !important;
       }
 
       .zt-window-images .zt-canvas-images .zt-img-moment {
         top: 0 !important;
-        height: 84px !important;
+        height: ${STRIP_HEIGHT}px !important;
       }
 
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt {
+        width: ${PROMPT_WIDTH}px !important;
+        min-width: ${PROMPT_WIDTH}px !important;
         transform: translateX(-50%) !important;
-        overflow: visible !important;
+        overflow: hidden !important;
         border: 0 !important;
         outline: 0 !important;
         box-shadow: none !important;
@@ -141,23 +136,28 @@ export default function CareerTimelineCtaOverrides() {
       }
 
       .zt-window-images .zt-canvas-images .zt-img-card {
-        height: 84px !important;
-        border-top: 0 !important;
-        border-left: 0 !important;
-        border-right: 0 !important;
-        border-bottom: 4px solid #ffd200 !important;
+        height: ${STRIP_HEIGHT}px !important;
+        border: 0 !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
       }
 
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-img-card {
+        border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
+      }
+
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-img-card,
-      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-prompt-card {
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-prompt-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-season .zt-img-card {
         border-bottom: 0 !important;
       }
 
       .zt-img-card:has(.zt-prompt-card),
       .zt-img-moment.zt-prompt .zt-img-card,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-prompt .zt-img-card {
+        width: ${PROMPT_WIDTH}px !important;
+        min-width: ${PROMPT_WIDTH}px !important;
         padding: 0 !important;
         margin: 0 !important;
         background: transparent !important;
@@ -177,7 +177,7 @@ export default function CareerTimelineCtaOverrides() {
         overflow: hidden !important;
         display: block !important;
         width: 100% !important;
-        height: 84px !important;
+        height: ${STRIP_HEIGHT}px !important;
         min-width: 100% !important;
         padding: 0 !important;
         margin: 0 !important;
@@ -209,6 +209,8 @@ export default function CareerTimelineCtaOverrides() {
 
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive {
+        width: ${PHOTO_WIDTH}px !important;
+        min-width: ${PHOTO_WIDTH}px !important;
         overflow: hidden !important;
       }
 
@@ -218,7 +220,9 @@ export default function CareerTimelineCtaOverrides() {
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap {
         position: relative !important;
         display: block !important;
-        height: 84px !important;
+        width: ${PHOTO_WIDTH}px !important;
+        min-width: ${PHOTO_WIDTH}px !important;
+        height: ${STRIP_HEIGHT}px !important;
         background: #090909 !important;
         background-image: none !important;
         box-shadow: none !important;
@@ -237,12 +241,13 @@ export default function CareerTimelineCtaOverrides() {
 
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload img,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive img {
-        position: relative !important;
-        width: auto !important;
-        min-width: 0 !important;
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        min-width: 100% !important;
         max-width: none !important;
-        height: 84px !important;
-        min-height: 84px !important;
+        height: 100% !important;
+        min-height: 100% !important;
         object-fit: cover !important;
         object-position: center center !important;
         display: block !important;
@@ -254,6 +259,30 @@ export default function CareerTimelineCtaOverrides() {
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-card-overlay,
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-card-overlay {
         display: none !important;
+      }
+
+      .zt-shell-line .zt-line {
+        display: none !important;
+      }
+
+      .zt-shell-line .zt-line-pin:not(.zt-line-prompt) {
+        display: none !important;
+      }
+
+      .zt-shell-line .zt-line-prompt {
+        top: 44% !important;
+        width: 10px !important;
+        height: 18px !important;
+      }
+
+      .zt-shell-line .zt-line-prompt span {
+        display: block !important;
+        width: 2px !important;
+        height: 18px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: ${OUTFIELD_YELLOW} !important;
+        box-shadow: none !important;
       }
     ` }} />
   );
