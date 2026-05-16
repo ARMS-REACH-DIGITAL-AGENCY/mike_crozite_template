@@ -78,7 +78,8 @@ function layoutGoldenLine() {
   const moments = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment:not(.zt-prompt)'));
   const uploads = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-upload-slot'));
 
-  let promptCenter = CTA_CARD_W / 2;
+  const seams: number[] = [];
+
   if (prompt) {
     prompt.style.left = '0px';
     prompt.style.width = `${CTA_CARD_W}px`;
@@ -86,7 +87,6 @@ function layoutGoldenLine() {
     prompt.style.transform = 'none';
     prompt.style.setProperty('--zt-card-w', `${CTA_CARD_W}px`);
     prompt.dataset.ztCardW = String(CTA_CARD_W);
-    promptCenter = CTA_CARD_W / 2;
     const promptCard = prompt.querySelector<HTMLElement>('.zt-img-card');
     if (promptCard) {
       promptCard.style.width = `${CTA_CARD_W}px`;
@@ -95,36 +95,30 @@ function layoutGoldenLine() {
   }
 
   let leftEdge = CTA_CARD_W + EDGE_GUTTER;
-  const centers: number[] = [promptCenter];
-  const widths: number[] = [CTA_CARD_W];
+  seams.push(leftEdge);
 
   moments.forEach((moment) => {
     const w = getMomentWidth(moment);
     const card = moment.querySelector<HTMLElement>('.zt-img-card');
-    widths.push(w);
-    const center = leftEdge + w / 2;
-    centers.push(center);
-    moment.style.left = `${center}px`;
+    moment.style.left = `${leftEdge}px`;
     moment.style.width = `${w}px`;
     moment.style.marginLeft = '0';
-    moment.style.transform = 'translateX(-50%)';
+    moment.style.transform = 'none';
     moment.style.setProperty('--zt-card-w', `${w}px`);
     if (card) {
       card.style.width = `${w}px`;
       card.style.setProperty('--zt-card-w', `${w}px`);
     }
-    leftEdge += w + gap;
+    leftEdge += w;
+    seams.push(leftEdge + gap / 2);
+    leftEdge += gap;
   });
 
   const canvasWidth = Math.max(leftEdge + EDGE_GUTTER, root.clientWidth || 320);
   canvas.style.width = `${canvasWidth}px`;
 
   uploads.forEach((button, index) => {
-    const left = centers[index] != null && centers[index + 1] != null
-      ? (centers[index] + centers[index + 1]) / 2
-      : centers[index] != null
-        ? centers[index] + (widths[index] || 58) / 2 + gap / 2
-        : CTA_CARD_W;
+    const left = seams[index] ?? CTA_CARD_W;
     button.style.left = `${left}px`;
     button.style.marginLeft = '0';
   });
@@ -220,31 +214,11 @@ export default function GoldenLineLogoDesignOverrides() {
         --zt-line-w: ${YELLOW_LINE_W}px;
       }
 
-      /* Connected yellow timeline only after the CTA card. */
-      #playerCareerImages::before {
-        content: '' !important;
-        position: absolute !important;
-        left: var(--zt-cta-w) !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        height: var(--zt-line-w) !important;
-        z-index: 1 !important;
-        background: var(--zt-outfield-yellow) !important;
-        pointer-events: none !important;
-      }
-
+      /* No fixed overlay rail. The yellow line is attached to each image card so it scrolls with the image. */
+      #playerCareerImages::before,
       #playerCareerImages::after {
-        content: 'drag timeline • use arrow keys' !important;
-        position: absolute !important;
-        right: 10px !important;
-        bottom: 8px !important;
-        z-index: 60 !important;
-        color: rgba(255,255,255,.54) !important;
-        font: 800 8px/1 Oswald, Arial, sans-serif !important;
-        letter-spacing: .08em !important;
-        text-transform: uppercase !important;
-        pointer-events: none !important;
-        opacity: .72 !important;
+        content: none !important;
+        display: none !important;
       }
 
       #playerCareerImages .zt-prompt {
@@ -263,7 +237,14 @@ export default function GoldenLineLogoDesignOverrides() {
         min-width: var(--zt-cta-w) !important;
         background: #080808 !important;
         border: 0 !important;
-        border-right: 1px solid rgba(255,255,255,.25) !important;
+        box-shadow: none !important;
+      }
+
+      #playerCareerImages .zt-prompt .zt-img-card,
+      #playerCareerImages .zt-prompt .zt-img-card *,
+      #playerCareerImages .zt-prompt .zt-image-wrap,
+      #playerCareerImages .zt-prompt .zt-image-wrap img {
+        outline: 0 !important;
         box-shadow: none !important;
       }
 
@@ -314,6 +295,7 @@ export default function GoldenLineLogoDesignOverrides() {
       }
 
       #playerCareerImages .zt-prompt .zt-img-card {
+        border: 0 !important;
         border-bottom: 0 !important;
       }
 
