@@ -202,9 +202,10 @@ function ensureStyles() {
 
 export default function FeaturedTeamNewsInjector({ player = {}, hsid }: FeaturedTeamNewsInjectorProps) {
   useEffect(() => {
-    const media = mediaForPlayer(player, hsid);
-    if (!media) return;
+    const selectedMedia = mediaForPlayer(player, hsid);
+    if (!selectedMedia) return;
 
+    const media: FeaturedMedia = selectedMedia;
     const displayName = playerDisplayName(player);
     ensureStyles();
 
