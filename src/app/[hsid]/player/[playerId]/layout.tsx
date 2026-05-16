@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
 import FeaturedTeamNewsInjector from '@/components/yatstats/FeaturedTeamNewsInjector';
@@ -42,6 +44,18 @@ function normalizeTeamAffiliationStatus(value: unknown, statusLabel: string, tea
   return 'UNKNOWN';
 }
 
+function isCanonicalHostMismatch(currentHost: string, canonicalUrl: string) {
+  const host = String(currentHost || '').toLowerCase().split(':')[0];
+  if (!host || !host.endsWith('.yatstats.com')) return false;
+
+  try {
+    const canonicalHost = new URL(canonicalUrl).hostname.toLowerCase();
+    return Boolean(canonicalHost && canonicalHost.endsWith('.yatstats.com') && host !== canonicalHost);
+  } catch {
+    return false;
+  }
+}
+
 export default async function PlayerLayout({
   children,
   params,
@@ -50,6 +64,8 @@ export default async function PlayerLayout({
   params: Promise<{ hsid: string; playerId: string }>;
 }) {
   const { hsid, playerId } = await params;
+  const requestHeaders = await headers();
+  const currentHost = requestHeaders.get('x-forwarded-host') || requestHeaders.get('host') || '';
   let playerName = '';
   let canonicalPlayerHsid = hsid;
   let playerSchoolUrl = hsid ? `/${hsid}` : '';
@@ -120,6 +136,15 @@ export default async function PlayerLayout({
       statusLabel,
     };
   } catch {}
+
+  const playerSlug = slugifySchoolName(playerName || playerId);
+  const canonicalPlayerUrl = playerSchoolUrl
+    ? `${playerSchoolUrl}/player/${encodeURIComponent(playerId)}${playerSlug ? `/${playerSlug}` : ''}`
+    : '';
+
+  if (canonicalPlayerUrl && isCanonicalHostMismatch(currentHost, canonicalPlayerUrl)) {
+    redirect(canonicalPlayerUrl);
+  }
 
   const featuredTeamPlayer = {
     playerid: playerId,
