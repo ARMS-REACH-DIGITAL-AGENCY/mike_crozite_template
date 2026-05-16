@@ -11,9 +11,10 @@ const MAX_PHOTO_W = 210;
 const SEASON_LOGO_W = 100;
 const OUTFIELD_YELLOW = '#ffd200';
 const YELLOW_LINE_W = 2;
+const FORCE_OPEN_STRIP = true;
 
 function uploadTabIsActive() {
-  return window.location.hash === '#ppTab-upload';
+  return FORCE_OPEN_STRIP || window.location.hash === '#ppTab-upload';
 }
 
 function normalizeExpandedState() {
@@ -49,7 +50,7 @@ function getMomentWidth(moment: HTMLElement) {
   if (Number.isFinite(value) && value > 0) return value;
   if (moment.classList.contains('zt-prompt')) return CTA_CARD_W;
   if (moment.classList.contains('zt-season')) return SEASON_LOGO_W;
-  return 58;
+  return 100;
 }
 
 function classifyTimelineImages() {
@@ -68,7 +69,7 @@ function classifyTimelineImages() {
       const aspect = w / h;
       const isPortraitSource = aspect < 0.9 && !isSeason;
       const isLandscapeSource = aspect > 1.12 && !isSeason;
-      const cardW = isSeason ? SEASON_LOGO_W : clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
+      const cardW = isExpanded() ? 100 : isSeason ? SEASON_LOGO_W : clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
 
       wrap.classList.toggle('zt-source-portrait', isPortraitSource);
       wrap.classList.toggle('zt-source-landscape', isLandscapeSource);
@@ -332,8 +333,8 @@ export default function GoldenLineLogoDesignOverrides() {
 
       #playerCareerImages .zt-img-moment:not(.zt-prompt),
       #playerCareerImages .zt-img-card {
-        width: var(--zt-card-w, auto) !important;
-        min-width: 0 !important;
+        width: var(--zt-card-w, 100px) !important;
+        min-width: var(--zt-card-w, 100px) !important;
         top: 0 !important;
         background: transparent !important;
         border: 0 !important;
