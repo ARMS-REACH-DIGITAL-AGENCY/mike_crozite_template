@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 const CARD_H = 100;
 const CTA_CARD_W = 118;
+const TIMELINE_CARD_W = 200;
 const CLOSED_GAP = 0;
 const EXPANDED_GAP = 76;
 const MIN_PHOTO_W = 34;
@@ -49,8 +50,7 @@ function getMomentWidth(moment: HTMLElement) {
   const value = Number(moment.dataset.ztCardW || moment.style.getPropertyValue('--zt-card-w').replace('px', ''));
   if (Number.isFinite(value) && value > 0) return value;
   if (moment.classList.contains('zt-prompt')) return CTA_CARD_W;
-  if (moment.classList.contains('zt-season')) return SEASON_LOGO_W;
-  return 100;
+  return TIMELINE_CARD_W;
 }
 
 function classifyTimelineImages() {
@@ -69,7 +69,7 @@ function classifyTimelineImages() {
       const aspect = w / h;
       const isPortraitSource = aspect < 0.9 && !isSeason;
       const isLandscapeSource = aspect > 1.12 && !isSeason;
-      const cardW = isExpanded() ? 100 : isSeason ? SEASON_LOGO_W : clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
+      const cardW = isExpanded() ? TIMELINE_CARD_W : isSeason ? SEASON_LOGO_W : clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
 
       wrap.classList.toggle('zt-source-portrait', isPortraitSource);
       wrap.classList.toggle('zt-source-landscape', isLandscapeSource);
@@ -261,6 +261,7 @@ export default function GoldenLineLogoDesignOverrides() {
     <style jsx global>{`
       #playerCareerImages {
         --zt-cta-w: ${CTA_CARD_W}px;
+        --zt-card-w: ${TIMELINE_CARD_W}px;
         --zt-outfield-yellow: ${OUTFIELD_YELLOW};
         --zt-line-w: ${YELLOW_LINE_W}px;
       }
@@ -333,8 +334,8 @@ export default function GoldenLineLogoDesignOverrides() {
 
       #playerCareerImages .zt-img-moment:not(.zt-prompt),
       #playerCareerImages .zt-img-card {
-        width: var(--zt-card-w, 100px) !important;
-        min-width: var(--zt-card-w, 100px) !important;
+        width: var(--zt-card-w, ${TIMELINE_CARD_W}px) !important;
+        min-width: var(--zt-card-w, ${TIMELINE_CARD_W}px) !important;
         top: 0 !important;
         background: transparent !important;
         border: 0 !important;
