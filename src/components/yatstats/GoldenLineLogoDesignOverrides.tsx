@@ -12,22 +12,48 @@ const MAX_PHOTO_W = 210;
 const SEASON_LOGO_W = 100;
 const OUTFIELD_YELLOW = '#ffd200';
 const YELLOW_LINE_W = 2;
+const STORAGE_KEY = 'yat-golden-line-open';
 
-function uploadTabIsActive() {
+function funZoneUploadTabIsActive() {
   return window.location.hash === '#ppTab-upload';
+}
+
+function readOpenState() {
+  const root = document.getElementById('playerCareerImages');
+  if (root?.dataset.yatGoldenLineOpen === 'true') return true;
+  if (root?.dataset.yatGoldenLineOpen === 'false') return false;
+  if (funZoneUploadTabIsActive()) return true;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeOpenState(open: boolean) {
+  const root = document.getElementById('playerCareerImages');
+  if (root) root.dataset.yatGoldenLineOpen = open ? 'true' : 'false';
+  try {
+    window.localStorage.setItem(STORAGE_KEY, open ? 'true' : 'false');
+  } catch {
+    // localStorage can be unavailable in some browser/privacy contexts.
+  }
 }
 
 function normalizeExpandedState() {
   const root = document.getElementById('playerCareerImages');
-  const expanded = uploadTabIsActive();
-  document.body.classList.toggle('yat-golden-line-upload-mode', expanded);
+  const open = readOpenState();
+  const uploadMode = funZoneUploadTabIsActive();
+
+  document.body.classList.toggle('yat-golden-line-open', open);
+  document.body.classList.toggle('yat-golden-line-upload-mode', uploadMode);
   if (!root) return;
-  root.classList.toggle('zt-expanded', expanded);
-  root.classList.toggle('zt-closed', !expanded);
+  root.classList.toggle('zt-expanded', open);
+  root.classList.toggle('zt-closed', !open);
 }
 
 function isExpanded() {
-  return uploadTabIsActive() && Boolean(document.querySelector('#playerCareerImages.zt-expanded'));
+  return readOpenState() && Boolean(document.querySelector('#playerCareerImages.zt-expanded'));
 }
 
 function getGap() {
@@ -173,6 +199,38 @@ function layoutGoldenLine() {
   });
 }
 
+function bindAnchorToggle() {
+  const prompt = document.querySelector<HTMLElement>('#playerCareerImages .zt-img-moment.zt-prompt');
+  if (!prompt || prompt.dataset.yatGoldenLineToggleBound === 'true') return;
+  prompt.dataset.yatGoldenLineToggleBound = 'true';
+  prompt.setAttribute('role', 'button');
+  prompt.setAttribute('tabindex', '0');
+  prompt.setAttribute('aria-label', 'Open or close the Golden Line timeline');
+
+  const toggle = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    writeOpenState(!readOpenState());
+    refreshGoldenLine();
+  };
+
+  prompt.addEventListener('click', toggle);
+  prompt.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    toggle(event);
+  });
+}
+
+function bindUploadButtons() {
+  document.querySelectorAll<HTMLElement>('#playerCareerImages .zt-upload-slot, #playerCareerImages .zt-img-moment.zt-upload').forEach((button) => {
+    if (button.dataset.yatUploadButtonBound === 'true') return;
+    button.dataset.yatUploadButtonBound = 'true';
+    button.addEventListener('click', () => {
+      writeOpenState(true);
+    });
+  });
+}
+
 function enableDragScroll() {
   const scroller = document.querySelector<HTMLElement>('#playerCareerImages .zt-window-images');
   if (!scroller || scroller.dataset.dragScrollBound === 'true') return;
@@ -230,6 +288,8 @@ function enableDragScroll() {
 function refreshGoldenLine() {
   normalizeExpandedState();
   classifyTimelineImages();
+  bindAnchorToggle();
+  bindUploadButtons();
   enableDragScroll();
   requestAnimationFrame(layoutGoldenLine);
   window.setTimeout(layoutGoldenLine, 80);
@@ -302,6 +362,7 @@ export default function GoldenLineLogoDesignOverrides() {
         min-width: var(--zt-cta-w) !important;
         transform: none !important;
         z-index: 30 !important;
+        cursor: pointer !important;
       }
 
       #playerCareerImages .zt-prompt .zt-img-card {
@@ -399,9 +460,9 @@ export default function GoldenLineLogoDesignOverrides() {
         display: none !important;
       }
 
-      body:not(.yat-golden-line-upload-mode) #playerCareerImages .zt-upload-slot,
-      body:not(.yat-golden-line-upload-mode) #playerCareerImages .zt-img-moment.zt-upload:not(:has(img)),
-      body:not(.yat-golden-line-upload-mode) #playerCareerImages .zt-img-moment.zt-upload:has(.zt-prompt-card) {
+      body:not(.yat-golden-line-open) #playerCareerImages .zt-upload-slot,
+      body:not(.yat-golden-line-open) #playerCareerImages .zt-img-moment.zt-upload:not(:has(img)),
+      body:not(.yat-golden-line-open) #playerCareerImages .zt-img-moment.zt-upload:has(.zt-prompt-card) {
         display: none !important;
       }
 
