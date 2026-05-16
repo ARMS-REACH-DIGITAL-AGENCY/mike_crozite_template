@@ -13,8 +13,19 @@ const SEASON_LOGO_W = 100;
 const OUTFIELD_YELLOW = '#ffd200';
 const YELLOW_LINE_W = 2;
 
+function uploadTabIsActive() {
+  return window.location.hash === '#ppTab-upload';
+}
+
+function normalizeExpandedState() {
+  const root = document.getElementById('playerCareerImages');
+  if (!root) return;
+  root.classList.toggle('zt-expanded', uploadTabIsActive());
+  root.classList.toggle('zt-closed', !uploadTabIsActive());
+}
+
 function isExpanded() {
-  return Boolean(document.querySelector('#playerCareerImages.zt-expanded'));
+  return uploadTabIsActive() && Boolean(document.querySelector('#playerCareerImages.zt-expanded'));
 }
 
 function getGap() {
@@ -60,6 +71,7 @@ function classifyTimelineImages() {
       moment.style.setProperty('--zt-card-w', `${cardW}px`);
       card.style.setProperty('--zt-card-w', `${cardW}px`);
       card.style.width = `${cardW}px`;
+      card.style.height = `${CARD_H}px`;
       wrap.style.setProperty('--zt-logo-bg-url', `url("${img.currentSrc || img.src}")`);
     };
 
@@ -69,6 +81,8 @@ function classifyTimelineImages() {
 }
 
 function layoutGoldenLine() {
+  normalizeExpandedState();
+
   const root = document.getElementById('playerCareerImages');
   const canvas = root?.querySelector<HTMLElement>('.zt-canvas-images');
   const prompt = canvas?.querySelector<HTMLElement>('.zt-img-moment.zt-prompt');
@@ -79,9 +93,15 @@ function layoutGoldenLine() {
   const uploads = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment.zt-upload, .zt-upload-slot'));
   const seams: number[] = [];
 
+  canvas.style.height = `${CARD_H}px`;
+  canvas.style.minHeight = `${CARD_H}px`;
+  canvas.style.maxHeight = `${CARD_H}px`;
+
   if (prompt) {
     prompt.style.left = '0px';
+    prompt.style.top = '0px';
     prompt.style.width = `${CTA_CARD_W}px`;
+    prompt.style.height = `${CARD_H}px`;
     prompt.style.marginLeft = '0';
     prompt.style.transform = 'none';
     prompt.style.setProperty('--zt-card-w', `${CTA_CARD_W}px`);
@@ -89,6 +109,7 @@ function layoutGoldenLine() {
     const promptCard = prompt.querySelector<HTMLElement>('.zt-img-card');
     if (promptCard) {
       promptCard.style.width = `${CTA_CARD_W}px`;
+      promptCard.style.height = `${CARD_H}px`;
       promptCard.style.setProperty('--zt-card-w', `${CTA_CARD_W}px`);
     }
   }
@@ -99,15 +120,28 @@ function layoutGoldenLine() {
   moments.forEach((moment) => {
     const w = getMomentWidth(moment);
     const card = moment.querySelector<HTMLElement>('.zt-img-card');
+    const wrap = moment.querySelector<HTMLElement>('.zt-image-wrap');
+    const img = moment.querySelector<HTMLImageElement>('img');
     moment.style.left = `${leftEdge}px`;
     moment.style.width = `${w}px`;
+    moment.style.height = `${CARD_H}px`;
     moment.style.marginLeft = '0';
     moment.style.transform = 'none';
     moment.style.setProperty('--zt-card-w', `${w}px`);
     moment.style.top = '0px';
     if (card) {
       card.style.width = `${w}px`;
+      card.style.height = `${CARD_H}px`;
       card.style.setProperty('--zt-card-w', `${w}px`);
+    }
+    if (wrap) {
+      wrap.style.width = '100%';
+      wrap.style.height = '100%';
+    }
+    if (img) {
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = wrap?.classList.contains('zt-image-wrap-season') ? 'contain' : 'cover';
     }
     leftEdge += w;
     seams.push(leftEdge + gap / 2);
@@ -181,6 +215,7 @@ function enableDragScroll() {
 }
 
 function refreshGoldenLine() {
+  normalizeExpandedState();
   classifyTimelineImages();
   enableDragScroll();
   requestAnimationFrame(layoutGoldenLine);
@@ -198,12 +233,14 @@ export default function GoldenLineLogoDesignOverrides() {
 
     window.addEventListener('load', refreshGoldenLine);
     window.addEventListener('resize', refreshGoldenLine);
+    window.addEventListener('hashchange', refreshGoldenLine);
     window.addEventListener('yat:career-timeline-zoom', refreshGoldenLine as EventListener);
 
     return () => {
       observer.disconnect();
       window.removeEventListener('load', refreshGoldenLine);
       window.removeEventListener('resize', refreshGoldenLine);
+      window.removeEventListener('hashchange', refreshGoldenLine);
       window.removeEventListener('yat:career-timeline-zoom', refreshGoldenLine as EventListener);
     };
   }, []);
@@ -229,6 +266,22 @@ export default function GoldenLineLogoDesignOverrides() {
       #playerCareerStrip .zt-shell-images,
       #playerCareerStrip .zt-window,
       #playerCareerStrip .zt-canvas {
+        height: ${CARD_H}px !important;
+        min-height: ${CARD_H}px !important;
+        max-height: ${CARD_H}px !important;
+      }
+
+      #playerCareerImages:not(.zt-expanded) + #playerCareerStrip,
+      #playerCareerImages:not(.zt-expanded) ~ #playerCareerStrip,
+      #playerCareerStrip:not(:has(#ppTab-upload[aria-hidden='false'])) .zt-axis,
+      #playerCareerImages:not(.zt-expanded) .zt-axis,
+      #playerCareerImages:not(.zt-expanded) .zt-year-axis,
+      #playerCareerImages:not(.zt-expanded) .zt-timeline-axis {
+        display: none !important;
+      }
+
+      #playerCareerImages:not(.zt-expanded) .zt-window-images,
+      #playerCareerImages:not(.zt-expanded) .zt-canvas-images {
         height: ${CARD_H}px !important;
         min-height: ${CARD_H}px !important;
         max-height: ${CARD_H}px !important;
@@ -296,6 +349,11 @@ export default function GoldenLineLogoDesignOverrides() {
         border: 0 !important;
       }
 
+      #playerCareerImages .zt-img-moment:not(.zt-prompt):not(.zt-upload) {
+        transform: none !important;
+        margin-left: 0 !important;
+      }
+
       #playerCareerImages .zt-img-card {
         box-sizing: border-box !important;
         overflow: hidden !important;
@@ -346,6 +404,11 @@ export default function GoldenLineLogoDesignOverrides() {
         display: none !important;
       }
 
+      #playerCareerImages:not(.zt-expanded) .zt-img-moment.zt-upload,
+      #playerCareerImages:not(.zt-expanded) .zt-upload-slot {
+        display: none !important;
+      }
+
       #playerCareerImages .zt-img-moment.zt-upload,
       #playerCareerImages .zt-upload-slot {
         width: 28px !important;
@@ -358,11 +421,15 @@ export default function GoldenLineLogoDesignOverrides() {
         color: #fff !important;
         font-size: 0 !important;
         line-height: 1 !important;
-        display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         z-index: 12 !important;
         box-shadow: none !important;
+      }
+
+      #playerCareerImages.zt-expanded .zt-img-moment.zt-upload,
+      #playerCareerImages.zt-expanded .zt-upload-slot {
+        display: inline-flex !important;
       }
 
       #playerCareerImages .zt-img-moment.zt-upload::before,
