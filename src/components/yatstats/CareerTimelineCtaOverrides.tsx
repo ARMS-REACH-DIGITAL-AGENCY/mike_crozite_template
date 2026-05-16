@@ -110,58 +110,53 @@ export default function CareerTimelineCtaOverrides() {
         content: none !important;
       }
 
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload,
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive {
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive {
         width: 58px !important;
         min-width: 58px !important;
         overflow: hidden !important;
       }
 
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-img-card,
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-img-card,
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-image-wrap,
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap {
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-img-card,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-image-wrap,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap {
+        position: relative !important;
+        display: block !important;
         width: 58px !important;
         min-width: 58px !important;
         height: 100% !important;
         background: #090909 !important;
+        background-image: none !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
         overflow: hidden !important;
       }
 
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload img,
-      .zt-closed .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive img {
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-image-wrap::before,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-image-wrap::after,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap::before,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap::after {
+        display: none !important;
+        content: none !important;
+        background: none !important;
+      }
+
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload img,
+      .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive img {
+        position: absolute !important;
+        inset: 0 !important;
         width: 100% !important;
+        min-width: 100% !important;
         max-width: none !important;
         height: 100% !important;
+        min-height: 100% !important;
         object-fit: cover !important;
         object-position: center center !important;
         display: block !important;
         padding: 0 !important;
         margin: 0 !important;
-      }
-
-      .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-img-card,
-      .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-img-card,
-      .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-image-wrap,
-      .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive .zt-image-wrap {
-        height: 100% !important;
         background: #090909 !important;
-        box-sizing: border-box !important;
-        overflow: hidden !important;
-      }
-
-      .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload img,
-      .zt-expanded .zt-window-images .zt-canvas-images .zt-img-moment.zt-archive img {
-        width: 100% !important;
-        max-width: none !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        object-position: center center !important;
-        display: block !important;
-        padding: 0 !important;
-        margin: 0 !important;
       }
 
       .zt-window-images .zt-canvas-images .zt-img-moment.zt-upload .zt-card-overlay,
