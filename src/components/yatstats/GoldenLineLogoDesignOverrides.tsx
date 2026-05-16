@@ -2,11 +2,15 @@
 
 import { useEffect } from 'react';
 
-const TILE_W = 134;
+const CARD_H = 84;
 const CTA_CARD_W = 118;
-const EDGE_GUTTER = 13;
+const EDGE_GUTTER = 0;
 const CLOSED_GAP = 0;
 const EXPANDED_GAP = 76;
+const MIN_PHOTO_W = 34;
+const MAX_PHOTO_W = 180;
+const SEASON_LOGO_W = 84;
+const OUTFIELD_YELLOW = '#ffd200';
 
 function isExpanded() {
   return Boolean(document.querySelector('#playerCareerImages.zt-expanded'));
@@ -14,6 +18,18 @@ function isExpanded() {
 
 function getGap() {
   return isExpanded() ? EXPANDED_GAP : CLOSED_GAP;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function getMomentWidth(moment: HTMLElement) {
+  const value = Number(moment.dataset.ztCardW || moment.style.getPropertyValue('--zt-card-w').replace('px', ''));
+  if (Number.isFinite(value) && value > 0) return value;
+  if (moment.classList.contains('zt-prompt')) return CTA_CARD_W;
+  if (moment.classList.contains('zt-season')) return SEASON_LOGO_W;
+  return 58;
 }
 
 function classifyTimelineImages() {
@@ -29,14 +45,20 @@ function classifyTimelineImages() {
       if (!w || !h) return;
 
       const isSeason = wrap.classList.contains('zt-image-wrap-season');
-      const isPortraitSource = w / h < 0.9 && !isSeason;
+      const aspect = w / h;
+      const isPortraitSource = aspect < 0.9 && !isSeason;
+      const isLandscapeSource = aspect > 1.12 && !isSeason;
+      const cardW = isSeason ? SEASON_LOGO_W : clamp(Math.round(CARD_H * aspect), MIN_PHOTO_W, MAX_PHOTO_W);
 
       wrap.classList.toggle('zt-source-portrait', isPortraitSource);
-      wrap.classList.toggle('zt-source-landscape', !isPortraitSource);
+      wrap.classList.toggle('zt-source-landscape', isLandscapeSource);
       moment.classList.toggle('zt-moment-portrait', isPortraitSource);
-      moment.classList.toggle('zt-moment-landscape', !isPortraitSource);
-      moment.style.setProperty('--zt-card-w', `${TILE_W}px`);
-      card.style.setProperty('--zt-card-w', `${TILE_W}px`);
+      moment.classList.toggle('zt-moment-landscape', isLandscapeSource);
+      moment.classList.toggle('zt-moment-squareish', !isPortraitSource && !isLandscapeSource && !isSeason);
+      moment.dataset.ztCardW = String(cardW);
+      moment.style.setProperty('--zt-card-w', `${cardW}px`);
+      card.style.setProperty('--zt-card-w', `${cardW}px`);
+      card.style.width = `${cardW}px`;
       wrap.style.setProperty('--zt-logo-bg-url', `url("${img.currentSrc || img.src}")`);
     };
 
@@ -45,42 +67,50 @@ function classifyTimelineImages() {
   });
 }
 
-function updateGoldenRail() {
-  const root = document.getElementById('playerCareerImages');
-  const scroller = root?.querySelector<HTMLElement>('.zt-window-images');
-  if (!root || !scroller) return;
-
-  const viewport = Math.max(1, scroller.clientWidth || root.clientWidth || 1);
-  const scrollWidth = Math.max(viewport, scroller.scrollWidth || viewport);
-  const maxScroll = Math.max(1, scrollWidth - viewport);
-  const thumbPct = Math.max(8, Math.min(100, (viewport / scrollWidth) * 100));
-  const leftPct = maxScroll <= 1 ? 0 : Math.min(100 - thumbPct, (scroller.scrollLeft / maxScroll) * (100 - thumbPct));
-
-  root.style.setProperty('--zt-rail-thumb-left', `${leftPct}%`);
-  root.style.setProperty('--zt-rail-thumb-width', `${thumbPct}%`);
-}
-
 function layoutGoldenLine() {
   const root = document.getElementById('playerCareerImages');
   const canvas = root?.querySelector<HTMLElement>('.zt-canvas-images');
+  const prompt = canvas?.querySelector<HTMLElement>('.zt-img-moment.zt-prompt');
   if (!root || !canvas) return;
 
   const gap = getGap();
   const moments = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment:not(.zt-prompt)'));
   const uploads = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-upload-slot'));
 
+  if (prompt) {
+    prompt.style.left = '0px';
+    prompt.style.width = `${CTA_CARD_W}px`;
+    prompt.style.marginLeft = '0';
+    prompt.style.transform = 'none';
+    prompt.style.setProperty('--zt-card-w', `${CTA_CARD_W}px`);
+    prompt.dataset.ztCardW = String(CTA_CARD_W);
+    const promptCard = prompt.querySelector<HTMLElement>('.zt-img-card');
+    if (promptCard) {
+      promptCard.style.width = `${CTA_CARD_W}px`;
+      promptCard.style.setProperty('--zt-card-w', `${CTA_CARD_W}px`);
+    }
+  }
+
   let leftEdge = CTA_CARD_W + EDGE_GUTTER;
   const centers: number[] = [];
+  const widths: number[] = [];
 
   moments.forEach((moment) => {
-    const center = leftEdge + TILE_W / 2;
+    const w = getMomentWidth(moment);
+    const card = moment.querySelector<HTMLElement>('.zt-img-card');
+    widths.push(w);
+    const center = leftEdge + w / 2;
     centers.push(center);
     moment.style.left = `${center}px`;
-    moment.style.width = `${TILE_W}px`;
+    moment.style.width = `${w}px`;
     moment.style.marginLeft = '0';
     moment.style.transform = 'translateX(-50%)';
-    moment.style.setProperty('--zt-card-w', `${TILE_W}px`);
-    leftEdge += TILE_W + gap;
+    moment.style.setProperty('--zt-card-w', `${w}px`);
+    if (card) {
+      card.style.width = `${w}px`;
+      card.style.setProperty('--zt-card-w', `${w}px`);
+    }
+    leftEdge += w + gap;
   });
 
   const canvasWidth = Math.max(leftEdge + EDGE_GUTTER, root.clientWidth || 320);
@@ -90,19 +120,18 @@ function layoutGoldenLine() {
     const left = centers[index] != null && centers[index + 1] != null
       ? (centers[index] + centers[index + 1]) / 2
       : centers[index] != null
-        ? centers[index] + TILE_W / 2 + gap / 2
-        : CTA_CARD_W + EDGE_GUTTER / 2;
+        ? centers[index] + (widths[index] || 58) / 2 + gap / 2
+        : CTA_CARD_W;
     button.style.left = `${left}px`;
     button.style.marginLeft = '0';
   });
-
-  updateGoldenRail();
 }
 
 function refreshGoldenLine() {
   classifyTimelineImages();
   requestAnimationFrame(layoutGoldenLine);
   window.setTimeout(layoutGoldenLine, 80);
+  window.setTimeout(layoutGoldenLine, 220);
 }
 
 export default function GoldenLineLogoDesignOverrides() {
@@ -113,65 +142,30 @@ export default function GoldenLineLogoDesignOverrides() {
     const root = document.getElementById('playerCareerImages') || document.body;
     observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'class', 'style'] });
 
-    const bindScroller = () => {
-      const scroller = document.querySelector<HTMLElement>('#playerCareerImages .zt-window-images');
-      scroller?.removeEventListener('scroll', updateGoldenRail);
-      scroller?.addEventListener('scroll', updateGoldenRail, { passive: true });
-    };
-
-    bindScroller();
     window.addEventListener('load', refreshGoldenLine);
     window.addEventListener('resize', refreshGoldenLine);
     window.addEventListener('yat:career-timeline-zoom', refreshGoldenLine as EventListener);
-    window.addEventListener('yat:career-timeline-zoom', bindScroller as EventListener);
 
     return () => {
-      const scroller = document.querySelector<HTMLElement>('#playerCareerImages .zt-window-images');
-      scroller?.removeEventListener('scroll', updateGoldenRail);
       observer.disconnect();
       window.removeEventListener('load', refreshGoldenLine);
       window.removeEventListener('resize', refreshGoldenLine);
       window.removeEventListener('yat:career-timeline-zoom', refreshGoldenLine as EventListener);
-      window.removeEventListener('yat:career-timeline-zoom', bindScroller as EventListener);
     };
   }, []);
 
   return (
     <style jsx global>{`
       #playerCareerImages {
-        --zt-tile-w: ${TILE_W}px;
         --zt-cta-w: ${CTA_CARD_W}px;
-        --zt-rail-thumb-left: 0%;
-        --zt-rail-thumb-width: 100%;
+        --zt-outfield-yellow: ${OUTFIELD_YELLOW};
       }
 
-      /* Persistent Golden Line rail. This stays visible even when the native scrollbar hides or content fits. */
-      #playerCareerImages::before {
-        content: '' !important;
-        position: absolute !important;
-        left: var(--zt-cta-w) !important;
-        right: 12px !important;
-        bottom: 0 !important;
-        height: 6px !important;
-        z-index: 45 !important;
-        border-radius: 999px !important;
-        background: rgba(210, 180, 92, .30) !important;
-        box-shadow: inset 0 0 0 1px rgba(120, 88, 24, .18) !important;
-        pointer-events: none !important;
-      }
-
+      /* Remove the old gold slide-status rail. The only horizontal yellow line should be the image bottom border. */
+      #playerCareerImages::before,
       #playerCareerImages::after {
-        content: '' !important;
-        position: absolute !important;
-        left: calc(var(--zt-cta-w) + ((100% - var(--zt-cta-w) - 12px) * var(--zt-rail-thumb-left) / 100)) !important;
-        bottom: 0 !important;
-        width: calc((100% - var(--zt-cta-w) - 12px) * var(--zt-rail-thumb-width) / 100) !important;
-        height: 6px !important;
-        z-index: 46 !important;
-        border-radius: 999px !important;
-        background: linear-gradient(90deg, #c19a38, #f0d686, #c19a38) !important;
-        box-shadow: 0 0 6px rgba(210, 180, 92, .45) !important;
-        pointer-events: none !important;
+        content: none !important;
+        display: none !important;
       }
 
       #playerCareerImages .zt-prompt {
@@ -179,6 +173,7 @@ export default function GoldenLineLogoDesignOverrides() {
         top: 0 !important;
         width: var(--zt-cta-w) !important;
         height: 100% !important;
+        min-width: var(--zt-cta-w) !important;
         transform: none !important;
         z-index: 30 !important;
       }
@@ -186,7 +181,9 @@ export default function GoldenLineLogoDesignOverrides() {
       #playerCareerImages .zt-prompt .zt-img-card {
         width: var(--zt-cta-w) !important;
         height: 100% !important;
+        min-width: var(--zt-cta-w) !important;
         background: #080808 !important;
+        border: 0 !important;
         border-right: 1px solid rgba(255,255,255,.25) !important;
         box-shadow: none !important;
       }
@@ -195,49 +192,48 @@ export default function GoldenLineLogoDesignOverrides() {
       #playerCareerStrip .zt-window {
         overflow-x: auto !important;
         overflow-y: hidden !important;
-        scrollbar-width: thin !important;
-        scrollbar-color: rgba(210,180,92,.75) rgba(0,0,0,.18) !important;
+        scrollbar-width: none !important;
       }
 
       #playerCareerImages .zt-window-images {
         padding-left: 0 !important;
+        padding-bottom: 0 !important;
         box-sizing: border-box !important;
-        padding-bottom: 8px !important;
       }
 
       #playerCareerImages .zt-window-images::-webkit-scrollbar,
       #playerCareerStrip .zt-window::-webkit-scrollbar {
-        display: block !important;
-        height: 8px !important;
+        display: none !important;
+        height: 0 !important;
       }
 
-      #playerCareerImages .zt-window-images::-webkit-scrollbar-track,
-      #playerCareerStrip .zt-window::-webkit-scrollbar-track {
-        background: rgba(0,0,0,.14) !important;
-      }
-
-      #playerCareerImages .zt-window-images::-webkit-scrollbar-thumb,
-      #playerCareerStrip .zt-window::-webkit-scrollbar-thumb {
-        background: rgba(210,180,92,.78) !important;
-        border-radius: 999px !important;
+      #playerCareerImages .zt-canvas-images {
+        height: ${CARD_H}px !important;
       }
 
       #playerCareerImages .zt-img-moment:not(.zt-prompt),
       #playerCareerImages .zt-img-card {
-        width: var(--zt-tile-w) !important;
-        height: 100% !important;
+        width: var(--zt-card-w, auto) !important;
+        height: ${CARD_H}px !important;
+        min-width: 0 !important;
         top: 0 !important;
-        background: #fff !important;
+        background: transparent !important;
         box-shadow: none !important;
       }
 
       #playerCareerImages .zt-img-card {
-        border-left-width: 0 !important;
-        border-right-width: 0 !important;
+        border: 0 !important;
+        border-bottom: 5px solid var(--zt-outfield-yellow) !important;
+        box-sizing: border-box !important;
         overflow: hidden !important;
       }
 
-      #playerCareerImages .zt-img-card::after {
+      #playerCareerImages .zt-prompt .zt-img-card {
+        border-bottom: 0 !important;
+      }
+
+      #playerCareerImages .zt-img-card::after,
+      #playerCareerImages .zt-img-card .zt-image-wrap::before {
         content: none !important;
         display: none !important;
       }
@@ -249,26 +245,7 @@ export default function GoldenLineLogoDesignOverrides() {
         width: 100% !important;
         height: 100% !important;
         overflow: hidden !important;
-        background: #fff !important;
-      }
-
-      #playerCareerImages .zt-img-card .zt-image-wrap::before {
-        content: '' !important;
-        position: absolute !important;
-        inset: -18% !important;
-        z-index: 0 !important;
-        background-image: var(--zt-logo-bg-url) !important;
-        background-repeat: no-repeat !important;
-        background-position: center !important;
-        background-size: cover !important;
-        opacity: .20 !important;
-        filter: blur(1px) saturate(1.05) contrast(1.04) !important;
-        pointer-events: none !important;
-      }
-
-      #playerCareerImages .zt-img-card .zt-image-wrap-season::before {
-        content: none !important;
-        display: none !important;
+        background: transparent !important;
       }
 
       #playerCareerImages .zt-img-card .zt-image-wrap img {
@@ -279,13 +256,14 @@ export default function GoldenLineLogoDesignOverrides() {
         height: 100% !important;
         padding: 0 !important;
         margin: 0 !important;
-        object-fit: contain !important;
+        object-fit: cover !important;
         object-position: center center !important;
         background: transparent !important;
       }
 
       #playerCareerImages .zt-img-card .zt-image-wrap-season img {
-        background: #fff !important;
+        object-fit: contain !important;
+        background: transparent !important;
       }
 
       #playerCareerImages .zt-card-overlay,
