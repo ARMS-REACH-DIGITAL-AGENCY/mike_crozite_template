@@ -171,6 +171,14 @@ function mediaForPlayer(player: Record<string, unknown>, hsid?: string): Feature
   return null;
 }
 
+function htmlAttr(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function buildStreamCard(displayName: string, media: FeaturedMedia, variant: "flip" | "profile") {
   const firstName = firstNameOf(displayName);
   const body = media.body.replace("this player's", `${firstName}'s`);
@@ -206,17 +214,65 @@ function buildStreamCard(displayName: string, media: FeaturedMedia, variant: "fl
   return wrapper;
 }
 
+function openYatLiveModal(media: FeaturedMedia) {
+  const existing = document.getElementById("yat-live-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "yat-live-modal";
+  overlay.className = "yat-live-modal";
+  overlay.innerHTML = `
+    <div class="yat-live-backdrop" data-yat-live-close="true"></div>
+    <section class="yat-live-shell" role="dialog" aria-modal="true" aria-label="YAT?STATS LIVE">
+      <header class="yat-live-header">
+        <div>
+          <span>${htmlAttr(media.badge)}</span>
+          <strong>${htmlAttr(media.title)}</strong>
+        </div>
+        <button type="button" class="yat-live-close" data-yat-live-close="true" aria-label="Close YAT live module">×</button>
+      </header>
+      <div class="yat-live-frame-wrap">
+        <iframe
+          src="${htmlAttr(media.embedUrl)}"
+          title="${htmlAttr(media.title)}"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+      <footer class="yat-live-footer">
+        <span>YAT?STATS LIVE browser window • ${htmlAttr(media.source)}</span>
+        <a href="${htmlAttr(media.url)}" target="_blank" rel="noopener noreferrer">Open source</a>
+      </footer>
+    </section>
+  `;
+
+  overlay.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.getAttribute("data-yat-live-close") === "true") overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+}
+
 function buildScheduleBanner(media: FeaturedMedia) {
   const wrapper = document.createElement("div");
   wrapper.className = "fz-gameday-banner";
   wrapper.setAttribute("data-yat-team-video", media.id);
   wrapper.innerHTML = `
-    <a class="fz-gameday-banner-link" href="${media.url}" target="_blank" rel="noopener noreferrer">
+    <button class="fz-gameday-banner-link" type="button" data-yat-live-open="${htmlAttr(media.id)}">
       <span class="fz-gameday-kicker">${media.badge}</span>
       <strong>${media.title}</strong>
-      <span>${media.subtitle} - tap to open the Gameday feed</span>
-    </a>
+      <span>${media.subtitle} - tap to open the YAT?STATS LIVE module</span>
+    </button>
   `;
+  const button = wrapper.querySelector("[data-yat-live-open]");
+  button?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openYatLiveModal(media);
+  });
   return wrapper;
 }
 
@@ -239,10 +295,22 @@ function ensureStyles() {
     .fz-stream-footer span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .fz-stream-footer a{flex:0 0 auto;color:#f1cf62;text-decoration:none;border:1px solid rgba(207,176,86,.54);padding:clamp(4px,1.3cqi,7px) clamp(7px,2cqi,11px);}
     .fz-gameday-banner{width:100%;margin:0 0 clamp(7px,2.2cqi,13px);}
-    .fz-gameday-banner-link{display:grid;gap:clamp(2px,.8cqi,4px);padding:clamp(7px,2.4cqi,12px);border:1px solid rgba(207,176,86,.56);border-radius:clamp(6px,1.8cqi,10px);background:linear-gradient(135deg,#161109,#2a2114 55%,rgba(212,177,92,.25));color:#f8f2df;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08);}
+    .fz-gameday-banner-link{display:grid;width:100%;text-align:left;gap:clamp(2px,.8cqi,4px);padding:clamp(7px,2.4cqi,12px);border:1px solid rgba(207,176,86,.56);border-radius:clamp(6px,1.8cqi,10px);background:linear-gradient(135deg,#161109,#2a2114 55%,rgba(212,177,92,.25));color:#f8f2df;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08);cursor:pointer;}
     .fz-gameday-kicker{font:900 clamp(7px,2.2cqi,10px)/1 Oswald,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#d4b15c;}
     .fz-gameday-banner strong{font:900 clamp(13px,4.4cqi,21px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#fff;}
     .fz-gameday-banner span:last-child{font:700 clamp(7px,2.2cqi,10px)/1.25 Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.76);}
+    .yat-live-modal{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,34px);}
+    .yat-live-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);}
+    .yat-live-shell{position:relative;width:min(1180px,96vw);height:min(760px,88vh);display:flex;flex-direction:column;border:1px solid rgba(212,177,92,.62);border-radius:18px;overflow:hidden;background:#080705;box-shadow:0 28px 80px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.08);}
+    .yat-live-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px 10px;border-bottom:1px solid rgba(212,177,92,.42);background:linear-gradient(90deg,#171109,#2c2113);color:#fff;}
+    .yat-live-header div{display:flex;min-width:0;flex-direction:column;gap:3px;}
+    .yat-live-header span{font:900 11px/1 Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#d4b15c;}
+    .yat-live-header strong{font:900 clamp(22px,4vw,42px)/.95 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#fff;}
+    .yat-live-close{width:42px;height:42px;border:1px solid rgba(212,177,92,.46);border-radius:999px;background:rgba(0,0,0,.25);color:#f8f2df;font:300 32px/1 system-ui,sans-serif;cursor:pointer;}
+    .yat-live-frame-wrap{position:relative;flex:1;min-height:0;background:#050505;}
+    .yat-live-frame-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#050505;}
+    .yat-live-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid rgba(212,177,92,.35);background:#100d09;color:rgba(255,255,255,.72);font:800 11px/1.2 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;}
+    .yat-live-footer a{color:#f1cf62;text-decoration:none;border:1px solid rgba(212,177,92,.45);padding:7px 10px;white-space:nowrap;}
     .fz-featured-stream-profile{max-width:820px;margin:0 auto 18px;}
     .fz-featured-stream-profile .fz-stream-frame-card{padding:14px;}
     .fz-featured-stream-profile .fz-stream-topline strong{font-size:clamp(24px,5vw,44px);}
