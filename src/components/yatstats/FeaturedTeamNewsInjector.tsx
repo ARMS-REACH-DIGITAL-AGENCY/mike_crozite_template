@@ -312,8 +312,12 @@ function ensureStyles() {
     .fz-stream-gold .fz-stream-badge{background:#d4b15c;color:#111;}
     .fz-stream-topline strong{font:900 clamp(13px,4.7cqi,23px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#f1cf62;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .fz-stream-subtitle{border-bottom:1px solid rgba(255,255,255,.12);padding:clamp(5px,1.6cqi,8px) 0;color:rgba(255,255,255,.82);font:900 clamp(8px,2.8cqi,13px)/1 Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;}
-    .fz-stream-window{position:relative;aspect-ratio:16/9;margin-top:clamp(7px,2.4cqi,12px);background:radial-gradient(circle at 50% 35%,rgba(210,180,92,.16),transparent 32%),#050505;overflow:hidden;border:1px solid rgba(255,255,255,.09);}
-    .fz-stream-window iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#050505;}
+    .fz-stream-window{position:relative;height:clamp(108px,32cqi,176px);margin-top:clamp(6px,2cqi,10px);background:#050505;overflow:auto;border:1px solid rgba(255,255,255,.09);}
+    .fz-stream-window iframe{display:block;width:100%;height:clamp(420px,110cqi,620px);border:0;background:#050505;}
+    .fz-featured-stream-social .fz-stream-frame-card{padding:clamp(5px,1.8cqi,9px);}
+    .fz-featured-stream-social .fz-stream-topline{padding-bottom:clamp(4px,1.2cqi,6px);}
+    .fz-featured-stream-social .fz-stream-subtitle{padding:clamp(3px,1cqi,5px) 0;}
+    .fz-featured-stream-social .fz-stream-footer{padding-top:clamp(4px,1.2cqi,6px);}
     .fz-stream-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:clamp(6px,1.8cqi,10px);color:rgba(255,255,255,.72);font:700 clamp(7px,2.1cqi,10px)/1.25 Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;}
     .fz-stream-footer span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .fz-stream-footer a{flex:0 0 auto;color:#f1cf62;text-decoration:none;border:1px solid rgba(207,176,86,.54);padding:clamp(4px,1.3cqi,7px) clamp(7px,2cqi,11px);}
@@ -354,12 +358,44 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
 
     let cancelled = false;
 
+    function getRoot() {
+      const playerId = textOf(player.playerid || player.playerId || "");
+      if (!playerId) return null;
+      return document.querySelector(`[data-player-card-id="${playerId}"]`) as HTMLElement | null;
+    }
+
+    function panelFor(root: HTMLElement | null) {
+      return root?.querySelector(".fz-panel") as HTMLElement | null;
+    }
+
+    function removeMediaFromPanel(panel: HTMLElement | null) {
+      panel?.querySelectorAll(`[data-yat-team-video="${media.id}"]`).forEach((node) => node.remove());
+    }
+
+    function bindFrontGameTrigger() {
+      if (media.target !== "social") return;
+      const root = getRoot();
+      const trigger = root?.querySelector(".yat-front-next-game") as HTMLElement | null;
+      if (!root || !trigger || trigger.dataset.yatLiveTriggerBound === media.id) return;
+
+      trigger.dataset.yatLiveTriggerBound = media.id;
+      trigger.style.cursor = "pointer";
+      trigger.setAttribute("title", "Open live Gameday feed on the Social tab");
+      trigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        root.classList.add("is-flipped");
+        window.setTimeout(() => {
+          const socialBtn = root.querySelector(".fz-tab-btn .ri-share-line")?.closest("button") as HTMLButtonElement | null;
+          socialBtn?.click();
+        }, 50);
+      });
+    }
+
     function injectFlipCardNews() {
       if (media.target === "schedule" || media.target === "social") return;
-      const playerId = textOf(player.playerid || player.playerId || "");
-      if (!playerId) return;
-      const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
-      const panel = root?.querySelector(".fz-panel") as HTMLElement | null;
+      const root = getRoot();
+      const panel = panelFor(root);
       const activeNews = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-newspaper-line");
       if (!panel || !activeNews) return;
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
@@ -368,24 +404,26 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
 
     function injectFlipCardSchedule() {
       if (media.target !== "schedule") return;
-      const playerId = textOf(player.playerid || player.playerId || "");
-      if (!playerId) return;
-      const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
-      const panel = root?.querySelector(".fz-panel") as HTMLElement | null;
+      const root = getRoot();
+      const panel = panelFor(root);
       const activeSchedule = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-calendar-line");
-      if (!panel || !activeSchedule) return;
+      if (!panel || !activeSchedule) {
+        removeMediaFromPanel(panel);
+        return;
+      }
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
       panel.prepend(buildLiveModuleBanner(media));
     }
 
     function injectFlipCardSocial() {
       if (media.target !== "social") return;
-      const playerId = textOf(player.playerid || player.playerId || "");
-      if (!playerId) return;
-      const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
-      const panel = root?.querySelector(".fz-panel") as HTMLElement | null;
+      const root = getRoot();
+      const panel = panelFor(root);
       const activeSocial = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-share-line");
-      if (!panel || !activeSocial) return;
+      if (!panel || !activeSocial) {
+        removeMediaFromPanel(panel);
+        return;
+      }
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
       panel.prepend(buildStreamCard(displayName, media, "flip"));
     }
@@ -400,6 +438,7 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
 
     function inject() {
       if (cancelled) return;
+      bindFrontGameTrigger();
       injectFlipCardNews();
       injectFlipCardSchedule();
       injectFlipCardSocial();
