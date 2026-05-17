@@ -17,10 +17,12 @@ type FeaturedMedia = {
   body: string;
   source: string;
   accent?: "red" | "gold";
+  target?: "news" | "schedule";
 };
 
 const MW_VIDEO_URL = "https://themw.com/news/2026/03/23/grand-canyon-at-nevada-7/";
 const NFHS_HAMILTON_URL = "https://www.nfhsnetwork.com/events/aia/gam63324ef372";
+const MILB_ACES_AVIATORS_GAMEDAY_URL = "https://www.milb.com/gameday/aviators-vs-aces/2026/05/16/815148/live";
 
 function norm(value: unknown) {
   return String(value || "")
@@ -42,8 +44,8 @@ function playerDisplayName(player: Record<string, unknown>) {
   return textOf(player.display_name) || textOf(player.displayName) || `${textOf(player.firstname)} ${textOf(player.lastname)}`.trim() || "this player";
 }
 
-function isNevadaOrGcuPlayer(player: Record<string, unknown>) {
-  const haystack = norm([
+function playerSearchText(player: Record<string, unknown>) {
+  return norm([
     player.current_team_name,
     player.currentTeamName,
     player.team_name,
@@ -54,6 +56,20 @@ function isNevadaOrGcuPlayer(player: Record<string, unknown>) {
     player.levelLabel,
     player.display_name,
   ].filter(Boolean).join(" "));
+}
+
+function isAcesOrAviatorsPlayer(player: Record<string, unknown>) {
+  const haystack = playerSearchText(player);
+  return (
+    haystack.includes("reno aces") ||
+    haystack.includes("aces") ||
+    haystack.includes("las vegas aviators") ||
+    haystack.includes("aviators")
+  );
+}
+
+function isNevadaOrGcuPlayer(player: Record<string, unknown>) {
+  const haystack = playerSearchText(player);
 
   return (
     haystack.includes("university of nevada") ||
@@ -107,17 +123,33 @@ function isHamiltonCurrentTeamPlayer(player: Record<string, unknown>, fallbackHs
 }
 
 function mediaForPlayer(player: Record<string, unknown>, hsid?: string): FeaturedMedia | null {
+  if (isAcesOrAviatorsPlayer(player)) {
+    return {
+      id: "milb-aces-aviators-815148",
+      url: MILB_ACES_AVIATORS_GAMEDAY_URL,
+      embedUrl: MILB_ACES_AVIATORS_GAMEDAY_URL,
+      badge: "YAT?STATS LIVE",
+      title: "Aviators vs Aces",
+      subtitle: "MiLB Gameday Feed",
+      body: "Open the live MiLB Gameday feed for this Aces/Aviators matchup.",
+      source: "MiLB Gameday",
+      accent: "gold",
+      target: "schedule",
+    };
+  }
+
   if (isHamiltonCurrentTeamPlayer(player, hsid)) {
     return {
       id: "nfhs-hamilton-game-63324ef372",
       url: NFHS_HAMILTON_URL,
       embedUrl: NFHS_HAMILTON_URL,
-      badge: "GAME STREAM",
-      title: "Hamilton Game Film",
+      badge: "LIVE STREAM",
+      title: "Hamilton Live Game Stream",
       subtitle: "Featured FunZone News Video",
-      body: "Watch this Hamilton game stream. Start at the 33:00 mark.",
+      body: "Watch the Hamilton game live on NFHS Network.",
       source: "NFHS Network",
       accent: "gold",
+      target: "news",
     };
   }
 
@@ -132,6 +164,7 @@ function mediaForPlayer(player: Record<string, unknown>, hsid?: string): Feature
       body: "Mountain West stream featuring this player's current-team matchup.",
       source: "Mountain West",
       accent: "red",
+      target: "news",
     };
   }
 
@@ -161,14 +194,28 @@ function buildStreamCard(displayName: string, media: FeaturedMedia, variant: "fl
           allowfullscreen
         ></iframe>
         <a class="fz-stream-open-overlay" href="${media.url}" target="_blank" rel="noopener noreferrer">
-          <span>Open Stream</span>
+          <span>Open Feed</span>
         </a>
       </div>
       <div class="fz-stream-footer">
         <span>${body}</span>
-        <a href="${media.url}" target="_blank" rel="noopener noreferrer">Open Video</a>
+        <a href="${media.url}" target="_blank" rel="noopener noreferrer">Open Feed</a>
       </div>
     </div>
+  `;
+  return wrapper;
+}
+
+function buildScheduleBanner(media: FeaturedMedia) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "fz-gameday-banner";
+  wrapper.setAttribute("data-yat-team-video", media.id);
+  wrapper.innerHTML = `
+    <a class="fz-gameday-banner-link" href="${media.url}" target="_blank" rel="noopener noreferrer">
+      <span class="fz-gameday-kicker">${media.badge}</span>
+      <strong>${media.title}</strong>
+      <span>${media.subtitle} - tap to open the Gameday feed</span>
+    </a>
   `;
   return wrapper;
 }
@@ -191,6 +238,11 @@ function ensureStyles() {
     .fz-stream-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:clamp(6px,1.8cqi,10px);color:rgba(255,255,255,.72);font:700 clamp(7px,2.1cqi,10px)/1.25 Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;}
     .fz-stream-footer span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .fz-stream-footer a{flex:0 0 auto;color:#f1cf62;text-decoration:none;border:1px solid rgba(207,176,86,.54);padding:clamp(4px,1.3cqi,7px) clamp(7px,2cqi,11px);}
+    .fz-gameday-banner{width:100%;margin:0 0 clamp(7px,2.2cqi,13px);}
+    .fz-gameday-banner-link{display:grid;gap:clamp(2px,.8cqi,4px);padding:clamp(7px,2.4cqi,12px);border:1px solid rgba(207,176,86,.56);border-radius:clamp(6px,1.8cqi,10px);background:linear-gradient(135deg,#161109,#2a2114 55%,rgba(212,177,92,.25));color:#f8f2df;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08);}
+    .fz-gameday-kicker{font:900 clamp(7px,2.2cqi,10px)/1 Oswald,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#d4b15c;}
+    .fz-gameday-banner strong{font:900 clamp(13px,4.4cqi,21px)/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#fff;}
+    .fz-gameday-banner span:last-child{font:700 clamp(7px,2.2cqi,10px)/1.25 Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.76);}
     .fz-featured-stream-profile{max-width:820px;margin:0 auto 18px;}
     .fz-featured-stream-profile .fz-stream-frame-card{padding:14px;}
     .fz-featured-stream-profile .fz-stream-topline strong{font-size:clamp(24px,5vw,44px);}
@@ -212,6 +264,7 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
     let cancelled = false;
 
     function injectFlipCardNews() {
+      if (media.target === "schedule") return;
       const playerId = textOf(player.playerid || player.playerId || "");
       if (!playerId) return;
       const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
@@ -222,7 +275,20 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
       panel.prepend(buildStreamCard(displayName, media, "flip"));
     }
 
+    function injectFlipCardSchedule() {
+      if (media.target !== "schedule") return;
+      const playerId = textOf(player.playerid || player.playerId || "");
+      if (!playerId) return;
+      const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
+      const panel = root?.querySelector(".fz-panel") as HTMLElement | null;
+      const activeSchedule = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-calendar-line");
+      if (!panel || !activeSchedule) return;
+      if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
+      panel.prepend(buildScheduleBanner(media));
+    }
+
     function injectProfileNews() {
+      if (media.target === "schedule") return;
       const panel = document.getElementById("ppTab-news") as HTMLElement | null;
       if (!panel) return;
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
@@ -232,6 +298,7 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
     function inject() {
       if (cancelled) return;
       injectFlipCardNews();
+      injectFlipCardSchedule();
       injectProfileNews();
     }
 
