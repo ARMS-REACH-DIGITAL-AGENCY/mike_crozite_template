@@ -17,12 +17,13 @@ type FeaturedMedia = {
   body: string;
   source: string;
   accent?: "red" | "gold";
-  target?: "news" | "schedule";
+  target?: "news" | "schedule" | "social";
 };
 
 const MW_VIDEO_URL = "https://themw.com/news/2026/03/23/grand-canyon-at-nevada-7/";
 const NFHS_HAMILTON_URL = "https://www.nfhsnetwork.com/events/aia/gam63324ef372";
 const MILB_ACES_AVIATORS_GAMEDAY_URL = "https://www.milb.com/gameday/aviators-vs-aces/2026/05/16/815148/live";
+const MLB_GIANTS_ATHLETICS_GAMEDAY_URL = "https://www.mlb.com/gameday/giants-vs-athletics/2026/05/16/825007/live";
 
 function norm(value: unknown) {
   return String(value || "")
@@ -56,6 +57,18 @@ function playerSearchText(player: Record<string, unknown>) {
     player.levelLabel,
     player.display_name,
   ].filter(Boolean).join(" "));
+}
+
+function isGiantsOrAthleticsPlayer(player: Record<string, unknown>) {
+  const haystack = playerSearchText(player);
+  return (
+    haystack.includes("san francisco giants") ||
+    haystack.includes("sf giants") ||
+    haystack.includes("giants") ||
+    haystack.includes("athletics") ||
+    haystack.includes("oakland athletics") ||
+    haystack.includes("athletics mlb")
+  );
 }
 
 function isAcesOrAviatorsPlayer(player: Record<string, unknown>) {
@@ -123,6 +136,21 @@ function isHamiltonCurrentTeamPlayer(player: Record<string, unknown>, fallbackHs
 }
 
 function mediaForPlayer(player: Record<string, unknown>, hsid?: string): FeaturedMedia | null {
+  if (isGiantsOrAthleticsPlayer(player)) {
+    return {
+      id: "mlb-giants-athletics-825007",
+      url: MLB_GIANTS_ATHLETICS_GAMEDAY_URL,
+      embedUrl: MLB_GIANTS_ATHLETICS_GAMEDAY_URL,
+      badge: "YAT?STATS LIVE",
+      title: "Giants vs Athletics",
+      subtitle: "MLB Gameday Feed",
+      body: "Open the live MLB Gameday feed for tonight's Giants at Athletics matchup.",
+      source: "MLB Gameday",
+      accent: "gold",
+      target: "social",
+    };
+  }
+
   if (isAcesOrAviatorsPlayer(player)) {
     return {
       id: "milb-aces-aviators-815148",
@@ -256,7 +284,7 @@ function openYatLiveModal(media: FeaturedMedia) {
   document.body.appendChild(overlay);
 }
 
-function buildScheduleBanner(media: FeaturedMedia) {
+function buildLiveModuleBanner(media: FeaturedMedia) {
   const wrapper = document.createElement("div");
   wrapper.className = "fz-gameday-banner";
   wrapper.setAttribute("data-yat-team-video", media.id);
@@ -332,7 +360,7 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
     let cancelled = false;
 
     function injectFlipCardNews() {
-      if (media.target === "schedule") return;
+      if (media.target === "schedule" || media.target === "social") return;
       const playerId = textOf(player.playerid || player.playerId || "");
       if (!playerId) return;
       const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
@@ -352,11 +380,23 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
       const activeSchedule = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-calendar-line");
       if (!panel || !activeSchedule) return;
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
-      panel.prepend(buildScheduleBanner(media));
+      panel.prepend(buildLiveModuleBanner(media));
+    }
+
+    function injectFlipCardSocial() {
+      if (media.target !== "social") return;
+      const playerId = textOf(player.playerid || player.playerId || "");
+      if (!playerId) return;
+      const root = document.querySelector(`[data-player-card-id="${playerId}"]`);
+      const panel = root?.querySelector(".fz-panel") as HTMLElement | null;
+      const activeSocial = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-share-line");
+      if (!panel || !activeSocial) return;
+      if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
+      panel.prepend(buildLiveModuleBanner(media));
     }
 
     function injectProfileNews() {
-      if (media.target === "schedule") return;
+      if (media.target === "schedule" || media.target === "social") return;
       const panel = document.getElementById("ppTab-news") as HTMLElement | null;
       if (!panel) return;
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
@@ -367,6 +407,7 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
       if (cancelled) return;
       injectFlipCardNews();
       injectFlipCardSchedule();
+      injectFlipCardSocial();
       injectProfileNews();
     }
 
