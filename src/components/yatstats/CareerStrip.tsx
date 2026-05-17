@@ -110,31 +110,32 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         <CareerSlot src={`${S3_BASE}/players/now/${playerId}.jpg`} />
       </div>
 
-      <style jsx>{`
-        .career-strip {
+      <style jsx global>{`
+        #playerCareerStrip.career-strip {
           height: var(--row3-h, 100px);
           min-height: var(--row3-h, 100px);
           max-height: var(--row3-h, 100px);
           align-items: stretch;
         }
 
-        .career-strip-inner {
+        #playerCareerStrip .career-strip-inner {
           height: var(--row3-h, 100px);
           min-height: var(--row3-h, 100px);
           max-height: var(--row3-h, 100px);
           align-items: stretch;
         }
 
-        .career-journey-slot {
-          flex: 0 0 var(--journey-card-w, 178px);
-          width: var(--journey-card-w, 178px);
-          min-width: var(--journey-card-w, 178px);
-          height: var(--row3-h, 100px);
+        #playerCareerStrip .career-journey-slot {
+          flex: 0 0 var(--journey-card-w, 178px) !important;
+          width: var(--journey-card-w, 178px) !important;
+          min-width: var(--journey-card-w, 178px) !important;
+          max-width: var(--journey-card-w, 178px) !important;
+          height: var(--row3-h, 100px) !important;
           overflow: hidden;
           background: #080808;
         }
 
-        .career-journey-slot a {
+        #playerCareerStrip .career-journey-slot a {
           display: block;
           height: 100%;
           width: 100%;
@@ -142,7 +143,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           text-decoration: none;
         }
 
-        .career-journey-card {
+        #playerCareerStrip .career-journey-card {
           position: relative;
           height: 100%;
           width: 100%;
@@ -151,7 +152,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           background: #0b0b0b;
         }
 
-        .career-journey-card::after {
+        #playerCareerStrip .career-journey-card::after {
           content: "";
           position: absolute;
           inset: 0;
@@ -160,32 +161,34 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           pointer-events: none;
         }
 
-        .career-journey-bg {
+        #playerCareerStrip .career-journey-bg {
           position: absolute;
           inset: -16%;
           z-index: 0;
-          width: 132%;
-          height: 132%;
+          width: 132% !important;
+          height: 132% !important;
+          max-width: none !important;
           object-fit: cover;
           object-position: center top;
           filter: blur(7px) saturate(1.05) brightness(.68);
           transform: scale(1.05);
         }
 
-        .career-journey-cutout {
+        #playerCareerStrip .career-journey-cutout {
           position: absolute;
           z-index: 4;
           left: -10px;
           bottom: -10px;
-          width: 48%;
-          height: 124%;
+          width: 48% !important;
+          height: 124% !important;
+          max-width: none !important;
           object-fit: contain;
           object-position: left bottom;
           filter: drop-shadow(0 8px 9px rgba(0,0,0,.78));
           pointer-events: none;
         }
 
-        .career-journey-copy {
+        #playerCareerStrip .career-journey-copy {
           position: absolute;
           z-index: 5;
           top: 8px;
@@ -197,7 +200,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           pointer-events: none;
         }
 
-        .career-journey-quote {
+        #playerCareerStrip .career-journey-quote {
           display: block;
           font-family: Georgia, "Times New Roman", serif;
           font-size: 17px;
@@ -206,11 +209,11 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           letter-spacing: -.045em;
         }
 
-        .career-journey-quote span {
+        #playerCareerStrip .career-journey-quote span {
           display: block;
         }
 
-        .career-journey-banner {
+        #playerCareerStrip .career-journey-banner {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -230,7 +233,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           text-transform: uppercase;
         }
 
-        .career-journey-swoosh {
+        #playerCareerStrip .career-journey-swoosh {
           position: absolute;
           z-index: 3;
           left: -14px;
@@ -242,7 +245,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           pointer-events: none;
         }
 
-        .career-journey-swoosh path {
+        #playerCareerStrip .career-journey-swoosh path {
           fill: none;
           stroke: #f5a533;
           stroke-width: 7;
@@ -250,13 +253,13 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           filter: drop-shadow(0 0 7px rgba(255,207,62,.95)) drop-shadow(0 0 17px rgba(255,180,32,.72));
         }
 
-        .career-journey-swoosh .core {
+        #playerCareerStrip .career-journey-swoosh .core {
           stroke: #fff0a4;
           stroke-width: 2.25;
           filter: drop-shadow(0 0 7px rgba(255,231,118,.95));
         }
 
-        .career-journey-logo {
+        #playerCareerStrip .career-journey-logo {
           position: absolute;
           z-index: 4;
           right: 9px;
@@ -270,25 +273,25 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         }
 
         @media (min-width: 640px) {
-          .career-journey-slot {
+          #playerCareerStrip .career-journey-slot {
             --journey-card-w: 210px;
           }
-          .career-journey-quote {
+          #playerCareerStrip .career-journey-quote {
             font-size: 20px;
           }
-          .career-journey-banner {
+          #playerCareerStrip .career-journey-banner {
             font-size: 8px;
           }
         }
 
         @media (min-width: 1000px) {
-          .career-journey-slot {
+          #playerCareerStrip .career-journey-slot {
             --journey-card-w: 240px;
           }
-          .career-journey-quote {
+          #playerCareerStrip .career-journey-quote {
             font-size: 23px;
           }
-          .career-journey-banner {
+          #playerCareerStrip .career-journey-banner {
             font-size: 10px;
           }
         }
