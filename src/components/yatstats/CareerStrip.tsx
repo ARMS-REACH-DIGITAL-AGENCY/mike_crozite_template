@@ -60,16 +60,9 @@ function JourneyIntroSlot({ playerId, href }: { playerId: string; href?: string 
         alt=""
         aria-hidden="true"
         onError={(e) => {
-          // True cutout is preferred. If it does not exist yet, show the HS
-          // photo as a foreground stand-in so the tile does not become a text-only block.
-          const img = e.currentTarget as HTMLImageElement;
-          if (!img.dataset.fallbackTried) {
-            img.dataset.fallbackTried = "1";
-            img.classList.add("career-journey-cutout-fallback");
-            img.src = thenJpg;
-          } else {
-            img.style.display = "none";
-          }
+          // A real foreground player requires a transparent PNG cutout.
+          // Do not fake this with an oval/circle mask from the full HS photo.
+          (e.currentTarget as HTMLImageElement).style.display = "none";
         }}
       />
 
@@ -213,14 +206,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         }
 
         #playerCareerStrip .career-journey-cutout-fallback {
-          width: 39% !important;
-          height: 104% !important;
-          left: 5px;
-          bottom: 0;
-          object-fit: cover;
-          object-position: top center;
-          clip-path: ellipse(48% 50% at 50% 50%);
-          border-radius: 45% 45% 18% 18%;
+          display: none !important;
         }
 
         #playerCareerStrip .career-journey-copy {
