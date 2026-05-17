@@ -1,8 +1,8 @@
 // src/components/yatstats/CareerStrip.tsx
 // Career-path timeline strip (Block 3) on player profile pages.
-// Option C: keep Row 3 as a horizontal strip, but make the first slot a
-// special wider branded journey card. The player layer expects a transparent
-// cutout at S3 /players/cutouts/{playerId}.png.
+// Option C: Row 3 stays a horizontal strip, with the first slot rendered as
+// a branded journey intro tile plus a gold timeline/swoosh that continues
+// across the row.
 "use client";
 
 import { useContext } from "react";
@@ -60,10 +60,16 @@ function JourneyIntroSlot({ playerId, href }: { playerId: string; href?: string 
         alt=""
         aria-hidden="true"
         onError={(e) => {
-          // Do not fall back to a boxed photo here. If the transparent PNG
-          // cutout is not available yet, the card still renders cleanly with
-          // the blurred HS photo background and copy.
-          (e.currentTarget as HTMLImageElement).style.display = "none";
+          // True cutout is preferred. If it does not exist yet, show the HS
+          // photo as a foreground stand-in so the tile does not become a text-only block.
+          const img = e.currentTarget as HTMLImageElement;
+          if (!img.dataset.fallbackTried) {
+            img.dataset.fallbackTried = "1";
+            img.classList.add("career-journey-cutout-fallback");
+            img.src = thenJpg;
+          } else {
+            img.style.display = "none";
+          }
         }}
       />
 
@@ -104,6 +110,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
 
   return (
     <div className="gallery-strip career-strip" id="playerCareerStrip">
+      <div className="career-row-gold-line" aria-hidden="true" />
       <div className="gallery-strip-inner career-strip-inner">
         <JourneyIntroSlot playerId={playerId} href={flipCardHref} />
         <CareerSlot src={`${S3_BASE}/players/back/${playerId}.jpg`} />
@@ -116,20 +123,37 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           min-height: var(--row3-h, 100px);
           max-height: var(--row3-h, 100px);
           align-items: stretch;
+          overflow: hidden;
+          padding-top: 0;
+          padding-bottom: 0;
         }
 
         #playerCareerStrip .career-strip-inner {
+          position: relative;
+          z-index: 2;
           height: var(--row3-h, 100px);
           min-height: var(--row3-h, 100px);
           max-height: var(--row3-h, 100px);
           align-items: stretch;
         }
 
+        #playerCareerStrip .career-row-gold-line {
+          position: absolute;
+          left: 20px;
+          right: 16px;
+          bottom: 4px;
+          z-index: 1;
+          height: 4px;
+          background: linear-gradient(90deg, rgba(255,206,66,.05), #f5a533 14%, #ffc947 52%, #f5a533 100%);
+          box-shadow: 0 0 7px rgba(255,207,62,.85), 0 0 18px rgba(255,180,32,.48);
+          pointer-events: none;
+        }
+
         #playerCareerStrip .career-journey-slot {
-          flex: 0 0 var(--journey-card-w, 178px) !important;
-          width: var(--journey-card-w, 178px) !important;
-          min-width: var(--journey-card-w, 178px) !important;
-          max-width: var(--journey-card-w, 178px) !important;
+          flex: 0 0 var(--journey-card-w, 270px) !important;
+          width: var(--journey-card-w, 270px) !important;
+          min-width: var(--journey-card-w, 270px) !important;
+          max-width: var(--journey-card-w, 270px) !important;
           height: var(--row3-h, 100px) !important;
           overflow: hidden;
           background: #080808;
@@ -157,30 +181,30 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           position: absolute;
           inset: 0;
           z-index: 2;
-          background: linear-gradient(90deg, rgba(0,0,0,.08), rgba(0,0,0,.16) 42%, rgba(0,0,0,.58));
+          background: linear-gradient(90deg, rgba(0,0,0,.10), rgba(0,0,0,.04) 36%, rgba(0,0,0,.42));
           pointer-events: none;
         }
 
         #playerCareerStrip .career-journey-bg {
           position: absolute;
-          inset: -16%;
+          inset: -18%;
           z-index: 0;
-          width: 132% !important;
-          height: 132% !important;
+          width: 136% !important;
+          height: 136% !important;
           max-width: none !important;
           object-fit: cover;
           object-position: center top;
-          filter: blur(7px) saturate(1.05) brightness(.68);
-          transform: scale(1.05);
+          filter: blur(8px) saturate(1.05) brightness(.68);
+          transform: scale(1.04);
         }
 
         #playerCareerStrip .career-journey-cutout {
           position: absolute;
           z-index: 4;
-          left: -10px;
-          bottom: -10px;
-          width: 48% !important;
-          height: 124% !important;
+          left: -6px;
+          bottom: -7px;
+          width: 42% !important;
+          height: 116% !important;
           max-width: none !important;
           object-fit: contain;
           object-position: left bottom;
@@ -188,12 +212,23 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           pointer-events: none;
         }
 
+        #playerCareerStrip .career-journey-cutout-fallback {
+          width: 39% !important;
+          height: 104% !important;
+          left: 5px;
+          bottom: 0;
+          object-fit: cover;
+          object-position: top center;
+          clip-path: ellipse(48% 50% at 50% 50%);
+          border-radius: 45% 45% 18% 18%;
+        }
+
         #playerCareerStrip .career-journey-copy {
           position: absolute;
           z-index: 5;
-          top: 8px;
-          right: 6px;
-          width: 64%;
+          top: 9px;
+          right: 8px;
+          width: 58%;
           color: #fff;
           text-align: center;
           text-shadow: 0 1px 5px rgba(0,0,0,.82);
@@ -203,10 +238,10 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         #playerCareerStrip .career-journey-quote {
           display: block;
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 17px;
+          font-size: 19px;
           font-weight: 900;
-          line-height: .92;
-          letter-spacing: -.045em;
+          line-height: .91;
+          letter-spacing: -.04em;
         }
 
         #playerCareerStrip .career-journey-quote span {
@@ -217,15 +252,15 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          margin-top: 5px;
-          width: 100%;
+          margin-top: 4px;
+          width: 98%;
           padding: 3px 4px;
           color: #111;
           background: linear-gradient(180deg, #ffd968 0%, #f5b02f 48%, #d58c15 100%);
           border: 1px solid rgba(255,237,145,.82);
           box-shadow: 0 0 11px rgba(255,187,44,.42), inset 0 1px 3px rgba(255,255,255,.4);
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 7px;
+          font-size: 8px;
           font-weight: 900;
           line-height: 1;
           letter-spacing: .015em;
@@ -236,11 +271,11 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         #playerCareerStrip .career-journey-swoosh {
           position: absolute;
           z-index: 3;
-          left: -14px;
-          right: -20px;
-          bottom: -13px;
-          width: 118%;
-          height: 60%;
+          left: -20px;
+          right: -30px;
+          bottom: -12px;
+          width: 122%;
+          height: 62%;
           overflow: visible;
           pointer-events: none;
         }
@@ -263,8 +298,8 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           position: absolute;
           z-index: 4;
           right: 9px;
-          bottom: 7px;
-          color: rgba(255,255,255,.27);
+          bottom: 9px;
+          color: rgba(255,255,255,.26);
           font: 900 10px/1 Oswald, sans-serif;
           letter-spacing: .02em;
           text-transform: uppercase;
@@ -272,27 +307,27 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
           pointer-events: none;
         }
 
-        @media (min-width: 640px) {
+        @media (max-width: 640px) {
           #playerCareerStrip .career-journey-slot {
-            --journey-card-w: 210px;
+            --journey-card-w: 240px;
           }
           #playerCareerStrip .career-journey-quote {
-            font-size: 20px;
+            font-size: 17px;
           }
           #playerCareerStrip .career-journey-banner {
-            font-size: 8px;
+            font-size: 7px;
           }
         }
 
         @media (min-width: 1000px) {
           #playerCareerStrip .career-journey-slot {
-            --journey-card-w: 240px;
+            --journey-card-w: 270px;
           }
           #playerCareerStrip .career-journey-quote {
-            font-size: 23px;
+            font-size: 21px;
           }
           #playerCareerStrip .career-journey-banner {
-            font-size: 10px;
+            font-size: 9px;
           }
         }
       `}</style>
