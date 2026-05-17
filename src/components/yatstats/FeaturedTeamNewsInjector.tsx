@@ -83,7 +83,6 @@ function isAcesOrAviatorsPlayer(player: Record<string, unknown>) {
 
 function isNevadaOrGcuPlayer(player: Record<string, unknown>) {
   const haystack = playerSearchText(player);
-
   return (
     haystack.includes("university of nevada") ||
     haystack.includes("nevada reno") ||
@@ -144,7 +143,7 @@ function mediaForPlayer(player: Record<string, unknown>, hsid?: string): Feature
       badge: "YAT?STATS LIVE",
       title: "Giants vs Athletics",
       subtitle: "MLB Gameday Feed",
-      body: "Open the live MLB Gameday feed for tonight's Giants at Athletics matchup.",
+      body: "Live MLB Gameday feed displayed inside this player's FlipCard.",
       source: "MLB Gameday",
       accent: "gold",
       target: "social",
@@ -222,20 +221,17 @@ function buildStreamCard(displayName: string, media: FeaturedMedia, variant: "fl
       <div class="fz-stream-subtitle">${media.subtitle}</div>
       <div class="fz-stream-window">
         <iframe
-          src="${media.embedUrl}"
-          title="${media.title}"
+          src="${htmlAttr(media.embedUrl)}"
+          title="${htmlAttr(media.title)}"
           loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"
           allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
           allowfullscreen
         ></iframe>
-        <a class="fz-stream-open-overlay" href="${media.url}" target="_blank" rel="noopener noreferrer">
-          <span>Open Feed</span>
-        </a>
       </div>
       <div class="fz-stream-footer">
         <span>${body}</span>
-        <a href="${media.url}" target="_blank" rel="noopener noreferrer">Open Feed</a>
+        <a href="${htmlAttr(media.url)}" target="_blank" rel="noopener noreferrer">Open source</a>
       </div>
     </div>
   `;
@@ -318,7 +314,6 @@ function ensureStyles() {
     .fz-stream-subtitle{border-bottom:1px solid rgba(255,255,255,.12);padding:clamp(5px,1.6cqi,8px) 0;color:rgba(255,255,255,.82);font:900 clamp(8px,2.8cqi,13px)/1 Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;}
     .fz-stream-window{position:relative;aspect-ratio:16/9;margin-top:clamp(7px,2.4cqi,12px);background:radial-gradient(circle at 50% 35%,rgba(210,180,92,.16),transparent 32%),#050505;overflow:hidden;border:1px solid rgba(255,255,255,.09);}
     .fz-stream-window iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#050505;}
-    .fz-stream-open-overlay{position:absolute;right:clamp(6px,2cqi,10px);bottom:clamp(6px,2cqi,10px);display:inline-flex;align-items:center;justify-content:center;min-height:clamp(24px,6cqi,34px);padding:0 clamp(10px,3cqi,16px);border:1px solid rgba(207,176,86,.72);background:rgba(8,6,4,.72);color:#f1cf62;text-decoration:none;font:900 clamp(8px,2.4cqi,12px)/1 Oswald,sans-serif;letter-spacing:.12em;text-transform:uppercase;}
     .fz-stream-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:clamp(6px,1.8cqi,10px);color:rgba(255,255,255,.72);font:700 clamp(7px,2.1cqi,10px)/1.25 Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;}
     .fz-stream-footer span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .fz-stream-footer a{flex:0 0 auto;color:#f1cf62;text-decoration:none;border:1px solid rgba(207,176,86,.54);padding:clamp(4px,1.3cqi,7px) clamp(7px,2cqi,11px);}
@@ -392,7 +387,7 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
       const activeSocial = root?.querySelector(".fz-tab-btn.fz-tab-active .ri-share-line");
       if (!panel || !activeSocial) return;
       if (panel.querySelector(`[data-yat-team-video="${media.id}"]`)) return;
-      panel.prepend(buildLiveModuleBanner(media));
+      panel.prepend(buildStreamCard(displayName, media, "flip"));
     }
 
     function injectProfileNews() {
