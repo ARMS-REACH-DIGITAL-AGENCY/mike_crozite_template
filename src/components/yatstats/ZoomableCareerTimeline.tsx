@@ -8,8 +8,8 @@ const ZOOM_KEY = 'yat:careerTimelineZoom';
 const SCROLL_EVENT = 'yat:career-timeline-scroll';
 const ZOOM_EVENT = 'yat:career-timeline-zoom';
 const CARD_W = 58;
-const CARD_H = 84;
 const CTA_W = 118;
+const JOURNEY_CARD_W = 232;
 const SEASON_CARD_W = 134;
 const IMAGE_GUTTER = 13;
 const TIMELINE_GUTTER = 42;
@@ -29,7 +29,9 @@ type StatRow = {
   org_conf?: string;
   league?: string;
 };
-type MomentKind = 'cta' | 'prompt' | 'season' | 'archive' | 'upload';
+
+type MomentKind = 'prompt' | 'season' | 'archive' | 'upload';
+
 type Moment = {
   id: string;
   year: number;
@@ -41,8 +43,17 @@ type Moment = {
   kind: MomentKind;
   href?: string;
   cardMode?: boolean;
+  journeyIntro?: boolean;
 };
-type UploadSlot = { id: string; year: number; label: string; leftYear: number; rightYear: number };
+
+type UploadSlot = {
+  id: string;
+  year: number;
+  label: string;
+  leftYear: number;
+  rightYear: number;
+};
+
 type SubmittedMoment = {
   id: string;
   title?: string;
@@ -52,7 +63,11 @@ type SubmittedMoment = {
   photo_taken_year?: number | null;
 };
 
-declare global { interface Window { __yatCareerTimelineSyncing?: boolean } }
+declare global {
+  interface Window {
+    __yatCareerTimelineSyncing?: boolean;
+  }
+}
 
 function readInitialZoom() {
   if (typeof window === 'undefined') return CLOSED_ZOOM;
@@ -66,7 +81,9 @@ function yearOf(value: unknown): number | null {
   return Number.isFinite(year) ? year : null;
 }
 
-function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
 
 function buildTicks(start: number, end: number, zoom: number, promptYear: number) {
   const span = Math.max(1, end - start);
@@ -111,21 +128,37 @@ function teamLogoCandidates(row: StatRow) {
   ]));
 }
 
+function highSchoolImageCandidates(playerId: string) {
+  const id = encodeURIComponent(playerId);
+  return [
+    `${S3_BASE}/players/cutouts/${id}.png`,
+    `${S3_BASE}/players/then/${id}.png`,
+    `${S3_BASE}/players/then/${id}.webp`,
+    `${S3_BASE}/players/then/${id}.jpg`,
+    `${S3_BASE}/players/then/${id}.jpeg`,
+  ];
+}
+
 function visualMomentWidth(moment: Moment) {
+  if (moment.journeyIntro) return JOURNEY_CARD_W;
   if (moment.kind === 'prompt') return CTA_W;
   if (moment.kind === 'season') return SEASON_CARD_W;
   return CARD_W;
 }
 
-function TimelineImage({ src, srcs, title, caption, kind, label }: {
+function TimelineImage({ src, srcs, title, caption, kind, label, journeyIntro }: {
   src?: string;
   srcs?: string[];
   title: string;
   caption: string;
   kind: MomentKind;
   label: string;
+  journeyIntro?: boolean;
 }) {
-  const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
+  const sources = useMemo(
+    () => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))),
+    [src, srcs]
+  );
   const [sourceIndex, setSourceIndex] = useState(0);
   const currentSrc = sources[sourceIndex];
   const failed = !currentSrc;
@@ -134,6 +167,43 @@ function TimelineImage({ src, srcs, title, caption, kind, label }: {
 
   if (kind === 'prompt') {
     return <span className="zt-prompt-card" aria-hidden="true"><b>{title}</b><strong>{caption}</strong><i>+</i></span>;
+  }
+
+  if (journeyIntro) {
+    const backgroundSrc = sources.find((s) => !s.includes('/cutouts/') && !/\.png($|\?)/i.test(s)) || currentSrc;
+
+    return (
+      <span className="zt-journey-wrap" aria-label="Baseball journeys don't always end at graduation. Neither should their stories.">
+        {backgroundSrc ? (
+          <img className="zt-journey-bg" src={backgroundSrc} alt="" aria-hidden="true" loading="lazy" />
+        ) : (
+          <span className="zt-journey-fallback" aria-hidden="true" />
+        )}
+        {currentSrc ? (
+          <img
+            className="zt-journey-player"
+            src={currentSrc}
+            alt={title}
+            loading="lazy"
+            onError={() => setSourceIndex((index) => index + 1)}
+          />
+        ) : null}
+        <span className="zt-journey-copy">
+          <span className="zt-journey-quote">
+            <span>“Baseball</span>
+            <span>journeys don’t</span>
+            <span>always end at</span>
+            <span>graduation.”</span>
+          </span>
+          <span className="zt-journey-banner">NEITHER SHOULD THEIR STORIES</span>
+        </span>
+        <svg className="zt-journey-swoosh" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M-24 210 C130 42 364 48 542 102 C718 156 784 220 1048 225" />
+          <path className="core" d="M-24 210 C130 42 364 48 542 102 C718 156 784 220 1048 225" />
+        </svg>
+        <span className="zt-journey-logo">YAT?STATS</span>
+      </span>
+    );
   }
 
   if (failed) {
@@ -303,15 +373,56 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
     const uploaded: Moment[] = uploads.map((item) => {
       const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
-      return { id: `upload-${item.id}`, year: clamp(year, hsYear, end), label: String(year), title: item.title || 'Fan memory', caption: item.caption || 'Fan-submitted Golden Line memory.', src: item.image_data_url, kind: 'upload' };
+      return {
+        id: `upload-${item.id}`,
+        year: clamp(year, hsYear, end),
+        label: String(year),
+        title: item.title || 'Fan memory',
+        caption: item.caption || 'Fan-submitted Golden Line memory.',
+        src: item.image_data_url,
+        kind: 'upload',
+      };
     });
 
-    const prompts: Moment[] = [{ id: 'prompt-memory', year: promptYear, label: 'Add', title: `Add a moment in time to ${firstName}'s`, caption: 'Career Path Timeline', kind: 'prompt' }];
+    const prompts: Moment[] = [{
+      id: 'prompt-memory',
+      year: hsYear + 0.15,
+      label: 'Add',
+      title: `Add a moment in time to ${firstName}'s`,
+      caption: 'Career Path Timeline',
+      kind: 'prompt',
+    }];
     const archive: Moment[] = [
-      { id: 'archive-hs-card', year: hsYear, label: 'HS', title: 'High school card', caption: 'Return to the original flip card view.', src: `${S3_BASE}/players/then/${playerId}.jpg`, kind: 'archive', href: galleryReturnHref, cardMode: true },
-      { id: 'archive-headshot', year: end, label: String(end), title: 'Profile headshot', caption: 'Current interactive-strip image.', src: `${S3_BASE}/players/now/${playerId}.jpg`, kind: 'archive' },
+      {
+        id: 'archive-hs-card',
+        year: hsYear,
+        label: 'HS',
+        title: 'High school journey card',
+        caption: 'Baseball journeys do not always end at graduation.',
+        src: `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`,
+        srcs: highSchoolImageCandidates(playerId),
+        kind: 'archive',
+        href: galleryReturnHref,
+        cardMode: true,
+        journeyIntro: true,
+      },
+      {
+        id: 'archive-headshot',
+        year: end,
+        label: String(end),
+        title: 'Profile headshot',
+        caption: 'Current interactive-strip image.',
+        src: `${S3_BASE}/players/now/${playerId}.jpg`,
+        kind: 'archive',
+      },
     ];
-    const moments = [...prompts, ...archive, ...seasons, ...uploaded].sort((a, b) => a.year - b.year || Number(Boolean(a.cardMode)) - Number(Boolean(b.cardMode)));
+    const moments = [...archive, ...prompts, ...seasons, ...uploaded].sort((a, b) => {
+      if (a.journeyIntro) return -1;
+      if (b.journeyIntro) return 1;
+      if (a.kind === 'prompt' && b.kind !== 'prompt') return -1;
+      if (b.kind === 'prompt' && a.kind !== 'prompt') return 1;
+      return a.year - b.year || Number(Boolean(a.cardMode)) - Number(Boolean(b.cardMode));
+    });
     const uploadSlots: UploadSlot[] = moments.slice(0, -1).map((leftMoment, index) => {
       const rightMoment = moments[index + 1];
       const leftYear = leftMoment.year;
@@ -333,7 +444,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return IMAGE_GUTTER * 2 + content + Math.max(0, model.moments.length - 1) * gap;
   };
   const imageExpandedWidth = Math.max(packedSequenceWidth(EXPANDED_GAP), 320);
-  const imageClosedWidth = Math.max(packedSequenceWidth(-CLOSED_OVERLAP), 320);
+  const imageClosedWidth = Math.max(packedSequenceWidth(-CLOSED_OVERLAP), JOURNEY_CARD_W + 120);
   const imageWidth = isExpanded ? imageExpandedWidth : imageClosedWidth;
   const sequenceLeftPx = (index: number, gap: number) => {
     let left = IMAGE_GUTTER;
@@ -359,6 +470,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     window.location.hash = 'ppTab-upload';
     window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
   }
+
   function expandTimeline() {
     setZoom(FULL_ZOOM);
     requestAnimationFrame(() => {
@@ -366,8 +478,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       if (el) el.scrollLeft = 0;
     });
   }
+
   function handleMomentClick(moment: Moment) {
-    if (moment.kind === 'prompt' || moment.kind === 'cta') {
+    if (moment.kind === 'prompt') {
       expandTimeline();
       return;
     }
@@ -377,6 +490,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     }
     if (moment.href) window.location.href = moment.href;
   }
+
   function handleUploadSlot(slot: UploadSlot) {
     openUpload(Math.max(model.start, Math.round((slot.leftYear + slot.rightYear) / 2)));
   }
@@ -395,9 +509,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               const w = visualMomentWidth(moment);
               const isSeason = moment.kind === 'season';
               return (
-                <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind}`} style={{ left: imageLeftPx(moment, index), width: w }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
+                <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind} ${moment.journeyIntro ? 'zt-journey-moment' : ''}`} style={{ left: imageLeftPx(moment, index), width: w }} onClick={() => handleMomentClick(moment)} title={`${moment.label} - ${moment.title}`}>
                   <span className="zt-img-connector" />
-                  <span className="zt-img-card" style={{ width: w }}><TimelineImage src={moment.src} srcs={moment.srcs} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} /></span>
+                  <span className="zt-img-card" style={{ width: w }}>
+                    <TimelineImage src={moment.src} srcs={moment.srcs} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} journeyIntro={moment.journeyIntro} />
+                  </span>
                   {isSeason && <span className="zt-season-caption"><b>{moment.label}</b><strong>{moment.title}</strong><em>{moment.caption}</em></span>}
                 </button>
               );
@@ -411,6 +527,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-canvas-images { position: relative; height: 100%; min-width: 100%; transition: width .24s ease; }
           .zt-img-moment { position: absolute; top: 0; height: 100%; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: left .24s ease, width .24s ease; }
           .zt-img-card { position: relative; z-index: 2; display: block; height: 100%; border: 1px solid rgba(255,255,255,.32); background: #fff; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); transition: width .24s ease, box-shadow .24s ease; }
+          .zt-journey-moment .zt-img-card { border-color: rgba(245,200,90,.5); background:#0b0b0b; }
           .zt-closed .zt-img-card { box-shadow: none; border-right-color: rgba(255,255,255,.18); }
           .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); background:#080808; }
           .zt-img-connector { display: none; }
@@ -428,13 +545,31 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-img-card :global(.zt-prompt-card b) { font: 900 9px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
           .zt-img-card :global(.zt-prompt-card strong) { font: 900 9px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
           .zt-img-card :global(.zt-prompt-card i) { font: 900 18px/1 Oswald, sans-serif; font-style: normal; }
+          .zt-img-card :global(.zt-journey-wrap) { position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate; background:#0b0b0b; }
+          .zt-img-card :global(.zt-journey-wrap)::after { content:''; position:absolute; inset:0; z-index:2; background:linear-gradient(90deg,rgba(0,0,0,.10),rgba(0,0,0,.18) 38%,rgba(0,0,0,.58)); pointer-events:none; }
+          .zt-img-card :global(.zt-journey-bg), .zt-img-card :global(.zt-journey-fallback) { position:absolute; inset:-16%; z-index:0; width:132%; height:132%; object-fit:cover; filter:blur(8px) saturate(1.06) brightness(.72); transform:scale(1.05); }
+          .zt-img-card :global(.zt-journey-fallback) { background:linear-gradient(90deg,#263d35,#111); }
+          .zt-img-card :global(.zt-journey-player) { position:absolute; z-index:4; left:0; bottom:-8%; width:46%; height:116%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 9px rgba(0,0,0,.72)); }
+          .zt-img-card :global(.zt-journey-copy) { position:absolute; z-index:5; right:4%; top:9%; width:61%; color:#fff; text-align:center; text-shadow:0 1px 5px rgba(0,0,0,.72); }
+          .zt-img-card :global(.zt-journey-quote) { display:block; font-family:Georgia,'Times New Roman',serif; font-weight:900; font-size:clamp(15px, 1.9vw, 27px); line-height:.94; letter-spacing:-.03em; }
+          .zt-img-card :global(.zt-journey-quote span) { display:block; }
+          .zt-img-card :global(.zt-journey-banner) { display:inline-flex; align-items:center; justify-content:center; margin-top:5px; min-width:92%; padding:4px 7px; color:#111; background:linear-gradient(180deg,#ffd968 0%,#f5b02f 48%,#d58c15 100%); border:1px solid rgba(255,237,145,.82); box-shadow:0 0 13px rgba(255,187,44,.42), inset 0 1px 3px rgba(255,255,255,.4); font-family:Georgia,'Times New Roman',serif; font-size:clamp(7px, .9vw, 13px); font-weight:900; line-height:1; letter-spacing:.02em; white-space:nowrap; text-transform:uppercase; }
+          .zt-img-card :global(.zt-journey-swoosh) { position:absolute; z-index:3; left:-5%; right:-10%; bottom:-10%; width:118%; height:58%; overflow:visible; pointer-events:none; }
+          .zt-img-card :global(.zt-journey-swoosh path) { fill:none; stroke:#f5a533; stroke-width:7; stroke-linecap:round; filter:drop-shadow(0 0 7px rgba(255,207,62,.95)) drop-shadow(0 0 18px rgba(255,180,32,.72)); }
+          .zt-img-card :global(.zt-journey-swoosh .core) { stroke:#fff0a4; stroke-width:2.3; filter:drop-shadow(0 0 7px rgba(255,231,118,.95)); }
+          .zt-img-card :global(.zt-journey-logo) { position:absolute; z-index:4; right:6%; bottom:9%; color:rgba(255,255,255,.30); font:900 13px/1 Oswald,sans-serif; letter-spacing:.02em; text-transform:uppercase; text-shadow:0 0 4px rgba(255,255,255,.16); }
           .zt-season-caption { position:absolute; left:50%; top:calc(100% + 2px); z-index:5; width:90px; transform:translateX(-50%); display:grid; gap:1px; color:#fff; text-align:center; text-transform:uppercase; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,.75); }
           .zt-season-caption b { font:900 8px/1 Oswald,sans-serif; letter-spacing:.07em; }
           .zt-season-caption strong { font:900 7px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .zt-season-caption em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.76); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .zt-upload-slot { position:absolute; top:50%; transform:translate(-50%,-50%); z-index:4; display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:18px; padding:0 5px; border:1px solid rgba(255,255,255,.38); background:rgba(0,0,0,.72); color:rgba(255,255,255,.82); font:900 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:none; }
           .zt-upload-slot:hover { color:#fff; border-color:#fff; }
-          @media (max-width: 760px) { .zt-img-moment { height: 100%; } .zt-img-card { height: 100%; } }
+          @media (max-width: 760px) {
+            .zt-img-moment { height: 100%; }
+            .zt-img-card { height: 100%; }
+            .zt-img-card :global(.zt-journey-quote) { font-size:clamp(14px, 5vw, 24px); }
+            .zt-img-card :global(.zt-journey-banner) { font-size:clamp(7px, 2.1vw, 11px); }
+          }
           :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height: var(--row3-h, 96px) !important; height: var(--row3-h, 96px) !important; }
         `}</style>
       </section>
@@ -449,7 +584,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <div className="zt-line" />
           {model.ticks.map((year) => <span className="zt-tick" key={year} style={{ left: leftPx(year) }}><i /><b>{year === model.promptYear ? '' : year === model.start ? 'HS' : year === model.end ? 'Today' : year}</b></span>)}
           {model.moments.map((moment, index) => (
-            <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind}`} style={{ left: lineMomentLeftPx(moment, index) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} — ${moment.title}`}>
+            <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind} ${moment.journeyIntro ? 'zt-line-journey' : ''}`} style={{ left: lineMomentLeftPx(moment, index) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} - ${moment.title}`}>
               <span />
               {moment.kind === 'season' && <b className="zt-line-season-label"><i>{moment.label}</i><strong>{moment.title}</strong><em>{moment.caption}</em></b>}
             </button>
@@ -475,6 +610,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-line-season-label strong { font:900 7px/1 Oswald,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-line-season-label em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-line-prompt span { border-color:#d9b75b; background:#d9b75b; box-shadow:0 0 12px rgba(217,183,91,.45); }
+        .zt-line-journey span { width:13px; height:13px; border-color:#f5c85a; background:#f5c85a; box-shadow:0 0 16px rgba(245,200,90,.72); }
         .zt-line-archive span { border-color:#fff; }
         .zt-line-upload span { border-color:#7fd8ff; background:#7fd8ff; }
         .zt-shell-line { background: transparent; }
