@@ -5,7 +5,6 @@ import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
 import FeaturedTeamNewsInjector from '@/components/yatstats/FeaturedTeamNewsInjector';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
-import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
 import ProfileStatsFinalOverrides from '@/components/yatstats/ProfileStatsFinalOverrides';
 import GoldenLineLogoDesignOverrides from '@/components/yatstats/GoldenLineLogoDesignOverrides';
@@ -158,7 +157,6 @@ export default async function PlayerLayout({
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <FeaturedTeamNewsInjector player={featuredTeamPlayer} />
-      <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
       <ProfileFunZoneCleanupStyles />
       <ProfileStatsFinalOverrides />
