@@ -22,13 +22,18 @@ export default function ProfileStatsFinalOverrides() {
         width: 100% !important;
         min-height: 100% !important;
         display: flex !important;
-        justify-content: center !important;
-        align-items: flex-start !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        gap: 10px !important;
       }
 
       #playerFunZone #ppTab-stats .psi-card {
         width: fit-content !important;
         max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        flex: 0 0 auto !important;
         margin-left: auto !important;
         margin-right: auto !important;
         text-align: initial !important;
@@ -37,6 +42,8 @@ export default function ProfileStatsFinalOverrides() {
       #playerFunZone #ppTab-stats .psi-table-wrap {
         width: fit-content !important;
         max-width: 100% !important;
+        height: auto !important;
+        max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--row4-h, 56px) - var(--profile-tabs-h, 50px) - var(--footerH, 76px) - 22px) !important;
         margin-left: auto !important;
         margin-right: auto !important;
         text-align: initial !important;
