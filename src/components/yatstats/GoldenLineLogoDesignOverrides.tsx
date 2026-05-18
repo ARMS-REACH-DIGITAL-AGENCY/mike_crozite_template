@@ -72,6 +72,42 @@ function isUploadControl(element: HTMLElement) {
   return !hasImage || hasPromptCard;
 }
 
+function getMomentYear(moment: HTMLElement) {
+  if (moment.classList.contains('zt-journey-moment') || moment.classList.contains('zt-line-journey')) return -1000;
+  if (moment.classList.contains('zt-prompt')) return -900;
+
+  const haystack = [
+    moment.getAttribute('title'),
+    moment.getAttribute('aria-label'),
+    moment.querySelector('.zt-card-overlay b')?.textContent,
+    moment.querySelector('.zt-season-caption b')?.textContent,
+    moment.textContent,
+  ].filter(Boolean).join(' ');
+
+  const match = haystack.match(/\b(19|20)\d{2}\b/);
+  return match ? Number(match[0]) : 9999;
+}
+
+function sortMomentsChronologically(moments: HTMLElement[]) {
+  return moments
+    .map((moment, index) => ({ moment, index, year: getMomentYear(moment) }))
+    .sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      if (a.moment.classList.contains('zt-journey-moment')) return -1;
+      if (b.moment.classList.contains('zt-journey-moment')) return 1;
+      if (a.moment.classList.contains('zt-upload') && !b.moment.classList.contains('zt-upload')) return 1;
+      if (b.moment.classList.contains('zt-upload') && !a.moment.classList.contains('zt-upload')) return -1;
+      return a.index - b.index;
+    })
+    .map(({ moment }) => moment);
+}
+
+function removeTimelineOverlays() {
+  document
+    .querySelectorAll<HTMLElement>('#playerCareerImages .zt-card-overlay, #playerCareerImages .zt-season-caption')
+    .forEach((overlay) => overlay.remove());
+}
+
 function getMomentWidth(moment: HTMLElement) {
   const value = Number(moment.dataset.ztCardW || moment.style.getPropertyValue('--zt-card-w').replace('px', ''));
   if (Number.isFinite(value) && value > 0) return value;
@@ -80,6 +116,8 @@ function getMomentWidth(moment: HTMLElement) {
 }
 
 function classifyTimelineImages() {
+  removeTimelineOverlays();
+
   document.querySelectorAll<HTMLElement>('#playerCareerImages .zt-image-wrap').forEach((wrap) => {
     const img = wrap.querySelector<HTMLImageElement>('img');
     const moment = wrap.closest<HTMLElement>('.zt-img-moment');
@@ -117,6 +155,7 @@ function classifyTimelineImages() {
 
 function layoutGoldenLine() {
   normalizeExpandedState();
+  removeTimelineOverlays();
 
   const root = document.getElementById('playerCareerImages');
   const canvas = root?.querySelector<HTMLElement>('.zt-canvas-images');
@@ -125,7 +164,9 @@ function layoutGoldenLine() {
 
   const gap = getGap();
   const allMoments = Array.from(canvas.querySelectorAll<HTMLElement>('.zt-img-moment'));
-  const moments = allMoments.filter((moment) => !moment.classList.contains('zt-prompt') && !isUploadControl(moment));
+  const chronologicalMoments = sortMomentsChronologically(
+    allMoments.filter((moment) => !moment.classList.contains('zt-prompt') && !isUploadControl(moment))
+  );
   const uploadControls = [
     ...allMoments.filter(isUploadControl),
     ...Array.from(canvas.querySelectorAll<HTMLElement>('.zt-upload-slot')),
@@ -156,7 +197,7 @@ function layoutGoldenLine() {
   let leftEdge = CTA_CARD_W;
   seams.push(leftEdge);
 
-  moments.forEach((moment) => {
+  chronologicalMoments.forEach((moment) => {
     const w = getMomentWidth(moment);
     const card = moment.querySelector<HTMLElement>('.zt-img-card');
     const wrap = moment.querySelector<HTMLElement>('.zt-image-wrap');
@@ -287,6 +328,7 @@ function enableDragScroll() {
 
 function refreshGoldenLine() {
   normalizeExpandedState();
+  removeTimelineOverlays();
   classifyTimelineImages();
   bindAnchorToggle();
   bindUploadButtons();
@@ -456,8 +498,13 @@ export default function GoldenLineLogoDesignOverrides() {
       }
 
       #playerCareerImages .zt-card-overlay,
-      #playerCareerImages .zt-season-caption {
+      #playerCareerImages .zt-card-overlay *,
+      #playerCareerImages .zt-season-caption,
+      #playerCareerImages .zt-season-caption * {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
       }
 
       body:not(.yat-golden-line-open) #playerCareerImages .zt-upload-slot,
