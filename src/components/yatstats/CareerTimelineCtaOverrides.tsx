@@ -264,7 +264,7 @@ export default function CareerTimelineCtaOverrides() {
         box-sizing: border-box !important;
         transform: none !important;
         background-color: transparent !important;
-        background-image: url('/img/career-path-default.jpg') !important;
+        background-image: url('/img/career-path-default.png') !important;
         background-size: 100% 100% !important;
         background-position: center center !important;
         background-repeat: no-repeat !important;
