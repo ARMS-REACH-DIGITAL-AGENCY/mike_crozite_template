@@ -129,6 +129,20 @@ function ghostMoment(stage: string): CareerMoment {
   };
 }
 
+function isLegacyJourneyMoment(item: SubmittedMoment, playerId: string) {
+  const image = String(item.image_url || item.image_data_url || "").toLowerCase();
+  const text = [item.stage, item.title, item.caption, item.contributor_name, item.relationship]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+
+  if (image.includes(`/players/then/${String(playerId).toLowerCase()}.`)) return true;
+  if (image.includes("journey") || image.includes("graduation") || image.includes("neither-should")) return true;
+  if (text.includes("journey intro")) return true;
+  if (text.includes("baseball journeys") || text.includes("graduation") || text.includes("neither should their stories")) return true;
+
+  return false;
+}
+
 function JourneyIntroImage({ playerId, bgSrc }: { playerId: string; bgSrc?: string }) {
   const cutoutSrc = `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`;
   const [cutoutFailed, setCutoutFailed] = useState(false);
@@ -189,18 +203,20 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
   const href = flipCardHref(playerProfile?.playerSchoolUrl, hsid, playerId);
 
   const moments = useMemo(() => {
-    const uploads = submittedMoments.map((item): CareerMoment => ({
-      id: `upload-${item.id}`,
-      year: yearLabel(item.photo_taken_date, item.photo_taken_year ? String(item.photo_taken_year) : "Fan Upload"),
-      stage: item.stage || "Fan Memory",
-      title: item.title || `${item.stage || "Fan"} memory`,
-      caption: item.caption || "A fan-submitted Golden Line memory is awaiting review.",
-      src: item.image_url || item.image_data_url,
-      contributor: item.contributor_name || "Fan submission",
-      relationship: item.relationship || "",
-      photoTakenDate: item.photo_taken_date,
-      uploaded: true,
-    }));
+    const uploads = submittedMoments
+      .filter((item) => !isLegacyJourneyMoment(item, playerId))
+      .map((item): CareerMoment => ({
+        id: `upload-${item.id}`,
+        year: yearLabel(item.photo_taken_date, item.photo_taken_year ? String(item.photo_taken_year) : "Fan Upload"),
+        stage: item.stage || "Fan Memory",
+        title: item.title || `${item.stage || "Fan"} memory`,
+        caption: item.caption || "A fan-submitted Golden Line memory is awaiting review.",
+        src: item.image_url || item.image_data_url,
+        contributor: item.contributor_name || "Fan submission",
+        relationship: item.relationship || "",
+        photoTakenDate: item.photo_taken_date,
+        uploaded: true,
+      }));
 
     const realMoments = [...archiveMoments(playerId, href), ...uploads].sort((a, b) => {
       if (a.isJourneyIntro) return -1;
