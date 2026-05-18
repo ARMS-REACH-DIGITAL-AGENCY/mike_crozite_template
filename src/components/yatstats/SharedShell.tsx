@@ -10,6 +10,7 @@ import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
+import TimelineCleanup from './TimelineCleanup';
 
 type StripPlayer = {
   id: string;
@@ -64,6 +65,7 @@ export default function SharedShell({
 
   return (
     <>
+      <TimelineCleanup />
       <div className="yat-row1-shell">
         <GlobalTopbar hsid={hsid} />
       </div>
