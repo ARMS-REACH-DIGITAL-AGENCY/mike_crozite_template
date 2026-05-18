@@ -6,8 +6,8 @@ const CLOSED_ZOOM = 1;
 const FULL_ZOOM = 3.2;
 const EXPANDED_CLASS = "zt-expanded";
 const ZOOM_EVENT = "yat:career-timeline-zoom";
-const STRIP_HEIGHT = 84;
-const PROMPT_WIDTH = 118;
+const STRIP_HEIGHT = 100;
+const PROMPT_WIDTH = 178;
 const PHOTO_WIDTH = 58;
 const OUTFIELD_YELLOW = "#ffd200";
 const EXTRA_UPLOAD_SPACE = 76;
@@ -112,7 +112,7 @@ export default function CareerTimelineCtaOverrides() {
         const moments = Array.from(canvas.querySelectorAll(".zt-img-moment")) as HTMLElement[];
         let cursor = 0;
 
-        moments.forEach((moment) => {
+        moments.forEach((moment, index) => {
           const isPrompt = moment.classList.contains("zt-prompt");
           const isPhoto = moment.classList.contains("zt-upload") || moment.classList.contains("zt-archive");
           const card = moment.querySelector(".zt-img-card") as HTMLElement | null;
@@ -126,6 +126,10 @@ export default function CareerTimelineCtaOverrides() {
           moment.style.width = `${width}px`;
           moment.style.minWidth = `${width}px`;
           moment.style.height = `${STRIP_HEIGHT}px`;
+
+          if (index === 0 && isPrompt) {
+            moment.style.left = `${width / 2}px`;
+          }
 
           if (card) {
             card.style.width = `${width}px`;
@@ -147,6 +151,9 @@ export default function CareerTimelineCtaOverrides() {
           cursor += width;
         });
 
+        canvas.style.left = "0px";
+        canvas.style.marginLeft = "0px";
+        canvas.style.paddingLeft = "0px";
         canvas.style.width = `${Math.max(cursor, window.innerWidth || 320)}px`;
         canvas.style.height = `${STRIP_HEIGHT}px`;
       });
@@ -199,6 +206,12 @@ export default function CareerTimelineCtaOverrides() {
         height: ${STRIP_HEIGHT}px !important;
         min-height: ${STRIP_HEIGHT}px !important;
         max-height: ${STRIP_HEIGHT}px !important;
+      }
+
+      .zt-window-images .zt-canvas-images {
+        left: 0 !important;
+        margin-left: 0 !important;
+        padding-left: 0 !important;
       }
 
       .zt-window-images .zt-canvas-images .zt-img-moment {
@@ -266,7 +279,7 @@ export default function CareerTimelineCtaOverrides() {
         background-color: transparent !important;
         background-image: url('/img/career-path-default.png') !important;
         background-size: 100% 100% !important;
-        background-position: center center !important;
+        background-position: left top !important;
         background-repeat: no-repeat !important;
       }
 
