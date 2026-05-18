@@ -93,20 +93,9 @@ function archiveMoments(playerId: string, href?: string): CareerMoment[] {
       stage: "Journey Intro",
       title: "Baseball journeys don’t always end at graduation.",
       caption: "Neither should their stories.",
-      src: `${S3_BASE}/players/then/${playerId}.jpg`,
       href,
       contributor: "YAT?STATS archive",
       isJourneyIntro: true,
-    },
-    {
-      id: "high-school",
-      year: "High School",
-      stage: "High School",
-      title: "The hometown chapter",
-      caption: "Games, teammates, coaches, dugout moments, and memories from people who were there.",
-      src: `${S3_BASE}/players/then/${playerId}.jpg`,
-      href,
-      contributor: "YAT?STATS archive",
     },
     {
       id: "minors",
@@ -352,7 +341,7 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
         .gl-card-journey { width:286px; padding:0; display:block; overflow:hidden; border:0; background:#0b0b0b; }
         .gl-card-prompt { border-color: rgba(245,200,90,.72); background: linear-gradient(135deg, rgba(40,32,15,.98), rgba(10,10,10,.94)); }
         .gl-card-ghost { border-style: dashed; border-color: rgba(245,200,90,.36); background: linear-gradient(135deg, rgba(28,28,28,.72), rgba(5,5,5,.84)); }
-        .gl-journey-art { position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate; background:#0b0b0b; }
+        .gl-journey-art { position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate; background:radial-gradient(circle at 18% 58%, rgba(109,134,89,.86) 0%, rgba(55,78,61,.78) 32%, transparent 56%), linear-gradient(90deg, #2e4237 0%, #17211e 44%, #070707 100%); }
         .gl-journey-art::after { content:""; position:absolute; inset:0; z-index:2; background:linear-gradient(90deg, rgba(0,0,0,.08), rgba(0,0,0,.10) 35%, rgba(0,0,0,.50)); pointer-events:none; }
         .gl-journey-bg { position:absolute; inset:-18%; z-index:0; width:136%; height:136%; max-width:none; object-fit:cover; object-position:center top; filter:blur(8px) saturate(1.05) brightness(.68); transform:scale(1.04); }
         .gl-journey-cutout { position:absolute; z-index:4; left:-6px; bottom:-7px; width:42%; height:116%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 9px rgba(0,0,0,.78)); pointer-events:none; }
