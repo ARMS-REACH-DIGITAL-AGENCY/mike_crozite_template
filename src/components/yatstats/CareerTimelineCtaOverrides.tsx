@@ -28,6 +28,7 @@ function createAnchorMoment() {
   const card = document.createElement("span");
   card.className = "zt-img-card";
   card.style.width = `${ANCHOR_WIDTH}px`;
+  card.style.height = `${ROW_HEIGHT}px`;
 
   const wrap = document.createElement("span");
   wrap.className = "zt-journey-wrap";
@@ -39,25 +40,19 @@ function createAnchorMoment() {
 }
 
 function ensureJourneyAnchor(canvas: HTMLElement) {
+  const playerId = playerIdFromPath();
   let journey = canvas.querySelector<HTMLElement>(".zt-journey-moment");
+
   if (!journey) {
     journey = createAnchorMoment();
     canvas.insertBefore(journey, canvas.firstChild);
   }
-  return journey;
-}
 
-function replaceJourneyCard() {
-  const playerId = playerIdFromPath();
-  const cutoutSrc = playerId ? `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png` : "";
-
-  document.querySelectorAll<HTMLElement>(".zt-journey-wrap").forEach((wrap) => {
-    const previousVersion = wrap.dataset.yatAnchorVersion;
-    const previousPlayer = wrap.dataset.yatAnchorPlayer;
-    if (previousVersion === "static-v5" && previousPlayer === playerId) return;
-
-    wrap.dataset.yatAnchorVersion = "static-v5";
-    wrap.dataset.yatAnchorPlayer = playerId;
+  if (journey.dataset.yatAnchorVersion !== "static-v6" || journey.dataset.yatAnchorPlayer !== playerId) {
+    journey.dataset.yatAnchorVersion = "static-v6";
+    journey.dataset.yatAnchorPlayer = playerId;
+    const wrap = journey.querySelector<HTMLElement>(".zt-journey-wrap") || document.createElement("span");
+    wrap.className = "zt-journey-wrap";
     wrap.replaceChildren();
 
     const bg = document.createElement("img");
@@ -65,18 +60,29 @@ function replaceJourneyCard() {
     bg.src = "/img/career-path-default.png";
     bg.alt = "";
     bg.setAttribute("aria-hidden", "true");
+    bg.loading = "eager";
     wrap.appendChild(bg);
 
-    if (cutoutSrc) {
+    if (playerId) {
       const cutout = document.createElement("img");
       cutout.className = "zt-career-anchor-cutout";
-      cutout.src = cutoutSrc;
+      cutout.src = `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`;
       cutout.alt = "";
       cutout.setAttribute("aria-hidden", "true");
-      cutout.onerror = () => { cutout.style.display = "none"; };
+      cutout.loading = "eager";
+      cutout.addEventListener("error", () => { cutout.style.display = "none"; });
       wrap.appendChild(cutout);
     }
-  });
+
+    const card = journey.querySelector<HTMLElement>(".zt-img-card") || document.createElement("span");
+    card.className = "zt-img-card";
+    card.style.width = `${ANCHOR_WIDTH}px`;
+    card.style.height = `${ROW_HEIGHT}px`;
+    if (!card.contains(wrap)) card.replaceChildren(wrap);
+    if (!journey.contains(card)) journey.appendChild(card);
+  }
+
+  return journey;
 }
 
 function widthForMoment(moment: HTMLElement) {
@@ -87,12 +93,11 @@ function widthForMoment(moment: HTMLElement) {
 
 function stabilizeTimelineLayout() {
   document.querySelectorAll<HTMLElement>("#playerCareerImages .zt-canvas-images").forEach((canvas) => {
+    canvas.style.transition = "none";
     canvas.querySelectorAll<HTMLElement>(".zt-img-moment.zt-prompt, .zt-line-pin.zt-line-prompt").forEach((el) => el.remove());
 
     const journey = ensureJourneyAnchor(canvas);
     const all = Array.from(canvas.querySelectorAll<HTMLElement>(".zt-img-moment"));
-    if (!all.length) return;
-
     const headshot = all.find((moment) => moment.classList.contains("zt-archive") && !moment.classList.contains("zt-journey-moment"));
     const middle = all.filter((moment) => (
       moment !== journey &&
@@ -102,9 +107,11 @@ function stabilizeTimelineLayout() {
 
     const ordered = [journey, ...middle, headshot].filter(Boolean) as HTMLElement[];
     let cursor = 0;
+
     ordered.forEach((moment) => {
       const w = widthForMoment(moment);
       const card = moment.querySelector<HTMLElement>(".zt-img-card");
+      moment.style.transition = "none";
       moment.style.display = "block";
       moment.style.visibility = "visible";
       moment.style.pointerEvents = "auto";
@@ -113,6 +120,7 @@ function stabilizeTimelineLayout() {
       moment.style.transform = "translateX(-50%)";
       moment.style.zIndex = moment.classList.contains("zt-journey-moment") ? "5" : "2";
       if (card) {
+        card.style.transition = "none";
         card.style.width = `${w}px`;
         card.style.height = `${ROW_HEIGHT}px`;
       }
@@ -124,35 +132,30 @@ function stabilizeTimelineLayout() {
   });
 }
 
-function runCareerTimelineFixes() {
-  stabilizeTimelineLayout();
-  replaceJourneyCard();
-}
-
 export default function CareerTimelineCtaOverrides() {
   useEffect(() => {
-    let frame = 0;
-    const scheduleReplace = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(runCareerTimelineFixes);
-    };
+    let interval: ReturnType<typeof window.setInterval> | null = null;
+    const run = () => stabilizeTimelineLayout();
 
-    const observer = new MutationObserver(scheduleReplace);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "src"] });
+    const timers = [0, 100, 250, 500, 900, 1500, 2500, 4000, 6500].map((ms) => window.setTimeout(run, ms));
+    interval = window.setInterval(run, 700);
+    const stopInterval = window.setTimeout(() => {
+      if (interval) window.clearInterval(interval);
+      interval = null;
+    }, 8000);
 
-    const timers = [0, 100, 250, 500, 900, 1500, 2500, 4000].map((ms) => window.setTimeout(scheduleReplace, ms));
-    window.addEventListener("resize", scheduleReplace);
-    window.addEventListener("hashchange", scheduleReplace);
-    document.addEventListener("load", scheduleReplace, true);
-    scheduleReplace();
+    window.addEventListener("resize", run);
+    window.addEventListener("hashchange", run);
+    document.addEventListener("load", run, true);
+    run();
 
     return () => {
-      window.cancelAnimationFrame(frame);
       timers.forEach((timer) => window.clearTimeout(timer));
-      observer.disconnect();
-      window.removeEventListener("resize", scheduleReplace);
-      window.removeEventListener("hashchange", scheduleReplace);
-      document.removeEventListener("load", scheduleReplace, true);
+      window.clearTimeout(stopInterval);
+      if (interval) window.clearInterval(interval);
+      window.removeEventListener("resize", run);
+      window.removeEventListener("hashchange", run);
+      document.removeEventListener("load", run, true);
     };
   }, []);
 
@@ -165,30 +168,30 @@ export default function CareerTimelineCtaOverrides() {
         min-height: ${ROW_HEIGHT}px !important;
         max-height: ${ROW_HEIGHT}px !important;
       }
-
       .zt-window-images,
       .zt-canvas-images {
         margin-left: 0 !important;
         padding-left: 0 !important;
       }
-
       .zt-window-images {
         overflow-x: auto !important;
         overflow-y: hidden !important;
       }
-
+      .zt-canvas-images,
+      .zt-img-moment,
+      .zt-img-card {
+        transition: none !important;
+      }
       .zt-img-moment,
       .zt-img-card {
         height: ${ROW_HEIGHT}px !important;
         box-sizing: border-box !important;
       }
-
       .zt-journey-moment,
       .zt-journey-moment .zt-img-card {
         width: ${ANCHOR_WIDTH}px !important;
         min-width: ${ANCHOR_WIDTH}px !important;
       }
-
       .zt-journey-wrap {
         position: relative !important;
         display: block !important;
@@ -198,7 +201,6 @@ export default function CareerTimelineCtaOverrides() {
         isolation: isolate !important;
         background: #000 !important;
       }
-
       .zt-career-anchor-bg {
         position: absolute !important;
         inset: 0 !important;
@@ -211,7 +213,6 @@ export default function CareerTimelineCtaOverrides() {
         filter: none !important;
         transform: none !important;
       }
-
       .zt-career-anchor-cutout {
         position: absolute !important;
         left: 2px !important;
@@ -226,30 +227,24 @@ export default function CareerTimelineCtaOverrides() {
         filter: drop-shadow(0 5px 7px rgba(0,0,0,.75)) !important;
         pointer-events: none !important;
       }
-
       .zt-journey-bg,
       .zt-journey-player,
       .zt-journey-copy,
       .zt-journey-swoosh,
       .zt-journey-logo,
-      .zt-journey-fallback {
-        display: none !important;
-      }
-
+      .zt-journey-fallback,
       .zt-img-moment.zt-prompt,
       .zt-line-pin.zt-line-prompt {
         display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
       }
-
       .zt-img-moment.zt-upload,
       .zt-img-moment.zt-archive:not(.zt-journey-moment) {
         width: ${PHOTO_WIDTH}px !important;
         min-width: ${PHOTO_WIDTH}px !important;
         overflow: hidden !important;
       }
-
       .zt-img-moment.zt-upload .zt-img-card,
       .zt-img-moment.zt-archive:not(.zt-journey-moment) .zt-img-card,
       .zt-img-moment.zt-upload .zt-image-wrap,
@@ -260,7 +255,6 @@ export default function CareerTimelineCtaOverrides() {
         overflow: hidden !important;
         background: #090909 !important;
       }
-
       .zt-img-moment.zt-upload img,
       .zt-img-moment.zt-archive:not(.zt-journey-moment) img {
         width: 100% !important;
@@ -268,37 +262,28 @@ export default function CareerTimelineCtaOverrides() {
         object-fit: cover !important;
         object-position: center center !important;
       }
-
       .zt-img-moment.zt-season,
       .zt-img-moment.zt-season .zt-img-card {
         width: ${SEASON_WIDTH}px !important;
         min-width: ${SEASON_WIDTH}px !important;
       }
-
-      .zt-img-card {
-        border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
-      }
-
+      .zt-img-card,
       .zt-journey-moment .zt-img-card {
         border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
       }
-
       .zt-shell-line .zt-line,
       .zt-shell-line .zt-line-pin:not(.zt-line-prompt) {
         display: none !important;
       }
-
       #playerFunZone #ppTab-stats .psi-shell {
         display: block !important;
         width: 100% !important;
         max-width: 100% !important;
         overflow: visible !important;
       }
-
       #playerFunZone #ppTab-stats .psi-shell .psi-card:not(:first-of-type) {
         display: none !important;
       }
-
       #playerFunZone #ppTab-stats .psi-card {
         display: block !important;
         width: max-content !important;
@@ -306,7 +291,6 @@ export default function CareerTimelineCtaOverrides() {
         margin-left: auto !important;
         margin-right: auto !important;
       }
-
       #playerFunZone #ppTab-stats .psi-table-wrap {
         display: block !important;
         width: max-content !important;
@@ -314,7 +298,6 @@ export default function CareerTimelineCtaOverrides() {
         overflow-x: auto !important;
         overflow-y: auto !important;
       }
-
       #playerFunZone #ppTab-stats .psi-table {
         width: max-content !important;
         min-width: 0 !important;
