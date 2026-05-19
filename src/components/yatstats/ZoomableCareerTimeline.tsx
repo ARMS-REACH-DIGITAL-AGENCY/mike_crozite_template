@@ -8,13 +8,10 @@ const ZOOM_KEY = 'yat:careerTimelineZoom';
 const SCROLL_EVENT = 'yat:career-timeline-scroll';
 const ZOOM_EVENT = 'yat:career-timeline-zoom';
 const CARD_W = 58;
-const CTA_W = 118;
 const JOURNEY_CARD_W = 232;
 const SEASON_CARD_W = 134;
-const IMAGE_GUTTER = 13;
+const IMAGE_GUTTER = 0;
 const TIMELINE_GUTTER = 42;
-const CLOSED_OVERLAP = 10;
-const EXPANDED_GAP = 76;
 const CLOSED_ZOOM = 1;
 const EXPANDED_ZOOM_THRESHOLD = 2.25;
 const FULL_ZOOM = 3.2;
@@ -30,7 +27,7 @@ type StatRow = {
   league?: string;
 };
 
-type MomentKind = 'prompt' | 'season' | 'archive' | 'upload';
+type MomentKind = 'season' | 'archive' | 'upload';
 
 type Moment = {
   id: string;
@@ -130,18 +127,11 @@ function teamLogoCandidates(row: StatRow) {
 
 function highSchoolImageCandidates(playerId: string) {
   const id = encodeURIComponent(playerId);
-  return [
-    `${S3_BASE}/players/cutouts/${id}.png`,
-    `${S3_BASE}/players/then/${id}.png`,
-    `${S3_BASE}/players/then/${id}.webp`,
-    `${S3_BASE}/players/then/${id}.jpg`,
-    `${S3_BASE}/players/then/${id}.jpeg`,
-  ];
+  return [`${S3_BASE}/players/cutouts/${id}.png`];
 }
 
 function visualMomentWidth(moment: Moment) {
   if (moment.journeyIntro) return JOURNEY_CARD_W;
-  if (moment.kind === 'prompt') return CTA_W;
   if (moment.kind === 'season') return SEASON_CARD_W;
   return CARD_W;
 }
@@ -165,43 +155,19 @@ function TimelineImage({ src, srcs, title, caption, kind, label, journeyIntro }:
 
   useEffect(() => setSourceIndex(0), [sources.join('|')]);
 
-  if (kind === 'prompt') {
-    return <span className="zt-prompt-card" aria-hidden="true"><b>{title}</b><strong>{caption}</strong><i>+</i></span>;
-  }
-
   if (journeyIntro) {
-    const backgroundSrc = sources.find((s) => !s.includes('/cutouts/') && !/\.png($|\?)/i.test(s)) || currentSrc;
-
     return (
-      <span className="zt-journey-wrap" aria-label="Baseball journeys don't always end at graduation. Neither should their stories.">
-        {backgroundSrc ? (
-          <img className="zt-journey-bg" src={backgroundSrc} alt="" aria-hidden="true" loading="lazy" />
-        ) : (
-          <span className="zt-journey-fallback" aria-hidden="true" />
-        )}
+      <span className="zt-journey-wrap" aria-label="Career path timeline anchor">
+        <img className="zt-career-anchor-bg" src="/img/career-path-default.png" alt="" aria-hidden="true" loading="eager" />
         {currentSrc ? (
           <img
-            className="zt-journey-player"
+            className="zt-career-anchor-cutout"
             src={currentSrc}
             alt={title}
-            loading="lazy"
+            loading="eager"
             onError={() => setSourceIndex((index) => index + 1)}
           />
         ) : null}
-        <span className="zt-journey-copy">
-          <span className="zt-journey-quote">
-            <span>“Baseball</span>
-            <span>journeys don’t</span>
-            <span>always end at</span>
-            <span>graduation.”</span>
-          </span>
-          <span className="zt-journey-banner">NEITHER SHOULD THEIR STORIES</span>
-        </span>
-        <svg className="zt-journey-swoosh" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M-24 210 C130 42 364 48 542 102 C718 156 784 220 1048 225" />
-          <path className="core" d="M-24 210 C130 42 364 48 542 102 C718 156 784 220 1048 225" />
-        </svg>
-        <span className="zt-journey-logo">YAT?STATS</span>
       </span>
     );
   }
@@ -342,7 +308,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const promptYear = hsYear - 1;
     const end = Math.max(today, firstStatYear);
     const span = Math.max(1, end - promptYear);
-    const firstName = inferFirstName(player?.playerName) || fallbackFirstName;
+    inferFirstName(player?.playerName) || fallbackFirstName;
     const galleryReturnHref = player?.playerSchoolUrl
       ? `${player.playerSchoolUrl}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`
       : `#player-${encodeURIComponent(playerId)}`;
@@ -384,14 +350,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       };
     });
 
-    const prompts: Moment[] = [{
-      id: 'prompt-memory',
-      year: hsYear + 0.15,
-      label: 'Add',
-      title: `Add a moment in time to ${firstName}'s`,
-      caption: 'Career Path Timeline',
-      kind: 'prompt',
-    }];
     const archive: Moment[] = [
       {
         id: 'archive-hs-card',
@@ -416,11 +374,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         kind: 'archive',
       },
     ];
-    const moments = [...archive, ...prompts, ...seasons, ...uploaded].sort((a, b) => {
+    const moments = [...archive, ...seasons, ...uploaded].sort((a, b) => {
       if (a.journeyIntro) return -1;
       if (b.journeyIntro) return 1;
-      if (a.kind === 'prompt' && b.kind !== 'prompt') return -1;
-      if (b.kind === 'prompt' && a.kind !== 'prompt') return 1;
+      if (a.id === 'archive-headshot') return 1;
+      if (b.id === 'archive-headshot') return -1;
       return a.year - b.year || Number(Boolean(a.cardMode)) - Number(Boolean(b.cardMode));
     });
     const uploadSlots: UploadSlot[] = moments.slice(0, -1).map((leftMoment, index) => {
@@ -431,7 +389,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       return { id: `slot-${leftMoment.id}-${rightMoment.id}`, year: (leftYear + rightYear) / 2, label: String(slotYear), leftYear, rightYear };
     });
 
-    return { promptYear, start: hsYear, canvasStart: promptYear, end, span, firstName, ticks: buildTicks(hsYear, end, zoom, promptYear), moments, uploadSlots };
+    return { promptYear, start: hsYear, canvasStart: promptYear, end, span, ticks: buildTicks(hsYear, end, zoom, promptYear), moments, uploadSlots };
   }, [stats, uploads, player?.playerName, player?.playerSchoolUrl, playerId, zoom, fallbackFirstName]);
 
   const isExpanded = zoom >= EXPANDED_ZOOM_THRESHOLD;
@@ -443,21 +401,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const content = model.moments.reduce((sum, moment) => sum + visualMomentWidth(moment), 0);
     return IMAGE_GUTTER * 2 + content + Math.max(0, model.moments.length - 1) * gap;
   };
-  const imageExpandedWidth = Math.max(packedSequenceWidth(EXPANDED_GAP), 320);
-  const imageClosedWidth = Math.max(packedSequenceWidth(-CLOSED_OVERLAP), JOURNEY_CARD_W + 120);
+  const imageExpandedWidth = Math.max(packedSequenceWidth(0), 320);
+  const imageClosedWidth = Math.max(packedSequenceWidth(0), JOURNEY_CARD_W + 120);
   const imageWidth = isExpanded ? imageExpandedWidth : imageClosedWidth;
   const sequenceLeftPx = (index: number, gap: number) => {
     let left = IMAGE_GUTTER;
     for (let i = 0; i < index; i += 1) left += visualMomentWidth(model.moments[i]) + gap;
     return left + visualMomentWidth(model.moments[index]) / 2;
   };
-  const imageLeftPx = (_moment: Moment, index: number) => isExpanded ? sequenceLeftPx(index, EXPANDED_GAP) : sequenceLeftPx(index, -CLOSED_OVERLAP);
+  const imageLeftPx = (_moment: Moment, index: number) => sequenceLeftPx(index, 0);
   const uploadSlotLeftPx = (index: number) => {
-    const leftCenter = sequenceLeftPx(index, EXPANDED_GAP);
-    const rightCenter = sequenceLeftPx(index + 1, EXPANDED_GAP);
+    const leftCenter = sequenceLeftPx(index, 0);
+    const rightCenter = sequenceLeftPx(index + 1, 0);
     return (leftCenter + rightCenter) / 2;
   };
-  const lineMomentLeftPx = (moment: Moment, index: number) => index === 0 ? sequenceLeftPx(0, -CLOSED_OVERLAP) : leftPx(moment.year);
+  const lineMomentLeftPx = (moment: Moment, index: number) => index === 0 ? sequenceLeftPx(0, 0) : leftPx(moment.year);
 
   function openUpload(year?: number) {
     try {
@@ -480,10 +438,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   }
 
   function handleMomentClick(moment: Moment) {
-    if (moment.kind === 'prompt') {
-      expandTimeline();
-      return;
-    }
     if (moment.kind === 'season') {
       openUpload(moment.year);
       return;
@@ -524,12 +478,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-shell-images { position: relative; height: 100%; min-height: 100%; overflow: hidden; color: #fff; background: transparent; }
           .zt-window-images { height: 100%; overflow-x: auto; overflow-y: hidden; padding-left: 0; scrollbar-width: none; }
           .zt-window-images::-webkit-scrollbar { display: none; }
-          .zt-canvas-images { position: relative; height: 100%; min-width: 100%; transition: width .24s ease; }
-          .zt-img-moment { position: absolute; top: 0; height: 100%; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: left .24s ease, width .24s ease; }
-          .zt-img-card { position: relative; z-index: 2; display: block; height: 100%; border: 1px solid rgba(255,255,255,.32); background: #fff; overflow: hidden; box-shadow: 0 8px 18px rgba(0,0,0,.38); transition: width .24s ease, box-shadow .24s ease; }
-          .zt-journey-moment .zt-img-card { border-color: rgba(245,200,90,.5); background:#0b0b0b; }
+          .zt-canvas-images { position: relative; height: 100%; min-width: 100%; transition: none; }
+          .zt-img-moment { position: absolute; top: 0; height: 100%; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: none; }
+          .zt-img-card { position: relative; z-index: 2; display: block; height: 100%; border: 1px solid rgba(255,255,255,.32); border-bottom:4px solid #ffd200; background: #fff; overflow: hidden; box-shadow: none; transition: none; }
+          .zt-journey-moment .zt-img-card { border-color: rgba(245,200,90,.5); border-bottom-color:#ffd200; background:#0b0b0b; }
           .zt-closed .zt-img-card { box-shadow: none; border-right-color: rgba(255,255,255,.18); }
-          .zt-prompt .zt-img-card { border: 1px solid rgba(255,255,255,.72); background:#080808; }
           .zt-img-connector { display: none; }
           .zt-img-card :global(.zt-image-wrap) { position: relative; display:block; width:100%; height:100%; background:#090909; }
           .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: center center; display: block; padding:0; margin:0; }
@@ -541,23 +494,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-img-card :global(.zt-card-overlay em) { font:800 6px/1 Oswald,sans-serif; font-style:normal; letter-spacing:.04em; color:rgba(255,255,255,.78); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .zt-img-card :global(.zt-logo-placeholder) { height: 100%; display:grid; place-items:center; color:rgba(0,0,0,.35); background:#fff; text-align:center; text-transform:uppercase; }
           .zt-img-card :global(.zt-logo-placeholder b) { font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; }
-          .zt-img-card :global(.zt-prompt-card) { height: 100%; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 6px 7px; color: #fff; background: #080808; text-align: center; text-transform: uppercase; }
-          .zt-img-card :global(.zt-prompt-card b) { font: 900 9px/1.08 Oswald, sans-serif; letter-spacing: .08em; }
-          .zt-img-card :global(.zt-prompt-card strong) { font: 900 9px/1.05 Oswald, sans-serif; letter-spacing: .08em; }
-          .zt-img-card :global(.zt-prompt-card i) { font: 900 18px/1 Oswald, sans-serif; font-style: normal; }
           .zt-img-card :global(.zt-journey-wrap) { position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate; background:#0b0b0b; }
-          .zt-img-card :global(.zt-journey-wrap)::after { content:''; position:absolute; inset:0; z-index:2; background:linear-gradient(90deg,rgba(0,0,0,.10),rgba(0,0,0,.18) 38%,rgba(0,0,0,.58)); pointer-events:none; }
-          .zt-img-card :global(.zt-journey-bg), .zt-img-card :global(.zt-journey-fallback) { position:absolute; inset:-16%; z-index:0; width:132%; height:132%; object-fit:cover; filter:blur(8px) saturate(1.06) brightness(.72); transform:scale(1.05); }
-          .zt-img-card :global(.zt-journey-fallback) { background:linear-gradient(90deg,#263d35,#111); }
-          .zt-img-card :global(.zt-journey-player) { position:absolute; z-index:4; left:0; bottom:-8%; width:46%; height:116%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 9px rgba(0,0,0,.72)); }
-          .zt-img-card :global(.zt-journey-copy) { position:absolute; z-index:5; right:4%; top:9%; width:61%; color:#fff; text-align:center; text-shadow:0 1px 5px rgba(0,0,0,.72); }
-          .zt-img-card :global(.zt-journey-quote) { display:block; font-family:Georgia,'Times New Roman',serif; font-weight:900; font-size:clamp(15px, 1.9vw, 27px); line-height:.94; letter-spacing:-.03em; }
-          .zt-img-card :global(.zt-journey-quote span) { display:block; }
-          .zt-img-card :global(.zt-journey-banner) { display:inline-flex; align-items:center; justify-content:center; margin-top:5px; min-width:92%; padding:4px 7px; color:#111; background:linear-gradient(180deg,#ffd968 0%,#f5b02f 48%,#d58c15 100%); border:1px solid rgba(255,237,145,.82); box-shadow:0 0 13px rgba(255,187,44,.42), inset 0 1px 3px rgba(255,255,255,.4); font-family:Georgia,'Times New Roman',serif; font-size:clamp(7px, .9vw, 13px); font-weight:900; line-height:1; letter-spacing:.02em; white-space:nowrap; text-transform:uppercase; }
-          .zt-img-card :global(.zt-journey-swoosh) { position:absolute; z-index:3; left:-5%; right:-10%; bottom:-10%; width:118%; height:58%; overflow:visible; pointer-events:none; }
-          .zt-img-card :global(.zt-journey-swoosh path) { fill:none; stroke:#f5a533; stroke-width:7; stroke-linecap:round; filter:drop-shadow(0 0 7px rgba(255,207,62,.95)) drop-shadow(0 0 18px rgba(255,180,32,.72)); }
-          .zt-img-card :global(.zt-journey-swoosh .core) { stroke:#fff0a4; stroke-width:2.3; filter:drop-shadow(0 0 7px rgba(255,231,118,.95)); }
-          .zt-img-card :global(.zt-journey-logo) { position:absolute; z-index:4; right:6%; bottom:9%; color:rgba(255,255,255,.30); font:900 13px/1 Oswald,sans-serif; letter-spacing:.02em; text-transform:uppercase; text-shadow:0 0 4px rgba(255,255,255,.16); }
+          .zt-img-card :global(.zt-career-anchor-bg) { position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; object-position:center center; display:block; }
+          .zt-img-card :global(.zt-career-anchor-cutout) { position:absolute; z-index:2; left:2px; bottom:0; width:auto; height:103%; max-width:54%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.75)); pointer-events:none; }
           .zt-season-caption { position:absolute; left:50%; top:calc(100% + 2px); z-index:5; width:90px; transform:translateX(-50%); display:grid; gap:1px; color:#fff; text-align:center; text-transform:uppercase; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,.75); }
           .zt-season-caption b { font:900 8px/1 Oswald,sans-serif; letter-spacing:.07em; }
           .zt-season-caption strong { font:900 7px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -567,8 +506,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           @media (max-width: 760px) {
             .zt-img-moment { height: 100%; }
             .zt-img-card { height: 100%; }
-            .zt-img-card :global(.zt-journey-quote) { font-size:clamp(14px, 5vw, 24px); }
-            .zt-img-card :global(.zt-journey-banner) { font-size:clamp(7px, 2.1vw, 11px); }
           }
           :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height: var(--row3-h, 96px) !important; height: var(--row3-h, 96px) !important; }
         `}</style>
@@ -578,7 +515,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   return (
     <section className={`zt-shell ${variant === 'line' ? 'zt-shell-line' : ''}`} id="playerCareerStrip">
-      <div className="zt-controls"><span>Zoom</span><input aria-label="Zoom timeline" type="range" min="1" max="3.4" step="0.1" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></div>
       <div className="zt-window" ref={windowRef}>
         <div className="zt-canvas" style={{ width: expandedWidth }}>
           <div className="zt-line" />
@@ -593,9 +529,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       </div>
       <style jsx>{`
         .zt-shell { position: relative; height: 100%; min-height: 52px; overflow: visible; isolation: isolate; background: linear-gradient(90deg,#101010,#050505); color: #fff; border-top: 0; }
-        .zt-controls { position:absolute; z-index:8; left:10px; top:5px; display:flex; gap:6px; align-items:center; color:rgba(255,255,255,.42); font:800 8px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; opacity:.42; }
-        .zt-controls:hover { opacity:.82; }
-        .zt-controls input { width: 64px; height: 12px; accent-color:#d9b75b; opacity:.58; }
         .zt-window { height:100%; overflow-x:auto; overflow-y:visible; padding-left:0; scrollbar-width:none; }
         .zt-window::-webkit-scrollbar { display:none; }
         .zt-canvas { position:relative; height:100%; min-width:100%; }
@@ -609,12 +542,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-line-season-label i { font:900 8px/1 Oswald,sans-serif; font-style:normal; }
         .zt-line-season-label strong { font:900 7px/1 Oswald,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-line-season-label em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-line-prompt span { border-color:#d9b75b; background:#d9b75b; box-shadow:0 0 12px rgba(217,183,91,.45); }
         .zt-line-journey span { width:13px; height:13px; border-color:#f5c85a; background:#f5c85a; box-shadow:0 0 16px rgba(245,200,90,.72); }
         .zt-line-archive span { border-color:#fff; }
         .zt-line-upload span { border-color:#7fd8ff; background:#7fd8ff; }
         .zt-shell-line { background: transparent; }
-        .zt-shell-line .zt-controls { display:none; }
       `}</style>
     </section>
   );
