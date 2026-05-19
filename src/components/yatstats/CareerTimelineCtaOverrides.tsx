@@ -15,6 +15,38 @@ function playerIdFromPath() {
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
+function createAnchorMoment() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "zt-img-moment zt-archive zt-journey-moment";
+  button.title = "Career Path Timeline";
+
+  const connector = document.createElement("span");
+  connector.className = "zt-img-connector";
+  button.appendChild(connector);
+
+  const card = document.createElement("span");
+  card.className = "zt-img-card";
+  card.style.width = `${ANCHOR_WIDTH}px`;
+
+  const wrap = document.createElement("span");
+  wrap.className = "zt-journey-wrap";
+  wrap.setAttribute("aria-label", "Career path timeline anchor");
+  card.appendChild(wrap);
+  button.appendChild(card);
+
+  return button;
+}
+
+function ensureJourneyAnchor(canvas: HTMLElement) {
+  let journey = canvas.querySelector<HTMLElement>(".zt-journey-moment");
+  if (!journey) {
+    journey = createAnchorMoment();
+    canvas.insertBefore(journey, canvas.firstChild);
+  }
+  return journey;
+}
+
 function replaceJourneyCard() {
   const playerId = playerIdFromPath();
   const cutoutSrc = playerId ? `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png` : "";
@@ -22,9 +54,9 @@ function replaceJourneyCard() {
   document.querySelectorAll<HTMLElement>(".zt-journey-wrap").forEach((wrap) => {
     const previousVersion = wrap.dataset.yatAnchorVersion;
     const previousPlayer = wrap.dataset.yatAnchorPlayer;
-    if (previousVersion === "static-v4" && previousPlayer === playerId) return;
+    if (previousVersion === "static-v5" && previousPlayer === playerId) return;
 
-    wrap.dataset.yatAnchorVersion = "static-v4";
+    wrap.dataset.yatAnchorVersion = "static-v5";
     wrap.dataset.yatAnchorPlayer = playerId;
     wrap.replaceChildren();
 
@@ -55,18 +87,12 @@ function widthForMoment(moment: HTMLElement) {
 
 function stabilizeTimelineLayout() {
   document.querySelectorAll<HTMLElement>("#playerCareerImages .zt-canvas-images").forEach((canvas) => {
+    canvas.querySelectorAll<HTMLElement>(".zt-img-moment.zt-prompt, .zt-line-pin.zt-line-prompt").forEach((el) => el.remove());
+
+    const journey = ensureJourneyAnchor(canvas);
     const all = Array.from(canvas.querySelectorAll<HTMLElement>(".zt-img-moment"));
     if (!all.length) return;
 
-    all.forEach((moment) => {
-      if (moment.classList.contains("zt-prompt")) {
-        moment.style.display = "none";
-        moment.style.visibility = "hidden";
-        moment.style.pointerEvents = "none";
-      }
-    });
-
-    const journey = all.find((moment) => moment.classList.contains("zt-journey-moment"));
     const headshot = all.find((moment) => moment.classList.contains("zt-archive") && !moment.classList.contains("zt-journey-moment"));
     const middle = all.filter((moment) => (
       moment !== journey &&
@@ -99,8 +125,8 @@ function stabilizeTimelineLayout() {
 }
 
 function runCareerTimelineFixes() {
-  replaceJourneyCard();
   stabilizeTimelineLayout();
+  replaceJourneyCard();
 }
 
 export default function CareerTimelineCtaOverrides() {
