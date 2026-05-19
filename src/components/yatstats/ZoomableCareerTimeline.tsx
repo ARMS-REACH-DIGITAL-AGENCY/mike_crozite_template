@@ -5,9 +5,9 @@ import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const CARD_W = 58;
-const ANCHOR_W = 232;
+const ANCHOR_W = 178;
 const SEASON_W = 134;
-const ROW_H = 96;
+const ROW_H = 100;
 
 type StatRow = {
   year?: string | number;
@@ -330,7 +330,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-img-card :global(.zt-image-season img) { object-fit:contain; background:#fff; }
         .zt-img-card :global(.zt-placeholder) { display:grid; place-items:center; width:100%; height:100%; color:rgba(0,0,0,.4); font:900 12px/1 Oswald,sans-serif; letter-spacing:.08em; }
         .zt-img-card :global(.zt-anchor-card) { position:relative; display:block; width:100%; height:100%; overflow:hidden; background:#0b0b0b; isolation:isolate; }
-        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:100%; height:100%; object-fit:cover; object-position:center center; }
+        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:100%; height:100%; object-fit:contain; object-position:center center; }
         .zt-img-card :global(.zt-anchor-cutout) { position:absolute; z-index:2; left:0; bottom:0; display:block; width:auto; height:102%; max-width:46%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.75)); pointer-events:none; }
         :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, ${ROW_H}px) !important; height:var(--row3-h, ${ROW_H}px) !important; }
       `}</style>
