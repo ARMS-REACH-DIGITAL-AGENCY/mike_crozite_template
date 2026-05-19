@@ -86,6 +86,12 @@ function firstName(full?: string) {
   return String(full || '').trim().split(/\s+/)[0] || 'Player';
 }
 
+function isCurrentHeadshotUrl(value: unknown, playerId: string) {
+  const src = String(value || '').toLowerCase();
+  const id = encodeURIComponent(playerId).toLowerCase();
+  return Boolean(src && src.includes('/players/now/') && src.includes(`${id}.`));
+}
+
 function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string[]; alt: string; className?: string }) {
   const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
   const [index, setIndex] = useState(0);
@@ -185,19 +191,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     });
     seasons.sort((a, b) => a.year - b.year || a.title.localeCompare(b.title));
 
-    const uploaded: Moment[] = uploads.map((item): Moment => {
-      const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
-      return {
-        id: `upload-${item.id}`,
-        kind: 'upload',
-        year: clamp(year, hsYear, endYear),
-        label: String(year),
-        title: item.title || 'Fan memory',
-        caption: item.caption || 'Fan-submitted Golden Line memory.',
-        src: item.image_data_url,
-        width: CARD_W,
-      };
-    }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
+    const uploaded: Moment[] = uploads
+      .filter((item) => !isCurrentHeadshotUrl(item.image_data_url, playerId))
+      .map((item): Moment => {
+        const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
+        return {
+          id: `upload-${item.id}`,
+          kind: 'upload',
+          year: clamp(year, hsYear, endYear),
+          label: String(year),
+          title: item.title || 'Fan memory',
+          caption: item.caption || 'Fan-submitted Golden Line memory.',
+          src: item.image_data_url,
+          width: CARD_W,
+        };
+      }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
 
     const anchor: Moment = {
       id: 'career-path-anchor',
@@ -242,10 +250,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return left + model.moments[index].width / 2;
   };
 
-  const lineWidth = Math.max(360, (model.endYear - model.startYear + 1) * CARD_W + TIMELINE_GUTTER * 2);
+  const lineWidth = Math.max(360, (model.endYear - model.startYear + 1) * CARD_W + 42 * 2);
   const lineLeft = (year: number) => {
     const span = Math.max(1, model.endYear - model.startYear);
-    return TIMELINE_GUTTER + ((year - model.startYear) / span) * Math.max(1, lineWidth - TIMELINE_GUTTER * 2);
+    return 42 + ((year - model.startYear) / span) * Math.max(1, lineWidth - 42 * 2);
   };
 
   function openUpload(year?: number) {
