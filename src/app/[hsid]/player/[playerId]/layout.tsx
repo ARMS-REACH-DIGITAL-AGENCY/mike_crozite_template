@@ -8,7 +8,6 @@ import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabil
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
 import ProfileStatsFinalOverrides from '@/components/yatstats/ProfileStatsFinalOverrides';
-import GoldenLineLogoDesignOverrides from '@/components/yatstats/GoldenLineLogoDesignOverrides';
 
 function slugifySchoolName(name: string) {
   return String(name || '')
@@ -161,7 +160,6 @@ export default async function PlayerLayout({
       {children}
       <ProfileFunZoneCleanupStyles />
       <ProfileStatsFinalOverrides />
-      <GoldenLineLogoDesignOverrides />
     </PlayerProfileContextProvider>
   );
 }
