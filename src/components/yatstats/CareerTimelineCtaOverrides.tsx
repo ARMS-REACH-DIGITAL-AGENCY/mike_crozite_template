@@ -134,7 +134,7 @@ function stabilizeTimelineLayout() {
 
 export default function CareerTimelineCtaOverrides() {
   useEffect(() => {
-    let interval: ReturnType<typeof window.setInterval> | null = null;
+    let interval: number | null = null;
     const run = () => stabilizeTimelineLayout();
 
     const timers = [0, 100, 250, 500, 900, 1500, 2500, 4000, 6500].map((ms) => window.setTimeout(run, ms));
