@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+
+const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 const ROW_HEIGHT = 100;
 const ANCHOR_WIDTH = 178;
 const PHOTO_WIDTH = 58;
@@ -7,7 +10,52 @@ const SEASON_WIDTH = 134;
 const PROMPT_WIDTH = 118;
 const OUTFIELD_YELLOW = "#ffd200";
 
+function playerIdFromPath() {
+  if (typeof window === "undefined") return "";
+  const match = window.location.pathname.match(/\/player\/([^/]+)/i);
+  return match?.[1] ? decodeURIComponent(match[1]) : "";
+}
+
 export default function CareerTimelineCtaOverrides() {
+  useEffect(() => {
+    let frame = 0;
+
+    function syncAnchorSources() {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const playerId = playerIdFromPath();
+        const cutoutSrc = playerId ? `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png` : "";
+
+        document.querySelectorAll<HTMLElement>(".zt-journey-moment").forEach((card) => {
+          const wrap = card.querySelector<HTMLElement>(".zt-journey-wrap");
+          const bg = card.querySelector<HTMLImageElement>(".zt-journey-bg");
+          const player = card.querySelector<HTMLImageElement>(".zt-journey-player");
+
+          card.style.width = `${ANCHOR_WIDTH}px`;
+          card.style.minWidth = `${ANCHOR_WIDTH}px`;
+          if (wrap) wrap.style.backgroundImage = "url('/img/career-path-default.png')";
+          if (bg && bg.src !== `${window.location.origin}/img/career-path-default.png`) bg.src = "/img/career-path-default.png";
+          if (player && cutoutSrc && player.src !== cutoutSrc) player.src = cutoutSrc;
+        });
+      });
+    }
+
+    const observer = new MutationObserver(syncAnchorSources);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "class", "style"] });
+    window.addEventListener("resize", syncAnchorSources);
+    document.addEventListener("load", syncAnchorSources, true);
+    syncAnchorSources();
+    window.setTimeout(syncAnchorSources, 250);
+    window.setTimeout(syncAnchorSources, 1000);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", syncAnchorSources);
+      document.removeEventListener("load", syncAnchorSources, true);
+    };
+  }, []);
+
   return (
     <style dangerouslySetInnerHTML={{ __html: `
       .zt-shell-images,
@@ -51,14 +99,26 @@ export default function CareerTimelineCtaOverrides() {
         background-size: 100% 100% !important;
       }
 
+      .zt-img-card :global(.zt-journey-bg),
+      .zt-journey-bg {
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 1 !important;
+        display: block !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: fill !important;
+        object-position: left center !important;
+        filter: none !important;
+        transform: none !important;
+      }
+
       .zt-img-card :global(.zt-journey-wrap)::after,
       .zt-journey-wrap::after,
-      .zt-img-card :global(.zt-journey-bg),
       .zt-img-card :global(.zt-journey-copy),
       .zt-img-card :global(.zt-journey-swoosh),
       .zt-img-card :global(.zt-journey-logo),
       .zt-img-card :global(.zt-journey-fallback),
-      .zt-journey-bg,
       .zt-journey-copy,
       .zt-journey-swoosh,
       .zt-journey-logo,
