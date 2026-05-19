@@ -30,12 +30,17 @@ export default function CareerTimelineCtaOverrides() {
           const wrap = card.querySelector<HTMLElement>(".zt-journey-wrap");
           const bg = card.querySelector<HTMLImageElement>(".zt-journey-bg");
           const player = card.querySelector<HTMLImageElement>(".zt-journey-player");
+          const copy = card.querySelector<HTMLElement>(".zt-journey-copy");
 
           card.style.width = `${ANCHOR_WIDTH}px`;
           card.style.minWidth = `${ANCHOR_WIDTH}px`;
           if (wrap) wrap.style.backgroundImage = "url('/img/career-path-default.png')";
           if (bg && bg.src !== `${window.location.origin}/img/career-path-default.png`) bg.src = "/img/career-path-default.png";
           if (player && cutoutSrc && player.src !== cutoutSrc) player.src = cutoutSrc;
+          if (copy && copy.dataset.yatCopyProbe !== "1") {
+            copy.dataset.yatCopyProbe = "1";
+            copy.innerHTML = '<span class="zt-journey-quote"><span>Old McDonald</span><span>had a farm</span><span>eieiooh</span></span><span class="zt-journey-banner">COPY SOURCE PROBE</span>';
+          }
         });
       });
     }
@@ -115,16 +120,55 @@ export default function CareerTimelineCtaOverrides() {
 
       .zt-img-card :global(.zt-journey-wrap)::after,
       .zt-journey-wrap::after,
-      .zt-img-card :global(.zt-journey-copy),
       .zt-img-card :global(.zt-journey-swoosh),
       .zt-img-card :global(.zt-journey-logo),
       .zt-img-card :global(.zt-journey-fallback),
-      .zt-journey-copy,
       .zt-journey-swoosh,
       .zt-journey-logo,
       .zt-journey-fallback {
         display: none !important;
         content: none !important;
+      }
+
+      .zt-img-card :global(.zt-journey-copy),
+      .zt-journey-copy {
+        position: absolute !important;
+        z-index: 9 !important;
+        right: 5px !important;
+        top: 8px !important;
+        width: 58% !important;
+        display: block !important;
+        color: #fff !important;
+        text-align: center !important;
+        text-shadow: 0 2px 5px rgba(0,0,0,.85) !important;
+        pointer-events: none !important;
+      }
+
+      .zt-img-card :global(.zt-journey-quote),
+      .zt-journey-quote {
+        display: block !important;
+        font-family: Georgia, 'Times New Roman', serif !important;
+        font-weight: 900 !important;
+        font-size: 17px !important;
+        line-height: .92 !important;
+      }
+
+      .zt-img-card :global(.zt-journey-quote span),
+      .zt-journey-quote span {
+        display: block !important;
+      }
+
+      .zt-img-card :global(.zt-journey-banner),
+      .zt-journey-banner {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-top: 4px !important;
+        padding: 3px 5px !important;
+        color: #111 !important;
+        background: #ffd200 !important;
+        font: 900 7px/1 Georgia, 'Times New Roman', serif !important;
+        white-space: nowrap !important;
       }
 
       .zt-img-card :global(.zt-journey-player),
