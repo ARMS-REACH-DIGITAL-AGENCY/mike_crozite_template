@@ -148,6 +148,13 @@ export default function CareerTimelineCtaOverrides() {
         display: none !important;
       }
 
+      .zt-img-moment.zt-prompt,
+      .zt-line-pin.zt-line-prompt {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
       .zt-img-moment.zt-upload,
       .zt-img-moment.zt-archive:not(.zt-journey-moment) {
         width: ${PHOTO_WIDTH}px !important;
