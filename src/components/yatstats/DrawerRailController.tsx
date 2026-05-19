@@ -76,6 +76,13 @@ function applyRightState(right: DrawerState['right']) {
   }
 }
 
+function forceAccountDrawerOpen() {
+  const body = document.body;
+  body.classList.add('drawer-account-open', 'drawer-open');
+  body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  saveDrawerState();
+}
+
 function restoreDrawerState() {
   const saved = readSavedDrawerState();
   if (!saved) return;
@@ -108,6 +115,8 @@ function syncRailMode() {
 
   if (!railCapable) {
     document.body.classList.remove('yat-both-rails-capable', 'yat-desktop-docked-drawers');
+    document.body.classList.toggle('drawer-open', hasLeftOpen() || hasAnyRightOpen());
+    saveDrawerState();
     return;
   }
 
@@ -153,6 +162,22 @@ export default function DrawerRailController() {
         window.setTimeout(() => {
           applyThemeFromStorage();
           saveDrawerState();
+        }, 0);
+        return;
+      }
+
+      if (target.closest('#closeAccount')) {
+        window.setTimeout(() => {
+          body.classList.remove('drawer-account-open');
+          syncRailMode();
+        }, 0);
+        return;
+      }
+
+      if (target.closest('#drawerAccount')) {
+        window.setTimeout(() => {
+          forceAccountDrawerOpen();
+          syncRailMode();
         }, 0);
         return;
       }
@@ -237,14 +262,6 @@ export default function DrawerRailController() {
       if (target.closest('#closeFilters')) {
         window.setTimeout(() => {
           body.classList.remove('drawer-right-open');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#closeAccount')) {
-        window.setTimeout(() => {
-          body.classList.remove('drawer-account-open');
           syncRailMode();
         }, 0);
         return;
