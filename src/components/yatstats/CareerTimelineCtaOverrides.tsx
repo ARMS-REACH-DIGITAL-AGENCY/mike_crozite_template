@@ -21,9 +21,13 @@ function replaceJourneyCard() {
   const cutoutSrc = playerId ? `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png` : "";
 
   document.querySelectorAll<HTMLElement>(".zt-journey-wrap").forEach((wrap) => {
-    if (wrap.dataset.yatAnchorVersion === "static-v2") return;
-    wrap.dataset.yatAnchorVersion = "static-v2";
-    wrap.innerHTML = "";
+    const previousVersion = wrap.dataset.yatAnchorVersion;
+    const previousPlayer = wrap.dataset.yatAnchorPlayer;
+    if (previousVersion === "static-v3" && previousPlayer === playerId) return;
+
+    wrap.dataset.yatAnchorVersion = "static-v3";
+    wrap.dataset.yatAnchorPlayer = playerId;
+    wrap.replaceChildren();
 
     const bg = document.createElement("img");
     bg.className = "zt-career-anchor-bg";
@@ -46,14 +50,28 @@ function replaceJourneyCard() {
 
 export default function CareerTimelineCtaOverrides() {
   useEffect(() => {
-    const timers = [0, 150, 400, 900, 1800].map((ms) => window.setTimeout(replaceJourneyCard, ms));
-    window.addEventListener("resize", replaceJourneyCard);
-    document.addEventListener("load", replaceJourneyCard, true);
+    let frame = 0;
+    const scheduleReplace = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(replaceJourneyCard);
+    };
+
+    const observer = new MutationObserver(scheduleReplace);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    const timers = [0, 150, 400, 900, 1800, 3200].map((ms) => window.setTimeout(scheduleReplace, ms));
+    window.addEventListener("resize", scheduleReplace);
+    window.addEventListener("hashchange", scheduleReplace);
+    document.addEventListener("load", scheduleReplace, true);
+    scheduleReplace();
 
     return () => {
+      window.cancelAnimationFrame(frame);
       timers.forEach((timer) => window.clearTimeout(timer));
-      window.removeEventListener("resize", replaceJourneyCard);
-      document.removeEventListener("load", replaceJourneyCard, true);
+      observer.disconnect();
+      window.removeEventListener("resize", scheduleReplace);
+      window.removeEventListener("hashchange", scheduleReplace);
+      document.removeEventListener("load", scheduleReplace, true);
     };
   }, []);
 
@@ -180,6 +198,39 @@ export default function CareerTimelineCtaOverrides() {
       .zt-shell-line .zt-line,
       .zt-shell-line .zt-line-pin:not(.zt-line-prompt) {
         display: none !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-shell {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-shell .psi-card:not(:first-of-type) {
+        display: none !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-card {
+        display: block !important;
+        width: max-content !important;
+        max-width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table-wrap {
+        display: block !important;
+        width: max-content !important;
+        max-width: calc(100vw - 16px) !important;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+      }
+
+      #playerFunZone #ppTab-stats .psi-table {
+        width: max-content !important;
+        min-width: 0 !important;
+        table-layout: auto !important;
       }
     ` }} />
   );
