@@ -7,7 +7,6 @@ const ROW_HEIGHT = 100;
 const ANCHOR_WIDTH = 232;
 const PHOTO_WIDTH = 58;
 const SEASON_WIDTH = 134;
-const PROMPT_WIDTH = 118;
 const OUTFIELD_YELLOW = "#ffd200";
 
 function playerIdFromPath() {
@@ -23,9 +22,9 @@ function replaceJourneyCard() {
   document.querySelectorAll<HTMLElement>(".zt-journey-wrap").forEach((wrap) => {
     const previousVersion = wrap.dataset.yatAnchorVersion;
     const previousPlayer = wrap.dataset.yatAnchorPlayer;
-    if (previousVersion === "static-v3" && previousPlayer === playerId) return;
+    if (previousVersion === "static-v4" && previousPlayer === playerId) return;
 
-    wrap.dataset.yatAnchorVersion = "static-v3";
+    wrap.dataset.yatAnchorVersion = "static-v4";
     wrap.dataset.yatAnchorPlayer = playerId;
     wrap.replaceChildren();
 
@@ -48,18 +47,74 @@ function replaceJourneyCard() {
   });
 }
 
+function widthForMoment(moment: HTMLElement) {
+  if (moment.classList.contains("zt-journey-moment")) return ANCHOR_WIDTH;
+  if (moment.classList.contains("zt-season")) return SEASON_WIDTH;
+  return PHOTO_WIDTH;
+}
+
+function stabilizeTimelineLayout() {
+  document.querySelectorAll<HTMLElement>("#playerCareerImages .zt-canvas-images").forEach((canvas) => {
+    const all = Array.from(canvas.querySelectorAll<HTMLElement>(".zt-img-moment"));
+    if (!all.length) return;
+
+    all.forEach((moment) => {
+      if (moment.classList.contains("zt-prompt")) {
+        moment.style.display = "none";
+        moment.style.visibility = "hidden";
+        moment.style.pointerEvents = "none";
+      }
+    });
+
+    const journey = all.find((moment) => moment.classList.contains("zt-journey-moment"));
+    const headshot = all.find((moment) => moment.classList.contains("zt-archive") && !moment.classList.contains("zt-journey-moment"));
+    const middle = all.filter((moment) => (
+      moment !== journey &&
+      moment !== headshot &&
+      !moment.classList.contains("zt-prompt")
+    ));
+
+    const ordered = [journey, ...middle, headshot].filter(Boolean) as HTMLElement[];
+    let cursor = 0;
+    ordered.forEach((moment) => {
+      const w = widthForMoment(moment);
+      const card = moment.querySelector<HTMLElement>(".zt-img-card");
+      moment.style.display = "block";
+      moment.style.visibility = "visible";
+      moment.style.pointerEvents = "auto";
+      moment.style.width = `${w}px`;
+      moment.style.left = `${cursor + w / 2}px`;
+      moment.style.transform = "translateX(-50%)";
+      moment.style.zIndex = moment.classList.contains("zt-journey-moment") ? "5" : "2";
+      if (card) {
+        card.style.width = `${w}px`;
+        card.style.height = `${ROW_HEIGHT}px`;
+      }
+      cursor += w;
+    });
+
+    canvas.style.width = `${Math.max(cursor, window.innerWidth)}px`;
+    canvas.style.minWidth = "100%";
+  });
+}
+
+function runCareerTimelineFixes() {
+  replaceJourneyCard();
+  stabilizeTimelineLayout();
+}
+
 export default function CareerTimelineCtaOverrides() {
   useEffect(() => {
     let frame = 0;
     const scheduleReplace = () => {
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(replaceJourneyCard);
+      frame = window.requestAnimationFrame(runCareerTimelineFixes);
     };
 
     const observer = new MutationObserver(scheduleReplace);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "src"] });
 
-    const timers = [0, 150, 400, 900, 1800, 3200].map((ms) => window.setTimeout(scheduleReplace, ms));
+    const timers = [0, 100, 250, 500, 900, 1500, 2500, 4000].map((ms) => window.setTimeout(scheduleReplace, ms));
     window.addEventListener("resize", scheduleReplace);
     window.addEventListener("hashchange", scheduleReplace);
     document.addEventListener("load", scheduleReplace, true);
@@ -91,6 +146,11 @@ export default function CareerTimelineCtaOverrides() {
         padding-left: 0 !important;
       }
 
+      .zt-window-images {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+      }
+
       .zt-img-moment,
       .zt-img-card {
         height: ${ROW_HEIGHT}px !important;
@@ -120,19 +180,21 @@ export default function CareerTimelineCtaOverrides() {
         display: block !important;
         width: 100% !important;
         height: 100% !important;
-        object-fit: fill !important;
-        object-position: left center !important;
+        object-fit: cover !important;
+        object-position: center center !important;
+        filter: none !important;
+        transform: none !important;
       }
 
       .zt-career-anchor-cutout {
         position: absolute !important;
-        left: 0 !important;
+        left: 2px !important;
         bottom: 0 !important;
         z-index: 2 !important;
         display: block !important;
         width: auto !important;
-        height: 100% !important;
-        max-width: 52% !important;
+        height: 103% !important;
+        max-width: 54% !important;
         object-fit: contain !important;
         object-position: left bottom !important;
         filter: drop-shadow(0 5px 7px rgba(0,0,0,.75)) !important;
@@ -187,19 +249,12 @@ export default function CareerTimelineCtaOverrides() {
         min-width: ${SEASON_WIDTH}px !important;
       }
 
-      .zt-img-moment.zt-prompt,
-      .zt-img-moment.zt-prompt .zt-img-card {
-        width: ${PROMPT_WIDTH}px !important;
-        min-width: ${PROMPT_WIDTH}px !important;
-      }
-
       .zt-img-card {
         border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
       }
 
-      .zt-journey-moment .zt-img-card,
-      .zt-prompt .zt-img-card {
-        border-bottom: 0 !important;
+      .zt-journey-moment .zt-img-card {
+        border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
       }
 
       .zt-shell-line .zt-line,
