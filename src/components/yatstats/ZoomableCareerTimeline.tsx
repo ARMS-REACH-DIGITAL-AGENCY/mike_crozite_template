@@ -4,17 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-const SCROLL_EVENT = 'yat:career-timeline-scroll';
 const CARD_W = 58;
-const JOURNEY_CARD_W = 232;
-const SEASON_CARD_W = 134;
-const IMAGE_GUTTER = 0;
-const TIMELINE_GUTTER = 42;
-const ROW_HEIGHT = 96;
+const ANCHOR_W = 232;
+const SEASON_W = 134;
+const ROW_H = 96;
 
 type StatRow = {
   year?: string | number;
-  age?: string | number;
   team?: string;
   teamid?: string | number;
   team_id?: string | number;
@@ -23,19 +19,18 @@ type StatRow = {
   league?: string;
 };
 
-type MomentKind = 'season' | 'archive' | 'upload';
+type MomentKind = 'anchor' | 'season' | 'upload' | 'headshot';
 
 type Moment = {
   id: string;
+  kind: MomentKind;
   year: number;
   label: string;
   title: string;
-  caption: string;
+  caption?: string;
   src?: string;
   srcs?: string[];
-  kind: MomentKind;
-  href?: string;
-  journeyIntro?: boolean;
+  width: number;
 };
 
 type SubmittedMoment = {
@@ -47,12 +42,6 @@ type SubmittedMoment = {
   photo_taken_year?: number | null;
 };
 
-declare global {
-  interface Window {
-    __yatCareerTimelineSyncing?: boolean;
-  }
-}
-
 function yearOf(value: unknown): number | null {
   const match = String(value ?? '').match(/\d{4}/);
   const year = match ? Number(match[0]) : NaN;
@@ -61,15 +50,6 @@ function yearOf(value: unknown): number | null {
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
-}
-
-function buildTicks(start: number, end: number) {
-  const span = Math.max(1, end - start);
-  const step = span > 8 ? 2 : 1;
-  const out: number[] = [start];
-  for (let y = start + step; y < end; y += step) out.push(y);
-  if (!out.includes(end)) out.push(end);
-  return Array.from(new Set(out)).sort((a, b) => a - b);
 }
 
 function normalizeLevel(value: unknown) {
@@ -89,81 +69,47 @@ function normalizeLevel(value: unknown) {
   return raw;
 }
 
-function cleanTeamLabel(value: unknown) {
-  return String(value || '').trim();
-}
-
 function teamLogoCandidates(row: StatRow) {
   const teamId = String(row.teamid || row.team_id || '').trim();
   if (!teamId || !/^\d+$/.test(teamId)) return [];
-  return Array.from(new Set([
+  return [
     `${S3_BASE}/teams/${teamId}.png`,
     `${S3_BASE}/teams/${teamId}.jpg`,
     `${S3_BASE}/teams/${teamId}.jpeg`,
     `${S3_BASE}/teams/${teamId}.webp`,
     `${S3_BASE}/teams/${teamId}.PNG`,
     `${S3_BASE}/teams/${teamId}.JPG`,
-  ]));
+  ];
 }
 
-function highSchoolCutoutSrc(playerId: string) {
-  return `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`;
+function firstName(full?: string) {
+  return String(full || '').trim().split(/\s+/)[0] || 'Player';
 }
 
-function visualMomentWidth(moment: Moment) {
-  if (moment.journeyIntro) return JOURNEY_CARD_W;
-  if (moment.kind === 'season') return SEASON_CARD_W;
-  return CARD_W;
+function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string[]; alt: string; className?: string }) {
+  const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [sources.join('|')]);
+  const active = sources[index];
+  if (!active) return null;
+  return <img className={className} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
 }
 
-function TimelineImage({ src, srcs, title, caption, kind, label, journeyIntro }: {
-  src?: string;
-  srcs?: string[];
-  title: string;
-  caption: string;
-  kind: MomentKind;
-  label: string;
-  journeyIntro?: boolean;
-}) {
-  const sources = useMemo(
-    () => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))),
-    [src, srcs]
-  );
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const currentSrc = sources[sourceIndex];
-
-  useEffect(() => setSourceIndex(0), [sources.join('|')]);
-
-  if (journeyIntro) {
-    return (
-      <span className="zt-journey-wrap" aria-label="Career path timeline anchor">
-        <img className="zt-career-anchor-bg" src="/img/career-path-default.png" alt="" aria-hidden="true" loading="eager" />
-        {currentSrc ? (
-          <img
-            className="zt-career-anchor-cutout"
-            src={currentSrc}
-            alt={title}
-            loading="eager"
-            onError={() => setSourceIndex((index) => index + 1)}
-          />
-        ) : null}
-      </span>
-    );
-  }
-
-  if (!currentSrc) {
-    return <span className={`zt-logo-placeholder zt-logo-placeholder-${kind}`} aria-hidden="true"><b>{label}</b></span>;
-  }
-
+function AnchorCard({ playerId, playerName }: { playerId: string; playerName?: string }) {
   return (
-    <span className={`zt-image-wrap zt-image-wrap-${kind}`}>
-      <img
-        src={currentSrc}
-        alt={title}
-        loading="lazy"
-        onError={() => setSourceIndex((index) => index + 1)}
-      />
-      {kind !== 'season' && <span className="zt-card-overlay"><b>{label}</b><strong>{title}</strong><em>{caption}</em></span>}
+    <span className="zt-anchor-card">
+      <img className="zt-anchor-bg" src="/img/career-path-default.png" alt="" aria-hidden="true" loading="eager" />
+      <SmartImage className="zt-anchor-cutout" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(playerName)} high school cutout`} />
+    </span>
+  );
+}
+
+function MomentImage({ moment, playerId, playerName }: { moment: Moment; playerId: string; playerName?: string }) {
+  if (moment.kind === 'anchor') return <AnchorCard playerId={playerId} playerName={playerName} />;
+  return (
+    <span className={`zt-image-wrap zt-image-${moment.kind}`}>
+      <SmartImage src={moment.src} srcs={moment.srcs} alt={moment.title} />
+      {!moment.src && !moment.srcs?.length ? <span className="zt-placeholder">{moment.label}</span> : null}
     </span>
   );
 }
@@ -174,7 +120,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [uploads, setUploads] = useState<SubmittedMoment[]>([]);
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
-  const windowRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,7 +130,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       .then((data) => {
         if (cancelled) return;
         const primary = data?.primaryType === 'batting' ? data?.batting : data?.pitching;
-        const fallback = [...(Array.isArray(data?.pitching) ? data.pitching : []), ...(Array.isArray(data?.batting) ? data.batting : [])];
+        const fallback = [
+          ...(Array.isArray(data?.pitching) ? data.pitching : []),
+          ...(Array.isArray(data?.batting) ? data.batting : []),
+        ];
         setStats(Array.isArray(primary) && primary.length ? primary : fallback);
       })
       .catch(() => { if (!cancelled) setStats([]); })
@@ -204,128 +153,100 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   }, [playerId]);
 
   const model = useMemo(() => {
-    const today = new Date().getFullYear();
+    const currentYear = new Date().getFullYear();
     const statYears = stats.map((row) => yearOf(row.year)).filter((year): year is number => typeof year === 'number');
-    const firstStatYear = statYears.length ? Math.min(...statYears) : today;
+    const firstStatYear = statYears.length ? Math.min(...statYears) : currentYear;
     const hsYear = Math.max(1900, firstStatYear - 1);
-    const end = Math.max(today, ...statYears, firstStatYear);
-    const galleryReturnHref = player?.playerSchoolUrl
-      ? `${player.playerSchoolUrl}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`
-      : `#player-${encodeURIComponent(playerId)}`;
+    const endYear = Math.max(currentYear, ...statYears, firstStatYear);
 
     const seen = new Set<string>();
     const seasons: Moment[] = [];
-    for (const row of stats) {
+    stats.forEach((row) => {
       const year = yearOf(row.year);
-      const team = cleanTeamLabel(row.team);
-      if (!year || !team) continue;
+      const team = String(row.team || '').trim();
+      if (!year || !team) return;
       const level = normalizeLevel(row.level);
       const org = String(row.org_conf || row.league || '').trim();
       const key = `${year}|${team}|${level}|${org}`;
-      if (seen.has(key)) continue;
+      if (seen.has(key)) return;
       seen.add(key);
       const srcs = teamLogoCandidates(row);
       seasons.push({
         id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+        kind: 'season',
         year,
         label: String(year),
         title: team,
         caption: `${level}${org ? ` · ${org}` : ''}`,
         src: srcs[0],
         srcs,
-        kind: 'season',
+        width: SEASON_W,
       });
-    }
+    });
     seasons.sort((a, b) => a.year - b.year || a.title.localeCompare(b.title));
 
-    const uploaded: Moment[] = uploads.map((item) => {
+    const uploaded: Moment[] = uploads.map((item): Moment => {
       const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
       return {
         id: `upload-${item.id}`,
-        year: clamp(year, hsYear, end),
+        kind: 'upload',
+        year: clamp(year, hsYear, endYear),
         label: String(year),
         title: item.title || 'Fan memory',
         caption: item.caption || 'Fan-submitted Golden Line memory.',
         src: item.image_data_url,
-        kind: 'upload',
+        width: CARD_W,
       };
     }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
 
-    const journey: Moment = {
-      id: 'archive-hs-card',
+    const anchor: Moment = {
+      id: 'career-path-anchor',
+      kind: 'anchor',
       year: hsYear,
       label: 'HS',
-      title: 'High school journey card',
-      caption: 'Baseball journeys do not always end at graduation.',
-      src: highSchoolCutoutSrc(playerId),
-      srcs: [highSchoolCutoutSrc(playerId)],
-      kind: 'archive',
-      href: galleryReturnHref,
-      journeyIntro: true,
+      title: 'High school journey anchor',
+      width: ANCHOR_W,
     };
 
     const headshot: Moment = {
-      id: 'archive-headshot',
-      year: end,
-      label: String(end),
-      title: 'Profile headshot',
-      caption: 'Current interactive-strip image.',
+      id: 'current-headshot',
+      kind: 'headshot',
+      year: endYear,
+      label: String(endYear),
+      title: 'Current headshot',
       src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
-      kind: 'archive',
+      width: CARD_W,
     };
 
-    const moments = [journey, ...uploaded, ...seasons, headshot];
-    const span = Math.max(1, end - hsYear);
-    return { start: hsYear, end, span, ticks: buildTicks(hsYear, end), moments };
-  }, [stats, uploads, player?.playerSchoolUrl, playerId]);
+    return {
+      startYear: hsYear,
+      endYear,
+      moments: [anchor, ...uploaded, ...seasons, headshot],
+      ticks: Array.from(new Set([hsYear, ...statYears, endYear])).sort((a, b) => a - b),
+    };
+  }, [stats, uploads, playerId]);
 
-  const dataReady = statsLoaded && uploadsLoaded;
+  const ready = statsLoaded && uploadsLoaded;
+  const canvasWidth = useMemo(() => model.moments.reduce((sum, moment) => sum + moment.width, 0), [model.moments]);
 
   useEffect(() => {
-    if (variant !== 'images' || !dataReady) return;
-    const el = windowRef.current;
-    if (!el) return;
-    el.scrollLeft = 0;
-  }, [variant, dataReady, playerId]);
+    if (!ready || variant !== 'images') return;
+    requestAnimationFrame(() => {
+      if (scrollerRef.current) scrollerRef.current.scrollLeft = 0;
+    });
+  }, [ready, variant, playerId]);
 
-  useEffect(() => {
-    const el = windowRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      if (window.__yatCareerTimelineSyncing) return;
-      window.dispatchEvent(new CustomEvent(SCROLL_EVENT, { detail: { scrollLeft: el.scrollLeft, source: variant } }));
-    };
-    const onPeerScroll = (event: Event) => {
-      if (variant === 'images') return;
-      const detail = (event as CustomEvent).detail || {};
-      if (detail.source === variant || typeof detail.scrollLeft !== 'number') return;
-      if (Math.abs(el.scrollLeft - detail.scrollLeft) < 2) return;
-      window.__yatCareerTimelineSyncing = true;
-      el.scrollLeft = detail.scrollLeft;
-      requestAnimationFrame(() => { window.__yatCareerTimelineSyncing = false; });
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener(SCROLL_EVENT, onPeerScroll);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      window.removeEventListener(SCROLL_EVENT, onPeerScroll);
-    };
-  }, [variant]);
-
-  const packedSequenceWidth = () => {
-    const content = model.moments.reduce((sum, moment) => sum + visualMomentWidth(moment), 0);
-    return IMAGE_GUTTER * 2 + content;
-  };
-  const imageWidth = Math.max(packedSequenceWidth(), JOURNEY_CARD_W + 120);
-  const sequenceLeftPx = (index: number) => {
-    let left = IMAGE_GUTTER;
-    for (let i = 0; i < index; i += 1) left += visualMomentWidth(model.moments[i]);
-    return left + visualMomentWidth(model.moments[index]) / 2;
+  const leftForIndex = (index: number) => {
+    let left = 0;
+    for (let i = 0; i < index; i += 1) left += model.moments[i].width;
+    return left + model.moments[index].width / 2;
   };
 
-  const expandedWidth = Math.max(TIMELINE_GUTTER * 2 + CARD_W, Math.round(model.span * CARD_W + TIMELINE_GUTTER * 2));
-  const usable = Math.max(1, expandedWidth - TIMELINE_GUTTER * 2);
-  const leftPx = (year: number) => TIMELINE_GUTTER + ((year - model.start) / model.span) * usable;
+  const lineWidth = Math.max(360, (model.endYear - model.startYear + 1) * CARD_W + TIMELINE_GUTTER * 2);
+  const lineLeft = (year: number) => {
+    const span = Math.max(1, model.endYear - model.startYear);
+    return TIMELINE_GUTTER + ((year - model.startYear) / span) * Math.max(1, lineWidth - TIMELINE_GUTTER * 2);
+  };
 
   function openUpload(year?: number) {
     try {
@@ -340,93 +261,70 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   }
 
   function handleMomentClick(moment: Moment) {
-    if (moment.kind === 'season') {
-      openUpload(moment.year);
-      return;
-    }
-    if (moment.href) window.location.href = moment.href;
+    if (moment.kind === 'season') openUpload(moment.year);
   }
 
-  if (variant === 'images') {
+  if (variant === 'line') {
     return (
-      <section className="zt-shell zt-shell-images zt-closed" id="playerCareerImages">
-        <div className="zt-window zt-window-images" ref={windowRef}>
-          <div className="zt-canvas zt-canvas-images" style={{ width: dataReady ? imageWidth : JOURNEY_CARD_W }}>
-            {dataReady && model.moments.map((moment, index) => {
-              const w = visualMomentWidth(moment);
-              const isSeason = moment.kind === 'season';
-              return (
-                <button type="button" key={moment.id} className={`zt-img-moment zt-${moment.kind} ${moment.journeyIntro ? 'zt-journey-moment' : ''}`} style={{ left: sequenceLeftPx(index), width: w }} onClick={() => handleMomentClick(moment)} title={`${moment.label} - ${moment.title}`}>
-                  <span className="zt-img-card" style={{ width: w }}>
-                    <TimelineImage src={moment.src} srcs={moment.srcs} title={moment.title} caption={moment.caption} kind={moment.kind} label={moment.label} journeyIntro={moment.journeyIntro} />
-                  </span>
-                  {isSeason && <span className="zt-season-caption"><b>{moment.label}</b><strong>{moment.title}</strong><em>{moment.caption}</em></span>}
-                </button>
-              );
-            })}
+      <section className="zt-line-shell">
+        <div className="zt-line-window">
+          <div className="zt-line-canvas" style={{ width: lineWidth }}>
+            <div className="zt-line" />
+            {model.ticks.map((year) => (
+              <span className="zt-tick" key={year} style={{ left: lineLeft(year) }}><i /><b>{year === model.startYear ? 'HS' : year === model.endYear ? 'Today' : year}</b></span>
+            ))}
           </div>
         </div>
         <style jsx>{`
-          .zt-shell-images { position: relative; height: 100%; min-height: 100%; overflow: hidden; color: #fff; background: transparent; }
-          .zt-window-images { height: 100%; overflow-x: auto; overflow-y: hidden; padding-left: 0; scrollbar-width: none; }
-          .zt-window-images::-webkit-scrollbar { display: none; }
-          .zt-canvas-images { position: relative; height: 100%; min-width: 100%; transition: none; }
-          .zt-img-moment { position: absolute; top: 0; height: 100%; transform: translateX(-50%); border: 0; padding: 0; background: transparent; cursor: pointer; transition: none; }
-          .zt-img-card { position: relative; z-index: 2; display: block; height: 100%; border: 1px solid rgba(255,255,255,.32); border-bottom:4px solid #ffd200; background: #fff; overflow: hidden; box-shadow: none; transition: none; }
-          .zt-journey-moment .zt-img-card { border-color: rgba(245,200,90,.5); border-bottom-color:#ffd200; background:#0b0b0b; }
-          .zt-img-card :global(.zt-image-wrap) { position: relative; display:block; width:100%; height:100%; background:#090909; }
-          .zt-img-card :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: center center; display: block; padding:0; margin:0; }
-          .zt-img-card :global(.zt-image-wrap-season) { background:#fff; display:block; }
-          .zt-img-card :global(.zt-image-wrap-season img) { object-fit: contain; object-position: center center; padding:0; margin:0; background:#fff; }
-          .zt-img-card :global(.zt-card-overlay) { position:absolute; left:0; right:0; bottom:0; z-index:3; display:grid; gap:1px; padding:4px 3px 3px; color:#fff; text-align:center; text-transform:uppercase; background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.82) 25%,rgba(0,0,0,.94)); pointer-events:none; }
-          .zt-img-card :global(.zt-card-overlay b) { font:900 8px/1 Oswald,sans-serif; letter-spacing:.06em; }
-          .zt-img-card :global(.zt-card-overlay strong) { font:900 7px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .zt-img-card :global(.zt-card-overlay em) { font:800 6px/1 Oswald,sans-serif; font-style:normal; letter-spacing:.04em; color:rgba(255,255,255,.78); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .zt-img-card :global(.zt-logo-placeholder) { height: 100%; display:grid; place-items:center; color:rgba(0,0,0,.35); background:#fff; text-align:center; text-transform:uppercase; }
-          .zt-img-card :global(.zt-logo-placeholder b) { font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; }
-          .zt-img-card :global(.zt-journey-wrap) { position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate; background:#0b0b0b; }
-          .zt-img-card :global(.zt-career-anchor-bg) { position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; object-position:center center; display:block; }
-          .zt-img-card :global(.zt-career-anchor-cutout) { position:absolute; z-index:2; left:0; bottom:0; width:auto; height:102%; max-width:46%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.75)); pointer-events:none; }
-          .zt-season-caption { display:none; }
-          :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height: var(--row3-h, ${ROW_HEIGHT}px) !important; height: var(--row3-h, ${ROW_HEIGHT}px) !important; }
+          .zt-line-shell { position:relative; height:100%; overflow:hidden; background:transparent; }
+          .zt-line-window { height:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+          .zt-line-window::-webkit-scrollbar { display:none; }
+          .zt-line-canvas { position:relative; height:100%; min-width:100%; }
+          .zt-line { position:absolute; left:0; right:0; top:50%; height:2px; background:#c7a34a; }
+          .zt-tick { position:absolute; top:50%; transform:translateX(-50%); display:grid; justify-items:center; gap:4px; pointer-events:none; }
+          .zt-tick i { width:1px; height:14px; background:rgba(255,255,255,.35); transform:translateY(-7px); }
+          .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); }
         `}</style>
       </section>
     );
   }
 
   return (
-    <section className={`zt-shell ${variant === 'line' ? 'zt-shell-line' : ''}`} id="playerCareerStrip">
-      <div className="zt-window" ref={windowRef}>
-        <div className="zt-canvas" style={{ width: expandedWidth }}>
-          <div className="zt-line" />
-          {model.ticks.map((year) => <span className="zt-tick" key={year} style={{ left: leftPx(year) }}><i /><b>{year === model.start ? 'HS' : year === model.end ? 'Today' : year}</b></span>)}
-          {model.moments.map((moment) => (
-            <button type="button" key={moment.id} className={`zt-line-pin zt-line-${moment.kind} ${moment.journeyIntro ? 'zt-line-journey' : ''}`} style={{ left: moment.journeyIntro ? TIMELINE_GUTTER : leftPx(moment.year) }} onClick={() => handleMomentClick(moment)} title={`${moment.label} - ${moment.title}`}>
-              <span />
-              {moment.kind === 'season' && <b className="zt-line-season-label"><i>{moment.label}</i><strong>{moment.title}</strong><em>{moment.caption}</em></b>}
+    <section className="zt-shell-images" id="playerCareerImages">
+      <div className="zt-window-images" ref={scrollerRef}>
+        <div className="zt-canvas-images" style={{ width: ready ? canvasWidth : ANCHOR_W }}>
+          {ready && model.moments.map((moment, index) => (
+            <button
+              type="button"
+              key={moment.id}
+              className={`zt-img-moment zt-${moment.kind}`}
+              style={{ left: leftForIndex(index), width: moment.width }}
+              onClick={() => handleMomentClick(moment)}
+              title={`${moment.label} - ${moment.title}`}
+            >
+              <span className="zt-img-card" style={{ width: moment.width }}>
+                <MomentImage moment={moment} playerId={playerId} playerName={player?.playerName} />
+              </span>
             </button>
           ))}
         </div>
       </div>
       <style jsx>{`
-        .zt-shell { position: relative; height: 100%; min-height: 52px; overflow: visible; isolation: isolate; background: linear-gradient(90deg,#101010,#050505); color: #fff; border-top: 0; }
-        .zt-window { height:100%; overflow-x:auto; overflow-y:visible; padding-left:0; scrollbar-width:none; }
-        .zt-window::-webkit-scrollbar { display:none; }
-        .zt-canvas { position:relative; height:100%; min-width:100%; }
-        .zt-line { position:absolute; left:0; right:0; top:44%; height:2px; background:linear-gradient(90deg,rgba(210,165,58,.72),rgba(245,200,90,.95),rgba(210,165,58,.72)); box-shadow:0 0 10px rgba(245,200,90,.22); }
-        .zt-tick { position:absolute; top:44%; transform:translateX(-50%); display:grid; justify-items:center; gap:4px; pointer-events:none; z-index:3; }
-        .zt-tick i { width:1px; height:15px; background:rgba(255,255,255,.34); transform:translateY(-7px); }
-        .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); white-space:nowrap; }
-        .zt-line-pin { position:absolute; top:44%; width:20px; height:20px; transform:translate(-50%, -50%); border:0; background:transparent; padding:0; cursor:pointer; z-index:4; }
-        .zt-line-pin span { position:relative; z-index:2; display:block; width:9px; height:9px; margin:auto; border:1px solid #fff; background:#111; box-shadow:0 0 8px rgba(255,255,255,.24); }
-        .zt-line-season-label { position:absolute; top:15px; left:50%; width:90px; transform:translateX(-50%); display:grid; gap:1px; color:#fff; text-align:center; text-transform:uppercase; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,.75); }
-        .zt-line-season-label i { font:900 8px/1 Oswald,sans-serif; font-style:normal; }
-        .zt-line-season-label strong { font:900 7px/1 Oswald,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-line-season-label em { font:800 6px/1 Oswald,sans-serif; font-style:normal; color:rgba(255,255,255,.72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-line-journey span { width:13px; height:13px; border-color:#f5c85a; background:#f5c85a; box-shadow:0 0 16px rgba(245,200,90,.72); }
-        .zt-line-archive span { border-color:#fff; }
-        .zt-line-upload span { border-color:#7fd8ff; background:#7fd8ff; }
-        .zt-shell-line { background: transparent; }
+        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
+        .zt-window-images { height:100%; overflow-x:auto; overflow-y:hidden; padding-left:0; scrollbar-width:none; }
+        .zt-window-images::-webkit-scrollbar { display:none; }
+        .zt-canvas-images { position:relative; height:100%; min-width:100%; transition:none; }
+        .zt-img-moment { position:absolute; top:0; height:100%; transform:translateX(-50%); border:0; padding:0; margin:0; background:transparent; cursor:pointer; transition:none; }
+        .zt-img-card { position:relative; display:block; height:100%; overflow:hidden; background:#fff; border:1px solid rgba(255,255,255,.22); border-bottom:4px solid #ffd200; box-shadow:none; transition:none; }
+        .zt-img-card :global(.zt-image-wrap) { position:relative; display:block; width:100%; height:100%; background:#090909; }
+        .zt-img-card :global(.zt-image-wrap img) { width:100%; height:100%; display:block; object-fit:cover; object-position:center center; padding:0; margin:0; }
+        .zt-img-card :global(.zt-image-season) { background:#fff; }
+        .zt-img-card :global(.zt-image-season img) { object-fit:contain; background:#fff; }
+        .zt-img-card :global(.zt-placeholder) { display:grid; place-items:center; width:100%; height:100%; color:rgba(0,0,0,.4); font:900 12px/1 Oswald,sans-serif; letter-spacing:.08em; }
+        .zt-img-card :global(.zt-anchor-card) { position:relative; display:block; width:100%; height:100%; overflow:hidden; background:#0b0b0b; isolation:isolate; }
+        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:100%; height:100%; object-fit:cover; object-position:center center; }
+        .zt-img-card :global(.zt-anchor-cutout) { position:absolute; z-index:2; left:0; bottom:0; display:block; width:auto; height:102%; max-width:46%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.75)); pointer-events:none; }
+        :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, ${ROW_H}px) !important; height:var(--row3-h, ${ROW_H}px) !important; }
       `}</style>
     </section>
   );
