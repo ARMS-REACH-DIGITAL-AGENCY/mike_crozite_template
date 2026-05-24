@@ -4,10 +4,10 @@ import { useEffect } from "react";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 const ROW_HEIGHT = 100;
-const ANCHOR_WIDTH = 232;
+const ANCHOR_WIDTH = 178;
 const PHOTO_WIDTH = 58;
 const SEASON_WIDTH = 134;
-const OUTFIELD_YELLOW = "#ffd200";
+const OUTFIELD_YELLOW = "#ffb21a";
 
 function playerIdFromPath() {
   if (typeof window === "undefined") return "";
@@ -48,8 +48,8 @@ function ensureJourneyAnchor(canvas: HTMLElement) {
     canvas.insertBefore(journey, canvas.firstChild);
   }
 
-  if (journey.dataset.yatAnchorVersion !== "static-v6" || journey.dataset.yatAnchorPlayer !== playerId) {
-    journey.dataset.yatAnchorVersion = "static-v6";
+  if (journey.dataset.yatAnchorVersion !== "static-v7" || journey.dataset.yatAnchorPlayer !== playerId) {
+    journey.dataset.yatAnchorVersion = "static-v7";
     journey.dataset.yatAnchorPlayer = playerId;
     const wrap = journey.querySelector<HTMLElement>(".zt-journey-wrap") || document.createElement("span");
     wrap.className = "zt-journey-wrap";
@@ -199,7 +199,7 @@ export default function CareerTimelineCtaOverrides() {
         height: 100% !important;
         overflow: hidden !important;
         isolation: isolate !important;
-        background: #000 !important;
+        background: transparent !important;
       }
       .zt-career-anchor-bg {
         position: absolute !important;
@@ -209,7 +209,7 @@ export default function CareerTimelineCtaOverrides() {
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
-        object-position: center center !important;
+        object-position: left center !important;
         filter: none !important;
         transform: none !important;
       }
@@ -267,9 +267,11 @@ export default function CareerTimelineCtaOverrides() {
         width: ${SEASON_WIDTH}px !important;
         min-width: ${SEASON_WIDTH}px !important;
       }
-      .zt-img-card,
-      .zt-journey-moment .zt-img-card {
+      .zt-img-card {
         border-bottom: 4px solid ${OUTFIELD_YELLOW} !important;
+      }
+      .zt-journey-moment .zt-img-card {
+        border-bottom: 0 !important;
       }
       .zt-shell-line .zt-line,
       .zt-shell-line .zt-line-pin:not(.zt-line-prompt) {
