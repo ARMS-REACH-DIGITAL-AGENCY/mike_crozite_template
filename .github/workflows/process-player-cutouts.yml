@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Scan only; do not write PNG cutouts"
+        description: "Scan only; do not create/update generated PNG cutouts"
         required: false
         default: "true"
         type: choice
@@ -12,7 +12,7 @@ on:
           - "true"
           - "false"
       overwrite:
-        description: "Overwrite existing PNG cutouts"
+        description: "Overwrite generated PNG outputs only; original JPG/JPEG/WEBP files are never overwritten"
         required: false
         default: "false"
         type: choice
@@ -23,8 +23,12 @@ on:
         description: "Optional max files to process/test. Leave blank for all."
         required: false
         default: ""
-      s3_prefix:
-        description: "S3 prefix to process"
+      source_prefix:
+        description: "S3 source prefix containing original JPG/JPEG/WEBP files"
+        required: false
+        default: "players/cutouts/"
+      output_prefix:
+        description: "S3 output prefix for generated transparent PNG cutouts"
         required: false
         default: "players/cutouts/"
 
@@ -40,7 +44,8 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       YATSTATS_S3_BUCKET: yatstats-assets
-      YATSTATS_S3_PREFIX: ${{ github.event.inputs.s3_prefix || 'players/cutouts/' }}
+      YATSTATS_S3_SOURCE_PREFIX: ${{ github.event.inputs.source_prefix || 'players/cutouts/' }}
+      YATSTATS_S3_OUTPUT_PREFIX: ${{ github.event.inputs.output_prefix || 'players/cutouts/' }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}
