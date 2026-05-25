@@ -8,6 +8,7 @@ const CARD_W = 58;
 const ANCHOR_W = 178;
 const SEASON_W = 134;
 const ROW_H = 100;
+const TIMELINE_YELLOW = '#ffb21c';
 
 type StatRow = {
   year?: string | number;
@@ -288,7 +289,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-line-window { height:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
           .zt-line-window::-webkit-scrollbar { display:none; }
           .zt-line-canvas { position:relative; height:100%; min-width:100%; }
-          .zt-line { position:absolute; left:0; right:0; top:50%; height:2px; background:#c7a34a; }
+          .zt-line { position:absolute; left:0; right:0; top:50%; height:2px; background:${TIMELINE_YELLOW}; }
           .zt-tick { position:absolute; top:50%; transform:translateX(-50%); display:grid; justify-items:center; gap:4px; pointer-events:none; }
           .zt-tick i { width:1px; height:14px; background:rgba(255,255,255,.35); transform:translateY(-7px); }
           .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); }
@@ -323,14 +324,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-window-images::-webkit-scrollbar { display:none; }
         .zt-canvas-images { position:relative; height:100%; min-width:100%; transition:none; }
         .zt-img-moment { position:absolute; top:0; height:100%; transform:translateX(-50%); border:0; padding:0; margin:0; background:transparent; cursor:pointer; transition:none; }
-        .zt-img-card { position:relative; display:block; height:100%; overflow:hidden; background:#fff; border:1px solid rgba(255,255,255,.22); border-bottom:4px solid #ffd200; box-shadow:none; transition:none; }
+        .zt-img-card { position:relative; display:block; height:100%; overflow:hidden; background:#fff; border:1px solid rgba(255,255,255,.22); border-bottom:0; box-shadow:none; transition:none; }
+        .zt-img-moment:not(.zt-anchor) .zt-img-card { border-bottom:3px solid ${TIMELINE_YELLOW}; }
         .zt-img-card :global(.zt-image-wrap) { position:relative; display:block; width:100%; height:100%; background:#090909; }
         .zt-img-card :global(.zt-image-wrap img) { width:100%; height:100%; display:block; object-fit:cover; object-position:center center; padding:0; margin:0; }
         .zt-img-card :global(.zt-image-season) { background:#fff; }
         .zt-img-card :global(.zt-image-season img) { object-fit:contain; background:#fff; }
         .zt-img-card :global(.zt-placeholder) { display:grid; place-items:center; width:100%; height:100%; color:rgba(0,0,0,.4); font:900 12px/1 Oswald,sans-serif; letter-spacing:.08em; }
-        .zt-img-card :global(.zt-anchor-card) { position:relative; display:block; width:100%; height:100%; overflow:hidden; background:#0b0b0b; isolation:isolate; }
-        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:100%; height:100%; object-fit:contain; object-position:center center; }
+        .zt-img-card :global(.zt-anchor-card) { position:relative; display:block; width:178px; height:100px; overflow:hidden; background:transparent; isolation:isolate; }
+        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:178px; height:100px; object-fit:cover; object-position:center center; }
         .zt-img-card :global(.zt-anchor-cutout) { position:absolute; z-index:2; left:0; bottom:0; display:block; width:auto; height:102%; max-width:46%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.75)); pointer-events:none; }
         :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, ${ROW_H}px) !important; height:var(--row3-h, ${ROW_H}px) !important; }
       `}</style>
