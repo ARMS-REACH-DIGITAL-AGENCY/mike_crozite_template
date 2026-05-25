@@ -324,6 +324,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-window-images::-webkit-scrollbar { display:none; }
         .zt-canvas-images { position:relative; height:100%; min-width:100%; transition:none; }
         .zt-img-moment { position:absolute; top:0; height:100%; transform:translateX(-50%); border:0; padding:0; margin:0; background:transparent; cursor:pointer; transition:none; }
+        .zt-img-moment.zt-anchor { z-index:2; }
+        .zt-img-moment:not(.zt-anchor) { z-index:1; }
         .zt-img-card { position:relative; display:block; height:100%; overflow:hidden; background:transparent; border:0; box-shadow:none; transition:none; }
         .zt-img-moment:not(.zt-anchor) .zt-img-card { border-bottom:3px solid ${TIMELINE_YELLOW}; }
         .zt-img-card :global(.zt-image-wrap) { position:relative; display:block; width:100%; height:100%; background:#090909; }
@@ -332,7 +334,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-img-card :global(.zt-image-season img) { object-fit:contain; background:#fff; }
         .zt-img-card :global(.zt-placeholder) { display:grid; place-items:center; width:100%; height:100%; color:rgba(0,0,0,.4); font:900 12px/1 Oswald,sans-serif; letter-spacing:.08em; }
         .zt-img-card :global(.zt-anchor-card) { position:relative; display:block; width:178px; height:100px; overflow:hidden; background:transparent; isolation:isolate; }
-        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:100%; height:100%; object-fit:cover; object-position:center center; transform:none; transform-origin:center center; }
+        .zt-img-card :global(.zt-anchor-bg) { position:absolute; inset:0; z-index:1; display:block; width:178px; height:100px; max-width:none; object-fit:contain; object-position:center center; transform:none; transform-origin:center center; }
         .zt-img-card :global(.zt-anchor-cutout) { position:absolute; z-index:2; left:-2px; bottom:0; display:block; width:auto; height:100%; max-width:52%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.75)); pointer-events:none; }
         :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-career-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, ${ROW_H}px) !important; height:var(--row3-h, ${ROW_H}px) !important; }
       `}</style>
