@@ -204,7 +204,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           title: item.title || 'Fan memory',
           caption: item.caption || 'Fan-submitted Golden Line memory.',
           src: item.image_data_url,
-          width: CARD_W,
+          width: ANCHOR_W,
         };
       }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
 
@@ -330,6 +330,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-img-moment:not(.zt-anchor) .zt-img-card { border-bottom:3px solid ${TIMELINE_YELLOW}; }
         .zt-img-card :global(.zt-image-wrap) { position:relative; display:block; width:100%; height:100%; background:#090909; }
         .zt-img-card :global(.zt-image-wrap img) { width:100%; height:100%; display:block; object-fit:cover; object-position:center center; padding:0; margin:0; }
+        .zt-img-card :global(.zt-image-upload) { background:transparent; }
+        .zt-img-card :global(.zt-image-upload img) { object-fit:contain; background:transparent; }
         .zt-img-card :global(.zt-image-season) { background:#fff; }
         .zt-img-card :global(.zt-image-season img) { object-fit:contain; background:#fff; }
         .zt-img-card :global(.zt-placeholder) { display:grid; place-items:center; width:100%; height:100%; color:rgba(0,0,0,.4); font:900 12px/1 Oswald,sans-serif; letter-spacing:.08em; }
