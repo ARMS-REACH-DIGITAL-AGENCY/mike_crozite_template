@@ -1,0 +1,52 @@
+name: Ingest YATSTATS News
+
+on:
+  workflow_dispatch:
+    inputs:
+      hsid:
+        description: "Optional school hsid to ingest. Use 991 for Hamilton. Leave blank for all schools."
+        required: false
+        default: "991"
+      dry_run:
+        description: "Preview only; do not write news_articles rows"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  ingest-news:
+    name: Ingest alumni news from Webz.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      WEBZ_API_TOKEN: ${{ secrets.WEBZ_API_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install runtime dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save ts-node @types/node
+
+      - name: Ingest news
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.hsid }}" ]; then
+            ARGS="$ARGS --hsid ${{ github.event.inputs.hsid }}"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          npx ts-node scripts/ingest-news.ts $ARGS
