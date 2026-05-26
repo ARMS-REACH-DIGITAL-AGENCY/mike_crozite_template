@@ -4,7 +4,7 @@
 // This page ONLY renders the gallery content that goes inside {children}.
 
 import type { Metadata } from "next";
-import { permanentRedirect, notFound } from "next/navigation";
+import { permanentRedirect, redirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import {
   getSchoolByHsid,
@@ -63,6 +63,40 @@ function isHighSchoolPlayer(p: Row | undefined): boolean {
     const label = String(value || "").trim().toUpperCase();
     return label === "HIGH SCHOOL" || label === "HS";
   });
+}
+
+function addQueryValue(qs: URLSearchParams, key: string, value: unknown) {
+  if (value === null || value === undefined) return;
+  const text = String(value).trim();
+  if (!text) return;
+  qs.set(key, text);
+}
+
+function buildSchoolNotLiveHref(school: Row, resolvedHsid: string, schoolState: "potential" | "inactive") {
+  const qs = new URLSearchParams();
+  const location = String(school.hslocation || "").trim();
+  const parts = location.split(",").map((part) => part.trim()).filter(Boolean);
+  const city = parts.length > 1 ? parts.slice(0, -1).join(", ") : parts[0] || "";
+  const state = parts.length > 1 ? parts[parts.length - 1] : "";
+  const draftedHs = school.drafted_hs;
+  const drafted = school.drafted;
+
+  addQueryValue(qs, "school", school.hsname);
+  addQueryValue(qs, "city", city);
+  addQueryValue(qs, "state", state);
+  addQueryValue(qs, "reason", schoolState);
+  addQueryValue(qs, "hsid", school.hsid || resolvedHsid);
+  addQueryValue(qs, "active", school.current_aa);
+  addQueryValue(qs, "mlb", school.mlb);
+  addQueryValue(qs, "natRank", school.yatstats_national_rank);
+  addQueryValue(qs, "stateRank", school.yatstats_state_rank);
+  addQueryValue(qs, "allTime", school.atnla);
+
+  if ((draftedHs !== null && draftedHs !== undefined) || (drafted !== null && drafted !== undefined)) {
+    qs.set("draftedRatio", `${draftedHs ?? 0}/${drafted ?? 0}`);
+  }
+
+  return `/school-not-live?${qs.toString()}`;
 }
 
 async function resolveSchool(hsid: string, host: string): Promise<Row | null> {
@@ -157,6 +191,10 @@ export default async function SchoolPage({
         : null;
   const isFallbackSchoolState = schoolState === "potential" || schoolState === "inactive";
 
+  if (isFallbackSchoolState) {
+    redirect(buildSchoolNotLiveHref(school, resolvedHsid, schoolState));
+  }
+
   const [activeRosterResult, allTimeRosterResult, flipFrontStageResult] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid).catch((error) => {
       console.error("getActiveRosterByHsid failed", { resolvedHsid, error });
@@ -250,51 +288,35 @@ export default async function SchoolPage({
   return (
     <>
       <section id="sec-active" className="yat-section visible">
-        {isFallbackSchoolState ? (
-          <Placeholder
-            icon="⚾"
-            title={schoolState === "potential" ? "THIS SCHOOL HAS SOMETHING TO FOLLOW" : "WE DO NOT CURRENTLY HAVE DATA ON ANY ACTIVE ALUMNI"}
-            body={
-              <>
-                {schoolState === "potential"
-                  ? `YAT?STATS currently shows some active baseball alumni tied to ${schoolName}, but this school does not yet have a live microsite.`
-                  : `At this time, YAT?STATS does not currently show data on any active baseball alumni for ${schoolName}.`}
-                <br /><br />
-                You can still browse this school, use global search, or return to the YAT?STATS home page.
-              </>
-            }
-          />
-        ) : (
-          <div className="yat-grid" id="active-grid">
-            {activeSortedRoster.length === 0 ? (
-              <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
-            ) : (
-              activeSortedRoster.map((p) => {
-                const status = String(p.status_label || p.status || '').toUpperCase().trim();
-                const isRetired = status === 'RETIRED';
-                const playerId = String(p.playerid);
+        <div className="yat-grid" id="active-grid">
+          {activeSortedRoster.length === 0 ? (
+            <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
+          ) : (
+            activeSortedRoster.map((p) => {
+              const status = String(p.status_label || p.status || '').toUpperCase().trim();
+              const isRetired = status === 'RETIRED';
+              const playerId = String(p.playerid);
 
-                return (
-                  <div
-                    key={`active-wrap-${playerId}`}
-                    data-player-card-wrap="true"
-                    data-playerid={playerId}
-                    data-default-hidden={isRetired ? 'retired' : undefined}
-                    style={{ display: isRetired ? 'none' : undefined }}
-                  >
-                    <PlayerCard
-                      key={`active-${playerId}`}
-                      player={p}
-                      resolvedHsid={resolvedHsid}
-                      frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
-                      headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
-                    />
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
+              return (
+                <div
+                  key={`active-wrap-${playerId}`}
+                  data-player-card-wrap="true"
+                  data-playerid={playerId}
+                  data-default-hidden={isRetired ? 'retired' : undefined}
+                  style={{ display: isRetired ? 'none' : undefined }}
+                >
+                  <PlayerCard
+                    key={`active-${playerId}`}
+                    player={p}
+                    resolvedHsid={resolvedHsid}
+                    frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
+                    headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
       </section>
 
       <section id="sec-alltime" className="yat-section">
