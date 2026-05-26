@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       hsid:
-        description: "Optional school hsid to ingest. Use 991 for Hamilton. Leave blank for all schools."
+        description: "Optional school hsid to ingest. Use 5004 for Hamilton. Leave blank for all schools."
         required: false
-        default: "991"
+        default: "5004"
       dry_run:
         description: "Preview only; do not write news_articles rows"
         required: false
@@ -38,7 +38,7 @@ jobs:
       - name: Install runtime dependencies
         run: |
           npm install --no-audit --no-fund
-          npm install --no-save ts-node @types/node
+          npm install --no-save tsx @types/node
 
       - name: Ingest news
         run: |
@@ -49,4 +49,4 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
           fi
-          npx ts-node scripts/ingest-news.ts $ARGS
+          npx tsx scripts/ingest-news.ts $ARGS
