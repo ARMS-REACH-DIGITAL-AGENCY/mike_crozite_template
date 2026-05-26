@@ -12,6 +12,23 @@ function getHost(request: NextRequest) {
   return host.split(",")[0].trim().split(":")[0];
 }
 
+function redirectNonLiveSchoolSearchResult(request: NextRequest, hsid: string) {
+  const schoolState = request.nextUrl.searchParams.get("schoolState");
+  if (schoolState !== "potential" && schoolState !== "inactive") return null;
+
+  const target = new URL("/school-not-live", `https://${ROOT_DOMAIN}`);
+  target.searchParams.set("reason", schoolState);
+  target.searchParams.set("hsid", hsid);
+
+  // Preserve any richer lead-capture context if future search links include it.
+  ["school", "city", "state", "active", "mlb", "natRank", "stateRank", "allTime", "draftedRatio"].forEach((key) => {
+    const value = request.nextUrl.searchParams.get(key);
+    if (value) target.searchParams.set(key, value);
+  });
+
+  return NextResponse.redirect(target);
+}
+
 export function middleware(request: NextRequest) {
   const host = getHost(request);
   const url = request.nextUrl.clone();
@@ -29,12 +46,21 @@ export function middleware(request: NextRequest) {
     host === ROOT_DOMAIN ? "" : host.slice(0, -(ROOT_DOMAIN.length + 1)); // remove ".ROOT_DOMAIN"
   const subdomain = subdomainPart.split(".")[0] || "";
 
+  const path = url.pathname;
+  const firstSegment = path.split("/").filter(Boolean)[0] || "";
+
+  // Global search currently links non-live school results to /{hsid}?schoolState=...
+  // On a school subdomain, that can resolve through the current microsite shell before
+  // the page-level redirect gets a useful school context. Catch it here first.
+  if (/^\d+$/.test(firstSegment)) {
+    const nonLiveRedirect = redirectNonLiveSchoolSearchResult(request, firstSegment);
+    if (nonLiveRedirect) return nonLiveRedirect;
+  }
+
   // Ignore apex + www
   if (!subdomain || subdomain === "www") return NextResponse.next();
 
   // Prevent double-prefixing if someone manually visits /{subdomain}/...
-  const path = url.pathname;
-  const firstSegment = path.split("/").filter(Boolean)[0] || "";
   const hasNumericPrefix = /^\d+$/.test(firstSegment);
   const alreadyPrefixed =
     path === `/${subdomain}` ||
