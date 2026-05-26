@@ -524,6 +524,99 @@ export default async function HsidLayout({
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
       />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+(function(){
+  var NOT_LIVE_BASE='https://yatstats.com/school-not-live';
+
+  function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}
+
+  function setIf(qs,key,value){
+    value=clean(value);
+    if(value)qs.set(key,value);
+  }
+
+  function parseLocation(text){
+    var raw=clean(text);
+    var parts=raw.split(',').map(function(p){return clean(p);}).filter(Boolean);
+    if(parts.length>=2){return {city:parts.slice(0,-1).join(', '),state:parts[parts.length-1]};}
+    return {city:raw,state:''};
+  }
+
+  function buildSchoolNotLiveHref(el){
+    var status=el.getAttribute('data-status')||'inactive';
+    if(status==='live')return null;
+
+    var qs=new URLSearchParams();
+    var nameEl=el.querySelector('.yat-gs-result-name');
+    var locEl=el.querySelector('.yat-gs-result-loc');
+    var loc=parseLocation(locEl?locEl.textContent:'');
+
+    setIf(qs,'school',nameEl?nameEl.textContent:'');
+    setIf(qs,'city',loc.city);
+    setIf(qs,'state',loc.state);
+    qs.set('reason',status==='potential'?'potential':'inactive');
+
+    el.querySelectorAll('.yat-gs-chip').forEach(function(chip){
+      var val=clean((chip.querySelector('.yat-gs-chip-val')||{}).textContent);
+      var lbl=clean((chip.querySelector('.yat-gs-chip-lbl')||{}).textContent).toLowerCase();
+      if(!val||val==='--')return;
+      if(lbl==='active')qs.set('active',val);
+      else if(lbl==='mlb')qs.set('mlb',val);
+      else if(lbl.indexOf('nat')===0)qs.set('natRank',val.replace(/^#/,''));
+      else if(lbl==='state')qs.set('stateRank',val.replace(/^#/,''));
+      else if(lbl==='all-time')qs.set('allTime',val);
+      else if(lbl==='drafted')qs.set('draftedRatio',val);
+    });
+
+    return NOT_LIVE_BASE+'?'+qs.toString();
+  }
+
+  function patchNonLiveSearchLinks(root){
+    root=(root&&root.querySelectorAll)?root:document;
+    root.querySelectorAll('.yat-gs-result[data-status]:not([data-status="live"])').forEach(function(el){
+      var href=buildSchoolNotLiveHref(el);
+      if(href){
+        el.setAttribute('href',href);
+        el.dataset.yatLeadHref=href;
+      }
+    });
+  }
+
+  document.addEventListener('click',function(e){
+    var el=e.target&&e.target.closest?e.target.closest('.yat-gs-result[data-status]:not([data-status="live"])'):null;
+    if(!el)return;
+    var href=el.dataset.yatLeadHref||buildSchoolNotLiveHref(el);
+    if(!href)return;
+    e.preventDefault();
+    window.location.href=href;
+  },true);
+
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Enter')return;
+    var el=document.activeElement&&document.activeElement.closest?document.activeElement.closest('.yat-gs-result[data-status]:not([data-status="live"])'):null;
+    if(!el)return;
+    var href=el.dataset.yatLeadHref||buildSchoolNotLiveHref(el);
+    if(!href)return;
+    e.preventDefault();
+    window.location.href=href;
+  },true);
+
+  function start(){
+    patchNonLiveSearchLinks(document);
+    var results=document.getElementById('gsResults');
+    if(results){
+      new MutationObserver(function(){patchNonLiveSearchLinks(results);}).observe(results,{childList:true,subtree:true});
+    }
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
+  else start();
+})();
+          `,
+        }}
+      />
     </SchoolContextProvider>
   );
 }
