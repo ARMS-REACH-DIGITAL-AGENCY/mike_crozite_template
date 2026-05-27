@@ -123,8 +123,9 @@ export default function SharedShell({
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span className="sponsor-text">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
-          <span className="sponsor-name">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
+          <span className="sponsor-name">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
+          <span className="sponsor-text">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
+          
         </a>
       </footer>
     </>
