@@ -119,12 +119,12 @@ export default function SharedShell({
 
       <footer className="yat-row6-shell yat-footer">
         <a
-          href="https://www.armsreachdigital.com/"
+          href="https://armsreach-global360.manus.space/"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span className="sponsor-text">Powered By</span>
-          <span className="sponsor-name">ARMS REACH</span>
+          <span className="sponsor-text">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
+          <span className="sponsor-name">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
         </a>
       </footer>
     </>
