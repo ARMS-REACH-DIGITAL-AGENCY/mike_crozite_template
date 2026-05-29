@@ -27,6 +27,10 @@ function clean(row: any): StatRecord {
   );
 }
 
+function asStatRecordArray(value: unknown): StatRecord[] {
+  return Array.isArray(value) ? value.map((row) => clean(row)) : [];
+}
+
 function numericYear(value: unknown) {
   const match = String(value ?? '').match(/\d{4}/);
   const year = match ? Number(match[0]) : NaN;
@@ -288,10 +292,13 @@ export async function GET(req: NextRequest) {
     const battingBaseRows: StatRecord[] = [...battingHistorical, ...batting2026].map(battingRow);
     const pitchingBaseRows: StatRecord[] = [...pitchingHistorical, ...pitching2026].map(pitchingRow);
     const externalBaseRows: StatRecord[] = externalRecentRaw.map(externalStatRow);
+    const indyBattingRows = asStatRecordArray(indyIscore?.batting);
+    const indyPitchingRows = asStatRecordArray(indyIscore?.pitching);
+    const indyRecentGameRows = asStatRecordArray(indyIscore?.recentGames);
 
-    const batting = dedupe([...battingBaseRows, ...indyIscore.batting]).sort(byYearThenTeam);
-    const pitching = dedupe([...pitchingBaseRows, ...indyIscore.pitching]).sort(byYearThenTeam);
-    const externalRecentStats = [...externalBaseRows, ...indyIscore.recentGames];
+    const batting = dedupe([...battingBaseRows, ...indyBattingRows]).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingBaseRows, ...indyPitchingRows]).sort(byYearThenTeam);
+    const externalRecentStats = [...externalBaseRows, ...indyRecentGameRows];
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
       : 'batting';
@@ -304,14 +311,14 @@ export async function GET(req: NextRequest) {
       counts: {
         battingHistorical: battingHistorical.length,
         batting2026: batting2026.length,
-        indyIscoreBatting: indyIscore.batting.length,
+        indyIscoreBatting: indyBattingRows.length,
         pitchingHistorical: pitchingHistorical.length,
         pitching2026: pitching2026.length,
-        indyIscorePitching: indyIscore.pitching.length,
+        indyIscorePitching: indyPitchingRows.length,
         battingHistorical2026Excluded,
         pitchingHistorical2026Excluded,
         externalRecentStats: externalRecentStats.length,
-        indyIscoreRecentGames: indyIscore.recentGames.length,
+        indyIscoreRecentGames: indyRecentGameRows.length,
         filteredOutNameMismatches:
           (battingRawAll.length - battingRawMatched.length) +
           (batting2026All.length - batting2026.length) +
