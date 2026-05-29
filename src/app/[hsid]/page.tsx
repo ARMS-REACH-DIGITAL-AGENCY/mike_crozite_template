@@ -25,6 +25,56 @@ export const runtime = "nodejs";
 type Row = Record<string, unknown>;
 type ImageMap = Map<string, { image_url?: string | null }>;
 
+type TributeStatOverride = {
+  targetHsid: string;
+  targetPlayerId: string;
+  sourceHsid: string;
+  sourcePlayerId: string;
+  note: string;
+};
+
+const TRIBUTE_STAT_OVERRIDES: TributeStatOverride[] = [
+  {
+    targetHsid: "12720",
+    targetPlayerId: "YAT210000",
+    sourceHsid: "5004",
+    sourcePlayerId: "317316",
+    note: "Tribute stat override: Nate Rogalski card displays Roch Cholowsky 2026 stats in honor of Nate.",
+  },
+];
+
+const PRESERVE_TARGET_FIELDS = [
+  "playerid",
+  "hsid",
+  "display_name",
+  "firstname",
+  "lastname",
+  "first_name",
+  "last_name",
+  "slug",
+  "class_of",
+  "roster_years",
+  "status_label",
+  "display_status_label",
+  "level_label",
+  "display_level_label",
+  "current_team_name",
+  "current_org_or_conference_name",
+  "current_teamid",
+  "current_level_label",
+  "current_team_level",
+  "position",
+  "height",
+  "weight",
+  "bats",
+  "throws",
+  "birthdate",
+  "born_date",
+  "birthplace",
+  "place",
+  "high_school",
+];
+
 function asRows(value: unknown): Row[] {
   return Array.isArray(value) ? (value as Row[]) : [];
 }
@@ -63,6 +113,35 @@ function isHighSchoolPlayer(p: Row | undefined): boolean {
     const label = String(value || "").trim().toUpperCase();
     return label === "HIGH SCHOOL" || label === "HS";
   });
+}
+
+function getTributeOverride(resolvedHsid: string, playerId: string): TributeStatOverride | null {
+  return TRIBUTE_STAT_OVERRIDES.find(
+    (override) => override.targetHsid === resolvedHsid && override.targetPlayerId === playerId
+  ) || null;
+}
+
+function applyTributeStatOverride(targetPlayer: Row, sourceStats: Row, override: TributeStatOverride): Row {
+  const preserved = new Map<string, unknown>();
+  for (const key of PRESERVE_TARGET_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(targetPlayer, key)) preserved.set(key, targetPlayer[key]);
+  }
+
+  const merged: Row = {
+    ...targetPlayer,
+    ...sourceStats,
+    has_2026_stats: true,
+    tribute_stats_source_playerid: override.sourcePlayerId,
+    tribute_stats_source_hsid: override.sourceHsid,
+    tribute_stats_note: override.note,
+  };
+
+  for (const [key, value] of preserved.entries()) merged[key] = value;
+
+  merged.playerid = targetPlayer.playerid;
+  merged.hsid = targetPlayer.hsid;
+  merged.has_2026_stats = true;
+  return merged;
 }
 
 function addQueryValue(qs: URLSearchParams, key: string, value: unknown) {
@@ -195,7 +274,13 @@ export default async function SchoolPage({
     redirect(buildSchoolNotLiveHref(school, resolvedHsid, schoolState));
   }
 
-  const [activeRosterResult, allTimeRosterResult, flipFrontStageResult] = await Promise.all([
+  const tributeSourceHsids = Array.from(new Set(
+    TRIBUTE_STAT_OVERRIDES
+      .filter((override) => override.targetHsid === resolvedHsid)
+      .map((override) => override.sourceHsid)
+  ));
+
+  const [activeRosterResult, allTimeRosterResult, flipFrontStageResult, tributeSourceRosterResults] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid).catch((error) => {
       console.error("getActiveRosterByHsid failed", { resolvedHsid, error });
       return [];
@@ -208,11 +293,20 @@ export default async function SchoolPage({
       console.error("getFlipCardFrontStageByHsid failed", { resolvedHsid, error });
       return [];
     }),
+    Promise.all(
+      tributeSourceHsids.map((sourceHsid) =>
+        getActiveRosterByHsid(sourceHsid).catch((error) => {
+          console.error("getActiveRosterByHsid failed for tribute source", { sourceHsid, error });
+          return [];
+        })
+      )
+    ),
   ]);
 
   const activeRosterRows = asRows(activeRosterResult);
   const allTimeRosterRows = asRows(allTimeRosterResult);
   const stageRows = asRows(flipFrontStageResult);
+  const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
   const currentTeamRoster = sortActivePlayers(stageRows.filter(isHighSchoolPlayer).map((p) => ({ ...p })));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
@@ -255,11 +349,20 @@ export default async function SchoolPage({
 
   const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
   const activeStatsMap = new Map(
-    activeMerged.filter(hasReal2026Stats).map((p) => [String(p.playerid), p])
+    [...activeMerged, ...tributeSourceRows]
+      .filter(hasReal2026Stats)
+      .map((p) => [String(p.playerid), p])
   );
 
   const activeDisplayRoster = allTimeMerged.map((p) => {
     const id = String(p.playerid);
+    const tributeOverride = getTributeOverride(resolvedHsid, id);
+    const tributeStatsRow = tributeOverride ? activeStatsMap.get(tributeOverride.sourcePlayerId) : null;
+
+    if (tributeOverride && tributeStatsRow) {
+      return applyTributeStatOverride(p, tributeStatsRow, tributeOverride);
+    }
+
     const activeStatsRow = activeStatsMap.get(id);
     return activeStatsRow ? { ...p, ...activeStatsRow, has_2026_stats: true } : { ...p, has_2026_stats: false };
   });
