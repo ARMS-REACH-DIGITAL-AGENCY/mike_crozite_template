@@ -9,15 +9,21 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
+function safeEquals(a: string, b: string) {
+  return a.length > 0 && b.length > 0 && a === b;
+}
+
 function isAuthorized(req: NextRequest): boolean {
-  const expected = process.env.CRON_SECRET || process.env.ADMIN_INGEST_SECRET;
-  if (!expected) return false;
+  const allowedSecrets = [process.env.ADMIN_INGEST_SECRET, process.env.CRON_SECRET]
+    .filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+  if (allowedSecrets.length === 0) return false;
 
   const bearer = req.headers.get('authorization') || '';
   const token = bearer.startsWith('Bearer ') ? bearer.slice(7) : '';
   const qp = req.nextUrl.searchParams.get('secret') || '';
 
-  return token === expected || qp === expected;
+  return allowedSecrets.some((expected) => safeEquals(token, expected) || safeEquals(qp, expected));
 }
 
 function boolParam(req: NextRequest, name: string, fallback = false) {
