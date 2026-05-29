@@ -7,6 +7,8 @@ import { query } from '@/lib/db';
 import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 import { getIndyIscoreStatsForPlayer } from '@/lib/indyIscore';
 
+type StatRecord = Record<string, unknown>;
+
 const BATTING_TABLES = ['tbc_batting_raw', 'tbc_batting_2026_season_raw'] as const;
 const PITCHING_TABLES = ['tbc_pitching_raw', 'tbc_pitching_2026_season_raw'] as const;
 const LIVE_SEASON_YEAR = 2026;
@@ -19,7 +21,7 @@ function value(row: any, ...keys: string[]) {
   return null;
 }
 
-function clean(row: any) {
+function clean(row: any): StatRecord {
   return Object.fromEntries(
     Object.entries(row || {}).map(([k, v]) => [k, v === null || v === undefined ? '' : v])
   );
@@ -86,7 +88,7 @@ function filterRowsToExpectedPlayer(rows: any[], expectedPlayerName: string) {
   return rows.filter((row) => rowMatchesExpectedPlayer(row, expectedPlayerName));
 }
 
-function battingRow(row: any) {
+function battingRow(row: any): StatRecord {
   const orgOrConference = value(row, 'current_org_or_conference_abbrev', 'current_org_or_conference_name');
   const teamId = value(row, 'teamid');
   return clean({
@@ -135,7 +137,7 @@ function battingRow(row: any) {
   });
 }
 
-function pitchingRow(row: any) {
+function pitchingRow(row: any): StatRecord {
   const orgOrConference = value(row, 'current_org_or_conference_abbrev', 'current_org_or_conference_name');
   const teamId = value(row, 'teamid');
   return clean({
@@ -181,16 +183,16 @@ function pitchingRow(row: any) {
   });
 }
 
-function byYearThenTeam(a: any, b: any) {
+function byYearThenTeam(a: StatRecord, b: StatRecord) {
   const ay = Number(a.year) || 0;
   const by = Number(b.year) || 0;
   if (ay !== by) return ay - by;
   return String(a.team || '').localeCompare(String(b.team || ''));
 }
 
-function dedupe(rows: any[]) {
+function dedupe(rows: StatRecord[]): StatRecord[] {
   const seen = new Set<string>();
-  const out: any[] = [];
+  const out: StatRecord[] = [];
   for (const row of rows) {
     const key = [row.year, row.teamid, row.team, row.level, row.source].map((v) => String(v ?? '')).join('|');
     if (seen.has(key)) continue;
@@ -200,7 +202,7 @@ function dedupe(rows: any[]) {
   return out;
 }
 
-function externalStatRow(row: any) {
+function externalStatRow(row: any): StatRecord {
   const stats = row?.stats || {};
   return clean({
     source: row.source_system,
@@ -283,9 +285,13 @@ export async function GET(req: NextRequest) {
     const battingHistorical2026Excluded = battingRawMatched.length - battingHistorical.length;
     const pitchingHistorical2026Excluded = pitchingRawMatched.length - pitchingHistorical.length;
 
-    const batting = dedupe([...battingHistorical, ...batting2026].map(battingRow).concat(indyIscore.batting)).sort(byYearThenTeam);
-    const pitching = dedupe([...pitchingHistorical, ...pitching2026].map(pitchingRow).concat(indyIscore.pitching)).sort(byYearThenTeam);
-    const externalRecentStats = externalRecentRaw.map(externalStatRow).concat(indyIscore.recentGames);
+    const battingBaseRows: StatRecord[] = [...battingHistorical, ...batting2026].map(battingRow);
+    const pitchingBaseRows: StatRecord[] = [...pitchingHistorical, ...pitching2026].map(pitchingRow);
+    const externalBaseRows: StatRecord[] = externalRecentRaw.map(externalStatRow);
+
+    const batting = dedupe([...battingBaseRows, ...indyIscore.batting]).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingBaseRows, ...indyIscore.pitching]).sort(byYearThenTeam);
+    const externalRecentStats = [...externalBaseRows, ...indyIscore.recentGames];
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
       : 'batting';
