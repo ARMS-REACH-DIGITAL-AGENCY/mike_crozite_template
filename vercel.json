@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/alpb-stats-ingest",
       "schedule": "25 9 * * *"
+    },
+    {
+      "path": "/api/cron/indy-iscore-ingest",
+      "schedule": "35 9 * * *"
     }
   ]
 }
