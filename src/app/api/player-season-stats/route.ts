@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
+import { getIndyIscoreStatsForPlayer } from '@/lib/indyIscore';
 
 const BATTING_TABLES = ['tbc_batting_raw', 'tbc_batting_2026_season_raw'] as const;
 const PITCHING_TABLES = ['tbc_pitching_raw', 'tbc_pitching_2026_season_raw'] as const;
@@ -86,7 +87,7 @@ function filterRowsToExpectedPlayer(rows: any[], expectedPlayerName: string) {
 }
 
 function battingRow(row: any) {
-  const orgOrConference = value(row, 'current_org_or_conference_name');
+  const orgOrConference = value(row, 'current_org_or_conference_abbrev', 'current_org_or_conference_name');
   const teamId = value(row, 'teamid');
   return clean({
     source: value(row, '_source'),
@@ -135,7 +136,7 @@ function battingRow(row: any) {
 }
 
 function pitchingRow(row: any) {
-  const orgOrConference = value(row, 'current_org_or_conference_name');
+  const orgOrConference = value(row, 'current_org_or_conference_abbrev', 'current_org_or_conference_name');
   const teamId = value(row, 'teamid');
   return clean({
     source: value(row, '_source'),
@@ -234,6 +235,7 @@ async function readPlayerRows(tableName: string, playerId: string) {
        r.*,
        m.current_team_name,
        m.current_org_or_conference_name,
+       m.current_org_or_conference_abbrev,
        m.level_label,
        $2::text as _source
      from public.${tableName} r
@@ -256,7 +258,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'playerId is required' }, { status: 400 });
     }
 
-    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw] = await Promise.all([
+    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw, indyIscore] = await Promise.all([
       readPlayerRows(BATTING_TABLES[0], playerId),
       readPlayerRows(BATTING_TABLES[1], playerId),
       readPlayerRows(PITCHING_TABLES[0], playerId),
@@ -264,6 +266,10 @@ export async function GET(req: NextRequest) {
       getRecentExternalStatsForPlayer(playerId, 10).catch((error) => {
         console.warn('external stats lookup failed:', error);
         return [];
+      }),
+      getIndyIscoreStatsForPlayer(playerId, 10).catch((error) => {
+        console.warn('indy iScore stats lookup failed:', error);
+        return { batting: [], pitching: [], recentGames: [] };
       }),
     ]);
 
@@ -277,9 +283,9 @@ export async function GET(req: NextRequest) {
     const battingHistorical2026Excluded = battingRawMatched.length - battingHistorical.length;
     const pitchingHistorical2026Excluded = pitchingRawMatched.length - pitchingHistorical.length;
 
-    const batting = dedupe([...battingHistorical, ...batting2026].map(battingRow)).sort(byYearThenTeam);
-    const pitching = dedupe([...pitchingHistorical, ...pitching2026].map(pitchingRow)).sort(byYearThenTeam);
-    const externalRecentStats = externalRecentRaw.map(externalStatRow);
+    const batting = dedupe([...battingHistorical, ...batting2026].map(battingRow).concat(indyIscore.batting)).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingHistorical, ...pitching2026].map(pitchingRow).concat(indyIscore.pitching)).sort(byYearThenTeam);
+    const externalRecentStats = externalRecentRaw.map(externalStatRow).concat(indyIscore.recentGames);
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
       : 'batting';
@@ -292,11 +298,14 @@ export async function GET(req: NextRequest) {
       counts: {
         battingHistorical: battingHistorical.length,
         batting2026: batting2026.length,
-        battingHistorical2026Excluded,
+        indyIscoreBatting: indyIscore.batting.length,
         pitchingHistorical: pitchingHistorical.length,
         pitching2026: pitching2026.length,
+        indyIscorePitching: indyIscore.pitching.length,
+        battingHistorical2026Excluded,
         pitchingHistorical2026Excluded,
         externalRecentStats: externalRecentStats.length,
+        indyIscoreRecentGames: indyIscore.recentGames.length,
         filteredOutNameMismatches:
           (battingRawAll.length - battingRawMatched.length) +
           (batting2026All.length - batting2026.length) +
