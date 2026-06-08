@@ -2,6 +2,7 @@
 // Inline client-side script: theme toggle, card flip, section navigation,
 // drawer open/close, hero inline search, player drawer search, filter logic
 
+import Script from 'next/script';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
 
@@ -15,7 +16,9 @@ export default function YatInteractivity({
   firebaseConfigJSON,
 }: YatInteractivityProps) {
   return (
-    <script
+    <Script
+      id="yat-interactivity"
+      strategy="afterInteractive"
       dangerouslySetInnerHTML={{
         __html: `
 window.__firebase_config = ${firebaseConfigJSON};

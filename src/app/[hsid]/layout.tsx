@@ -5,6 +5,7 @@
 // All internal pages (gallery, player profile, news) render as {children} inside this shell.
 
 import { ReactNode } from 'react';
+import Script from 'next/script';
 import {
   getSchoolByHsid,
   getSchoolByUrl,
@@ -380,7 +381,7 @@ export default async function HsidLayout({
             <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">MENTORSHIP MARKETPLACE</a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner">PARTNERSHIP PROGRAM</a>
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
-            <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ'S</a>
+            <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ&apos;S</a>
           </div>
         </div>
 
@@ -524,7 +525,9 @@ export default async function HsidLayout({
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
       />
-      <script
+      <Script
+        id="yat-nonlive-search-link-patch"
+        strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
 (function(){

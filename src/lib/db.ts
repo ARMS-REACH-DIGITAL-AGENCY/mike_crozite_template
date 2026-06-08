@@ -18,14 +18,15 @@
 // "All-time" = all players ever tagged to a school in player_hsids
 
 'use server';
+import { cache } from 'react';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 15000,
+  max: Number(process.env.PG_POOL_MAX || 5),
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 5000,
   ssl: { rejectUnauthorized: false },
 });
 
@@ -139,16 +140,16 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
 // ---------------------------------------------------------------------------
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
-export async function getSchoolByHsid(hsid: string) {
+export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
   return rows[0] || null;
-}
+});
 
-export async function getSchoolByUrl(hostOrUrl: string) {
+export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
@@ -161,7 +162,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
   `;
   const { rows } = await query(sql, [candidates]);
   return rows[0] || null;
-}
+});
 
 // ---------------------------------------------------------------------------
 // ACTIVE ROSTER - players with 2026 stats (homepage)
@@ -169,7 +170,7 @@ export async function getSchoolByUrl(hostOrUrl: string) {
 // Returns one row per player with their current 2026 season stats.
 // "Active" = has batting OR pitching stats in year 2026.
 // ---------------------------------------------------------------------------
-export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   const sql = `
     WITH school_players AS (
       SELECT
@@ -674,12 +675,12 @@ export async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-}
+});
 
 // ---------------------------------------------------------------------------
 // ALL-TIME ROSTER - every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
-export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1205,7 +1206,7 @@ export async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-}
+});
 
 export interface PlayerSlugMatch {
   playerid: string;
@@ -1642,7 +1643,7 @@ export async function getDesignatedPlayerImage(
   }
 }
 
-export async function getBatchDesignatedPlayerImages(
+export const getBatchDesignatedPlayerImages = cache(async function getBatchDesignatedPlayerImages(
   imageIds: string[],
   role: string
 ): Promise<Map<string, any>> {
@@ -1666,7 +1667,7 @@ export async function getBatchDesignatedPlayerImages(
   } catch {
     return new Map();
   }
-}
+});
 
 export async function getPlayerPhotos(imageId: string): Promise<any[]> {
   try {
@@ -1700,7 +1701,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 // FLIP CARD FRONT STAGE - staging table for UI rendering
 // ---------------------------------------------------------------------------
-export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `
     SELECT *,
       UPPER(status_label) AS status_label,
@@ -1747,7 +1748,7 @@ export async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> 
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-}
+});
 
 // ---------------------------------------------------------------------------
 // ROSTER TRUTH - resolved current team + transactions
@@ -1790,33 +1791,15 @@ export async function getPlayerTransactions(playerid: string, limit = 20): Promi
 }
 
 // ---------------------------------------------------------------------------
-// Schema bootstrap - ensure auxiliary tables exist so JOINs never crash.
+// Schema changes belong in migrations and ingest scripts, not at module import time.
+// Avoiding import-time database writes prevents build/static-generation workers from
+// opening PostgreSQL connections before a request actually needs data.
 // ---------------------------------------------------------------------------
-declare global {
-  // eslint-disable-next-line no-var
-  var __pgSchemaBootstrapped: boolean | undefined;
-}
-if (!global.__pgSchemaBootstrapped) {
-  global.__pgSchemaBootstrapped = true;
-  void (async () => {
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS teams (
-          team_id   TEXT PRIMARY KEY,
-          team_name TEXT NOT NULL
-        )
-      `);
-    } catch (err) {
-      console.error('Failed to bootstrap teams table:', err);
-    }
-  })();
-}
 
 // ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 declare global {
-  // eslint-disable-next-line no-var
   var __pgPoolShutdownRegistered: any;
 }
 if (!global.__pgPoolShutdownRegistered) {

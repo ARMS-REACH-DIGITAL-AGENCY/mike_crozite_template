@@ -2,10 +2,7 @@
  * User profile helpers — PostgreSQL-backed
  * Stores the Firebase uid ↔ ARMS contact ↔ Stripe billing mapping.
  *
- * Tables bootstrapped on first import:
- *   user_profiles  — one row per Firebase user
- *   user_favorites — player favorites per user
- *   user_roles     — multi-role relationship table (one row per role per user)
+ * Tables are managed by migrations/ingest scripts rather than bootstrapped on import.
  */
 
 'use server';
@@ -53,71 +50,12 @@ export interface UserRole {
 }
 
 // ---------------------------------------------------------------------------
-// Bootstrap
+// Schema lifecycle
 // ---------------------------------------------------------------------------
 
-declare global {
-  var __userProfileBootstrapped: boolean | undefined;
-}
-
-if (!global.__userProfileBootstrapped) {
-  global.__userProfileBootstrapped = true;
-  void (async () => {
-    try {
-      await query(`
-        CREATE TABLE IF NOT EXISTS user_profiles (
-          firebase_uid           TEXT PRIMARY KEY,
-          email                  TEXT NOT NULL,
-          first_name             TEXT,
-          last_name              TEXT,
-          home_hsid              TEXT,
-          home_school_name       TEXT,
-          role                   TEXT,
-          subscription_status    TEXT,
-          arms_contact_id        TEXT,
-          arms_location_id       TEXT,
-          plan                   TEXT NOT NULL DEFAULT 'fan',
-          stripe_customer_id     TEXT,
-          stripe_subscription_id TEXT,
-          created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `);
-      // Migrate existing tables: add new columns if they don't exist yet
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS home_hsid TEXT`);
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS home_school_name TEXT`);
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS role TEXT`);
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT`);
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS arms_contact_id TEXT`);
-      await query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS arms_location_id TEXT`);
-      await query(`
-        CREATE TABLE IF NOT EXISTS user_favorites (
-          id              SERIAL PRIMARY KEY,
-          firebase_uid    TEXT NOT NULL,
-          arms_contact_id TEXT,
-          player_id       TEXT NOT NULL,
-          school_id       TEXT,
-          created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          UNIQUE (firebase_uid, player_id)
-        )
-      `);
-      await query(`
-        CREATE TABLE IF NOT EXISTS user_roles (
-          id           BIGSERIAL PRIMARY KEY,
-          firebase_uid TEXT NOT NULL REFERENCES user_profiles(firebase_uid) ON DELETE CASCADE,
-          role         TEXT NOT NULL,
-          school_id    INTEGER,
-          player_id    BIGINT,
-          source       TEXT NOT NULL DEFAULT 'manual',
-          created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          UNIQUE (firebase_uid, role, school_id, player_id)
-        )
-      `);
-    } catch (err) {
-      console.error('Failed to bootstrap user profile tables:', err);
-    }
-  })();
-}
+// Keep schema creation and migrations out of module initialization. Importing this
+// helper should be side-effect free so Next.js can collect page data without
+// opening PostgreSQL connections for auth tables that are not needed by a page.
 
 // ---------------------------------------------------------------------------
 // Profile CRUD
