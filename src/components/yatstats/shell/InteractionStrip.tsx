@@ -39,6 +39,21 @@ function cleanSrc(value?: string | null): string {
   return text;
 }
 
+function getExtensionFallbackSrc(value?: string | null): string {
+  const src = cleanSrc(value);
+  if (!src) return '';
+
+  if (/\.jpe?g(?=($|[?#]))/i.test(src)) {
+    return src.replace(/\.jpe?g(?=($|[?#]))/i, '.png');
+  }
+
+  if (/\.png(?=($|[?#]))/i.test(src)) {
+    return src.replace(/\.png(?=($|[?#]))/i, '.jpg');
+  }
+
+  return '';
+}
+
 function normalizeStatus(value?: string | null): string {
   return String(value || '').trim().toUpperCase();
 }
@@ -306,10 +321,10 @@ export default function InteractionStrip({
           {showActiveStrip ? (
             visiblePlayers.map((p) => {
               const lastName = getLastName(p.name);
-              const fallbackSrc = cleanSrc(p.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+              const fallbackSrc = HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(p.nowImage) || cleanSrc(p.image) || fallbackSrc;
-              const thenSrc = cleanSrc(p.thenImage) || nowSrc;
-              const initialSrc = nowSrc;
+              const thenSrc = cleanSrc(p.thenImage) || cleanSrc(p.image) || fallbackSrc;
+              const initialSrc = activeSection === 'alltime' ? thenSrc : nowSrc;
               const status = normalizeStatus(p.status);
               const isRetired = status === 'RETIRED';
               const imageFit = p.imageFit === 'contain' ? 'contain' : 'cover';
@@ -338,6 +353,15 @@ export default function InteractionStrip({
                       data-then-src={thenSrc}
                       onError={(e) => {
                         const img = e.currentTarget;
+
+                        if (img.dataset.extensionFallbackApplied !== 'true') {
+                          const alternateSrc = getExtensionFallbackSrc(img.getAttribute('src'));
+                          if (alternateSrc && alternateSrc !== img.getAttribute('src')) {
+                            img.dataset.extensionFallbackApplied = 'true';
+                            img.src = alternateSrc;
+                            return;
+                          }
+                        }
 
                         if (img.dataset.fallbackApplied === 'true') return;
 

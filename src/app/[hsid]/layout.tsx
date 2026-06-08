@@ -17,7 +17,7 @@ import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
-import { getPlayerThenImageUrl, getThenSilhouetteUrl } from '@/lib/playerImage';
+import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
 
 import type { Metadata } from 'next';
@@ -133,22 +133,15 @@ function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
 }
 
 function getStripImageForPlayer(
-  p: Record<string, unknown>,
   playerId: string,
   frontImageUrl?: string | null
 ) {
   const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(playerId);
-  const fallbackImage = getThenSilhouetteUrl({
-    isPitcher: p.is_pitcher === true,
-    bats: p.bats,
-    throws: p.throws,
-  });
-
   return {
     image: thenImage,
     nowImage: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
     thenImage,
-    fallbackImage,
+    fallbackImage: '/img/headshot-silhouette.png',
     imageFit: 'cover' as const,
   };
 }
@@ -338,7 +331,6 @@ export default async function HsidLayout({
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
     const stripImages = getStripImageForPlayer(
-      p,
       playerId,
       stripFrontImageMap.get(playerId)?.image_url ?? null
     );

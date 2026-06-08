@@ -496,6 +496,7 @@ if(closeBtn){
       if(!nextSrc)return;
   
       img.dataset.fallbackApplied = '';
+      img.dataset.extensionFallbackApplied = '';
       if(img.getAttribute('src') !== nextSrc){
         img.setAttribute('src', nextSrc);
       }
