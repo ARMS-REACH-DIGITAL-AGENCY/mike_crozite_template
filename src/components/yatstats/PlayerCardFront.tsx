@@ -37,6 +37,16 @@ function asTextArray(value: unknown): string[] {
   return [];
 }
 
+function asBoolean(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    return v === "true" || v === "t" || v === "1" || v === "yes" || v === "y";
+  }
+  return false;
+}
+
 function getFallbackStatusLabel(player: Record<string, unknown>): string {
   const battingYear = asNumber(player.stat_year);
   const pitchingYear = asNumber(player.pitch_year);
@@ -338,6 +348,16 @@ export default function PlayerCardFront({
 
   const statusLabel = statusLabelRaw.toUpperCase();
   const levelLabel = levelLabelRaw.toUpperCase();
+  const showFortyManPill = asBoolean(p.is_on_40man);
+  const visibleLevelLabel = showFortyManPill
+    ? levelLabel.replace(/\s*\(?40-MAN\)?\s*/g, " ").replace(/\s{2,}/g, " ").trim() || levelLabel
+    : levelLabel;
+  const fortyManOrgName = asText(p.forty_man_org_name);
+  const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
+  const fortyManPillTitle = fortyManOrgName
+    ? `${fortyManOrgName} 40-man roster`
+    : "MLB 40-man roster";
+  const fortyManPillLabel = fortyManOrgAbbr ? `${fortyManOrgAbbr} 40-MAN` : "40-MAN";
   const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
 
   const currentTeamName = asText(p.current_team_name) || "--";
@@ -423,8 +443,14 @@ export default function PlayerCardFront({
               </span>
 
               <span className="front-chip" style={chipStyle}>
-                {levelLabel}
+                {visibleLevelLabel}
               </span>
+
+              {showFortyManPill && (
+                <span className="front-chip front-chip--forty-man" style={chipStyle} title={fortyManPillTitle}>
+                  {fortyManPillLabel}
+                </span>
+              )}
 
               {classOf && (
                 <span
@@ -581,6 +607,13 @@ export default function PlayerCardFront({
 
         .yat-front-chip-stack .front-chip--commit {
           max-width: min(100%, 210px);
+        }
+
+        .yat-front-chip-stack .front-chip--forty-man {
+          background: rgba(10, 132, 255, 0.82);
+          border-color: rgba(160, 210, 255, 0.72);
+          color: #fff;
+          letter-spacing: 0.04em;
         }
 
         .yat-front-year-dots {
