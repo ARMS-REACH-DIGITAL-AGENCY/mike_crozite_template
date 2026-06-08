@@ -7,7 +7,7 @@
 // - roster_type='40Man' is context only; it must not override active team/level.
 // - A true MLB 40-man context row must come from the MLB parent club endpoint:
 //   source_team_id = org_source_team_id.
-// - roster_type='fullRoster' is fallback only.
+// - roster_type='fullRoster' is fallback only, but it outranks 40-man fallback because IL/optioned minor-league assignments often live there.
 // - If a player is active at a non-MLB level and also on the true MLB 40-man roster,
 //   display level becomes e.g. TRIPLE-A (40-MAN), while level_label stays TRIPLE-A for filters.
 // - Rehab/injured roster status overrides plain ACTIVE, but level remains the actual assigned level.
@@ -89,6 +89,9 @@ async function refreshStage(): Promise<number> {
           WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%SUSPENDED%' THEN UPPER(raw.roster_status)
           WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%RESTRICTED%' THEN UPPER(raw.roster_status)
           WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%BEREAVEMENT%' THEN UPPER(raw.roster_status)
+          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%REASSIGNED%' THEN UPPER(raw.roster_status)
+          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%OPTION%' THEN UPPER(raw.roster_status)
+          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%MINOR%' THEN UPPER(raw.roster_status)
           ELSE 'ACTIVE'
         END AS normalized_status,
         raw.roster_type,
@@ -126,53 +129,67 @@ async function refreshStage(): Promise<number> {
       WHERE is_true_mlb_40man_row IS TRUE
       ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
-    fallback_truth AS (
+    full_roster_truth AS (
       SELECT DISTINCT ON (playerid)
         *
       FROM matched_rows
       WHERE LOWER(COALESCE(roster_type, '')) = 'fullroster'
-         OR is_true_mlb_40man_row IS TRUE
       ORDER BY
         playerid,
         CASE
-          WHEN is_true_mlb_40man_row IS TRUE THEN 1
-          WHEN LOWER(COALESCE(roster_type, '')) = 'fullroster' THEN 2
-          ELSE 9
+          -- Affiliate fullRoster rows carry the actual assignment for optioned/IL minor leaguers.
+          -- Parent-club fullRoster rows can still describe 40-man context, so keep them behind
+          -- non-MLB assigned teams when both rows are present for the same player.
+          WHEN normalized_level IS NOT NULL
+           AND normalized_level <> ''
+           AND normalized_level <> 'MLB' THEN 1
+          ELSE 2
         END,
         seen_at DESC NULLS LAST,
         updated_at DESC NULLS LAST,
         raw_id DESC
     ),
+    forty_man_fallback_truth AS (
+      SELECT DISTINCT ON (playerid)
+        *
+      FROM matched_rows
+      WHERE is_true_mlb_40man_row IS TRUE
+      ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
+    ),
     player_universe AS (
       SELECT playerid FROM active_truth
       UNION
-      SELECT playerid FROM fallback_truth
+      SELECT playerid FROM full_roster_truth
+      UNION
+      SELECT playerid FROM forty_man_fallback_truth
       UNION
       SELECT playerid FROM forty_man_context
     ),
     chosen_truth AS (
       SELECT
         u.playerid,
-        COALESCE(a.source_player_id, f.source_player_id) AS source_player_id,
-        COALESCE(a.source_player_name, f.source_player_name) AS source_player_name,
-        COALESCE(a.source_team_id, f.source_team_id) AS source_team_id,
-        COALESCE(a.source_team_name, f.source_team_name) AS source_team_name,
-        COALESCE(a.level, f.level) AS raw_level,
-        COALESCE(a.normalized_level, f.normalized_level) AS normalized_level,
-        COALESCE(a.roster_status, f.roster_status) AS roster_status,
-        COALESCE(a.normalized_status, f.normalized_status, 'ACTIVE') AS normalized_status,
-        COALESCE(a.roster_type, f.roster_type) AS chosen_roster_type,
-        COALESCE(a.org_name, f.org_name) AS org_name,
-        COALESCE(a.org_abbr, f.org_abbr) AS org_abbr,
-        COALESCE(a.seen_at, f.seen_at, a.updated_at, f.updated_at, NOW()) AS verified_at,
+        COALESCE(a.source_player_id, fr.source_player_id, ff.source_player_id) AS source_player_id,
+        COALESCE(a.source_player_name, fr.source_player_name, ff.source_player_name) AS source_player_name,
+        COALESCE(a.source_team_id, fr.source_team_id, ff.source_team_id) AS source_team_id,
+        COALESCE(a.source_team_name, fr.source_team_name, ff.source_team_name) AS source_team_name,
+        COALESCE(a.level, fr.level, ff.level) AS raw_level,
+        COALESCE(a.normalized_level, fr.normalized_level, ff.normalized_level) AS normalized_level,
+        COALESCE(a.roster_status, fr.roster_status, ff.roster_status) AS roster_status,
+        COALESCE(a.normalized_status, fr.normalized_status, ff.normalized_status, 'ACTIVE') AS normalized_status,
+        COALESCE(a.roster_type, fr.roster_type, ff.roster_type) AS chosen_roster_type,
+        COALESCE(a.org_name, fr.org_name, ff.org_name) AS org_name,
+        COALESCE(a.org_abbr, fr.org_abbr, ff.org_abbr) AS org_abbr,
+        COALESCE(a.seen_at, fr.seen_at, ff.seen_at, a.updated_at, fr.updated_at, ff.updated_at, NOW()) AS verified_at,
         COALESCE(fm.is_on_40man, false) AS is_on_40man,
         fm.forty_man_org_name,
         fm.forty_man_org_abbr
       FROM player_universe u
       LEFT JOIN active_truth a
         ON a.playerid = u.playerid
-      LEFT JOIN fallback_truth f
-        ON f.playerid = u.playerid
+      LEFT JOIN full_roster_truth fr
+        ON fr.playerid = u.playerid
+      LEFT JOIN forty_man_fallback_truth ff
+        ON ff.playerid = u.playerid
       LEFT JOIN forty_man_context fm
         ON fm.playerid = u.playerid
     ),
