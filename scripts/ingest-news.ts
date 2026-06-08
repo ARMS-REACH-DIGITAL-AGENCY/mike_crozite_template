@@ -142,7 +142,7 @@ async function getActivePlayers(hsid?: string | null): Promise<PlayerRow[]> {
     )
     ${whereClause}
     AND TRIM(tp.firstname) != '' AND TRIM(tp.lastname) != ''
-    ORDER BY ph.hsid, tp.lastname, tp.firstname
+    ORDER BY hsid, lastname, firstname
   `;
 
   const { rows } = await pool.query(sql, params);
