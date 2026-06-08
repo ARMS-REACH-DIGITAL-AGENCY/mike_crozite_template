@@ -11,11 +11,13 @@ import {
   getSchoolByUrl,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
+  getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, sortActivePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
+import { formatSchoolName, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
+import { getPlayerThenImageUrl, getThenSilhouetteUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
 
 import type { Metadata } from 'next';
@@ -34,7 +36,6 @@ import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -131,27 +132,31 @@ function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
     isHighSchoolLevel(p.current_level_label || p.display_level_label || p.level_label || p.level);
 }
 
-function getStripImageForPlayer(p: Record<string, unknown>, playerId: string) {
-  if (isHighSchoolStripPlayer(p)) {
-    const committedTeamId = String(p.committed_teamid || '').trim();
-    const committedTeamLogoUrl = committedTeamId ? `${YAT_ASSETS_BASE}/teams/${committedTeamId}.png` : UNCOMMITTED_BADGE_URL;
-
-    return {
-      image: committedTeamLogoUrl,
-      nowImage: committedTeamLogoUrl,
-      thenImage: committedTeamLogoUrl,
-      fallbackImage: UNCOMMITTED_BADGE_URL,
-      imageFit: 'contain' as const,
-    };
-  }
+function getStripImageForPlayer(
+  p: Record<string, unknown>,
+  playerId: string,
+  frontImageUrl?: string | null
+) {
+  const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(playerId);
+  const fallbackImage = getThenSilhouetteUrl({
+    isPitcher: p.is_pitcher === true,
+    bats: p.bats,
+    throws: p.throws,
+  });
 
   return {
-    image: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    image: thenImage,
     nowImage: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
-    thenImage: `${YAT_ASSETS_BASE}/players/then/${playerId}.jpg`,
-    fallbackImage: '/img/headshot-silhouette.png',
+    thenImage,
+    fallbackImage,
     imageFit: 'cover' as const,
   };
+}
+
+type StripImageMap = Map<string, { image_url?: string | null }>;
+
+function emptyStripImageMap(): StripImageMap {
+  return new Map();
 }
 
 export const runtime = 'nodejs';
@@ -305,21 +310,38 @@ export default async function HsidLayout({
   for (const p of allTimeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stripStageMap.get(id);
-    stripMerged.push(stageRow ? { ...p, ...stageRow } : { ...p });
+    const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
+    if (isHighSchoolStripPlayer(mergedRow)) continue;
+    stripMerged.push(mergedRow);
     stripSeenIds.add(id);
   }
   for (const p of stageRows) {
     const id = String(p.playerid);
-    if (!stripSeenIds.has(id)) {
+    if (!stripSeenIds.has(id) && !isHighSchoolStripPlayer(p)) {
       stripMerged.push({ ...p });
     }
   }
-  const allStripRows = sortActivePlayers(stripMerged);
+  const allStripRows = sortAllTimePlayers(stripMerged);
+  const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
+  const stripFrontImageMap = stripPlayerIds.length
+    ? await getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
+        console.error('getBatchDesignatedPlayerImages failed for interaction strip', {
+          resolvedHsid,
+          imageType: 'YATSTATS_FRONT',
+          error,
+        });
+        return emptyStripImageMap();
+      })
+    : emptyStripImageMap();
 
   const stripPlayers = allStripRows.map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
-    const stripImages = getStripImageForPlayer(p, playerId);
+    const stripImages = getStripImageForPlayer(
+      p,
+      playerId,
+      stripFrontImageMap.get(playerId)?.image_url ?? null
+    );
 
     return {
       id: playerId,
