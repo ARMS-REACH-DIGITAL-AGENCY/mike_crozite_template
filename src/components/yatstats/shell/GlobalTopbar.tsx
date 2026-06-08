@@ -10,12 +10,12 @@ const DOCKED_DRAWER_MIN_WIDTH = 1240;
 
 function showLeftNavigationDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open');
-  document.body.classList.remove('yat-left-search-mode', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('yat-left-search-mode', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
 }
 
 function showLeftSearchDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open', 'yat-left-search-mode');
-  document.body.classList.remove('drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
 
   setTimeout(() => {
     const input = document.getElementById('gsInput') as HTMLInputElement | null;
@@ -26,12 +26,12 @@ function showLeftSearchDrawer() {
 
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
 }
 
 function requestFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
-  document.body.classList.remove('drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
 
@@ -45,7 +45,7 @@ function dockDesktopDrawers() {
 
   if (canAutoDockBothDrawers) {
     document.body.classList.add('drawer-left-open', 'drawer-favorites-open', 'drawer-open');
-    document.body.classList.remove('drawer-account-open', 'drawer-right-open');
+    document.body.classList.remove('drawer-sort-open', 'drawer-account-open', 'drawer-right-open');
     window.dispatchEvent(new CustomEvent('yat:open-favorites'));
     return;
   }
@@ -53,17 +53,18 @@ function dockDesktopDrawers() {
   if (mustCollapseDrawers) {
     if (document.body.classList.contains('yat-left-search-mode')) {
       document.body.classList.add('drawer-left-open', 'drawer-open');
-      document.body.classList.remove('drawer-favorites-open', 'drawer-right-open', 'drawer-account-open');
+      document.body.classList.remove('drawer-favorites-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
       return;
     }
 
-    document.body.classList.remove(
-      'drawer-left-open',
-      'drawer-favorites-open',
-      'drawer-right-open',
-      'drawer-account-open',
+    document.body.classList.remove('yat-desktop-docked-drawers');
+    document.body.classList.toggle(
       'drawer-open',
-      'yat-left-search-mode',
+      document.body.classList.contains('drawer-left-open') ||
+        document.body.classList.contains('drawer-sort-open') ||
+        document.body.classList.contains('drawer-right-open') ||
+        document.body.classList.contains('drawer-account-open') ||
+        document.body.classList.contains('drawer-favorites-open'),
     );
   }
 }
@@ -152,7 +153,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <a className="yat-topnav-item" data-tab="mentor" href={schoolSectionHref(hsid, 'mentor')}><span>MENTORSHIP</span><strong>MARKETPLACE</strong></a>
           <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
           <a className="yat-topnav-item" data-tab="about" href={schoolSectionHref(hsid, 'about')}><span>ABOUT</span><strong>US</strong></a>
-          <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ'S</strong></a>
+          <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ&apos;S</strong></a>
         </nav>
 
         <div className="yat-wordmark-wrap">

@@ -83,6 +83,41 @@ function forceAccountDrawerOpen() {
   saveDrawerState();
 }
 
+function consumeDrawerClick(event: MouseEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+}
+
+function openRightDrawer(right: Exclude<DrawerState['right'], ''>) {
+  const body = document.body;
+  closeRightRails();
+  body.classList.add('drawer-open');
+
+  if (right === 'sort') body.classList.add('drawer-sort-open');
+  if (right === 'filters') body.classList.add('drawer-right-open');
+  if (right === 'account') body.classList.add('drawer-account-open');
+  if (right === 'favorites') {
+    body.classList.add('drawer-favorites-open');
+    window.dispatchEvent(new CustomEvent('yat:open-favorites'));
+  }
+
+  if (window.innerWidth < BOTH_RAILS_MIN_WIDTH) {
+    body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+  }
+
+  syncRailMode();
+}
+
+function closeRightDrawer(right: DrawerState['right']) {
+  const body = document.body;
+  if (right === 'sort') body.classList.remove('drawer-sort-open');
+  if (right === 'filters') body.classList.remove('drawer-right-open');
+  if (right === 'account') body.classList.remove('drawer-account-open');
+  if (right === 'favorites') body.classList.remove('drawer-favorites-open');
+  syncRailMode();
+}
+
 function restoreDrawerState() {
   const saved = readSavedDrawerState();
   if (!saved) return;
@@ -182,6 +217,57 @@ export default function DrawerRailController() {
         return;
       }
 
+      if (target.closest('#openSort')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => openRightDrawer('sort'), 0);
+        return;
+      }
+
+      if (target.closest('#openFilters')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => openRightDrawer('filters'), 0);
+        return;
+      }
+
+      if (target.closest('#btnAccount')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => openRightDrawer('account'), 0);
+        return;
+      }
+
+      if (target.closest('#openFavorites')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => openRightDrawer('favorites'), 0);
+        return;
+      }
+
+      if (target.closest('#closeSort')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => closeRightDrawer('sort'), 0);
+        return;
+      }
+
+      if (target.closest('#closeFilters')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => closeRightDrawer('filters'), 0);
+        return;
+      }
+
+      if (target.closest('#closeFavorites')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => closeRightDrawer('favorites'), 0);
+        return;
+      }
+
+      if (target.closest('#drawerMask')) {
+        consumeDrawerClick(event);
+        window.setTimeout(() => {
+          body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-open', 'yat-left-search-mode');
+          syncRailMode();
+        }, 0);
+        return;
+      }
+
       if (!railCapable) return;
 
       if (target.closest('#btnMenu, #openMenu')) {
@@ -203,73 +289,9 @@ export default function DrawerRailController() {
         return;
       }
 
-      if (target.closest('#openSort')) {
-        window.setTimeout(() => {
-          body.classList.add('drawer-sort-open', 'drawer-open');
-          body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
-          if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#openFilters')) {
-        window.setTimeout(() => {
-          body.classList.add('drawer-right-open', 'drawer-open');
-          body.classList.remove('drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open');
-          if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#btnAccount')) {
-        window.setTimeout(() => {
-          body.classList.add('drawer-account-open', 'drawer-open');
-          body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
-          if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#openFavorites')) {
-        window.setTimeout(() => {
-          body.classList.add('drawer-favorites-open', 'drawer-open');
-          body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
-          if (!bothCapable) body.classList.remove('drawer-left-open', 'yat-left-search-mode');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
       if (target.closest('#closeLeft')) {
         window.setTimeout(() => {
           body.classList.remove('drawer-left-open', 'yat-left-search-mode');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#closeSort')) {
-        window.setTimeout(() => {
-          body.classList.remove('drawer-sort-open');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#closeFilters')) {
-        window.setTimeout(() => {
-          body.classList.remove('drawer-right-open');
-          syncRailMode();
-        }, 0);
-        return;
-      }
-
-      if (target.closest('#closeFavorites')) {
-        window.setTimeout(() => {
-          body.classList.remove('drawer-favorites-open');
           syncRailMode();
         }, 0);
         return;
