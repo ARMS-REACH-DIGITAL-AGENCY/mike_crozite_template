@@ -78,18 +78,30 @@ async function getCurrentUser(): Promise<YatUser | null> {
   return null;
 }
 
+function syncDrawerOpenClass() {
+  document.body.classList.toggle(
+    'drawer-open',
+    document.body.classList.contains('drawer-left-open') ||
+      document.body.classList.contains('drawer-sort-open') ||
+      document.body.classList.contains('drawer-right-open') ||
+      document.body.classList.contains('drawer-account-open') ||
+      document.body.classList.contains('drawer-favorites-open'),
+  );
+}
+
 function openFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
 }
 
 function closeFavoritesDrawer() {
-  document.body.classList.remove('drawer-favorites-open', 'drawer-open');
+  document.body.classList.remove('drawer-favorites-open');
+  syncDrawerOpenClass();
 }
 
 function openAccountDrawer(tab: 'signin' | 'register' = 'register') {
   document.body.classList.add('drawer-account-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
   window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: tab }));
 }
 
@@ -521,7 +533,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
           <h3 style={{ margin: 0 }}>MY FAVORITE PLAYERS</h3>
-          <button className="yat-icon-btn" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
+          <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
             <i className="ri-close-line" />
           </button>
         </div>

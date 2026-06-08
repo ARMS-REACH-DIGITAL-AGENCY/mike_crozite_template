@@ -179,8 +179,9 @@ function rerunSortIfActive(delay = 80) { if (isSortSelected()) window.setTimeout
 function metricOption(metric: SortMetric) {
   return `<label class="yat-sort-option yat-sort-option-${metric.group}"><input type="checkbox" name="yat-sort-stat" value="${metric.key}" data-label="${metric.label}" data-group="${metric.group}" data-default-direction="${metric.defaultDirection || 'desc'}" /><span class="yat-sort-short">${metric.shortLabel}</span><span class="yat-sort-full">${metric.label}</span></label>`;
 }
-function openSortDrawer() { document.body.classList.add('drawer-sort-open', 'drawer-open'); document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open'); }
-function closeSortDrawer() { document.body.classList.remove('drawer-sort-open'); if (!document.body.classList.contains('drawer-left-open')) document.body.classList.remove('drawer-open'); }
+function hasAnyDrawerOpen() { return document.body.classList.contains('drawer-left-open') || document.body.classList.contains('drawer-sort-open') || document.body.classList.contains('drawer-right-open') || document.body.classList.contains('drawer-account-open') || document.body.classList.contains('drawer-favorites-open'); }
+function openSortDrawer() { document.body.classList.add('drawer-sort-open', 'drawer-open'); document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open'); }
+function closeSortDrawer() { document.body.classList.remove('drawer-sort-open'); document.body.classList.toggle('drawer-open', hasAnyDrawerOpen()); }
 
 function installSortDrawer() {
   const filtersDrawer = document.getElementById('drawerFilters');

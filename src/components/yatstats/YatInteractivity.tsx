@@ -139,26 +139,28 @@ window.__firebase_config = ${firebaseConfigJSON};
 
     function yatOpenLeftDrawer(){
     document.body.classList.add('drawer-left-open', 'drawer-open');
-    document.body.classList.remove('drawer-right-open', 'drawer-account-open');
+    document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
   }
 
   function yatOpenRightDrawer(){
     document.body.classList.toggle('drawer-right-open');
     document.body.classList.toggle('drawer-open');
-    document.body.classList.remove('drawer-left-open', 'drawer-account-open');
+    document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open');
   }
 
   function yatOpenAccountDrawer(){
     document.body.classList.toggle('drawer-account-open');
     document.body.classList.toggle('drawer-open');
-    document.body.classList.remove('drawer-left-open', 'drawer-right-open');
+    document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
   }
 
   function yatCloseDrawers(){
     document.body.classList.remove(
       'drawer-left-open',
+      'drawer-sort-open',
       'drawer-right-open',
       'drawer-account-open',
+      'drawer-favorites-open',
       'drawer-open'
     );
   }
@@ -748,7 +750,7 @@ function syncStripToVisibleCards() {
     if(!tab)return;
     e.preventDefault();
     showSection(tab,true);
-    document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+    document.body.classList.remove('drawer-left-open','drawer-sort-open','drawer-right-open','drawer-account-open','drawer-favorites-open','drawer-open');
   });
 
   (function initSectionFromHash(){
@@ -782,7 +784,7 @@ function syncStripToVisibleCards() {
     btnMenu.addEventListener('click',function(){
       document.body.classList.add('drawer-left-open');
       document.body.classList.add('drawer-open');
-      document.body.classList.remove('drawer-right-open','drawer-account-open');
+      document.body.classList.remove('drawer-sort-open','drawer-right-open','drawer-account-open','drawer-favorites-open');
     });
   }
 
@@ -794,7 +796,7 @@ function syncStripToVisibleCards() {
 
   if(mask){
     mask.addEventListener('click',function(){
-      document.body.classList.remove('drawer-left-open','drawer-right-open','drawer-account-open','drawer-open');
+      document.body.classList.remove('drawer-left-open','drawer-sort-open','drawer-right-open','drawer-account-open','drawer-favorites-open','drawer-open');
     });
   }
 
@@ -805,7 +807,7 @@ function syncStripToVisibleCards() {
   if(openFilters)openFilters.addEventListener('click',function(){
     document.body.classList.toggle('drawer-right-open');
     document.body.classList.toggle('drawer-open');
-    document.body.classList.remove('drawer-left-open','drawer-account-open');
+    document.body.classList.remove('drawer-left-open','drawer-sort-open','drawer-account-open','drawer-favorites-open');
   });
   if(closeFilters)closeFilters.addEventListener('click',function(){
     document.body.classList.remove('drawer-right-open','drawer-open');
@@ -816,7 +818,7 @@ function syncStripToVisibleCards() {
   if(btnAccount)btnAccount.addEventListener('click',function(){
     document.body.classList.toggle('drawer-account-open');
     document.body.classList.toggle('drawer-open');
-    document.body.classList.remove('drawer-left-open','drawer-right-open');
+    document.body.classList.remove('drawer-left-open','drawer-sort-open','drawer-right-open','drawer-favorites-open');
   });
   if(closeAccount)closeAccount.addEventListener('click',function(){
     document.body.classList.remove('drawer-account-open','drawer-open');
@@ -2226,7 +2228,7 @@ function resetFiltersForCurrentSection(){
   hydrateHomeCrest();
 
   function openAccountDrawer(){
-    document.body.classList.remove('drawer-left-open','drawer-right-open');
+    document.body.classList.remove('drawer-left-open','drawer-sort-open','drawer-right-open','drawer-favorites-open');
     document.body.classList.add('drawer-account-open','drawer-open');
   }
 

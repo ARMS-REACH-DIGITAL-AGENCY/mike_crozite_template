@@ -10,12 +10,12 @@ const DOCKED_DRAWER_MIN_WIDTH = 1240;
 
 function showLeftNavigationDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open');
-  document.body.classList.remove('yat-left-search-mode', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('yat-left-search-mode', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
 }
 
 function showLeftSearchDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open', 'yat-left-search-mode');
-  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
 
   setTimeout(() => {
     const input = document.getElementById('gsInput') as HTMLInputElement | null;
@@ -31,7 +31,7 @@ function openAccountDrawer() {
 
 function requestFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
-  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
 

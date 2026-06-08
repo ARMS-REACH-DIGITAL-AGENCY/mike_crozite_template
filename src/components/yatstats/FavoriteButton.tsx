@@ -55,7 +55,7 @@ function readIsSuperfan(): boolean {
 
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-favorites-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
 }
 
 export default function FavoriteButton({

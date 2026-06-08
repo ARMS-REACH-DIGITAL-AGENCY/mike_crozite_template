@@ -8,10 +8,11 @@ const THEME_KEY = 'yat-theme';
 type DrawerState = {
   left: boolean;
   leftSearch: boolean;
-  right: '' | 'filters' | 'account' | 'favorites';
+  right: '' | 'sort' | 'filters' | 'account' | 'favorites';
 };
 
 function getRightState(): DrawerState['right'] {
+  if (document.body.classList.contains('drawer-sort-open')) return 'sort';
   if (document.body.classList.contains('drawer-right-open')) return 'filters';
   if (document.body.classList.contains('drawer-account-open')) return 'account';
   if (document.body.classList.contains('drawer-favorites-open')) return 'favorites';
@@ -45,8 +46,9 @@ function restoreDrawerState() {
 
     document.body.classList.toggle('drawer-left-open', Boolean(saved.left));
     document.body.classList.toggle('yat-left-search-mode', Boolean(saved.left && saved.leftSearch));
-    document.body.classList.remove('drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+    document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
 
+    if (saved.right === 'sort') document.body.classList.add('drawer-sort-open');
     if (saved.right === 'filters') document.body.classList.add('drawer-right-open');
     if (saved.right === 'account') document.body.classList.add('drawer-account-open');
     if (saved.right === 'favorites') document.body.classList.add('drawer-favorites-open');
@@ -97,7 +99,7 @@ export default function DrawerNavigationPersistence() {
       const target = event.target as HTMLElement | null;
       if (!target) return;
 
-      const drawer = target.closest('#drawerLeft, #drawerFilters, #drawerFavorites, #drawerAccount');
+      const drawer = target.closest('#drawerLeft, #drawerSort, #drawerFilters, #drawerFavorites, #drawerAccount');
       const tabLink = target.closest('[data-tab]') as HTMLElement | null;
 
       // Drawer navigation should behave like a working rail: switch the content, but do not close the rail.
