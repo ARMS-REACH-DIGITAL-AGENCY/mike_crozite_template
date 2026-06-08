@@ -2159,7 +2159,15 @@ function resetFiltersForCurrentSection(){
       return String(state||'').toLowerCase().trim();
     }
 
-    function buildAbsoluteMicrositeUrl(hsid, schoolName, schoolLocation){
+    function normalizeMicrositeUrl(url){
+      var raw=String(url||'').trim();
+      if(!raw||!/^https?:\/\//i.test(raw))return '';
+      return raw.replace(/\/+$/,'');
+    }
+
+    function buildAbsoluteMicrositeUrl(hsid, schoolName, schoolLocation, canonicalMicrositeUrl){
+      var canonical=normalizeMicrositeUrl(canonicalMicrositeUrl);
+      if(canonical)return canonical;
       if(!hsid)return '';
 
       var schoolSlug=slugifySchoolName(schoolName||'');
@@ -2170,7 +2178,7 @@ function resetFiltersForCurrentSection(){
         return 'https://'+schoolSlug+'.'+stateSlug+'.yatstats.com/'+hsid;
       }
 
-      return '';
+      return 'https://yatstats.com/'+hsid;
     }
 
     function applyHomeLinks(homeHref){
@@ -2227,38 +2235,35 @@ function resetFiltersForCurrentSection(){
       }catch(e){}
     }
 
-    var homeHref=user.homeMicrositeUrl||'';
+    var homeHref=buildAbsoluteMicrositeUrl(
+      homeHsid,
+      user.homeSchoolName||'',
+      user.homeSchoolLocation||'',
+      user.homeMicrositeUrl||''
+    );
 
-    if(!homeHref){
-      homeHref=buildAbsoluteMicrositeUrl(
-        homeHsid,
-        user.homeSchoolName||'',
-        user.homeSchoolLocation||''
-      );
-    }
+    try{
+      var res=await fetch('/api/auth/session', {
+        method:'GET',
+        credentials:'include',
+        cache:'no-store'
+      });
+      var data=await res.json();
 
-    if(!homeHref){
-      try{
-        var res=await fetch('/api/auth/session', {
-          method:'GET',
-          credentials:'include',
-          cache:'no-store'
-        });
-        var data=await res.json();
+      var s=data&&data.session?data.session:null;
+      if(s&&String(s.homeHsid||'')===String(homeHsid)){
+        if(s.homeSchoolName)user.homeSchoolName=s.homeSchoolName;
+        if(s.homeSchoolLocation)user.homeSchoolLocation=s.homeSchoolLocation;
+        if(s.homeMicrositeUrl)user.homeMicrositeUrl=s.homeMicrositeUrl;
 
-        var s=data&&data.session?data.session:null;
-        if(s&&String(s.homeHsid||'')===String(homeHsid)){
-          if(!user.homeSchoolName&&s.homeSchoolName)user.homeSchoolName=s.homeSchoolName;
-          if(!user.homeSchoolLocation&&s.homeSchoolLocation)user.homeSchoolLocation=s.homeSchoolLocation;
-
-          homeHref=buildAbsoluteMicrositeUrl(
-            homeHsid,
-            user.homeSchoolName||'',
-            user.homeSchoolLocation||''
-          );
-        }
-      }catch(e){}
-    }
+        homeHref=buildAbsoluteMicrositeUrl(
+          homeHsid,
+          user.homeSchoolName||'',
+          user.homeSchoolLocation||'',
+          user.homeMicrositeUrl||''
+        );
+      }
+    }catch(e){}
 
     if(!homeHref)return;
     applyHomeLinks(homeHref);

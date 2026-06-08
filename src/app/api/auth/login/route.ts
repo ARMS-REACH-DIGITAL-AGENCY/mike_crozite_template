@@ -16,13 +16,19 @@ interface LoginRequestBody {
 
 async function getSchoolByHsid(hsid: string) {
   const sql = `
-    SELECT hsname, hslocation
+    SELECT hsname, hslocation, microsite_url
     FROM school_success
     WHERE hsid::text = $1
     LIMIT 1
   `;
   const result = await query(sql, [String(hsid)]);
   return result.rows?.[0] ?? null;
+}
+
+function normalizeMicrositeUrl(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  return raw.replace(/\/+$/, '');
 }
 
 function getCookieDomain(hostname: string | null) {
@@ -57,6 +63,7 @@ export async function POST(request: NextRequest) {
     homeHsid: string | null;
     homeSchoolName: string | null;
     homeSchoolLocation: string | null;
+    homeMicrositeUrl: string | null;
     role: string | null;
     subscriptionStatus: string | null;
   };
@@ -98,6 +105,7 @@ export async function POST(request: NextRequest) {
 
     let homeSchoolName: string | null = null;
     let homeSchoolLocation: string | null = null;
+    let homeMicrositeUrl: string | null = null;
 
     if (profile.home_hsid) {
       try {
@@ -105,6 +113,7 @@ export async function POST(request: NextRequest) {
         if (school) {
           homeSchoolName = school.hsname ?? null;
           homeSchoolLocation = school.hslocation ?? null;
+          homeMicrositeUrl = normalizeMicrositeUrl(school.microsite_url);
         }
       } catch (schoolErr) {
         console.error("School lookup failed (non-fatal):", schoolErr);
@@ -122,6 +131,7 @@ export async function POST(request: NextRequest) {
       homeHsid: profile.home_hsid ? String(profile.home_hsid) : null,
       homeSchoolName,
       homeSchoolLocation,
+      homeMicrositeUrl,
       role: profile.role ?? null,
       subscriptionStatus: profile.subscription_status ?? null,
     };
@@ -138,6 +148,7 @@ export async function POST(request: NextRequest) {
       homeHsid: body.currentHsid ?? null,
       homeSchoolName: null,
       homeSchoolLocation: null,
+      homeMicrositeUrl: body.currentHsid ? `https://yatstats.com/${body.currentHsid}` : null,
       role: null,
       subscriptionStatus: null,
     };

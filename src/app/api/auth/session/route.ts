@@ -2,8 +2,26 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
+import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
+
+async function getSchoolByHsid(hsid: string) {
+  const sql = `
+    SELECT hsname, hslocation, microsite_url
+    FROM school_success
+    WHERE hsid::text = $1
+    LIMIT 1
+  `;
+  const result = await query(sql, [String(hsid)]);
+  return result.rows?.[0] ?? null;
+}
+
+function normalizeMicrositeUrl(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  return raw.replace(/\/+$/, '');
+}
 
 export async function GET() {
   try {
@@ -29,11 +47,31 @@ export async function GET() {
         const profile = await getUserProfile(session.uid);
         if (profile) {
           const superfan = isSuperfan(profile);
+          const homeHsid = profile.home_hsid ?? session.homeHsid ?? null;
+          let homeSchoolName = profile.home_school_name ?? session.homeSchoolName ?? null;
+          let homeSchoolLocation = session.homeSchoolLocation ?? null;
+          let homeMicrositeUrl = session.homeMicrositeUrl ?? null;
+
+          if (homeHsid) {
+            try {
+              const school = await getSchoolByHsid(String(homeHsid));
+              if (school) {
+                homeSchoolName = school.hsname ?? homeSchoolName;
+                homeSchoolLocation = school.hslocation ?? homeSchoolLocation;
+                homeMicrositeUrl = normalizeMicrositeUrl(school.microsite_url) ?? homeMicrositeUrl;
+              }
+            } catch (schoolError) {
+              console.error('Session school reconciliation failed:', schoolError);
+            }
+          }
+
           reconciledSession = {
             ...session,
             contactId: profile.arms_contact_id ?? session.contactId ?? null,
-            homeHsid: profile.home_hsid ?? session.homeHsid ?? null,
-            homeSchoolName: profile.home_school_name ?? session.homeSchoolName ?? null,
+            homeHsid,
+            homeSchoolName,
+            homeSchoolLocation,
+            homeMicrositeUrl,
             role: profile.role ?? session.role ?? 'fan',
             plan: superfan ? 'superfan' : profile.plan ?? session.plan ?? 'fan',
             subscriptionStatus: profile.subscription_status ?? session.subscriptionStatus ?? null,

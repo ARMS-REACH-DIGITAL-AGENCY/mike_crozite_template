@@ -84,11 +84,20 @@ function PasswordInput({
   );
 }
 
+function normalizeMicrositeUrl(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  return raw.replace(/\/+$/, '');
+}
+
 function buildMicrositeUrl(
   homeHsid?: string | null,
   homeSchoolName?: string | null,
-  homeSchoolLocation?: string | null
+  homeSchoolLocation?: string | null,
+  canonicalMicrositeUrl?: string | null
 ) {
+  const canonicalUrl = normalizeMicrositeUrl(canonicalMicrositeUrl);
+  if (canonicalUrl) return canonicalUrl;
   if (!homeHsid) return null;
 
   const slugifySchoolName = (name: string) =>
@@ -109,7 +118,7 @@ function buildMicrositeUrl(
     return `https://${schoolSlug}.${stateSlug}.yatstats.com/${homeHsid}`;
   }
 
-  return `/${homeHsid}`;
+  return `https://yatstats.com/${homeHsid}`;
 }
 
 export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) {
@@ -145,6 +154,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
     homeSchoolLocation,
     role,
     plan,
+    homeMicrositeUrl: canonicalHomeMicrositeUrl,
   }: {
     uid: string;
     email: string;
@@ -153,10 +163,16 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
     homeHsid?: string | null;
     homeSchoolName?: string | null;
     homeSchoolLocation?: string | null;
+    homeMicrositeUrl?: string | null;
     role?: string | null;
     plan?: string | null;
   }) => {
-    const homeMicrositeUrl = buildMicrositeUrl(homeHsid, homeSchoolName, homeSchoolLocation);
+    const homeMicrositeUrl = buildMicrositeUrl(
+      homeHsid,
+      homeSchoolName,
+      homeSchoolLocation,
+      canonicalHomeMicrositeUrl
+    );
 
     const nextSessionUser: SessionUser = {
       uid,
@@ -249,9 +265,12 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
             homeHsid: s.homeHsid ?? null,
             homeSchoolName: s.homeSchoolName ?? null,
             homeSchoolLocation: s.homeSchoolLocation ?? null,
-            homeMicrositeUrl:
-              s.homeMicrositeUrl ??
-              buildMicrositeUrl(s.homeHsid, s.homeSchoolName, s.homeSchoolLocation),
+            homeMicrositeUrl: buildMicrositeUrl(
+              s.homeHsid,
+              s.homeSchoolName,
+              s.homeSchoolLocation,
+              s.homeMicrositeUrl
+            ),
             role: s.role ?? 'fan',
             plan: s.plan ?? 'fan',
             isSuperfan: s.isSuperfan ?? s.plan === 'superfan',
@@ -271,9 +290,12 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
                 homeHsid: s.homeHsid ?? null,
                 homeSchoolName: s.homeSchoolName ?? null,
                 homeSchoolLocation: s.homeSchoolLocation ?? null,
-                homeMicrositeUrl:
-                  s.homeMicrositeUrl ??
-                  buildMicrositeUrl(s.homeHsid, s.homeSchoolName, s.homeSchoolLocation),
+                homeMicrositeUrl: buildMicrositeUrl(
+                  s.homeHsid,
+                  s.homeSchoolName,
+                  s.homeSchoolLocation,
+                  s.homeMicrositeUrl
+                ),
                 role: s.role ?? 'fan',
               })
             );
@@ -291,9 +313,12 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
                 homeHsid: s.homeHsid ?? null,
                 homeSchoolName: s.homeSchoolName ?? null,
                 homeSchoolLocation: s.homeSchoolLocation ?? null,
-                homeMicrositeUrl:
-                  s.homeMicrositeUrl ??
-                  buildMicrositeUrl(s.homeHsid, s.homeSchoolName, s.homeSchoolLocation),
+                homeMicrositeUrl: buildMicrositeUrl(
+                  s.homeHsid,
+                  s.homeSchoolName,
+                  s.homeSchoolLocation,
+                  s.homeMicrositeUrl
+                ),
                 role: s.role ?? 'fan',
                 plan: s.plan ?? 'fan',
               },
@@ -367,6 +392,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
           homeHsid,
           homeSchoolName,
           homeSchoolLocation,
+          homeMicrositeUrl: loginData?.homeMicrositeUrl ?? null,
           role: loginData?.role ?? 'fan',
           plan,
         });
@@ -502,6 +528,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
           homeHsid,
           homeSchoolName,
           homeSchoolLocation,
+          homeMicrositeUrl: loginData?.homeMicrositeUrl ?? null,
           role: loginData?.role ?? 'fan',
           plan,
         });
@@ -597,6 +624,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
         homeHsid,
         homeSchoolName,
         homeSchoolLocation,
+        homeMicrositeUrl: regData?.homeMicrositeUrl ?? null,
         role: 'fan',
         plan,
       });
