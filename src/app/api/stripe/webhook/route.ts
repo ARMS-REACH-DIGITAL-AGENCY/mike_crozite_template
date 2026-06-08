@@ -74,7 +74,8 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        await activateSuperfan(firebaseUid, customerId, subscriptionId);
+        const customerEmail = session.customer_details?.email || session.customer_email || null;
+        await activateSuperfan(firebaseUid, customerId, subscriptionId, customerEmail);
 
         // Optionally tag the ARMS contact as Superfan
         const profile = await getUserProfileByStripeCustomerId(customerId);

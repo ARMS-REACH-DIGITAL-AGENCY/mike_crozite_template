@@ -169,16 +169,28 @@ export async function upsertUserProfile(
 export async function activateSuperfan(
   firebaseUid: string,
   stripeCustomerId: string,
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
+  email?: string | null
 ): Promise<void> {
   await query(
-    `UPDATE user_profiles
-     SET plan = 'superfan',
-         stripe_customer_id    = $2,
-         stripe_subscription_id = $3,
-         updated_at            = NOW()
-     WHERE firebase_uid = $1`,
-    [firebaseUid, stripeCustomerId, stripeSubscriptionId]
+    `INSERT INTO user_profiles (
+       firebase_uid,
+       email,
+       role,
+       subscription_status,
+       plan,
+       stripe_customer_id,
+       stripe_subscription_id
+     ) VALUES ($1, COALESCE($4, $1 || '@stripe.local'), 'superfan', 'active', 'superfan', $2, $3)
+     ON CONFLICT (firebase_uid) DO UPDATE SET
+       plan                   = 'superfan',
+       role                   = COALESCE(user_profiles.role, 'superfan'),
+       subscription_status    = 'active',
+       stripe_customer_id     = EXCLUDED.stripe_customer_id,
+       stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+       email                  = COALESCE(EXCLUDED.email, user_profiles.email),
+       updated_at             = NOW()`,
+    [firebaseUid, stripeCustomerId, stripeSubscriptionId, email ?? null]
   );
 }
 

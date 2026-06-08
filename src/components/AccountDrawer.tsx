@@ -426,14 +426,16 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
         body: JSON.stringify({ firebaseUid, email }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (data?.url) {
+      if (res.ok && data?.url) {
         window.location.href = data.url;
         return;
       }
 
-      setMessage(data?.error || 'Could not start checkout. Please try again.');
+      setMessage(
+        data?.message || data?.error || 'Could not start checkout. Please try again.'
+      );
       setMessageType('error');
       setSuperfanLaunching(false);
     } catch {

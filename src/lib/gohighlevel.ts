@@ -31,6 +31,25 @@ interface GHLErrorResponse {
   [key: string]: unknown;
 }
 
+export function getGHLApiKey(): string | undefined {
+  return (
+    process.env.GHL_API_KEY ||
+    process.env.HIGHLEVEL_API_KEY ||
+    process.env.GOHIGHLEVEL_API_KEY ||
+    process.env.GOHIGHLEVEL_AGENCY_API_KEY ||
+    process.env.LEADCONNECTOR_API_KEY
+  );
+}
+
+export function getGHLLocationId(): string | undefined {
+  return (
+    process.env.GHL_LOCATION_ID ||
+    process.env.HIGHLEVEL_LOCATION_ID ||
+    process.env.GOHIGHLEVEL_LOCATION_ID ||
+    process.env.LEADCONNECTOR_LOCATION_ID
+  );
+}
+
 /**
  * Create a contact in GoHighLevel and apply tags
  * @param contactData - The contact information to create
@@ -41,11 +60,11 @@ export async function createGHLContact(
   contactData: GHLContactData,
   subdomain: string
 ): Promise<GHLContactResponse | GHLErrorResponse> {
-  const apiKey = process.env.GHL_API_KEY;
-  const locationId = process.env.GHL_LOCATION_ID;
+  const apiKey = getGHLApiKey();
+  const locationId = getGHLLocationId();
 
   if (!apiKey || !locationId) {
-    console.error("GoHighLevel API credentials are not configured. GHL_API_KEY:", !!apiKey, "GHL_LOCATION_ID:", !!locationId);
+    console.error("GoHighLevel API credentials are not configured. API key:", !!apiKey, "Location ID:", !!locationId);
     return {
       error: "GoHighLevel API credentials are not configured",
     };
@@ -112,7 +131,7 @@ export async function addTagToGHLContact(
   contactId: string,
   tag: string
 ): Promise<{ success: boolean; error?: string }> {
-  const apiKey = process.env.GHL_API_KEY;
+  const apiKey = getGHLApiKey();
 
   if (!apiKey) {
     console.error("GoHighLevel API credentials are not configured");
@@ -164,8 +183,8 @@ export async function addTagToGHLContact(
 export async function lookupGHLContactByEmail(
   email: string
 ): Promise<string | null> {
-  const apiKey = process.env.GHL_API_KEY;
-  const locationId = process.env.GHL_LOCATION_ID;
+  const apiKey = getGHLApiKey();
+  const locationId = getGHLLocationId();
 
   if (!apiKey || !locationId) return null;
 

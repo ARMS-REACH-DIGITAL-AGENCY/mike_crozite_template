@@ -19,16 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
 import { query } from "@/lib/db";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
-
-function isSuperfanProfile(profile: Awaited<ReturnType<typeof getUserProfile>>) {
-  if (!profile) return false;
-  return (
-    profile.plan === "superfan" ||
-    profile.role === "superfan" ||
-    profile.subscription_status === "active" ||
-    profile.subscription_status === "trialing"
-  );
-}
+import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
 
 async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
   if (!playerIds.length) return [];
@@ -210,7 +201,7 @@ export async function GET(req: NextRequest) {
       lockedReason,
       isSuperfan,
       homeHsid,
-      plan: profile?.plan ?? "fan",
+      plan: isSuperfan ? "superfan" : profile?.plan ?? "fan",
     });
   } catch (error) {
     console.error("Error in favorites GET:", error);

@@ -12,6 +12,15 @@ import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 
 export const runtime = "nodejs";
 
+function getStripeSuperfanPriceId(): string | undefined {
+  return (
+    process.env.STRIPE_SUPERFAN_PRICE_ID ||
+    process.env.STRIPE_SUPERFAN_MONTHLY_PRICE_ID ||
+    process.env.STRIPE_MONTHLY_PRICE_ID ||
+    process.env.STRIPE_PRICE_ID
+  );
+}
+
 function getAppBaseUrl(req: NextRequest): string {
   const origin = req.headers.get("origin") || "";
   if (origin) {
@@ -35,11 +44,16 @@ function getAppBaseUrl(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  const priceId = process.env.STRIPE_SUPERFAN_PRICE_ID;
+  const priceId = getStripeSuperfanPriceId();
 
   if (!secretKey || !priceId) {
+    console.error("Stripe checkout configuration missing:", {
+      hasSecretKey: Boolean(secretKey),
+      hasPriceId: Boolean(priceId),
+    });
+
     return NextResponse.json(
-      { error: "Stripe is not configured. Set STRIPE_SECRET_KEY and STRIPE_SUPERFAN_PRICE_ID." },
+      { error: "Stripe checkout is not configured. Missing Stripe secret key or Superfan price ID." },
       { status: 503 }
     );
   }
@@ -66,12 +80,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let profile = await getUserProfile(firebaseUid);
-    if (!profile) {
-      profile = await upsertUserProfile(firebaseUid, { email, plan: "fan" });
+    let existingCustomer: string | null = null;
+
+    try {
+      let profile = await getUserProfile(firebaseUid);
+      if (!profile) {
+        profile = await upsertUserProfile(firebaseUid, { email, plan: "fan" });
+      }
+      existingCustomer = profile.stripe_customer_id;
+    } catch (profileError) {
+      console.error(
+        "Stripe checkout profile lookup/upsert failed; continuing with customer_email fallback:",
+        profileError
+      );
     }
 
-    const existingCustomer = profile.stripe_customer_id;
     const base = getAppBaseUrl(req);
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {

@@ -7,7 +7,14 @@ import type { UserProfile } from '@/lib/userProfile';
 
 /** Returns true if the user has an active Superfan subscription. */
 export function isSuperfan(profile: UserProfile | null | undefined): boolean {
-  return profile?.plan === 'superfan';
+  if (!profile) return false;
+
+  return (
+    profile.plan === 'superfan' ||
+    profile.role === 'superfan' ||
+    profile.subscription_status === 'active' ||
+    profile.subscription_status === 'trialing'
+  );
 }
 
 /**

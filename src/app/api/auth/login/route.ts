@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail } from "@/lib/gohighlevel";
+import { lookupGHLContactByEmail, getGHLLocationId } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
+import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
           profile = await upsertUserProfile(body.uid, {
             email: body.email,
             arms_contact_id: armsContactId,
-            arms_location_id: process.env.GHL_LOCATION_ID ?? null,
+            arms_location_id: getGHLLocationId() ?? null,
           });
         }
       } catch (ghlErr) {
@@ -110,11 +111,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const superfan = isSuperfan(profile);
+
     payload = {
       success: true,
       contactId: profile.arms_contact_id ?? null,
-      plan: profile.plan ?? "fan",
-      isSuperfan: profile.plan === "superfan",
+      plan: superfan ? "superfan" : profile.plan ?? "fan",
+      isSuperfan: superfan,
       firstName: profile.first_name ?? null,
       homeHsid: profile.home_hsid ? String(profile.home_hsid) : null,
       homeSchoolName,
