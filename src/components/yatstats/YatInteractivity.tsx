@@ -35,8 +35,28 @@ window.__firebase_config = ${firebaseConfigJSON};
       .replace(/\u00E2\u20AC\u009D/g, '"')
       .replace(/\u00C2/g, '');
   }
-  function escHtml(s){return cleanText(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-  var ORG_NORM={
+	  function escHtml(s){return cleanText(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+	  function limitWords(text, maxWords){
+	    var cleaned=cleanText(text);
+	    if(!cleaned)return '';
+	    var words=cleaned.split(/\s+/).filter(Boolean);
+	    if(words.length<=maxWords)return cleaned;
+	    return words.slice(0,maxWords).join(' ')+'...';
+	  }
+	  function getCssPx(name, fallback){
+	    var raw=getComputedStyle(document.documentElement).getPropertyValue(name);
+	    var parsed=parseFloat(raw);
+	    return Number.isFinite(parsed)?parsed:fallback;
+	  }
+	  function stickyRowsOffset(){
+	    return getCssPx('--row1-h',36)+getCssPx('--row2-h',54)+getCssPx('--row3-h',100)+getCssPx('--row4-h',56)+8;
+	  }
+	  function scrollToContentTop(el){
+	    if(!el)return;
+	    var top=el.getBoundingClientRect().top+window.scrollY-stickyRowsOffset();
+	    window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+	  }
+	  var ORG_NORM={
     'ARIZONA DIAMONDBACKS':'ARIZONA DIAMONDBACKS','ARI':'ARIZONA DIAMONDBACKS','AZ DIAMONDBACKS':'ARIZONA DIAMONDBACKS',
     'ATLANTA BRAVES':'ATLANTA BRAVES','ATL':'ATLANTA BRAVES',
     'BALTIMORE ORIOLES':'BALTIMORE ORIOLES','BAL':'BALTIMORE ORIOLES',
@@ -459,9 +479,7 @@ if(closeBtn){
         otherSlot.classList.toggle('active-news-player-filter', activeNewsPlayerId !== '' && otherSlot.getAttribute('data-playerid') === activeNewsPlayerId);
       });
       applyNewsFilters();
-      if(newsContainer){
-        newsContainer.scrollIntoView({behavior:'smooth',block:'start'});
-      }
+      scrollToContentTop(newsContainer);
       return;
     }
 
@@ -1856,7 +1874,8 @@ function resetFiltersForCurrentSection(){
 
     var metaDiv=document.createElement('div');
     metaDiv.className='yat-meta';
-    metaDiv.innerHTML='<span>UCLA - Big 10 Conference</span>';
+    var metaText=(post.teamName||post.orgName||post.level||'ALUMNI NEWS');
+    metaDiv.innerHTML='<span>'+escHtml(metaText)+'</span>';
     infoBlock.appendChild(metaDiv);
 
     var badgeRow=document.createElement('div');
@@ -1867,7 +1886,7 @@ function resetFiltersForCurrentSection(){
     badgeRow.appendChild(lChip);
     var sChip=document.createElement('span');
     sChip.className='front-chip';
-    sChip.textContent='ACTIVE';
+    sChip.textContent=(post.status||'ACTIVE').toUpperCase();
     badgeRow.appendChild(sChip);
     infoBlock.appendChild(badgeRow);
 
@@ -1876,12 +1895,12 @@ function resetFiltersForCurrentSection(){
     chipsCol.style.marginTop='4px';
     var classChip=document.createElement('span');
     classChip.className='front-chip';
-    classChip.textContent='CLASS OF '+(post.gradClass||'2023');
+    classChip.textContent=post.gradClass?'CLASS OF '+post.gradClass:'ALUMNI NEWS';
     chipsCol.appendChild(classChip);
     var dots=document.createElement('div');
     dots.className='yat-dots';
     dots.style.marginTop='4px';
-    ['23','22','21','20'].forEach(function(y){
+    (Array.isArray(post.rosterYears)&&post.rosterYears.length?post.rosterYears:['23','22','21','20']).slice(0,4).forEach(function(y){
       var dot=document.createElement('div');
       dot.className='yat-dot';
       dot.textContent=y;
@@ -1906,7 +1925,7 @@ function resetFiltersForCurrentSection(){
     gameText.style.opacity='0.7';
     gameText.style.marginTop='4px';
     var dateStr = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'RECENT';
-    gameText.textContent=escHtml(post.source.toUpperCase()) + ' (' + dateStr + ')';
+    gameText.textContent=escHtml(String(post.displaySourceLabel||post.source||'NEWS').toUpperCase()) + ' (' + dateStr + ')';
     gameBlock.appendChild(gameText);
     infoBlock.appendChild(gameBlock);
     
@@ -1916,7 +1935,7 @@ function resetFiltersForCurrentSection(){
     headlineWrap.className='yat-news-headline-wrap';
     var headline=document.createElement('div');
     headline.className='yat-news-headline';
-    headline.textContent=post.title;
+    headline.textContent=post.displayHeadline||post.title;
     headlineWrap.appendChild(headline);
     bottomWrap.appendChild(headlineWrap);
 
@@ -1941,14 +1960,14 @@ function resetFiltersForCurrentSection(){
     label.style.fontSize='12px';
     label.style.letterSpacing='.1em';
     label.style.marginBottom='4px';
-    label.textContent='HAMILTON YAT?STATS RECAP';
+    label.textContent='LOCAL YAT?STATS RECAP';
     header.appendChild(label);
     var rTitle=document.createElement('div');
     rTitle.style.fontFamily='"Bebas Neue",Oswald,sans-serif';
     rTitle.style.fontSize='18px';
     rTitle.style.lineHeight='1.1';
     rTitle.style.color='#fff';
-    rTitle.textContent=post.title.toUpperCase();
+    rTitle.textContent=String(post.displayHeadline||post.title||'ALUMNI NEWS').toUpperCase();
     header.appendChild(rTitle);
     backContent.appendChild(header);
 
@@ -1959,7 +1978,18 @@ function resetFiltersForCurrentSection(){
     body.style.color='rgba(255,255,255,.8)';
     body.style.flex='1';
     body.style.overflowY='auto';
-    body.textContent=post.localRecap || post.snippet || "No recap available yet. Check back soon for the local Hamilton angle!";
+    body.textContent=limitWords(post.displayRecap || post.localRecap || post.snippet || "No recap available yet. Check back soon for the local alumni angle!",80);
+    if(post.displayWhyLocal){
+      var why=document.createElement('div');
+      why.style.marginTop='12px';
+      why.style.paddingTop='12px';
+      why.style.borderTop='1px solid rgba(255,255,255,.12)';
+      why.style.color='rgba(255,255,255,.62)';
+      why.style.fontSize='12px';
+      why.style.lineHeight='1.35';
+      why.textContent=post.displayWhyLocal;
+      body.appendChild(why);
+    }
     backContent.appendChild(body);
 
     var actions=document.createElement('div');
@@ -2026,11 +2056,6 @@ function resetFiltersForCurrentSection(){
     flip.appendChild(back);
     inner.appendChild(flip);
     card.appendChild(inner);
-
-    card.addEventListener('click', function(e){
-      if(e.target.closest('a') || e.target.closest('button')) return;
-      card.classList.toggle('is-flipped');
-    });
 
     return card;
   }

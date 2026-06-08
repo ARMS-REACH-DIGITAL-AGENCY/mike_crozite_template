@@ -783,8 +783,8 @@ export default function YatStyles() {
       .yat-gs-msg{padding:28px 12px;text-align:center;font:300 13px Oswald,sans-serif;color:var(--muted)}
       .yat-gs-coming{font:300 9px/1 Oswald,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:8px 0 4px;border-top:1px solid var(--line);opacity:.5}
 
-      .yat-news-wrap{max-width:1400px;margin:0 auto;padding:16px 20px}
-      .yat-news-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+      .yat-news-wrap{max-width:none;margin:0;padding:0}
+      .yat-news-header{display:none}
       .yat-news-title{font:700 clamp(20px,2.8vw,28px)/1.2 "Bebas Neue",Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
       .yat-news-sub{font:300 14px/1.6 Oswald,sans-serif;color:var(--muted);letter-spacing:.03em;margin-top:4px}
       .yat-news-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
@@ -794,6 +794,7 @@ export default function YatStyles() {
       @media(max-width:520px){.yat-news-grid{grid-template-columns:1fr}}
 
       /* News Flip Card Styles */
+      #news-grid{scroll-margin-top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + var(--row4-h) + 8px)}
       .news-card { cursor: pointer; }
       .news-card .yat-bg { background-size: cover; background-position: center; }
       .news-card .yat-shade { background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.95) 100%); }
