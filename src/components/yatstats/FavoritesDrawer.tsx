@@ -121,6 +121,12 @@ function playerSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+function splitDisplayName(name: string) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { first: parts[0] || '--', last: '' };
+  return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] };
+}
+
 function playerHeadshotUrl(playerId: string) {
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
 }
@@ -201,11 +207,13 @@ function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string
   const schoolId = String(player.school_id || currentHsid);
   const name = String(player.display_name || playerId);
   const status = String(player.status_label || 'ACTIVE').toUpperCase();
-  const level = String(player.level_label || '');
+  const level = String(player.level_label || '').toUpperCase();
   const team = String(player.current_team_name || '--');
   const org = String(player.current_org_or_conference_name || '');
   const classOf = String(player.class_of || '');
   const slug = playerSlug(name);
+  const { first, last } = splitDisplayName(name);
+  const profileHref = `/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}`;
 
   const wrap = document.createElement('div');
   wrap.dataset.playerCardWrap = 'true';
@@ -222,29 +230,57 @@ function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string
       data-level="${escapeHtml(level)}"
       data-org="${escapeHtml(org)}"
       data-gradclass="${escapeHtml(classOf)}"
-      data-rosteryears=""
+      data-rosteryears="${Array.isArray(player.roster_years) ? escapeHtml(player.roster_years.join(',')) : ''}"
       data-status="${escapeHtml(status)}"
       data-slug="${escapeHtml(slug)}"
+      data-superfan-synthetic="true"
     >
       <div class="yat-card-inner">
         <div class="yat-flip">
-          <a href="/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}" style="display:block;height:100%;text-decoration:none;color:inherit;">
-            <div class="yat-card-face yat-card-front" style="position:relative;min-height:420px;background:#050505;overflow:hidden;">
-              <img src="${escapeHtml(playerFrontImageUrl(playerId))}" alt="${escapeHtml(name)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.78;" onerror="this.src='${escapeHtml(playerHeadshotUrl(playerId))}';this.onerror=function(){this.style.display='none'}" />
-              <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,.08), rgba(0,0,0,.9));"></div>
-              <div style="position:absolute;left:18px;right:18px;bottom:18px;">
-                <div style="font:900 42px/0.88 Oswald, sans-serif;text-transform:uppercase;letter-spacing:-.04em;color:#fff;">${escapeHtml(name)}</div>
-                <div style="margin-top:10px;font:700 14px/1.1 Oswald, sans-serif;color:#fff;">${escapeHtml(team)}</div>
-                ${org ? `<div style="font:400 12px/1.1 Oswald, sans-serif;color:#cfcfcf;">${escapeHtml(org)}</div>` : ''}
-                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
-                  <span style="border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 7px;font:700 11px Oswald,sans-serif;color:#fff;text-transform:uppercase;">${escapeHtml(status)}</span>
-                  ${level ? `<span style="border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 7px;font:700 11px Oswald,sans-serif;color:#fff;text-transform:uppercase;">${escapeHtml(level)}</span>` : ''}
-                  ${classOf ? `<span style="border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 7px;font:700 11px Oswald,sans-serif;color:#fff;text-transform:uppercase;">CLASS OF ${escapeHtml(classOf)}</span>` : ''}
+          <a href="${profileHref}" class="yat-face yat-front yat-front-cq yat-superfan-front" aria-label="Open ${escapeHtml(name)} profile">
+            <div class="yat-bg" style="background-image:url('${escapeHtml(playerFrontImageUrl(playerId))}'), url('${escapeHtml(playerHeadshotUrl(playerId))}'), url('/img/then-silhouette-batter.svg')"></div>
+            <div class="yat-shade"></div>
+            <div class="yat-front-content">
+              <div class="yat-front-bottom-row">
+                <div class="yat-front-left-meta">
+                  <div class="yat-name yat-front-name">
+                    <span>${escapeHtml(first)}</span>
+                    ${last ? `<span>${escapeHtml(last)}</span>` : ''}
+                  </div>
+                  <div class="yat-front-team-name">${escapeHtml(team)}</div>
+                  ${org ? `<div class="yat-front-org-name">${escapeHtml(org)}</div>` : ''}
+                  <div class="yat-front-chip-stack">
+                    <span class="front-chip">${escapeHtml(status)}</span>
+                    ${level ? `<span class="front-chip">${escapeHtml(level)}</span>` : ''}
+                    ${classOf ? `<span class="front-chip">CLASS OF ${escapeHtml(classOf)}</span>` : ''}
+                  </div>
                 </div>
-                <div style="margin-top:14px;font:700 10px Oswald,sans-serif;color:#ffd166;text-transform:uppercase;letter-spacing:.08em;">Super Fan Favorite</div>
+                <div class="yat-front-right-meta">
+                  <span class="yat-front-flip-button yat-superfan-profile-button">
+                    <span>OPEN PROFILE</span>
+                    <span aria-hidden="true">&gt;</span>
+                  </span>
+                </div>
               </div>
             </div>
           </a>
+          <div class="yat-face yat-back yat-superfan-back">
+            <div class="yat-back-content">
+              <a class="yat-back-hero" href="${profileHref}">
+                <div class="yat-back-img-wrap">
+                  <img src="${escapeHtml(playerHeadshotUrl(playerId))}" alt="${escapeHtml(name)}" class="yat-back-img" onerror="this.src='/img/headshot-silhouette.png';this.onerror=null" />
+                </div>
+                <div class="yat-back-info">
+                  <div class="yat-back-name">${escapeHtml(name)}</div>
+                  <div class="yat-back-details">${escapeHtml(team)}${org ? ` • ${escapeHtml(org)}` : ''}</div>
+                </div>
+              </a>
+              <div class="yat-back-stats yat-superfan-back-message">
+                <div class="yat-stats-bar">SUPER FAN FAVORITE</div>
+                <a href="${profileHref}" class="yat-superfan-back-link">View full player profile</a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </article>
@@ -593,6 +629,45 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       <style jsx global>{`
         body.drawer-favorites-open #drawerFavorites { transform: translateX(0); }
         body.drawer-favorites-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
+
+        .yat-card-superfan-synthetic .yat-front,
+        .yat-card-superfan-synthetic .yat-back {
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .yat-card-superfan-synthetic .yat-superfan-front {
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+        }
+
+        .yat-card-superfan-synthetic .yat-superfan-profile-button {
+          background: #8a1538;
+          border: 1px solid rgba(255,255,255,.38);
+        }
+
+        .yat-card-superfan-synthetic .yat-superfan-back-message {
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          text-align: center;
+        }
+
+        .yat-card-superfan-synthetic .yat-superfan-back-link {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 34px;
+          padding: 8px 12px;
+          border-radius: 6px;
+          border: 1px solid rgba(255,255,255,.18);
+          background: rgba(255,255,255,.08);
+          color: #fff;
+          font: 700 11px/1 Oswald, sans-serif;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
 
         #drawerFavorites .yat-favorite-empty,
         #drawerFavorites .yat-favorite-lock-message {
