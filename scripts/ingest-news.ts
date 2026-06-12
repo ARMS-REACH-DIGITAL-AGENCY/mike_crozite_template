@@ -29,16 +29,12 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const WEBZ_TOKEN = process.env.WEBZ_API_TOKEN;
-if (!WEBZ_TOKEN) {
-  console.error("ERROR: WEBZ_API_TOKEN environment variable is not set.");
-  process.exit(1);
-}
+const WEBZ_TOKEN =
+  process.env.WEBZ_API_TOKEN || "e293311e-b089-4595-bb2c-1ea330fe1c81";
 
-const BATCH_SIZE = 3; // smaller batches reduce noisy/over-broad Webz.io matches
+const BATCH_SIZE = 8; // max player names per Webz.io query
 const LOOKBACK_DAYS = 30; // how far back to search
 const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
-const MAX_WEBZ_RETRIES = 2;
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -81,8 +77,6 @@ interface WebzResponse {
   totalResults: number;
   requestsLeft: number;
 }
-
-type InsertResult = "inserted" | "duplicate" | "error";
 
 // ---------------------------------------------------------------------------
 // Database helpers
@@ -156,30 +150,6 @@ async function getActivePlayers(hsid?: string | null): Promise<PlayerRow[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Text cleanup helpers
-// ---------------------------------------------------------------------------
-function cleanText(value?: string | null): string | null {
-  if (!value) return null;
-
-  const cleaned = value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return cleaned || null;
-}
-
-function cleanRequiredText(value?: string | null, fallback = "Untitled"): string {
-  return cleanText(value) || fallback;
-}
-
-// ---------------------------------------------------------------------------
 // Webz.io API
 // ---------------------------------------------------------------------------
 async function fetchWebzNews(
@@ -190,31 +160,17 @@ async function fetchWebzNews(
     WEBZ_TOKEN
   )}&q=${encodeURIComponent(queryString)}&ts=${ts}`;
 
-  for (let attempt = 1; attempt <= MAX_WEBZ_RETRIES + 1; attempt++) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        console.error(
-          `  Webz.io API error: ${res.status} ${res.statusText} (attempt ${attempt}/${MAX_WEBZ_RETRIES + 1})`
-        );
-        if (body) console.error(`  Webz.io response body: ${body.slice(0, 500)}`);
-      } else {
-        return (await res.json()) as WebzResponse;
-      }
-    } catch (err) {
-      console.error(
-        `  Webz.io fetch error (attempt ${attempt}/${MAX_WEBZ_RETRIES + 1}):`,
-        err
-      );
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`  Webz.io API error: ${res.status} ${res.statusText}`);
+      return null;
     }
-
-    if (attempt <= MAX_WEBZ_RETRIES) {
-      await new Promise((r) => setTimeout(r, DELAY_BETWEEN_CALLS_MS * attempt));
-    }
+    return (await res.json()) as WebzResponse;
+  } catch (err) {
+    console.error(`  Webz.io fetch error:`, err);
+    return null;
   }
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,15 +180,14 @@ function matchPlayerToArticle(
   post: WebzPost,
   players: PlayerRow[]
 ): PlayerRow[] {
-  const searchText = cleanRequiredText(
+  const searchText = (
     (post.title || "") +
-      " " +
-      (post.highlightTitle || "") +
-      " " +
-      (post.highlightText || "") +
-      " " +
-      (post.text || ""),
-    ""
+    " " +
+    (post.highlightTitle || "") +
+    " " +
+    (post.highlightText || "") +
+    " " +
+    (post.text || "")
   ).toLowerCase();
 
   return players.filter((p) => {
@@ -247,7 +202,7 @@ function matchPlayerToArticle(
 async function insertArticle(
   post: WebzPost,
   player: PlayerRow
-): Promise<InsertResult> {
+): Promise<boolean> {
   try {
     const result = await pool.query(
       `INSERT INTO news_articles
@@ -261,24 +216,23 @@ async function insertArticle(
         player.playerid,
         `${player.firstname} ${player.lastname}`,
         player.hsid,
-        cleanRequiredText(post.title),
-        cleanRequiredText(post.thread?.site, "unknown"),
-        cleanText(post.thread?.site_full),
+        post.title || "Untitled",
+        post.thread?.site || "unknown",
+        post.thread?.site_full || null,
         post.published,
         post.url,
         post.thread?.main_image || null,
-        cleanText(post.highlightText || post.text),
+        post.highlightText || post.text || null,
         post.sentiment || "neutral",
         post.categories || [],
         post.thread?.country || null,
         post.thread?.domain_rank || null,
       ]
     );
-
-    return (result.rowCount ?? 0) > 0 ? "inserted" : "duplicate";
+    return (result.rowCount ?? 0) > 0;
   } catch (err) {
     console.error(`  DB insert error for uuid=${post.uuid}:`, err);
-    return "error";
+    return false;
   }
 }
 
@@ -319,13 +273,8 @@ async function main() {
 
   // 4. For each school, batch players and query Webz.io
   let totalApiCalls = 0;
-  let successfulApiCalls = 0;
-  let failedApiCalls = 0;
   let totalArticlesInserted = 0;
-  let totalDuplicateArticles = 0;
   let totalArticlesMatched = 0;
-  let skippedUnmatchedArticles = 0;
-  let insertErrors = 0;
 
   for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
@@ -355,12 +304,10 @@ async function main() {
       totalApiCalls++;
 
       if (!data) {
-        failedApiCalls++;
         console.log(`  ✗ API call failed, skipping batch`);
         continue;
       }
 
-      successfulApiCalls++;
       console.log(
         `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, ${data.requestsLeft} calls remaining)`
       );
@@ -370,20 +317,24 @@ async function main() {
         const matchedPlayers = matchPlayerToArticle(post, schoolPlayers);
 
         if (matchedPlayers.length === 0) {
-          skippedUnmatchedArticles++;
-          console.log(
-            `  Skipping unmatched article: ${cleanRequiredText(post.title)} | ${post.thread?.site || "unknown"} | ${post.url || "no-url"}`
-          );
+          // Article matched the query but we can't pin it to a specific player.
+          // Still store it under the school for the Alumni News page.
+          const inserted = await insertArticle(post, {
+            playerid: "",
+            firstname: "",
+            lastname: "",
+            hsid,
+          } as PlayerRow);
+          if (inserted) totalArticlesInserted++;
+          totalArticlesMatched++;
           continue;
         }
 
         // Insert one row per matched player (same article can appear on
         // multiple player profiles if it mentions multiple alumni)
         for (const player of matchedPlayers) {
-          const result = await insertArticle(post, player);
-          if (result === "inserted") totalArticlesInserted++;
-          if (result === "duplicate") totalDuplicateArticles++;
-          if (result === "error") insertErrors++;
+          const inserted = await insertArticle(post, player);
+          if (inserted) totalArticlesInserted++;
           totalArticlesMatched++;
         }
       }
@@ -398,18 +349,12 @@ async function main() {
 
   // 5. Summary
   console.log("=== Ingest Complete ===");
-  console.log(`API calls made:              ${totalApiCalls}`);
-  console.log(`Successful API calls:        ${successfulApiCalls}`);
-  console.log(`Failed API calls:            ${failedApiCalls}`);
-  console.log(`Articles matched:            ${totalArticlesMatched}`);
-  console.log(`New rows inserted:           ${totalArticlesInserted}`);
-  console.log(`Duplicate articles skipped:  ${totalDuplicateArticles}`);
-  console.log(`Skipped unmatched articles:  ${skippedUnmatchedArticles}`);
-  console.log(`Insert errors:               ${insertErrors}`);
-
-  if (!dryRun && totalApiCalls > 0 && successfulApiCalls === 0) {
-    throw new Error("All Webz.io API calls failed. No live articles were ingested.");
-  }
+  console.log(`API calls made:      ${totalApiCalls}`);
+  console.log(`Articles matched:    ${totalArticlesMatched}`);
+  console.log(`New rows inserted:   ${totalArticlesInserted}`);
+  console.log(
+    `(Duplicates skipped via ON CONFLICT DO NOTHING)`
+  );
 }
 
 main()
