@@ -1,0 +1,4 @@
+Trigger production redeploy after environment variable refresh.
+
+No functional code changes.
+Requested during YAT?STATS production recovery on 2026-07-09.
