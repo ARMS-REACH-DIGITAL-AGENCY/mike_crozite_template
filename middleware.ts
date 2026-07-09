@@ -3,13 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 const ROOT_DOMAIN = (process.env.ROOT_DOMAIN || "yatstats.com").toLowerCase();
 const FALLBACK_ROOT_DOMAIN = "yatstats.com";
 
-const SCHOOL_SUBDOMAIN_HSID_OVERRIDES: Record<string, string> = {
-  "hamilton": "5004",
-  "hamilton.az": "5004",
-  "hartselle": "5063",
-  "hartselle.al": "5063",
-};
-
 function getHost(request: NextRequest) {
   const forwarded = request.headers.get("x-forwarded-host");
   const host = (forwarded || request.headers.get("host") || "").toLowerCase();
@@ -21,6 +14,12 @@ function getRootDomainForHost(host: string) {
   return candidates
     .sort((a, b) => b.length - a.length)
     .find((root) => host === root || host.endsWith(`.${root}`)) || "";
+}
+
+function getRoutePrefixForSubdomain(subdomain: string) {
+  // Generic routing only. Do not hardcode school-name -> HSID mappings here.
+  // Named school domains are resolved from school_success.microsite_url/staging_url in the page layer.
+  return subdomain.split(".")[0] || "";
 }
 
 function redirectNonLiveSchoolSearchResult(request: NextRequest, hsid: string) {
@@ -47,6 +46,7 @@ export function middleware(request: NextRequest) {
   if (!rootDomain) return NextResponse.next();
 
   const subdomain = host === rootDomain ? "" : host.slice(0, -(rootDomain.length + 1));
+  const routePrefix = getRoutePrefixForSubdomain(subdomain);
   const path = url.pathname;
   const firstSegment = path.split("/").filter(Boolean)[0] || "";
 
@@ -55,22 +55,16 @@ export function middleware(request: NextRequest) {
     if (nonLiveRedirect) return nonLiveRedirect;
   }
 
-  if (!subdomain || subdomain === "www") return NextResponse.next();
+  if (!routePrefix || routePrefix === "www") return NextResponse.next();
 
   const staticAssetExt = /\.(png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|otf|css|js|json|txt|xml|webmanifest)$/i;
   if (staticAssetExt.test(path)) return NextResponse.next();
 
-  const overrideHsid = SCHOOL_SUBDOMAIN_HSID_OVERRIDES[subdomain];
-  if (overrideHsid && !/^\d+$/.test(firstSegment)) {
-    url.pathname = `/${overrideHsid}${path}`;
-    return NextResponse.rewrite(url);
-  }
-
   const hasNumericPrefix = /^\d+$/.test(firstSegment);
-  const alreadyPrefixed = path === `/${subdomain}` || path.startsWith(`/${subdomain}/`) || hasNumericPrefix;
+  const alreadyPrefixed = path === `/${routePrefix}` || path.startsWith(`/${routePrefix}/`) || hasNumericPrefix;
   if (alreadyPrefixed) return NextResponse.next();
 
-  url.pathname = `/${subdomain}${path}`;
+  url.pathname = `/${routePrefix}${path}`;
   return NextResponse.rewrite(url);
 }
 
