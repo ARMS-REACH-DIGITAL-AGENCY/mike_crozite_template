@@ -119,7 +119,7 @@ export default function SharedShell({
 
       <footer className="yat-row6-shell yat-footer">
         <a
-          href="https://armsreach-global360.manus.space/"
+          href="https://tpc-cajjvhot1-arms-reach-digital-agency.vercel.app/"
           target="_blank"
           rel="noopener noreferrer"
         >
