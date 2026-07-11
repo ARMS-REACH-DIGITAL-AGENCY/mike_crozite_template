@@ -11,6 +11,7 @@ import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
+import GalleryUniverseController from './GalleryUniverseController';
 
 type StripPlayer = {
   id: string;
@@ -52,20 +53,17 @@ export default function SharedShell({
   row4Content?: ReactNode;
 }) {
   const pathname = usePathname();
-
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
-
-  const isPlayerProfile =
-    pathname.includes('/player/') || pathname.includes('/profile/');
-  const [isNews, setIsNews] = (typeof window !== 'undefined')
-    ? [window.location.hash === '#sec-news', () => {}]
-    : [false, () => {}];
+  const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
+  const isNews = typeof window !== 'undefined' && window.location.hash === '#sec-news';
   const isGallery = !isPlayerProfile;
 
   return (
     <>
       <TimelineCleanup />
+      {!isPlayerProfile && <GalleryUniverseController />}
+
       <div className="yat-row1-shell">
         <GlobalTopbar hsid={hsid} />
       </div>
@@ -125,7 +123,6 @@ export default function SharedShell({
         >
           <span className="sponsor-name">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
           <span className="sponsor-text">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
-          
         </a>
       </footer>
     </>
