@@ -6,6 +6,9 @@ import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
+const PLATFORM_SESSION_COOKIE = "yat-platform-session";
+const LEGACY_SESSION_COOKIE = "yat-session";
+
 interface LoginRequestBody {
   uid: string;
   email: string;
@@ -41,6 +44,26 @@ function getCookieDomain(hostname: string | null) {
   }
 
   return undefined;
+}
+
+function clearLegacySessionCookies(response: NextResponse, cookieDomain?: string) {
+  const base = {
+    name: LEGACY_SESSION_COOKIE,
+    value: "",
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax" as const,
+    expires: new Date(0),
+  };
+
+  // Clear a possible host-only legacy cookie on the current microsite.
+  response.cookies.set(base);
+
+  // Clear the previous shared-domain cookie too.
+  if (cookieDomain) {
+    response.cookies.set({ ...base, domain: cookieDomain });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -161,12 +184,10 @@ export async function POST(request: NextRequest) {
   };
 
   const response = NextResponse.json(payload);
-
-  const hostname = request.headers.get("host");
-  const cookieDomain = getCookieDomain(hostname);
+  const cookieDomain = getCookieDomain(request.headers.get("host"));
 
   response.cookies.set({
-    name: "yat-session",
+    name: PLATFORM_SESSION_COOKIE,
     value: JSON.stringify(sessionData),
     ...(cookieDomain ? { domain: cookieDomain } : {}),
     path: "/",
@@ -176,5 +197,6 @@ export async function POST(request: NextRequest) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
+  clearLegacySessionCookies(response, cookieDomain);
   return response;
 }
