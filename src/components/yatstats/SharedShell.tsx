@@ -11,6 +11,7 @@ import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
+import GalleryFilterController from './GalleryFilterController';
 
 type StripPlayer = {
   id: string;
@@ -37,15 +38,7 @@ type SchoolMeta = {
 };
 
 const VALID_SECTIONS = new Set([
-  'active',
-  'news',
-  'alltime',
-  'current',
-  'fantasy',
-  'mentor',
-  'partner',
-  'about',
-  'faq',
+  'active', 'news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq',
 ]);
 
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
@@ -58,8 +51,6 @@ function normalizeSection(value: string): string {
 function readRequestedSection(): string {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
 
-  // The URL is the user's explicit request. It must win over the server-rendered
-  // default where sec-active initially carries the visible class.
   const hash = window.location.hash || '';
   if (hash.startsWith('#sec-')) return normalizeSection(hash);
 
@@ -131,6 +122,7 @@ export default function SharedShell({
   return (
     <>
       <TimelineCleanup />
+      {!isPlayerProfile && <GalleryFilterController />}
 
       <div className="yat-row1-shell">
         <GlobalTopbar hsid={hsid} />
@@ -150,46 +142,41 @@ export default function SharedShell({
           {row3Content
             ? row3Content
             : profilePlayerId
-            ? (
-                <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
-                  <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
-                </div>
-              )
-            : (
-                <InteractionStrip
-                  isPlayerProfile={isPlayerProfile}
-                  isGallery={isGallery}
-                  isNews={isNews}
-                  players={players}
-                />
-              )}
+              ? (
+                  <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
+                    <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
+                  </div>
+                )
+              : (
+                  <InteractionStrip
+                    isPlayerProfile={isPlayerProfile}
+                    isGallery={isGallery}
+                    isNews={isNews}
+                    players={players}
+                    activeSection={activeSection}
+                  />
+                )}
         </div>
 
         <div className="yat-row4-shell">
           {row4Content
             ? row4Content
             : profilePlayerId
-            ? <ZoomableCareerTimeline playerId={profilePlayerId} variant="line" />
-            : (
-                <MetadataRow
-                  isPlayerProfile={isPlayerProfile}
-                  isGallery={isGallery}
-                  schoolMeta={schoolMeta}
-                />
-              )}
+              ? <ZoomableCareerTimeline playerId={profilePlayerId} variant="line" />
+              : (
+                  <MetadataRow
+                    isPlayerProfile={isPlayerProfile}
+                    isGallery={isGallery}
+                    schoolMeta={schoolMeta}
+                  />
+                )}
         </div>
 
-        <div className="yat-row5-shell">
-          {children}
-        </div>
+        <div className="yat-row5-shell">{children}</div>
       </main>
 
       <footer className="yat-row6-shell yat-footer">
-        <a
-          href="https://tpc-git-main-arms-reach-digital-agency.vercel.app/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="https://tpc-git-main-arms-reach-digital-agency.vercel.app/" target="_blank" rel="noopener noreferrer">
           <span className="sponsor-name">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
           <span className="sponsor-text">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
         </a>
