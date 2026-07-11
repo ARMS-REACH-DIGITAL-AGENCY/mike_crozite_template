@@ -2,7 +2,7 @@
 
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 import GlobalTopbar from './shell/GlobalTopbar';
@@ -36,6 +36,18 @@ type SchoolMeta = {
   regionRecord?: string | null;
 };
 
+function readVisibleSection(): string {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
+
+  const visible = document.querySelector<HTMLElement>('.yat-section.visible');
+  if (visible?.id?.startsWith('sec-')) return visible.id.replace(/^sec-/, '') || 'active';
+
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
+
+  return 'active';
+}
+
 export default function SharedShell({
   children,
   hsid,
@@ -52,11 +64,40 @@ export default function SharedShell({
   row4Content?: ReactNode;
 }) {
   const pathname = usePathname();
+  const [activeSection, setActiveSection] = useState('active');
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
-  const isNews = typeof window !== 'undefined' && window.location.hash === '#sec-news';
+  const isNews = activeSection === 'news';
   const isGallery = !isPlayerProfile;
+
+  useEffect(() => {
+    if (isPlayerProfile) return;
+
+    let frame = 0;
+    const syncSection = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        setActiveSection(readVisibleSection());
+      });
+    };
+
+    syncSection();
+    window.addEventListener('hashchange', syncSection);
+    window.addEventListener('popstate', syncSection);
+
+    const observer = new MutationObserver(syncSection);
+    document.querySelectorAll('.yat-section').forEach((section) => {
+      observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('hashchange', syncSection);
+      window.removeEventListener('popstate', syncSection);
+      observer.disconnect();
+    };
+  }, [isPlayerProfile]);
 
   return (
     <>
@@ -71,6 +112,7 @@ export default function SharedShell({
           isPlayerProfile={isPlayerProfile}
           isGallery={isGallery}
           isNews={isNews}
+          activeSection={activeSection}
         />
       </div>
 
