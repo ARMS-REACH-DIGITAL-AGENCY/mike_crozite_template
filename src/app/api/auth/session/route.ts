@@ -6,6 +6,9 @@ import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
+const PLATFORM_SESSION_COOKIE = "yat-platform-session";
+const LEGACY_SESSION_COOKIE = "yat-session";
+
 async function getSchoolByHsid(hsid: string) {
   const sql = `
     SELECT hsname, hslocation, microsite_url
@@ -26,7 +29,9 @@ function normalizeMicrositeUrl(value?: string | null) {
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const raw = cookieStore.get("yat-session")?.value;
+    const raw =
+      cookieStore.get(PLATFORM_SESSION_COOKIE)?.value ||
+      cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
 
     if (!raw) {
       return NextResponse.json({ authenticated: false }, { status: 200 });
