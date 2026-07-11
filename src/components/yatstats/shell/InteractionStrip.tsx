@@ -3,6 +3,8 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
+const PLAYER_NOW_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now';
+const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
 type Player = {
   id: string;
@@ -24,13 +26,8 @@ type InteractionStripProps = {
 };
 
 function getLastName(name: string): string {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) return '';
-  return parts[parts.length - 1].toUpperCase();
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1].toUpperCase() : '';
 }
 
 function cleanSrc(value?: string | null): string {
@@ -42,15 +39,8 @@ function cleanSrc(value?: string | null): string {
 function getExtensionFallbackSrc(value?: string | null): string {
   const src = cleanSrc(value);
   if (!src) return '';
-
-  if (/\.jpe?g(?=($|[?#]))/i.test(src)) {
-    return src.replace(/\.jpe?g(?=($|[?#]))/i, '.png');
-  }
-
-  if (/\.png(?=($|[?#]))/i.test(src)) {
-    return src.replace(/\.png(?=($|[?#]))/i, '.jpg');
-  }
-
+  if (/\.jpe?g(?=($|[?#]))/i.test(src)) return src.replace(/\.jpe?g(?=($|[?#]))/i, '.png');
+  if (/\.png(?=($|[?#]))/i.test(src)) return src.replace(/\.png(?=($|[?#]))/i, '.jpg');
   return '';
 }
 
@@ -63,53 +53,120 @@ function isHighSchoolStatus(value?: string | null): boolean {
   return status === 'HIGH SCHOOL' || status === 'COMMIT' || status === 'UNCOMMITTED';
 }
 
-function getSectionFromDom(): string {
-  if (typeof document === 'undefined') return '';
-  const visible = document.querySelector('.yat-section.visible');
-  if (!visible?.id) return '';
-  return visible.id.replace(/^sec-/, '') || '';
-}
-
-function getSectionFromHash(): string {
-  if (typeof window === 'undefined') return '';
-  const hash = window.location.hash || '';
-  if (!hash.startsWith('#sec-')) return '';
-  return hash.replace('#sec-', '') || '';
-}
-
 function getCurrentSection(): string {
-  return getSectionFromDom() || getSectionFromHash() || 'active';
+  if (typeof window === 'undefined' || typeof document === 'undefined') return 'active';
+
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
+
+  const visible = document.querySelector<HTMLElement>('.yat-section.visible');
+  if (visible?.id?.startsWith('sec-')) return visible.id.replace(/^sec-/, '') || 'active';
+
+  return 'active';
 }
 
-function scrollToPlayerCard(playerId: string, isCurrentTeamTab: boolean) {
+function escapeSelector(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
+  return value.replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+function isCardVisible(card: HTMLElement): boolean {
+  const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]');
+  return !card.hidden
+    && card.style.display !== 'none'
+    && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
+}
+
+function scrollToPlayerCard(playerId: string, sectionKey: string) {
   if (typeof document === 'undefined') return;
 
   const safeId = String(playerId || '').trim();
   if (!safeId) return;
 
-  const section = isCurrentTeamTab
-    ? document.getElementById('sec-current')
-    : document.getElementById('sec-active') || document.getElementById('sec-alltime');
-
-  const target =
-    section?.querySelector(`#player-${CSS.escape(safeId)}`) ||
-    section?.querySelector(`.yat-card[data-playerid="${CSS.escape(safeId)}"]`) ||
-    document.getElementById(`player-${safeId}`) ||
-    document.querySelector(`.yat-card[data-playerid="${CSS.escape(safeId)}"]`);
+  const section = document.getElementById(`sec-${sectionKey}`);
+  const escapedId = escapeSelector(safeId);
+  const target = section?.querySelector<HTMLElement>(`.yat-card[data-playerid="${escapedId}"]`)
+    || section?.querySelector<HTMLElement>(`#player-${escapedId}`);
 
   if (!target) return;
 
-  const wrap = target.closest('[data-player-card-wrap="true"]') as HTMLElement | null;
-  if (wrap) {
-    wrap.style.display = '';
-    wrap.removeAttribute('hidden');
-    wrap.classList.remove('is-hidden');
+  const wrapper = target.closest<HTMLElement>('[data-player-card-wrap="true"]');
+  if (wrapper) {
+    wrapper.style.display = '';
+    wrapper.hidden = false;
+    wrapper.classList.remove('is-hidden');
   }
 
-  (target as HTMLElement).style.display = '';
-  target.removeAttribute('hidden');
+  target.style.display = '';
+  target.hidden = false;
   target.classList.remove('is-hidden');
   target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+}
+
+function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
+  if (section === 'current') {
+    return players.filter((player) => isHighSchoolStatus(player.status));
+  }
+
+  if (section === 'alltime') {
+    return players.filter((player) => !isHighSchoolStatus(player.status));
+  }
+
+  if (section === 'active' || section === 'news') {
+    return players.filter((player) => {
+      const status = normalizeStatus(player.status);
+      return !isHighSchoolStatus(status) && status !== 'RETIRED';
+    });
+  }
+
+  return [];
+}
+
+function readPlayersFromVisibleBlockFive(
+  section: string,
+  playersById: Map<string, Player>
+): Player[] {
+  if (!PLAYER_GALLERY_SECTIONS.has(section)) return [];
+
+  const targetSection = document.getElementById(`sec-${section}`);
+  if (!targetSection) return [];
+
+  const seen = new Set<string>();
+  const result: Player[] = [];
+
+  targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
+    if (!isCardVisible(card)) return;
+
+    const id = String(card.dataset.playerid || '').trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+
+    const source = playersById.get(id);
+    const rawName = String(source?.name || card.dataset.name || '').trim();
+    const name = rawName || `Player ${id}`;
+    const nowImage = cleanSrc(source?.nowImage) || `${PLAYER_NOW_BASE}/${encodeURIComponent(id)}.jpg`;
+
+    result.push({
+      id,
+      name,
+      image: nowImage,
+      nowImage,
+      // Every block-three player thumbnail is the current S3 headshot. Keeping
+      // thenImage identical prevents the legacy all-time image swap from
+      // replacing it with a high-school action photo.
+      thenImage: nowImage,
+      fallbackImage: cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC,
+      imageFit: source?.imageFit || 'cover',
+      status: normalizeStatus(card.dataset.status || source?.status),
+      isPitcher: source?.isPitcher,
+    });
+  });
+
+  return result;
+}
+
+function playerSignature(players: Player[]): string {
+  return players.map((player) => player.id).join('|');
 }
 
 export default function InteractionStrip({
@@ -122,25 +179,24 @@ export default function InteractionStrip({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [activeSection, setActiveSection] = useState(getCurrentSection);
+  const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
+    fallbackPlayersForSection(getCurrentSection(), players)
+  );
 
-  const showActiveStrip = isGallery || isNews;
+  const playersById = useMemo(
+    () => new Map(players.map((player) => [String(player.id), player])),
+    [players]
+  );
+
+  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news';
   const showProfilePlaceholder = isPlayerProfile;
   const isCurrentTeamTab = activeSection === 'current';
 
-  const visiblePlayers = useMemo(() => {
-    if (!showActiveStrip) return [];
-
-    return players.filter((p) => {
-      const isHighSchool = isHighSchoolStatus(p.status);
-      return isCurrentTeamTab ? isHighSchool : !isHighSchool;
-    });
-  }, [players, showActiveStrip, isCurrentTeamTab]);
-
   const updateScrollState = () => {
     const el = scrollRef.current;
-    if (!el || !showActiveStrip) return;
+    if (!el || !showPlayerStrip) return;
     setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
   };
 
   useEffect(() => {
@@ -148,40 +204,63 @@ export default function InteractionStrip({
 
     let frame = 0;
 
-    const syncSection = () => {
+    const syncFromPage = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        setActiveSection(getCurrentSection());
+        const section = getCurrentSection();
+        setActiveSection(section);
+
+        const nextPlayers = PLAYER_GALLERY_SECTIONS.has(section)
+          ? readPlayersFromVisibleBlockFive(section, playersById)
+          : fallbackPlayersForSection(section, players);
+
+        const resolvedPlayers = nextPlayers.length
+          ? nextPlayers
+          : fallbackPlayersForSection(section, players);
+
+        setSectionPlayers((current) =>
+          playerSignature(current) === playerSignature(resolvedPlayers) ? current : resolvedPlayers
+        );
+
         window.setTimeout(updateScrollState, 0);
       });
     };
 
-    syncSection();
+    syncFromPage();
+    window.addEventListener('hashchange', syncFromPage);
+    window.addEventListener('popstate', syncFromPage);
+    window.addEventListener('yat:gallery-filtered', syncFromPage as EventListener);
+    document.addEventListener('click', syncFromPage, true);
 
-    window.addEventListener('hashchange', syncSection);
-    window.addEventListener('popstate', syncSection);
-    document.addEventListener('click', syncSection, true);
-
-    const observer = new MutationObserver(syncSection);
+    const observer = new MutationObserver(syncFromPage);
     document.querySelectorAll('.yat-section').forEach((section) => {
       observer.observe(section, { attributes: true, attributeFilter: ['class'] });
     });
 
+    const rowFive = document.querySelector('.yat-row5-shell');
+    if (rowFive) {
+      observer.observe(rowFive, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['style', 'hidden', 'class'],
+      });
+    }
+
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener('hashchange', syncSection);
-      window.removeEventListener('popstate', syncSection);
-      document.removeEventListener('click', syncSection, true);
+      window.removeEventListener('hashchange', syncFromPage);
+      window.removeEventListener('popstate', syncFromPage);
+      window.removeEventListener('yat:gallery-filtered', syncFromPage as EventListener);
+      document.removeEventListener('click', syncFromPage, true);
       observer.disconnect();
     };
-  }, []);
+  }, [players, playersById]);
 
   useEffect(() => {
-    if (!showActiveStrip) return;
-
     updateScrollState();
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || !showPlayerStrip) return;
 
     el.addEventListener('scroll', updateScrollState);
     window.addEventListener('resize', updateScrollState);
@@ -190,15 +269,14 @@ export default function InteractionStrip({
       el.removeEventListener('scroll', updateScrollState);
       window.removeEventListener('resize', updateScrollState);
     };
-  }, [visiblePlayers.length, showActiveStrip, isCurrentTeamTab]);
+  }, [sectionPlayers.length, showPlayerStrip, isCurrentTeamTab]);
 
-  const scrollByAmount = (dir: 'left' | 'right') => {
+  const scrollByAmount = (direction: 'left' | 'right') => {
     const el = scrollRef.current;
-    if (!el || !showActiveStrip) return;
+    if (!el || !showPlayerStrip) return;
 
-    const amount = el.clientWidth * 0.8;
     el.scrollBy({
-      left: dir === 'left' ? -amount : amount,
+      left: direction === 'left' ? -(el.clientWidth * 0.8) : el.clientWidth * 0.8,
       behavior: 'smooth',
     });
   };
@@ -206,14 +284,14 @@ export default function InteractionStrip({
   const handleSlotClick = (event: MouseEvent<HTMLAnchorElement>, playerId: string) => {
     event.preventDefault();
 
-    if (isCurrentTeamTab) {
-      scrollToPlayerCard(playerId, true);
+    // News keeps its separate delegated player-filter behavior. Player gallery
+    // pages use the same thumbnail as an anchor to the matching block-five card.
+    if (activeSection !== 'news' && PLAYER_GALLERY_SECTIONS.has(activeSection)) {
+      scrollToPlayerCard(playerId, activeSection);
     }
   };
 
-  if (!showActiveStrip && !showProfilePlaceholder) {
-    return null;
-  }
+  const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
 
   return (
     <>
@@ -273,14 +351,7 @@ export default function InteractionStrip({
           height: 50%;
           z-index: 1;
           pointer-events: none;
-          background: linear-gradient(
-            to top,
-            rgba(0, 0, 0, 0.8) 0%,
-            rgba(0, 0, 0, 0.65) 18%,
-            rgba(0, 0, 0, 0.45) 34%,
-            rgba(0, 0, 0, 0.2) 44%,
-            rgba(0, 0, 0, 0) 100%
-          );
+          background: linear-gradient(to top, rgba(0,0,0,.8) 0%, rgba(0,0,0,.65) 18%, rgba(0,0,0,.45) 34%, rgba(0,0,0,.2) 44%, rgba(0,0,0,0) 100%);
         }
 
         .gallery-slot-name-overlay {
@@ -293,10 +364,10 @@ export default function InteractionStrip({
           font-size: 10px;
           line-height: 1;
           font-weight: 700;
-          letter-spacing: 0.08em;
+          letter-spacing: .08em;
           text-transform: uppercase;
           color: #fff;
-          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+          text-shadow: 0 1px 3px rgba(0,0,0,.95);
           pointer-events: none;
           padding: 0 4px;
           white-space: nowrap;
@@ -305,8 +376,8 @@ export default function InteractionStrip({
         }
       `}</style>
 
-      <div className="gallery-strip" data-active-section={activeSection}>
-        {showActiveStrip && (
+      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
+        {showPlayerStrip && (
           <button
             type="button"
             className={`gallery-strip-arrow left ${!canScrollLeft ? 'hidden' : ''}`}
@@ -317,72 +388,70 @@ export default function InteractionStrip({
           </button>
         )}
 
-        <div ref={showActiveStrip ? scrollRef : null} className="gallery-strip-inner">
-          {showActiveStrip ? (
-            visiblePlayers.map((p) => {
-              const lastName = getLastName(p.name);
-              const fallbackSrc = HEADSHOT_FALLBACK_SRC;
-              const nowSrc = cleanSrc(p.nowImage) || cleanSrc(p.image) || fallbackSrc;
-              const thenSrc = cleanSrc(p.thenImage) || cleanSrc(p.image) || fallbackSrc;
-              const initialSrc = activeSection === 'alltime' ? thenSrc : nowSrc;
-              const status = normalizeStatus(p.status);
-              const isRetired = status === 'RETIRED';
-              const imageFit = p.imageFit === 'contain' ? 'contain' : 'cover';
+        <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
+          {showPlayerStrip ? (
+            sectionPlayers.map((player) => {
+              const lastName = getLastName(player.name);
+              const fallbackSrc = cleanSrc(player.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+              const nowSrc = cleanSrc(player.nowImage)
+                || `${PLAYER_NOW_BASE}/${encodeURIComponent(player.id)}.jpg`;
+              const status = normalizeStatus(player.status);
+              const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
                 ? 'gallery-slot gallery-current-slot-link'
                 : 'gallery-slot gallery-slot-link';
 
               return (
                 <a
-                  key={`${activeSection}-${p.id}`}
-                  href="javascript:void(0)"
+                  key={`${activeSection}-${player.id}`}
+                  href={`#player-${encodeURIComponent(player.id)}`}
                   className={linkClassName}
-                  data-playerid={p.id}
+                  data-playerid={player.id}
                   data-status={status}
-                  data-default-hidden={isRetired ? 'retired' : undefined}
-                  style={{ display: isRetired ? 'none' : undefined }}
-                  title={p.name}
-                  onClick={(event) => handleSlotClick(event, p.id)}
+                  data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
+                  title={player.name}
+                  onClick={(event) => handleSlotClick(event, player.id)}
                 >
                   <div className="gallery-slot-media">
                     <img
-                      src={initialSrc}
-                      alt={p.name}
+                      src={nowSrc}
+                      alt={player.name}
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
-                      data-then-src={thenSrc}
-                      onError={(e) => {
-                        const img = e.currentTarget;
+                      data-then-src={nowSrc}
+                      onError={(event) => {
+                        const image = event.currentTarget;
 
-                        if (img.dataset.extensionFallbackApplied !== 'true') {
-                          const alternateSrc = getExtensionFallbackSrc(img.getAttribute('src'));
-                          if (alternateSrc && alternateSrc !== img.getAttribute('src')) {
-                            img.dataset.extensionFallbackApplied = 'true';
-                            img.src = alternateSrc;
+                        if (image.dataset.extensionFallbackApplied !== 'true') {
+                          const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
+                          if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
+                            image.dataset.extensionFallbackApplied = 'true';
+                            image.src = alternateSrc;
                             return;
                           }
                         }
 
-                        if (img.dataset.fallbackApplied === 'true') return;
-
-                        img.dataset.fallbackApplied = 'true';
-                        img.src = fallbackSrc;
+                        if (image.dataset.fallbackApplied === 'true') return;
+                        image.dataset.fallbackApplied = 'true';
+                        image.src = fallbackSrc;
                       }}
                     />
                     <div className="gallery-slot-gradient" />
-                    {lastName ? (
-                      <div className="gallery-slot-name-overlay">{lastName}</div>
-                    ) : null}
+                    {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                   </div>
                 </a>
               );
             })
           ) : (
-            <div aria-hidden="true" style={{ width: '100%', minHeight: '100%' }} />
+            <div
+              aria-hidden="true"
+              data-shell-placeholder={shouldRenderPlaceholder ? 'true' : undefined}
+              style={{ width: '100%', minHeight: '100%' }}
+            />
           )}
         </div>
 
-        {showActiveStrip && (
+        {showPlayerStrip && (
           <button
             type="button"
             className={`gallery-strip-arrow right ${!canScrollRight ? 'hidden' : ''}`}
