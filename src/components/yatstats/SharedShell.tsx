@@ -36,6 +36,8 @@ type SchoolMeta = {
   regionRecord?: string | null;
 };
 
+const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
+
 function readVisibleSection(): string {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
 
@@ -69,7 +71,7 @@ export default function SharedShell({
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
   const isNews = activeSection === 'news';
-  const isGallery = !isPlayerProfile;
+  const isGallery = !isPlayerProfile && GALLERY_SECTIONS.has(activeSection);
 
   useEffect(() => {
     if (isPlayerProfile) return;
