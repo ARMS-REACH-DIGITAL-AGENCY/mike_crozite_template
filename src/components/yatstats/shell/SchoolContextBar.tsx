@@ -1,7 +1,7 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { SchoolContext } from '@/context/SchoolContext';
 import { PlayerProfileContext } from '@/context/PlayerProfileContext';
@@ -40,6 +40,17 @@ function getVisibleGalleryCards(): HTMLElement[] {
   });
 }
 
+function applyTheme(theme: 'light' | 'dark') {
+  const isLight = theme === 'light';
+  document.body.classList.toggle('light-theme', isLight);
+  document.documentElement.classList.toggle('light-theme', isLight);
+  localStorage.setItem('yat-theme', theme);
+
+  const button = document.getElementById('theme-toggle');
+  const icon = button?.querySelector('i');
+  if (icon) icon.className = isLight ? 'ri-moon-line' : 'ri-sun-line';
+}
+
 export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
@@ -53,6 +64,24 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
   const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
   const resolvedPlayerHsid = playerProfile?.playerHsid || schoolData?.hsid || '';
   const resolvedPlayerSchoolUrl = playerProfile?.playerSchoolUrl;
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('yat-theme') === 'light' ? 'light' : 'dark';
+    applyTheme(savedTheme);
+
+    const button = document.getElementById('theme-toggle');
+    if (!button) return;
+
+    const handleThemeClick = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const nextTheme = document.body.classList.contains('light-theme') ? 'dark' : 'light';
+      applyTheme(nextTheme);
+    };
+
+    button.addEventListener('click', handleThemeClick);
+    return () => button.removeEventListener('click', handleThemeClick);
+  }, []);
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
