@@ -153,7 +153,6 @@ export default function SharedShell({
                     isGallery={isGallery}
                     isNews={isNews}
                     players={players}
-                    activeSection={activeSection}
                   />
                 )}
         </div>
