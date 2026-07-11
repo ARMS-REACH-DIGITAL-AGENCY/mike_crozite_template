@@ -36,18 +36,43 @@ type SchoolMeta = {
   regionRecord?: string | null;
 };
 
+const VALID_SECTIONS = new Set([
+  'active',
+  'news',
+  'alltime',
+  'current',
+  'fantasy',
+  'mentor',
+  'partner',
+  'about',
+  'faq',
+]);
+
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
 
-function readVisibleSection(): string {
+function normalizeSection(value: string): string {
+  const section = String(value || '').replace(/^#?sec-/, '').trim().toLowerCase();
+  return VALID_SECTIONS.has(section) ? section : 'active';
+}
+
+function readRequestedSection(): string {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
 
-  const visible = document.querySelector<HTMLElement>('.yat-section.visible');
-  if (visible?.id?.startsWith('sec-')) return visible.id.replace(/^sec-/, '') || 'active';
-
+  // The URL is the user's explicit request. It must win over the server-rendered
+  // default where sec-active initially carries the visible class.
   const hash = window.location.hash || '';
-  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
+  if (hash.startsWith('#sec-')) return normalizeSection(hash);
+
+  const visible = document.querySelector<HTMLElement>('.yat-section.visible');
+  if (visible?.id?.startsWith('sec-')) return normalizeSection(visible.id);
 
   return 'active';
+}
+
+function applyVisibleSection(section: string) {
+  document.querySelectorAll<HTMLElement>('.yat-section').forEach((candidate) => {
+    candidate.classList.toggle('visible', candidate.id === `sec-${section}`);
+  });
 }
 
 export default function SharedShell({
@@ -80,7 +105,9 @@ export default function SharedShell({
     const syncSection = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        setActiveSection(readVisibleSection());
+        const requestedSection = readRequestedSection();
+        applyVisibleSection(requestedSection);
+        setActiveSection(requestedSection);
       });
     };
 
