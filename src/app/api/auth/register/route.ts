@@ -6,6 +6,9 @@ import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
+const PLATFORM_SESSION_COOKIE = "yat-platform-session";
+const LEGACY_SESSION_COOKIE = "yat-session";
+
 interface RegisterRequestBody {
   uid: string;
   email: string;
@@ -33,14 +36,23 @@ function normalizeMicrositeUrl(value?: string | null) {
 
 function getCookieDomain(hostname: string | null) {
   if (!hostname) return undefined;
-
   const host = hostname.split(":")[0].toLowerCase();
-
-  if (host === "yatstats.com" || host.endsWith(".yatstats.com")) {
-    return ".yatstats.com";
-  }
-
+  if (host === "yatstats.com" || host.endsWith(".yatstats.com")) return ".yatstats.com";
   return undefined;
+}
+
+function clearLegacySessionCookies(response: NextResponse, cookieDomain?: string) {
+  const base = {
+    name: LEGACY_SESSION_COOKIE,
+    value: "",
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax" as const,
+    expires: new Date(0),
+  };
+  response.cookies.set(base);
+  if (cookieDomain) response.cookies.set({ ...base, domain: cookieDomain });
 }
 
 export async function POST(request: NextRequest) {
@@ -60,7 +72,6 @@ export async function POST(request: NextRequest) {
 
     if (!profile) {
       let armsContactId: string | null = null;
-
       try {
         armsContactId = await lookupGHLContactByEmail(body.email);
       } catch (err) {
@@ -79,13 +90,11 @@ export async function POST(request: NextRequest) {
           );
 
           if (!("error" in created)) {
-  const createdContact =
-    (created as { contact?: { id?: string } }).contact;
-
-  armsContactId = createdContact?.id ?? null;
-} else {
-  console.error("GHL create failed (non-fatal):", created);
-}
+            const createdContact = (created as { contact?: { id?: string } }).contact;
+            armsContactId = createdContact?.id ?? null;
+          } else {
+            console.error("GHL create failed (non-fatal):", created);
+          }
         } catch (err) {
           console.error("GHL create failed (non-fatal):", err);
         }
@@ -127,16 +136,13 @@ export async function POST(request: NextRequest) {
     }
 
     const superfan = isSuperfan(profile);
-
     const payload = {
       success: true,
       contactId: profile.arms_contact_id ?? null,
       plan: superfan ? "superfan" : profile.plan ?? "fan",
       isSuperfan: superfan,
       firstName: profile.first_name ?? body.firstName ?? null,
-      homeHsid: profile.home_hsid
-        ? String(profile.home_hsid)
-        : (body.subdomain ?? null),
+      homeHsid: profile.home_hsid ? String(profile.home_hsid) : (body.subdomain ?? null),
       homeSchoolName,
       homeSchoolLocation,
       homeMicrositeUrl,
@@ -144,18 +150,12 @@ export async function POST(request: NextRequest) {
       subscriptionStatus: profile.subscription_status ?? null,
     };
 
-    const sessionData = {
-      uid: body.uid,
-      email: body.email,
-      ...payload,
-    };
-
+    const sessionData = { uid: body.uid, email: body.email, ...payload };
     const response = NextResponse.json(payload);
-
     const cookieDomain = getCookieDomain(request.headers.get("host"));
 
     response.cookies.set({
-      name: "yat-session",
+      name: PLATFORM_SESSION_COOKIE,
       value: JSON.stringify(sessionData),
       ...(cookieDomain ? { domain: cookieDomain } : {}),
       path: "/",
@@ -165,10 +165,10 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
     });
 
+    clearLegacySessionCookies(response, cookieDomain);
     return response;
   } catch (error: any) {
     console.error("Register API error:", error);
-
     return NextResponse.json(
       {
         error: "Registration failed",
