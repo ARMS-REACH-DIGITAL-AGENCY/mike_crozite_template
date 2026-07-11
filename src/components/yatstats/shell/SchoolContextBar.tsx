@@ -12,6 +12,7 @@ interface SchoolContextBarProps {
   isPlayerProfile: boolean;
   isGallery: boolean;
   isNews: boolean;
+  activeSection: string;
 }
 
 function formatSlugToLabel(slug: string): string {
@@ -80,7 +81,24 @@ function applyTheme(theme: 'light' | 'dark') {
   if (icon) icon.className = isLight ? 'ri-moon-line' : 'ri-sun-line';
 }
 
-export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }: SchoolContextBarProps) {
+const SECTION_LABELS: Record<string, string> = {
+  active: 'ACTIVE BASEBALL ALUMNI',
+  news: 'ACTIVE ALUMNI NEWS',
+  alltime: 'NEXT-LEVEL ALL-TIME LIST',
+  current: '2026 HIGH SCHOOL TEAM',
+  fantasy: 'FANTASY BRACKET TOURNEY',
+  mentor: 'MENTORSHIP MARKETPLACE',
+  partner: 'PARTNERSHIP PROGRAM',
+  about: 'ABOUT US',
+  faq: "FAQ'S",
+};
+
+export default function SchoolContextBar({
+  isPlayerProfile,
+  isGallery,
+  isNews,
+  activeSection,
+}: SchoolContextBarProps) {
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
@@ -113,7 +131,8 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
   }, []);
 
   useEffect(() => {
-    if (!isGallery) return;
+    // News thumbnails are filters. Only player-gallery thumbnails act as anchors.
+    if (!isGallery || isNews) return;
 
     const handleThumbnailClick = (event: MouseEvent) => {
       const target = event.target;
@@ -132,7 +151,7 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
 
     document.addEventListener('click', handleThumbnailClick, true);
     return () => document.removeEventListener('click', handleThumbnailClick, true);
-  }, [isGallery]);
+  }, [isGallery, isNews]);
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
@@ -140,9 +159,8 @@ export default function SchoolContextBar({ isPlayerProfile, isGallery, isNews }:
       const slug = segments[segments.length - 1] || '';
       return slug ? formatSlugToLabel(slug) : 'PLAYER PROFILE';
     }
-    if (isNews) return 'ACTIVE ALUMNI NEWS';
-    if (isGallery) return 'ACTIVE BASEBALL ALUMNI';
-    return '';
+
+    return SECTION_LABELS[activeSection] || activeSection.toUpperCase();
   };
 
   const schoolHomeHref = isPlayerProfile && resolvedPlayerSchoolUrl
