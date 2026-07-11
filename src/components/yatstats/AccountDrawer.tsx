@@ -206,8 +206,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       >
         <button
           type="button"
-          id="acctTabJoin"
-          data-tab="register"
+          id="acctTabJoinReact"
           role="tab"
           aria-selected={activeTab === 'register'}
           onClick={() => switchTab('register')}
@@ -230,8 +229,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
         <button
           type="button"
-          id="acctTabLogin"
-          data-tab="signin"
+          id="acctTabLoginReact"
           role="tab"
           aria-selected={activeTab === 'signin'}
           onClick={() => switchTab('signin')}
