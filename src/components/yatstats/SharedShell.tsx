@@ -11,7 +11,6 @@ import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
-import GalleryUniverseController from './GalleryUniverseController';
 
 type StripPlayer = {
   id: string;
@@ -62,7 +61,6 @@ export default function SharedShell({
   return (
     <>
       <TimelineCleanup />
-      {!isPlayerProfile && <GalleryUniverseController />}
 
       <div className="yat-row1-shell">
         <GlobalTopbar hsid={hsid} />
