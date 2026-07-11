@@ -91,13 +91,6 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
   });
 }
 
-function isCardVisible(card: HTMLElement): boolean {
-  const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]');
-  return !card.hidden
-    && card.style.display !== 'none'
-    && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
-}
-
 function applyFilters(section: string) {
   if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
@@ -168,10 +161,10 @@ function applyPreset(section: string) {
 export default function GalleryFilterController() {
   useEffect(() => {
     let lastSection = '';
-    let sectionTimer: ReturnType<typeof setTimeout> | null = null;
+    let sectionTimer: number | null = null;
 
     const syncSection = () => {
-      if (sectionTimer) window.clearTimeout(sectionTimer);
+      if (sectionTimer !== null) window.clearTimeout(sectionTimer);
       sectionTimer = window.setTimeout(() => {
         const section = getCurrentSection();
         if (section === lastSection) return;
@@ -244,7 +237,7 @@ export default function GalleryFilterController() {
     syncSection();
 
     return () => {
-      if (sectionTimer) window.clearTimeout(sectionTimer);
+      if (sectionTimer !== null) window.clearTimeout(sectionTimer);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
       document.removeEventListener('click', syncSection, true);
