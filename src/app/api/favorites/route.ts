@@ -21,6 +21,56 @@ import { query } from "@/lib/db";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
 import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
 
+const FAVORITES_INSERT_LOCK_KEY = 934_751_024;
+
+function isUserFavoritesSequencePermissionError(error: unknown): boolean {
+  const pgError = error as { code?: string; message?: string; routine?: string };
+  return pgError?.code === "42501" && (
+    pgError.message?.includes("user_favorites_id_seq") === true ||
+    pgError.routine === "nextval_internal"
+  );
+}
+
+/**
+ * Temporary recovery path for databases where the application role can insert
+ * into user_favorites but cannot advance user_favorites_id_seq. The advisory
+ * lock serializes ID allocation, while negative IDs avoid any collision with
+ * the positive SERIAL sequence after its permissions are repaired.
+ */
+async function saveFavoriteWithoutSequence(
+  firebaseUid: string,
+  playerId: string,
+  contactId: string | null,
+  schoolId: string | null
+): Promise<{ created: boolean }> {
+  const { rows } = await query<{ created: boolean }>(
+    `WITH lock_guard AS MATERIALIZED (
+       SELECT pg_advisory_xact_lock($5::bigint) AS locked
+     ),
+     next_id AS MATERIALIZED (
+       SELECT LEAST(COALESCE(MIN(f.id), 0) - 1, -1) AS id
+       FROM lock_guard
+       LEFT JOIN public.user_favorites f ON TRUE
+     )
+     INSERT INTO public.user_favorites AS existing (
+       id,
+       firebase_uid,
+       arms_contact_id,
+       player_id,
+       school_id
+     )
+     SELECT next_id.id, $1, $2, $3, $4
+     FROM next_id
+     ON CONFLICT (firebase_uid, player_id) DO UPDATE SET
+       arms_contact_id = COALESCE(EXCLUDED.arms_contact_id, existing.arms_contact_id),
+       school_id = COALESCE(EXCLUDED.school_id, existing.school_id)
+     RETURNING (xmax = 0) AS created`,
+    [firebaseUid, contactId, playerId, schoolId, FAVORITES_INSERT_LOCK_KEY]
+  );
+
+  return { created: rows[0]?.created === true };
+}
+
 async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
   if (!playerIds.length) return [];
 
@@ -118,10 +168,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { created } = await saveFavorite(firebaseUid, playerId, {
-      armsContactId: contactId ?? null,
-      schoolId: schoolId ?? null,
-    });
+    let favoriteResult: { created: boolean };
+    try {
+      favoriteResult = await saveFavorite(firebaseUid, playerId, {
+        armsContactId: contactId ?? null,
+        schoolId: schoolId ?? null,
+      });
+    } catch (error) {
+      if (!isUserFavoritesSequencePermissionError(error)) throw error;
+
+      console.warn(
+        "user_favorites_id_seq is unavailable; using negative-ID favorite insert fallback"
+      );
+      favoriteResult = await saveFavoriteWithoutSequence(
+        firebaseUid,
+        playerId,
+        contactId ?? null,
+        schoolId ?? null
+      );
+    }
+
+    const { created } = favoriteResult;
 
     if (contactId) {
       const tagPrefix = isSuperfan ? "superfav" : "fav";
