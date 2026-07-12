@@ -15,11 +15,75 @@
 //   Body: { firebaseUid, playerId }
 //   Removes the favorite from PostgreSQL.
 
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
 import { query } from "@/lib/db";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
 import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
+
+const FAVORITES_FALLBACK_ATTEMPTS = 8;
+
+function isUserFavoritesSequencePermissionError(error: unknown): boolean {
+  const pgError = error as { code?: string; message?: string; routine?: string };
+  return pgError?.code === "42501" && (
+    pgError.message?.includes("user_favorites_id_seq") === true ||
+    pgError.routine === "nextval_internal"
+  );
+}
+
+function fallbackFavoriteId(
+  firebaseUid: string,
+  playerId: string,
+  attempt: number
+): number {
+  const digest = createHash("sha256")
+    .update(`${firebaseUid}:${playerId}:${attempt}`)
+    .digest();
+  const positive = digest.readUInt32BE(0) & 0x7fffffff;
+  return -(positive || 1);
+}
+
+/**
+ * Recovery path for databases where the application role can insert into
+ * user_favorites but cannot advance user_favorites_id_seq. Explicit negative
+ * IDs cannot collide with the positive SERIAL sequence. A bounded retry handles
+ * the extremely unlikely case that two different favorites hash to the same ID.
+ */
+async function saveFavoriteWithoutSequence(
+  firebaseUid: string,
+  playerId: string,
+  contactId: string | null,
+  schoolId: string | null
+): Promise<{ created: boolean }> {
+  for (let attempt = 0; attempt < FAVORITES_FALLBACK_ATTEMPTS; attempt += 1) {
+    const fallbackId = fallbackFavoriteId(firebaseUid, playerId, attempt);
+
+    try {
+      const result = await query<{ id: number }>(
+        `INSERT INTO public.user_favorites (
+           id,
+           firebase_uid,
+           arms_contact_id,
+           player_id,
+           school_id
+         )
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (firebase_uid, player_id) DO NOTHING
+         RETURNING id`,
+        [fallbackId, firebaseUid, contactId, playerId, schoolId]
+      );
+
+      return { created: (result.rowCount ?? 0) > 0 };
+    } catch (error) {
+      const pgError = error as { code?: string };
+      if (pgError?.code === "23505") continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Could not allocate a fallback user_favorites ID");
+}
 
 async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
   if (!playerIds.length) return [];
@@ -118,10 +182,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { created } = await saveFavorite(firebaseUid, playerId, {
-      armsContactId: contactId ?? null,
-      schoolId: schoolId ?? null,
-    });
+    let favoriteResult: { created: boolean };
+    try {
+      favoriteResult = await saveFavorite(firebaseUid, playerId, {
+        armsContactId: contactId ?? null,
+        schoolId: schoolId ?? null,
+      });
+    } catch (error) {
+      if (!isUserFavoritesSequencePermissionError(error)) throw error;
+
+      console.warn(
+        "user_favorites_id_seq is unavailable; using negative-ID favorite insert fallback"
+      );
+      favoriteResult = await saveFavoriteWithoutSequence(
+        firebaseUid,
+        playerId,
+        contactId ?? null,
+        schoolId ?? null
+      );
+    }
+
+    const { created } = favoriteResult;
 
     if (contactId) {
       const tagPrefix = isSuperfan ? "superfav" : "fav";
