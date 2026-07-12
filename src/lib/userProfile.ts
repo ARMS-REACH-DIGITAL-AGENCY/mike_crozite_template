@@ -110,7 +110,7 @@ export async function getUserProfileByStripeSubscriptionId(
  *   first_name/last_name — preserved if caller passes null/undefined (COALESCE)
  *   home_hsid          — set only on INSERT (first registration); never overwritten on update
  *   home_school_name   — set only on INSERT; never overwritten on update
- *   role               — preserved once set; only updated if caller provides a value
+ *   role               — defaults to 'fan' on INSERT and is preserved once set
  *   subscription_status — updated when provided
  *   arms_contact_id    — preserved once set; only updated if caller provides a value
  *   plan               — never downgraded from 'superfan' to 'fan' via this function
@@ -153,7 +153,7 @@ export async function upsertUserProfile(
       data.last_name ?? null,
       data.home_hsid ?? null,
       data.home_school_name ?? null,
-      data.role ?? null,
+      data.role ?? 'fan',
       data.subscription_status ?? null,
       data.arms_contact_id ?? null,
       data.arms_location_id ?? null,
