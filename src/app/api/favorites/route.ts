@@ -15,13 +15,14 @@
 //   Body: { firebaseUid, playerId }
 //   Removes the favorite from PostgreSQL.
 
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
 import { query } from "@/lib/db";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
 import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
 
-const FAVORITES_INSERT_LOCK_KEY = 934_751_024;
+const FAVORITES_FALLBACK_ATTEMPTS = 8;
 
 function isUserFavoritesSequencePermissionError(error: unknown): boolean {
   const pgError = error as { code?: string; message?: string; routine?: string };
@@ -31,11 +32,23 @@ function isUserFavoritesSequencePermissionError(error: unknown): boolean {
   );
 }
 
+function fallbackFavoriteId(
+  firebaseUid: string,
+  playerId: string,
+  attempt: number
+): number {
+  const digest = createHash("sha256")
+    .update(`${firebaseUid}:${playerId}:${attempt}`)
+    .digest();
+  const positive = digest.readUInt32BE(0) & 0x7fffffff;
+  return -(positive || 1);
+}
+
 /**
- * Temporary recovery path for databases where the application role can insert
- * into user_favorites but cannot advance user_favorites_id_seq. The advisory
- * lock serializes ID allocation, while negative IDs avoid any collision with
- * the positive SERIAL sequence after its permissions are repaired.
+ * Recovery path for databases where the application role can insert into
+ * user_favorites but cannot advance user_favorites_id_seq. Explicit negative
+ * IDs cannot collide with the positive SERIAL sequence. A bounded retry handles
+ * the extremely unlikely case that two different favorites hash to the same ID.
  */
 async function saveFavoriteWithoutSequence(
   firebaseUid: string,
@@ -43,32 +56,33 @@ async function saveFavoriteWithoutSequence(
   contactId: string | null,
   schoolId: string | null
 ): Promise<{ created: boolean }> {
-  const { rows } = await query<{ created: boolean }>(
-    `WITH lock_guard AS MATERIALIZED (
-       SELECT pg_advisory_xact_lock($5::bigint) AS locked
-     ),
-     next_id AS MATERIALIZED (
-       SELECT LEAST(COALESCE(MIN(f.id), 0) - 1, -1) AS id
-       FROM lock_guard
-       LEFT JOIN public.user_favorites f ON TRUE
-     )
-     INSERT INTO public.user_favorites AS existing (
-       id,
-       firebase_uid,
-       arms_contact_id,
-       player_id,
-       school_id
-     )
-     SELECT next_id.id, $1, $2, $3, $4
-     FROM next_id
-     ON CONFLICT (firebase_uid, player_id) DO UPDATE SET
-       arms_contact_id = COALESCE(EXCLUDED.arms_contact_id, existing.arms_contact_id),
-       school_id = COALESCE(EXCLUDED.school_id, existing.school_id)
-     RETURNING (xmax = 0) AS created`,
-    [firebaseUid, contactId, playerId, schoolId, FAVORITES_INSERT_LOCK_KEY]
-  );
+  for (let attempt = 0; attempt < FAVORITES_FALLBACK_ATTEMPTS; attempt += 1) {
+    const fallbackId = fallbackFavoriteId(firebaseUid, playerId, attempt);
 
-  return { created: rows[0]?.created === true };
+    try {
+      const result = await query<{ id: number }>(
+        `INSERT INTO public.user_favorites (
+           id,
+           firebase_uid,
+           arms_contact_id,
+           player_id,
+           school_id
+         )
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (firebase_uid, player_id) DO NOTHING
+         RETURNING id`,
+        [fallbackId, firebaseUid, contactId, playerId, schoolId]
+      );
+
+      return { created: (result.rowCount ?? 0) > 0 };
+    } catch (error) {
+      const pgError = error as { code?: string };
+      if (pgError?.code === "23505") continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Could not allocate a fallback user_favorites ID");
 }
 
 async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
