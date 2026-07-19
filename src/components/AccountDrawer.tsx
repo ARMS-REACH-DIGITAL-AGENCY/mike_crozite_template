@@ -13,6 +13,7 @@ import type { User } from 'firebase/auth';
 
 interface AccountDrawerProps {
   subdomain: string;
+  initialTab?: 'signin' | 'register';
 }
 
 type SessionUser = {
@@ -121,7 +122,7 @@ function buildMicrositeUrl(
   return `https://yatstats.com/${homeHsid}`;
 }
 
-export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) {
+export default function AccountDrawerContent({ subdomain, initialTab }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
     success: '#16a34a',
@@ -133,7 +134,7 @@ export default function AccountDrawerContent({ subdomain }: AccountDrawerProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('info');
-  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('register');
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>(initialTab ?? 'register');
   const [displayName, setDisplayName] = useState('');
   const [signInEmail, setSignInEmail] = useState('');
   const [favConfirm, setFavConfirm] = useState('');
