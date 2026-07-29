@@ -175,7 +175,7 @@ export default function SharedShell({
       </main>
 
       <footer className="yat-row6-shell yat-footer">
-        <a href="https://tpc-git-main-arms-reach-digital-agency.vercel.app/" target="_blank" rel="noopener noreferrer">
+        <a href="https://armsreachdigitalagency" target="_blank" rel="noopener noreferrer">
           <span className="sponsor-name">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
           <span className="sponsor-text">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
         </a>
