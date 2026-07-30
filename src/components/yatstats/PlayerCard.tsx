@@ -80,19 +80,15 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   // Block 3 mirrors Block 5 while using section-specific artwork:
   // active = current headshot, all-time = HS-era card front,
-  // current team = the committed_teamid logo from flip_card_front_stage.
+  // current team = /teams/{committed_teamid}.png from flip_card_front_stage.
   const nowThumbnailUrl = imageText(headshotUrl) || `${YAT_ASSETS_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`;
   const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenImageUrl(playerId);
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );
-  const explicitCommittedLogoUrl = imageText(
-    p.committed_team_logo_url || p.committed_logo_url || p.commit_logo_url || p.team_logo_url
-  );
-  const committedLogoUrl = explicitCommittedLogoUrl
-    || (committedTeamId
-      ? `${YAT_ASSETS_BASE}/teams/${encodeURIComponent(committedTeamId)}.png`
-      : UNCOMMITTED_BADGE_URL);
+  const committedLogoUrl = committedTeamId
+    ? `${YAT_ASSETS_BASE}/teams/${encodeURIComponent(committedTeamId)}.png`
+    : UNCOMMITTED_BADGE_URL;
 
   return (
     <article
