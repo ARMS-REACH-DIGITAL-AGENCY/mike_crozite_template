@@ -67,6 +67,22 @@ export default function DrawerLayoutOverrides() {
         background: rgba(255, 255, 255, 0.92) !important;
       }
 
+      /*
+       * Block 3 is owned by Row3MirrorGuard. The legacy interactivity script
+       * still writes inline display values to the strip after filtering, which
+       * was hiding RETIRED and other non-active cards even when Block 5 showed
+       * them. Only the slots stamped from the currently visible Block 5 cards
+       * are allowed to render, and !important prevents the legacy inline style
+       * from winning the race afterward.
+       */
+      .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner > [data-playerid] {
+        display: none !important;
+      }
+
+      .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner > [data-playerid][data-row3-mirror-visible="true"] {
+        display: block !important;
+      }
+
       /* Block 2 should behave like Block 1: full-width rail, not centered/max-width, and never pushed by drawers. */
       .yat-row2-shell,
       .yat-row2-shell .yat-schoolrow {
