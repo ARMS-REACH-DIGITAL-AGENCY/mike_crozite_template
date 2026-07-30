@@ -17,10 +17,9 @@ const desktopOverlay = Buffer.from(`
       </linearGradient>
     </defs>
 
-    <text x="24" y="78" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="27" font-weight="800" letter-spacing=".15">
-      HEY, THEY'RE GIVING AWAY <tspan fill="#f5c451" font-size="39">$75</tspan><tspan dx="8" fill="#fff">IN SHIPSTICKS TRAVEL CREDIT</tspan>
+    <text x="24" y="96" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="47" font-weight="800" letter-spacing=".15">
+      HEY, THEY'RE GIVING AWAY <tspan fill="#f5c451" font-size="68">$75</tspan><tspan dx="8" fill="#fff">IN SHIPSTICKS TRAVEL CREDIT</tspan>
     </text>
-    <rect x="24" y="93" width="780" height="3" rx="1.5" fill="#d72838"/>
 
     <rect x="1512" y="101" width="260" height="25" rx="5" fill="url(#cta)" stroke="#334c68" stroke-width="2"/>
     <text x="1642" y="119" text-anchor="middle" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="16" font-weight="800" letter-spacing=".6">CLAIM YOURS TODAY.  ›</text>
@@ -29,7 +28,7 @@ const desktopOverlay = Buffer.from(`
 
 async function renderDesktop() {
   const golfers = await sharp(golferSourcePath)
-    .resize({ height: 132 })
+    .resize({ height: 105 })
     .toBuffer();
   const logo = await sharp(whosTheyLogoPath)
     .resize({ width: 248, height: 98, fit: 'contain', background: '#020b15' })
@@ -39,7 +38,7 @@ async function renderDesktop() {
     create: { width: 1800, height: 132, channels: 3, background: '#020b15' },
   })
     .composite([
-      { input: golfers, left: 870, top: 0 },
+      { input: golfers, left: 1290, top: 14 },
       { input: logo, left: 1518, top: 1 },
       { input: desktopOverlay, left: 0, top: 0 },
     ])
@@ -51,9 +50,8 @@ async function renderMobile() {
   await sharp(approvedMobileSourcePath)
     .resize({
       width: 750,
-      height: 132,
-      fit: 'cover',
-      position: 'center',
+      height: 112,
+      fit: 'fill',
     })
     .webp({ quality: 90 })
     .toFile('public/ads/tpc-shipsticks-mobile.webp');

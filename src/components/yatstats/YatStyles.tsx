@@ -252,7 +252,7 @@ export default function YatStyles() {
       }
 
       @media(max-width:640px){
-      :root{--crestH:36px;--row1-h:34px;--row2-h:48px}
+      :root{--crestH:36px;--row1-h:34px;--row2-h:48px;--footerH:56px}
 
         .yat-row2-shell{
           top:var(--row1-h);
