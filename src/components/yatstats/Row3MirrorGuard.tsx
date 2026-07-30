@@ -105,9 +105,18 @@ function syncRow3VisualOrderAndImages(): void {
     image.dataset.guardDesiredSrc = desiredSrc;
     image.dataset.guardFallbackSrc = fallbackSrc;
 
+    image.onerror = () => {
+      const guardedFallback = clean(image.dataset.guardFallbackSrc);
+      if (guardedFallback && image.getAttribute('src') !== guardedFallback) {
+        image.setAttribute('src', guardedFallback);
+      }
+    };
+
     if (desiredSrc && image.getAttribute('src') !== desiredSrc) {
-      image.dataset.extensionFallbackApplied = '';
-      image.dataset.fallbackApplied = '';
+      // Disable the older React fallback closure for this guarded image. It was
+      // replacing /teams/{committed_teamid}.png with the obsolete college path.
+      image.dataset.extensionFallbackApplied = 'true';
+      image.dataset.fallbackApplied = 'true';
       image.setAttribute('src', desiredSrc);
     }
 
