@@ -12,6 +12,7 @@ import MetadataRow from './shell/MetadataRow';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
+import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
 
 type StripPlayer = {
@@ -124,6 +125,7 @@ export default function SharedShell({
     <>
       <TimelineCleanup />
       {!isPlayerProfile && <GalleryFilterController />}
+      {!isPlayerProfile && <Row3MirrorGuard />}
 
       <div className="yat-row1-shell">
         <GlobalTopbar hsid={hsid} />
