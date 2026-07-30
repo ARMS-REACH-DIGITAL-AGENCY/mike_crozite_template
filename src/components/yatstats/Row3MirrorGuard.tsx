@@ -3,6 +3,7 @@
 import { useLayoutEffect } from 'react';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
+const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
 
 function getVisibleSectionKey(): string {
   const visibleSection = Array.from(document.querySelectorAll<HTMLElement>('.yat-section.visible'))
@@ -30,7 +31,12 @@ function getReactOwnedStrip(): HTMLElement | null {
   );
 }
 
-function syncRow3VisualOrder(): void {
+function clean(value: string | undefined): string {
+  const text = String(value || '').trim();
+  return text && text !== 'null' && text !== 'undefined' ? text : '';
+}
+
+function syncRow3VisualOrderAndImages(): void {
   const strip = getReactOwnedStrip();
   if (!strip) return;
 
@@ -48,12 +54,17 @@ function syncRow3VisualOrder(): void {
     return;
   }
 
-  const visiblePlayerIds = Array.from(
+  const visibleCards = Array.from(
     blockFiveSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]')
-  )
-    .filter(isCardVisible)
+  ).filter(isCardVisible);
+
+  const visiblePlayerIds = visibleCards
     .map((card) => String(card.dataset.playerid || '').trim())
     .filter(Boolean);
+
+  const cardByPlayerId = new Map(
+    visibleCards.map((card) => [String(card.dataset.playerid || '').trim(), card])
+  );
 
   const orderByPlayerId = new Map(
     visiblePlayerIds.map((playerId, index) => [playerId, index])
@@ -68,12 +79,41 @@ function syncRow3VisualOrder(): void {
   slots.forEach((slot, fallbackIndex) => {
     const playerId = String(slot.dataset.playerid || '').trim();
     const blockFiveIndex = orderByPlayerId.get(playerId);
+    const card = cardByPlayerId.get(playerId);
 
     slot.style.order = String(
       blockFiveIndex === undefined
         ? visiblePlayerIds.length + fallbackIndex
         : blockFiveIndex
     );
+
+    const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
+    if (!image || !card) return;
+
+    const desiredSrc = sectionKey === 'current'
+      ? clean(card.dataset.thumbnailCurrent) || UNCOMMITTED_BADGE_URL
+      : sectionKey === 'alltime'
+        ? clean(card.dataset.thumbnailThen)
+        : clean(card.dataset.thumbnailNow);
+
+    const fallbackSrc = sectionKey === 'current'
+      ? clean(card.dataset.thumbnailCurrentFallback) || UNCOMMITTED_BADGE_URL
+      : sectionKey === 'alltime'
+        ? clean(card.dataset.thumbnailThenFallback)
+        : clean(card.dataset.thumbnailNowFallback);
+
+    image.dataset.guardDesiredSrc = desiredSrc;
+    image.dataset.guardFallbackSrc = fallbackSrc;
+
+    if (desiredSrc && image.getAttribute('src') !== desiredSrc) {
+      image.dataset.extensionFallbackApplied = '';
+      image.dataset.fallbackApplied = '';
+      image.setAttribute('src', desiredSrc);
+    }
+
+    slot.classList.toggle('gallery-current-slot-link', sectionKey === 'current');
+    slot.classList.toggle('gallery-slot-link', sectionKey !== 'current');
+    image.classList.toggle('gallery-slot-img--contain', sectionKey === 'current');
   });
 
   strip.dataset.row5Synced = 'true';
@@ -82,15 +122,21 @@ function syncRow3VisualOrder(): void {
 export default function Row3MirrorGuard() {
   useLayoutEffect(() => {
     let frame = 0;
+    let syncing = false;
+
+    const runSync = () => {
+      if (syncing) return;
+      syncing = true;
+      syncRow3VisualOrderAndImages();
+      syncing = false;
+    };
 
     const scheduleSync = () => {
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(syncRow3VisualOrder);
+      frame = window.requestAnimationFrame(runSync);
     };
 
-    // The server-rendered strip is intentionally hidden until this first
-    // synchronous pass stamps the exact visible Block 5 order onto Block 3.
-    syncRow3VisualOrder();
+    runSync();
 
     window.addEventListener('hashchange', scheduleSync);
     window.addEventListener('popstate', scheduleSync);
@@ -111,18 +157,13 @@ export default function Row3MirrorGuard() {
         subtree: true,
         childList: true,
         attributes: true,
-        attributeFilter: ['style', 'hidden', 'class'],
+        attributeFilter: ['style', 'hidden', 'class', 'data-thumbnail-current'],
       });
     }
 
     const strip = getReactOwnedStrip();
     const stripInner = strip?.querySelector('.gallery-strip-inner');
-    const stripObserver = new MutationObserver(() => {
-      // Legacy YatInteractivity code can still append the same nodes in its
-      // older graduating-class order. CSS flex order is immediately restamped
-      // from Block 5 so that direct DOM movement cannot change the visual order.
-      syncRow3VisualOrder();
-    });
+    const stripObserver = new MutationObserver(scheduleSync);
 
     if (strip) {
       stripObserver.observe(strip, {
@@ -133,7 +174,10 @@ export default function Row3MirrorGuard() {
 
     if (stripInner) {
       stripObserver.observe(stripInner, {
+        subtree: true,
         childList: true,
+        attributes: true,
+        attributeFilter: ['src', 'class'],
       });
     }
 
