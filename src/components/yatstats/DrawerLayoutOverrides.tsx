@@ -1,6 +1,52 @@
 'use client';
 
+import { useEffect } from 'react';
+
+const DRAWER_STATE_KEY = 'yat-drawer-state';
+
+function persistClosedLeftDrawer() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(DRAWER_STATE_KEY) || '{}');
+    sessionStorage.setItem(
+      DRAWER_STATE_KEY,
+      JSON.stringify({
+        ...saved,
+        left: false,
+        leftSearch: false,
+      })
+    );
+  } catch {}
+}
+
 export default function DrawerLayoutOverrides() {
+  useEffect(() => {
+    const closeLeftDrawer = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('#closeLeft')) return;
+
+      // The legacy rail controller previously ignored #closeLeft below 780px.
+      // Handle the button in capture phase so no later listener can reopen it.
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      const body = document.body;
+      body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+
+      const rightDrawerOpen =
+        body.classList.contains('drawer-sort-open')
+        || body.classList.contains('drawer-right-open')
+        || body.classList.contains('drawer-account-open')
+        || body.classList.contains('drawer-favorites-open');
+
+      if (!rightDrawerOpen) body.classList.remove('drawer-open');
+      persistClosedLeftDrawer();
+    };
+
+    document.addEventListener('click', closeLeftDrawer, true);
+    return () => document.removeEventListener('click', closeLeftDrawer, true);
+  }, []);
+
   return (
     <style jsx global>{`
       :root {
@@ -8,6 +54,17 @@ export default function DrawerLayoutOverrides() {
         --yat-left-drawer-w: var(--yat-side-drawer-w) !important;
         --yat-right-drawer-w: var(--yat-side-drawer-w) !important;
         --yat-min-gallery-card-w: 260px;
+      }
+
+      /* Keep the left navigation translucent enough to retain page context. */
+      #drawerLeft {
+        background: rgba(10, 10, 10, 0.90) !important;
+        backdrop-filter: blur(5px) !important;
+        -webkit-backdrop-filter: blur(5px) !important;
+      }
+
+      body.light-theme #drawerLeft {
+        background: rgba(255, 255, 255, 0.92) !important;
       }
 
       /* Block 2 should behave like Block 1: full-width rail, not centered/max-width, and never pushed by drawers. */
