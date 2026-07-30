@@ -15,8 +15,8 @@ export const sponsorCampaigns: SponsorCampaign[] = [
   {
     id: 'travel-protection-club-shipsticks-75',
     sponsorName: 'The Travel Protection Club',
-    desktopImage: '/ads/tpc-shipsticks-desktop.svg',
-    mobileImage: '/ads/tpc-shipsticks-mobile.svg',
+    desktopImage: '/ads/tpc-shipsticks-desktop.webp',
+    mobileImage: '/ads/tpc-shipsticks-mobile.webp',
     destinationUrl: 'https://armsreachdigital.agency/tpc',
     altText: 'Claim $75 in ShipSticks travel credit from The Travel Protection Club',
     schoolIds: '*',

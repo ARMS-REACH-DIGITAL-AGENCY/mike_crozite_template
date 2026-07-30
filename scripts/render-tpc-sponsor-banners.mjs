@@ -68,13 +68,18 @@ async function renderDesktop() {
     .extract({ left: 0, top: 42, width: 700, height: 140 })
     .toBuffer();
 
-  await sharp({
+  const banner = await sharp({
     create: { width: 1800, height: 140, channels: 3, background: '#020b15' },
   })
     .composite([
       { input: golfers, left: 0, top: 0 },
       { input: desktopOverlay, left: 0, top: 0 },
     ])
+    .webp({ quality: 88 })
+    .toBuffer();
+
+  await sharp(banner)
+    .resize({ width: 1800, height: 132, fit: 'fill' })
     .webp({ quality: 88 })
     .toFile('public/ads/tpc-shipsticks-desktop.webp');
 }
@@ -85,13 +90,18 @@ async function renderMobile() {
     .extract({ left: 0, top: 33, width: 588, height: 140 })
     .toBuffer();
 
-  await sharp({
+  const banner = await sharp({
     create: { width: 750, height: 140, channels: 3, background: '#020b15' },
   })
     .composite([
       { input: golfers, left: -115, top: 0 },
       { input: mobileOverlay, left: 0, top: 0 },
     ])
+    .webp({ quality: 88 })
+    .toBuffer();
+
+  await sharp(banner)
+    .resize({ width: 750, height: 132, fit: 'fill' })
     .webp({ quality: 88 })
     .toFile('public/ads/tpc-shipsticks-mobile.webp');
 }

@@ -1,14 +1,14 @@
 # YATSTATS Footer Sponsor Banner Specifications
 
-The YATSTATS footer is a compact responsive advertising slot approximately
-60–70 CSS pixels high. Every campaign must provide two completed banner files.
+The YATSTATS footer is a compact responsive advertising slot exactly 66 CSS
+pixels high. Every campaign must provide two completed banner files.
 
 ## Required creative files
 
 | Placement | Source dimensions | Format | Maximum file size |
 | --- | ---: | --- | ---: |
-| Desktop/tablet | 1800 × 140 px | WebP preferred; PNG/JPEG accepted | 250 KB |
-| Mobile | 750 × 140 px | WebP preferred; PNG/JPEG accepted | 150 KB |
+| Desktop/tablet | 1800 × 132 px | WebP preferred; PNG/JPEG accepted | 250 KB |
+| Mobile | 750 × 132 px | WebP preferred; PNG/JPEG accepted | 150 KB |
 
 The desktop creative is used above 640 CSS pixels. The mobile creative is used
 at 640 CSS pixels and below.
@@ -17,8 +17,8 @@ at 640 CSS pixels and below.
 
 - Deliver completed artwork with all sponsor copy and CTA included.
 - Keep essential text, logos, faces, and CTA elements at least 5% from each edge.
-- Use large, high-contrast type designed to remain readable at approximately
-  50% of the submitted source size.
+- Use large, high-contrast type designed to remain readable at 66 CSS pixels
+  high. The required files are exported at 2× density for sharp rendering.
 - Limit the primary message to about 10 words whenever possible.
 - Do not place the destination URL, legal tracking parameters, or QR codes in
   the artwork.

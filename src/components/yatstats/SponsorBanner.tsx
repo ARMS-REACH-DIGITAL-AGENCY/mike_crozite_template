@@ -22,7 +22,7 @@ export default function SponsorBanner({ hsid }: { hsid: string }) {
           src={campaign.desktopImage}
           alt={campaign.altText}
           width={1800}
-          height={140}
+          height={132}
           loading="eager"
           decoding="async"
         />
