@@ -3,7 +3,10 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
-const PLAYER_NOW_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now';
+const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
+const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
+const UNCOMMITTED_BADGE_SRC = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
 type Player = {
@@ -12,6 +15,7 @@ type Player = {
   image?: string | null;
   nowImage?: string | null;
   thenImage?: string | null;
+  currentImage?: string | null;
   fallbackImage?: string | null;
   imageFit?: 'cover' | 'contain';
   status?: string | null;
@@ -109,14 +113,24 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
   }
 
   if (section === 'alltime') {
-    return players.filter((player) => !isHighSchoolStatus(player.status));
+    return players.filter((player) => !isHighSchoolStatus(player.status)).map((player) => ({
+      ...player,
+      image: cleanSrc(player.thenImage) || cleanSrc(player.image),
+      imageFit: 'cover',
+    }));
   }
 
   if (section === 'active' || section === 'news') {
-    return players.filter((player) => {
-      const status = normalizeStatus(player.status);
-      return !isHighSchoolStatus(status) && status !== 'RETIRED';
-    });
+    return players
+      .filter((player) => {
+        const status = normalizeStatus(player.status);
+        return !isHighSchoolStatus(status) && status !== 'RETIRED';
+      })
+      .map((player) => ({
+        ...player,
+        image: cleanSrc(player.nowImage) || cleanSrc(player.image),
+        imageFit: 'cover',
+      }));
   }
 
   return [];
@@ -144,19 +158,35 @@ function readPlayersFromVisibleBlockFive(
     const source = playersById.get(id);
     const rawName = String(source?.name || card.dataset.name || '').trim();
     const name = rawName || `Player ${id}`;
-    const nowImage = cleanSrc(source?.nowImage) || `${PLAYER_NOW_BASE}/${encodeURIComponent(id)}.jpg`;
+    const nowImage = cleanSrc(card.dataset.thumbnailNow)
+      || cleanSrc(source?.nowImage)
+      || `${PLAYER_NOW_BASE}/${encodeURIComponent(id)}.jpg`;
+    const thenImage = cleanSrc(card.dataset.thumbnailThen)
+      || cleanSrc(source?.thenImage)
+      || `${PLAYER_THEN_BASE}/${encodeURIComponent(id)}.jpg`;
+    const currentImage = cleanSrc(card.dataset.thumbnailCurrent)
+      || cleanSrc(source?.currentImage)
+      || cleanSrc(source?.image)
+      || UNCOMMITTED_BADGE_SRC;
+
+    const isCurrent = section === 'current';
+    const isAllTime = section === 'alltime';
+    const selectedImage = isCurrent ? currentImage : isAllTime ? thenImage : nowImage;
+    const fallbackImage = isCurrent
+      ? cleanSrc(card.dataset.thumbnailCurrentFallback) || UNCOMMITTED_BADGE_SRC
+      : isAllTime
+        ? cleanSrc(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_SRC
+        : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
 
     result.push({
       id,
       name,
-      image: nowImage,
+      image: selectedImage,
       nowImage,
-      // Every block-three player thumbnail is the current S3 headshot. Keeping
-      // thenImage identical prevents the legacy all-time image swap from
-      // replacing it with a high-school action photo.
-      thenImage: nowImage,
-      fallbackImage: cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC,
-      imageFit: source?.imageFit || 'cover',
+      thenImage,
+      currentImage,
+      fallbackImage,
+      imageFit: isCurrent ? 'contain' : 'cover',
       status: normalizeStatus(card.dataset.status || source?.status),
       isPitcher: source?.isPitcher,
     });
@@ -166,7 +196,7 @@ function readPlayersFromVisibleBlockFive(
 }
 
 function playerSignature(players: Player[]): string {
-  return players.map((player) => player.id).join('|');
+  return players.map((player) => `${player.id}:${cleanSrc(player.image)}:${player.imageFit || 'cover'}`).join('|');
 }
 
 export default function InteractionStrip({
@@ -392,9 +422,14 @@ export default function InteractionStrip({
           {showPlayerStrip ? (
             sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
-              const fallbackSrc = cleanSrc(player.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+              const fallbackSrc = cleanSrc(player.fallbackImage) || (isCurrentTeamTab ? UNCOMMITTED_BADGE_SRC : HEADSHOT_FALLBACK_SRC);
               const nowSrc = cleanSrc(player.nowImage)
                 || `${PLAYER_NOW_BASE}/${encodeURIComponent(player.id)}.jpg`;
+              const thenSrc = cleanSrc(player.thenImage)
+                || `${PLAYER_THEN_BASE}/${encodeURIComponent(player.id)}.jpg`;
+              const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
+              const displaySrc = cleanSrc(player.image)
+                || (isCurrentTeamTab ? currentSrc : activeSection === 'alltime' ? thenSrc : nowSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -414,11 +449,12 @@ export default function InteractionStrip({
                 >
                   <div className="gallery-slot-media">
                     <img
-                      src={nowSrc}
+                      src={displaySrc}
                       alt={player.name}
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
-                      data-then-src={nowSrc}
+                      data-then-src={thenSrc}
+                      data-current-src={currentSrc}
                       onError={(event) => {
                         const image = event.currentTarget;
 
@@ -436,7 +472,7 @@ export default function InteractionStrip({
                         image.src = fallbackSrc;
                       }}
                     />
-                    <div className="gallery-slot-gradient" />
+                    {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
                     {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                   </div>
                 </a>
