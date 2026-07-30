@@ -5,6 +5,8 @@ const sharp = require('sharp');
 
 const golferSourcePath = 'design/sponsor-ads/tpc-golfers-source.webp';
 const whosTheyLogoPath = 'design/sponsor-ads/whos-they-logo-source.webp';
+const approvedMobileSourcePath =
+  'design/sponsor-ads/tpc-mobile-approved-source.jpg';
 
 const desktopOverlay = Buffer.from(`
   <svg width="1800" height="132" xmlns="http://www.w3.org/2000/svg">
@@ -22,20 +24,6 @@ const desktopOverlay = Buffer.from(`
 
     <rect x="1512" y="101" width="260" height="25" rx="5" fill="url(#cta)" stroke="#334c68" stroke-width="2"/>
     <text x="1642" y="119" text-anchor="middle" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="16" font-weight="800" letter-spacing=".6">CLAIM YOURS TODAY.  ›</text>
-  </svg>
-`);
-
-const mobileOverlay = Buffer.from(`
-  <svg width="750" height="132" xmlns="http://www.w3.org/2000/svg">
-    <text x="10" y="21" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="15" font-weight="800">HEY, THEY'RE</text>
-    <text x="10" y="39" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="15" font-weight="800">GIVING AWAY</text>
-    <rect x="10" y="45" width="128" height="2" fill="#d72838"/>
-    <text x="9" y="105" fill="#f5c451" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="800">$75</text>
-    <text x="112" y="80" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="20" font-weight="800">SHIPSTICKS</text>
-    <text x="113" y="102" fill="#d9e7e2" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="14.5" font-weight="800">TRAVEL CREDIT</text>
-
-    <rect x="558" y="105" width="181" height="21" rx="4" fill="#07111d" stroke="#334c68" stroke-width="1.5"/>
-    <text x="648.5" y="120" text-anchor="middle" fill="#fff" font-family="Nimbus Sans Narrow,Arial Narrow,Arial,sans-serif" font-size="12" font-weight="800">CLAIM YOURS ›</text>
   </svg>
 `);
 
@@ -60,21 +48,13 @@ async function renderDesktop() {
 }
 
 async function renderMobile() {
-  const golfers = await sharp(golferSourcePath)
-    .resize({ height: 116 })
-    .toBuffer();
-  const logo = await sharp(whosTheyLogoPath)
-    .resize({ width: 180, height: 100, fit: 'contain', background: '#020b15' })
-    .toBuffer();
-
-  await sharp({
-    create: { width: 750, height: 132, channels: 3, background: '#020b15' },
-  })
-    .composite([
-      { input: golfers, left: 210, top: 8 },
-      { input: logo, left: 559, top: 1 },
-      { input: mobileOverlay, left: 0, top: 0 },
-    ])
+  await sharp(approvedMobileSourcePath)
+    .resize({
+      width: 750,
+      height: 132,
+      fit: 'cover',
+      position: 'center',
+    })
     .webp({ quality: 90 })
     .toFile('public/ads/tpc-shipsticks-mobile.webp');
 }
