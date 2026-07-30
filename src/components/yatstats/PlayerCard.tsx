@@ -2,10 +2,15 @@
 // Full flip card container: article element with front and back faces
 
 import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
+import { getPlayerThenImageUrl } from "@/lib/playerImage";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
 import PlayerCardFlipBehavior from "@/components/yatstats/PlayerCardFlipBehavior";
+
+const YAT_ASSETS_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
+const HEADSHOT_FALLBACK_URL = "/img/headshot-silhouette.png";
+const UNCOMMITTED_BADGE_URL = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
 
 interface PlayerCardProps {
   player: Record<string, unknown>;
@@ -46,6 +51,12 @@ function isYear2026(value: unknown): boolean {
   return String(value || "").trim() === "2026";
 }
 
+function imageText(value: unknown): string {
+  const text = String(value || "").trim();
+  if (!text || text.toLowerCase() === "null" || text.toLowerCase() === "undefined") return "";
+  return text;
+}
+
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
   const gc = String(p.class_of || "").trim();
@@ -65,13 +76,23 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const playerWithSlug = { ...p, slug };
   const gp = statValue(p.g || p.pg);
   const has2026Stats = truthyFlag(p.has_2026_stats) || isYear2026(p.stat_year) || isYear2026(p.pitch_year);
+  const playerId = String(p.playerid || "");
+
+  // Block 3 must mirror Block 5 while using section-specific artwork:
+  // active = current headshot, all-time = HS-era card front, current team = committed-school logo.
+  const nowThumbnailUrl = imageText(headshotUrl) || `${YAT_ASSETS_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`;
+  const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenImageUrl(playerId);
+  const committedTeamId = imageText(p.committed_teamid);
+  const committedLogoUrl =
+    imageText(p.committed_team_logo_url || p.committed_logo_url || p.commit_logo_url)
+    || (committedTeamId ? `${YAT_ASSETS_BASE}/colleges/${encodeURIComponent(committedTeamId)}.png` : UNCOMMITTED_BADGE_URL);
 
   return (
     <article
-      id={`player-${String(p.playerid)}`}
+      id={`player-${playerId}`}
       className="yat-card"
       data-name={`${String(p.firstname || p.first_name || "")} ${String(p.lastname || p.last_name || "")}`.toLowerCase()}
-      data-playerid={String(p.playerid)}
+      data-playerid={playerId}
       data-level={lvl}
       data-org={org}
       data-gradclass={gc}
@@ -79,6 +100,12 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-status={status}
       data-has-2026-stats={has2026Stats ? "true" : "false"}
       data-slug={slug}
+      data-thumbnail-now={nowThumbnailUrl}
+      data-thumbnail-then={thenThumbnailUrl}
+      data-thumbnail-current={committedLogoUrl}
+      data-thumbnail-now-fallback={HEADSHOT_FALLBACK_URL}
+      data-thumbnail-then-fallback={HEADSHOT_FALLBACK_URL}
+      data-thumbnail-current-fallback={UNCOMMITTED_BADGE_URL}
       data-stat-gp={gp}
       data-stat-avg={statValue(p.avg)}
       data-stat-obp={statValue(p.obp)}
