@@ -12,6 +12,7 @@ import MetadataRow from './shell/MetadataRow';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
+import SponsorBanner from './SponsorBanner';
 
 type StripPlayer = {
   id: string;
@@ -175,10 +176,7 @@ export default function SharedShell({
       </main>
 
       <footer className="yat-row6-shell yat-footer">
-        <a href="https://armsreachdigital.agency" target="_blank" rel="noopener noreferrer">
-          <span className="sponsor-name">ACTIVATE A $75 SHIP STICKS VOUCHER</span>
-          <span className="sponsor-text">COMPLEMENTS OF THE TRAVEL PROTECTION CLUB</span>
-        </a>
+        <SponsorBanner hsid={hsid} />
       </footer>
     </>
   );
