@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="750" height="140" viewBox="0 0 750 140">
+  <defs>
+    <clipPath id="frame"><rect width="750" height="140" rx="8"/></clipPath>
+    <linearGradient id="shade" x1="0" x2="1">
+      <stop offset="0" stop-color="#02101f" stop-opacity=".05"/>
+      <stop offset=".3" stop-color="#02101f" stop-opacity=".65"/>
+      <stop offset=".58" stop-color="#02101f" stop-opacity=".96"/>
+      <stop offset="1" stop-color="#020a13"/>
+    </linearGradient>
+    <linearGradient id="button" x1="0" x2="1">
+      <stop offset="0" stop-color="#0b8a4d"/>
+      <stop offset="1" stop-color="#13a75f"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="750" height="140" fill="#020a13"/>
+    <path d="M0 115 C50 66 119 60 191 95 L223 140 H0Z" fill="#0c573d" opacity=".65"/>
+    <g transform="translate(4 24)">
+      <path d="M0 116 C7 78 32 65 59 67 C84 68 109 82 116 116Z" fill="#f4eee1"/>
+      <circle cx="59" cy="49" r="29" fill="#d99a6a"/>
+      <path d="M29 38 C34 12 82 7 92 32 L92 40 L27 41Z" fill="#f4eee1"/>
+      <path d="M25 39 H101 C91 50 61 52 26 46Z" fill="#d9d2c6"/>
+    </g>
+    <g transform="translate(77 29)">
+      <path d="M0 111 C7 75 31 62 57 64 C82 65 105 79 112 111Z" fill="#102b4a"/>
+      <circle cx="57" cy="47" r="28" fill="#c98256"/>
+      <path d="M29 36 C34 11 79 7 89 30 L89 39 L27 40Z" fill="#102b4a"/>
+      <path d="M24 38 H98 C89 49 59 51 25 45Z" fill="#183b60"/>
+    </g>
+    <rect width="750" height="140" fill="url(#shade)"/>
+    <rect x="147" y="8" width="150" height="24" rx="12" fill="#f5c451"/>
+    <path d="M169 29 L154 43 L188 31Z" fill="#f5c451"/>
+    <text x="222" y="26" text-anchor="middle" fill="#061522" font-family="Helvetica,Arial,sans-serif" font-size="14" font-weight="700">WHO'S THEY?</text>
+    <text x="208" y="59" fill="#ffffff" font-family="Helvetica,Arial,sans-serif" font-size="20" font-weight="700">THEY'RE GIVING AWAY</text>
+    <text x="205" y="110" fill="#f5c451" font-family="Helvetica,Arial,sans-serif" font-size="55" font-weight="700">$75</text>
+    <text x="307" y="88" fill="#ffffff" font-family="Helvetica,Arial,sans-serif" font-size="25" font-weight="700">SHIPSTICKS</text>
+    <text x="307" y="113" fill="#d8e7e1" font-family="Helvetica,Arial,sans-serif" font-size="18" font-weight="700">TRAVEL CREDIT</text>
+    <rect x="519" y="20" width="215" height="76" rx="10" fill="url(#button)" stroke="#ffffff" stroke-width="3"/>
+    <text x="626.5" y="53" text-anchor="middle" fill="#ffffff" font-family="Helvetica,Arial,sans-serif" font-size="23" font-weight="700">CLAIM YOURS</text>
+    <text x="626.5" y="81" text-anchor="middle" fill="#ffffff" font-family="Helvetica,Arial,sans-serif" font-size="23" font-weight="700">TODAY!</text>
+    <text x="626.5" y="121" text-anchor="middle" fill="#ffffff" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="700" letter-spacing=".7">TRAVEL PROTECTION CLUB</text>
+  </g>
+</svg>
