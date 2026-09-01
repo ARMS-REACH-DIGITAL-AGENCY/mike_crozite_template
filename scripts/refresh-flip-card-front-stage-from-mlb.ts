@@ -44,7 +44,8 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS is_on_40man boolean,
       ADD COLUMN IF NOT EXISTS forty_man_org_name text,
       ADD COLUMN IF NOT EXISTS forty_man_org_abbr text,
-      ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz
+      ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz,
+      ADD COLUMN IF NOT EXISTS current_team_absent_since timestamptz
   `);
 }
 
@@ -232,6 +233,99 @@ async function refreshStage(): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+// Roster-exit detection (the Kingery-class bug fix).
+//
+// refreshStage() above only ever UPDATEs rows for players who matched in
+// *this* run's org-wide pull — a player who's dropped off every one of
+// the 30 orgs' rosters (released, DFA'd off the 40-man with no outright,
+// retired, etc.) simply has no row in display_truth, so the join is a
+// structural no-op and his card silently freezes at the last team
+// written. This function is the other half: it notices absence.
+//
+// A single missed run is not proof of departure (a transient MLB API
+// hiccup, or mid-transaction limbo, can cause a one-off miss). We
+// require the player to be missing on two consecutive 3-hourly runs
+// (~3h elapsed since the first miss, ~6h since he was actually last
+// confirmed present) before flipping status, using
+// current_team_absent_since as the clock. This is deliberately a softer
+// signal than scripts/apply-mlb-transaction-status.ts: that script has
+// an explicit, dated, sourced MLB transaction record (e.g. "Released by
+// Iowa Cubs, 2026-07-19") and always wins. This function only ever
+// produces 'UNCONFIRMED' — an honest "we don't know why, last seen with
+// X as of <date>" — and never overrides an existing 'FORMER' status set
+// by the transactions pipeline.
+async function flagRosterAbsences(): Promise<{
+  reappeared: number;
+  firstMiss: number;
+  confirmedAbsent: number;
+}> {
+  const result = await pool.query<{
+    reappeared_count: string;
+    first_miss_count: string;
+    confirmed_absent_count: string;
+  }>(`
+    WITH latest_completed_run AS (
+      SELECT run_id
+      FROM public.source_ingest_runs
+      WHERE source = 'mlb_api'
+        AND feed_name = 'mlb_full_org_roster'
+        AND status = 'completed'
+      ORDER BY completed_at DESC NULLS LAST, started_at DESC
+      LIMIT 1
+    ),
+    matched_playerids AS (
+      SELECT DISTINCT res.playerid
+      FROM public.mlb_org_roster_resolution res
+      JOIN public.mlb_org_roster_raw raw
+        ON raw.id = res.raw_id
+      JOIN latest_completed_run lr
+        ON lr.run_id = raw.run_id
+      WHERE res.match_status = 'matched'
+        AND res.playerid IS NOT NULL
+    ),
+    reappeared AS (
+      UPDATE public.flip_card_front_stage stage
+         SET current_team_absent_since = NULL
+       WHERE stage.current_team_source = 'mlb_api'
+         AND stage.current_team_absent_since IS NOT NULL
+         AND stage.playerid::text IN (SELECT playerid FROM matched_playerids)
+      RETURNING stage.playerid
+    ),
+    first_miss AS (
+      UPDATE public.flip_card_front_stage stage
+         SET current_team_absent_since = NOW()
+       WHERE stage.current_team_source = 'mlb_api'
+         AND stage.current_team_absent_since IS NULL
+         AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
+         AND COALESCE(stage.team_affiliation_status, '') <> 'FORMER'
+      RETURNING stage.playerid
+    ),
+    confirmed_absent AS (
+      UPDATE public.flip_card_front_stage stage
+         -- threshold is just past one 3h cycle from the first miss, so
+         -- this fires on the second consecutive miss rather than the third
+         SET team_affiliation_status = 'UNCONFIRMED'
+       WHERE stage.current_team_source = 'mlb_api'
+         AND stage.current_team_absent_since IS NOT NULL
+         AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'
+         AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
+         AND COALESCE(stage.team_affiliation_status, '') NOT IN ('FORMER', 'UNCONFIRMED')
+      RETURNING stage.playerid
+    )
+    SELECT
+      (SELECT count(*) FROM reappeared) AS reappeared_count,
+      (SELECT count(*) FROM first_miss) AS first_miss_count,
+      (SELECT count(*) FROM confirmed_absent) AS confirmed_absent_count
+  `);
+
+  const row = result.rows[0];
+  return {
+    reappeared: Number(row?.reappeared_count ?? 0),
+    firstMiss: Number(row?.first_miss_count ?? 0),
+    confirmedAbsent: Number(row?.confirmed_absent_count ?? 0),
+  };
+}
+
 async function main() {
   console.log("=== Refresh flip_card_front_stage from MLB roster resolution ===");
 
@@ -239,8 +333,14 @@ async function main() {
     await ensureStageColumns();
 
     const updated = await refreshStage();
+    const absences = await flagRosterAbsences();
 
     console.log(`Updated flip_card_front_stage rows: ${updated}`);
+    console.log(
+      `Roster-absence pass: ${absences.reappeared} reappeared (clock cleared), ` +
+        `${absences.firstMiss} first miss (clock started), ` +
+        `${absences.confirmedAbsent} confirmed absent (marked UNCONFIRMED)`
+    );
     console.log("Refresh complete.");
   } catch (err) {
     console.error("ERROR refreshing flip_card_front_stage:", err);
