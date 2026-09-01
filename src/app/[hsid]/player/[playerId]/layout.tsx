@@ -89,6 +89,9 @@ export default async function PlayerLayout({
         display_status_label: string | null;
         display_level_label: string | null;
         team_affiliation_status: string | null;
+        last_transaction_type: string | null;
+        last_transaction_date: string | null;
+        last_transaction_team_name: string | null;
       }>(
         `select
            f.hsid::text as hsid,
@@ -100,7 +103,10 @@ export default async function PlayerLayout({
            f.status_label,
            f.display_status_label,
            f.display_level_label,
-           f.team_affiliation_status
+           f.team_affiliation_status,
+           f.last_transaction_type,
+           f.last_transaction_date::text as last_transaction_date,
+           f.last_transaction_team_name
          from flip_card_front_stage f
          left join school_success ss on ss.hsid::text = f.hsid::text
          where f.playerid::text = $1
@@ -121,11 +127,39 @@ export default async function PlayerLayout({
     playerName = `${firstName} ${lastName}`.trim();
 
     const latestYear = Number(player?.stat_year || player?.pitch_year || player?.year || 0);
-    const statusLabel = String(stage?.display_status_label || stage?.status_label || player?.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')).trim().toUpperCase();
-    const teamName = String(resolvedCurrentTeam?.team_name || stage?.current_team_name || player?.current_team_name || player?.team_name || '').trim();
-    const orgConferenceName = String(stage?.current_org_or_conference_name || resolvedCurrentTeam?.org_conf || player?.current_org_or_conference_name || player?.org_conf || player?.league || '').trim();
+    const rawStatusLabel = String(stage?.display_status_label || stage?.status_label || player?.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')).trim().toUpperCase();
+    const rawTeamName = String(resolvedCurrentTeam?.team_name || stage?.current_team_name || player?.current_team_name || player?.team_name || '').trim();
+    const rawOrgConferenceName = String(stage?.current_org_or_conference_name || resolvedCurrentTeam?.org_conf || player?.current_org_or_conference_name || player?.org_conf || player?.league || '').trim();
     const levelLabel = String(resolvedCurrentTeam?.level || stage?.display_level_label || stage?.level_label || player?.level_label || player?.level || '').trim().toUpperCase();
-    normalizeTeamAffiliationStatus(stage?.team_affiliation_status, statusLabel, teamName);
+    const affiliationStatus = normalizeTeamAffiliationStatus(stage?.team_affiliation_status, rawStatusLabel, rawTeamName);
+
+    // A sourced MLB transaction record outranks both resolvers above
+    // (flip_card_front_stage.current_team_name and
+    // v_player_current_team_resolved) — neither notices when a player
+    // leaves affiliated baseball entirely, but the transactions feed does.
+    // See scripts/apply-mlb-transaction-status.ts.
+    const lastTransactionType = String(stage?.last_transaction_type || '').trim();
+    const isSourcedDeparture = affiliationStatus === 'FORMER' && !!lastTransactionType && !!stage?.last_transaction_type;
+    const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === 'UNCONFIRMED';
+    const lastTransactionDateLabel = (() => {
+      const raw = String(stage?.last_transaction_date || '').trim();
+      if (!raw) return '';
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    })();
+
+    const statusLabel = isSourcedDeparture ? 'FORMER' : isUnconfirmedAbsence ? 'UNCONFIRMED' : rawStatusLabel;
+    const teamName = isSourcedDeparture
+      ? lastTransactionType.toUpperCase()
+      : isUnconfirmedAbsence
+        ? 'STATUS UNCONFIRMED'
+        : rawTeamName;
+    const orgConferenceName = isSourcedDeparture
+      ? [stage?.last_transaction_team_name, lastTransactionDateLabel].filter(Boolean).join(' — ')
+      : isUnconfirmedAbsence
+        ? (rawTeamName ? `Last known: ${rawTeamName}` : '')
+        : rawOrgConferenceName;
 
     meta = {
       currentTeamName: teamName,
