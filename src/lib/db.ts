@@ -1774,6 +1774,33 @@ export async function getResolvedCurrentTeam(playerid: string): Promise<any | nu
   }
 }
 
+// The sourced-fact signal from the MLB transactions pipeline
+// (scripts/apply-mlb-transaction-status.ts) and the roster-absence
+// fallback (scripts/refresh-flip-card-front-stage-from-mlb.ts). This
+// outranks both v_player_current_team_resolved and a plain
+// current_team_name read, since neither of those notices when a player
+// leaves affiliated baseball — see the roster-accuracy audit.
+export async function getFlipCardTransactionStatus(playerid: string): Promise<any | null> {
+  try {
+    const { rows } = await query(
+      `SELECT
+         playerid,
+         current_team_name,
+         team_affiliation_status,
+         last_transaction_type,
+         last_transaction_date::text AS last_transaction_date,
+         last_transaction_team_name
+       FROM public.flip_card_front_stage
+       WHERE playerid::text = $1
+       LIMIT 1`,
+      [playerid]
+    );
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getPlayerTransactions(playerid: string, limit = 20): Promise<any[]> {
   try {
     const { rows } = await query(

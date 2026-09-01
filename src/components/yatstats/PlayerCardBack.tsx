@@ -239,13 +239,50 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
           : buildFunZoneBuckets(careerBattingBuckets, statBarLabel, batterStats, "batting", false);
 
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
-  const teamName = asText(p.current_team_name);
-  const orgConf = asText(p.current_org_or_conference_name);
+
+  // Same sourced-fact override as PlayerCardFront.tsx — keep the card
+  // back consistent with the front rather than flipping to a stale team
+  // name. See scripts/apply-mlb-transaction-status.ts and
+  // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
+  const rawTeamName = asText(p.current_team_name);
+  const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
+  const lastTransactionType = asText(p.last_transaction_type);
+  const lastTransactionTeamName = asText(p.last_transaction_team_name);
+  const lastTransactionDateRaw = p.last_transaction_date;
+  const lastTransactionDateIso =
+    lastTransactionDateRaw instanceof Date
+      ? lastTransactionDateRaw.toISOString()
+      : asText(lastTransactionDateRaw);
+  const lastTransactionDateLabel = (() => {
+    if (!lastTransactionDateIso) return "";
+    const parsed = new Date(lastTransactionDateIso);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  })();
+
+  const isSourcedDeparture = teamAffiliationStatus === "FORMER" && !!lastTransactionType;
+  const isUnconfirmedAbsence = !isSourcedDeparture && teamAffiliationStatus === "UNCONFIRMED";
+
+  const teamName = isSourcedDeparture
+    ? lastTransactionType.toUpperCase()
+    : isUnconfirmedAbsence
+      ? "STATUS UNCONFIRMED"
+      : rawTeamName;
+
+  const orgConf = isSourcedDeparture
+    ? [lastTransactionTeamName, lastTransactionDateLabel].filter(Boolean).join(" — ")
+    : isUnconfirmedAbsence
+      ? (rawTeamName ? `Last known: ${rawTeamName}` : "")
+      : asText(p.current_org_or_conference_name);
 
   const posLevelStatus = [
     asText(p.position),
     asText(p.level_label) || asText(p.level),
-    asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
+    isSourcedDeparture
+      ? "FORMER"
+      : isUnconfirmedAbsence
+        ? "UNCONFIRMED"
+        : asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
   ].filter(Boolean).join(" - ");
 
   const bats = asText(p.bats);

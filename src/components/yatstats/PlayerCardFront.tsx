@@ -314,6 +314,21 @@ function formatCommitStatusLabel(player: Record<string, unknown>, statusLabel: s
   return `${committedTeamName} Commit`.toUpperCase();
 }
 
+// last_transaction_date is a SQL `date` column; node-postgres returns it as
+// a JS Date (midnight UTC), not a string, so asText() alone won't read it.
+function formatTransactionDate(value: unknown): string {
+  const iso = value instanceof Date ? value.toISOString() : asText(value);
+  if (!iso) return "";
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default function PlayerCardFront({
   player: p,
   frontImageUrl = null,
@@ -358,10 +373,41 @@ export default function PlayerCardFront({
     ? `${fortyManOrgName} 40-man roster`
     : "MLB 40-man roster";
   const fortyManPillLabel = fortyManOrgAbbr ? `${fortyManOrgAbbr} 40-MAN` : "40-MAN";
-  const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
 
   const currentTeamName = asText(p.current_team_name) || "--";
   const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
+
+  // Sourced-fact override: when the roster pipeline has confirmed (via
+  // MLB's own transactions feed) or flagged (via repeated roster absence)
+  // that a player is no longer with current_team_name, prefer that fact
+  // over the stale team label rather than silently continuing to show it.
+  // See scripts/apply-mlb-transaction-status.ts and
+  // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
+  const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
+  const lastTransactionType = asText(p.last_transaction_type);
+  const lastTransactionTeamName = asText(p.last_transaction_team_name);
+  const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
+
+  const isSourcedDeparture = teamAffiliationStatus === "FORMER" && !!lastTransactionType;
+  const isUnconfirmedAbsence = !isSourcedDeparture && teamAffiliationStatus === "UNCONFIRMED";
+
+  const displayTeamName = isSourcedDeparture
+    ? lastTransactionType.toUpperCase()
+    : isUnconfirmedAbsence
+      ? "STATUS UNCONFIRMED"
+      : currentTeamName;
+
+  const displayOrgLine = isSourcedDeparture
+    ? [lastTransactionTeamName, lastTransactionDateLabel].filter(Boolean).join(" — ")
+    : isUnconfirmedAbsence
+      ? (currentTeamName && currentTeamName !== "--" ? `Last known: ${currentTeamName}` : "")
+      : currentOrgOrConferenceName;
+
+  const statusPillLabel = isSourcedDeparture
+    ? "FORMER"
+    : isUnconfirmedAbsence
+      ? "UNCONFIRMED"
+      : formatCommitStatusLabel(p, statusLabel);
 
   const nextGameStatusLabelRaw = asText(p.next_game_status_label);
   const nextGameDate = asText(p.next_game_date);
@@ -381,7 +427,9 @@ export default function PlayerCardFront({
   const isNonActiveStatus =
     normalizedStatus === "RETIRED" ||
     normalizedStatus === "NOT ACTIVE" ||
-    normalizedStatus === "FREE AGENT";
+    normalizedStatus === "FREE AGENT" ||
+    isSourcedDeparture ||
+    isUnconfirmedAbsence;
 
   const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
   const { dayLine, dateLine } = tryFormatGameDate(
@@ -428,12 +476,12 @@ export default function PlayerCardFront({
             </div>
 
             <div className="yat-front-team-name">
-              {currentTeamName}
+              {displayTeamName}
             </div>
 
-            {currentOrgOrConferenceName && (
+            {displayOrgLine && (
               <div className="yat-front-org-name">
-                {currentOrgOrConferenceName}
+                {displayOrgLine}
               </div>
             )}
 

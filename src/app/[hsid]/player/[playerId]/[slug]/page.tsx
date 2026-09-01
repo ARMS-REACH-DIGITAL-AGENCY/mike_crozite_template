@@ -20,6 +20,7 @@ import {
   getPlayerPitchingGameLog,
   getTeamContext,
   getResolvedCurrentTeam,
+  getFlipCardTransactionStatus,
 } from "@/lib/db";
 type Props = {
   params: Promise<{
@@ -133,12 +134,14 @@ export default async function ProfilePage({ params }: Props) {
     careerBatting,
     careerPitching,
     resolvedCurrentTeam,
+    transactionStatus,
   ] = await Promise.all([
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
     getPlayerCareerBatting(safePlayerId),
     getPlayerCareerPitching(safePlayerId),
     getResolvedCurrentTeam(safePlayerId),
+    getFlipCardTransactionStatus(safePlayerId),
   ]);
 
   const latestYear = Math.max(
@@ -152,7 +155,7 @@ export default async function ProfilePage({ params }: Props) {
     (battingSeasons.length === 0 || pitchingSeasons.length >= battingSeasons.length);
 
   const isActive = latestYear >= 2025;
-  const statusLabel = isActive ? "ACTIVE" : "RETIRED";
+  const rawStatusLabel = isActive ? "ACTIVE" : "RETIRED";
 
   const resolvedTeamName = (resolvedCurrentTeam?.team_name || "").trim();
   const resolvedLevel = resolvedCurrentTeam?.level
@@ -165,10 +168,35 @@ export default async function ProfilePage({ params }: Props) {
         (Number(b.year) || 0) - (Number(a.year) || 0)
     )[0] as BattingSeason | PitchingSeason | undefined;
 
-  const ctxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
+  const rawCtxTeam = resolvedTeamName || mostRecentSeason?.team_name || "";
   const ctxLevel =
     resolvedLevel ||
     (mostRecentSeason?.level ? String(mostRecentSeason.level).toUpperCase() : "");
+
+  // Sourced-fact override: a confirmed MLB transaction (or, failing
+  // that, confirmed multi-run roster absence) outranks both
+  // v_player_current_team_resolved and any stat-derived team name,
+  // since neither of those notices a player leaving affiliated baseball.
+  // See scripts/apply-mlb-transaction-status.ts and the roster-accuracy
+  // audit findings on the two disconnected resolvers.
+  const affiliationStatus = String(transactionStatus?.team_affiliation_status || "").trim().toUpperCase();
+  const lastTransactionType = String(transactionStatus?.last_transaction_type || "").trim();
+  const isSourcedDeparture = affiliationStatus === "FORMER" && !!lastTransactionType;
+  const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === "UNCONFIRMED";
+  const lastTransactionDateLabel = (() => {
+    const raw = String(transactionStatus?.last_transaction_date || "").trim();
+    if (!raw) return "";
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  })();
+
+  const statusLabel = isSourcedDeparture ? "FORMER" : isUnconfirmedAbsence ? "UNCONFIRMED" : rawStatusLabel;
+  const ctxTeam = isSourcedDeparture
+    ? lastTransactionType.toUpperCase()
+    : isUnconfirmedAbsence
+      ? "STATUS UNCONFIRMED"
+      : rawCtxTeam;
 
   const currentTeamId = resolvedCurrentTeam?.teamid
     ? String(resolvedCurrentTeam.teamid)
@@ -179,7 +207,12 @@ export default async function ProfilePage({ params }: Props) {
   const teamCtx = currentTeamId ? await getTeamContext(currentTeamId) : null;
   const ctxOrg = (teamCtx?.organization || "").trim();
   const ctxConference = (teamCtx?.conference || "").trim();
-  const currentOrgOrConference = ctxOrg || ctxConference || "";
+  const rawCurrentOrgOrConference = ctxOrg || ctxConference || "";
+  const currentOrgOrConference = isSourcedDeparture
+    ? [transactionStatus?.last_transaction_team_name, lastTransactionDateLabel].filter(Boolean).join(" — ")
+    : isUnconfirmedAbsence
+      ? (rawCtxTeam ? `Last known: ${rawCtxTeam}` : "")
+      : rawCurrentOrgOrConference;
 
   const draftInfo =
     ([...battingSeasons, ...pitchingSeasons] as any[]).find((s) => s.draft_info)
