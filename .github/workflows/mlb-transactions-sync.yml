@@ -2,6 +2,15 @@ name: MLB Transactions Sync
 
 on:
   workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Backfill start date (YYYY-MM-DD). Leave blank for the default 30-day rolling window."
+        required: false
+        type: string
+      end_date:
+        description: "Backfill end date (YYYY-MM-DD). Leave blank for the default 30-day rolling window."
+        required: false
+        type: string
   schedule:
     - cron: "10 */3 * * *"
 
@@ -32,7 +41,11 @@ jobs:
           git rev-parse --short HEAD
 
       - name: Run MLB transactions sync
-        run: npx tsx ./scripts/sync-mlb-transactions.ts
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.start_date }}" ]; then ARGS="$ARGS --start ${{ github.event.inputs.start_date }}"; fi
+          if [ -n "${{ github.event.inputs.end_date }}" ]; then ARGS="$ARGS --end ${{ github.event.inputs.end_date }}"; fi
+          npx tsx ./scripts/sync-mlb-transactions.ts $ARGS
 
       - name: Apply MLB transaction status to flip cards
         run: npx tsx ./scripts/apply-mlb-transaction-status.ts
