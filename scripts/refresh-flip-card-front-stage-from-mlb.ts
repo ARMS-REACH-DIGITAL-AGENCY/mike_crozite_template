@@ -206,42 +206,90 @@ async function refreshStage(): Promise<number> {
       FROM chosen_truth
     )
     UPDATE public.flip_card_front_stage stage
-       SET current_team_name = display_truth.source_team_name,
-           current_team_level = display_truth.normalized_level,
-           current_team_source = 'mlb_api',
-           current_team_source_player_id = display_truth.source_player_id,
-           current_team_source_team_id = display_truth.source_team_id,
-           current_team_roster_status = display_truth.roster_status,
-           current_team_last_verified = display_truth.verified_at,
+       -- Being matched on a live roster this run is normally proof he's
+       -- back, so this whole block resurrects current_team_name/level and
+       -- clears any FREE AGENT/RETIRED state — EXCEPT when the row is
+       -- owned by the transactions pipeline (last_transaction_applied_at
+       -- IS NOT NULL). That ownership is permanent here: an earlier
+       -- version tried to let a "fresher" roster poll override it, but
+       -- display_truth.verified_at only proves we polled again, not that
+       -- the player's actual roster membership changed — MLB's roster
+       -- listing can keep showing a released player for a while, so a
+       -- stale-but-current poll would falsely win every time and silently
+       -- resurrect him. A transaction-owned row can only be cleared by
+       -- real evidence: a newer, different transaction record showing the
+       -- player is no longer departed
+       -- (scripts/apply-mlb-transaction-status.ts's own self-healing,
+       -- clearStaleDepartureFlags). Until then this roster pipeline
+       -- leaves current_team_name/current_org_or_conference_name/etc.
+       -- alone (they were already nulled out there in favor of
+       -- previous_team_name/previous_org_or_conference_name).
+       SET current_team_name = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.source_team_name
+             ELSE stage.current_team_name
+           END,
+           current_team_level = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.normalized_level
+             ELSE stage.current_team_level
+           END,
+           current_team_source = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN 'mlb_api'
+             ELSE stage.current_team_source
+           END,
+           current_team_source_player_id = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.source_player_id
+             ELSE stage.current_team_source_player_id
+           END,
+           current_team_source_team_id = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.source_team_id
+             ELSE stage.current_team_source_team_id
+           END,
+           current_team_roster_status = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.roster_status
+             ELSE stage.current_team_roster_status
+           END,
+           current_team_last_verified = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.verified_at
+             ELSE stage.current_team_last_verified
+           END,
            current_org_or_conference_name = CASE
+             WHEN stage.last_transaction_applied_at IS NOT NULL THEN stage.current_org_or_conference_name
              WHEN display_truth.is_on_40man IS TRUE AND display_truth.normalized_level <> 'MLB'
                THEN display_truth.forty_man_org_name
              ELSE stage.current_org_or_conference_name
            END,
-           level_label = display_truth.normalized_level,
-           display_level_label = display_truth.display_level,
-           is_on_40man = display_truth.is_on_40man,
-           forty_man_org_name = display_truth.forty_man_org_name,
-           forty_man_org_abbr = display_truth.forty_man_org_abbr,
-           -- Being matched on a live roster this run is normally proof
-           -- he's back, so this clears any FREE AGENT/RETIRED state and
-           -- resurrects status_label — EXCEPT when the row is
-           -- owned by the transactions pipeline (last_transaction_applied_at
-           -- IS NOT NULL). That ownership is now permanent here: an earlier
-           -- version tried to let a "fresher" roster poll override it, but
-           -- display_truth.verified_at only proves we polled again, not
-           -- that the player's actual roster membership changed — MLB's
-           -- roster listing can keep showing a released player for a
-           -- while, so a stale-but-current poll would falsely win every
-           -- time and silently resurrect him, and clearing the fields here
-           -- created a flap: 10 minutes later the transactions sync would
-           -- re-read the same unchanged departure, see the now-null
-           -- watermark, and restore it — repeating every cycle. A
-           -- transaction-owned row can only be cleared by real evidence: a
-           -- newer, different transaction record showing the player is no
-           -- longer departed (scripts/apply-mlb-transaction-status.ts's
-           -- own self-healing, clearStaleDepartureFlags). Until then this
-           -- roster pipeline leaves it alone.
+           level_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.normalized_level
+             ELSE stage.level_label
+           END,
+           display_level_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.display_level
+             ELSE stage.display_level_label
+           END,
+           is_on_40man = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.is_on_40man
+             ELSE stage.is_on_40man
+           END,
+           forty_man_org_name = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.forty_man_org_name
+             ELSE stage.forty_man_org_name
+           END,
+           forty_man_org_abbr = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.forty_man_org_abbr
+             ELSE stage.forty_man_org_abbr
+           END,
            status_label = CASE
              WHEN stage.last_transaction_applied_at IS NULL
              THEN display_truth.normalized_status
@@ -254,13 +302,7 @@ async function refreshStage(): Promise<number> {
            END,
            -- Only clears a legacy team_affiliation_status value (from the
            -- untracked external process this table also receives writes
-           -- from) back to NULL when this row isn't
-           -- transaction-owned — a plain ownership check, no freshness
-           -- comparison needed now that a transaction-owned row is simply
-           -- never touched here. last_transaction_type/date/team_name/
-           -- applied_at are deliberately NOT in this SET list at all any
-           -- more: they belong exclusively to
-           -- scripts/apply-mlb-transaction-status.ts now.
+           -- from) back to NULL when this row isn't transaction-owned.
            team_affiliation_status = CASE
              WHEN stage.last_transaction_applied_at IS NULL
              THEN NULL

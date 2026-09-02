@@ -130,7 +130,35 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             END,
             team_affiliation_status = $5,
             status_label = $5,
-            display_status_label = $5
+            display_status_label = $5,
+            -- previous_team_name/previous_org_or_conference_name/
+            -- previous_level_label are the SAME columns the site's
+            -- existing retired-player rows already use to show a "last
+            -- known" team+org, so a FREE AGENT/RETIRED card here looks
+            -- like every other one instead of using a bespoke field.
+            -- previous_team_name always prefers the transaction's own
+            -- specific team ($4, e.g. "Iowa Cubs") over whatever
+            -- current_team_name happened to hold — that's the most
+            -- authoritative source for "who actually had him last".
+            -- Guarded by current_team_name IS NOT NULL so a repeat,
+            -- no-op application of the same departure (this script runs
+            -- every 3h regardless of whether anything changed) doesn't
+            -- re-snapshot from an already-nulled current_team_name and
+            -- wipe out the real captured value.
+            previous_team_name = CASE
+              WHEN current_team_name IS NOT NULL THEN $4
+              ELSE previous_team_name
+            END,
+            previous_org_or_conference_name = CASE
+              WHEN current_team_name IS NOT NULL THEN current_org_or_conference_name
+              ELSE previous_org_or_conference_name
+            END,
+            previous_level_label = CASE
+              WHEN current_team_name IS NOT NULL THEN level_label
+              ELSE previous_level_label
+            END,
+            current_team_name = NULL,
+            current_org_or_conference_name = NULL
       WHERE playerid::text = $1`,
     [row.playerid, row.transaction_type, row.effective_date, teamName, status]
   );
@@ -169,7 +197,10 @@ async function clearStaleDepartureFlags(
             last_transaction_applied_at = NULL,
             team_affiliation_status = NULL,
             status_label = NULL,
-            display_status_label = NULL
+            display_status_label = NULL,
+            previous_team_name = NULL,
+            previous_org_or_conference_name = NULL,
+            previous_level_label = NULL
       WHERE playerid::text = ANY($1::text[])
         AND last_transaction_applied_at IS NOT NULL`,
     [playerIds]

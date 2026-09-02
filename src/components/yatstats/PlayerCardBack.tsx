@@ -242,34 +242,28 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
 
   // Same sourced-fact override as PlayerCardFront.tsx — keep the card
   // back consistent with the front rather than flipping to a stale team
-  // name. See scripts/apply-mlb-transaction-status.ts and
+  // name. previous_team_name/previous_org_or_conference_name are the same
+  // columns the site's existing retired-player rows already use, so a
+  // FREE AGENT/RETIRED card looks like every other card, plain text — the
+  // specific transaction fact lives in the front card's 40-MAN chip slot
+  // only. See scripts/apply-mlb-transaction-status.ts and
   // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
   const rawTeamName = asText(p.current_team_name);
   const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
   const lastTransactionType = asText(p.last_transaction_type);
-  const lastTransactionTeamName = asText(p.last_transaction_team_name);
-  const lastTransactionDateRaw = p.last_transaction_date;
-  const lastTransactionDateIso =
-    lastTransactionDateRaw instanceof Date
-      ? lastTransactionDateRaw.toISOString()
-      : asText(lastTransactionDateRaw);
-  const lastTransactionDateLabel = (() => {
-    if (!lastTransactionDateIso) return "";
-    const parsed = new Date(lastTransactionDateIso);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-  })();
+  const previousTeamName = asText(p.previous_team_name);
+  const previousOrgOrConferenceName = asText(p.previous_org_or_conference_name);
 
   const isSourcedDeparture =
     (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
     !!lastTransactionType;
 
   const teamName = isSourcedDeparture
-    ? lastTransactionType.toUpperCase()
+    ? previousTeamName || rawTeamName
     : rawTeamName;
 
   const orgConf = isSourcedDeparture
-    ? [lastTransactionTeamName, lastTransactionDateLabel].filter(Boolean).join(" — ")
+    ? previousOrgOrConferenceName
     : asText(p.current_org_or_conference_name);
 
   const posLevelStatus = [

@@ -183,16 +183,11 @@ export default async function ProfilePage({ params }: Props) {
   const lastTransactionType = String(transactionStatus?.last_transaction_type || "").trim();
   const isSourcedDeparture =
     (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
-  const lastTransactionDateLabel = (() => {
-    const raw = String(transactionStatus?.last_transaction_date || "").trim();
-    if (!raw) return "";
-    const parsed = new Date(raw);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-  })();
+  const previousTeamName = String(transactionStatus?.previous_team_name || "").trim();
+  const previousOrgOrConferenceName = String(transactionStatus?.previous_org_or_conference_name || "").trim();
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
-  const ctxTeam = isSourcedDeparture ? lastTransactionType.toUpperCase() : rawCtxTeam;
+  const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
 
   const currentTeamId = resolvedCurrentTeam?.teamid
     ? String(resolvedCurrentTeam.teamid)
@@ -205,7 +200,7 @@ export default async function ProfilePage({ params }: Props) {
   const ctxConference = (teamCtx?.conference || "").trim();
   const rawCurrentOrgOrConference = ctxOrg || ctxConference || "";
   const currentOrgOrConference = isSourcedDeparture
-    ? [transactionStatus?.last_transaction_team_name, lastTransactionDateLabel].filter(Boolean).join(" — ")
+    ? previousOrgOrConferenceName
     : rawCurrentOrgOrConference;
 
   const draftInfo =

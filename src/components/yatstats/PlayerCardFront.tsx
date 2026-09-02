@@ -316,17 +316,17 @@ function formatCommitStatusLabel(player: Record<string, unknown>, statusLabel: s
 
 // last_transaction_date is a SQL `date` column; node-postgres returns it as
 // a JS Date (midnight UTC), not a string, so asText() alone won't read it.
+// Short MM-DD-YY form for the compact departure-note chip (shares the
+// 40-MAN chip's slot, so it needs to be just as terse).
 function formatTransactionDate(value: unknown): string {
   const iso = value instanceof Date ? value.toISOString() : asText(value);
   if (!iso) return "";
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return "";
-  return parsed.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(parsed.getUTCDate()).padStart(2, "0");
+  const yy = String(parsed.getUTCFullYear()).slice(-2);
+  return `${mm}-${dd}-${yy}`;
 }
 
 export default function PlayerCardFront({
@@ -376,16 +376,21 @@ export default function PlayerCardFront({
 
   const currentTeamName = asText(p.current_team_name) || "--";
   const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
+  const previousTeamName = asText(p.previous_team_name);
+  const previousOrgOrConferenceName = asText(p.previous_org_or_conference_name);
 
-  // Sourced-fact override: when the roster pipeline has confirmed (via
-  // MLB's own transactions feed) or flagged (via repeated roster absence)
-  // that a player is no longer with current_team_name, prefer that fact
-  // over the stale team label rather than silently continuing to show it.
-  // See scripts/apply-mlb-transaction-status.ts and
+  // Sourced-fact override: when the transactions pipeline has confirmed a
+  // player is FREE AGENT/RETIRED, show his last real team/org exactly like
+  // every other card does (previous_team_name/previous_org_or_conference_name
+  // — the same columns the site's existing retired-player rows already use),
+  // not a stale current_team_name. The specific transaction fact (type +
+  // date) doesn't replace those lines; it's a note in the 40-MAN chip's
+  // slot instead (see departureNotePillLabel below) — a player can't be on
+  // the 40-man roster and released at the same time, so the two never
+  // collide. See scripts/apply-mlb-transaction-status.ts and
   // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
   const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
   const lastTransactionType = asText(p.last_transaction_type);
-  const lastTransactionTeamName = asText(p.last_transaction_team_name);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
 
   const isSourcedDeparture =
@@ -393,16 +398,29 @@ export default function PlayerCardFront({
     !!lastTransactionType;
 
   const displayTeamName = isSourcedDeparture
-    ? lastTransactionType.toUpperCase()
+    ? previousTeamName || currentTeamName
     : currentTeamName;
 
   const displayOrgLine = isSourcedDeparture
-    ? [lastTransactionTeamName, lastTransactionDateLabel].filter(Boolean).join(" — ")
+    ? previousOrgOrConferenceName
     : currentOrgOrConferenceName;
 
   const statusPillLabel = isSourcedDeparture
     ? teamAffiliationStatus
     : formatCommitStatusLabel(p, statusLabel);
+
+  const departureNotePillLabel = isSourcedDeparture
+    ? [lastTransactionType.toUpperCase(), lastTransactionDateLabel].filter(Boolean).join(" ")
+    : "";
+
+  // Third chip slot: 40-MAN roster note, a departure note, or nothing at
+  // all. Mutually exclusive by definition — a player can't be on the
+  // 40-man roster and released/retired at the same time.
+  const thirdChip = showFortyManPill
+    ? { label: fortyManPillLabel, title: fortyManPillTitle, className: "front-chip front-chip--forty-man" }
+    : departureNotePillLabel
+      ? { label: departureNotePillLabel, title: "Last transaction", className: "front-chip front-chip--departure-note" }
+      : null;
 
   const nextGameStatusLabelRaw = asText(p.next_game_status_label);
   const nextGameDate = asText(p.next_game_date);
@@ -488,9 +506,9 @@ export default function PlayerCardFront({
                 {visibleLevelLabel}
               </span>
 
-              {showFortyManPill && (
-                <span className="front-chip front-chip--forty-man" style={chipStyle} title={fortyManPillTitle}>
-                  {fortyManPillLabel}
+              {thirdChip && (
+                <span className={thirdChip.className} style={chipStyle} title={thirdChip.title}>
+                  {thirdChip.label}
                 </span>
               )}
 
