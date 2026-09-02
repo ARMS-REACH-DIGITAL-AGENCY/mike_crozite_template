@@ -132,20 +132,65 @@ async function ensureDedupeIndex(): Promise<void> {
 // ---------------------------------------------------------------------------
 // MLB Stats API helpers
 // ---------------------------------------------------------------------------
-async function fetchTransactions(
+
+// Every level, not just the majors — mirrors ALL_SPORT_IDS in
+// scripts/sync-mlb-full-org-rosters.ts. A release/option/assignment
+// actioned by an affiliate club (e.g. "Iowa Cubs released SS Scott
+// Kingery") is filed under that affiliate's own sportId in MLB's API,
+// not sportId=1 (MLB). Querying sportId=1 alone silently misses every
+// transaction that happens at the minor-league level — confirmed via a
+// live backfill run that fetched 1,746 sportId=1 transactions for
+// 2026-07-01..2026-07-25 containing zero mention of Kingery's actual
+// 2026-07-19 release.
+const ALL_SPORT_IDS = ["1", "11", "12", "13", "14", "15", "16"];
+const DELAY_MS = 250;
+
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function fetchTransactionsForSport(
+  sportId: string,
   start: string,
   end: string
 ): Promise<MlbTransaction[]> {
-  const url = `${MLB_API_BASE}/transactions?sportId=1&startDate=${start}&endDate=${end}`;
+  const url = `${MLB_API_BASE}/transactions?sportId=${sportId}&startDate=${start}&endDate=${end}`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const data = (await res.json()) as MlbTransactionsResponse;
     return data.transactions ?? [];
   } catch (err) {
-    console.error("fetchTransactions error:", err);
+    console.error(`fetchTransactionsForSport(${sportId}) error:`, err);
     return [];
   }
+}
+
+/**
+ * Fetches transactions across every level (MLB through Rookie ball), not
+ * just sportId=1. Some transactions are reported under more than one
+ * sport context, so results are deduped by transaction id.
+ */
+async function fetchTransactions(
+  start: string,
+  end: string
+): Promise<MlbTransaction[]> {
+  const byId = new Map<number, MlbTransaction>();
+
+  for (const sportId of ALL_SPORT_IDS) {
+    const batch = await fetchTransactionsForSport(sportId, start, end);
+    for (const txn of batch) {
+      if (txn.id !== undefined) {
+        byId.set(txn.id, txn);
+      } else {
+        // No id to dedupe on — keep it, worst case a harmless duplicate
+        // that the DB-level unique index will silently skip on insert.
+        byId.set(Math.random(), txn);
+      }
+    }
+    await delay(DELAY_MS);
+  }
+
+  return Array.from(byId.values());
 }
 
 // ---------------------------------------------------------------------------
