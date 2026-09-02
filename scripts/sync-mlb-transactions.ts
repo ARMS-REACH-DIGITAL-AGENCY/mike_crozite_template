@@ -110,13 +110,19 @@ const pool = new Pool({
  *
  * COALESCE handles NULL values for optional fields so that two rows with the
  * same logical identity (but NULL values) still conflict correctly.
+ *
+ * effective_date is `timestamp with time zone` in the live schema (despite
+ * the original migration comment describing it as `date`) — coercing a
+ * `date` literal to timestamptz is timezone-dependent and therefore not
+ * IMMUTABLE, which Postgres rejects in an index expression. Match the
+ * literal's type to the column's actual type instead.
  */
 async function ensureDedupeIndex(): Promise<void> {
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_player_transactions_dedup
     ON player_transactions (
       playerid,
-      COALESCE(effective_date, '1900-01-01'::date),
+      COALESCE(effective_date, '1900-01-01'::timestamptz),
       COALESCE(transaction_type, ''),
       COALESCE(to_team_name, '')
     )
