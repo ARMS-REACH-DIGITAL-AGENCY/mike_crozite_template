@@ -41,11 +41,33 @@ jobs:
           git rev-parse --short HEAD
 
       - name: Run MLB transactions sync
+        env:
+          # Never interpolate ${{ }} expressions directly into a run: script —
+          # workflow_dispatch inputs are attacker-controllable in the general
+          # GitHub Actions threat model, and a crafted value spliced into the
+          # command text executes as shell, not data, with DATABASE_URL in
+          # scope. Routing through env: makes the value a plain string that
+          # bash can only ever read, never execute.
+          START_DATE_INPUT: ${{ github.event.inputs.start_date }}
+          END_DATE_INPUT: ${{ github.event.inputs.end_date }}
         run: |
-          ARGS=""
-          if [ -n "${{ github.event.inputs.start_date }}" ]; then ARGS="$ARGS --start ${{ github.event.inputs.start_date }}"; fi
-          if [ -n "${{ github.event.inputs.end_date }}" ]; then ARGS="$ARGS --end ${{ github.event.inputs.end_date }}"; fi
-          npx tsx ./scripts/sync-mlb-transactions.ts $ARGS
+          DATE_RE='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          ARGS=()
+          if [ -n "$START_DATE_INPUT" ]; then
+            if ! [[ "$START_DATE_INPUT" =~ $DATE_RE ]]; then
+              echo "::error::start_date must be YYYY-MM-DD, got: $START_DATE_INPUT"
+              exit 1
+            fi
+            ARGS+=(--start "$START_DATE_INPUT")
+          fi
+          if [ -n "$END_DATE_INPUT" ]; then
+            if ! [[ "$END_DATE_INPUT" =~ $DATE_RE ]]; then
+              echo "::error::end_date must be YYYY-MM-DD, got: $END_DATE_INPUT"
+              exit 1
+            fi
+            ARGS+=(--end "$END_DATE_INPUT")
+          fi
+          npx tsx ./scripts/sync-mlb-transactions.ts "${ARGS[@]}"
 
       - name: Apply MLB transaction status to flip cards
         run: npx tsx ./scripts/apply-mlb-transaction-status.ts
