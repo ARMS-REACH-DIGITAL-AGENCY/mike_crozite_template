@@ -409,8 +409,17 @@ export default function PlayerCardFront({
     ? teamAffiliationStatus
     : formatCommitStatusLabel(p, statusLabel);
 
+  // "Released" and "Retired" are shown verbatim since fans recognize
+  // those words; anything else that resolves to FREE AGENT (e.g. MLB's
+  // own "Declared Free Agency" transaction type) just shows the status
+  // itself — no extra wording, matching the status pill.
+  const departureNoteVerb = /released/i.test(lastTransactionType)
+    ? "RELEASED"
+    : /retired/i.test(lastTransactionType)
+      ? "RETIRED"
+      : "FREE AGENT";
   const departureNotePillLabel = isSourcedDeparture
-    ? [lastTransactionType.toUpperCase(), lastTransactionDateLabel].filter(Boolean).join(" ")
+    ? [departureNoteVerb, lastTransactionDateLabel].filter(Boolean).join(" ")
     : "";
 
   // Third chip slot: 40-MAN roster note, a departure note, or nothing at
