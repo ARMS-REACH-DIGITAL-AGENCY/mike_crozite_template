@@ -409,22 +409,21 @@ export default function PlayerCardFront({
     ? teamAffiliationStatus
     : formatCommitStatusLabel(p, statusLabel);
 
-  // "Released" and "Retired" are shown verbatim since fans recognize
-  // those words; anything else that resolves to FREE AGENT (e.g. MLB's
-  // own "Declared Free Agency" transaction type) just shows the status
-  // itself — no extra wording, matching the status pill.
-  const departureNoteVerb = /released/i.test(lastTransactionType)
-    ? "RELEASED"
-    : /retired/i.test(lastTransactionType)
-      ? "RETIRED"
-      : "FREE AGENT";
-  const departureNotePillLabel = isSourcedDeparture
-    ? [departureNoteVerb, lastTransactionDateLabel].filter(Boolean).join(" ")
-    : "";
+  // RETIRED is a status (shown via statusPillLabel above, alongside
+  // ACTIVE/FREE AGENT) — it does NOT belong in this note slot. This slot
+  // is exclusively for the RELEASED note, which only applies to a FREE
+  // AGENT card whose terminal transaction was specifically a release
+  // (not e.g. MLB's "Declared Free Agency" type, which has no note of
+  // its own — the FREE AGENT status pill already says everything there
+  // is to say about that case).
+  const departureNotePillLabel =
+    isSourcedDeparture && teamAffiliationStatus === "FREE AGENT" && /released/i.test(lastTransactionType)
+      ? ["RELEASED", lastTransactionDateLabel].filter(Boolean).join(" ")
+      : "";
 
-  // Third chip slot: 40-MAN roster note, a departure note, or nothing at
+  // Third chip slot: 40-MAN roster note, the RELEASED note, or nothing at
   // all. Mutually exclusive by definition — a player can't be on the
-  // 40-man roster and released/retired at the same time.
+  // 40-man roster and released at the same time.
   const thirdChip = showFortyManPill
     ? { label: fortyManPillLabel, title: fortyManPillTitle, className: "front-chip front-chip--forty-man" }
     : departureNotePillLabel
