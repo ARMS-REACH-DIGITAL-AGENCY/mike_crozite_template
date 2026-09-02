@@ -107,7 +107,6 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'REDSHIRT',
     'PARTNER/SPONSOR',
     'PARTNER - SPONSOR',
-    'UNCONFIRMED',
     'RETIRED',
   ];
 

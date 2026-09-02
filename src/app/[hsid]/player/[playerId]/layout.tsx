@@ -146,7 +146,6 @@ export default async function PlayerLayout({
       (affiliationStatus === 'FREE AGENT' || affiliationStatus === 'RETIRED') &&
       !!lastTransactionType &&
       !!stage?.last_transaction_type;
-    const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === 'UNCONFIRMED';
     const lastTransactionDateLabel = (() => {
       const raw = String(stage?.last_transaction_date || '').trim();
       if (!raw) return '';
@@ -155,17 +154,13 @@ export default async function PlayerLayout({
       return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
     })();
 
-    const statusLabel = isSourcedDeparture ? affiliationStatus : isUnconfirmedAbsence ? 'UNCONFIRMED' : rawStatusLabel;
+    const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
     const teamName = isSourcedDeparture
       ? lastTransactionType.toUpperCase()
-      : isUnconfirmedAbsence
-        ? 'STATUS UNCONFIRMED'
-        : rawTeamName;
+      : rawTeamName;
     const orgConferenceName = isSourcedDeparture
       ? [stage?.last_transaction_team_name, lastTransactionDateLabel].filter(Boolean).join(' — ')
-      : isUnconfirmedAbsence
-        ? (rawTeamName ? `Last known: ${rawTeamName}` : '')
-        : rawOrgConferenceName;
+      : rawOrgConferenceName;
 
     meta = {
       currentTeamName: teamName,

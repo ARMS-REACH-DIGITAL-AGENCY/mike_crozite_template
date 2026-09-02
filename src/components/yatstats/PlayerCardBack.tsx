@@ -263,28 +263,21 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
   const isSourcedDeparture =
     (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
     !!lastTransactionType;
-  const isUnconfirmedAbsence = !isSourcedDeparture && teamAffiliationStatus === "UNCONFIRMED";
 
   const teamName = isSourcedDeparture
     ? lastTransactionType.toUpperCase()
-    : isUnconfirmedAbsence
-      ? "STATUS UNCONFIRMED"
-      : rawTeamName;
+    : rawTeamName;
 
   const orgConf = isSourcedDeparture
     ? [lastTransactionTeamName, lastTransactionDateLabel].filter(Boolean).join(" — ")
-    : isUnconfirmedAbsence
-      ? (rawTeamName ? `Last known: ${rawTeamName}` : "")
-      : asText(p.current_org_or_conference_name);
+    : asText(p.current_org_or_conference_name);
 
   const posLevelStatus = [
     asText(p.position),
     asText(p.level_label) || asText(p.level),
     isSourcedDeparture
       ? teamAffiliationStatus
-      : isUnconfirmedAbsence
-        ? "UNCONFIRMED"
-        : asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
+      : asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
   ].filter(Boolean).join(" - ");
 
   const bats = asText(p.bats);

@@ -224,8 +224,8 @@ async function refreshStage(): Promise<number> {
            forty_man_org_name = display_truth.forty_man_org_name,
            forty_man_org_abbr = display_truth.forty_man_org_abbr,
            -- Being matched on a live roster this run is normally proof
-           -- he's back, so this clears any FREE AGENT/RETIRED/UNCONFIRMED
-           -- state and resurrects status_label — EXCEPT when the row is
+           -- he's back, so this clears any FREE AGENT/RETIRED state and
+           -- resurrects status_label — EXCEPT when the row is
            -- owned by the transactions pipeline (last_transaction_applied_at
            -- IS NOT NULL). That ownership is now permanent here: an earlier
            -- version tried to let a "fresher" roster poll override it, but
@@ -252,9 +252,9 @@ async function refreshStage(): Promise<number> {
              THEN display_truth.display_status
              ELSE stage.display_status_label
            END,
-           -- Only clears UNCONFIRMED (or a legacy team_affiliation_status
-           -- value from the untracked external process this table also
-           -- receives writes from) back to NULL when this row isn't
+           -- Only clears a legacy team_affiliation_status value (from the
+           -- untracked external process this table also receives writes
+           -- from) back to NULL when this row isn't
            -- transaction-owned — a plain ownership check, no freshness
            -- comparison needed now that a transaction-owned row is simply
            -- never touched here. last_transaction_type/date/team_name/
@@ -285,17 +285,20 @@ async function refreshStage(): Promise<number> {
 // written. This function is the other half: it notices absence.
 //
 // A single missed run is not proof of departure (a transient MLB API
-// hiccup, or mid-transaction limbo, can cause a one-off miss). We
-// require the player to be missing on two consecutive 3-hourly runs
-// (~3h elapsed since the first miss, ~6h since he was actually last
-// confirmed present) before flipping status, using
-// current_team_absent_since as the clock. This is deliberately a softer
-// signal than scripts/apply-mlb-transaction-status.ts: that script has
-// an explicit, dated, sourced MLB transaction record (e.g. "Released by
-// Iowa Cubs, 2026-07-19") and always wins. This function only ever
-// produces 'UNCONFIRMED' — an honest "we don't know why, last seen with
-// X as of <date>" — and never overrides an existing 'FREE AGENT'/'RETIRED'
-// status set by the transactions pipeline.
+// hiccup, or mid-transaction limbo, can cause a one-off miss). We track
+// two consecutive 3-hourly misses (~3h elapsed since the first miss, ~6h
+// since he was actually last confirmed present) via current_team_absent_since
+// as the clock, purely for internal bookkeeping/logging.
+//
+// Deliberately does NOT invent a status for this. There is no real MLB
+// playing status for "we polled the roster API and didn't see him" — the
+// only real statuses are ACTIVE, FREE AGENT, and RETIRED, and this
+// function has no evidence for any of those. Rather than show fans a
+// made-up label like "UNCONFIRMED", a confirmed absence with no matching
+// sourced transaction just leaves status_label/display_status_label/
+// team_affiliation_status untouched — the card keeps showing his last
+// known real status until scripts/apply-mlb-transaction-status.ts finds
+// an actual dated MLB transaction record, or he reappears on a roster.
 async function flagRosterAbsences(): Promise<{
   reappeared: number;
   firstMiss: number;
@@ -349,24 +352,21 @@ async function flagRosterAbsences(): Promise<{
       RETURNING stage.playerid
     ),
     confirmed_absent AS (
-      UPDATE public.flip_card_front_stage stage
-         -- threshold is just past one 3h cycle from the first miss, so
-         -- this fires on the second consecutive miss rather than the third.
-         -- status_label/display_status_label are set alongside
-         -- team_affiliation_status so this shows up as a real, filterable
-         -- status (src/app/[hsid]/layout.tsx's buildStatusFilterOptions
-         -- derives the "BY STATUS" filter list from status_label) rather
-         -- than only changing what the card displays.
-         SET team_affiliation_status = 'UNCONFIRMED',
-             status_label = 'UNCONFIRMED',
-             display_status_label = 'UNCONFIRMED'
-       WHERE stage.current_team_source = 'mlb_api'
-         AND stage.current_team_absent_since IS NOT NULL
-         AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'
-         AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
-         AND stage.last_transaction_applied_at IS NULL
-         AND COALESCE(stage.team_affiliation_status, '') <> 'UNCONFIRMED'
-      RETURNING stage.playerid
+      -- Logging/diagnostic count only — deliberately not an UPDATE. There
+      -- is no real status to set here (see comment above): a confirmed
+      -- absence with no sourced transaction record just leaves the
+      -- player's existing status_label alone. This threshold (just past
+      -- one 3h cycle from the first miss, so it fires on the second
+      -- consecutive miss) is only used to report how many players are in
+      -- this state, so it's visible operationally even though nothing in
+      -- the table changes for them.
+      SELECT stage.playerid
+      FROM public.flip_card_front_stage stage
+      WHERE stage.current_team_source = 'mlb_api'
+        AND stage.current_team_absent_since IS NOT NULL
+        AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'
+        AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
+        AND stage.last_transaction_applied_at IS NULL
     )
     SELECT
       (SELECT count(*) FROM reappeared) AS reappeared_count,
@@ -395,7 +395,7 @@ async function main() {
     console.log(
       `Roster-absence pass: ${absences.reappeared} reappeared (clock cleared), ` +
         `${absences.firstMiss} first miss (clock started), ` +
-        `${absences.confirmedAbsent} confirmed absent (marked UNCONFIRMED)`
+        `${absences.confirmedAbsent} confirmed absent 2h45m+, no sourced transaction yet (status left unchanged)`
     );
     console.log("Refresh complete.");
   } catch (err) {

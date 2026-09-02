@@ -391,25 +391,18 @@ export default function PlayerCardFront({
   const isSourcedDeparture =
     (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
     !!lastTransactionType;
-  const isUnconfirmedAbsence = !isSourcedDeparture && teamAffiliationStatus === "UNCONFIRMED";
 
   const displayTeamName = isSourcedDeparture
     ? lastTransactionType.toUpperCase()
-    : isUnconfirmedAbsence
-      ? "STATUS UNCONFIRMED"
-      : currentTeamName;
+    : currentTeamName;
 
   const displayOrgLine = isSourcedDeparture
     ? [lastTransactionTeamName, lastTransactionDateLabel].filter(Boolean).join(" — ")
-    : isUnconfirmedAbsence
-      ? (currentTeamName && currentTeamName !== "--" ? `Last known: ${currentTeamName}` : "")
-      : currentOrgOrConferenceName;
+    : currentOrgOrConferenceName;
 
   const statusPillLabel = isSourcedDeparture
     ? teamAffiliationStatus
-    : isUnconfirmedAbsence
-      ? "UNCONFIRMED"
-      : formatCommitStatusLabel(p, statusLabel);
+    : formatCommitStatusLabel(p, statusLabel);
 
   const nextGameStatusLabelRaw = asText(p.next_game_status_label);
   const nextGameDate = asText(p.next_game_date);
@@ -430,8 +423,7 @@ export default function PlayerCardFront({
     normalizedStatus === "RETIRED" ||
     normalizedStatus === "NOT ACTIVE" ||
     normalizedStatus === "FREE AGENT" ||
-    isSourcedDeparture ||
-    isUnconfirmedAbsence;
+    isSourcedDeparture;
 
   const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
   const { dayLine, dateLine } = tryFormatGameDate(
