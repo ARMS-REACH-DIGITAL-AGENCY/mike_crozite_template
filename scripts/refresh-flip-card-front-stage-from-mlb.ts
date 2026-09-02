@@ -27,6 +27,16 @@ const pool = new Pool({
 });
 
 async function ensureStageColumns(): Promise<void> {
+  // last_transaction_*/previous_*/team_affiliation_status are also declared
+  // in scripts/apply-mlb-transaction-status.ts's own ensureStageColumns() -
+  // duplicated here (all IF NOT EXISTS, so harmless either order) because
+  // this script's own UPDATE queries reference stage.last_transaction_applied_at
+  // directly. The two workflows run independently (mlb_roster-sync.yml at
+  // minute 0, mlb-transactions-sync.yml at minute 10) and on a freshly
+  // provisioned database the roster sync could run first; without this,
+  // that first run would fail outright with "column does not exist" and
+  // block every roster/card refresh until the other workflow happened to
+  // run and create the column.
   await pool.query(`
     ALTER TABLE public.flip_card_front_stage
       ADD COLUMN IF NOT EXISTS current_team_name text,
@@ -45,7 +55,15 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS forty_man_org_name text,
       ADD COLUMN IF NOT EXISTS forty_man_org_abbr text,
       ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz,
-      ADD COLUMN IF NOT EXISTS current_team_absent_since timestamptz
+      ADD COLUMN IF NOT EXISTS current_team_absent_since timestamptz,
+      ADD COLUMN IF NOT EXISTS team_affiliation_status text,
+      ADD COLUMN IF NOT EXISTS last_transaction_type text,
+      ADD COLUMN IF NOT EXISTS last_transaction_date date,
+      ADD COLUMN IF NOT EXISTS last_transaction_team_name text,
+      ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
+      ADD COLUMN IF NOT EXISTS previous_team_name text,
+      ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
+      ADD COLUMN IF NOT EXISTS previous_level_label text
   `);
 }
 
