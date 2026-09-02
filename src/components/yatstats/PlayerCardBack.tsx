@@ -260,7 +260,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
     return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   })();
 
-  const isSourcedDeparture = teamAffiliationStatus === "FORMER" && !!lastTransactionType;
+  const isSourcedDeparture =
+    (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
+    !!lastTransactionType;
   const isUnconfirmedAbsence = !isSourcedDeparture && teamAffiliationStatus === "UNCONFIRMED";
 
   const teamName = isSourcedDeparture
@@ -279,7 +281,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
     asText(p.position),
     asText(p.level_label) || asText(p.level),
     isSourcedDeparture
-      ? "FORMER"
+      ? teamAffiliationStatus
       : isUnconfirmedAbsence
         ? "UNCONFIRMED"
         : asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),

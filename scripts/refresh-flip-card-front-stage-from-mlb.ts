@@ -224,7 +224,7 @@ async function refreshStage(): Promise<number> {
            forty_man_org_name = display_truth.forty_man_org_name,
            forty_man_org_abbr = display_truth.forty_man_org_abbr,
            -- Being matched on a live roster this run is normally proof
-           -- he's back, so this clears any FORMER/UNCONFIRMED state and
+           -- he's back, so this clears any FREE AGENT/RETIRED/UNCONFIRMED state and
            -- resurrects status_label — EXCEPT this roster-sync workflow
            -- and the transactions-sync workflow run on independent
            -- schedules, so a lagged/stale roster snapshot can finish
@@ -304,8 +304,8 @@ async function refreshStage(): Promise<number> {
 // an explicit, dated, sourced MLB transaction record (e.g. "Released by
 // Iowa Cubs, 2026-07-19") and always wins. This function only ever
 // produces 'UNCONFIRMED' — an honest "we don't know why, last seen with
-// X as of <date>" — and never overrides an existing 'FORMER' status set
-// by the transactions pipeline.
+// X as of <date>" — and never overrides an existing 'FREE AGENT'/'RETIRED'
+// status set by the transactions pipeline.
 async function flagRosterAbsences(): Promise<{
   reappeared: number;
   firstMiss: number;
@@ -349,7 +349,13 @@ async function flagRosterAbsences(): Promise<{
        WHERE stage.current_team_source = 'mlb_api'
          AND stage.current_team_absent_since IS NULL
          AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
-         AND COALESCE(stage.team_affiliation_status, '') <> 'FORMER'
+         -- Don't start the absence clock for a player who already has a
+         -- sourced departure fact from apply-mlb-transaction-status.ts.
+         -- last_transaction_applied_at (not the status value) is the
+         -- ownership marker: 'RETIRED'/'FREE AGENT' are also set by an
+         -- untracked, unrelated process elsewhere in this table, and
+         -- checking the value alone would misfire against those rows too.
+         AND stage.last_transaction_applied_at IS NULL
       RETURNING stage.playerid
     ),
     confirmed_absent AS (
@@ -368,7 +374,8 @@ async function flagRosterAbsences(): Promise<{
          AND stage.current_team_absent_since IS NOT NULL
          AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'
          AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
-         AND COALESCE(stage.team_affiliation_status, '') NOT IN ('FORMER', 'UNCONFIRMED')
+         AND stage.last_transaction_applied_at IS NULL
+         AND COALESCE(stage.team_affiliation_status, '') <> 'UNCONFIRMED'
       RETURNING stage.playerid
     )
     SELECT

@@ -181,7 +181,8 @@ export default async function ProfilePage({ params }: Props) {
   // audit findings on the two disconnected resolvers.
   const affiliationStatus = String(transactionStatus?.team_affiliation_status || "").trim().toUpperCase();
   const lastTransactionType = String(transactionStatus?.last_transaction_type || "").trim();
-  const isSourcedDeparture = affiliationStatus === "FORMER" && !!lastTransactionType;
+  const isSourcedDeparture =
+    (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
   const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === "UNCONFIRMED";
   const lastTransactionDateLabel = (() => {
     const raw = String(transactionStatus?.last_transaction_date || "").trim();
@@ -191,7 +192,7 @@ export default async function ProfilePage({ params }: Props) {
     return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   })();
 
-  const statusLabel = isSourcedDeparture ? "FORMER" : isUnconfirmedAbsence ? "UNCONFIRMED" : rawStatusLabel;
+  const statusLabel = isSourcedDeparture ? affiliationStatus : isUnconfirmedAbsence ? "UNCONFIRMED" : rawStatusLabel;
   const ctxTeam = isSourcedDeparture
     ? lastTransactionType.toUpperCase()
     : isUnconfirmedAbsence

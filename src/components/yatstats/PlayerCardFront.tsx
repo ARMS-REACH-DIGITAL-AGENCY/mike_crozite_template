@@ -388,7 +388,9 @@ export default function PlayerCardFront({
   const lastTransactionTeamName = asText(p.last_transaction_team_name);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
 
-  const isSourcedDeparture = teamAffiliationStatus === "FORMER" && !!lastTransactionType;
+  const isSourcedDeparture =
+    (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
+    !!lastTransactionType;
   const isUnconfirmedAbsence = !isSourcedDeparture && teamAffiliationStatus === "UNCONFIRMED";
 
   const displayTeamName = isSourcedDeparture
@@ -404,7 +406,7 @@ export default function PlayerCardFront({
       : currentOrgOrConferenceName;
 
   const statusPillLabel = isSourcedDeparture
-    ? "FORMER"
+    ? teamAffiliationStatus
     : isUnconfirmedAbsence
       ? "UNCONFIRMED"
       : formatCommitStatusLabel(p, statusLabel);

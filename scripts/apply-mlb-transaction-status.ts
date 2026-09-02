@@ -8,8 +8,11 @@
 //
 // For each player, looks at their single most recent transaction (by
 // effective_date). If that transaction is a *terminal* departure event
-// (Released, Free Agency, Retired), records the specific sourced fact on
-// their flip card and marks them 'FORMER'.
+// (Released, Declared Free Agency, Retired), records the specific sourced
+// fact on their flip card and marks them with the real playing-status the
+// rest of the app already uses — 'FREE AGENT' or 'RETIRED' — not a made-up
+// generic label. There is no third bucket: every player is either ACTIVE,
+// a FREE AGENT, or RETIRED.
 //
 // Deliberately NOT treated as departure on their own: "Designated for
 // Assignment" and "Outright Assignment" / "Outrighted". Both are
@@ -18,9 +21,14 @@
 // (this is exactly what happened to Scott Kingery on 2026-04-24/04-27,
 // months before his actual release on 2026-07-19). Treating either as a
 // departure signal on its own would produce false positives. Only the
-// terminal outcome — Released / Free Agency / Retired — is trusted here.
-// Everything else is left to the roster-presence pipeline
+// terminal outcome — Released / Declared Free Agency / Retired — is
+// trusted here. Everything else is left to the roster-presence pipeline
 // (scripts/refresh-flip-card-front-stage-from-mlb.ts) to resolve.
+//
+// NOTE: "Signed as Free Agent" is MLB's typeDesc for a player being HIRED
+// (a free agent gets signed) — the opposite of a departure. A naive
+// substring match on "free agent" wrongly catches it; classifyDeparture()
+// below matches on "declared free agency" specifically to avoid this.
 //
 // Usage:
 //   npx tsx scripts/apply-mlb-transaction-status.ts
@@ -42,14 +50,23 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// Terminal, non-ambiguous departure signals. Matched case-insensitively
-// against MLB's own typeDesc strings (see scripts/sync-mlb-transactions.ts).
-const DEPARTURE_TYPE_PATTERNS = [
-  "released",
-  "free agency",
-  "free agent",
-  "retired",
-];
+type DepartureStatus = "FREE AGENT" | "RETIRED";
+
+// Terminal, non-ambiguous departure signals, matched case-insensitively
+// against MLB's own typeDesc strings (see scripts/sync-mlb-transactions.ts),
+// classified into the real statuses the app already displays and filters
+// by (see the baseline list in src/app/[hsid]/layout.tsx). Deliberately
+// does NOT match on the bare substring "free agent" — that also appears
+// in "Signed as Free Agent", which is an arrival, not a departure.
+function classifyDeparture(transactionType: string | null): DepartureStatus | null {
+  if (!transactionType) return null;
+  const normalized = transactionType.toLowerCase();
+  if (normalized.includes("retired")) return "RETIRED";
+  if (normalized.includes("released") || normalized.includes("declared free agency")) {
+    return "FREE AGENT";
+  }
+  return null;
+}
 
 async function ensureStageColumns(): Promise<void> {
   await pool.query(`
@@ -83,13 +100,7 @@ async function getLatestTransactionPerPlayer(): Promise<LatestTransactionRow[]> 
   return rows;
 }
 
-function isDepartureType(transactionType: string | null): boolean {
-  if (!transactionType) return false;
-  const normalized = transactionType.toLowerCase();
-  return DEPARTURE_TYPE_PATTERNS.some((pattern) => normalized.includes(pattern));
-}
-
-async function applyDepartureFact(row: LatestTransactionRow): Promise<void> {
+async function applyDepartureFact(row: LatestTransactionRow, status: DepartureStatus): Promise<void> {
   // The team that actioned a departure-type transaction is recorded as
   // from_team_name (e.g. "Iowa Cubs released SS Scott Kingery" ->
   // fromTeam = Iowa Cubs). Fall back to to_team_name defensively in case
@@ -108,7 +119,7 @@ async function applyDepartureFact(row: LatestTransactionRow): Promise<void> {
             -- same departure — would make it perpetually "fresher" than any
             -- roster observation, permanently defeating the freshness guard
             -- in refresh-flip-card-front-stage-from-mlb.ts that lets a
-            -- genuinely newer roster reappearance clear a stale FORMER flag.
+            -- genuinely newer roster reappearance clear a stale status.
             last_transaction_applied_at = CASE
               WHEN last_transaction_applied_at IS NULL
                 OR last_transaction_type IS DISTINCT FROM $2
@@ -117,15 +128,15 @@ async function applyDepartureFact(row: LatestTransactionRow): Promise<void> {
               THEN NOW()
               ELSE last_transaction_applied_at
             END,
-            team_affiliation_status = 'FORMER',
-            status_label = 'FORMER',
-            display_status_label = 'FORMER'
+            team_affiliation_status = $5,
+            status_label = $5,
+            display_status_label = $5
       WHERE playerid::text = $1`,
-    [row.playerid, row.transaction_type, row.effective_date, teamName]
+    [row.playerid, row.transaction_type, row.effective_date, teamName, status]
   );
 }
 
-// Self-healing: a player previously marked FORMER by this script whose
+// Self-healing: a player previously marked FREE AGENT/RETIRED by this script whose
 // *latest* transaction is no longer a departure type (e.g. he signed
 // again, and MLB's transactions feed now shows "Signed"/"Assigned" as
 // the most recent record) should have that flag cleared. Without this,
@@ -143,17 +154,24 @@ async function clearStaleDepartureFlags(
   // departed, not what he actually is now (ACTIVE, INJURED, etc.). The
   // roster-presence pipeline (refresh-flip-card-front-stage-from-mlb.ts)
   // will fill in the real value the next time it finds him on a roster.
+  //
+  // Scoped by `last_transaction_applied_at IS NOT NULL` — proof this row's
+  // FREE AGENT/RETIRED status was set by *this* pipeline — rather than by
+  // status value. 'RETIRED' and 'FREE AGENT' are also set by an untracked,
+  // separate process (confirmed live: rows with those status_label values
+  // and last_transaction_applied_at IS NULL); matching on status alone
+  // would clear facts this script never wrote.
   const result = await pool.query(
     `UPDATE public.flip_card_front_stage
         SET last_transaction_type = NULL,
             last_transaction_date = NULL,
             last_transaction_team_name = NULL,
-            last_transaction_applied_at = NOW(),
+            last_transaction_applied_at = NULL,
             team_affiliation_status = NULL,
             status_label = NULL,
             display_status_label = NULL
       WHERE playerid::text = ANY($1::text[])
-        AND team_affiliation_status = 'FORMER'`,
+        AND last_transaction_applied_at IS NOT NULL`,
     [playerIds]
   );
 
@@ -173,26 +191,31 @@ async function main() {
     const latestTransactions = await getLatestTransactionPerPlayer();
     console.log(`Loaded latest transaction for ${latestTransactions.length} players`);
 
-    const departures = latestTransactions.filter((row) =>
-      isDepartureType(row.transaction_type)
-    );
-    const nonDepartures = latestTransactions.filter(
-      (row) => !isDepartureType(row.transaction_type)
-    );
+    const classified = latestTransactions.map((row) => ({
+      row,
+      status: classifyDeparture(row.transaction_type),
+    }));
+    const departures = classified.filter((c) => c.status !== null) as {
+      row: LatestTransactionRow;
+      status: DepartureStatus;
+    }[];
+    const nonDepartures = classified
+      .filter((c) => c.status === null)
+      .map((c) => c.row);
     console.log(`Departure-type latest transactions: ${departures.length}`);
 
     let applied = 0;
 
-    for (const row of departures) {
+    for (const { row, status } of departures) {
       if (dryRun) {
         console.log(
-          `  [DRY RUN] Would mark FORMER: playerid=${row.playerid} type="${row.transaction_type}" date=${row.effective_date} team=${row.from_team_name ?? row.to_team_name ?? "?"}`
+          `  [DRY RUN] Would mark ${status}: playerid=${row.playerid} type="${row.transaction_type}" date=${row.effective_date} team=${row.from_team_name ?? row.to_team_name ?? "?"}`
         );
         applied++;
         continue;
       }
 
-      await applyDepartureFact(row);
+      await applyDepartureFact(row, status);
       applied++;
     }
 
@@ -204,7 +227,7 @@ async function main() {
     console.log("");
     console.log("=== Complete ===");
     console.log(`Flip cards updated: ${dryRun ? 0 : applied} (would update: ${applied})`);
-    console.log(`Stale FORMER flags cleared (player active again per latest transaction): ${cleared}`);
+    console.log(`Stale FREE AGENT/RETIRED flags cleared (player active again per latest transaction): ${cleared}`);
   } catch (err) {
     console.error("ERROR applying MLB transaction status:", err);
     process.exitCode = 1;

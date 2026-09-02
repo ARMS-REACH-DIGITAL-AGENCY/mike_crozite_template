@@ -38,7 +38,10 @@ function normalizeTeamAffiliationStatus(value: unknown, statusLabel: string, tea
   const status = String(statusLabel || '').trim().toUpperCase();
   if (status === 'ACTIVE' && teamName) return 'CURRENT';
   if (status === 'RETIRED' && teamName) return 'RETIRED_LAST_KNOWN';
-  if (teamName) return 'FORMER';
+  // No explicit status on record but he has a team on file: the honest
+  // real-world bucket for "not active, not confirmed retired" is free
+  // agency, not a made-up generic label.
+  if (teamName) return 'FREE AGENT';
   return 'UNKNOWN';
 }
 
@@ -139,7 +142,10 @@ export default async function PlayerLayout({
     // leaves affiliated baseball entirely, but the transactions feed does.
     // See scripts/apply-mlb-transaction-status.ts.
     const lastTransactionType = String(stage?.last_transaction_type || '').trim();
-    const isSourcedDeparture = affiliationStatus === 'FORMER' && !!lastTransactionType && !!stage?.last_transaction_type;
+    const isSourcedDeparture =
+      (affiliationStatus === 'FREE AGENT' || affiliationStatus === 'RETIRED') &&
+      !!lastTransactionType &&
+      !!stage?.last_transaction_type;
     const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === 'UNCONFIRMED';
     const lastTransactionDateLabel = (() => {
       const raw = String(stage?.last_transaction_date || '').trim();
@@ -149,7 +155,7 @@ export default async function PlayerLayout({
       return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
     })();
 
-    const statusLabel = isSourcedDeparture ? 'FORMER' : isUnconfirmedAbsence ? 'UNCONFIRMED' : rawStatusLabel;
+    const statusLabel = isSourcedDeparture ? affiliationStatus : isUnconfirmedAbsence ? 'UNCONFIRMED' : rawStatusLabel;
     const teamName = isSourcedDeparture
       ? lastTransactionType.toUpperCase()
       : isUnconfirmedAbsence
