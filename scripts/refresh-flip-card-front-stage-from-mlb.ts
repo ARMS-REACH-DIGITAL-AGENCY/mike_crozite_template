@@ -224,57 +224,47 @@ async function refreshStage(): Promise<number> {
            forty_man_org_name = display_truth.forty_man_org_name,
            forty_man_org_abbr = display_truth.forty_man_org_abbr,
            -- Being matched on a live roster this run is normally proof
-           -- he's back, so this clears any FREE AGENT/RETIRED/UNCONFIRMED state and
-           -- resurrects status_label — EXCEPT this roster-sync workflow
-           -- and the transactions-sync workflow run on independent
-           -- schedules, so a lagged/stale roster snapshot can finish
-           -- after the transactions sync already recorded a departure.
-           -- Only trust this roster observation to override a departure
-           -- when it's demonstrably newer than the transaction we
-           -- recorded (or there was no transaction to preserve) —
-           -- otherwise keep the more recent, more specific sourced fact
-           -- intact rather than silently resurrecting a released player.
+           -- he's back, so this clears any FREE AGENT/RETIRED/UNCONFIRMED
+           -- state and resurrects status_label — EXCEPT when the row is
+           -- owned by the transactions pipeline (last_transaction_applied_at
+           -- IS NOT NULL). That ownership is now permanent here: an earlier
+           -- version tried to let a "fresher" roster poll override it, but
+           -- display_truth.verified_at only proves we polled again, not
+           -- that the player's actual roster membership changed — MLB's
+           -- roster listing can keep showing a released player for a
+           -- while, so a stale-but-current poll would falsely win every
+           -- time and silently resurrect him, and clearing the fields here
+           -- created a flap: 10 minutes later the transactions sync would
+           -- re-read the same unchanged departure, see the now-null
+           -- watermark, and restore it — repeating every cycle. A
+           -- transaction-owned row can only be cleared by real evidence: a
+           -- newer, different transaction record showing the player is no
+           -- longer departed (scripts/apply-mlb-transaction-status.ts's
+           -- own self-healing, clearStaleDepartureFlags). Until then this
+           -- roster pipeline leaves it alone.
            status_label = CASE
              WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
              THEN display_truth.normalized_status
              ELSE stage.status_label
            END,
            display_status_label = CASE
              WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
              THEN display_truth.display_status
              ELSE stage.display_status_label
            END,
+           -- Only clears UNCONFIRMED (or a legacy team_affiliation_status
+           -- value from the untracked external process this table also
+           -- receives writes from) back to NULL when this row isn't
+           -- transaction-owned — a plain ownership check, no freshness
+           -- comparison needed now that a transaction-owned row is simply
+           -- never touched here. last_transaction_type/date/team_name/
+           -- applied_at are deliberately NOT in this SET list at all any
+           -- more: they belong exclusively to
+           -- scripts/apply-mlb-transaction-status.ts now.
            team_affiliation_status = CASE
              WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
              THEN NULL
              ELSE stage.team_affiliation_status
-           END,
-           last_transaction_type = CASE
-             WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
-             THEN NULL
-             ELSE stage.last_transaction_type
-           END,
-           last_transaction_date = CASE
-             WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
-             THEN NULL
-             ELSE stage.last_transaction_date
-           END,
-           last_transaction_team_name = CASE
-             WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
-             THEN NULL
-             ELSE stage.last_transaction_team_name
-           END,
-           last_transaction_applied_at = CASE
-             WHEN stage.last_transaction_applied_at IS NULL
-               OR display_truth.verified_at > stage.last_transaction_applied_at
-             THEN NULL
-             ELSE stage.last_transaction_applied_at
            END,
            current_team_absent_since = NULL,
            stage_updated_at = NOW()
