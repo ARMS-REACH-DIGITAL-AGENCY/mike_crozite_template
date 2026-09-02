@@ -87,7 +87,6 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
   statuses.add('RETIRED');
   statuses.add('FREE AGENT');
   statuses.add('INJURED');
-  statuses.add('REDSHIRT');
   statuses.add('PARTNER/SPONSOR');
 
   for (const row of rows) {
@@ -104,7 +103,8 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'DEVELOPMENT LIST',
     'DESIGNATED FOR ASSIGNMENT',
     'FREE AGENT',
-    'REDSHIRT',
+    'RED SHIRT',
+    'MEDICAL REDSHIRT',
     'PARTNER/SPONSOR',
     'PARTNER - SPONSOR',
     'RETIRED',
