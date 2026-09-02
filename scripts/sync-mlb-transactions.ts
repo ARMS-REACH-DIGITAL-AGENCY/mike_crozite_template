@@ -105,24 +105,45 @@ const pool = new Pool({
 // ---------------------------------------------------------------------------
 
 /**
+ * effective_date's real column type varies by deployment — this live
+ * database has it as `timestamp with time zone`, but the original
+ * migration comment describes it as `date`, and a differently-seeded
+ * database could genuinely have either. Converting between `date` and
+ * `timestamptz` is timezone-dependent in *either* direction (both the
+ * date->timestamptz and timestamptz->date casts are STABLE, not
+ * IMMUTABLE), so there is no single literal type that works for both —
+ * hardcoding one just breaks the other case the same way the original
+ * bug did. Detect the column's actual type at runtime and match it,
+ * instead of assuming.
+ */
+async function getEffectiveDateCastType(): Promise<"date" | "timestamptz"> {
+  const { rows } = await pool.query<{ data_type: string }>(
+    `SELECT data_type
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'player_transactions'
+       AND column_name = 'effective_date'`
+  );
+  return rows[0]?.data_type === "date" ? "date" : "timestamptz";
+}
+
+/**
  * Creates a unique index on player_transactions so that ON CONFLICT DO NOTHING
  * silently skips duplicate rows across re-runs.
  *
  * COALESCE handles NULL values for optional fields so that two rows with the
  * same logical identity (but NULL values) still conflict correctly.
- *
- * effective_date is `timestamp with time zone` in the live schema (despite
- * the original migration comment describing it as `date`) — coercing a
- * `date` literal to timestamptz is timezone-dependent and therefore not
- * IMMUTABLE, which Postgres rejects in an index expression. Match the
- * literal's type to the column's actual type instead.
  */
 async function ensureDedupeIndex(): Promise<void> {
+  const castType = await getEffectiveDateCastType();
+  // castType is one of two hardcoded literals from getEffectiveDateCastType()
+  // above, never externally-controlled input, so string interpolation here
+  // is safe — there's no way to parameterize a type name via $1 in SQL.
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_player_transactions_dedup
     ON player_transactions (
       playerid,
-      COALESCE(effective_date, '1900-01-01'::timestamptz),
+      COALESCE(effective_date, '1900-01-01'::${castType}),
       COALESCE(transaction_type, ''),
       COALESCE(to_team_name, '')
     )
@@ -148,49 +169,65 @@ const DELAY_MS = 250;
 const delay = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// Throws on failure — the caller decides how to handle a failed level.
+// Swallowing this here (returning []) would make a real API outage for
+// one level indistinguishable from that level legitimately having zero
+// transactions that day, which is exactly the "silent partial success"
+// failure mode this whole pipeline exists to eliminate.
 async function fetchTransactionsForSport(
   sportId: string,
   start: string,
   end: string
 ): Promise<MlbTransaction[]> {
   const url = `${MLB_API_BASE}/transactions?sportId=${sportId}&startDate=${start}&endDate=${end}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    const data = (await res.json()) as MlbTransactionsResponse;
-    return data.transactions ?? [];
-  } catch (err) {
-    console.error(`fetchTransactionsForSport(${sportId}) error:`, err);
-    return [];
-  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  const data = (await res.json()) as MlbTransactionsResponse;
+  return data.transactions ?? [];
+}
+
+interface FetchTransactionsResult {
+  transactions: MlbTransaction[];
+  failedSportIds: string[];
 }
 
 /**
  * Fetches transactions across every level (MLB through Rookie ball), not
  * just sportId=1. Some transactions are reported under more than one
  * sport context, so results are deduped by transaction id.
+ *
+ * A failure on one sport ID does not abort the others — we still want
+ * whatever data we can get — but every failure is tracked and returned
+ * to the caller so an incomplete sync can never be reported as a full
+ * success (see main()).
  */
 async function fetchTransactions(
   start: string,
   end: string
-): Promise<MlbTransaction[]> {
+): Promise<FetchTransactionsResult> {
   const byId = new Map<number, MlbTransaction>();
+  const failedSportIds: string[] = [];
 
   for (const sportId of ALL_SPORT_IDS) {
-    const batch = await fetchTransactionsForSport(sportId, start, end);
-    for (const txn of batch) {
-      if (txn.id !== undefined) {
-        byId.set(txn.id, txn);
-      } else {
-        // No id to dedupe on — keep it, worst case a harmless duplicate
-        // that the DB-level unique index will silently skip on insert.
-        byId.set(Math.random(), txn);
+    try {
+      const batch = await fetchTransactionsForSport(sportId, start, end);
+      for (const txn of batch) {
+        if (txn.id !== undefined) {
+          byId.set(txn.id, txn);
+        } else {
+          // No id to dedupe on — keep it, worst case a harmless duplicate
+          // that the DB-level unique index will silently skip on insert.
+          byId.set(Math.random(), txn);
+        }
       }
+    } catch (err) {
+      console.error(`fetchTransactionsForSport(${sportId}) failed:`, err);
+      failedSportIds.push(sportId);
     }
     await delay(DELAY_MS);
   }
 
-  return Array.from(byId.values());
+  return { transactions: Array.from(byId.values()), failedSportIds };
 }
 
 // ---------------------------------------------------------------------------
@@ -305,11 +342,26 @@ async function main() {
   }
 
   // 2. Fetch transactions from MLB API
-  const transactions = await fetchTransactions(START_DATE, END_DATE);
+  const { transactions, failedSportIds } = await fetchTransactions(
+    START_DATE,
+    END_DATE
+  );
   console.log(`✓ Fetched ${transactions.length} transactions`);
+
+  if (failedSportIds.length > 0) {
+    // Process whatever we did get — partial data is still useful — but
+    // this run must not be allowed to read as a clean, complete sync.
+    console.error(
+      `WARNING: failed to fetch sport ID(s) [${failedSportIds.join(", ")}]. ` +
+        `This sync is INCOMPLETE for this run — some transactions may be missing.`
+    );
+  }
 
   if (transactions.length === 0) {
     console.log("No transactions to process.");
+    if (failedSportIds.length > 0) {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -422,6 +474,16 @@ async function main() {
     for (const line of unmatchedLog) {
       console.log(line);
     }
+  }
+
+  if (failedSportIds.length > 0) {
+    // Everything that succeeded was still processed and written above —
+    // but a run that silently dropped one or more sport levels must exit
+    // non-zero so GitHub Actions shows it as failed, not green.
+    console.error(
+      `\nExiting non-zero: sport ID(s) [${failedSportIds.join(", ")}] failed to fetch this run.`
+    );
+    process.exitCode = 1;
   }
 }
 
