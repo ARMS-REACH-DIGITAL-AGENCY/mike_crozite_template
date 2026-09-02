@@ -68,13 +68,69 @@ function classifyDeparture(transactionType: string | null): DepartureStatus | nu
   return null;
 }
 
+// This player's own flip_card_front_stage.level_label can be stale at the
+// moment of departure: the roster-sync pipeline processes each org's
+// affiliates as separate API calls, and a player who's just been released
+// from his actual (often minor-league) team can still linger for a run or
+// two on the parent MLB club's own full-roster listing before that catches
+// up too — so the LAST successful match before he vanishes from all
+// rosters entirely can be that stale MLB-level straggler, not his real
+// last level (confirmed live for Scott Kingery: level_label froze at
+// 'MLB' even though his actual last team, Iowa Cubs, is Triple-A).
+// Look up the level from this player's own most recent roster snapshot
+// specifically at the team that released him — a precise, per-player,
+// per-team fact — rather than trusting the row's own possibly-drifted
+// level_label.
+async function lookupLevelForPlayerAtTeam(
+  playerid: string,
+  teamName: string | null
+): Promise<string | null> {
+  if (!teamName) return null;
+  const { rows } = await pool.query<{ normalized_level: string | null }>(
+    `SELECT
+       CASE UPPER(COALESCE(raw.level, ''))
+         WHEN 'MLB' THEN 'MLB'
+         WHEN 'AAA' THEN 'TRIPLE-A'
+         WHEN 'TRIPLE-A' THEN 'TRIPLE-A'
+         WHEN 'AA' THEN 'DOUBLE-A'
+         WHEN 'DOUBLE-A' THEN 'DOUBLE-A'
+         WHEN 'HIGH-A' THEN 'HIGH-A'
+         WHEN 'SINGLE-A' THEN 'LOW-A'
+         WHEN 'LOW-A' THEN 'LOW-A'
+         WHEN 'A' THEN 'LOW-A'
+         WHEN 'ROOKIE' THEN 'ROOKIE'
+         ELSE NULLIF(UPPER(COALESCE(raw.level, '')), '')
+       END AS normalized_level
+     FROM public.mlb_org_roster_raw raw
+     JOIN public.mlb_org_roster_resolution res ON res.raw_id = raw.id
+     WHERE res.playerid = $1
+       AND raw.source_team_name = $2
+     ORDER BY raw.seen_at DESC NULLS LAST
+     LIMIT 1`,
+    [playerid, teamName]
+  );
+  return rows[0]?.normalized_level ?? null;
+}
+
 async function ensureStageColumns(): Promise<void> {
+  // previous_*/team_affiliation_status are also declared in
+  // refresh-flip-card-front-stage-from-mlb.ts's own ensureStageColumns()
+  // (all IF NOT EXISTS, harmless either order) — this script's own UPDATE
+  // references previous_team_name/previous_org_or_conference_name/
+  // previous_level_label directly, and the two workflows are
+  // independently dispatchable, so this script needs to be able to
+  // create its own columns rather than depend on the other one having
+  // run first.
   await pool.query(`
     ALTER TABLE public.flip_card_front_stage
       ADD COLUMN IF NOT EXISTS last_transaction_type text,
       ADD COLUMN IF NOT EXISTS last_transaction_date date,
       ADD COLUMN IF NOT EXISTS last_transaction_team_name text,
-      ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz
+      ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
+      ADD COLUMN IF NOT EXISTS team_affiliation_status text,
+      ADD COLUMN IF NOT EXISTS previous_team_name text,
+      ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
+      ADD COLUMN IF NOT EXISTS previous_level_label text
   `);
 }
 
@@ -107,6 +163,7 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
   // a future MLB typeDesc we're matching on populates the team on the
   // other side.
   const teamName = row.from_team_name ?? row.to_team_name ?? null;
+  const resolvedLevel = await lookupLevelForPlayerAtTeam(row.playerid, teamName);
 
   await pool.query(
     `UPDATE public.flip_card_front_stage
@@ -136,17 +193,20 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             -- existing retired-player rows already use to show a "last
             -- known" team+org, so a FREE AGENT/RETIRED card here looks
             -- like every other one instead of using a bespoke field.
-            -- previous_team_name always prefers the transaction's own
-            -- specific team ($4, e.g. "Iowa Cubs") over whatever
-            -- current_team_name happened to hold — that's the most
-            -- authoritative source for "who actually had him last".
+            -- previous_team_name prefers the transaction's own specific
+            -- team ($4, e.g. "Iowa Cubs") — the most authoritative source
+            -- for "who actually had him last" — but falls back to
+            -- whatever current_team_name already held when the
+            -- transaction itself carries no team (e.g. some retirement
+            -- records have neither fromTeam nor toTeam), so we don't
+            -- overwrite a perfectly good known team with null.
             -- Guarded by current_team_name IS NOT NULL so a repeat,
             -- no-op application of the same departure (this script runs
             -- every 3h regardless of whether anything changed) doesn't
             -- re-snapshot from an already-nulled current_team_name and
             -- wipe out the real captured value.
             previous_team_name = CASE
-              WHEN current_team_name IS NOT NULL THEN $4
+              WHEN current_team_name IS NOT NULL THEN COALESCE($4, current_team_name)
               ELSE previous_team_name
             END,
             previous_org_or_conference_name = CASE
@@ -154,13 +214,32 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
               ELSE previous_org_or_conference_name
             END,
             previous_level_label = CASE
-              WHEN current_team_name IS NOT NULL THEN level_label
+              WHEN current_team_name IS NOT NULL THEN COALESCE($6, level_label)
               ELSE previous_level_label
             END,
+            -- level_label/display_level_label are what PlayerCardFront's
+            -- visible LEVEL chip actually reads (not previous_level_label,
+            -- which nothing displays) — deliberately NOT nulled like
+            -- current_team_name (matching the existing retired-player
+            -- convention, where level_label stays populated), but
+            -- corrected in place to the reliable per-team lookup when one
+            -- was found, since the row's existing value can be stale (see
+            -- lookupLevelForPlayerAtTeam's comment).
+            level_label = COALESCE($6, level_label),
+            display_level_label = COALESCE($6, display_level_label),
             current_team_name = NULL,
-            current_org_or_conference_name = NULL
+            current_org_or_conference_name = NULL,
+            -- A departed player can't still be on the 40-man roster.
+            -- Without this, PlayerCardFront's 40-MAN chip (which takes
+            -- priority over the RELEASED note) would keep claiming a
+            -- released/retired player is on the 40-man indefinitely,
+            -- since refresh-flip-card-front-stage-from-mlb.ts now freezes
+            -- is_on_40man/forty_man_org_* for any transaction-owned row.
+            is_on_40man = false,
+            forty_man_org_name = NULL,
+            forty_man_org_abbr = NULL
       WHERE playerid::text = $1`,
-    [row.playerid, row.transaction_type, row.effective_date, teamName, status]
+    [row.playerid, row.transaction_type, row.effective_date, teamName, status, resolvedLevel]
   );
 }
 

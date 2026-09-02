@@ -510,15 +510,15 @@ export default function PlayerCardFront({
                 {statusPillLabel}
               </span>
 
-              <span className="front-chip" style={chipStyle}>
-                {visibleLevelLabel}
-              </span>
-
               {thirdChip && (
                 <span className={thirdChip.className} style={chipStyle} title={thirdChip.title}>
                   {thirdChip.label}
                 </span>
               )}
+
+              <span className="front-chip" style={chipStyle}>
+                {visibleLevelLabel}
+              </span>
 
               {classOf && (
                 <span
