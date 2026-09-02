@@ -102,7 +102,21 @@ async function applyDepartureFact(row: LatestTransactionRow): Promise<void> {
         SET last_transaction_type = $2,
             last_transaction_date = $3::date,
             last_transaction_team_name = $4,
-            last_transaction_applied_at = NOW(),
+            -- Only advance the watermark when the underlying fact actually
+            -- changed (or is being recorded for the first time). Bumping it
+            -- to NOW() on every run — even a no-op re-application of the
+            -- same departure — would make it perpetually "fresher" than any
+            -- roster observation, permanently defeating the freshness guard
+            -- in refresh-flip-card-front-stage-from-mlb.ts that lets a
+            -- genuinely newer roster reappearance clear a stale FORMER flag.
+            last_transaction_applied_at = CASE
+              WHEN last_transaction_applied_at IS NULL
+                OR last_transaction_type IS DISTINCT FROM $2
+                OR last_transaction_date IS DISTINCT FROM $3::date
+                OR last_transaction_team_name IS DISTINCT FROM $4
+              THEN NOW()
+              ELSE last_transaction_applied_at
+            END,
             team_affiliation_status = 'FORMER',
             status_label = 'FORMER',
             display_status_label = 'FORMER'
