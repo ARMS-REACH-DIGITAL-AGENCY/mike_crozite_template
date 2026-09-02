@@ -84,6 +84,12 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
   statuses.add('INJURED');
   statuses.add('REDSHIRT');
   statuses.add('PARTNER/SPONSOR');
+  // Sourced-departure status set by scripts/apply-mlb-transaction-status.ts
+  // and the roster-absence fallback in
+  // scripts/refresh-flip-card-front-stage-from-mlb.ts — always offered,
+  // same as the other baseline statuses above, rather than only appearing
+  // once a school happens to already have a FORMER player.
+  statuses.add('FORMER');
 
   for (const row of rows) {
     const status = normalizeStatusLabel(row.status_label);
@@ -102,6 +108,8 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'REDSHIRT',
     'PARTNER/SPONSOR',
     'PARTNER - SPONSOR',
+    'FORMER',
+    'UNCONFIRMED',
     'RETIRED',
   ];
 

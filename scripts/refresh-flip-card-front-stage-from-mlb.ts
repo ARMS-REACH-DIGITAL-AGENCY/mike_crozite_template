@@ -225,6 +225,17 @@ async function refreshStage(): Promise<number> {
            is_on_40man = display_truth.is_on_40man,
            forty_man_org_name = display_truth.forty_man_org_name,
            forty_man_org_abbr = display_truth.forty_man_org_abbr,
+           -- Being matched on a live roster this run is unambiguous proof
+           -- he's back — clear any stale FORMER/UNCONFIRMED state and the
+           -- sourced-departure fields alongside it, rather than leaving a
+           -- comeback player stuck showing "Released" forever. (Mirrors
+           -- the self-healing clear in apply-mlb-transaction-status.ts.)
+           team_affiliation_status = NULL,
+           last_transaction_type = NULL,
+           last_transaction_date = NULL,
+           last_transaction_team_name = NULL,
+           last_transaction_applied_at = NULL,
+           current_team_absent_since = NULL,
            stage_updated_at = NOW()
       FROM display_truth
      WHERE stage.playerid::text = display_truth.playerid::text
@@ -303,8 +314,15 @@ async function flagRosterAbsences(): Promise<{
     confirmed_absent AS (
       UPDATE public.flip_card_front_stage stage
          -- threshold is just past one 3h cycle from the first miss, so
-         -- this fires on the second consecutive miss rather than the third
-         SET team_affiliation_status = 'UNCONFIRMED'
+         -- this fires on the second consecutive miss rather than the third.
+         -- status_label/display_status_label are set alongside
+         -- team_affiliation_status so this shows up as a real, filterable
+         -- status (src/app/[hsid]/layout.tsx's buildStatusFilterOptions
+         -- derives the "BY STATUS" filter list from status_label) rather
+         -- than only changing what the card displays.
+         SET team_affiliation_status = 'UNCONFIRMED',
+             status_label = 'UNCONFIRMED',
+             display_status_label = 'UNCONFIRMED'
        WHERE stage.current_team_source = 'mlb_api'
          AND stage.current_team_absent_since IS NOT NULL
          AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'

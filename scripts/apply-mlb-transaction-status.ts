@@ -103,7 +103,9 @@ async function applyDepartureFact(row: LatestTransactionRow): Promise<void> {
             last_transaction_date = $3::date,
             last_transaction_team_name = $4,
             last_transaction_applied_at = NOW(),
-            team_affiliation_status = 'FORMER'
+            team_affiliation_status = 'FORMER',
+            status_label = 'FORMER',
+            display_status_label = 'FORMER'
       WHERE playerid::text = $1`,
     [row.playerid, row.transaction_type, row.effective_date, teamName]
   );
@@ -122,13 +124,20 @@ async function clearStaleDepartureFlags(
 
   const playerIds = nonDepartures.map((row) => row.playerid);
 
+  // Clearing status_label/display_status_label back to NULL rather than
+  // guessing a replacement — this script only knows he's no longer
+  // departed, not what he actually is now (ACTIVE, INJURED, etc.). The
+  // roster-presence pipeline (refresh-flip-card-front-stage-from-mlb.ts)
+  // will fill in the real value the next time it finds him on a roster.
   const result = await pool.query(
     `UPDATE public.flip_card_front_stage
         SET last_transaction_type = NULL,
             last_transaction_date = NULL,
             last_transaction_team_name = NULL,
             last_transaction_applied_at = NOW(),
-            team_affiliation_status = NULL
+            team_affiliation_status = NULL,
+            status_label = NULL,
+            display_status_label = NULL
       WHERE playerid::text = ANY($1::text[])
         AND team_affiliation_status = 'FORMER'`,
     [playerIds]
