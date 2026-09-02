@@ -218,23 +218,64 @@ async function refreshStage(): Promise<number> {
                THEN display_truth.forty_man_org_name
              ELSE stage.current_org_or_conference_name
            END,
-           status_label = display_truth.normalized_status,
            level_label = display_truth.normalized_level,
-           display_status_label = display_truth.display_status,
            display_level_label = display_truth.display_level,
            is_on_40man = display_truth.is_on_40man,
            forty_man_org_name = display_truth.forty_man_org_name,
            forty_man_org_abbr = display_truth.forty_man_org_abbr,
-           -- Being matched on a live roster this run is unambiguous proof
-           -- he's back — clear any stale FORMER/UNCONFIRMED state and the
-           -- sourced-departure fields alongside it, rather than leaving a
-           -- comeback player stuck showing "Released" forever. (Mirrors
-           -- the self-healing clear in apply-mlb-transaction-status.ts.)
-           team_affiliation_status = NULL,
-           last_transaction_type = NULL,
-           last_transaction_date = NULL,
-           last_transaction_team_name = NULL,
-           last_transaction_applied_at = NULL,
+           -- Being matched on a live roster this run is normally proof
+           -- he's back, so this clears any FORMER/UNCONFIRMED state and
+           -- resurrects status_label — EXCEPT this roster-sync workflow
+           -- and the transactions-sync workflow run on independent
+           -- schedules, so a lagged/stale roster snapshot can finish
+           -- after the transactions sync already recorded a departure.
+           -- Only trust this roster observation to override a departure
+           -- when it's demonstrably newer than the transaction we
+           -- recorded (or there was no transaction to preserve) —
+           -- otherwise keep the more recent, more specific sourced fact
+           -- intact rather than silently resurrecting a released player.
+           status_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN display_truth.normalized_status
+             ELSE stage.status_label
+           END,
+           display_status_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN display_truth.display_status
+             ELSE stage.display_status_label
+           END,
+           team_affiliation_status = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN NULL
+             ELSE stage.team_affiliation_status
+           END,
+           last_transaction_type = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN NULL
+             ELSE stage.last_transaction_type
+           END,
+           last_transaction_date = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN NULL
+             ELSE stage.last_transaction_date
+           END,
+           last_transaction_team_name = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN NULL
+             ELSE stage.last_transaction_team_name
+           END,
+           last_transaction_applied_at = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+               OR display_truth.verified_at > stage.last_transaction_applied_at
+             THEN NULL
+             ELSE stage.last_transaction_applied_at
+           END,
            current_team_absent_since = NULL,
            stage_updated_at = NOW()
       FROM display_truth
