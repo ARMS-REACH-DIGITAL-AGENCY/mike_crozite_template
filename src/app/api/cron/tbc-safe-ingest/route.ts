@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
+import { sanitizeError, sendIngestAlert } from "@/lib/ingestAlerts";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
+// This cron mutates landing and canonical stats tables, so it must use the
+// dedicated writer connection rather than the app's read-only player pool.
+const databaseUrl = process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   ssl: { rejectUnauthorized: false },
 });
 
@@ -29,6 +34,7 @@ const FEEDS = {
 } as const;
 
 type FeedKey = keyof typeof FEEDS;
+const JOB_NAME = "tbc_safe_ingest";
 
 function isAuthorized(req: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -364,22 +370,134 @@ async function syncOneFeed(client: any, feed: FeedKey) {
   };
 }
 
+async function ensureIngestHealthTable(client: any): Promise<void> {
+  await client.query(`
+    create table if not exists public.ingest_job_health (
+      job_name text primary key,
+      last_success_at timestamptz,
+      last_failure_at timestamptz,
+      consecutive_failures integer not null default 0,
+      last_error text,
+      last_result jsonb,
+      updated_at timestamptz not null default now()
+    )
+  `);
+}
+
+async function getConsecutiveFailures(client: any): Promise<number> {
+  const { rows } = await client.query(
+    `select consecutive_failures from public.ingest_job_health where job_name = $1`,
+    [JOB_NAME],
+  );
+  return Number(rows[0]?.consecutive_failures || 0);
+}
+
+async function recordIngestSuccess(client: any, result: unknown): Promise<void> {
+  await client.query(
+    `
+      insert into public.ingest_job_health (
+        job_name, last_success_at, consecutive_failures, last_error, last_result, updated_at
+      ) values ($1, now(), 0, null, $2::jsonb, now())
+      on conflict (job_name) do update set
+        last_success_at = excluded.last_success_at,
+        consecutive_failures = 0,
+        last_error = null,
+        last_result = excluded.last_result,
+        updated_at = now()
+    `,
+    [JOB_NAME, JSON.stringify(result)],
+  );
+}
+
+async function recordIngestFailure(client: any, error: unknown): Promise<number | null> {
+  const safeError = sanitizeError(error);
+  const { rows } = await client.query(
+    `
+      insert into public.ingest_job_health (
+        job_name, last_failure_at, consecutive_failures, last_error, updated_at
+      ) values ($1, now(), 1, $2, now())
+      on conflict (job_name) do update set
+        last_failure_at = excluded.last_failure_at,
+        consecutive_failures = public.ingest_job_health.consecutive_failures + 1,
+        last_error = excluded.last_error,
+        updated_at = now()
+      returning consecutive_failures
+    `,
+    [JOB_NAME, safeError],
+  );
+  return Number(rows[0]?.consecutive_failures || 0);
+}
+
+function validateResults(results: Array<{ feed: FeedKey; downloadedRows: number; insertedRows: number; targetRows: number }>) {
+  for (const result of results) {
+    if (result.downloadedRows <= 0 || result.insertedRows <= 0) {
+      throw new Error(`${result.feed} feed was empty; canonical tables were not changed`);
+    }
+
+    if (result.feed !== "players" && result.targetRows !== result.insertedRows) {
+      throw new Error(`${result.feed} target count did not match the downloaded feed`);
+    }
+  }
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const client = await pool.connect();
+  if (!databaseUrl) {
+    console.error("[tbc-safe-ingest] Missing DATABASE_URL");
+    try {
+      await sendIngestAlert({
+        event: "yatstats_ingest_failed",
+        job: JOB_NAME,
+        occurredAt: new Date().toISOString(),
+        error: "DATABASE_URL is not configured",
+      });
+    } catch (alertError) {
+      console.error("[tbc-safe-ingest] failed to send alert", {
+        message: sanitizeError(alertError),
+      });
+    }
+    return NextResponse.json(
+      { ok: false, error: "database connection is not configured" },
+      { status: 500 },
+    );
+  }
+
+  let client: any;
+  let previousFailures = 0;
 
   try {
+    client = await pool.connect();
+    await ensureIngestHealthTable(client);
+    previousFailures = await getConsecutiveFailures(client);
     await client.query("begin");
 
     const results = [];
     results.push(await syncOneFeed(client, "players"));
     results.push(await syncOneFeed(client, "batting"));
     results.push(await syncOneFeed(client, "pitching"));
+    validateResults(results);
+    await recordIngestSuccess(client, results);
 
     await client.query("commit");
+
+    if (previousFailures > 0) {
+      try {
+        await sendIngestAlert({
+          event: "yatstats_ingest_recovered",
+          job: JOB_NAME,
+          occurredAt: new Date().toISOString(),
+          consecutiveFailures: previousFailures,
+          details: { results },
+        });
+      } catch (alertError) {
+        console.error("[tbc-safe-ingest] failed to send recovery alert", {
+          message: sanitizeError(alertError),
+        });
+      }
+    }
 
     return NextResponse.json({
       ok: true,
@@ -387,15 +505,51 @@ export async function GET(req: NextRequest) {
       results,
     });
   } catch (error: any) {
-    await client.query("rollback");
+    if (client) {
+      try {
+        await client.query("rollback");
+      } catch {
+        // The connection may have failed before a transaction was opened.
+      }
+    }
+
+    let consecutiveFailures: number | null = null;
+    if (client) {
+      try {
+        await ensureIngestHealthTable(client);
+        consecutiveFailures = await recordIngestFailure(client, error);
+      } catch (healthError) {
+        console.error("[tbc-safe-ingest] could not record failed run", {
+          message: sanitizeError(healthError),
+        });
+      }
+    }
+
+    console.error("[tbc-safe-ingest] sync failed", {
+      message: sanitizeError(error),
+      code: error?.code,
+    });
+    try {
+      await sendIngestAlert({
+        event: "yatstats_ingest_failed",
+        job: JOB_NAME,
+        occurredAt: new Date().toISOString(),
+        consecutiveFailures,
+        error: sanitizeError(error),
+      });
+    } catch (alertError) {
+      console.error("[tbc-safe-ingest] failed to send alert", {
+        message: sanitizeError(alertError),
+      });
+    }
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "sync failed",
+        error: sanitizeError(error),
       },
       { status: 500 },
     );
   } finally {
-    client.release();
+    client?.release();
   }
 }

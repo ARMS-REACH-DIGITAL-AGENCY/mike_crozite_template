@@ -7,6 +7,10 @@
       "schedule": "5 * * * *"
     },
     {
+      "path": "/api/cron/tbc-ingest-watchdog",
+      "schedule": "35 8 * * *"
+    },
+    {
       "path": "/api/cron/alpb-stats-ingest",
       "schedule": "25 9 * * *"
     },
