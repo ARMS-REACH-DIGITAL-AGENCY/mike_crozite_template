@@ -79,10 +79,14 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
   ]);
 
   statuses.add('ACTIVE');
+  // RETIRED and FREE AGENT are also the real statuses written by
+  // scripts/apply-mlb-transaction-status.ts (a sourced MLB transaction
+  // record) — always offered here, same as the other baseline statuses,
+  // rather than only appearing once a school happens to already have a
+  // player in that state.
   statuses.add('RETIRED');
   statuses.add('FREE AGENT');
   statuses.add('INJURED');
-  statuses.add('REDSHIRT');
   statuses.add('PARTNER/SPONSOR');
 
   for (const row of rows) {
@@ -99,7 +103,8 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     'DEVELOPMENT LIST',
     'DESIGNATED FOR ASSIGNMENT',
     'FREE AGENT',
-    'REDSHIRT',
+    'RED SHIRT',
+    'MEDICAL REDSHIRT',
     'PARTNER/SPONSOR',
     'PARTNER - SPONSOR',
     'RETIRED',

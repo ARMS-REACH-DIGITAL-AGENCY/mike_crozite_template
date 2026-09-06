@@ -181,22 +181,13 @@ export default async function ProfilePage({ params }: Props) {
   // audit findings on the two disconnected resolvers.
   const affiliationStatus = String(transactionStatus?.team_affiliation_status || "").trim().toUpperCase();
   const lastTransactionType = String(transactionStatus?.last_transaction_type || "").trim();
-  const isSourcedDeparture = affiliationStatus === "FORMER" && !!lastTransactionType;
-  const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === "UNCONFIRMED";
-  const lastTransactionDateLabel = (() => {
-    const raw = String(transactionStatus?.last_transaction_date || "").trim();
-    if (!raw) return "";
-    const parsed = new Date(raw);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-  })();
+  const isSourcedDeparture =
+    (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
+  const previousTeamName = String(transactionStatus?.previous_team_name || "").trim();
+  const previousOrgOrConferenceName = String(transactionStatus?.previous_org_or_conference_name || "").trim();
 
-  const statusLabel = isSourcedDeparture ? "FORMER" : isUnconfirmedAbsence ? "UNCONFIRMED" : rawStatusLabel;
-  const ctxTeam = isSourcedDeparture
-    ? lastTransactionType.toUpperCase()
-    : isUnconfirmedAbsence
-      ? "STATUS UNCONFIRMED"
-      : rawCtxTeam;
+  const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
+  const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
 
   const currentTeamId = resolvedCurrentTeam?.teamid
     ? String(resolvedCurrentTeam.teamid)
@@ -209,10 +200,8 @@ export default async function ProfilePage({ params }: Props) {
   const ctxConference = (teamCtx?.conference || "").trim();
   const rawCurrentOrgOrConference = ctxOrg || ctxConference || "";
   const currentOrgOrConference = isSourcedDeparture
-    ? [transactionStatus?.last_transaction_team_name, lastTransactionDateLabel].filter(Boolean).join(" — ")
-    : isUnconfirmedAbsence
-      ? (rawCtxTeam ? `Last known: ${rawCtxTeam}` : "")
-      : rawCurrentOrgOrConference;
+    ? previousOrgOrConferenceName
+    : rawCurrentOrgOrConference;
 
   const draftInfo =
     ([...battingSeasons, ...pitchingSeasons] as any[]).find((s) => s.draft_info)

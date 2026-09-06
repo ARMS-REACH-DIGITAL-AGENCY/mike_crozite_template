@@ -27,6 +27,16 @@ const pool = new Pool({
 });
 
 async function ensureStageColumns(): Promise<void> {
+  // last_transaction_*/previous_*/team_affiliation_status are also declared
+  // in scripts/apply-mlb-transaction-status.ts's own ensureStageColumns() -
+  // duplicated here (all IF NOT EXISTS, so harmless either order) because
+  // this script's own UPDATE queries reference stage.last_transaction_applied_at
+  // directly. The two workflows run independently (mlb_roster-sync.yml at
+  // minute 0, mlb-transactions-sync.yml at minute 10) and on a freshly
+  // provisioned database the roster sync could run first; without this,
+  // that first run would fail outright with "column does not exist" and
+  // block every roster/card refresh until the other workflow happened to
+  // run and create the column.
   await pool.query(`
     ALTER TABLE public.flip_card_front_stage
       ADD COLUMN IF NOT EXISTS current_team_name text,
@@ -45,7 +55,15 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS forty_man_org_name text,
       ADD COLUMN IF NOT EXISTS forty_man_org_abbr text,
       ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz,
-      ADD COLUMN IF NOT EXISTS current_team_absent_since timestamptz
+      ADD COLUMN IF NOT EXISTS current_team_absent_since timestamptz,
+      ADD COLUMN IF NOT EXISTS team_affiliation_status text,
+      ADD COLUMN IF NOT EXISTS last_transaction_type text,
+      ADD COLUMN IF NOT EXISTS last_transaction_date date,
+      ADD COLUMN IF NOT EXISTS last_transaction_team_name text,
+      ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
+      ADD COLUMN IF NOT EXISTS previous_team_name text,
+      ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
+      ADD COLUMN IF NOT EXISTS previous_level_label text
   `);
 }
 
@@ -206,25 +224,109 @@ async function refreshStage(): Promise<number> {
       FROM chosen_truth
     )
     UPDATE public.flip_card_front_stage stage
-       SET current_team_name = display_truth.source_team_name,
-           current_team_level = display_truth.normalized_level,
-           current_team_source = 'mlb_api',
-           current_team_source_player_id = display_truth.source_player_id,
-           current_team_source_team_id = display_truth.source_team_id,
-           current_team_roster_status = display_truth.roster_status,
-           current_team_last_verified = display_truth.verified_at,
+       -- Being matched on a live roster this run is normally proof he's
+       -- back, so this whole block resurrects current_team_name/level and
+       -- clears any FREE AGENT/RETIRED state — EXCEPT when the row is
+       -- owned by the transactions pipeline (last_transaction_applied_at
+       -- IS NOT NULL). That ownership is permanent here: an earlier
+       -- version tried to let a "fresher" roster poll override it, but
+       -- display_truth.verified_at only proves we polled again, not that
+       -- the player's actual roster membership changed — MLB's roster
+       -- listing can keep showing a released player for a while, so a
+       -- stale-but-current poll would falsely win every time and silently
+       -- resurrect him. A transaction-owned row can only be cleared by
+       -- real evidence: a newer, different transaction record showing the
+       -- player is no longer departed
+       -- (scripts/apply-mlb-transaction-status.ts's own self-healing,
+       -- clearStaleDepartureFlags). Until then this roster pipeline
+       -- leaves current_team_name/current_org_or_conference_name/etc.
+       -- alone (they were already nulled out there in favor of
+       -- previous_team_name/previous_org_or_conference_name).
+       SET current_team_name = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.source_team_name
+             ELSE stage.current_team_name
+           END,
+           current_team_level = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.normalized_level
+             ELSE stage.current_team_level
+           END,
+           current_team_source = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN 'mlb_api'
+             ELSE stage.current_team_source
+           END,
+           current_team_source_player_id = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.source_player_id
+             ELSE stage.current_team_source_player_id
+           END,
+           current_team_source_team_id = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.source_team_id
+             ELSE stage.current_team_source_team_id
+           END,
+           current_team_roster_status = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.roster_status
+             ELSE stage.current_team_roster_status
+           END,
+           current_team_last_verified = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.verified_at
+             ELSE stage.current_team_last_verified
+           END,
            current_org_or_conference_name = CASE
+             WHEN stage.last_transaction_applied_at IS NOT NULL THEN stage.current_org_or_conference_name
              WHEN display_truth.is_on_40man IS TRUE AND display_truth.normalized_level <> 'MLB'
                THEN display_truth.forty_man_org_name
              ELSE stage.current_org_or_conference_name
            END,
-           status_label = display_truth.normalized_status,
-           level_label = display_truth.normalized_level,
-           display_status_label = display_truth.display_status,
-           display_level_label = display_truth.display_level,
-           is_on_40man = display_truth.is_on_40man,
-           forty_man_org_name = display_truth.forty_man_org_name,
-           forty_man_org_abbr = display_truth.forty_man_org_abbr,
+           level_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.normalized_level
+             ELSE stage.level_label
+           END,
+           display_level_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.display_level
+             ELSE stage.display_level_label
+           END,
+           is_on_40man = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.is_on_40man
+             ELSE stage.is_on_40man
+           END,
+           forty_man_org_name = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.forty_man_org_name
+             ELSE stage.forty_man_org_name
+           END,
+           forty_man_org_abbr = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.forty_man_org_abbr
+             ELSE stage.forty_man_org_abbr
+           END,
+           status_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.normalized_status
+             ELSE stage.status_label
+           END,
+           display_status_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.display_status
+             ELSE stage.display_status_label
+           END,
+           -- Only clears a legacy team_affiliation_status value (from the
+           -- untracked external process this table also receives writes
+           -- from) back to NULL when this row isn't transaction-owned.
+           team_affiliation_status = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN NULL
+             ELSE stage.team_affiliation_status
+           END,
+           current_team_absent_since = NULL,
            stage_updated_at = NOW()
       FROM display_truth
      WHERE stage.playerid::text = display_truth.playerid::text
@@ -243,17 +345,20 @@ async function refreshStage(): Promise<number> {
 // written. This function is the other half: it notices absence.
 //
 // A single missed run is not proof of departure (a transient MLB API
-// hiccup, or mid-transaction limbo, can cause a one-off miss). We
-// require the player to be missing on two consecutive 3-hourly runs
-// (~3h elapsed since the first miss, ~6h since he was actually last
-// confirmed present) before flipping status, using
-// current_team_absent_since as the clock. This is deliberately a softer
-// signal than scripts/apply-mlb-transaction-status.ts: that script has
-// an explicit, dated, sourced MLB transaction record (e.g. "Released by
-// Iowa Cubs, 2026-07-19") and always wins. This function only ever
-// produces 'UNCONFIRMED' — an honest "we don't know why, last seen with
-// X as of <date>" — and never overrides an existing 'FORMER' status set
-// by the transactions pipeline.
+// hiccup, or mid-transaction limbo, can cause a one-off miss). We track
+// two consecutive 3-hourly misses (~3h elapsed since the first miss, ~6h
+// since he was actually last confirmed present) via current_team_absent_since
+// as the clock, purely for internal bookkeeping/logging.
+//
+// Deliberately does NOT invent a status for this. There is no real MLB
+// playing status for "we polled the roster API and didn't see him" — the
+// only real statuses are ACTIVE, FREE AGENT, and RETIRED, and this
+// function has no evidence for any of those. Rather than show fans a
+// made-up label like "UNCONFIRMED", a confirmed absence with no matching
+// sourced transaction just leaves status_label/display_status_label/
+// team_affiliation_status untouched — the card keeps showing his last
+// known real status until scripts/apply-mlb-transaction-status.ts finds
+// an actual dated MLB transaction record, or he reappears on a roster.
 async function flagRosterAbsences(): Promise<{
   reappeared: number;
   firstMiss: number;
@@ -297,20 +402,31 @@ async function flagRosterAbsences(): Promise<{
        WHERE stage.current_team_source = 'mlb_api'
          AND stage.current_team_absent_since IS NULL
          AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
-         AND COALESCE(stage.team_affiliation_status, '') <> 'FORMER'
+         -- Don't start the absence clock for a player who already has a
+         -- sourced departure fact from apply-mlb-transaction-status.ts.
+         -- last_transaction_applied_at (not the status value) is the
+         -- ownership marker: 'RETIRED'/'FREE AGENT' are also set by an
+         -- untracked, unrelated process elsewhere in this table, and
+         -- checking the value alone would misfire against those rows too.
+         AND stage.last_transaction_applied_at IS NULL
       RETURNING stage.playerid
     ),
     confirmed_absent AS (
-      UPDATE public.flip_card_front_stage stage
-         -- threshold is just past one 3h cycle from the first miss, so
-         -- this fires on the second consecutive miss rather than the third
-         SET team_affiliation_status = 'UNCONFIRMED'
-       WHERE stage.current_team_source = 'mlb_api'
-         AND stage.current_team_absent_since IS NOT NULL
-         AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'
-         AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
-         AND COALESCE(stage.team_affiliation_status, '') NOT IN ('FORMER', 'UNCONFIRMED')
-      RETURNING stage.playerid
+      -- Logging/diagnostic count only — deliberately not an UPDATE. There
+      -- is no real status to set here (see comment above): a confirmed
+      -- absence with no sourced transaction record just leaves the
+      -- player's existing status_label alone. This threshold (just past
+      -- one 3h cycle from the first miss, so it fires on the second
+      -- consecutive miss) is only used to report how many players are in
+      -- this state, so it's visible operationally even though nothing in
+      -- the table changes for them.
+      SELECT stage.playerid
+      FROM public.flip_card_front_stage stage
+      WHERE stage.current_team_source = 'mlb_api'
+        AND stage.current_team_absent_since IS NOT NULL
+        AND stage.current_team_absent_since <= NOW() - INTERVAL '2 hours 45 minutes'
+        AND stage.playerid::text NOT IN (SELECT playerid FROM matched_playerids)
+        AND stage.last_transaction_applied_at IS NULL
     )
     SELECT
       (SELECT count(*) FROM reappeared) AS reappeared_count,
@@ -339,7 +455,7 @@ async function main() {
     console.log(
       `Roster-absence pass: ${absences.reappeared} reappeared (clock cleared), ` +
         `${absences.firstMiss} first miss (clock started), ` +
-        `${absences.confirmedAbsent} confirmed absent (marked UNCONFIRMED)`
+        `${absences.confirmedAbsent} confirmed absent 2h45m+, no sourced transaction yet (status left unchanged)`
     );
     console.log("Refresh complete.");
   } catch (err) {

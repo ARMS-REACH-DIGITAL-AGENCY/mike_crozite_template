@@ -38,7 +38,10 @@ function normalizeTeamAffiliationStatus(value: unknown, statusLabel: string, tea
   const status = String(statusLabel || '').trim().toUpperCase();
   if (status === 'ACTIVE' && teamName) return 'CURRENT';
   if (status === 'RETIRED' && teamName) return 'RETIRED_LAST_KNOWN';
-  if (teamName) return 'FORMER';
+  // No explicit status on record but he has a team on file: the honest
+  // real-world bucket for "not active, not confirmed retired" is free
+  // agency, not a made-up generic label.
+  if (teamName) return 'FREE AGENT';
   return 'UNKNOWN';
 }
 
@@ -90,8 +93,8 @@ export default async function PlayerLayout({
         display_level_label: string | null;
         team_affiliation_status: string | null;
         last_transaction_type: string | null;
-        last_transaction_date: string | null;
-        last_transaction_team_name: string | null;
+        previous_team_name: string | null;
+        previous_org_or_conference_name: string | null;
       }>(
         `select
            f.hsid::text as hsid,
@@ -105,8 +108,8 @@ export default async function PlayerLayout({
            f.display_level_label,
            f.team_affiliation_status,
            f.last_transaction_type,
-           f.last_transaction_date::text as last_transaction_date,
-           f.last_transaction_team_name
+           f.previous_team_name,
+           f.previous_org_or_conference_name
          from flip_card_front_stage f
          left join school_success ss on ss.hsid::text = f.hsid::text
          where f.playerid::text = $1
@@ -139,27 +142,19 @@ export default async function PlayerLayout({
     // leaves affiliated baseball entirely, but the transactions feed does.
     // See scripts/apply-mlb-transaction-status.ts.
     const lastTransactionType = String(stage?.last_transaction_type || '').trim();
-    const isSourcedDeparture = affiliationStatus === 'FORMER' && !!lastTransactionType && !!stage?.last_transaction_type;
-    const isUnconfirmedAbsence = !isSourcedDeparture && affiliationStatus === 'UNCONFIRMED';
-    const lastTransactionDateLabel = (() => {
-      const raw = String(stage?.last_transaction_date || '').trim();
-      if (!raw) return '';
-      const parsed = new Date(raw);
-      if (Number.isNaN(parsed.getTime())) return '';
-      return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-    })();
+    const isSourcedDeparture =
+      (affiliationStatus === 'FREE AGENT' || affiliationStatus === 'RETIRED') &&
+      !!lastTransactionType;
+    const previousTeamName = String(stage?.previous_team_name || '').trim();
+    const previousOrgOrConferenceName = String(stage?.previous_org_or_conference_name || '').trim();
 
-    const statusLabel = isSourcedDeparture ? 'FORMER' : isUnconfirmedAbsence ? 'UNCONFIRMED' : rawStatusLabel;
+    const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
     const teamName = isSourcedDeparture
-      ? lastTransactionType.toUpperCase()
-      : isUnconfirmedAbsence
-        ? 'STATUS UNCONFIRMED'
-        : rawTeamName;
+      ? previousTeamName || rawTeamName
+      : rawTeamName;
     const orgConferenceName = isSourcedDeparture
-      ? [stage?.last_transaction_team_name, lastTransactionDateLabel].filter(Boolean).join(' — ')
-      : isUnconfirmedAbsence
-        ? (rawTeamName ? `Last known: ${rawTeamName}` : '')
-        : rawOrgConferenceName;
+      ? previousOrgOrConferenceName
+      : rawOrgConferenceName;
 
     meta = {
       currentTeamName: teamName,
