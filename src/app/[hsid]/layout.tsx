@@ -34,6 +34,7 @@ import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
+import YatTourBridge from '@/components/yatstats/YatTourBridge';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -535,6 +536,7 @@ export default async function HsidLayout({
       <FilterAnchorGuard />
       <DrawerLayoutOverrides />
       <DrawerRailController />
+      <YatTourBridge />
       <YatInteractivity
         resolvedHsid={resolvedHsid}
         firebaseConfigJSON={getFirebaseConfigJSON()}
