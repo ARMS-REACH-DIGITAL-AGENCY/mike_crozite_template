@@ -439,6 +439,14 @@ async function main() {
       console.log(`\n${source.teamid} ${source.team}`);
       console.log(`  ${source.schedule_url}`);
 
+      // Postgres aborts the *entire* transaction after any failed statement
+      // (e.g. a foreign-key violation on one team's insert) - every later
+      // query in the same transaction then fails too until a rollback, even
+      // completely unrelated ones like seedFlipCardFrontStage() below. A
+      // per-source savepoint isolates that: a bad source loses only its own
+      // uncommitted work and the transaction is usable again immediately,
+      // instead of one team's bad data silently killing the whole run.
+      await client.query('savepoint source_import');
       try {
         const response = await fetch(source.schedule_url, {
           headers: {
@@ -449,6 +457,7 @@ async function main() {
 
         if (!response.ok) {
           console.log(`  skipped: HTTP ${response.status}`);
+          await client.query('release savepoint source_import');
           continue;
         }
 
@@ -462,13 +471,19 @@ async function main() {
         extractedTotal += games.length;
 
         if (!DRY_RUN) {
+          let sourceInserted = 0;
           for (const game of games) {
             await upsertGame(client, game);
-            insertedTotal += 1;
+            sourceInserted += 1;
           }
+          insertedTotal += sourceInserted;
         }
+
+        await client.query('release savepoint source_import');
       } catch (error) {
         console.log(`  failed: ${error?.message || error}`);
+        await client.query('rollback to savepoint source_import');
+        await client.query('release savepoint source_import');
       }
     }
 
