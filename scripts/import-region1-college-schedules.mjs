@@ -485,10 +485,17 @@ async function main() {
         }
 
         const html = await response.text();
-        const games = dedupeGames([
-          ...parseJsonLdGames(html, source),
-          ...parsePrestoScheduleHtml(html, source),
-        ]);
+        // JSON-LD is structured, authoritative data straight from the site's
+        // own schema.org markup - when it's present, trust it exclusively.
+        // The regex-based HTML fallback below is a last resort for sites with
+        // no JSON-LD; running it unconditionally alongside JSON-LD let it
+        // match unrelated page chrome (nav menus, season pickers) on sites
+        // that do have JSON-LD, producing garbage rows with wrong dates that
+        // dedupeGames couldn't catch since they don't share a game key.
+        const jsonLdGames = parseJsonLdGames(html, source);
+        const games = dedupeGames(
+          jsonLdGames.length > 0 ? jsonLdGames : parsePrestoScheduleHtml(html, source)
+        );
 
         console.log(`  extracted ${games.length} games`);
         extractedTotal += games.length;
