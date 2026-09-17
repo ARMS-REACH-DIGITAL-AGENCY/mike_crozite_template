@@ -21,8 +21,11 @@
 const CORPORATE_SOURCE = 'yatstats-corporate-tour';
 const MICROSITE_SOURCE = 'yatstats-microsite';
 
+// The corporate tour page will only ever run FROM yatstats.com itself (or an
+// armsreach preview while it's being built) -- never from a school subdomain,
+// which is always the embedded child here, not the parent doing the embedding.
 const TRUSTED_PARENT_HOSTS = [
-  /(^|\.)yatstats\.com$/i,
+  /^(www\.)?yatstats\.com$/i,
   /^armsreach-[a-z0-9]+-arms-reach-digital-agency\.vercel\.app$/i,
   /^armsreach-git-[a-z0-9-]+-arms-reach-digital-agency\.vercel\.app$/i,
 ];
@@ -42,7 +45,6 @@ export default function YatTourBridge() {
   if (!embedded) return; // Normal top-level visit -- nothing to bridge, nothing to touch.
 
   var trustedOrigin = null;
-  var trustedSource = null;
   var parentZoom = 1;
 
   function isTrustedParentOrigin(origin){
@@ -55,11 +57,23 @@ export default function YatTourBridge() {
     } catch (e) { return false; }
   }
 
+  // Seed trust from the referrer immediately, so the very first location
+  // report doesn't have to wait for the parent's HELLO round-trip. This is
+  // best-effort only -- a strict Referrer-Policy can leave it empty -- and
+  // is always reconfirmed (or corrected) the moment any validated message
+  // actually arrives below.
+  try {
+    if (document.referrer) {
+      var referrerOrigin = new URL(document.referrer).origin;
+      if (isTrustedParentOrigin(referrerOrigin)) trustedOrigin = referrerOrigin;
+    }
+  } catch (e) {}
+
   function report(type, extra){
-    if (!trustedOrigin || !trustedSource) return;
+    if (!trustedOrigin) return;
     var payload = { source: MICROSITE_SOURCE, type: type, href: window.location.href };
     if (extra) { for (var k in extra) payload[k] = extra[k]; }
-    try { trustedSource.postMessage(payload, trustedOrigin); } catch (e) {}
+    try { window.parent.postMessage(payload, trustedOrigin); } catch (e) {}
   }
 
   function reportLocation(){ report('YAT_LOCATION'); }
@@ -73,10 +87,26 @@ export default function YatTourBridge() {
   }
   window.addEventListener('hashchange', checkHref);
   window.addEventListener('popstate', checkHref);
-  // Some in-app tab switches rewrite the hash via history.pushState without
-  // firing hashchange; a light poll catches those too rather than trusting
-  // any single event to fire reliably.
-  setInterval(checkHref, 400);
+  window.addEventListener('pageshow', checkHref);
+
+  // Next's router (and any in-app tab switcher) drives navigation through
+  // these two calls; patching them catches a location change the instant it
+  // happens instead of waiting on a poll tick.
+  var originalPushState = window.history.pushState;
+  var originalReplaceState = window.history.replaceState;
+  window.history.pushState = function(){
+    var result = originalPushState.apply(window.history, arguments);
+    checkHref();
+    return result;
+  };
+  window.history.replaceState = function(){
+    var result = originalReplaceState.apply(window.history, arguments);
+    checkHref();
+    return result;
+  };
+  // Belt-and-suspenders: none of the above is guaranteed to fire for every
+  // possible way a hash or path can change, so a light poll backstops it.
+  setInterval(checkHref, 600);
 
   function runTourAction(selector){
     if (!selector) return;
@@ -90,6 +120,7 @@ export default function YatTourBridge() {
       var id = first.replace(/^#/, '');
       if (id && id.indexOf(' ') === -1 && id.indexOf('[') === -1) {
         window.location.hash = id;
+        checkHref();
       }
     } catch (e) {}
   }
@@ -99,7 +130,6 @@ export default function YatTourBridge() {
     if (!data || data.source !== CORPORATE_SOURCE) return;
     if (!isTrustedParentOrigin(event.origin)) return;
     trustedOrigin = event.origin;
-    trustedSource = event.source;
 
     if (data.type === 'YAT_TOUR_HELLO') {
       report('YAT_TOUR_ACK');
@@ -114,6 +144,8 @@ export default function YatTourBridge() {
       return;
     }
   });
+
+  if (trustedOrigin) reportLocation();
 
   // ---- Pinch-to-zoom / pan relay, contained to this document's own touches ----
   var clamp = function(v, min, max){ return Math.min(max, Math.max(min, v)); };
@@ -131,7 +163,9 @@ export default function YatTourBridge() {
   var pinchStartDist = 0;
   var pinchCenter = { x: .5, y: .5 };
   var panPoint = null;
+  var panMoved = false;
   var panActive = false;
+  var lastTapAt = 0;
 
   document.addEventListener('touchstart', function(e){
     if (!trustedOrigin) return; // Not yet handshaken with a verified parent -- leave native behavior alone.
@@ -144,8 +178,9 @@ export default function YatTourBridge() {
       pinchCenter = fraction(center(a, b));
       report('YAT_EMBED_GESTURE', { phase: 'start' });
       e.preventDefault();
-    } else if (e.touches.length === 1 && !pinchActive && parentZoom > 1.001) {
+    } else if (e.touches.length === 1 && !pinchActive) {
       panPoint = point(e.touches[0]);
+      panMoved = false;
     }
   }, { passive: false, capture: true });
 
@@ -158,14 +193,32 @@ export default function YatTourBridge() {
       e.preventDefault();
     } else if (!pinchActive && panPoint && e.touches.length === 1 && parentZoom > 1.001) {
       var p = point(e.touches[0]);
+      var dx = p.x - panPoint.x, dy = p.y - panPoint.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) panMoved = true;
       if (!panActive) { panActive = true; report('YAT_EMBED_PAN', { phase: 'start' }); }
-      report('YAT_EMBED_PAN', { phase: 'change', deltaX: p.x - panPoint.x, deltaY: p.y - panPoint.y });
+      report('YAT_EMBED_PAN', { phase: 'change', deltaX: dx, deltaY: dy });
       e.preventDefault();
     }
   }, { passive: false, capture: true });
 
-  function endTouch(){
+  function endTouch(e){
     if (pinchActive) { pinchActive = false; report('YAT_EMBED_GESTURE', { phase: 'end' }); }
+    if (panActive) { report('YAT_EMBED_PAN', { phase: 'end' }); }
+
+    // A clean tap (no drag) while already zoomed in, twice in quick
+    // succession, resets the zoom -- the same convention as a native photo
+    // viewer, and proven out already in the version of this component that
+    // briefly ran in production.
+    if (panPoint && !panMoved && !panActive && parentZoom > 1.001) {
+      var now = Date.now();
+      if (now - lastTapAt < 320) {
+        report('YAT_EMBED_ZOOM_RESET');
+        lastTapAt = 0;
+      } else {
+        lastTapAt = now;
+      }
+    }
+
     panActive = false;
     panPoint = null;
   }
