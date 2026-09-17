@@ -120,9 +120,32 @@ function parseJsonLdGames(html, source) {
       for (const item of list) {
         if (!item || typeof item !== 'object') continue;
         const date = parseDateToIso(item.startDate || item.date || item.eventDate);
-        const opponent = cleanText(item.name || item.description || '');
+        const structuredHomeName = cleanText(item.homeTeam?.name || '');
+        const structuredAwayName = cleanText(item.awayTeam?.name || '');
+
+        let opponent = '';
+        let homeAway = null;
+        if (structuredHomeName && structuredAwayName) {
+          const sourceTeam = String(source.team || '').toLowerCase().trim();
+          if (structuredHomeName.toLowerCase().trim() === sourceTeam) {
+            homeAway = 'HOME';
+            opponent = structuredAwayName;
+          } else if (structuredAwayName.toLowerCase().trim() === sourceTeam) {
+            homeAway = 'AWAY';
+            opponent = structuredHomeName;
+          } else {
+            // Source team name doesn't exactly match either side (site uses a
+            // different name variant) - still surface the game, just without
+            // a reliable home/away call.
+            opponent = structuredAwayName;
+          }
+        } else {
+          opponent = cleanText(item.name || item.description || '');
+        }
+
         if (!date || !opponent) continue;
-        games.push(buildGame(source, { date, timeText: item.startDate || '', opponent, homeAway: null, status: 'scheduled', raw: item }));
+        const venueName = cleanText(item.location?.name || '') || null;
+        games.push(buildGame(source, { date, timeText: item.startDate || '', opponent, homeAway, status: 'scheduled', venueName, raw: item }));
       }
     } catch {}
   }
@@ -224,7 +247,7 @@ function buildGame(source, input) {
     home_team_name: homeTeamName || null,
     away_team_id: null,
     away_team_name: awayTeamName || null,
-    venue_name: null,
+    venue_name: input.venueName || null,
     level: 'JUCO',
     home_score: null,
     away_score: null,
@@ -439,6 +462,14 @@ async function main() {
       console.log(`\n${source.teamid} ${source.team}`);
       console.log(`  ${source.schedule_url}`);
 
+      // Postgres aborts the *entire* transaction after any failed statement
+      // (e.g. a foreign-key violation on one team's insert) - every later
+      // query in the same transaction then fails too until a rollback, even
+      // completely unrelated ones like seedFlipCardFrontStage() below. A
+      // per-source savepoint isolates that: a bad source loses only its own
+      // uncommitted work and the transaction is usable again immediately,
+      // instead of one team's bad data silently killing the whole run.
+      await client.query('savepoint source_import');
       try {
         const response = await fetch(source.schedule_url, {
           headers: {
@@ -449,26 +480,40 @@ async function main() {
 
         if (!response.ok) {
           console.log(`  skipped: HTTP ${response.status}`);
+          await client.query('release savepoint source_import');
           continue;
         }
 
         const html = await response.text();
-        const games = dedupeGames([
-          ...parseJsonLdGames(html, source),
-          ...parsePrestoScheduleHtml(html, source),
-        ]);
+        // JSON-LD is structured, authoritative data straight from the site's
+        // own schema.org markup - when it's present, trust it exclusively.
+        // The regex-based HTML fallback below is a last resort for sites with
+        // no JSON-LD; running it unconditionally alongside JSON-LD let it
+        // match unrelated page chrome (nav menus, season pickers) on sites
+        // that do have JSON-LD, producing garbage rows with wrong dates that
+        // dedupeGames couldn't catch since they don't share a game key.
+        const jsonLdGames = parseJsonLdGames(html, source);
+        const games = dedupeGames(
+          jsonLdGames.length > 0 ? jsonLdGames : parsePrestoScheduleHtml(html, source)
+        );
 
         console.log(`  extracted ${games.length} games`);
         extractedTotal += games.length;
 
         if (!DRY_RUN) {
+          let sourceInserted = 0;
           for (const game of games) {
             await upsertGame(client, game);
-            insertedTotal += 1;
+            sourceInserted += 1;
           }
+          insertedTotal += sourceInserted;
         }
+
+        await client.query('release savepoint source_import');
       } catch (error) {
         console.log(`  failed: ${error?.message || error}`);
+        await client.query('rollback to savepoint source_import');
+        await client.query('release savepoint source_import');
       }
     }
 

@@ -1512,8 +1512,66 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
+    // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
+    // team_schedules). College teams' games live in college_schedule_games_raw,
+    // a separate pipeline with no overlapping teamids, so it's unioned in here
+    // rather than joined - this is the only reader that needs both sources
+    // reconciled into one shape.
     const { rows } = await query(
-      `SELECT * FROM v_team_schedule_feed WHERE tbc_teamid::text = $1 ORDER BY game_date ASC LIMIT $2`,
+      `WITH combined AS (
+         SELECT
+           tbc_teamid::text AS tbc_teamid,
+           team_name,
+           game_date,
+           game_time_utc,
+           status,
+           venue_name,
+           home_team_name,
+           away_team_name,
+           home_away,
+           opponent,
+           home_score,
+           away_score
+         FROM v_team_schedule_feed
+         WHERE tbc_teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           g.teamid::text AS tbc_teamid,
+           g.team AS team_name,
+           g.game_date,
+           g.game_time_utc,
+           g.status,
+           g.venue_name,
+           g.home_team_name,
+           g.away_team_name,
+           CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN 'Home' ELSE 'Away' END AS home_away,
+           CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN g.away_team_name ELSE g.home_team_name END AS opponent,
+           g.home_score,
+           g.away_score
+         FROM college_schedule_games_raw g
+         WHERE g.teamid::text = $1
+       )
+       SELECT
+         *,
+         COALESCE(venue_name, upper(home_away)) AS location,
+         (home_away = 'Home') AS is_home,
+         CASE
+           WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN
+             CASE
+               WHEN home_away = 'Home' AND home_score > away_score THEN 'W ' || home_score || '-' || away_score
+               WHEN home_away = 'Home' AND home_score < away_score THEN 'L ' || home_score || '-' || away_score
+               WHEN home_away = 'Home' AND home_score = away_score THEN 'T ' || home_score || '-' || away_score
+               WHEN home_away = 'Away' AND away_score > home_score THEN 'W ' || away_score || '-' || home_score
+               WHEN home_away = 'Away' AND away_score < home_score THEN 'L ' || away_score || '-' || home_score
+               ELSE 'T ' || away_score || '-' || home_score
+             END
+           ELSE NULL
+         END AS result
+       FROM combined
+       ORDER BY game_date ASC
+       LIMIT $2`,
       [teamId, limit]
     );
     return rows;
