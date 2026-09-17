@@ -120,9 +120,32 @@ function parseJsonLdGames(html, source) {
       for (const item of list) {
         if (!item || typeof item !== 'object') continue;
         const date = parseDateToIso(item.startDate || item.date || item.eventDate);
-        const opponent = cleanText(item.name || item.description || '');
+        const structuredHomeName = cleanText(item.homeTeam?.name || '');
+        const structuredAwayName = cleanText(item.awayTeam?.name || '');
+
+        let opponent = '';
+        let homeAway = null;
+        if (structuredHomeName && structuredAwayName) {
+          const sourceTeam = String(source.team || '').toLowerCase().trim();
+          if (structuredHomeName.toLowerCase().trim() === sourceTeam) {
+            homeAway = 'HOME';
+            opponent = structuredAwayName;
+          } else if (structuredAwayName.toLowerCase().trim() === sourceTeam) {
+            homeAway = 'AWAY';
+            opponent = structuredHomeName;
+          } else {
+            // Source team name doesn't exactly match either side (site uses a
+            // different name variant) - still surface the game, just without
+            // a reliable home/away call.
+            opponent = structuredAwayName;
+          }
+        } else {
+          opponent = cleanText(item.name || item.description || '');
+        }
+
         if (!date || !opponent) continue;
-        games.push(buildGame(source, { date, timeText: item.startDate || '', opponent, homeAway: null, status: 'scheduled', raw: item }));
+        const venueName = cleanText(item.location?.name || '') || null;
+        games.push(buildGame(source, { date, timeText: item.startDate || '', opponent, homeAway, status: 'scheduled', venueName, raw: item }));
       }
     } catch {}
   }
@@ -224,7 +247,7 @@ function buildGame(source, input) {
     home_team_name: homeTeamName || null,
     away_team_id: null,
     away_team_name: awayTeamName || null,
-    venue_name: null,
+    venue_name: input.venueName || null,
     level: 'JUCO',
     home_score: null,
     away_score: null,
