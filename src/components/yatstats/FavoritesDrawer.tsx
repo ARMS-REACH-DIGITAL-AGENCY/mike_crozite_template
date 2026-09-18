@@ -256,7 +256,7 @@ async function fetchCardEmbedMarkup(playerId: string): Promise<string | null> {
 function renderCardErrorFallback(name: string, schoolId: string, playerId: string): string {
   const slug = playerSlug(name);
   return `
-    <div class="yat-card yat-cross-school-card-error" data-playerid="${escapeHtml(playerId)}">
+    <div class="yat-card yat-cross-school-card-error" data-playerid="${escapeHtml(playerId)}" data-superfan-synthetic="true">
       <span>Could not load ${escapeHtml(name)}&apos;s card.</span>
       <a href="/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}">Open profile</a>
     </div>
@@ -602,7 +602,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
       const container = crossSchoolContainersRef.current.get(playerId);
       if (container) {
-        container.innerHTML = `<div class="yat-card yat-cross-school-card-loading" data-playerid="${escapeHtml(playerId)}">Loading card&hellip;</div>`;
+        container.innerHTML = `<div class="yat-card yat-cross-school-card-loading" data-playerid="${escapeHtml(playerId)}" data-superfan-synthetic="true">Loading card&hellip;</div>`;
       }
 
       const showFallback = () => {
@@ -622,6 +622,12 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           if (!c) return;
           if (markup) {
             c.innerHTML = markup;
+            // The wrapper carries data-superfan-synthetic so legacy gallery
+            // scripts (GalleryUniverseController, Row3MirrorGuard) leave this
+            // DOM alone - but their :not([data-superfan-synthetic]) selectors
+            // check the .yat-card element itself, not its ancestors, so the
+            // real injected card needs the same marker directly on it too.
+            c.querySelector('.yat-card[data-playerid]')?.setAttribute('data-superfan-synthetic', 'true');
           } else {
             showFallback();
           }
