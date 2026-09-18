@@ -174,7 +174,14 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
 // getActiveRosterRowByPlayerId (filter: one arbitrary player, regardless of
 // which school's page is currently being viewed) so both paths compute
 // 2026 season stats identically instead of drifting into two resolvers.
-function buildActiveRosterSql(schoolPlayersFilter: string): string {
+//
+// statsRowsFilter additionally scopes the raw season-stat table scans
+// (tbc_batting_2026_season_raw / tbc_pitching_2026_season_raw), which
+// aggregate before ever joining back to school_players. For a whole
+// school that full-table aggregation is the intended cost; for a single
+// arbitrary player it must be scoped too, or every cross-school favorite
+// card re-aggregates the entire league's season on every fetch.
+function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: string): string {
   return `
     WITH school_players AS (
       SELECT
@@ -214,7 +221,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string): string {
         MAX(draft_info) AS draft_info,
         MAX(playyears)  AS playyears
       FROM tbc_batting_2026_season_raw
-      WHERE year = '2026'
+      WHERE year = '2026' AND ${statsRowsFilter}
       GROUP BY playerid::text, highlevel
     ),
 
@@ -304,7 +311,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string): string {
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
       FROM tbc_pitching_2026_season_raw
-      WHERE year = '2026'
+      WHERE year = '2026' AND ${statsRowsFilter}
     ),
 
     pitching_2026_by_level AS (
@@ -438,7 +445,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string): string {
         year,
         g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so
       FROM tbc_batting_2026_season_raw
-      WHERE year = '2026'
+      WHERE year = '2026' AND ${statsRowsFilter}
     ),
 
     batting_2026_by_bucket AS (
@@ -680,7 +687,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string): string {
 }
 
 export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
-  const sql = buildActiveRosterSql('ph.hsid = $1');
+  const sql = buildActiveRosterSql('ph.hsid = $1', 'TRUE');
   const { rows } = await query(sql, [hsid]);
   return rows;
 });
@@ -688,9 +695,11 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
 // Same 2026-season stat computation as getActiveRosterByHsid, but for one
 // arbitrary player regardless of which school's page is currently being
 // viewed - used to build a real flip card for a cross-school favorite
-// instead of the current subdomain's own roster.
+// instead of the current subdomain's own roster. Also scopes the raw
+// season-stat table scans to that one player (see buildActiveRosterSql),
+// so this stays a single-row lookup instead of a league-wide aggregation.
 export const getActiveRosterRowByPlayerId = cache(async function getActiveRosterRowByPlayerId(playerId: string): Promise<any | null> {
-  const sql = buildActiveRosterSql('ph.playerid::text = $1');
+  const sql = buildActiveRosterSql('ph.playerid::text = $1', 'playerid::text = $1');
   const { rows } = await query(sql, [playerId]);
   return rows[0] || null;
 });

@@ -1,8 +1,29 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import PlayerCard from '@/components/yatstats/PlayerCard';
+
+// A single cross-school favorite's data can be malformed in ways the real
+// PlayerCard component doesn't defend against (it normally only ever
+// receives rows this same app already shaped for a native school page).
+// Without this boundary, one bad row's render error unmounts the entire
+// page, not just that card.
+class CrossSchoolCardBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Cross-school favorite card failed to render:', error);
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 type YatUser = {
   uid?: string;
@@ -715,28 +736,30 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           );
         }
 
+        const fallbackPlayer = displayedPlayers.find((p) => String(p.player_id) === playerId);
+        const name = fallbackPlayer?.display_name || playerId;
+        const schoolId = fallbackPlayer?.school_id || currentHsid;
+        const slug = playerSlug(String(name));
+        const errorFallback = (
+          <div key={playerId} className="yat-card yat-cross-school-card-error" data-playerid={playerId}>
+            <span>Could not load {name}&apos;s card.</span>
+            <a href={`/${schoolId}/player/${playerId}/${slug}`}>Open profile</a>
+          </div>
+        );
+
         if (entry.status === 'error') {
-          const fallbackPlayer = displayedPlayers.find((p) => String(p.player_id) === playerId);
-          const name = fallbackPlayer?.display_name || playerId;
-          const schoolId = fallbackPlayer?.school_id || currentHsid;
-          const slug = playerSlug(String(name));
-          return createPortal(
-            <div key={playerId} className="yat-card yat-cross-school-card-error" data-playerid={playerId}>
-              <span>Could not load {name}&apos;s card.</span>
-              <a href={`/${schoolId}/player/${playerId}/${slug}`}>Open profile</a>
-            </div>,
-            container
-          );
+          return createPortal(errorFallback, container);
         }
 
         return createPortal(
-          <PlayerCard
-            key={playerId}
-            player={entry.player}
-            resolvedHsid={entry.resolvedHsid}
-            frontImageUrl={entry.frontImageUrl}
-            headshotUrl={entry.headshotUrl}
-          />,
+          <CrossSchoolCardBoundary key={playerId} fallback={errorFallback}>
+            <PlayerCard
+              player={entry.player}
+              resolvedHsid={entry.resolvedHsid}
+              frontImageUrl={entry.frontImageUrl}
+              headshotUrl={entry.headshotUrl}
+            />
+          </CrossSchoolCardBoundary>,
           container
         );
       })}
