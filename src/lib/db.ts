@@ -1844,6 +1844,7 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
       `SELECT
          playerid,
          current_team_name,
+         current_team_source_team_id,
          team_affiliation_status,
          last_transaction_type,
          last_transaction_date::text AS last_transaction_date,
