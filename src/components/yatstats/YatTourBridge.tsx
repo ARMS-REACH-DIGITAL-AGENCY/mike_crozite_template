@@ -57,6 +57,35 @@ export default function YatTourBridge() {
     } catch (e) { return false; }
   }
 
+  // window.name is the one piece of state that survives a full, cross-origin
+  // navigation of this exact frame -- referrer and sessionStorage do not,
+  // because a same-app hop between school subdomains (hamilton.az... ->
+  // basha.az...) is a brand-new origin as far as the browser is concerned.
+  // Without this, trust drops to zero on every subdomain jump and can only
+  // be re-established by the parent re-sending HELLO, which it only does
+  // after this iframe's own 'load' event fires -- and 'load' waits for
+  // every image on the new page to finish downloading, several real
+  // seconds on a page like this one. Saving/restoring trust here lets a
+  // fresh subdomain load report its location the instant its own script
+  // runs, no round-trip required.
+  var WINDOW_NAME_PREFIX = 'yat-tour-trust:';
+  var WINDOW_NAME_TTL_MS = 10 * 60 * 1000;
+
+  function saveTrustToWindowName(origin){
+    try { window.name = WINDOW_NAME_PREFIX + JSON.stringify({ origin: origin, at: Date.now() }); } catch (e) {}
+  }
+
+  function loadTrustFromWindowName(){
+    try {
+      if (typeof window.name !== 'string' || window.name.indexOf(WINDOW_NAME_PREFIX) !== 0) return null;
+      var data = JSON.parse(window.name.slice(WINDOW_NAME_PREFIX.length));
+      if (!data || typeof data.origin !== 'string' || typeof data.at !== 'number') return null;
+      if (Date.now() - data.at > WINDOW_NAME_TTL_MS) return null;
+      if (!isTrustedParentOrigin(data.origin)) return null;
+      return data.origin;
+    } catch (e) { return null; }
+  }
+
   // Seed trust from the referrer immediately, so the very first location
   // report doesn't have to wait for the parent's HELLO round-trip. This is
   // best-effort only -- a strict Referrer-Policy can leave it empty -- and
@@ -68,6 +97,12 @@ export default function YatTourBridge() {
       if (isTrustedParentOrigin(referrerOrigin)) trustedOrigin = referrerOrigin;
     }
   } catch (e) {}
+
+  // Referrer only carries the *immediate* previous page, which after a
+  // subdomain hop is the last microsite page, not the original corporate
+  // parent -- so fall back to the trust this same frame already earned.
+  if (!trustedOrigin) trustedOrigin = loadTrustFromWindowName();
+  if (trustedOrigin) saveTrustToWindowName(trustedOrigin);
 
   function report(type, extra){
     if (!trustedOrigin) return;
@@ -130,6 +165,7 @@ export default function YatTourBridge() {
     if (!data || data.source !== CORPORATE_SOURCE) return;
     if (!isTrustedParentOrigin(event.origin)) return;
     trustedOrigin = event.origin;
+    saveTrustToWindowName(trustedOrigin);
 
     if (data.type === 'YAT_TOUR_HELLO') {
       report('YAT_TOUR_ACK');
