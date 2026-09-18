@@ -1,29 +1,6 @@
 'use client';
 
-import { Component, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import PlayerCard from '@/components/yatstats/PlayerCard';
-
-// A single cross-school favorite's data can be malformed in ways the real
-// PlayerCard component doesn't defend against (it normally only ever
-// receives rows this same app already shaped for a native school page).
-// Without this boundary, one bad row's render error unmounts the entire
-// page, not just that card.
-class CrossSchoolCardBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: unknown) {
-    console.error('Cross-school favorite card failed to render:', error);
-  }
-
-  render() {
-    return this.state.hasError ? this.props.fallback : this.props.children;
-  }
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type YatUser = {
   uid?: string;
@@ -43,17 +20,6 @@ type FavoritePlayer = {
   class_of?: string | null;
   roster_years?: string[] | null;
 };
-
-type CrossSchoolCardEntry =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | {
-      status: 'ready';
-      player: Record<string, unknown>;
-      resolvedHsid: string;
-      frontImageUrl: string | null;
-      headshotUrl: string | null;
-    };
 
 const FAVORITES_S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -253,6 +219,50 @@ function ensureCrossSchoolContainer(containers: Map<string, HTMLElement>, player
   return container;
 }
 
+// PlayerCardBack renders an async Server Component (the 7-day snapshot),
+// which can only ever run on the server - a React portal to a client-side
+// <PlayerCard> throws "async Client Component" and crashes the whole page.
+// So instead of rendering the component in the browser, fetch a server-
+// rendered copy of it from /embed/player-card/[playerId] (same, unforked
+// component) and inject the finished HTML. Its styled-jsx <style> tags live
+// in that fetched document's <head>, not in the fragment itself, so any not
+// already present on this page get copied over too (deduped by exact text).
+const injectedEmbedStyleSignatures = new Set<string>();
+
+function ensureEmbedStylesInjected(doc: Document) {
+  doc.querySelectorAll('style').forEach((style) => {
+    const text = style.textContent || '';
+    if (!text.trim() || injectedEmbedStyleSignatures.has(text)) return;
+    injectedEmbedStyleSignatures.add(text);
+    const clone = document.createElement('style');
+    clone.textContent = text;
+    document.head.appendChild(clone);
+  });
+}
+
+async function fetchCardEmbedMarkup(playerId: string): Promise<string | null> {
+  const res = await fetch(`/embed/player-card/${encodeURIComponent(playerId)}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+
+  const html = await res.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const root = doc.querySelector('[data-card-embed-root="true"]');
+  if (!root || !root.querySelector('.yat-card[data-playerid]')) return null;
+
+  ensureEmbedStylesInjected(doc);
+  return root.innerHTML;
+}
+
+function renderCardErrorFallback(name: string, schoolId: string, playerId: string): string {
+  const slug = playerSlug(name);
+  return `
+    <div class="yat-card yat-cross-school-card-error" data-playerid="${escapeHtml(playerId)}">
+      <span>Could not load ${escapeHtml(name)}&apos;s card.</span>
+      <a href="/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}">Open profile</a>
+    </div>
+  `;
+}
+
 function removeSyntheticStripSlots(strip: HTMLElement) {
   strip.querySelectorAll('[data-superfan-synthetic="true"]').forEach((node) => node.remove());
 }
@@ -442,10 +452,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const [hasUser, setHasUser] = useState(false);
   const [checkedSession, setCheckedSession] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [missingCardIds, setMissingCardIds] = useState<string[]>([]);
-  const [crossSchoolCards, setCrossSchoolCards] = useState<Record<string, CrossSchoolCardEntry>>({});
   const crossSchoolContainersRef = useRef<Map<string, HTMLElement>>(new Map());
-  const fetchingCardIdsRef = useRef<Set<string>>(new Set());
+  const cardFetchStatusRef = useRef<Map<string, 'loading' | 'done'>>(new Map());
 
   const displayedPlayers = useMemo(() => {
     const combined = showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
@@ -587,34 +595,40 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
   useEffect(() => {
     const missing = applyFavoriteDeck(displayedPlayers, showGalleryView, currentHsid, crossSchoolContainersRef.current);
-    setMissingCardIds(missing);
-  }, [displayedPlayers, showGalleryView, currentHsid]);
 
-  useEffect(() => {
-    missingCardIds.forEach((playerId) => {
-      if (fetchingCardIdsRef.current.has(playerId)) return;
-      fetchingCardIdsRef.current.add(playerId);
-      setCrossSchoolCards((prev) => ({ ...prev, [playerId]: { status: 'loading' } }));
+    missing.forEach((playerId) => {
+      if (cardFetchStatusRef.current.has(playerId)) return;
+      cardFetchStatusRef.current.set(playerId, 'loading');
 
-      fetch(`/api/players/card/${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('card fetch failed'))))
-        .then((data) => {
-          setCrossSchoolCards((prev) => ({
-            ...prev,
-            [playerId]: {
-              status: 'ready',
-              player: data.player,
-              resolvedHsid: String(data.resolvedHsid || ''),
-              frontImageUrl: data.frontImageUrl ?? null,
-              headshotUrl: data.headshotUrl ?? null,
-            },
-          }));
+      const container = crossSchoolContainersRef.current.get(playerId);
+      if (container) {
+        container.innerHTML = `<div class="yat-card yat-cross-school-card-loading" data-playerid="${escapeHtml(playerId)}">Loading card&hellip;</div>`;
+      }
+
+      const showFallback = () => {
+        cardFetchStatusRef.current.set(playerId, 'done');
+        const c = crossSchoolContainersRef.current.get(playerId);
+        if (!c) return;
+        const fallbackPlayer = displayedPlayers.find((p) => String(p.player_id) === playerId);
+        const name = String(fallbackPlayer?.display_name || playerId);
+        const schoolId = String(fallbackPlayer?.school_id || currentHsid);
+        c.innerHTML = renderCardErrorFallback(name, schoolId, playerId);
+      };
+
+      fetchCardEmbedMarkup(playerId)
+        .then((markup) => {
+          cardFetchStatusRef.current.set(playerId, 'done');
+          const c = crossSchoolContainersRef.current.get(playerId);
+          if (!c) return;
+          if (markup) {
+            c.innerHTML = markup;
+          } else {
+            showFallback();
+          }
         })
-        .catch(() => {
-          setCrossSchoolCards((prev) => ({ ...prev, [playerId]: { status: 'error' } }));
-        });
+        .catch(showFallback);
     });
-  }, [missingCardIds]);
+  }, [displayedPlayers, showGalleryView, currentHsid]);
 
   const handleGalleryViewChange = (checked: boolean) => {
     if (checked && (isPlayerProfilePage() || !currentGrid())) {
@@ -721,48 +735,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           )}
         </div>
       </aside>
-
-      {missingCardIds.map((playerId) => {
-        const container = crossSchoolContainersRef.current.get(playerId);
-        if (!container) return null;
-        const entry = crossSchoolCards[playerId];
-
-        if (!entry || entry.status === 'loading') {
-          return createPortal(
-            <div key={playerId} className="yat-card yat-cross-school-card-loading" data-playerid={playerId}>
-              Loading card&hellip;
-            </div>,
-            container
-          );
-        }
-
-        const fallbackPlayer = displayedPlayers.find((p) => String(p.player_id) === playerId);
-        const name = fallbackPlayer?.display_name || playerId;
-        const schoolId = fallbackPlayer?.school_id || currentHsid;
-        const slug = playerSlug(String(name));
-        const errorFallback = (
-          <div key={playerId} className="yat-card yat-cross-school-card-error" data-playerid={playerId}>
-            <span>Could not load {name}&apos;s card.</span>
-            <a href={`/${schoolId}/player/${playerId}/${slug}`}>Open profile</a>
-          </div>
-        );
-
-        if (entry.status === 'error') {
-          return createPortal(errorFallback, container);
-        }
-
-        return createPortal(
-          <CrossSchoolCardBoundary key={playerId} fallback={errorFallback}>
-            <PlayerCard
-              player={entry.player}
-              resolvedHsid={entry.resolvedHsid}
-              frontImageUrl={entry.frontImageUrl}
-              headshotUrl={entry.headshotUrl}
-            />
-          </CrossSchoolCardBoundary>,
-          container
-        );
-      })}
 
       <style jsx global>{`
         body.drawer-favorites-open #drawerFavorites { transform: translateX(0); }
