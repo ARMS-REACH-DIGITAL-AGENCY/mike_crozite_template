@@ -21,6 +21,16 @@ type FavoritePlayer = {
   roster_years?: string[] | null;
 };
 
+const FAVORITES_S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+
+function schoolCrestUrl(hsid: unknown) {
+  return `${FAVORITES_S3_BASE}/schools/${encodeURIComponent(String(hsid || ''))}.png`;
+}
+
+function playerFlipCardUrl(playerId: string, schoolId: string) {
+  return `/${encodeURIComponent(schoolId)}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
+}
+
 function readYatUser(): YatUser | null {
   try {
     const raw = localStorage.getItem('yat-user');
@@ -400,7 +410,17 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
 }
 
-function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; currentHsid: string }) {
+function FavoriteLinks({
+  players,
+  currentHsid,
+  onUnfavorite,
+  removingId,
+}: {
+  players: FavoritePlayer[];
+  currentHsid: string;
+  onUnfavorite: (player: FavoritePlayer) => void;
+  removingId: string | null;
+}) {
   if (!players.length) {
     return <div className="yat-favorite-empty">No favorite players found yet.</div>;
   }
@@ -409,13 +429,44 @@ function FavoriteLinks({ players, currentHsid }: { players: FavoritePlayer[]; cu
     <div className="yat-favorite-link-list">
       {players.map((player) => {
         const playerId = String(player.player_id);
+        const schoolId = String(player.school_id || currentHsid);
         const name = String(player.display_name || playerId);
         const slug = playerSlug(name);
+        const profileHref = `/${schoolId}/player/${playerId}/${slug}`;
+        const subtitle = String(player.current_team_name || '').trim();
+
         return (
-          <a key={`${player.player_id}-${player.school_id || ''}`} href={`/${player.school_id || currentHsid}/player/${player.player_id}/${slug}`} className="yat-favorite-player-link">
-            <img src={playerHeadshotUrl(playerId)} alt="" aria-hidden="true" className="yat-favorite-thumb" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
-            <span>{name}</span>
-          </a>
+          <div key={`${playerId}-${schoolId}`} className="yat-favorite-row">
+            <a href={profileHref} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
+              <img
+                src={playerHeadshotUrl(playerId)}
+                alt=""
+                className="yat-favorite-thumb yat-favorite-headshot"
+                onError={(event) => { event.currentTarget.src = '/img/headshot-silhouette.png'; }}
+              />
+            </a>
+            <a href={profileHref} className="yat-favorite-text-link" title={`Open ${name} profile`}>
+              <strong>{name}</strong>
+              {subtitle && <small>{subtitle}</small>}
+            </a>
+            <a href={playerFlipCardUrl(playerId, schoolId)} className="yat-favorite-flip-link" title="Open flip card">
+              <img
+                src={schoolCrestUrl(schoolId)}
+                alt=""
+                className="yat-favorite-thumb yat-favorite-hs-logo"
+                onError={(event) => { event.currentTarget.src = '/img/yatstats-logo-circle.png'; }}
+              />
+            </a>
+            <button
+              type="button"
+              className="yat-favorite-star-btn"
+              aria-label={`Remove ${name} from favorites`}
+              aria-disabled={removingId === playerId}
+              onClick={() => onUnfavorite(player)}
+            >
+              <i className="ri-star-fill" aria-hidden="true" />
+            </button>
+          </div>
         );
       })}
     </div>
@@ -432,10 +483,36 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const [isLoading, setIsLoading] = useState(false);
   const [hasUser, setHasUser] = useState(false);
   const [checkedSession, setCheckedSession] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const displayedPlayers = useMemo(() => {
     return showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
   }, [homePlayers, isSuperfan, showSuperfanList, superfanPlayers]);
+
+  const handleUnfavorite = useCallback(async (player: FavoritePlayer) => {
+    const playerId = String(player.player_id);
+    const user = readYatUser();
+    if (!user?.uid || removingId) return;
+
+    setRemovingId(playerId);
+    try {
+      const res = await fetch('/api/favorites', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid: user.uid, playerId }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        setHomePlayers((prev) => prev.filter((p) => String(p.player_id) !== playerId));
+        setSuperfanPlayers((prev) => prev.filter((p) => String(p.player_id) !== playerId));
+        window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
+      }
+    } catch {
+      // Leave the row in place on failure; the user can retry.
+    } finally {
+      setRemovingId(null);
+    }
+  }, [removingId]);
 
   const loadFavorites = useCallback(async () => {
     setIsLoading(true);
@@ -591,36 +668,29 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 Flip Card Gallery View
               </label>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="yat-favorite-scope-toggle" role="group" aria-label="Favorites list scope">
                 <button type="button" onClick={() => setShowSuperfanList(false)} className={!showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Home Team Profile List
+                  Home Only
                 </button>
                 <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Super Fan Profile List
+                  All (Superfan)
                 </button>
               </div>
 
               {lockedMessage && <div className="yat-favorite-lock-message">{lockedMessage}</div>}
 
-              {!showSuperfanList ? (
-                <div className="yat-favorite-list-wrap">
-                  <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
-                </div>
-              ) : !isSuperfan ? (
-                <div className="yat-favorite-list-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div className="yat-favorite-lock-message">
-                    Super Fan access unlocks cross-school favorite player lists.
-                  </div>
-                  <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: '#ffd166', color: '#111', font: '700 12px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
-                    Become a Super Fan
+              {showSuperfanList && !isSuperfan && (
+                <div className="yat-favorite-lock-message" style={{ marginBottom: 10 }}>
+                  Showing home team only - Super Fan unlocks cross-school favorites.{' '}
+                  <button type="button" onClick={() => openAccountDrawer('register')} style={{ background: 'none', border: 'none', padding: 0, color: '#ffd166', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>
+                    Upgrade
                   </button>
                 </div>
-              ) : (
-                <div className="yat-favorite-list-wrap yat-favorite-two-col">
-                  <FavoriteLinks players={homePlayers} currentHsid={currentHsid} />
-                  <FavoriteLinks players={superfanPlayers} currentHsid={currentHsid} />
-                </div>
               )}
+
+              <div className="yat-favorite-list-wrap">
+                <FavoriteLinks players={displayedPlayers} currentHsid={currentHsid} onUnfavorite={handleUnfavorite} removingId={removingId} />
+              </div>
             </>
           )}
         </div>
@@ -695,6 +765,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           color: var(--ink);
         }
 
+        #drawerFavorites .yat-favorite-scope-toggle {
+          display: flex;
+          gap: 8px;
+        }
+
         #drawerFavorites .yat-favorite-tab {
           flex: 1;
           min-height: 38px;
@@ -720,48 +795,104 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           padding-top: 12px;
         }
 
-        #drawerFavorites .yat-favorite-two-col {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-        }
-
         #drawerFavorites .yat-favorite-link-list {
           display: flex;
           flex-direction: column;
+          gap: 6px;
         }
 
-        #drawerFavorites .yat-favorite-player-link {
-          display: flex;
+        #drawerFavorites .yat-favorite-row {
+          display: grid;
+          grid-template-columns: 46px minmax(0, 1fr) 40px 34px;
           align-items: center;
-          gap: 10px;
-          min-height: 44px;
-          padding: 8px 0;
-          border-bottom: 1px solid var(--line);
-          color: var(--ink);
-          font: 400 14px Oswald, sans-serif;
-          letter-spacing: 0;
-          text-transform: uppercase;
+          column-gap: 10px;
+          min-height: 56px;
+          padding: 8px 10px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: rgba(255,255,255,.045);
+        }
+
+        #drawerFavorites .yat-favorite-row a {
+          color: inherit;
           text-decoration: none;
         }
 
-        #drawerFavorites .yat-favorite-player-link:hover {
-          color: var(--fg);
+        #drawerFavorites .yat-favorite-headshot-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
-        #drawerFavorites .yat-favorite-player-link span {
-          display: block;
-          min-width: 0;
-          white-space: normal;
-        }
-
-        #drawerFavorites .yat-favorite-thumb {
-          width: 28px;
-          height: 28px;
+        #drawerFavorites .yat-favorite-headshot {
+          width: 46px;
+          height: 46px;
           object-fit: cover;
-          border-radius: 3px;
+          border-radius: 4px;
+          background: rgba(0,0,0,.08);
+        }
+
+        #drawerFavorites .yat-favorite-text-link {
+          display: flex;
+          min-width: 0;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        #drawerFavorites .yat-favorite-text-link strong {
+          font: 900 14px/1.05 Oswald, sans-serif;
+          text-transform: uppercase;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        #drawerFavorites .yat-favorite-text-link small {
+          color: var(--muted);
+          font: 400 10px/1.15 Oswald, sans-serif;
+          text-transform: uppercase;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        #drawerFavorites .yat-favorite-flip-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        #drawerFavorites .yat-favorite-hs-logo {
+          width: 34px;
+          height: 34px;
+          object-fit: contain;
+          border-radius: 0;
+          background: transparent;
+        }
+
+        #drawerFavorites .yat-favorite-star-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          padding: 0;
+          border: none;
+          background: transparent;
+          color: var(--accent, #c8a96e);
+          font-size: 19px;
+          line-height: 1;
+          cursor: pointer;
           flex: 0 0 auto;
-          background: rgba(255,255,255,.08);
+        }
+
+        #drawerFavorites .yat-favorite-star-btn:hover {
+          color: #e8c98a;
+        }
+
+        #drawerFavorites .yat-favorite-star-btn[aria-disabled="true"] {
+          opacity: .5;
+          cursor: wait;
         }
       `}</style>
     </>
