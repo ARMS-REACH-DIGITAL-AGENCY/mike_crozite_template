@@ -170,8 +170,12 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
 // Returns one row per player with their current 2026 season stats.
 // "Active" = has batting OR pitching stats in year 2026.
 // ---------------------------------------------------------------------------
-export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
-  const sql = `
+// Shared by getActiveRosterByHsid (filter: a whole school's roster) and
+// getActiveRosterRowByPlayerId (filter: one arbitrary player, regardless of
+// which school's page is currently being viewed) so both paths compute
+// 2026 season stats identically instead of drifting into two resolvers.
+function buildActiveRosterSql(schoolPlayersFilter: string): string {
+  return `
     WITH school_players AS (
       SELECT
         ph.playerid,
@@ -185,7 +189,7 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
         tp.posit        AS position
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
+      WHERE ${schoolPlayersFilter}
     ),
 
     batting_2026_by_level AS (
@@ -673,8 +677,22 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
       sp.lastname,
       sp.firstname
   `;
+}
+
+export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+  const sql = buildActiveRosterSql('ph.hsid = $1');
   const { rows } = await query(sql, [hsid]);
   return rows;
+});
+
+// Same 2026-season stat computation as getActiveRosterByHsid, but for one
+// arbitrary player regardless of which school's page is currently being
+// viewed - used to build a real flip card for a cross-school favorite
+// instead of the current subdomain's own roster.
+export const getActiveRosterRowByPlayerId = cache(async function getActiveRosterRowByPlayerId(playerId: string): Promise<any | null> {
+  const sql = buildActiveRosterSql('ph.playerid::text = $1');
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
 });
 
 // ---------------------------------------------------------------------------
@@ -1759,8 +1777,10 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 // FLIP CARD FRONT STAGE - staging table for UI rendering
 // ---------------------------------------------------------------------------
-export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
-  const sql = `
+// Shared by getFlipCardFrontStageByHsid and getFlipCardFrontStageByPlayerId
+// so both normalize level_label/status_label identically instead of
+// drifting into two resolvers for the same "truth" table.
+const FLIP_CARD_STAGE_SELECT = `
     SELECT *,
       UPPER(status_label) AS status_label,
       CASE level_label
@@ -1802,10 +1822,21 @@ export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFront
         ELSE COALESCE(UPPER(level_label), '')
       END AS level_label
     FROM flip_card_front_stage
-    WHERE hsid = $1
-  `;
+`;
+
+export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
+});
+
+// Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
+// player regardless of which school's page is currently being viewed -
+// used to build a real flip card for a cross-school favorite.
+export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
+  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE playerid::text = $1 LIMIT 1`;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
 });
 
 // ---------------------------------------------------------------------------

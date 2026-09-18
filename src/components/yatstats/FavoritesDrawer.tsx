@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import PlayerCard from '@/components/yatstats/PlayerCard';
 
 type YatUser = {
   uid?: string;
@@ -20,6 +22,17 @@ type FavoritePlayer = {
   class_of?: string | null;
   roster_years?: string[] | null;
 };
+
+type CrossSchoolCardEntry =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | {
+      status: 'ready';
+      player: Record<string, unknown>;
+      resolvedHsid: string;
+      frontImageUrl: string | null;
+      headshotUrl: string | null;
+    };
 
 const FAVORITES_S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -131,18 +144,8 @@ function playerSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-function splitDisplayName(name: string) {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return { first: parts[0] || '--', last: '' };
-  return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] };
-}
-
 function playerHeadshotUrl(playerId: string) {
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
-}
-
-function playerFrontImageUrl(playerId: string) {
-  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${encodeURIComponent(playerId)}.jpg`;
 }
 
 function lastNameFromDisplayName(name: string): string {
@@ -212,96 +215,21 @@ function restoreOriginalGridOrder(grid: HTMLElement, items: HTMLElement[]) {
     });
 }
 
-function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string): HTMLElement {
-  const playerId = String(player.player_id);
-  const schoolId = String(player.school_id || currentHsid);
-  const name = String(player.display_name || playerId);
-  const status = String(player.status_label || 'ACTIVE').toUpperCase();
-  const level = String(player.level_label || '').toUpperCase();
-  const team = String(player.current_team_name || '--');
-  const org = String(player.current_org_or_conference_name || '');
-  const classOf = String(player.class_of || '');
-  const slug = playerSlug(name);
-  const { first, last } = splitDisplayName(name);
-  const profileHref = `/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}`;
-
-  const wrap = document.createElement('div');
-  wrap.dataset.playerCardWrap = 'true';
-  wrap.dataset.playerid = playerId;
-  wrap.dataset.superfanSynthetic = 'true';
-  wrap.style.display = '';
-
-  wrap.innerHTML = `
-    <article
-      id="player-${escapeHtml(playerId)}"
-      class="yat-card yat-card-superfan-synthetic"
-      data-name="${escapeHtml(name.toLowerCase())}"
-      data-playerid="${escapeHtml(playerId)}"
-      data-level="${escapeHtml(level)}"
-      data-org="${escapeHtml(org)}"
-      data-gradclass="${escapeHtml(classOf)}"
-      data-rosteryears="${Array.isArray(player.roster_years) ? escapeHtml(player.roster_years.join(',')) : ''}"
-      data-status="${escapeHtml(status)}"
-      data-slug="${escapeHtml(slug)}"
-      data-superfan-synthetic="true"
-    >
-      <div class="yat-card-inner">
-        <div class="yat-flip">
-          <div class="yat-face yat-front yat-front-cq yat-superfan-front" aria-label="${escapeHtml(name)} card front - click to flip">
-            <div class="yat-bg" style="background-image:url('${escapeHtml(playerFrontImageUrl(playerId))}'), url('${escapeHtml(playerHeadshotUrl(playerId))}'), url('/img/then-silhouette-batter.svg')"></div>
-            <div class="yat-shade"></div>
-            <div class="yat-front-content">
-              <div class="yat-front-bottom-row">
-                <div class="yat-front-left-meta">
-                  <div class="yat-name yat-front-name">
-                    <span>${escapeHtml(first)}</span>
-                    ${last ? `<span>${escapeHtml(last)}</span>` : ''}
-                  </div>
-                  <div class="yat-front-team-name">${escapeHtml(team)}</div>
-                  ${org ? `<div class="yat-front-org-name">${escapeHtml(org)}</div>` : ''}
-                  <div class="yat-front-chip-stack">
-                    <span class="front-chip">${escapeHtml(status)}</span>
-                    ${level ? `<span class="front-chip">${escapeHtml(level)}</span>` : ''}
-                    ${classOf ? `<span class="front-chip">CLASS OF ${escapeHtml(classOf)}</span>` : ''}
-                  </div>
-                </div>
-                <div class="yat-front-right-meta">
-                  <a href="${profileHref}" class="yat-front-flip-button yat-superfan-profile-button">
-                    <span>OPEN PROFILE</span>
-                    <span aria-hidden="true">&gt;</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="yat-face yat-back yat-superfan-back">
-            <div class="yat-back-content">
-              <a class="yat-back-hero" href="${profileHref}">
-                <div class="yat-back-img-wrap">
-                  <img src="${escapeHtml(playerHeadshotUrl(playerId))}" alt="${escapeHtml(name)}" class="yat-back-img" onerror="this.src='/img/headshot-silhouette.png';this.onerror=null" />
-                </div>
-                <div class="yat-back-info">
-                  <div class="yat-back-name">${escapeHtml(name)}</div>
-                  <div class="yat-back-details">${escapeHtml(team)}${org ? ` • ${escapeHtml(org)}` : ''}</div>
-                </div>
-              </a>
-              <div class="yat-back-stats yat-superfan-back-message">
-                <div class="yat-stats-bar">SUPER FAN FAVORITE</div>
-                <div class="yat-superfan-back-chips">
-                  ${status ? `<span class="front-chip">${escapeHtml(status)}</span>` : ''}
-                  ${level ? `<span class="front-chip">${escapeHtml(level)}</span>` : ''}
-                  ${classOf ? `<span class="front-chip">CLASS OF ${escapeHtml(classOf)}</span>` : ''}
-                </div>
-                <a href="${profileHref}" class="yat-superfan-back-link">View full stats on player profile</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
-  `;
-
-  return wrap;
+// A cross-school favorite has no server-rendered card on the current
+// subdomain's page. Rather than hand-building a lookalike, this container
+// is a portal target: the drawer fetches the player's real card data and
+// mounts the actual <PlayerCard> component into it, so it gets the same
+// scoped styling, layout, and flip behavior as every native card.
+function ensureCrossSchoolContainer(containers: Map<string, HTMLElement>, playerId: string): HTMLElement {
+  let container = containers.get(playerId);
+  if (!container) {
+    container = document.createElement('div');
+    container.dataset.playerCardWrap = 'true';
+    container.dataset.playerid = playerId;
+    container.dataset.superfanSynthetic = 'true';
+    containers.set(playerId, container);
+  }
+  return container;
 }
 
 function removeSyntheticStripSlots(strip: HTMLElement) {
@@ -375,9 +303,9 @@ function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean, curre
   });
 }
 
-function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string) {
+function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string, crossSchoolContainers: Map<string, HTMLElement>): string[] {
   const grid = currentGrid();
-  if (!grid) return;
+  if (!grid) return [];
 
   const items = getGridCardItems(grid);
   ensureOriginalOrder(items);
@@ -386,7 +314,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
     restoreOriginalGridOrder(grid, items);
     syncInteractionStrip([], false, currentHsid);
     window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: [] } }));
-    return;
+    return [];
   }
 
   removeSyntheticFavorites(grid);
@@ -400,6 +328,8 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
     item.style.display = 'none';
   });
 
+  const missingIds: string[] = [];
+
   players.forEach((player) => {
     const playerId = String(player.player_id);
     const existing = itemByPlayerId.get(playerId);
@@ -408,11 +338,13 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
       grid.appendChild(existing);
       return;
     }
-    grid.appendChild(createSyntheticFavoriteCard(player, currentHsid));
+    grid.appendChild(ensureCrossSchoolContainer(crossSchoolContainers, playerId));
+    missingIds.push(playerId);
   });
 
   syncInteractionStrip(players, true, currentHsid);
   window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
+  return missingIds;
 }
 
 function FavoriteLinks({
@@ -489,6 +421,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const [hasUser, setHasUser] = useState(false);
   const [checkedSession, setCheckedSession] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [missingCardIds, setMissingCardIds] = useState<string[]>([]);
+  const [crossSchoolCards, setCrossSchoolCards] = useState<Record<string, CrossSchoolCardEntry>>({});
+  const crossSchoolContainersRef = useRef<Map<string, HTMLElement>>(new Map());
+  const fetchingCardIdsRef = useRef<Set<string>>(new Set());
 
   const displayedPlayers = useMemo(() => {
     const combined = showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
@@ -534,7 +470,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       setSuperfanPlayers([]);
       setLockedReason('VISITOR');
       setIsSuperfan(false);
-      applyFavoriteDeck([], false, currentHsid);
+      applyFavoriteDeck([], false, currentHsid, crossSchoolContainersRef.current);
       setIsLoading(false);
       return;
     }
@@ -629,8 +565,35 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   }, [loadFavorites]);
 
   useEffect(() => {
-    applyFavoriteDeck(displayedPlayers, showGalleryView, currentHsid);
+    const missing = applyFavoriteDeck(displayedPlayers, showGalleryView, currentHsid, crossSchoolContainersRef.current);
+    setMissingCardIds(missing);
   }, [displayedPlayers, showGalleryView, currentHsid]);
+
+  useEffect(() => {
+    missingCardIds.forEach((playerId) => {
+      if (fetchingCardIdsRef.current.has(playerId)) return;
+      fetchingCardIdsRef.current.add(playerId);
+      setCrossSchoolCards((prev) => ({ ...prev, [playerId]: { status: 'loading' } }));
+
+      fetch(`/api/players/${encodeURIComponent(playerId)}/card`, { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('card fetch failed'))))
+        .then((data) => {
+          setCrossSchoolCards((prev) => ({
+            ...prev,
+            [playerId]: {
+              status: 'ready',
+              player: data.player,
+              resolvedHsid: String(data.resolvedHsid || ''),
+              frontImageUrl: data.frontImageUrl ?? null,
+              headshotUrl: data.headshotUrl ?? null,
+            },
+          }));
+        })
+        .catch(() => {
+          setCrossSchoolCards((prev) => ({ ...prev, [playerId]: { status: 'error' } }));
+        });
+    });
+  }, [missingCardIds]);
 
   const handleGalleryViewChange = (checked: boolean) => {
     if (checked && (isPlayerProfilePage() || !currentGrid())) {
@@ -738,59 +701,68 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         </div>
       </aside>
 
+      {missingCardIds.map((playerId) => {
+        const container = crossSchoolContainersRef.current.get(playerId);
+        if (!container) return null;
+        const entry = crossSchoolCards[playerId];
+
+        if (!entry || entry.status === 'loading') {
+          return createPortal(
+            <div key={playerId} className="yat-card yat-cross-school-card-loading" data-playerid={playerId}>
+              Loading card&hellip;
+            </div>,
+            container
+          );
+        }
+
+        if (entry.status === 'error') {
+          const fallbackPlayer = displayedPlayers.find((p) => String(p.player_id) === playerId);
+          const name = fallbackPlayer?.display_name || playerId;
+          const schoolId = fallbackPlayer?.school_id || currentHsid;
+          const slug = playerSlug(String(name));
+          return createPortal(
+            <div key={playerId} className="yat-card yat-cross-school-card-error" data-playerid={playerId}>
+              <span>Could not load {name}&apos;s card.</span>
+              <a href={`/${schoolId}/player/${playerId}/${slug}`}>Open profile</a>
+            </div>,
+            container
+          );
+        }
+
+        return createPortal(
+          <PlayerCard
+            key={playerId}
+            player={entry.player}
+            resolvedHsid={entry.resolvedHsid}
+            frontImageUrl={entry.frontImageUrl}
+            headshotUrl={entry.headshotUrl}
+          />,
+          container
+        );
+      })}
+
       <style jsx global>{`
         body.drawer-favorites-open #drawerFavorites { transform: translateX(0); }
         body.drawer-favorites-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
 
-        .yat-card-superfan-synthetic .yat-front,
-        .yat-card-superfan-synthetic .yat-back {
-          text-decoration: none;
-          color: inherit;
-        }
-
-        .yat-card-superfan-synthetic .yat-superfan-front {
+        .yat-cross-school-card-loading,
+        .yat-cross-school-card-error {
           display: flex;
           flex-direction: column;
-          justify-content: flex-end;
-        }
-
-        .yat-card-superfan-synthetic .yat-superfan-profile-button {
-          background: #8a1538;
-          border: 1px solid rgba(255,255,255,.38);
-        }
-
-        .yat-card-superfan-synthetic .yat-superfan-back-message {
           align-items: center;
           justify-content: center;
-          gap: 12px;
+          gap: 8px;
+          min-height: 200px;
+          padding: 16px;
           text-align: center;
-        }
-
-        .yat-card-superfan-synthetic .yat-superfan-back-chips {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-        }
-
-        .yat-card-superfan-synthetic .yat-front-right-meta a.yat-front-flip-button {
-          text-decoration: none;
-        }
-
-        .yat-card-superfan-synthetic .yat-superfan-back-link {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 34px;
-          padding: 8px 12px;
-          border-radius: 6px;
-          border: 1px solid rgba(255,255,255,.18);
-          background: rgba(255,255,255,.08);
-          color: #fff;
-          font: 700 11px/1 Oswald, sans-serif;
-          letter-spacing: .08em;
+          color: var(--muted);
+          font: 400 13px/1.4 Oswald, sans-serif;
           text-transform: uppercase;
+        }
+
+        .yat-cross-school-card-error a {
+          color: #ffd166;
+          text-decoration: underline;
         }
 
         #drawerFavorites .yat-favorite-empty,
