@@ -366,6 +366,32 @@ async function upsertGame(client, game) {
   );
 }
 
+// flip_card_front_stage.current_team_name is kept accurate for college
+// players by an external roster process, but nothing resolves the matching
+// current_team_source_team_id - the one thing that lets this file's own
+// seedFlipCardFrontStage() (below) and the player profile page's schedule
+// tab find a player's actual current team's games. Re-resolving it here on
+// every run (not just backfilling nulls) means a transfer or a name/level
+// correction self-heals on the next scheduled run instead of going stale
+// again. college_team_sources has exactly one row per team name (no
+// ambiguous duplicates like the broader teamid_universe_mapping), so it's
+// the safe match target.
+async function resolveCollegeTeamSourceIds(client) {
+  const result = await client.query(`
+    update public.flip_card_front_stage f
+    set
+      current_team_source_team_id = c.teamid,
+      updated_at = now()
+    from public.college_team_sources c
+    where lower(trim(f.current_team_name)) = lower(trim(c.team))
+      and f.current_team_source_team_id is distinct from c.teamid
+      and upper(coalesce(f.level_label, f.display_level_label, f.current_team_level, '')) in (
+        'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'JUCO', 'NJCAA', 'COLLEGE'
+      )
+  `);
+  return result.rowCount || 0;
+}
+
 async function seedFlipCardFrontStage(client) {
   const result = await client.query(`
     with valid_games as (
@@ -517,8 +543,10 @@ async function main() {
       }
     }
 
+    let resolvedTeamIds = 0;
     let seededCards = 0;
     if (!DRY_RUN && SEED_FLIP_CARD_STAGE) {
+      resolvedTeamIds = await resolveCollegeTeamSourceIds(client);
       seededCards = await seedFlipCardFrontStage(client);
     }
 
@@ -532,6 +560,7 @@ async function main() {
 
     console.log(`Extracted games: ${extractedTotal}`);
     console.log(`Upserted games: ${insertedTotal}`);
+    console.log(`Resolved current_team_source_team_id rows: ${resolvedTeamIds}`);
     console.log(`Seeded flip_card_front_stage rows: ${seededCards}`);
   } catch (error) {
     await client.query('rollback');
