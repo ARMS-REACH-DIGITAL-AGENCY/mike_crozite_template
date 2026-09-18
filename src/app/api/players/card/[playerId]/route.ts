@@ -1,8 +1,14 @@
-// src/app/api/players/[playerId]/card/route.ts
+// src/app/api/players/card/[playerId]/route.ts
 // Returns full flip-card data (flip_card_front_stage truth + 2026 season stats
 // + designated photos) for one arbitrary player, independent of whichever
 // school subdomain the request came from. Lets a Super Fan's cross-school
 // favorite render as a real <PlayerCard>, not a hand-built lookalike.
+//
+// Lives under a static "card" segment (not /api/players/[playerId]/...)
+// because Next.js requires sibling dynamic segments at the same path level
+// to share one parameter name, and /api/players/[hsid] already claims that
+// position - a [playerId] segment there collides and 500s every route in
+// the app at request time, not just this one.
 
 import { NextRequest, NextResponse } from "next/server";
 import {

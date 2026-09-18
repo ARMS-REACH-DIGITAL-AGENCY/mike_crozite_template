@@ -575,7 +575,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       fetchingCardIdsRef.current.add(playerId);
       setCrossSchoolCards((prev) => ({ ...prev, [playerId]: { status: 'loading' } }));
 
-      fetch(`/api/players/${encodeURIComponent(playerId)}/card`, { cache: 'no-store' })
+      fetch(`/api/players/card/${encodeURIComponent(playerId)}`, { cache: 'no-store' })
         .then((res) => (res.ok ? res.json() : Promise.reject(new Error('card fetch failed'))))
         .then((data) => {
           setCrossSchoolCards((prev) => ({
