@@ -147,10 +147,30 @@ function renderPlayerRows(players: any[], emptyText: string) {
             <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
               <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
             </a>
+            ${favoriteButtonHtml(p, name)}
           </div>
         `;
       }).join('')}
     </div>
+  `;
+}
+
+function favoriteButtonHtml(player: any, name: string) {
+  const playerId = esc(playerIdOf(player));
+  const schoolId = esc(schoolIdOf(player));
+  return `
+    <button
+      type="button"
+      class="yat-search-fav-btn"
+      data-fav-player-id="${playerId}"
+      data-fav-player-name="${esc(name)}"
+      data-fav-school-id="${schoolId}"
+      aria-pressed="false"
+      aria-label="Add ${esc(name)} to favorites"
+      title="Favorite ${esc(name)}"
+    >
+      <i class="ri-star-line" aria-hidden="true"></i>
+    </button>
   `;
 }
 
@@ -244,6 +264,7 @@ function renderTeamRows(players: any[], emptyText: string) {
                 <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
                   <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
                 </a>
+                ${favoriteButtonHtml(p, name)}
               </div>
             `;
           }).join('')}
@@ -257,6 +278,170 @@ async function fetchJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return {};
   return res.json();
+}
+
+// Favorite toggle in the search results list mirrors FavoriteButton.tsx exactly -
+// same auth source (localStorage 'yat-user'/'yat-plan'), same /api/favorites
+// contract, and the same pending_fav_* handoff AccountDrawer.tsx already resumes
+// after login - so favoriting from a search result while logged out completes
+// automatically post-login, identical to favoriting from a profile page.
+interface YatUser {
+  uid: string;
+  contactId?: string | null;
+  homeHsid?: string | null;
+}
+
+function readYatUser(): YatUser | null {
+  try {
+    const raw = localStorage.getItem('yat-user');
+    return raw ? (JSON.parse(raw) as YatUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readIsSuperfan(): boolean {
+  try {
+    return localStorage.getItem('yat-plan') === 'superfan';
+  } catch {
+    return false;
+  }
+}
+
+function openAccountDrawer() {
+  document.body.classList.add('drawer-account-open', 'drawer-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+}
+
+let searchFavToastEl: HTMLDivElement | null = null;
+
+function showSearchFavToast(message: string, tone: 'success' | 'info' | 'warn' = 'success') {
+  if (!searchFavToastEl) {
+    searchFavToastEl = document.createElement('div');
+    searchFavToastEl.setAttribute('role', 'status');
+    searchFavToastEl.setAttribute('aria-live', 'polite');
+    searchFavToastEl.className = 'yat-search-fav-toast';
+    document.body.appendChild(searchFavToastEl);
+  }
+  const colors: Record<typeof tone, string> = {
+    success: '#16a34a',
+    info: 'rgba(255,255,255,.7)',
+    warn: '#b8860b',
+  };
+  searchFavToastEl.style.borderColor = colors[tone];
+  searchFavToastEl.style.color = colors[tone];
+  searchFavToastEl.textContent = message;
+  searchFavToastEl.classList.add('visible');
+  window.clearTimeout(Number(searchFavToastEl.dataset.timer) || undefined);
+  const timer = window.setTimeout(() => searchFavToastEl?.classList.remove('visible'), 3500);
+  searchFavToastEl.dataset.timer = String(timer);
+}
+
+function setFavButtonState(button: HTMLElement, favorited: boolean) {
+  const name = button.dataset.favPlayerName || 'Player';
+  button.setAttribute('aria-pressed', String(favorited));
+  button.setAttribute('aria-label', favorited ? `Remove ${name} from favorites` : `Add ${name} to favorites`);
+  button.classList.toggle('is-favorited', favorited);
+  const icon = button.querySelector('i');
+  if (icon) icon.className = favorited ? 'ri-star-fill' : 'ri-star-line';
+}
+
+async function hydrateFavoriteButtons(container: HTMLElement) {
+  const buttons = Array.from(container.querySelectorAll<HTMLElement>('.yat-search-fav-btn'));
+  if (!buttons.length) return;
+
+  const user = readYatUser();
+  if (!user?.uid) return;
+
+  try {
+    const data = await fetchJson(`/api/favorites?uid=${encodeURIComponent(user.uid)}&scope=button`);
+    const ids: string[] = Array.isArray(data?.playerIds) ? data.playerIds.map(String) : [];
+    buttons.forEach((button) => {
+      if (ids.includes(String(button.dataset.favPlayerId))) setFavButtonState(button, true);
+    });
+  } catch {
+    // Leave buttons in their default (unfavorited) state on failure.
+  }
+}
+
+async function handleFavoriteButtonClick(button: HTMLElement) {
+  const playerId = button.dataset.favPlayerId || '';
+  const playerName = button.dataset.favPlayerName || playerId;
+  const schoolId = button.dataset.favSchoolId || '';
+  if (!playerId) return;
+
+  const user = readYatUser();
+  if (!user?.uid) {
+    try {
+      sessionStorage.setItem('pending_fav_pid', playerId);
+      sessionStorage.setItem('pending_fav_name', playerName);
+      sessionStorage.setItem('pending_fav_hsid', schoolId);
+    } catch {}
+    openAccountDrawer();
+    return;
+  }
+
+  const isSuperfan = readIsSuperfan();
+  const isSameSchool = user.homeHsid === schoolId;
+
+  if (!isSuperfan && !isSameSchool) {
+    if (!user.homeHsid) {
+      showSearchFavToast('Account setup incomplete. Please sign out and sign back in to finish setting up your account.', 'warn');
+    } else {
+      try {
+        sessionStorage.setItem('pending_superfan', '1');
+      } catch {}
+      showSearchFavToast('Global favoriting requires a Superfan subscription. Upgrade in your account.', 'warn');
+    }
+    openAccountDrawer();
+    return;
+  }
+
+  const isFavorited = button.classList.contains('is-favorited');
+  button.setAttribute('aria-disabled', 'true');
+
+  try {
+    if (isFavorited) {
+      const res = await fetch('/api/favorites', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid: user.uid, playerId }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        setFavButtonState(button, false);
+        showSearchFavToast(`${playerName} removed from favorites`, 'info');
+        window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
+      } else {
+        showSearchFavToast('Could not remove favorite. Please try again.', 'warn');
+      }
+    } else {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firebaseUid: user.uid,
+          contactId: user.contactId,
+          playerId,
+          playerName,
+          schoolId,
+          type: isSuperfan ? 'superfan' : 'fan',
+        }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        setFavButtonState(button, true);
+        showSearchFavToast(`${playerName} added to your favorites`);
+        window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
+      } else {
+        showSearchFavToast(data?.error || 'Could not save favorite. Please try again.', 'warn');
+      }
+    }
+  } catch {
+    showSearchFavToast('Network error. Please try again.', 'warn');
+  } finally {
+    button.removeAttribute('aria-disabled');
+  }
 }
 
 export default function SearchDrawerTabs() {
@@ -316,6 +501,7 @@ export default function SearchDrawerTabs() {
           const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(q)}&limit=30`);
           if (thisRequest !== requestId) return;
           results.innerHTML = renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.');
+          hydrateFavoriteButtons(results);
           return;
         }
 
@@ -329,6 +515,7 @@ export default function SearchDrawerTabs() {
         const data = await fetchJson(`/api/teams/search?q=${encodeURIComponent(q)}&limit=75`);
         if (thisRequest !== requestId) return;
         results.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
+        hydrateFavoriteButtons(results);
       } catch {
         if (thisRequest === requestId) results.innerHTML = '<div class="yat-search-empty">Search failed. Try again.</div>';
       }
@@ -366,10 +553,34 @@ export default function SearchDrawerTabs() {
 
     results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
 
+    const onResultsClick = (event: Event) => {
+      const button = (event.target as HTMLElement)?.closest('.yat-search-fav-btn') as HTMLElement | null;
+      if (!button || button.hasAttribute('aria-disabled')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handleFavoriteButtonClick(button);
+    };
+    results.addEventListener('click', onResultsClick);
+
+    // AccountDrawer resumes a pending_fav_* favorite after login and fires this
+    // same event FavoriteButton.tsx listens for - pick it up here too so a
+    // favorite started from a search result reflects as saved once login
+    // completes, even though the row was rendered before the user signed in.
+    const onAuthSuccess = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      if (detail.favoriteSaved !== true || !detail.playerId) return;
+      results
+        .querySelectorAll<HTMLElement>(`.yat-search-fav-btn[data-fav-player-id="${detail.playerId}"]`)
+        .forEach((button) => setFavButtonState(button, true));
+    };
+    window.addEventListener('yat-auth-success', onAuthSuccess);
+
     return () => {
       drawer.removeEventListener('input', scheduleSearch, true);
       drawer.removeEventListener('keyup', scheduleSearch, true);
       drawer.removeEventListener('search', scheduleSearch, true);
+      results.removeEventListener('click', onResultsClick);
+      window.removeEventListener('yat-auth-success', onAuthSuccess);
     };
   }, []);
 
@@ -407,7 +618,7 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
       #drawerLeft .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
       #drawerLeft .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
-      #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
+      #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 52px minmax(0, 1fr) 46px 34px; align-items: center; column-gap: 10px; padding: 8px 10px; }
       #drawerLeft .yat-search-player-result a { color: inherit; text-decoration: none; }
       #drawerLeft .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
       #drawerLeft .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
@@ -416,6 +627,12 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-player-text-link small { color: var(--muted); font: 400 10px/1.15 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #drawerLeft .yat-search-player-flip-link { display: flex; align-items: center; justify-content: flex-end; }
       #drawerLeft .yat-search-player-hs-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 0; background: transparent; }
+      #drawerLeft .yat-search-fav-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; background: transparent; color: var(--muted); font-size: 19px; line-height: 1; cursor: pointer; flex: 0 0 auto; }
+      #drawerLeft .yat-search-fav-btn:hover { color: var(--accent, #c8a96e); }
+      #drawerLeft .yat-search-fav-btn.is-favorited { color: var(--accent, #c8a96e); }
+      #drawerLeft .yat-search-fav-btn[aria-disabled] { opacity: .5; cursor: wait; }
+      .yat-search-fav-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--surface, #1a1a1a); border: 1px solid rgba(255,255,255,.2); padding: 10px 18px; border-radius: 8px; font: 700 12px/1.4 Oswald, sans-serif; letter-spacing: .06em; z-index: 9999; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.4); opacity: 0; transition: opacity .2s ease, transform .2s ease; }
+      .yat-search-fav-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
     `}</style>
   );
 }
