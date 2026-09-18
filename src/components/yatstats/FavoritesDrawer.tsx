@@ -486,7 +486,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const displayedPlayers = useMemo(() => {
-    return showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
+    const combined = showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
+    return [...combined].sort((a, b) =>
+      String(a.display_name || a.player_id).localeCompare(String(b.display_name || b.player_id), undefined, { sensitivity: 'base' })
+    );
   }, [homePlayers, isSuperfan, showSuperfanList, superfanPlayers]);
 
   const handleUnfavorite = useCallback(async (player: FavoritePlayer) => {
@@ -670,10 +673,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
               <div className="yat-favorite-scope-toggle" role="group" aria-label="Favorites list scope">
                 <button type="button" onClick={() => setShowSuperfanList(false)} className={!showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Home Only
+                  Home Fan
                 </button>
                 <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  All (Superfan)
+                  Global Super Fan
                 </button>
               </div>
 
