@@ -247,7 +247,7 @@ function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string
     >
       <div class="yat-card-inner">
         <div class="yat-flip">
-          <a href="${profileHref}" class="yat-face yat-front yat-front-cq yat-superfan-front" aria-label="Open ${escapeHtml(name)} profile">
+          <div class="yat-face yat-front yat-front-cq yat-superfan-front" aria-label="${escapeHtml(name)} card front - click to flip">
             <div class="yat-bg" style="background-image:url('${escapeHtml(playerFrontImageUrl(playerId))}'), url('${escapeHtml(playerHeadshotUrl(playerId))}'), url('/img/then-silhouette-batter.svg')"></div>
             <div class="yat-shade"></div>
             <div class="yat-front-content">
@@ -266,14 +266,14 @@ function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string
                   </div>
                 </div>
                 <div class="yat-front-right-meta">
-                  <span class="yat-front-flip-button yat-superfan-profile-button">
+                  <a href="${profileHref}" class="yat-front-flip-button yat-superfan-profile-button">
                     <span>OPEN PROFILE</span>
                     <span aria-hidden="true">&gt;</span>
-                  </span>
+                  </a>
                 </div>
               </div>
             </div>
-          </a>
+          </div>
           <div class="yat-face yat-back yat-superfan-back">
             <div class="yat-back-content">
               <a class="yat-back-hero" href="${profileHref}">
@@ -287,7 +287,12 @@ function createSyntheticFavoriteCard(player: FavoritePlayer, currentHsid: string
               </a>
               <div class="yat-back-stats yat-superfan-back-message">
                 <div class="yat-stats-bar">SUPER FAN FAVORITE</div>
-                <a href="${profileHref}" class="yat-superfan-back-link">View full player profile</a>
+                <div class="yat-superfan-back-chips">
+                  ${status ? `<span class="front-chip">${escapeHtml(status)}</span>` : ''}
+                  ${level ? `<span class="front-chip">${escapeHtml(level)}</span>` : ''}
+                  ${classOf ? `<span class="front-chip">CLASS OF ${escapeHtml(classOf)}</span>` : ''}
+                </div>
+                <a href="${profileHref}" class="yat-superfan-back-link">View full stats on player profile</a>
               </div>
             </div>
           </div>
@@ -649,6 +654,40 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
           <h3 style={{ margin: 0 }}>MY FAVORITE PLAYERS</h3>
+          {hasUser && (
+            <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
+              <button
+                type="button"
+                className={showGalleryView ? 'yat-icon-btn active' : 'yat-icon-btn'}
+                aria-label="Flip Card Gallery View"
+                aria-pressed={showGalleryView}
+                title="Flip Card Gallery View"
+                onClick={() => handleGalleryViewChange(!showGalleryView)}
+              >
+                <i className="ri-layout-grid-line" />
+              </button>
+              <button
+                type="button"
+                className={!showSuperfanList ? 'yat-icon-btn active' : 'yat-icon-btn'}
+                aria-label="Home Fan"
+                aria-pressed={!showSuperfanList}
+                title="Home Fan"
+                onClick={() => setShowSuperfanList(false)}
+              >
+                <i className="ri-home-4-line" />
+              </button>
+              <button
+                type="button"
+                className={showSuperfanList ? 'yat-icon-btn active' : 'yat-icon-btn'}
+                aria-label="Global Super Fan"
+                aria-pressed={showSuperfanList}
+                title="Global Super Fan"
+                onClick={() => setShowSuperfanList(true)}
+              >
+                <i className="ri-earth-line" />
+              </button>
+            </div>
+          )}
           <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
             <i className="ri-close-line" />
           </button>
@@ -727,6 +766,18 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           text-align: center;
         }
 
+        .yat-card-superfan-synthetic .yat-superfan-back-chips {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+
+        .yat-card-superfan-synthetic .yat-front-right-meta a.yat-front-flip-button {
+          text-decoration: none;
+        }
+
         .yat-card-superfan-synthetic .yat-superfan-back-link {
           display: inline-flex;
           align-items: center;
@@ -771,6 +822,19 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         #drawerFavorites .yat-favorite-scope-toggle {
           display: flex;
           gap: 8px;
+        }
+
+        #drawerFavorites .yat-favorite-header-icons {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex: 1;
+          justify-content: flex-end;
+        }
+
+        #drawerFavorites .yat-favorite-header-icons .yat-icon-btn.active {
+          color: var(--accent, #c8a96e);
+          background: rgba(200,169,110,.15);
         }
 
         #drawerFavorites .yat-favorite-tab {
