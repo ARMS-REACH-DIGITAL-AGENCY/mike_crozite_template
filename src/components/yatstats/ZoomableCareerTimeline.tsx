@@ -182,14 +182,25 @@ function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string
   return <img className={className} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
 }
 
-// Shared background + player-cutout layering used by both the anchor card
-// and (now) season cards, matching the corporate slideshow's visual/person
-// layer structure instead of a flat logo.
-function CutoutOverlay({ bgSrc, bgSrcs, playerId, playerName, bgFit }: { bgSrc?: string; bgSrcs?: string[]; playerId: string; playerName?: string; bgFit: 'cover' | 'contain' }) {
+// Background + player-cutout layering for the one-off anchor card only --
+// matches the corporate slideshow's visual/person layer structure.
+function CutoutOverlay({ bgSrc, playerId, playerName }: { bgSrc?: string; playerId: string; playerName?: string }) {
   return (
     <span className="zt-cutout-shell">
-      <SmartImage className={`zt-cutout-bg zt-cutout-bg-${bgFit}`} src={bgSrc} srcs={bgSrcs} alt="" />
+      <SmartImage className="zt-cutout-bg zt-cutout-bg-cover" src={bgSrc} alt="" />
       <SmartImage className="zt-cutout-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(playerName)} cutout`} />
+    </span>
+  );
+}
+
+// Season cards: a soft, dark graduated background (not the flat logo image
+// itself) with the team logo sitting on top as a small graphic, like a
+// badge -- no player silhouette repeating card after card down the strip.
+function SeasonBadge({ srcs, teamName }: { srcs?: string[]; teamName: string }) {
+  return (
+    <span className="zt-season-badge-shell">
+      <span className="zt-season-badge-glow" aria-hidden="true" />
+      <SmartImage className="zt-season-badge-logo" srcs={srcs} alt={teamName} />
     </span>
   );
 }
@@ -235,6 +246,24 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
+  const [shareLabel, setShareLabel] = useState('Share');
+
+  async function handleShare() {
+    const shareUrl = `${window.location.origin}${window.location.pathname}#moment-${moment.momentDbId || moment.id}`;
+    const shareData = { title: moment.title, text: moment.caption || moment.title, url: shareUrl };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      await navigator.clipboard.writeText(shareUrl);
+      setShareLabel('Link copied');
+      setTimeout(() => setShareLabel('Share'), 2000);
+    } catch {
+      // Share sheet dismissed or clipboard blocked -- not an error worth surfacing.
+    }
+  }
 
   async function submitComment() {
     const body = draft.trim();
@@ -285,6 +314,10 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 
           <div className="zt-modal-reaction-row">
             <ReactionButton moment={moment} session={session} onToggled={onReactionToggled} />
+            <button type="button" className="zt-share-btn" onClick={handleShare}>
+              <i className="ri-share-forward-line" />
+              {shareLabel}
+            </button>
           </div>
 
           <div className="zt-modal-comments">
@@ -327,7 +360,8 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
         .zt-modal-kicker { color:${TIMELINE_YELLOW}; font:700 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px; }
         .zt-modal-title { margin:0 0 6px; font:800 22px/1.05 'Bebas Neue',Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .zt-modal-caption { margin:0 0 12px; color:rgba(255,255,255,.78); font:400 13px/1.45 system-ui,sans-serif; }
-        .zt-modal-reaction-row { margin-bottom:14px; }
+        .zt-modal-reaction-row { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+        .zt-share-btn { display:flex; align-items:center; gap:5px; height:22px; padding:0 10px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(255,255,255,.06); color:#fff; font:800 9px/1 Oswald,sans-serif; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; }
         .zt-modal-comments { display:flex; flex-direction:column; gap:10px; padding:12px 0; border-top:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(255,255,255,.12); max-height:220px; overflow-y:auto; }
         .zt-modal-empty { color:rgba(255,255,255,.5); font:400 12px/1.4 system-ui,sans-serif; }
         .zt-modal-comment { display:flex; flex-direction:column; gap:2px; }
@@ -562,12 +596,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <div key={moment.id} className={`zt-moment zt-${moment.kind}`} style={{ left, width: moment.width }}>
                 <button type="button" className="zt-moment-surface" onClick={() => handleMomentClick(moment)} title={moment.title}>
                   {moment.kind === 'anchor' && (
-                    <CutoutOverlay bgSrc="/img/career-path-default.png" playerId={playerId} playerName={player?.playerName} bgFit="cover" />
+                    <CutoutOverlay bgSrc="/img/career-path-default.png" playerId={playerId} playerName={player?.playerName} />
                   )}
 
                   {moment.kind === 'season' && (
                     <>
-                      <CutoutOverlay bgSrc={moment.src} bgSrcs={moment.srcs} playerId={playerId} playerName={player?.playerName} bgFit="contain" />
+                      <SeasonBadge srcs={moment.srcs} teamName={moment.title} />
                       <span className="zt-season-copy">
                         <b>{moment.title}</b>
                         <em>{moment.caption}</em>
@@ -600,13 +634,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 </button>
 
                 {moment.kind === 'upload' && (
-                  <div className="zt-upload-actions">
-                    <ReactionButton moment={moment} session={session} onToggled={handleReactionToggled} />
-                    <button type="button" className="zt-comment-pill" onClick={() => setOpenMomentId(moment.id)}>
-                      <i className="ri-chat-3-line" />
-                      {(moment.comments || []).length}
+                  <>
+                    <button type="button" className="zt-open-story-cta" onClick={() => setOpenMomentId(moment.id)} aria-label="Open story">
+                      <i className="ri-expand-diagonal-line" />
                     </button>
-                  </div>
+                    <div className="zt-upload-actions">
+                      <ReactionButton moment={moment} session={session} onToggled={handleReactionToggled} />
+                      <button type="button" className="zt-comment-pill" onClick={() => setOpenMomentId(moment.id)}>
+                        <i className="ri-chat-3-line" />
+                        {(moment.comments || []).length}
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             );
@@ -636,12 +675,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-moment-surface { position:relative; display:block; width:100%; height:100%; border:0; padding:0; margin:0; background:#090909; cursor:pointer; overflow:hidden; }
         .zt-moment:not(.zt-anchor) .zt-moment-surface { border-bottom:3px solid ${TIMELINE_YELLOW}; }
 
-        /* -- shared background+cutout layering (anchor, season) ---------- */
+        /* -- anchor: background + one-off player cutout ------------------ */
         .zt-moment-surface :global(.zt-cutout-shell) { position:absolute; inset:0; display:block; }
         .zt-moment-surface :global(.zt-cutout-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-position:center center; }
         .zt-moment-surface :global(.zt-cutout-bg-cover) { object-fit:cover; }
-        .zt-moment-surface :global(.zt-cutout-bg-contain) { object-fit:contain; background:#fff; }
         .zt-moment-surface :global(.zt-cutout-person) { position:absolute; z-index:2; left:-2px; bottom:0; width:auto; height:92%; max-width:56%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 6px 9px rgba(0,0,0,.65)); pointer-events:none; }
+
+        /* -- season: soft dark gradient with the logo as a small graphic
+           on top, not the logo itself as a hard-edged background, and no
+           player silhouette repeating card after card down the strip. */
+        .zt-moment-surface :global(.zt-season-badge-shell) { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.07),transparent 55%),linear-gradient(180deg,#16181c 0%,#0b0c0d 65%,#040505 100%); }
+        .zt-moment-surface :global(.zt-season-badge-glow) { position:absolute; width:62%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%); pointer-events:none; }
+        .zt-moment-surface :global(.zt-season-badge-logo) { position:relative; z-index:1; width:50%; max-height:56%; object-fit:contain; filter:drop-shadow(0 6px 10px rgba(0,0,0,.55)); }
 
         .zt-season-copy { position:absolute; z-index:3; left:0; right:0; bottom:0; padding:6px 8px; background:linear-gradient(0deg,rgba(0,0,0,.72),transparent); display:flex; flex-direction:column; gap:1px; }
         .zt-season-copy b { font:800 11px/1.1 'Bebas Neue',Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; color:#fff; }
@@ -653,11 +698,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         /* -- upload: fan photo + wall-post copy panel --------------------- */
         .zt-upload-bg { position:absolute; inset:0; display:block; }
         .zt-upload-bg :global(img) { width:100%; height:100%; object-fit:cover; display:block; }
-        .zt-upload-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(0,0,0,.86) 0%,rgba(0,0,0,.35) 45%,transparent 75%); pointer-events:none; }
+        /* Soft graduated screen, matching the corporate slideshow's own
+           visual:before treatment -- photo reads clearly up top, fades
+           smoothly into solid dark where the copy panel sits, rather than
+           a hard two-stop cutoff. */
+        .zt-upload-shade { position:absolute; inset:0; background:linear-gradient(180deg,rgba(4,5,6,.06) 0%,rgba(4,5,6,.22) 40%,rgba(4,5,6,.62) 68%,rgba(4,5,6,.92) 88%,rgba(4,5,6,.97) 100%); pointer-events:none; }
         .zt-upload-copy { position:absolute; left:0; right:0; bottom:0; padding:8px 10px; display:flex; flex-direction:column; gap:2px; text-align:left; }
         .zt-upload-kicker { color:${TIMELINE_YELLOW}; font:700 8px/1 Oswald,sans-serif; letter-spacing:.09em; text-transform:uppercase; }
         .zt-upload-title { color:#fff; font:700 12.5px/1.25 Oswald,sans-serif; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 
+        .zt-open-story-cta { position:absolute; z-index:4; top:6px; left:6px; width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,.35); background:rgba(0,0,0,.55); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:12px; }
         .zt-upload-actions { position:absolute; z-index:4; top:6px; right:6px; display:flex; gap:5px; }
         .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:22px; padding:0 8px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.55); color:${TIMELINE_YELLOW}; font:800 7.5px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
         .zt-yatzaboy.active { background:${TIMELINE_YELLOW}; color:#1a1208; }
