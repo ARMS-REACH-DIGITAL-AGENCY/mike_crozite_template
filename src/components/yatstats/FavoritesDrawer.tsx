@@ -131,6 +131,30 @@ function playerSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+const FAVORITES_SORT_KEY = 'yat-favorites-sort';
+
+function readSortByLastNamePreference(): boolean {
+  try {
+    return localStorage.getItem(FAVORITES_SORT_KEY) === 'last';
+  } catch {
+    return false;
+  }
+}
+
+function writeSortByLastNamePreference(byLastName: boolean) {
+  try {
+    localStorage.setItem(FAVORITES_SORT_KEY, byLastName ? 'last' : 'first');
+  } catch {}
+}
+
+function favoriteSortKey(player: FavoritePlayer, byLastName: boolean): string {
+  const name = String(player.display_name || player.player_id).trim();
+  if (!byLastName) return name;
+
+  const parts = name.split(/\s+/);
+  return parts.length > 1 ? parts[parts.length - 1] : name;
+}
+
 function playerHeadshotUrl(playerId: string) {
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
 }
@@ -459,6 +483,7 @@ function FavoriteLinks({
 export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }) {
   const [showSuperfanList, setShowSuperfanList] = useState(false);
   const [showGalleryView, setShowGalleryView] = useState(false);
+  const [sortByLastName, setSortByLastNameState] = useState(false);
   const [homePlayers, setHomePlayers] = useState<FavoritePlayer[]>([]);
   const [superfanPlayers, setSuperfanPlayers] = useState<FavoritePlayer[]>([]);
   const [lockedReason, setLockedReason] = useState<string | null>(null);
@@ -470,12 +495,21 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const crossSchoolContainersRef = useRef<Map<string, HTMLElement>>(new Map());
   const cardFetchStatusRef = useRef<Map<string, 'loading' | 'done'>>(new Map());
 
+  useEffect(() => {
+    setSortByLastNameState(readSortByLastNamePreference());
+  }, []);
+
+  const handleSortModeChange = useCallback((byLastName: boolean) => {
+    setSortByLastNameState(byLastName);
+    writeSortByLastNamePreference(byLastName);
+  }, []);
+
   const displayedPlayers = useMemo(() => {
     const combined = showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
     return [...combined].sort((a, b) =>
-      String(a.display_name || a.player_id).localeCompare(String(b.display_name || b.player_id), undefined, { sensitivity: 'base' })
+      favoriteSortKey(a, sortByLastName).localeCompare(favoriteSortKey(b, sortByLastName), undefined, { sensitivity: 'base' })
     );
-  }, [homePlayers, isSuperfan, showSuperfanList, superfanPlayers]);
+  }, [homePlayers, isSuperfan, showSuperfanList, superfanPlayers, sortByLastName]);
 
   const handleUnfavorite = useCallback(async (player: FavoritePlayer) => {
     const playerId = String(player.player_id);
@@ -754,6 +788,15 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 </button>
               </div>
 
+              <div className="yat-favorite-sort-toggle" role="group" aria-label="Sort favorites by">
+                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
+                  Sort: First Name
+                </button>
+                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
+                  Sort: Last Name
+                </button>
+              </div>
+
               {lockedMessage && <div className="yat-favorite-lock-message">{lockedMessage}</div>}
 
               {showSuperfanList && !isSuperfan && (
@@ -823,7 +866,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           color: var(--ink);
         }
 
-        #drawerFavorites .yat-favorite-scope-toggle {
+        #drawerFavorites .yat-favorite-scope-toggle,
+        #drawerFavorites .yat-favorite-sort-toggle {
           display: flex;
           gap: 8px;
         }
