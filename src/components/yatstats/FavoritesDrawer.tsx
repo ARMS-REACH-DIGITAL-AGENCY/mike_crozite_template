@@ -266,6 +266,31 @@ async function fetchCardEmbedMarkup(playerId: string, attempt = 1): Promise<stri
   }
 }
 
+// Native cards get reliable tap-to-flip from PlayerCardFlipBehavior.tsx, a
+// React component rendered inside each card that finds its own ancestor
+// .yat-card in a useEffect and attaches a click listener directly to it.
+// That never runs for a cross-school card: this markup is injected via
+// innerHTML, so React never mounts anything in it, and that useEffect never
+// fires. Cross-school cards were left depending solely on YatInteractivity's
+// older page-wide delegated listener - confirmed live, tapping did nothing
+// at all, anywhere on the card, while the same click-driven "Flip All"
+// button (a direct classList.toggle, not a click event) worked fine. Wiring
+// this exact same per-card listener manually is what PlayerCardFlipBehavior
+// would have attached had React been able to mount it.
+function attachFlipListener(card: HTMLElement) {
+  if (card.dataset.flipListenerAttached === 'true') return;
+  card.dataset.flipListenerAttached = 'true';
+
+  card.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('a, button, input, select, textarea, label, [role="button"]')) return;
+
+    event.stopPropagation();
+    card.classList.toggle('is-flipped');
+  });
+}
+
 function renderCardErrorFallback(name: string, schoolId: string, playerId: string): string {
   const slug = playerSlug(name);
   return `
@@ -641,7 +666,9 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             // DOM alone - but their :not([data-superfan-synthetic]) selectors
             // check the .yat-card element itself, not its ancestors, so the
             // real injected card needs the same marker directly on it too.
-            c.querySelector('.yat-card[data-playerid]')?.setAttribute('data-superfan-synthetic', 'true');
+            const injectedCard = c.querySelector<HTMLElement>('.yat-card[data-playerid]');
+            injectedCard?.setAttribute('data-superfan-synthetic', 'true');
+            if (injectedCard) attachFlipListener(injectedCard);
           } else {
             showFallback();
           }
