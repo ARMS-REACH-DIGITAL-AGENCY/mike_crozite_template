@@ -193,7 +193,19 @@ export async function POST(request: NextRequest) {
     path: "/",
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    // SameSite=None + Partitioned (CHIPS) rather than the old Lax: this
+    // cookie also needs to be readable when the microsite is embedded as a
+    // cross-site iframe (the corporate site's live device-mockup demo).
+    // Under Chrome's third-party cookie policy, a cookie without an
+    // explicit Partitioned opt-in is dropped entirely in that context --
+    // not merely restricted -- so /api/auth/session silently reported
+    // "not authenticated" for a genuinely logged-in visitor viewing the
+    // demo, even though Firebase's own client-side auth state (used
+    // elsewhere for display) was unaffected. Partitioned keeps the cookie
+    // isolated per top-level site, so this doesn't weaken isolation --
+    // SameSite=None is required for the Partitioned attribute to apply.
+    sameSite: "none",
+    partitioned: true,
     maxAge: 60 * 60 * 24 * 30,
   });
 

@@ -161,7 +161,13 @@ export async function POST(request: NextRequest) {
       path: "/",
       httpOnly: true,
       secure: true,
-      sameSite: "lax",
+      // See the matching comment in api/auth/login/route.ts: Partitioned
+      // (CHIPS) + SameSite=None so this cookie survives being read from
+      // inside a cross-site iframe (the corporate site's live demo),
+      // instead of being silently dropped under Chrome's third-party
+      // cookie policy.
+      sameSite: "none",
+      partitioned: true,
       maxAge: 60 * 60 * 24 * 30,
     });
 
