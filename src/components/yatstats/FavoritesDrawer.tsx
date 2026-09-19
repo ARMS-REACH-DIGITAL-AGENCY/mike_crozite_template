@@ -240,17 +240,30 @@ function ensureEmbedStylesInjected(doc: Document) {
   });
 }
 
-async function fetchCardEmbedMarkup(playerId: string): Promise<string | null> {
-  const res = await fetch(`/embed/player-card/${encodeURIComponent(playerId)}`, { cache: 'no-store' });
-  if (!res.ok) return null;
+// A Super Fan can have 20-30 cross-school favorites, each needing its own
+// embed fetch. One retry absorbs the transient failures that come from
+// firing that many requests at once against a serverless DB-backed route
+// (cold starts, momentary connection pressure) - a card that still won't
+// resolve on a clean second attempt is a genuine problem, not this.
+async function fetchCardEmbedMarkup(playerId: string, attempt = 1): Promise<string | null> {
+  try {
+    const res = await fetch(`/embed/player-card/${encodeURIComponent(playerId)}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`embed fetch failed with status ${res.status}`);
 
-  const html = await res.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const root = doc.querySelector('[data-card-embed-root="true"]');
-  if (!root || !root.querySelector('.yat-card[data-playerid]')) return null;
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const root = doc.querySelector('[data-card-embed-root="true"]');
+    if (!root || !root.querySelector('.yat-card[data-playerid]')) {
+      throw new Error('embed response missing card markup');
+    }
 
-  ensureEmbedStylesInjected(doc);
-  return root.innerHTML;
+    ensureEmbedStylesInjected(doc);
+    return root.innerHTML;
+  } catch {
+    if (attempt >= 2) return null;
+    await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    return fetchCardEmbedMarkup(playerId, attempt + 1);
+  }
 }
 
 function renderCardErrorFallback(name: string, schoolId: string, playerId: string): string {
@@ -596,15 +609,16 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   useEffect(() => {
     const missing = applyFavoriteDeck(displayedPlayers, showGalleryView, currentHsid, crossSchoolContainersRef.current);
 
-    missing.forEach((playerId) => {
-      if (cardFetchStatusRef.current.has(playerId)) return;
+    const pending = missing.filter((playerId) => !cardFetchStatusRef.current.has(playerId));
+    pending.forEach((playerId) => {
       cardFetchStatusRef.current.set(playerId, 'loading');
-
       const container = crossSchoolContainersRef.current.get(playerId);
       if (container) {
         container.innerHTML = `<div class="yat-card yat-cross-school-card-loading" data-playerid="${escapeHtml(playerId)}" data-superfan-synthetic="true">Loading card&hellip;</div>`;
       }
+    });
 
+    const loadOne = (playerId: string) => {
       const showFallback = () => {
         cardFetchStatusRef.current.set(playerId, 'done');
         const c = crossSchoolContainersRef.current.get(playerId);
@@ -615,7 +629,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         c.innerHTML = renderCardErrorFallback(name, schoolId, playerId);
       };
 
-      fetchCardEmbedMarkup(playerId)
+      return fetchCardEmbedMarkup(playerId)
         .then((markup) => {
           cardFetchStatusRef.current.set(playerId, 'done');
           const c = crossSchoolContainersRef.current.get(playerId);
@@ -633,7 +647,20 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           }
         })
         .catch(showFallback);
-    });
+    };
+
+    // A Super Fan with 20-30 favorites firing that many embed fetches at
+    // once put real load on a serverless DB-backed route and caused
+    // transient failures. Capping concurrency spreads the requests out
+    // instead of bursting them all simultaneously.
+    const CROSS_SCHOOL_CARD_CONCURRENCY = 4;
+    let cursor = 0;
+    const runNext = (): void => {
+      if (cursor >= pending.length) return;
+      const playerId = pending[cursor++];
+      void loadOne(playerId).finally(runNext);
+    };
+    for (let i = 0; i < Math.min(CROSS_SCHOOL_CARD_CONCURRENCY, pending.length); i++) runNext();
   }, [displayedPlayers, showGalleryView, currentHsid]);
 
   const handleGalleryViewChange = (checked: boolean) => {
