@@ -411,10 +411,18 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
   const resumePendingFavorite = async (firebaseUid: string, contactId?: string | null) => {
     const pid = sessionStorage.getItem('pending_fav_pid');
     const pName = sessionStorage.getItem('pending_fav_name') || pid || '';
+    // The favorited player's OWN school, not the page the fan happened to be
+    // browsing when they clicked favorite - those only ever matched by
+    // construction on a profile page (its hsid IS the player's own), but the
+    // global search result list lets a Superfan favorite a player from a
+    // different school than the one currently open, so subdomain alone is
+    // wrong there.
+    const pHsid = sessionStorage.getItem('pending_fav_hsid') || subdomain;
     if (!pid || !firebaseUid) return;
 
     sessionStorage.removeItem('pending_fav_pid');
     sessionStorage.removeItem('pending_fav_name');
+    sessionStorage.removeItem('pending_fav_hsid');
 
     try {
       const res = await fetch('/api/favorites', {
@@ -425,7 +433,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           contactId,
           playerId: pid,
           playerName: pName,
-          schoolId: subdomain,
+          schoolId: pHsid,
           type: 'fan',
         }),
       });

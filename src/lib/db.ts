@@ -170,8 +170,19 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
 // Returns one row per player with their current 2026 season stats.
 // "Active" = has batting OR pitching stats in year 2026.
 // ---------------------------------------------------------------------------
-export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
-  const sql = `
+// Shared by getActiveRosterByHsid (filter: a whole school's roster) and
+// getActiveRosterRowByPlayerId (filter: one arbitrary player, regardless of
+// which school's page is currently being viewed) so both paths compute
+// 2026 season stats identically instead of drifting into two resolvers.
+//
+// statsRowsFilter additionally scopes the raw season-stat table scans
+// (tbc_batting_2026_season_raw / tbc_pitching_2026_season_raw), which
+// aggregate before ever joining back to school_players. For a whole
+// school that full-table aggregation is the intended cost; for a single
+// arbitrary player it must be scoped too, or every cross-school favorite
+// card re-aggregates the entire league's season on every fetch.
+function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: string): string {
+  return `
     WITH school_players AS (
       SELECT
         ph.playerid,
@@ -185,7 +196,7 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
         tp.posit        AS position
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
+      WHERE ${schoolPlayersFilter}
     ),
 
     batting_2026_by_level AS (
@@ -210,7 +221,7 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
         MAX(draft_info) AS draft_info,
         MAX(playyears)  AS playyears
       FROM tbc_batting_2026_season_raw
-      WHERE year = '2026'
+      WHERE year = '2026' AND ${statsRowsFilter}
       GROUP BY playerid::text, highlevel
     ),
 
@@ -300,7 +311,7 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
       FROM tbc_pitching_2026_season_raw
-      WHERE year = '2026'
+      WHERE year = '2026' AND ${statsRowsFilter}
     ),
 
     pitching_2026_by_level AS (
@@ -434,7 +445,7 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
         year,
         g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so
       FROM tbc_batting_2026_season_raw
-      WHERE year = '2026'
+      WHERE year = '2026' AND ${statsRowsFilter}
     ),
 
     batting_2026_by_bucket AS (
@@ -673,8 +684,24 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
       sp.lastname,
       sp.firstname
   `;
+}
+
+export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+  const sql = buildActiveRosterSql('ph.hsid = $1', 'TRUE');
   const { rows } = await query(sql, [hsid]);
   return rows;
+});
+
+// Same 2026-season stat computation as getActiveRosterByHsid, but for one
+// arbitrary player regardless of which school's page is currently being
+// viewed - used to build a real flip card for a cross-school favorite
+// instead of the current subdomain's own roster. Also scopes the raw
+// season-stat table scans to that one player (see buildActiveRosterSql),
+// so this stays a single-row lookup instead of a league-wide aggregation.
+export const getActiveRosterRowByPlayerId = cache(async function getActiveRosterRowByPlayerId(playerId: string): Promise<any | null> {
+  const sql = buildActiveRosterSql('ph.playerid::text = $1', 'playerid::text = $1');
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
 });
 
 // ---------------------------------------------------------------------------
@@ -1512,8 +1539,66 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
   try {
+    // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
+    // team_schedules). College teams' games live in college_schedule_games_raw,
+    // a separate pipeline with no overlapping teamids, so it's unioned in here
+    // rather than joined - this is the only reader that needs both sources
+    // reconciled into one shape.
     const { rows } = await query(
-      `SELECT * FROM v_team_schedule_feed WHERE tbc_teamid::text = $1 ORDER BY game_date ASC LIMIT $2`,
+      `WITH combined AS (
+         SELECT
+           tbc_teamid::text AS tbc_teamid,
+           team_name,
+           game_date,
+           game_time_utc,
+           status,
+           venue_name,
+           home_team_name,
+           away_team_name,
+           home_away,
+           opponent,
+           home_score,
+           away_score
+         FROM v_team_schedule_feed
+         WHERE tbc_teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           g.teamid::text AS tbc_teamid,
+           g.team AS team_name,
+           g.game_date,
+           g.game_time_utc,
+           g.status,
+           g.venue_name,
+           g.home_team_name,
+           g.away_team_name,
+           CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN 'Home' ELSE 'Away' END AS home_away,
+           CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN g.away_team_name ELSE g.home_team_name END AS opponent,
+           g.home_score,
+           g.away_score
+         FROM college_schedule_games_raw g
+         WHERE g.teamid::text = $1
+       )
+       SELECT
+         *,
+         COALESCE(venue_name, upper(home_away)) AS location,
+         (home_away = 'Home') AS is_home,
+         CASE
+           WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN
+             CASE
+               WHEN home_away = 'Home' AND home_score > away_score THEN 'W ' || home_score || '-' || away_score
+               WHEN home_away = 'Home' AND home_score < away_score THEN 'L ' || home_score || '-' || away_score
+               WHEN home_away = 'Home' AND home_score = away_score THEN 'T ' || home_score || '-' || away_score
+               WHEN home_away = 'Away' AND away_score > home_score THEN 'W ' || away_score || '-' || home_score
+               WHEN home_away = 'Away' AND away_score < home_score THEN 'L ' || away_score || '-' || home_score
+               ELSE 'T ' || away_score || '-' || home_score
+             END
+           ELSE NULL
+         END AS result
+       FROM combined
+       ORDER BY game_date ASC
+       LIMIT $2`,
       [teamId, limit]
     );
     return rows;
@@ -1701,8 +1786,10 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // ---------------------------------------------------------------------------
 // FLIP CARD FRONT STAGE - staging table for UI rendering
 // ---------------------------------------------------------------------------
-export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
-  const sql = `
+// Shared by getFlipCardFrontStageByHsid and getFlipCardFrontStageByPlayerId
+// so both normalize level_label/status_label identically instead of
+// drifting into two resolvers for the same "truth" table.
+const FLIP_CARD_STAGE_SELECT = `
     SELECT *,
       UPPER(status_label) AS status_label,
       CASE level_label
@@ -1744,10 +1831,21 @@ export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFront
         ELSE COALESCE(UPPER(level_label), '')
       END AS level_label
     FROM flip_card_front_stage
-    WHERE hsid = $1
-  `;
+`;
+
+export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
+});
+
+// Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
+// player regardless of which school's page is currently being viewed -
+// used to build a real flip card for a cross-school favorite.
+export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
+  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE playerid::text = $1 LIMIT 1`;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
 });
 
 // ---------------------------------------------------------------------------
@@ -1786,6 +1884,7 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
       `SELECT
          playerid,
          current_team_name,
+         current_team_source_team_id,
          team_affiliation_status,
          last_transaction_type,
          last_transaction_date::text AS last_transaction_date,

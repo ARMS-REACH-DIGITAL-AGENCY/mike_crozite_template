@@ -69,5 +69,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)"],
+  // /embed is a subdomain-agnostic utility route (FavoritesDrawer fetches
+  // /embed/player-card/[playerId] to render cross-school favorites from
+  // any school's subdomain) - it must never get prefixed with the current
+  // subdomain's route, or it 404s since no /<school>/embed/... route
+  // exists. Confirmed live: this was silently breaking every cross-school
+  // favorite card fetch from a real subdomain, 100% of the time.
+  matcher: ["/((?!api|embed|_next|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)"],
 };

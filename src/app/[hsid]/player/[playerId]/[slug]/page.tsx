@@ -198,11 +198,19 @@ export default async function ProfilePage({ params }: Props) {
       ? "STATUS UNCONFIRMED"
       : rawCtxTeam;
 
-  const currentTeamId = resolvedCurrentTeam?.teamid
-    ? String(resolvedCurrentTeam.teamid)
-    : (mostRecentSeason as any)?.teamid
-      ? String((mostRecentSeason as any).teamid)
-      : null;
+  // flip_card_front_stage.current_team_source_team_id is the reconciled,
+  // single source of truth for "current team" (kept accurate by the college
+  // and pro ingest pipelines alike) - it takes priority over both the dead
+  // v_player_current_team_resolved chain and a player's most recent stat-
+  // bearing season, which can point at a stale team after a transfer or a
+  // redshirt year with no season on record yet.
+  const currentTeamId = (transactionStatus as any)?.current_team_source_team_id
+    ? String((transactionStatus as any).current_team_source_team_id)
+    : resolvedCurrentTeam?.teamid
+      ? String(resolvedCurrentTeam.teamid)
+      : (mostRecentSeason as any)?.teamid
+        ? String((mostRecentSeason as any).teamid)
+        : null;
 
   const teamCtx = currentTeamId ? await getTeamContext(currentTeamId) : null;
   const ctxOrg = (teamCtx?.organization || "").trim();
