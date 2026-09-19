@@ -7,6 +7,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
+import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -189,7 +190,7 @@ export default function SchoolContextBar({
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isPlayerProfile && profilePlayerId && resolvedPlayerHsid && (
           <a href={playerFlipCardHref(resolvedPlayerSchoolUrl, resolvedPlayerHsid, profilePlayerId)} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-            <img src="/img/flip-card-return-icon.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }} />
+            <FlipCardIcon size={20} />
           </a>
         )}
         {isPlayerProfile && profilePlayerId && (

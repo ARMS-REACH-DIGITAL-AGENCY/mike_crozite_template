@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
 
 type YatUser = {
   uid?: string;
@@ -393,6 +394,18 @@ function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean) {
   });
 }
 
+// GalleryFilterController only re-scans `.yat-card[data-playerid]` elements
+// when this event fires. Cross-school cards are injected asynchronously
+// (see the embed-fetch effect below) well after the initial dispatch below,
+// so anything checking a filter box while those fetches are still in flight
+// - or that finished after the last dispatch - would never get its
+// data-level/data-status/etc attributes evaluated at all, and stayed visible
+// no matter what was filtered. Every place that mutates the deck's DOM must
+// re-dispatch this so GalleryFilterController re-applies the active filters.
+function notifyFavoritesFilterChanged(enabled: boolean, playerIds: string[]) {
+  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds } }));
+}
+
 function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string, crossSchoolContainers: Map<string, HTMLElement>): string[] {
   const grid = currentGrid();
   if (!grid) return [];
@@ -403,7 +416,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   if (!enabled) {
     restoreOriginalGridOrder(grid, items);
     syncInteractionStrip([], false);
-    window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: [] } }));
+    notifyFavoritesFilterChanged(enabled, []);
     return [];
   }
 
@@ -433,7 +446,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   });
 
   syncInteractionStrip(players, true);
-  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
+  notifyFavoritesFilterChanged(enabled, players.map((p) => String(p.player_id)));
   return missingIds;
 }
 
@@ -678,6 +691,9 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         container.innerHTML = `<div class="yat-card yat-cross-school-card-loading" data-playerid="${escapeHtml(playerId)}" data-superfan-synthetic="true">Loading card&hellip;</div>`;
       }
     });
+    if (pending.length) {
+      notifyFavoritesFilterChanged(showGalleryView, displayedPlayers.map((p) => String(p.player_id)));
+    }
 
     const loadOne = (playerId: string) => {
       const showFallback = () => {
@@ -688,6 +704,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         const name = String(fallbackPlayer?.display_name || playerId);
         const schoolId = String(fallbackPlayer?.school_id || currentHsid);
         c.innerHTML = renderCardErrorFallback(name, schoolId, playerId);
+        notifyFavoritesFilterChanged(showGalleryView, displayedPlayers.map((p) => String(p.player_id)));
       };
 
       return fetchCardEmbedMarkup(playerId)
@@ -705,6 +722,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             const injectedCard = c.querySelector<HTMLElement>('.yat-card[data-playerid]');
             injectedCard?.setAttribute('data-superfan-synthetic', 'true');
             if (injectedCard) attachFlipListener(injectedCard);
+            notifyFavoritesFilterChanged(showGalleryView, displayedPlayers.map((p) => String(p.player_id)));
           } else {
             showFallback();
           }
@@ -758,7 +776,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 title="Flip Card Gallery View"
                 onClick={() => handleGalleryViewChange(!showGalleryView)}
               >
-                <i className="ri-layout-grid-line" />
+                <FlipCardIcon size={18} />
               </button>
             </div>
           )}
@@ -780,11 +798,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           ) : (
             <>
               <div className="yat-favorite-toolbar">
-                <label className="yat-favorite-gallery-toggle">
-                  <input type="checkbox" checked={showGalleryView} onChange={(event) => handleGalleryViewChange(event.target.checked)} />
-                  Flip Card Gallery View
-                </label>
-
                 <button
                   type="button"
                   className="yat-favorite-sort-chip"
@@ -848,20 +861,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         #drawerFavorites .yat-favorite-toolbar {
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
           gap: 10px;
           min-height: 38px;
           border-bottom: 1px solid var(--line);
-        }
-
-        #drawerFavorites .yat-favorite-gallery-toggle {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font: 400 14px Oswald, sans-serif;
-          letter-spacing: 0;
-          text-transform: uppercase;
-          color: var(--ink);
         }
 
         #drawerFavorites .yat-favorite-sort-chip {
