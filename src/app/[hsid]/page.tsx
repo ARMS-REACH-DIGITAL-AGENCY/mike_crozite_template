@@ -262,6 +262,10 @@ export default async function SchoolPage({
 
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ""));
+  // Real canonical subdomain (e.g. "https://hamilton.az.yatstats.com") - a
+  // bare "yatstats.com/{hsid}" URL 404s in production, so this is what
+  // FunZone's Social tab share links need, not resolvedHsid alone.
+  const shareBaseUrl = getCanonicalBaseUrl(school, resolvedHsid);
   const schoolState =
     qp.schoolState === "inactive"
       ? "inactive"
@@ -414,6 +418,8 @@ export default async function SchoolPage({
                     resolvedHsid={resolvedHsid}
                     frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
                     headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                    shareBaseUrl={shareBaseUrl}
+                    schoolName={schoolName}
                   />
                 </div>
               );
@@ -436,6 +442,8 @@ export default async function SchoolPage({
                   resolvedHsid={resolvedHsid}
                   frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
                   headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                  shareBaseUrl={shareBaseUrl}
+                  schoolName={schoolName}
                   isAllTime
                 />
               );
@@ -470,6 +478,8 @@ export default async function SchoolPage({
                   resolvedHsid={resolvedHsid}
                   frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
                   headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                  shareBaseUrl={shareBaseUrl}
+                  schoolName={schoolName}
                 />
               );
             })

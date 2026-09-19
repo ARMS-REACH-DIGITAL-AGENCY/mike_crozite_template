@@ -180,9 +180,13 @@ interface PlayerCardBackProps {
   resolvedHsid: string;
   headshotUrl: string | null;
   isAllTime?: boolean;
+  /** School's real canonical URL (school_success.microsite_url), for FunZone's share links. */
+  shareBaseUrl?: string | null;
+  /** School display name (school_success.hsname), for FunZone's share message. */
+  schoolName?: string | null;
 }
 
-export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: PlayerCardBackProps) {
+export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, shareBaseUrl, schoolName }: PlayerCardBackProps) {
   const isPitcher = p.is_pitcher === true;
   const draft = parseDraft(p.draft_info as string | null);
   const imageId = String(p.playerid || "");
@@ -322,6 +326,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime }: P
             statBarLabel={statBarLabel}
             statBuckets={statBuckets}
             displayName={displayName}
+            shareBaseUrl={shareBaseUrl}
+            schoolName={schoolName}
           />
         </div>
       </div>

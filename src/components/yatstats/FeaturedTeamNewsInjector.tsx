@@ -364,8 +364,15 @@ export default function FeaturedTeamNewsInjector({ player = {}, hsid }: Featured
       return document.querySelector(`[data-player-card-id="${playerId}"]`) as HTMLElement | null;
     }
 
+    // FunZone now always renders all six tab panels (so a cross-school
+    // favorite injected as static HTML still has every tab's markup to
+    // reveal) and toggles visibility with .fz-panel-active, rather than
+    // conditionally mounting just the one active panel. ".fz-panel" alone
+    // is no longer unique - it must be scoped to the active one, or this
+    // would inject into whichever panel happens to be first in DOM order
+    // instead of the one the fan is actually looking at.
     function panelFor(root: HTMLElement | null) {
-      return root?.querySelector(".fz-panel") as HTMLElement | null;
+      return root?.querySelector(".fz-panel.fz-panel-active") as HTMLElement | null;
     }
 
     function removeMediaFromPanel(panel: HTMLElement | null) {
