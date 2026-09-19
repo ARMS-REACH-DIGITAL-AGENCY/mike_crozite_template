@@ -501,7 +501,6 @@ function FavoriteLinks({
 }
 
 export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }) {
-  const [showSuperfanList, setShowSuperfanList] = useState(false);
   const [showGalleryView, setShowGalleryView] = useState(false);
   const [sortByLastName, setSortByLastNameState] = useState(false);
   const [homePlayers, setHomePlayers] = useState<FavoritePlayer[]>([]);
@@ -524,12 +523,18 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     writeSortByLastNamePreference(byLastName);
   }, []);
 
+  // Role decides the list, not a manual toggle: a Fan account is already
+  // hard-blocked server-side from favoriting outside their home school (see
+  // the 403 in api/favorites' POST handler), so a Fan's list is just their
+  // home favorites. A Super Fan's is the full combined list -- global access
+  // is the entire point of the upgrade, not something to additionally filter
+  // down within the drawer.
   const displayedPlayers = useMemo(() => {
-    const combined = showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
+    const combined = isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
     return [...combined].sort((a, b) =>
       favoriteSortKey(a, sortByLastName).localeCompare(favoriteSortKey(b, sortByLastName), undefined, { sensitivity: 'base' })
     );
-  }, [homePlayers, isSuperfan, showSuperfanList, superfanPlayers, sortByLastName]);
+  }, [homePlayers, isSuperfan, superfanPlayers, sortByLastName]);
 
   const handleUnfavorite = useCallback(async (player: FavoritePlayer) => {
     const playerId = String(player.player_id);
@@ -755,26 +760,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
               >
                 <i className="ri-layout-grid-line" />
               </button>
-              <button
-                type="button"
-                className={!showSuperfanList ? 'yat-icon-btn active' : 'yat-icon-btn'}
-                aria-label="Home Fan"
-                aria-pressed={!showSuperfanList}
-                title="Home Fan"
-                onClick={() => setShowSuperfanList(false)}
-              >
-                <i className="ri-home-4-line" />
-              </button>
-              <button
-                type="button"
-                className={showSuperfanList ? 'yat-icon-btn active' : 'yat-icon-btn'}
-                aria-label="Global Super Fan"
-                aria-pressed={showSuperfanList}
-                title="Global Super Fan"
-                onClick={() => setShowSuperfanList(true)}
-              >
-                <i className="ri-earth-line" />
-              </button>
             </div>
           )}
           <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
@@ -794,39 +779,25 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             </div>
           ) : (
             <>
-              <label className="yat-favorite-gallery-toggle">
-                <input type="checkbox" checked={showGalleryView} onChange={(event) => handleGalleryViewChange(event.target.checked)} />
-                Flip Card Gallery View
-              </label>
+              <div className="yat-favorite-toolbar">
+                <label className="yat-favorite-gallery-toggle">
+                  <input type="checkbox" checked={showGalleryView} onChange={(event) => handleGalleryViewChange(event.target.checked)} />
+                  Flip Card Gallery View
+                </label>
 
-              <div className="yat-favorite-scope-toggle" role="group" aria-label="Favorites list scope">
-                <button type="button" onClick={() => setShowSuperfanList(false)} className={!showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Home Fan
-                </button>
-                <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Global Super Fan
-                </button>
-              </div>
-
-              <div className="yat-favorite-sort-toggle" role="group" aria-label="Sort favorites by">
-                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Sort: First Name
-                </button>
-                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Sort: Last Name
+                <button
+                  type="button"
+                  className="yat-favorite-sort-chip"
+                  onClick={() => handleSortModeChange(!sortByLastName)}
+                  aria-label={sortByLastName ? 'Sorted last name first - tap to sort first name first' : 'Sorted first name first - tap to sort last name first'}
+                  title="Toggle sort order"
+                >
+                  <i className="ri-sort-alphabet-asc" aria-hidden="true" />
+                  {sortByLastName ? 'Last, First' : 'First, Last'}
                 </button>
               </div>
 
               {lockedMessage && <div className="yat-favorite-lock-message">{lockedMessage}</div>}
-
-              {showSuperfanList && !isSuperfan && (
-                <div className="yat-favorite-lock-message" style={{ marginBottom: 10 }}>
-                  Showing home team only - Super Fan unlocks cross-school favorites.{' '}
-                  <button type="button" onClick={() => openAccountDrawer('register')} style={{ background: 'none', border: 'none', padding: 0, color: '#ffd166', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>
-                    Upgrade
-                  </button>
-                </div>
-              )}
 
               <div className="yat-favorite-list-wrap">
                 <FavoriteLinks players={displayedPlayers} currentHsid={currentHsid} onUnfavorite={handleUnfavorite} removingId={removingId} />
@@ -874,22 +845,49 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           letter-spacing: .03em;
         }
 
+        #drawerFavorites .yat-favorite-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          min-height: 38px;
+          border-bottom: 1px solid var(--line);
+        }
+
         #drawerFavorites .yat-favorite-gallery-toggle {
           display: flex;
           align-items: center;
           gap: 8px;
-          min-height: 38px;
-          border-bottom: 1px solid var(--line);
           font: 400 14px Oswald, sans-serif;
           letter-spacing: 0;
           text-transform: uppercase;
           color: var(--ink);
         }
 
-        #drawerFavorites .yat-favorite-scope-toggle,
-        #drawerFavorites .yat-favorite-sort-toggle {
+        #drawerFavorites .yat-favorite-sort-chip {
           display: flex;
-          gap: 8px;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+          height: 26px;
+          padding: 0 10px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--ink);
+          font: 400 11px/1 Oswald, sans-serif;
+          letter-spacing: .02em;
+          text-transform: uppercase;
+          white-space: nowrap;
+          cursor: pointer;
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip:hover {
+          background: rgba(255,255,255,.08);
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip i {
+          font-size: 13px;
         }
 
         #drawerFavorites .yat-favorite-header-icons {
@@ -903,25 +901,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         #drawerFavorites .yat-favorite-header-icons .yat-icon-btn.active {
           color: var(--accent, #c8a96e);
           background: rgba(200,169,110,.15);
-        }
-
-        #drawerFavorites .yat-favorite-tab {
-          flex: 1;
-          min-height: 38px;
-          padding: 8px 10px;
-          border: 1px solid var(--line);
-          border-radius: 8px;
-          background: transparent;
-          color: var(--ink);
-          font: 400 13px/1.1 Oswald, sans-serif;
-          letter-spacing: 0;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-
-        #drawerFavorites .yat-favorite-tab.active {
-          background: rgba(255,255,255,.14);
-          color: var(--fg);
         }
 
         #drawerFavorites .yat-favorite-list-wrap {
