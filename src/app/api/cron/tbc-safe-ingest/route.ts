@@ -370,6 +370,32 @@ async function syncOneFeed(client: any, feed: FeedKey) {
   };
 }
 
+// Every player identified in the TBC players feed with a resolvable high
+// school must have a flip_card_front_stage row - that row is what the whole
+// site checks for before it will render a card at all (see
+// src/app/embed/player-card/[playerId]/page.tsx). Nothing else in this
+// pipeline ever creates that row, only updates existing ones, so without
+// this step a new player can appear in tbc_players_raw forever and never
+// get a card. Runs after the players feed sync, inside the same
+// transaction, so a new player never has more than one ingest cycle's
+// delay before getting a baseline row.
+async function ensureFlipCardBaselineRows(client: any): Promise<number> {
+  const { rows } = await client.query(`
+    insert into public.flip_card_front_stage (playerid, hsid, display_name, first_name, last_name)
+    select distinct ph.playerid, ph.hsid::text,
+           trim(coalesce(t.firstname, '') || ' ' || coalesce(t.lastname, '')),
+           t.firstname, t.lastname
+    from public.player_hsids ph
+    join public.tbc_players_raw t on t.playerid = ph.playerid
+    left join public.flip_card_front_stage f on f.playerid = ph.playerid
+    where ph.hsid is not null
+      and f.playerid is null
+    on conflict (playerid) do nothing
+    returning playerid
+  `);
+  return rows.length;
+}
+
 async function ensureIngestHealthTable(client: any): Promise<void> {
   await client.query(`
     create table if not exists public.ingest_job_health (
@@ -479,7 +505,10 @@ export async function GET(req: NextRequest) {
     results.push(await syncOneFeed(client, "batting"));
     results.push(await syncOneFeed(client, "pitching"));
     validateResults(results);
-    await recordIngestSuccess(client, results);
+
+    const newFlipCardRows = await ensureFlipCardBaselineRows(client);
+
+    await recordIngestSuccess(client, { results, newFlipCardRows });
 
     await client.query("commit");
 
@@ -503,6 +532,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       ranAt: new Date().toISOString(),
       results,
+      newFlipCardRows,
     });
   } catch (error: any) {
     if (client) {
