@@ -108,6 +108,7 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
           nullif(trim(concat_ws(' ', f.first_name, f.last_name)), ''),
           f.playerid::text
         ) as display_name,
+        nullif(trim(f.last_name), '') as last_name,
         f.current_team_name,
         f.current_org_or_conference_name,
         f.level_label,
@@ -119,7 +120,8 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
     tbc_one as (
       select
         p.playerid::text as player_id,
-        nullif(trim(concat_ws(' ', p.firstname, p.lastname)), '') as tbc_display_name
+        nullif(trim(concat_ws(' ', p.firstname, p.lastname)), '') as tbc_display_name,
+        nullif(trim(p.lastname), '') as tbc_last_name
       from public.tbc_players_raw p
       where p.playerid::text = any($2::text[])
     )
@@ -127,6 +129,7 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
       fr.player_id,
       coalesce(fr.favorite_school_id, s.stage_hsid) as school_id,
       coalesce(s.display_name, t.tbc_display_name, fr.player_id) as display_name,
+      coalesce(s.last_name, t.tbc_last_name) as last_name,
       s.current_team_name,
       s.current_org_or_conference_name,
       s.level_label,

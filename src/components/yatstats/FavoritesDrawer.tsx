@@ -13,6 +13,7 @@ type FavoritePlayer = {
   player_id: string;
   school_id?: string | null;
   display_name?: string | null;
+  last_name?: string | null;
   current_team_name?: string | null;
   current_org_or_conference_name?: string | null;
   level_label?: string | null;
@@ -147,11 +148,30 @@ function writeSortByLastNamePreference(byLastName: boolean) {
   } catch {}
 }
 
+const NAME_SUFFIXES = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V']);
+
+function stripTrailingNameSuffix(parts: string[]): string[] {
+  const trimmed = [...parts];
+  while (trimmed.length > 1) {
+    const last = trimmed[trimmed.length - 1].toUpperCase().replace(/\.$/, '');
+    if (!NAME_SUFFIXES.has(last)) break;
+    trimmed.pop();
+  }
+  return trimmed;
+}
+
 function favoriteSortKey(player: FavoritePlayer, byLastName: boolean): string {
   const name = String(player.display_name || player.player_id).trim();
   if (!byLastName) return name;
 
-  const parts = name.split(/\s+/);
+  // Prefer the stored last_name column (api/favorites now returns it). The
+  // word-splitting fallback below only runs for the rare player missing a
+  // stored last name, and even then skips a trailing generational suffix
+  // (Jr., Sr., II...) so "Ken Griffey Jr." sorts under Griffey, not Jr.
+  const stored = String(player.last_name || '').trim();
+  if (stored) return stored;
+
+  const parts = stripTrailingNameSuffix(name.split(/\s+/).filter(Boolean));
   return parts.length > 1 ? parts[parts.length - 1] : name;
 }
 
