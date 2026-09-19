@@ -649,11 +649,12 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         .catch(showFallback);
     };
 
-    // A Super Fan with 20-30 favorites firing that many embed fetches at
-    // once put real load on a serverless DB-backed route and caused
-    // transient failures. Capping concurrency spreads the requests out
-    // instead of bursting them all simultaneously.
-    const CROSS_SCHOOL_CARD_CONCURRENCY = 4;
+    // The DB pool behind /embed/player-card (src/lib/db.ts) allows only 5
+    // connections total, shared with every other request the site is
+    // serving. A Super Fan with 20-30 favorites bursting even 4 at once
+    // leaves almost no headroom and starves other traffic - 2 keeps this
+    // well under that ceiling while still loading faster than one at a time.
+    const CROSS_SCHOOL_CARD_CONCURRENCY = 2;
     let cursor = 0;
     const runNext = (): void => {
       if (cursor >= pending.length) return;
