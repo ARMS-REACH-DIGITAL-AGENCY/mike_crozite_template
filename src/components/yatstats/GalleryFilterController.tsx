@@ -27,6 +27,16 @@ function getFavoritesGalleryRestriction(section: HTMLElement): { enabled: boolea
   return { enabled: true, playerIds: new Set(ids) };
 }
 
+// A favorite can carry any status/level/org, and a cross-school card starts
+// as a bare loading placeholder (a .yat-card with no data-status/data-level/
+// etc. set yet) while its real markup is being fetched. Combining that
+// placeholder with the section's ambient roster preset (e.g. "active"
+// requires a non-empty, non-RETIRED data-status) failed it and hid the
+// whole card - and nothing re-evaluated it once the real, correctly-
+// attributed card was later injected into the same wrapper, so it never
+// came back. Tracked per section so switching sections resets it cleanly.
+const favoritesGalleryWasEnabled = new Map<string, boolean>();
+
 function normalize(value: unknown): string {
   return String(value || '').trim().toUpperCase();
 }
@@ -253,7 +263,31 @@ export default function GalleryFilterController() {
     // event is just the nudge to re-run applyFilters, which reads that
     // state fresh rather than trusting this event's own payload.
     const onFavoritesFilterChanged = () => {
-      applyFilters(getCurrentSection());
+      const section = getCurrentSection();
+      if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+
+      const targetSection = document.getElementById(`sec-${section}`);
+      const isEnabledNow = Boolean(targetSection) && getFavoritesGalleryRestriction(targetSection as HTMLElement).enabled;
+      const wasEnabled = favoritesGalleryWasEnabled.get(section) || false;
+      favoritesGalleryWasEnabled.set(section, isEnabledNow);
+
+      if (isEnabledNow && !wasEnabled) {
+        // Entering the favorites gallery for this section: start from no
+        // filter restriction so a favorite (or its still-loading placeholder)
+        // is never excluded by whatever roster preset the section normally
+        // applies. The user can still narrow within favorites by touching a
+        // filter control while this view stays open.
+        clearFilters();
+        syncEverySelectAll();
+      } else if (!isEnabledNow && wasEnabled) {
+        // Leaving the favorites gallery: restore the section's normal
+        // roster preset instead of leaving filters in the cleared state
+        // favorites view started from.
+        applyPreset(section);
+        return;
+      }
+
+      applyFilters(section);
     };
 
     window.addEventListener('hashchange', syncSection);

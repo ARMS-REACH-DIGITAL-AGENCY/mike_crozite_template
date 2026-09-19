@@ -779,15 +779,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
               >
                 <i className="ri-earth-line" />
               </button>
-              <button
-                type="button"
-                className="yat-icon-btn"
-                aria-label={sortByLastName ? 'Sorted by last name, tap to sort by first name' : 'Sorted by first name, tap to sort by last name'}
-                title={sortByLastName ? 'Sort: Last Name' : 'Sort: First Name'}
-                onClick={() => handleSortModeChange(!sortByLastName)}
-              >
-                <i className={sortByLastName ? 'ri-sort-alphabet-desc' : 'ri-sort-alphabet-asc'} />
-              </button>
             </div>
           )}
           <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
@@ -818,6 +809,16 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 </button>
                 <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
                   Global Super Fan
+                </button>
+              </div>
+
+              <div className="yat-favorite-sort-compact" role="group" aria-label="Sort favorites by">
+                <span className="yat-favorite-sort-compact-label">Sort</span>
+                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-sort-chip active' : 'yat-favorite-sort-chip'}>
+                  First
+                </button>
+                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-sort-chip active' : 'yat-favorite-sort-chip'}>
+                  Last
                 </button>
               </div>
 
@@ -923,6 +924,39 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-tab.active {
+          background: rgba(255,255,255,.14);
+          color: var(--fg);
+        }
+
+        #drawerFavorites .yat-favorite-sort-compact {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+        }
+
+        #drawerFavorites .yat-favorite-sort-compact-label {
+          font: 400 11px Oswald, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip {
+          flex: 0 0 auto;
+          min-height: 24px;
+          padding: 2px 12px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--ink);
+          font: 400 11px Oswald, sans-serif;
+          letter-spacing: 0;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip.active {
           background: rgba(255,255,255,.14);
           color: var(--fg);
         }
