@@ -671,6 +671,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            row3-h-driven height untouched. */
         :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
+        /* .zt-shell-images below relies on height:100% cascading all the way
+           down from .yat-row3-shell -- but SharedShell.tsx renders an
+           unstyled wrapper div (.yat-profile-career-strip) in between with
+           no height of its own. A percentage height against an auto-height
+           ancestor resolves to nothing, and since every moment card is
+           position:absolute (needed for the horizontal strip's manual left
+           offsets), the cards contribute zero height back up the chain --
+           so this wrapper needs an explicit height too, not just the row
+           itself, or the whole strip silently renders empty. */
+        :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
         :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, 100px) !important; height:var(--row3-h, 100px) !important; }
       `}</style>
     </section>
