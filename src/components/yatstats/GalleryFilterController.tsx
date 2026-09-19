@@ -148,20 +148,32 @@ function applyPreset(section: string) {
 
   clearFilters();
 
-  if (section === 'active') {
-    const statuses = getGroupBoxes('filterStatus')
-      .map((box) => normalize(box.value))
-      .filter((status) => status && status !== 'RETIRED');
-    setValues('filterStatus', statuses);
-  }
+  // A Super Fan's favorites gallery is a hand-picked, cross-status,
+  // cross-level list - the section's own default roster preset (e.g. the
+  // active section auto-excluding RETIRED alumni) describes that section's
+  // normal roster, not what belongs in a curated favorites list. Applying
+  // it there silently hid any favorite that didn't match (a retired
+  // cross-school alumnus, say), which looked identical to "favorites
+  // disappeared" even though nothing about the favorite itself changed.
+  // Leave every status/level box unchecked (no restriction) while viewing
+  // favorites; applyFilters still narrows the list by whatever the Super
+  // Fan explicitly checks afterward.
+  if (!favoritesGalleryEnabled) {
+    if (section === 'active') {
+      const statuses = getGroupBoxes('filterStatus')
+        .map((box) => normalize(box.value))
+        .filter((status) => status && status !== 'RETIRED');
+      setValues('filterStatus', statuses);
+    }
 
-  if (section === 'alltime') {
-    setAll('filterStatus', true);
-  }
+    if (section === 'alltime') {
+      setAll('filterStatus', true);
+    }
 
-  if (section === 'current') {
-    setAll('filterStatus', true);
-    setValues('filterLevels', ['HIGH SCHOOL']);
+    if (section === 'current') {
+      setAll('filterStatus', true);
+      setValues('filterLevels', ['HIGH SCHOOL']);
+    }
   }
 
   syncEverySelectAll();
@@ -234,9 +246,18 @@ export default function GalleryFilterController() {
 
     const onFavoritesFilterChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ enabled?: boolean; playerIds?: string[] }>).detail || {};
+      const wasEnabled = favoritesGalleryEnabled;
       favoritesGalleryEnabled = Boolean(detail.enabled);
       favoritesGalleryPlayerIds = new Set((detail.playerIds || []).map((id) => String(id)));
-      applyFilters(getCurrentSection());
+
+      // Flipping gallery view on/off changes which default preset (if any)
+      // should be in effect - re-derive it via applyPreset instead of just
+      // re-scoring the current filter state with applyFilters.
+      if (favoritesGalleryEnabled !== wasEnabled) {
+        applyPreset(getCurrentSection());
+      } else {
+        applyFilters(getCurrentSection());
+      }
     };
 
     window.addEventListener('hashchange', syncSection);

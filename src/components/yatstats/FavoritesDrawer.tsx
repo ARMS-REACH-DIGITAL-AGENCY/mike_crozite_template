@@ -765,24 +765,36 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     <>
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
-          <h3 style={{ margin: 0 }}>MY FAVORITE PLAYERS</h3>
-          {hasUser && (
-            <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
-              <button
-                type="button"
-                className={showGalleryView ? 'yat-icon-btn active' : 'yat-icon-btn'}
-                aria-label="Flip Card Gallery View"
-                aria-pressed={showGalleryView}
-                title="Flip Card Gallery View"
-                onClick={() => handleGalleryViewChange(!showGalleryView)}
-              >
-                <FlipCardIcon size={18} />
-              </button>
-            </div>
-          )}
-          <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
-            <i className="ri-close-line" />
-          </button>
+          <h3 style={{ margin: 0 }}>FAVORITES</h3>
+          <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
+            {hasUser && (
+              <>
+                <button
+                  type="button"
+                  className="yat-favorite-sort-chip"
+                  onClick={() => handleSortModeChange(!sortByLastName)}
+                  aria-label={sortByLastName ? 'Sorted last name first - tap to sort first name first' : 'Sorted first name first - tap to sort last name first'}
+                  title="Toggle sort order"
+                >
+                  <i className="ri-sort-alphabet-asc" aria-hidden="true" />
+                  {sortByLastName ? 'Last, First' : 'First, Last'}
+                </button>
+                <button
+                  type="button"
+                  className={showGalleryView ? 'yat-icon-btn active' : 'yat-icon-btn'}
+                  aria-label="Flip Card Gallery View"
+                  aria-pressed={showGalleryView}
+                  title="Flip Card Gallery View"
+                  onClick={() => handleGalleryViewChange(!showGalleryView)}
+                >
+                  <FlipCardIcon size={18} />
+                </button>
+              </>
+            )}
+            <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
+              <i className="ri-close-line" />
+            </button>
+          </div>
         </div>
 
         <div className="yat-drawer-content">
@@ -797,19 +809,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             </div>
           ) : (
             <>
-              <div className="yat-favorite-toolbar">
-                <button
-                  type="button"
-                  className="yat-favorite-sort-chip"
-                  onClick={() => handleSortModeChange(!sortByLastName)}
-                  aria-label={sortByLastName ? 'Sorted last name first - tap to sort first name first' : 'Sorted first name first - tap to sort last name first'}
-                  title="Toggle sort order"
-                >
-                  <i className="ri-sort-alphabet-asc" aria-hidden="true" />
-                  {sortByLastName ? 'Last, First' : 'First, Last'}
-                </button>
-              </div>
-
               {lockedMessage && <div className="yat-favorite-lock-message">{lockedMessage}</div>}
 
               <div className="yat-favorite-list-wrap">
@@ -858,15 +857,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           letter-spacing: .03em;
         }
 
-        #drawerFavorites .yat-favorite-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 10px;
-          min-height: 38px;
-          border-bottom: 1px solid var(--line);
-        }
-
         #drawerFavorites .yat-favorite-sort-chip {
           display: flex;
           align-items: center;
@@ -896,8 +886,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         #drawerFavorites .yat-favorite-header-icons {
           display: flex;
           align-items: center;
-          gap: 4px;
-          flex: 1;
+          gap: 14px;
           justify-content: flex-end;
         }
 
