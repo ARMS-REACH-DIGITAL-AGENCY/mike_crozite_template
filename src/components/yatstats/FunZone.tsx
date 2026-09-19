@@ -29,7 +29,7 @@
 // - CTA strip and tab strip tighten first.
 // - fz-panel gets whatever space remains after CTA and tabs.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Constants
 
@@ -208,16 +208,26 @@ function StatsPanel({
 function NewsPanel({
   player,
   resolvedHsid,
+  isActive,
 }: {
   player: Record<string, unknown>;
   resolvedHsid: string;
+  isActive: boolean;
 }) {
   const [loading, setLoading] = useState(true);
   const [featuredNews, setFeaturedNews] = useState<NewsTease | null>(null);
+  const hasFetchedRef = useRef(false);
 
   const playerId = String(player.playerid || "");
 
+  // Every panel is always mounted now (so a card injected as static HTML
+  // still has all six tabs' markup to reveal), but this fetch should still
+  // only fire once the fan actually opens the News tab, not on every card's
+  // initial render - fetching news for every card on a gallery page whether
+  // or not anyone looks at it would multiply site-wide request volume.
   useEffect(() => {
+    if (!isActive || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     let cancelled = false;
 
     async function loadNews() {
@@ -271,7 +281,7 @@ if (!cancelled) {
     return () => {
       cancelled = true;
     };
-  }, [resolvedHsid, playerId]);
+  }, [isActive, resolvedHsid, playerId]);
 
   if (loading) {
     return (
@@ -337,39 +347,46 @@ return (
     </div>
   );
 }
-function SocialPanel({ player }: { player: Record<string, unknown> }) {
-  const xHandle = player.x_handle || player.twitter_handle || null;
-  const igHandle = player.ig_handle || player.instagram_handle || null;
-  const firstName = String(player.firstname || player.first_name || "").split(" ")[0] || "this player";
+// The Social tab isn't about the player's own social accounts - it's a
+// commercial for YAT?STATS itself: prompt a fan to share this card to their
+// own feed with #YATABOY. Every link here is a plain <a href>, deliberately -
+// no click handler required, so this works identically whether the card
+// hydrates normally or is injected as static HTML (a cross-school favorite).
+function SocialPanel({ displayName, shareUrl }: { displayName: string; shareUrl: string }) {
+  const firstName = displayName.split(" ")[0] || "this player";
+  const shareText = `Check out ${firstName}'s player card on YAT?STATS!`;
+  const encodedUrl = encodeURIComponent(shareUrl);
+  const encodedText = encodeURIComponent(shareText);
+  const encodedSmsBody = encodeURIComponent(`${shareText} ${shareUrl}`);
+  const encodedEmailSubject = encodeURIComponent(`Check out ${firstName} on YAT?STATS`);
 
   return (
     <div className="fz-social">
       <div className="fz-social-tag">#YATABOY</div>
-      <div className="fz-social-sub">Show some love for {firstName}!</div>
+      <div className="fz-social-sub">Share {firstName}&apos;s YAT?STATS card with your friends and family.</div>
       <div className="fz-social-links">
-        {xHandle && (
-          <a
-            href={`https://x.com/${String(xHandle).replace(/^@/, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="fz-social-link"
-          >
-            <i className="ri-twitter-x-line" /> @{String(xHandle).replace(/^@/, "")}
-          </a>
-        )}
-        {igHandle && (
-          <a
-            href={`https://instagram.com/${String(igHandle).replace(/^@/, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="fz-social-link"
-          >
-            <i className="ri-instagram-line" /> @{String(igHandle).replace(/^@/, "")}
-          </a>
-        )}
-        {!xHandle && !igHandle && (
-          <div className="fz-ph-text">Social links available on the player profile page.</div>
-        )}
+        <a
+          href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fz-social-link"
+        >
+          <i className="ri-facebook-fill" /> Facebook
+        </a>
+        <a
+          href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}&hashtags=YATABOY`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fz-social-link"
+        >
+          <i className="ri-twitter-x-line" /> X
+        </a>
+        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
+          <i className="ri-message-2-line" /> Text
+        </a>
+        <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-link">
+          <i className="ri-mail-line" /> Email
+        </a>
       </div>
     </div>
   );
@@ -431,6 +448,12 @@ export default function FunZone({
   // Deep-link to the matching tab on the profile page so the CTA always
   // opens the same tab the user is currently viewing on the flip card.
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}#ppTab-${activeTab}`;
+  // Always the plain https://yatstats.com/{hsid}/... fallback rather than a
+  // school's prettier subdomain (which would need the school record
+  // threaded through PlayerCard/PlayerCardBack/FunZone and, separately,
+  // into the cross-school embed route) - this is guaranteed to resolve for
+  // any hsid today, and is a small, isolated upgrade later if wanted.
+  const shareUrl = `https://yatstats.com/${resolvedHsid}/player/${imageId}/${slug}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
@@ -446,40 +469,73 @@ export default function FunZone({
       <YatiCta ctaText={ctaText} profileHref={profileHref} />
 
       {/*
-        2. Active content panel - flex:1 min-height:0
-           Gets all remaining vertical space after CTA strip.
+        2. Content panels - flex:1 min-height:0
+           All six are always rendered (a cross-school favorite is injected
+           as static HTML fetched from /embed/player-card - React never
+           hydrates it, so only markup that already exists in that HTML can
+           ever be revealed; a tab whose content only mounted conditionally
+           on activeTab would never exist for that card at all). Visibility
+           is CSS-only (.fz-panel-active), so plain data-fz-tab + a vanilla
+           click listener (added where cross-school cards get injected) can
+           drive the same tab switching without React.
            No internal scroll; content expands naturally.
       */}
-      <div className="fz-panel">
-        {activeTab === "schedule" && <SchedulePanel player={player} />}
-        {activeTab === "stats" && (
-          <div className="fz-stats-shell">
-            {resolvedStatBuckets.length > 1 && (
-              <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Stats level buckets">
-                {resolvedStatBuckets.map((bucket, idx) => (
-                  <button
-                    key={`${bucket.label}-${idx}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeStatsIndex === idx}
-                    className={`fz-stat-bucket-btn${activeStatsIndex === idx ? " active" : ""}`}
-                    onClick={() => setActiveStatsIndex(idx)}
-                  >
-                    {bucket.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            <StatsPanel
-              stats={activeStatsBucket.stats}
-              statBarLabel={activeStatsBucket.label}
-            />
-          </div>
-        )}
-        {activeTab === "news"     && <NewsPanel player={player} resolvedHsid={resolvedHsid} />}
-        {activeTab === "social"   && <SocialPanel player={player} />}
-        {activeTab === "connect"  && <ConnectPanel player={player} />}
-        {activeTab === "upload"   && <UploadPanel player={player} />}
+      <div
+        className={`fz-panel${activeTab === "schedule" ? " fz-panel-active" : ""}`}
+        data-fz-tab="schedule"
+      >
+        <SchedulePanel player={player} />
+      </div>
+      <div
+        className={`fz-panel${activeTab === "stats" ? " fz-panel-active" : ""}`}
+        data-fz-tab="stats"
+      >
+        <div className="fz-stats-shell">
+          {resolvedStatBuckets.length > 1 && (
+            <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Stats level buckets">
+              {resolvedStatBuckets.map((bucket, idx) => (
+                <button
+                  key={`${bucket.label}-${idx}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeStatsIndex === idx}
+                  className={`fz-stat-bucket-btn${activeStatsIndex === idx ? " active" : ""}`}
+                  onClick={() => setActiveStatsIndex(idx)}
+                >
+                  {bucket.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <StatsPanel
+            stats={activeStatsBucket.stats}
+            statBarLabel={activeStatsBucket.label}
+          />
+        </div>
+      </div>
+      <div
+        className={`fz-panel${activeTab === "news" ? " fz-panel-active" : ""}`}
+        data-fz-tab="news"
+      >
+        <NewsPanel player={player} resolvedHsid={resolvedHsid} isActive={activeTab === "news"} />
+      </div>
+      <div
+        className={`fz-panel${activeTab === "social" ? " fz-panel-active" : ""}`}
+        data-fz-tab="social"
+      >
+        <SocialPanel displayName={displayName} shareUrl={shareUrl} />
+      </div>
+      <div
+        className={`fz-panel${activeTab === "connect" ? " fz-panel-active" : ""}`}
+        data-fz-tab="connect"
+      >
+        <ConnectPanel player={player} />
+      </div>
+      <div
+        className={`fz-panel${activeTab === "upload" ? " fz-panel-active" : ""}`}
+        data-fz-tab="upload"
+      >
+        <UploadPanel player={player} />
       </div>
 
       {/*
@@ -493,6 +549,7 @@ export default function FunZone({
             className={`fz-tab-btn${activeTab === tab.id ? " fz-tab-active" : ""}`}
             onClick={() => setActiveTab(tab.id)}
             aria-pressed={activeTab === tab.id}
+            data-fz-tab={tab.id}
             type="button"
           >
             <i className={tab.icon} aria-hidden="true" />
@@ -623,10 +680,17 @@ export default function FunZone({
         .fz-tab-btn:hover:not(.fz-tab-active){color:rgba(30,22,14,0.7)}
 
         /* -- Content panel ---------------------------------------------- */
+        /* All six panels are always in the DOM (see the comment at their
+           render site); only the active one is displayed, so the hidden
+           ones take up no layout space and never push the tab strip down. */
+        .fz-panel{
+          display:none;
+        }
         /* flex:1 min-height:0 - gets all remaining space after CTA + tab strips.
            overflow:hidden - clips content to allocated space so it CANNOT push
            the tab strip down at any card width (3-across or 4-across). */
-        .fz-panel{
+        .fz-panel.fz-panel-active{
+          display:block;
           flex:1;
           min-height:0;
           overflow:hidden;
@@ -838,7 +902,7 @@ export default function FunZone({
           font:300 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
           color:rgba(30,22,14,0.6);
         }
-        .fz-social-links{display:flex;flex-direction:column;gap:5px;margin-top:2px}
+        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:2px}
         .fz-social-link{
           display:flex;
           align-items:center;
