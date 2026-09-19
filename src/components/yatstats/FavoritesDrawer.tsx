@@ -373,6 +373,27 @@ function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean) {
   });
 }
 
+// GalleryFilterController needs to know, at the moment it actually runs a
+// filter pass, whether the favorites gallery is restricting the visible
+// section and to which playerIds - not whatever it last heard from an
+// event, which can go stale if that event and a filter pass interleave
+// with a section change. Stamping the restriction directly on the section
+// element means every filter pass reads the live, authoritative state
+// instead of a cached snapshot.
+function setFavoritesGalleryRestriction(grid: HTMLElement, enabled: boolean, playerIds: string[]) {
+  const section = grid.closest<HTMLElement>('.yat-section');
+  if (!section) return;
+
+  if (!enabled) {
+    delete section.dataset.favoritesGalleryActive;
+    delete section.dataset.favoritesGalleryIds;
+    return;
+  }
+
+  section.dataset.favoritesGalleryActive = 'true';
+  section.dataset.favoritesGalleryIds = playerIds.join(',');
+}
+
 function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string, crossSchoolContainers: Map<string, HTMLElement>): string[] {
   const grid = currentGrid();
   if (!grid) return [];
@@ -383,6 +404,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   if (!enabled) {
     restoreOriginalGridOrder(grid, items);
     syncInteractionStrip([], false);
+    setFavoritesGalleryRestriction(grid, false, []);
     window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: [] } }));
     return [];
   }
@@ -413,7 +435,9 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   });
 
   syncInteractionStrip(players, true);
-  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
+  const playerIds = players.map((p) => String(p.player_id));
+  setFavoritesGalleryRestriction(grid, true, playerIds);
+  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds } }));
   return missingIds;
 }
 
@@ -755,6 +779,15 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
               >
                 <i className="ri-earth-line" />
               </button>
+              <button
+                type="button"
+                className="yat-icon-btn"
+                aria-label={sortByLastName ? 'Sorted by last name, tap to sort by first name' : 'Sorted by first name, tap to sort by last name'}
+                title={sortByLastName ? 'Sort: Last Name' : 'Sort: First Name'}
+                onClick={() => handleSortModeChange(!sortByLastName)}
+              >
+                <i className={sortByLastName ? 'ri-sort-alphabet-desc' : 'ri-sort-alphabet-asc'} />
+              </button>
             </div>
           )}
           <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
@@ -785,15 +818,6 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 </button>
                 <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
                   Global Super Fan
-                </button>
-              </div>
-
-              <div className="yat-favorite-sort-toggle" role="group" aria-label="Sort favorites by">
-                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Sort: First Name
-                </button>
-                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Sort: Last Name
                 </button>
               </div>
 
@@ -866,8 +890,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           color: var(--ink);
         }
 
-        #drawerFavorites .yat-favorite-scope-toggle,
-        #drawerFavorites .yat-favorite-sort-toggle {
+        #drawerFavorites .yat-favorite-scope-toggle {
           display: flex;
           gap: 8px;
         }
