@@ -895,6 +895,21 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           text-transform: uppercase;
         }
 
+        /* .yat-card::before is a padding-top:140% spacer meant to be
+           overlaid by .yat-card-inner's absolutely-positioned front/back
+           faces, establishing the card's aspect ratio. This placeholder is
+           plain centered text with none of that overlay structure, so as a
+           normal flex-column child the spacer just adds ~1.4x the card's
+           width in dead space above the text - with the fetch concurrency
+           this waits on now capped at 2 (not 4, see the concurrency fix
+           merged alongside this), several of these can be visible at once
+           for a Super Fan with many cross-school favorites, showing as a
+           run of oversized, mostly-blank cards in the gallery. */
+        .yat-cross-school-card-loading::before,
+        .yat-cross-school-card-error::before {
+          content: none;
+        }
+
         .yat-cross-school-card-error a {
           color: #ffd166;
           text-decoration: underline;
