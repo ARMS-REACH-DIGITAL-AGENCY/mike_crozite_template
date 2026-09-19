@@ -136,7 +136,12 @@ function normalizeVisibility(value: unknown) {
 }
 
 function getSession(req: NextRequest): YatSession | null {
-  const raw = req.cookies.get("yat-session")?.value;
+  // login/register write the CURRENT session under "yat-platform-session";
+  // "yat-session" is only ever cleared as a legacy artifact, never set with
+  // real data by the present login flow. Reading only the legacy name here
+  // meant this endpoint rejected every upload as signed-out regardless of
+  // actual login state. Mirrors the read order in /api/auth/session/route.ts.
+  const raw = req.cookies.get("yat-platform-session")?.value || req.cookies.get("yat-session")?.value;
   if (!raw) return null;
 
   try {
