@@ -135,11 +135,6 @@ function playerHeadshotUrl(playerId: string) {
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
 }
 
-function lastNameFromDisplayName(name: string): string {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  return (parts[parts.length - 1] || '').toUpperCase();
-}
-
 function cardContainerFromCard(card: HTMLElement): HTMLElement {
   return (card.closest('[data-player-card-wrap="true"]') as HTMLElement | null) || card;
 }
@@ -305,30 +300,7 @@ function removeSyntheticStripSlots(strip: HTMLElement) {
   strip.querySelectorAll('[data-superfan-synthetic="true"]').forEach((node) => node.remove());
 }
 
-function createSyntheticStripSlot(player: FavoritePlayer, currentHsid: string): HTMLElement {
-  const playerId = String(player.player_id);
-  const name = String(player.display_name || playerId);
-  const schoolId = String(player.school_id || currentHsid);
-  const slug = playerSlug(name);
-  const slot = document.createElement('a');
-  slot.href = `/${encodeURIComponent(schoolId)}/player/${encodeURIComponent(playerId)}/${encodeURIComponent(slug)}`;
-  slot.className = 'gallery-slot gallery-slot-link';
-  slot.dataset.playerid = playerId;
-  slot.dataset.status = String(player.status_label || 'ACTIVE').toUpperCase();
-  slot.dataset.superfanSynthetic = 'true';
-  slot.title = name;
-  slot.style.display = '';
-  slot.innerHTML = `
-    <div class="gallery-slot-media">
-      <img src="${escapeHtml(playerHeadshotUrl(playerId))}" alt="${escapeHtml(name)}" class="gallery-slot-img" onerror="this.src='/img/headshot-silhouette.png';this.onerror=null" />
-      <div class="gallery-slot-gradient"></div>
-      <div class="gallery-slot-name-overlay">${escapeHtml(lastNameFromDisplayName(name))}</div>
-    </div>
-  `;
-  return slot;
-}
-
-function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean, currentHsid: string) {
+function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean) {
   const strip = document.querySelector('.gallery-strip-inner') as HTMLElement | null;
   if (!strip) return;
 
@@ -366,9 +338,14 @@ function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean, curre
     if (existing) {
       existing.style.display = '';
       strip.appendChild(existing);
-      return;
     }
-    strip.appendChild(createSyntheticStripSlot(player, currentHsid));
+    // A cross-school favorite with no native slot here is Row3MirrorGuard's
+    // job, not this function's: it mirrors row 5's real DOM (name, photo,
+    // order) whenever it changes. This function used to also create its own
+    // synthetic slot from the favorites API's display_name, independently
+    // and out of sync with that guard - whichever ran last won, which is
+    // exactly what caused duplicate photos and raw-playerid labels to keep
+    // reappearing after Row3MirrorGuard had already fixed them.
   });
 }
 
@@ -381,7 +358,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
 
   if (!enabled) {
     restoreOriginalGridOrder(grid, items);
-    syncInteractionStrip([], false, currentHsid);
+    syncInteractionStrip([], false);
     window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: [] } }));
     return [];
   }
@@ -411,7 +388,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
     missingIds.push(playerId);
   });
 
-  syncInteractionStrip(players, true, currentHsid);
+  syncInteractionStrip(players, true);
   window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
   return missingIds;
 }
