@@ -57,6 +57,16 @@ interface FunZoneProps {
   statBuckets?: StatBucket[];
   /** Pre-computed display name from PlayerCardBack (Server Component) */
   displayName: string;
+  /**
+   * The school's real canonical URL (school_success.microsite_url, e.g.
+   * "https://hamilton.az.yatstats.com"), resolved server-side by whichever
+   * page rendered this card - PlayerCardBack has no DB access itself. Falls
+   * back to the bare https://yatstats.com/{hsid} form only if a school
+   * record wasn't resolved (should be rare).
+   */
+  shareBaseUrl?: string | null;
+  /** School display name (school_success.hsname), for the share message. */
+  schoolName?: string | null;
 }
 
 interface NewsTease {
@@ -347,23 +357,80 @@ return (
     </div>
   );
 }
+// TODO: fill in once confirmed - the official YAT?STATS X/Twitter handle
+// (without the @), appended as a mention in the tweet text. Facebook's
+// sharer.php no longer accepts pre-filled text/tags at all (deprecated
+// for spam reasons around 2018) - a Facebook share can only carry the URL
+// itself, whose link preview then comes from that page's own Open Graph
+// tags, so there is no equivalent "tag the Page" hook for that button.
+const YAT_STATS_X_HANDLE = "";
+
+function FacebookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+      <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231ZM17.083 19.77h1.833L7.084 4.126H5.117Z" />
+    </svg>
+  );
+}
+
+function TextIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.35 0-2.63-.31-3.77-.86L3 21l1.86-5.73A8.5 8.5 0 1 1 21 11.5Z" />
+    </svg>
+  );
+}
+
+function EmailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </svg>
+  );
+}
+
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
-// own feed with #YATABOY. Every link here is a plain <a href>, deliberately -
-// no click handler required, so this works identically whether the card
-// hydrates normally or is injected as static HTML (a cross-school favorite).
-function SocialPanel({ displayName, shareUrl }: { displayName: string; shareUrl: string }) {
-  const firstName = displayName.split(" ")[0] || "this player";
-  const shareText = `Check out ${firstName}'s player card on YAT?STATS!`;
+// own feed with a personalized #YATABOY hashtag. Every link here is a plain
+// <a href>, deliberately - no click handler required, so this works
+// identically whether the card hydrates normally or is injected as static
+// HTML (a cross-school favorite). Icons are inline SVGs rather than an icon
+// font, so the real Facebook/X marks always render regardless of font load.
+function SocialPanel({
+  firstName,
+  lastName,
+  schoolName,
+  shareUrl,
+}: {
+  firstName: string;
+  lastName: string;
+  schoolName: string;
+  shareUrl: string;
+}) {
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "this player";
+  const hashtag = `YATABOY${firstName.replace(/[^a-zA-Z0-9]/g, "")}`;
+  const schoolPart = schoolName ? ` from ${schoolName}` : "";
+  const shareText = `Check out ${fullName}'s YAT?STATS player card${schoolPart}! #${hashtag}`;
+  const tweetText = YAT_STATS_X_HANDLE ? `${shareText} @${YAT_STATS_X_HANDLE}` : shareText;
+
   const encodedUrl = encodeURIComponent(shareUrl);
-  const encodedText = encodeURIComponent(shareText);
+  const encodedTweetText = encodeURIComponent(tweetText);
   const encodedSmsBody = encodeURIComponent(`${shareText} ${shareUrl}`);
-  const encodedEmailSubject = encodeURIComponent(`Check out ${firstName} on YAT?STATS`);
+  const encodedEmailSubject = encodeURIComponent(`Check out ${fullName} on YAT?STATS`);
 
   return (
     <div className="fz-social">
-      <div className="fz-social-tag">#YATABOY</div>
-      <div className="fz-social-sub">Share {firstName}&apos;s YAT?STATS card with your friends and family.</div>
+      <div className="fz-social-tag">#{hashtag}</div>
+      <div className="fz-social-sub">Share {fullName}&apos;s YAT?STATS card with your friends and family.</div>
       <div className="fz-social-links">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
@@ -371,21 +438,25 @@ function SocialPanel({ displayName, shareUrl }: { displayName: string; shareUrl:
           rel="noopener noreferrer"
           className="fz-social-link"
         >
-          <i className="ri-facebook-fill" /> Facebook
+          <FacebookIcon />
+          <span>Facebook</span>
         </a>
         <a
-          href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}&hashtags=YATABOY`}
+          href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTweetText}&hashtags=${hashtag}`}
           target="_blank"
           rel="noopener noreferrer"
           className="fz-social-link"
         >
-          <i className="ri-twitter-x-line" /> X
+          <XIcon />
+          <span>X</span>
         </a>
         <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
-          <i className="ri-message-2-line" /> Text
+          <TextIcon />
+          <span>Text</span>
         </a>
         <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-link">
-          <i className="ri-mail-line" /> Email
+          <EmailIcon />
+          <span>Email</span>
         </a>
       </div>
     </div>
@@ -429,6 +500,8 @@ export default function FunZone({
   statBarLabel,
   statBuckets,
   displayName,
+  shareBaseUrl,
+  schoolName,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [activeStatsIndex, setActiveStatsIndex] = useState(0);
@@ -445,15 +518,17 @@ export default function FunZone({
   const imageId = String(player.playerid || "");
   const slug = String(player.slug || "");
   const firstName = displayName.split(" ")[0] || "this player";
+  const lastName = String(player.lastname || player.last_name || displayName.split(" ").slice(1).join(" ") || "");
   // Deep-link to the matching tab on the profile page so the CTA always
   // opens the same tab the user is currently viewing on the flip card.
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}#ppTab-${activeTab}`;
-  // Always the plain https://yatstats.com/{hsid}/... fallback rather than a
-  // school's prettier subdomain (which would need the school record
-  // threaded through PlayerCard/PlayerCardBack/FunZone and, separately,
-  // into the cross-school embed route) - this is guaranteed to resolve for
-  // any hsid today, and is a small, isolated upgrade later if wanted.
-  const shareUrl = `https://yatstats.com/${resolvedHsid}/player/${imageId}/${slug}`;
+  // shareBaseUrl is the school's real canonical URL (school_success.
+  // microsite_url, e.g. "https://hamilton.az.yatstats.com"), resolved by
+  // the page/route that rendered this card - a bare "yatstats.com/{hsid}"
+  // URL 404s in production, the flip card only ever lives on the school's
+  // own subdomain. Only fall back to that (still-incorrect but non-empty)
+  // form if a school record genuinely couldn't be resolved.
+  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/player/${imageId}/${slug}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
@@ -523,7 +598,12 @@ export default function FunZone({
         className={`fz-panel${activeTab === "social" ? " fz-panel-active" : ""}`}
         data-fz-tab="social"
       >
-        <SocialPanel displayName={displayName} shareUrl={shareUrl} />
+        <SocialPanel
+          firstName={firstName}
+          lastName={lastName}
+          schoolName={schoolName || ""}
+          shareUrl={shareUrl}
+        />
       </div>
       <div
         className={`fz-panel${activeTab === "connect" ? " fz-panel-active" : ""}`}
@@ -892,30 +972,33 @@ export default function FunZone({
 
 
         /* -- Social panel ----------------------------------------------- */
-        .fz-social{display:flex;flex-direction:column;gap:6px}
+        .fz-social{display:flex;flex-direction:column;gap:clamp(6px,2.2cqi,12px);height:100%;justify-content:center}
         .fz-social-tag{
-          font:700 clamp(12px,4.5cqi,18px) "Bebas Neue",sans-serif;
+          font:700 clamp(16px,6cqi,26px) "Bebas Neue",sans-serif;
           letter-spacing:.06em;
           color:rgba(30,22,14,0.9);
         }
         .fz-social-sub{
-          font:300 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.6);
+          font:300 clamp(9px,2.8cqi,13px) Oswald,sans-serif;
+          color:rgba(30,22,14,0.65);
         }
-        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:2px}
+        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(6px,2cqi,10px);margin-top:clamp(2px,1cqi,6px)}
         .fz-social-link{
           display:flex;
           align-items:center;
-          gap:6px;
-          font:400 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.65);
+          justify-content:center;
+          gap:clamp(6px,2cqi,10px);
+          font:600 clamp(11px,3.4cqi,15px) Oswald,sans-serif;
+          color:rgba(30,22,14,0.75);
           text-decoration:none;
-          padding:5px 8px;
-          border-radius:6px;
-          border:1px solid rgba(30,22,14,0.2);
+          min-height:clamp(34px,11cqi,48px);
+          padding:clamp(6px,1.8cqi,10px) clamp(8px,2.5cqi,12px);
+          border-radius:clamp(6px,1.8cqi,10px);
+          border:1px solid rgba(30,22,14,0.24);
+          background:rgba(255,255,255,0.22);
         }
-        .fz-social-link:hover{color:rgba(30,22,14,0.9);border-color:rgba(30,22,14,0.4)}
-        .fz-social-link i{font-size:clamp(9px,3cqi,13px)}
+        .fz-social-link:hover{color:rgba(30,22,14,0.95);border-color:rgba(30,22,14,0.45);background:rgba(255,255,255,0.4)}
+        .fz-social-link svg{flex-shrink:0}
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{

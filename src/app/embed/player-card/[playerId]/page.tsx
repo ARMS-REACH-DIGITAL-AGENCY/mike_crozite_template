@@ -19,7 +19,9 @@ import {
   getFlipCardFrontStageByPlayerId,
   getActiveRosterRowByPlayerId,
   getBatchDesignatedPlayerImages,
+  getSchoolByHsid,
 } from "@/lib/db";
+import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
 export const runtime = "nodejs";
@@ -44,10 +46,19 @@ export default async function PlayerCardEmbedPage({
 
   const resolvedHsid = String(stageRow.hsid || "");
 
-  const [frontImageMap, headshotMap] = await Promise.all([
+  // This route serves a player from a school OTHER than whichever
+  // subdomain is fetching it (that's the entire point of Super Fan
+  // cross-school favorites), so it needs its own school lookup - it can't
+  // rely on the host it was fetched from the way the native school page
+  // does. Same source (school_success) FunZone's Social tab share links
+  // need to point at the real subdomain instead of a 404ing bare-domain URL.
+  const [frontImageMap, headshotMap, school] = await Promise.all([
     getBatchDesignatedPlayerImages([id], "YATSTATS_FRONT"),
     getBatchDesignatedPlayerImages([id], "HEADSHOT"),
+    getSchoolByHsid(resolvedHsid),
   ]);
+  const shareBaseUrl = getCanonicalBaseUrl(school, resolvedHsid);
+  const schoolName = school?.hsname ? String(school.hsname) : null;
 
   return (
     <div data-card-embed-root="true">
@@ -56,6 +67,8 @@ export default async function PlayerCardEmbedPage({
         resolvedHsid={resolvedHsid}
         frontImageUrl={frontImageMap.get(id)?.image_url ?? null}
         headshotUrl={headshotMap.get(id)?.image_url ?? null}
+        shareBaseUrl={shareBaseUrl}
+        schoolName={schoolName}
       />
     </div>
   );
