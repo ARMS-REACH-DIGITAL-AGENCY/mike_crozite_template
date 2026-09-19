@@ -29,6 +29,18 @@ interface PlayerCardProps {
   headshotUrl?: string | null;
   /** When true, applies all-time display differences (CAREER STATS label, etc.) */
   isAllTime?: boolean;
+  /**
+   * The rendering school's real canonical URL (school_success.microsite_url,
+   * e.g. "https://hamilton.az.yatstats.com") - the caller resolves this
+   * (it already has the school record), since a bare "yatstats.com/{hsid}"
+   * URL 404s in production. Passed through to FunZone's Social tab share
+   * links. Pass null when a school record genuinely couldn't be resolved.
+   */
+  shareBaseUrl?: string | null;
+  /** School display name (school_success.hsname), for FunZone's share message. */
+  schoolName?: string | null;
+  /** School location (school_success.hslocation), for FunZone's share message. */
+  schoolLocation?: string | null;
 }
 
 function statValue(value: unknown): string {
@@ -57,7 +69,7 @@ function imageText(value: unknown): string {
   return text;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
   const gc = String(p.class_of || "").trim();
   const { estimated: gcEstimated } = gradClassInfo(p);
@@ -138,7 +150,15 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       <div className="yat-card-inner">
         <div className="yat-flip">
           <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} gradClassEstimated={gcEstimated} />
-          <PlayerCardBack player={playerWithSlug} resolvedHsid={resolvedHsid} headshotUrl={headshotUrl} isAllTime={isAllTime} />
+          <PlayerCardBack
+            player={playerWithSlug}
+            resolvedHsid={resolvedHsid}
+            headshotUrl={headshotUrl}
+            isAllTime={isAllTime}
+            shareBaseUrl={shareBaseUrl}
+            schoolName={schoolName}
+            schoolLocation={schoolLocation}
+          />
         </div>
       </div>
     </article>

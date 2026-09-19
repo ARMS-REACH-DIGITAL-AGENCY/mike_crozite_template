@@ -331,6 +331,38 @@ function attachFlipListener(card: HTMLElement) {
   });
 }
 
+// FunZone (the six-tab area on the card back) always renders all six panels
+// now and switches which one shows via a CSS class, specifically so a
+// vanilla click listener like this one can drive it - React's own onClick/
+// useState in FunZone.tsx never runs for a card injected via innerHTML.
+function attachFunZoneTabListener(card: HTMLElement) {
+  if (card.dataset.funZoneTabListenerAttached === 'true') return;
+  card.dataset.funZoneTabListenerAttached = 'true';
+
+  card.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const tabBtn = target.closest<HTMLElement>('.fz-tab-btn[data-fz-tab]');
+    if (!tabBtn) return;
+
+    const tabId = tabBtn.dataset.fzTab;
+    if (!tabId) return;
+
+    event.stopPropagation();
+
+    tabBtn.closest('.fz-tab-strip')?.querySelectorAll<HTMLElement>('.fz-tab-btn').forEach((btn) => {
+      const isActive = btn === tabBtn;
+      btn.classList.toggle('fz-tab-active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    tabBtn.closest('.fz-root')?.querySelectorAll<HTMLElement>('.fz-panel[data-fz-tab]').forEach((panel) => {
+      panel.classList.toggle('fz-panel-active', panel.dataset.fzTab === tabId);
+    });
+  });
+}
+
 function renderCardErrorFallback(name: string, schoolId: string, playerId: string): string {
   const slug = playerSlug(name);
   return `
@@ -742,7 +774,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             // real injected card needs the same marker directly on it too.
             const injectedCard = c.querySelector<HTMLElement>('.yat-card[data-playerid]');
             injectedCard?.setAttribute('data-superfan-synthetic', 'true');
-            if (injectedCard) attachFlipListener(injectedCard);
+            if (injectedCard) {
+              attachFlipListener(injectedCard);
+              attachFunZoneTabListener(injectedCard);
+            }
             nudgeFavoritesFilter();
           } else {
             showFallback();
