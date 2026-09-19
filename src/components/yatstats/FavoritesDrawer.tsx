@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
 
 type YatUser = {
   uid?: string;
@@ -525,7 +526,6 @@ function FavoriteLinks({
 }
 
 export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }) {
-  const [showSuperfanList, setShowSuperfanList] = useState(false);
   const [showGalleryView, setShowGalleryView] = useState(false);
   const [sortByLastName, setSortByLastNameState] = useState(false);
   const [homePlayers, setHomePlayers] = useState<FavoritePlayer[]>([]);
@@ -549,11 +549,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   }, []);
 
   const displayedPlayers = useMemo(() => {
-    const combined = showSuperfanList && isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
+    const combined = isSuperfan ? [...homePlayers, ...superfanPlayers] : homePlayers;
     return [...combined].sort((a, b) =>
       favoriteSortKey(a, sortByLastName).localeCompare(favoriteSortKey(b, sortByLastName), undefined, { sensitivity: 'base' })
     );
-  }, [homePlayers, isSuperfan, showSuperfanList, superfanPlayers, sortByLastName]);
+  }, [homePlayers, isSuperfan, superfanPlayers, sortByLastName]);
 
   const handleUnfavorite = useCallback(async (player: FavoritePlayer) => {
     const playerId = String(player.player_id);
@@ -689,6 +689,19 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   useEffect(() => {
     const missing = applyFavoriteDeck(displayedPlayers, showGalleryView, currentHsid, crossSchoolContainersRef.current);
 
+    // GalleryFilterController only re-scans `.yat-card[data-playerid]`
+    // elements when this event fires. A cross-school card's real markup
+    // (with the data-level/data-status/etc. attributes filters actually
+    // read) lands well after applyFavoriteDeck's own dispatch above, so
+    // without a nudge here it never gets evaluated against an active
+    // filter and just stays visible no matter what's checked. The
+    // restriction itself was already stamped on the section by
+    // applyFavoriteDeck and doesn't change here, so this dispatch's detail
+    // is unused - it's purely the signal to re-run applyFilters.
+    const nudgeFavoritesFilter = () => {
+      window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled: showGalleryView } }));
+    };
+
     const pending = missing.filter((playerId) => !cardFetchStatusRef.current.has(playerId));
     pending.forEach((playerId) => {
       cardFetchStatusRef.current.set(playerId, 'loading');
@@ -697,6 +710,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         container.innerHTML = `<div class="yat-card yat-cross-school-card-loading" data-playerid="${escapeHtml(playerId)}" data-superfan-synthetic="true">Loading card&hellip;</div>`;
       }
     });
+    if (pending.length) nudgeFavoritesFilter();
 
     const loadOne = (playerId: string) => {
       const showFallback = () => {
@@ -707,6 +721,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         const name = String(fallbackPlayer?.display_name || playerId);
         const schoolId = String(fallbackPlayer?.school_id || currentHsid);
         c.innerHTML = renderCardErrorFallback(name, schoolId, playerId);
+        nudgeFavoritesFilter();
       };
 
       return fetchCardEmbedMarkup(playerId)
@@ -724,6 +739,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             const injectedCard = c.querySelector<HTMLElement>('.yat-card[data-playerid]');
             injectedCard?.setAttribute('data-superfan-synthetic', 'true');
             if (injectedCard) attachFlipListener(injectedCard);
+            nudgeFavoritesFilter();
           } else {
             showFallback();
           }
@@ -766,44 +782,36 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     <>
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
-          <h3 style={{ margin: 0 }}>MY FAVORITE PLAYERS</h3>
-          {hasUser && (
-            <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
-              <button
-                type="button"
-                className={showGalleryView ? 'yat-icon-btn active' : 'yat-icon-btn'}
-                aria-label="Flip Card Gallery View"
-                aria-pressed={showGalleryView}
-                title="Flip Card Gallery View"
-                onClick={() => handleGalleryViewChange(!showGalleryView)}
-              >
-                <i className="ri-layout-grid-line" />
-              </button>
-              <button
-                type="button"
-                className={!showSuperfanList ? 'yat-icon-btn active' : 'yat-icon-btn'}
-                aria-label="Home Fan"
-                aria-pressed={!showSuperfanList}
-                title="Home Fan"
-                onClick={() => setShowSuperfanList(false)}
-              >
-                <i className="ri-home-4-line" />
-              </button>
-              <button
-                type="button"
-                className={showSuperfanList ? 'yat-icon-btn active' : 'yat-icon-btn'}
-                aria-label="Global Super Fan"
-                aria-pressed={showSuperfanList}
-                title="Global Super Fan"
-                onClick={() => setShowSuperfanList(true)}
-              >
-                <i className="ri-earth-line" />
-              </button>
-            </div>
-          )}
-          <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
-            <i className="ri-close-line" />
-          </button>
+          <h3 style={{ margin: 0 }}>FAVORITES</h3>
+          <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
+            {hasUser && (
+              <>
+                <button
+                  type="button"
+                  className="yat-favorite-sort-chip"
+                  onClick={() => handleSortModeChange(!sortByLastName)}
+                  aria-label={sortByLastName ? 'Sorted last name first - tap to sort first name first' : 'Sorted first name first - tap to sort last name first'}
+                  title="Toggle sort order"
+                >
+                  <i className="ri-sort-alphabet-asc" aria-hidden="true" />
+                  {sortByLastName ? 'Last, First' : 'First, Last'}
+                </button>
+                <button
+                  type="button"
+                  className={showGalleryView ? 'yat-icon-btn active' : 'yat-icon-btn'}
+                  aria-label="Flip Card Gallery View"
+                  aria-pressed={showGalleryView}
+                  title="Flip Card Gallery View"
+                  onClick={() => handleGalleryViewChange(!showGalleryView)}
+                >
+                  <FlipCardIcon size={18} />
+                </button>
+              </>
+            )}
+            <button className="yat-icon-btn" id="closeFavorites" aria-label="Close favorites" onClick={closeFavoritesDrawer}>
+              <i className="ri-close-line" />
+            </button>
+          </div>
         </div>
 
         <div className="yat-drawer-content">
@@ -818,40 +826,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             </div>
           ) : (
             <>
-              <label className="yat-favorite-gallery-toggle">
-                <input type="checkbox" checked={showGalleryView} onChange={(event) => handleGalleryViewChange(event.target.checked)} />
-                Flip Card Gallery View
-              </label>
-
-              <div className="yat-favorite-scope-toggle" role="group" aria-label="Favorites list scope">
-                <button type="button" onClick={() => setShowSuperfanList(false)} className={!showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Home Fan
-                </button>
-                <button type="button" onClick={() => setShowSuperfanList(true)} className={showSuperfanList ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Global Super Fan
-                </button>
-              </div>
-
-              <div className="yat-favorite-sort-compact" role="group" aria-label="Sort favorites by">
-                <span className="yat-favorite-sort-compact-label">Sort</span>
-                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-sort-chip active' : 'yat-favorite-sort-chip'}>
-                  First
-                </button>
-                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-sort-chip active' : 'yat-favorite-sort-chip'}>
-                  Last
-                </button>
-              </div>
-
               {lockedMessage && <div className="yat-favorite-lock-message">{lockedMessage}</div>}
-
-              {showSuperfanList && !isSuperfan && (
-                <div className="yat-favorite-lock-message" style={{ marginBottom: 10 }}>
-                  Showing home team only - Super Fan unlocks cross-school favorites.{' '}
-                  <button type="button" onClick={() => openAccountDrawer('register')} style={{ background: 'none', border: 'none', padding: 0, color: '#ffd166', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>
-                    Upgrade
-                  </button>
-                </div>
-              )}
 
               <div className="yat-favorite-list-wrap">
                 <FavoriteLinks players={displayedPlayers} currentHsid={currentHsid} onUnfavorite={handleUnfavorite} removingId={removingId} />
@@ -899,28 +874,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           letter-spacing: .03em;
         }
 
-        #drawerFavorites .yat-favorite-gallery-toggle {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          min-height: 38px;
-          border-bottom: 1px solid var(--line);
-          font: 400 14px Oswald, sans-serif;
-          letter-spacing: 0;
-          text-transform: uppercase;
-          color: var(--ink);
-        }
-
-        #drawerFavorites .yat-favorite-scope-toggle {
-          display: flex;
-          gap: 8px;
-        }
-
         #drawerFavorites .yat-favorite-header-icons {
           display: flex;
           align-items: center;
-          gap: 4px;
-          flex: 1;
+          gap: 14px;
           justify-content: flex-end;
         }
 
@@ -929,56 +886,30 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           background: rgba(200,169,110,.15);
         }
 
-        #drawerFavorites .yat-favorite-tab {
-          flex: 1;
-          min-height: 38px;
-          padding: 8px 10px;
-          border: 1px solid var(--line);
-          border-radius: 8px;
-          background: transparent;
-          color: var(--ink);
-          font: 400 13px/1.1 Oswald, sans-serif;
-          letter-spacing: 0;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-
-        #drawerFavorites .yat-favorite-tab.active {
-          background: rgba(255,255,255,.14);
-          color: var(--fg);
-        }
-
-        #drawerFavorites .yat-favorite-sort-compact {
+        #drawerFavorites .yat-favorite-sort-chip {
           display: flex;
           align-items: center;
-          gap: 6px;
-          margin-top: 8px;
-        }
-
-        #drawerFavorites .yat-favorite-sort-compact-label {
-          font: 400 11px Oswald, sans-serif;
-          letter-spacing: .04em;
-          text-transform: uppercase;
-          color: var(--muted);
-        }
-
-        #drawerFavorites .yat-favorite-sort-chip {
-          flex: 0 0 auto;
-          min-height: 24px;
-          padding: 2px 12px;
+          gap: 5px;
+          flex-shrink: 0;
+          height: 26px;
+          padding: 0 10px;
           border: 1px solid var(--line);
           border-radius: 999px;
           background: transparent;
           color: var(--ink);
-          font: 400 11px Oswald, sans-serif;
-          letter-spacing: 0;
+          font: 400 11px/1 Oswald, sans-serif;
+          letter-spacing: .02em;
           text-transform: uppercase;
+          white-space: nowrap;
           cursor: pointer;
         }
 
-        #drawerFavorites .yat-favorite-sort-chip.active {
-          background: rgba(255,255,255,.14);
-          color: var(--fg);
+        #drawerFavorites .yat-favorite-sort-chip:hover {
+          background: rgba(255,255,255,.08);
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip i {
+          font-size: 13px;
         }
 
         #drawerFavorites .yat-favorite-list-wrap {
