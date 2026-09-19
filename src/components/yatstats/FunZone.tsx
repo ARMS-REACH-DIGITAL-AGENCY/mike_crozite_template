@@ -65,8 +65,10 @@ interface FunZoneProps {
    * record wasn't resolved (should be rare).
    */
   shareBaseUrl?: string | null;
-  /** School display name (school_success.hsname), for the share message. */
+  /** Raw school display name (school_success.hsname, e.g. "El Capitan" - no "High School" suffix), for the share message. */
   schoolName?: string | null;
+  /** School location (school_success.hslocation, e.g. "Lakeside, CA"), for the share message. */
+  schoolLocation?: string | null;
 }
 
 interface NewsTease {
@@ -357,13 +359,12 @@ return (
     </div>
   );
 }
-// TODO: fill in once confirmed - the official YAT?STATS X/Twitter handle
-// (without the @), appended as a mention in the tweet text. Facebook's
-// sharer.php no longer accepts pre-filled text/tags at all (deprecated
-// for spam reasons around 2018) - a Facebook share can only carry the URL
-// itself, whose link preview then comes from that page's own Open Graph
-// tags, so there is no equivalent "tag the Page" hook for that button.
-const YAT_STATS_X_HANDLE = "";
+// Facebook's sharer.php no longer accepts pre-filled text/tags at all
+// (deprecated for spam reasons around 2018) - a Facebook share can only
+// carry the URL itself, whose link preview then comes from that page's own
+// Open Graph tags, so the @handle below only actually "tags" YAT?STATS on
+// X, where it's a plain mention inside the tweet text.
+const YAT_STATS_X_HANDLE = "yat_stats";
 
 function FacebookIcon() {
   return (
@@ -409,22 +410,38 @@ function SocialPanel({
   firstName,
   lastName,
   schoolName,
+  schoolLocation,
   shareUrl,
 }: {
   firstName: string;
   lastName: string;
   schoolName: string;
+  schoolLocation: string;
   shareUrl: string;
 }) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ") || "this player";
   const hashtag = `YATABOY${firstName.replace(/[^a-zA-Z0-9]/g, "")}`;
-  const schoolPart = schoolName ? ` from ${schoolName}` : "";
-  const shareText = `Check out ${fullName}'s YAT?STATS player card${schoolPart}! #${hashtag}`;
-  const tweetText = YAT_STATS_X_HANDLE ? `${shareText} @${YAT_STATS_X_HANDLE}` : shareText;
+  // school_success.hslocation is stored comma-packed ("Lakeside,CA") -
+  // normalize to "Lakeside, CA" for a message meant to be posted publicly.
+  const formattedLocation = schoolLocation
+    ? schoolLocation.split(",").map((part) => part.trim()).filter(Boolean).join(", ")
+    : "";
+
+  const shareText =
+    schoolName && formattedLocation
+      ? [
+          `Hey Alumni of ${schoolName} High School in ${formattedLocation}...`,
+          `Do you ever wonder what became of one of your school's best baseball players like ${fullName}?`,
+          `Visit @${YAT_STATS_X_HANDLE} to find out`,
+          `Where They #YAT and`,
+          `What's Their #STATS!`,
+          `#${hashtag}`,
+        ].join("\n")
+      : `Check out ${fullName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS! #${hashtag}`;
 
   const encodedUrl = encodeURIComponent(shareUrl);
-  const encodedTweetText = encodeURIComponent(tweetText);
-  const encodedSmsBody = encodeURIComponent(`${shareText} ${shareUrl}`);
+  const encodedText = encodeURIComponent(shareText);
+  const encodedSmsBody = encodeURIComponent(`${shareText}\n${shareUrl}`);
   const encodedEmailSubject = encodeURIComponent(`Check out ${fullName} on YAT?STATS`);
 
   return (
@@ -442,7 +459,7 @@ function SocialPanel({
           <span>Facebook</span>
         </a>
         <a
-          href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTweetText}&hashtags=${hashtag}`}
+          href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
           target="_blank"
           rel="noopener noreferrer"
           className="fz-social-link"
@@ -502,6 +519,7 @@ export default function FunZone({
   displayName,
   shareBaseUrl,
   schoolName,
+  schoolLocation,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [activeStatsIndex, setActiveStatsIndex] = useState(0);
@@ -602,6 +620,7 @@ export default function FunZone({
           firstName={firstName}
           lastName={lastName}
           schoolName={schoolName || ""}
+          schoolLocation={schoolLocation || ""}
           shareUrl={shareUrl}
         />
       </div>

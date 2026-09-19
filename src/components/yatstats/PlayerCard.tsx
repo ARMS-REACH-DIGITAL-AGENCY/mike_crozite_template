@@ -39,6 +39,8 @@ interface PlayerCardProps {
   shareBaseUrl?: string | null;
   /** School display name (school_success.hsname), for FunZone's share message. */
   schoolName?: string | null;
+  /** School location (school_success.hslocation), for FunZone's share message. */
+  schoolLocation?: string | null;
 }
 
 function statValue(value: unknown): string {
@@ -67,7 +69,7 @@ function imageText(value: unknown): string {
   return text;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, shareBaseUrl = null, schoolName = null }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
   const gc = String(p.class_of || "").trim();
   const { estimated: gcEstimated } = gradClassInfo(p);
@@ -155,6 +157,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
             isAllTime={isAllTime}
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
+            schoolLocation={schoolLocation}
           />
         </div>
       </div>

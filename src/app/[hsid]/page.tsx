@@ -266,6 +266,12 @@ export default async function SchoolPage({
   // bare "yatstats.com/{hsid}" URL 404s in production, so this is what
   // FunZone's Social tab share links need, not resolvedHsid alone.
   const shareBaseUrl = getCanonicalBaseUrl(school, resolvedHsid);
+  // Raw (not upper-cased, no "HIGH SCHOOL" suffix) name + location, for the
+  // Social tab's share message specifically - formatSchoolName's ALL-CAPS
+  // "EL CAPITAN HIGH SCHOOL" form (used elsewhere on this page) would read
+  // as shouting and duplicate "High School" in that message's own wording.
+  const shareSchoolName = String(school.hsname || "");
+  const shareSchoolLocation = String(school.hslocation || "");
   const schoolState =
     qp.schoolState === "inactive"
       ? "inactive"
@@ -419,7 +425,8 @@ export default async function SchoolPage({
                     frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
                     headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
                     shareBaseUrl={shareBaseUrl}
-                    schoolName={schoolName}
+                    schoolName={shareSchoolName}
+                    schoolLocation={shareSchoolLocation}
                   />
                 </div>
               );
@@ -443,7 +450,8 @@ export default async function SchoolPage({
                   frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
                   headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
                   shareBaseUrl={shareBaseUrl}
-                  schoolName={schoolName}
+                  schoolName={shareSchoolName}
+                  schoolLocation={shareSchoolLocation}
                   isAllTime
                 />
               );
@@ -479,7 +487,8 @@ export default async function SchoolPage({
                   frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
                   headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
                   shareBaseUrl={shareBaseUrl}
-                  schoolName={schoolName}
+                  schoolName={shareSchoolName}
+                  schoolLocation={shareSchoolLocation}
                 />
               );
             })

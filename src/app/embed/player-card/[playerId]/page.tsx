@@ -59,6 +59,7 @@ export default async function PlayerCardEmbedPage({
   ]);
   const shareBaseUrl = getCanonicalBaseUrl(school, resolvedHsid);
   const schoolName = school?.hsname ? String(school.hsname) : null;
+  const schoolLocation = school?.hslocation ? String(school.hslocation) : null;
 
   return (
     <div data-card-embed-root="true">
@@ -69,6 +70,7 @@ export default async function PlayerCardEmbedPage({
         headshotUrl={headshotMap.get(id)?.image_url ?? null}
         shareBaseUrl={shareBaseUrl}
         schoolName={schoolName}
+        schoolLocation={schoolLocation}
       />
     </div>
   );

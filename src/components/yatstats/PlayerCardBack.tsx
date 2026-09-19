@@ -184,9 +184,11 @@ interface PlayerCardBackProps {
   shareBaseUrl?: string | null;
   /** School display name (school_success.hsname), for FunZone's share message. */
   schoolName?: string | null;
+  /** School location (school_success.hslocation), for FunZone's share message. */
+  schoolLocation?: string | null;
 }
 
-export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, shareBaseUrl, schoolName }: PlayerCardBackProps) {
+export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, shareBaseUrl, schoolName, schoolLocation }: PlayerCardBackProps) {
   const isPitcher = p.is_pitcher === true;
   const draft = parseDraft(p.draft_info as string | null);
   const imageId = String(p.playerid || "");
@@ -328,6 +330,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             displayName={displayName}
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
+            schoolLocation={schoolLocation}
           />
         </div>
       </div>
