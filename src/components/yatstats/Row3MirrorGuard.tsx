@@ -240,12 +240,15 @@ function syncRow3VisualOrderAndImages(): void {
     return;
   }
 
-  // Excludes Favorites-drawer cross-school cards (data-superfan-synthetic="true"):
-  // those are React portal targets, not this page's native roster, and this
-  // guard's job is mirroring the native grid into the strip - it shouldn't
-  // touch DOM React itself owns.
+  // Cross-school Super Fan favorites (data-superfan-synthetic="true") are
+  // included here so row 3 actually mirrors row 5. They used to be
+  // excluded because they were once mounted via a React portal and this
+  // guard's plain DOM writes could conflict with React's reconciliation -
+  // that's no longer how they're built (FavoritesDrawer injects them via
+  // innerHTML, same as any other DOM), so there's nothing React-owned left
+  // to avoid touching.
   const visibleCards = Array.from(
-    blockFiveSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])')
+    blockFiveSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]')
   ).filter(isCardVisible);
 
   const visiblePlayerIds = visibleCards
