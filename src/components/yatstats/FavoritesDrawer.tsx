@@ -694,12 +694,16 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     // (with the data-level/data-status/etc. attributes filters actually
     // read) lands well after applyFavoriteDeck's own dispatch above, so
     // without a nudge here it never gets evaluated against an active
-    // filter and just stays visible no matter what's checked. The
-    // restriction itself was already stamped on the section by
-    // applyFavoriteDeck and doesn't change here, so this dispatch's detail
-    // is unused - it's purely the signal to re-run applyFilters.
+    // filter and just stays visible no matter what's checked.
+    // GalleryFilterController reads the restriction fresh off the section's
+    // own data-favorites-gallery-* attributes and ignores this event's
+    // detail entirely, so it doesn't need playerIds here - but
+    // SortFilterDrawerControls' favorite-scoped stat sort still caches
+    // detail.playerIds directly off this same event, and an empty array
+    // silently emptied that cache on every one of these nudges.
+    const currentPlayerIds = displayedPlayers.map((p) => String(p.player_id));
     const nudgeFavoritesFilter = () => {
-      window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled: showGalleryView } }));
+      window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled: showGalleryView, playerIds: currentPlayerIds } }));
     };
 
     const pending = missing.filter((playerId) => !cardFetchStatusRef.current.has(playerId));
