@@ -4,6 +4,14 @@ import { useEffect } from 'react';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
+// The favorites gallery view (toggled from the Favorites drawer) restricts
+// the same section's grid down to a set of playerIds by hiding everything
+// else. applyFilters used to recompute display purely from filter criteria,
+// ignoring that restriction entirely - so touching any filter while viewing
+// the favorites gallery re-showed every non-favorite card that matched it.
+let favoritesGalleryEnabled = false;
+let favoritesGalleryPlayerIds = new Set<string>();
+
 function normalize(value: unknown): string {
   return String(value || '').trim().toUpperCase();
 }
@@ -108,6 +116,7 @@ function applyFilters(section: string) {
   const rosterYears = getSelectedValues('filterRosterYears');
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
+    const playerId = card.dataset.playerid || '';
     const name = String(card.dataset.name || '').toLowerCase();
     const status = normalize(card.dataset.status);
     const level = normalize(card.dataset.level);
@@ -119,7 +128,8 @@ function applyFilters(section: string) {
       .filter(Boolean);
 
     const show =
-      (!nameFilter || name.includes(nameFilter))
+      (!favoritesGalleryEnabled || favoritesGalleryPlayerIds.has(playerId))
+      && (!nameFilter || name.includes(nameFilter))
       && (!statuses.length || statuses.includes(status))
       && (!levels.length || levels.includes(level))
       && (!organizations.length || organizations.includes(organization))
@@ -222,12 +232,20 @@ export default function GalleryFilterController() {
       applyPreset(section);
     };
 
+    const onFavoritesFilterChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled?: boolean; playerIds?: string[] }>).detail || {};
+      favoritesGalleryEnabled = Boolean(detail.enabled);
+      favoritesGalleryPlayerIds = new Set((detail.playerIds || []).map((id) => String(id)));
+      applyFilters(getCurrentSection());
+    };
+
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
     document.addEventListener('click', syncSection, true);
     document.addEventListener('change', onChangeCapture, true);
     document.addEventListener('input', onInputCapture, true);
     document.addEventListener('click', onClickCapture, true);
+    window.addEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
 
     const sectionObserver = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -244,6 +262,7 @@ export default function GalleryFilterController() {
       document.removeEventListener('change', onChangeCapture, true);
       document.removeEventListener('input', onInputCapture, true);
       document.removeEventListener('click', onClickCapture, true);
+      window.removeEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
       sectionObserver.disconnect();
     };
   }, []);
