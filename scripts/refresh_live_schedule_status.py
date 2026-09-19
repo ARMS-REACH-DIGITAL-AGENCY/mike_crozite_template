@@ -427,6 +427,44 @@ def refresh_flip_card_next_games(conn: psycopg.Connection) -> int:
     return updated
 
 
+def expire_stale_next_games(conn: psycopg.Connection) -> int:
+    """
+    Clear next-game fields once the stored game time has passed.
+
+    refresh_flip_card_next_games only ever writes a fresh next game for a
+    player whose team has one in team_schedules. Once a team's season ends
+    (or a game just isn't in the current rolling window), that player is
+    never touched again - so without this step, whatever "TODAY | ..." or
+    "In Progress" label was last written stays frozen indefinitely, showing
+    fans a game that happened months ago as if it were still happening.
+    Clearing these fields (rather than inventing a "season over" label) is
+    enough: PlayerCardFront only renders the next-game block when date,
+    status, and opponent are all present, so a cleared row just stops
+    showing stale info instead of showing wrong info.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            update public.flip_card_front_stage
+            set
+              next_game_date = null,
+              next_game_time_local = null,
+              next_game_time_utc = null,
+              next_game_home_away = null,
+              next_game_opponent = null,
+              next_game_status_label = null,
+              stage_updated_at = now()
+            where next_game_time_utc is not null
+              and next_game_time_utc < now();
+            """
+        )
+        expired = cur.rowcount or 0
+
+    conn.commit()
+    print(f"Expired {expired} stale next-game rows")
+    return expired
+
+
 def main() -> None:
     print("=== MLB/MiLB live schedule refresh ===")
 
@@ -438,6 +476,7 @@ def main() -> None:
         rows = fetch_live_window_schedule()
         upsert_team_schedules(conn, rows)
         refresh_flip_card_next_games(conn)
+        expire_stale_next_games(conn)
 
     print("Live schedule refresh complete")
 
