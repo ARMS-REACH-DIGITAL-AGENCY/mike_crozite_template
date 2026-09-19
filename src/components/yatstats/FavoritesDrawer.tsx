@@ -393,6 +393,27 @@ function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean) {
   });
 }
 
+// GalleryFilterController needs to know, at the moment it actually runs a
+// filter pass, whether the favorites gallery is restricting the visible
+// section and to which playerIds - not whatever it last heard from an
+// event, which can go stale if that event and a filter pass interleave
+// with a section change. Stamping the restriction directly on the section
+// element means every filter pass reads the live, authoritative state
+// instead of a cached snapshot.
+function setFavoritesGalleryRestriction(grid: HTMLElement, enabled: boolean, playerIds: string[]) {
+  const section = grid.closest<HTMLElement>('.yat-section');
+  if (!section) return;
+
+  if (!enabled) {
+    delete section.dataset.favoritesGalleryActive;
+    delete section.dataset.favoritesGalleryIds;
+    return;
+  }
+
+  section.dataset.favoritesGalleryActive = 'true';
+  section.dataset.favoritesGalleryIds = playerIds.join(',');
+}
+
 function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string, crossSchoolContainers: Map<string, HTMLElement>): string[] {
   const grid = currentGrid();
   if (!grid) return [];
@@ -403,6 +424,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   if (!enabled) {
     restoreOriginalGridOrder(grid, items);
     syncInteractionStrip([], false);
+    setFavoritesGalleryRestriction(grid, false, []);
     window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: [] } }));
     return [];
   }
@@ -433,7 +455,9 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   });
 
   syncInteractionStrip(players, true);
-  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds: players.map((p) => String(p.player_id)) } }));
+  const playerIds = players.map((p) => String(p.player_id));
+  setFavoritesGalleryRestriction(grid, true, playerIds);
+  window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds } }));
   return missingIds;
 }
 
@@ -808,12 +832,13 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
                 </button>
               </div>
 
-              <div className="yat-favorite-sort-toggle" role="group" aria-label="Sort favorites by">
-                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Sort: First Name
+              <div className="yat-favorite-sort-compact" role="group" aria-label="Sort favorites by">
+                <span className="yat-favorite-sort-compact-label">Sort</span>
+                <button type="button" onClick={() => handleSortModeChange(false)} className={!sortByLastName ? 'yat-favorite-sort-chip active' : 'yat-favorite-sort-chip'}>
+                  First
                 </button>
-                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-tab active' : 'yat-favorite-tab'}>
-                  Sort: Last Name
+                <button type="button" onClick={() => handleSortModeChange(true)} className={sortByLastName ? 'yat-favorite-sort-chip active' : 'yat-favorite-sort-chip'}>
+                  Last
                 </button>
               </div>
 
@@ -886,8 +911,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           color: var(--ink);
         }
 
-        #drawerFavorites .yat-favorite-scope-toggle,
-        #drawerFavorites .yat-favorite-sort-toggle {
+        #drawerFavorites .yat-favorite-scope-toggle {
           display: flex;
           gap: 8px;
         }
@@ -920,6 +944,39 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-tab.active {
+          background: rgba(255,255,255,.14);
+          color: var(--fg);
+        }
+
+        #drawerFavorites .yat-favorite-sort-compact {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+        }
+
+        #drawerFavorites .yat-favorite-sort-compact-label {
+          font: 400 11px Oswald, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip {
+          flex: 0 0 auto;
+          min-height: 24px;
+          padding: 2px 12px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--ink);
+          font: 400 11px Oswald, sans-serif;
+          letter-spacing: 0;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+
+        #drawerFavorites .yat-favorite-sort-chip.active {
           background: rgba(255,255,255,.14);
           color: var(--fg);
         }

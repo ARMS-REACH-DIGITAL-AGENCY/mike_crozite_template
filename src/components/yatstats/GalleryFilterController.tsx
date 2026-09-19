@@ -9,8 +9,33 @@ const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 // else. applyFilters used to recompute display purely from filter criteria,
 // ignoring that restriction entirely - so touching any filter while viewing
 // the favorites gallery re-showed every non-favorite card that matched it.
-let favoritesGalleryEnabled = false;
-let favoritesGalleryPlayerIds = new Set<string>();
+//
+// FavoritesDrawer stamps that restriction directly on the .yat-section
+// element (data-favorites-gallery-active / data-favorites-gallery-ids)
+// rather than this reading it from a cached copy of the last event it
+// happened to receive - a cached copy can go stale if the event and a
+// section change interleave, which is what let a temporarily-empty
+// playerIds snapshot (favorites still loading) hide every card and never
+// recover. Reading the section's own attributes fresh on every pass means
+// there is nothing to go stale.
+function getFavoritesGalleryRestriction(section: HTMLElement): { enabled: boolean; playerIds: Set<string> } {
+  if (section.dataset.favoritesGalleryActive !== 'true') {
+    return { enabled: false, playerIds: new Set() };
+  }
+
+  const ids = (section.dataset.favoritesGalleryIds || '').split(',').filter(Boolean);
+  return { enabled: true, playerIds: new Set(ids) };
+}
+
+// A favorite can carry any status/level/org, and a cross-school card starts
+// as a bare loading placeholder (a .yat-card with no data-status/data-level/
+// etc. set yet) while its real markup is being fetched. Combining that
+// placeholder with the section's ambient roster preset (e.g. "active"
+// requires a non-empty, non-RETIRED data-status) failed it and hid the
+// whole card - and nothing re-evaluated it once the real, correctly-
+// attributed card was later injected into the same wrapper, so it never
+// came back. Tracked per section so switching sections resets it cleanly.
+const favoritesGalleryWasEnabled = new Map<string, boolean>();
 
 function normalize(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -114,6 +139,7 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
+  const favoritesGallery = getFavoritesGalleryRestriction(targetSection);
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
     const playerId = card.dataset.playerid || '';
@@ -128,7 +154,7 @@ function applyFilters(section: string) {
       .filter(Boolean);
 
     const show =
-      (!favoritesGalleryEnabled || favoritesGalleryPlayerIds.has(playerId))
+      (!favoritesGallery.enabled || favoritesGallery.playerIds.has(playerId))
       && (!nameFilter || name.includes(nameFilter))
       && (!statuses.length || statuses.includes(status))
       && (!levels.length || levels.includes(level))
@@ -232,11 +258,36 @@ export default function GalleryFilterController() {
       applyPreset(section);
     };
 
-    const onFavoritesFilterChanged = (event: Event) => {
-      const detail = (event as CustomEvent<{ enabled?: boolean; playerIds?: string[] }>).detail || {};
-      favoritesGalleryEnabled = Boolean(detail.enabled);
-      favoritesGalleryPlayerIds = new Set((detail.playerIds || []).map((id) => String(id)));
-      applyFilters(getCurrentSection());
+    // FavoritesDrawer has already stamped the restriction onto the section
+    // element by the time this fires (same synchronous function); this
+    // event is just the nudge to re-run applyFilters, which reads that
+    // state fresh rather than trusting this event's own payload.
+    const onFavoritesFilterChanged = () => {
+      const section = getCurrentSection();
+      if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+
+      const targetSection = document.getElementById(`sec-${section}`);
+      const isEnabledNow = Boolean(targetSection) && getFavoritesGalleryRestriction(targetSection as HTMLElement).enabled;
+      const wasEnabled = favoritesGalleryWasEnabled.get(section) || false;
+      favoritesGalleryWasEnabled.set(section, isEnabledNow);
+
+      if (isEnabledNow && !wasEnabled) {
+        // Entering the favorites gallery for this section: start from no
+        // filter restriction so a favorite (or its still-loading placeholder)
+        // is never excluded by whatever roster preset the section normally
+        // applies. The user can still narrow within favorites by touching a
+        // filter control while this view stays open.
+        clearFilters();
+        syncEverySelectAll();
+      } else if (!isEnabledNow && wasEnabled) {
+        // Leaving the favorites gallery: restore the section's normal
+        // roster preset instead of leaving filters in the cleared state
+        // favorites view started from.
+        applyPreset(section);
+        return;
+      }
+
+      applyFilters(section);
     };
 
     window.addEventListener('hashchange', syncSection);
