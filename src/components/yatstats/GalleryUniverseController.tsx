@@ -13,7 +13,12 @@ function currentKey(): Key {
   return (visible?.id.replace('sec-','') || location.hash.replace('#sec-','') || 'active') as Key;
 }
 function grid(k: Key){ return document.getElementById(`${k}-grid`); }
-function cards(k: Key){ return Array.from(grid(k)?.querySelectorAll<HTMLElement>('.yat-card[data-playerid]') || []); }
+// Excludes Favorites-drawer cross-school cards (data-superfan-synthetic="true"):
+// those are React portal targets fetched on demand, not part of this page's
+// native roster, and reparenting/cloning them here (sortVisible, cloneUniverse,
+// mirrorRow3) races React's own reconciliation of that same DOM node and can
+// crash the whole page with a removeChild/insertBefore mismatch.
+function cards(k: Key){ return Array.from(grid(k)?.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])') || []); }
 function wrapper(card: HTMLElement){ return card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card; }
 function level(card: HTMLElement){ return (card.dataset.level || '').toUpperCase(); }
 function status(card: HTMLElement){ return (card.dataset.status || '').toUpperCase(); }
