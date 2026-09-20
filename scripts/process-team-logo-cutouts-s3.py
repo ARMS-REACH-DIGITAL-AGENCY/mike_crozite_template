@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
 """Batch-remove backgrounds from team logo PNGs in S3.
 
-Same approach as scripts/process-player-cutouts-s3.py (rembg, local/free,
-no external API), adapted for team logos:
+Team logos are flat, vector-style artwork with a solid background color,
+not photos - so this does NOT use the rembg/onnxruntime AI segmentation
+approach from scripts/process-player-cutouts-s3.py. An AI matting model
+tuned for photos treats any near-background-colored pixel as "probably
+background," which wrongly erases enclosed same-colored details inside the
+artwork itself (e.g. a mascot's white teeth, eye highlights, jersey
+piping) even though they have nothing to do with the actual background.
 
+Instead this uses a deterministic border flood fill: it samples the actual
+background color from the image's edge pixels, then flood-fills inward
+from the border only through background-colored pixels. Anything that
+color but NOT reachable from the border without crossing a different color
+(i.e. fully enclosed by the artwork) is left opaque. See
+_flood_fill_background_mask() for the algorithm.
+
+Other notes, same as before:
 - The player-cutouts script treats .png as an ALREADY-PROCESSED output and
   skips it, so it never reprocesses its own results when re-run against
   the same folder. Team logos are the opposite case: nearly all of them
@@ -27,6 +40,10 @@ Environment variables:
 - OVERWRITE: true/false, default false; only controls replacing an output
   that already exists at the destination key
 - MAX_FILES: optional integer limit for testing (ignored when SOURCE_KEY is set)
+- BG_TOLERANCE: color-distance tolerance (0-441) for matching the sampled
+  background color, default 30. Raise it if a logo's background has slight
+  gradient/noise and isn't being fully removed; lower it if the flood fill
+  is eating into a mascot's flat-colored border.
 """
 
 from __future__ import annotations
@@ -37,9 +54,10 @@ import sys
 from pathlib import PurePosixPath
 
 import boto3
+import numpy as np
 from botocore.exceptions import ClientError
-from PIL import Image
-from rembg import remove
+from PIL import Image, ImageFilter
+from scipy import ndimage
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
 SOURCE_PREFIX = os.getenv("YATSTATS_S3_SOURCE_PREFIX", "teams/")
@@ -51,6 +69,7 @@ DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
 MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
 MAX_FILES = int(MAX_FILES_RAW) if MAX_FILES_RAW.isdigit() else None
+BG_TOLERANCE = float(os.getenv("BG_TOLERANCE", "30"))
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
@@ -107,19 +126,57 @@ def list_source_keys(bucket: str, prefix: str) -> list[str]:
     return sorted(keys)
 
 
-def process_image_bytes(input_bytes: bytes) -> bytes:
-    # Flatten any existing alpha onto white first - a logo that's already
-    # transparent but was flattened onto white for storage would otherwise
-    # confuse rembg's foreground/background estimate.
+def _sample_border_color(pixels: np.ndarray) -> np.ndarray:
+    """Most common color along the image's outer edge - the background."""
+    border = np.concatenate(
+        [pixels[0, :, :], pixels[-1, :, :], pixels[:, 0, :], pixels[:, -1, :]]
+    )
+    colors, counts = np.unique(border, axis=0, return_counts=True)
+    return colors[np.argmax(counts)].astype(np.int32)
+
+
+def _flood_fill_background_mask(pixels: np.ndarray, tolerance: float) -> np.ndarray:
+    """Boolean mask of pixels that are background: close enough in color to
+    the sampled border color AND reachable from the image edge without
+    crossing a differently-colored pixel.
+
+    This is the key difference from an AI matting model: a same-colored
+    region that's fully enclosed by other colors (a mascot's white teeth,
+    an eye highlight, a jersey number's piping) can't be reached from the
+    border, so it's never marked as background even though its color alone
+    would match.
+    """
+    bg_color = _sample_border_color(pixels)
+    distance = np.sqrt(((pixels.astype(np.int32) - bg_color) ** 2).sum(axis=2))
+    bg_like = distance <= tolerance
+
+    # 8-connectivity so a background region connects across the diagonal
+    # anti-aliased pixels typically found at a logo's outer edge.
+    labeled, _ = ndimage.label(bg_like, structure=np.ones((3, 3)))
+
+    border_labels = set(labeled[0, :]) | set(labeled[-1, :])
+    border_labels |= set(labeled[:, 0]) | set(labeled[:, -1])
+    border_labels.discard(0)
+
+    return np.isin(labeled, list(border_labels))
+
+
+def process_image_bytes(input_bytes: bytes, tolerance: float = BG_TOLERANCE) -> bytes:
+    # Flatten any existing alpha onto white first, so a logo that's already
+    # partially transparent doesn't confuse the border-color sample.
     source = Image.open(io.BytesIO(input_bytes)).convert("RGBA")
     flattened = Image.new("RGB", source.size, (255, 255, 255))
     flattened.paste(source, mask=source.split()[3])
 
-    flat_buffer = io.BytesIO()
-    flattened.save(flat_buffer, format="PNG")
+    pixels = np.array(flattened)
+    background_mask = _flood_fill_background_mask(pixels, tolerance)
 
-    removed = remove(flat_buffer.getvalue())
-    image = Image.open(io.BytesIO(removed)).convert("RGBA")
+    alpha = Image.fromarray(np.where(background_mask, 0, 255).astype(np.uint8), mode="L")
+    # Slight feather so the cut edge isn't a hard, jagged pixel boundary.
+    alpha = alpha.filter(ImageFilter.GaussianBlur(0.6))
+
+    image = Image.fromarray(pixels).convert("RGBA")
+    image.putalpha(alpha)
 
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
