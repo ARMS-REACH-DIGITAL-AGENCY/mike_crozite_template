@@ -620,7 +620,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   }
 
   return (
-    <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+    <>
+      {/* A small independent strip, sized to exactly rows 1+2's combined
+          height (not row3's) -- it never touches or overlaps row3's own
+          box, so there's no seam or height math shared with the carousel
+          below. Just the same photo, cropped on its own for this strip,
+          sitting behind the now-transparent header bars. */}
+      <div className="zt-hero-bleed" aria-hidden="true">
+        <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
+      </div>
+      <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
       <div className="zt-carousel" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {ready && activeSlide && (
           <div key={activeSlide.id} className={`zt-slide zt-${activeSlide.kind}`}>
@@ -828,6 +837,33 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
         :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
 
+        /* Rows 1 & 2 get a plain marker class from SharedShell.tsx itself
+           (isPlayerProfile is already known there) rather than a
+           cross-sibling :has() selector guessed from in here -- that
+           guess didn't reliably match on the real deployed page last
+           time. This strip is sized to exactly their own combined height,
+           not row3's, so it never overlaps or needs to line up with the
+           carousel's own background below it. */
+        /* :global() here isn't optional: this div is a sibling of
+           <section>, not its descendant, at the top level of the returned
+           Fragment -- styled-jsx's scope hash didn't get attached to it
+           (confirmed via computed style: position was landing as "static"
+           instead of "fixed" because the scoped selector's compiled hash
+           class never matched this element), so a plain scoped rule here
+           silently matches nothing. */
+        :global(.zt-hero-bleed) { position:fixed; z-index:58; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px)); overflow:hidden; pointer-events:none; background:#060708; }
+        :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 40%; filter:brightness(.78) saturate(.94); }
+        /* .yat-topbar and .yat-schoolrow (rendered inside these shells by
+           GlobalTopbar/SchoolContextBar) carry their own separate
+           background:var(--header-bg) in YatStyles.tsx -- making just the
+           outer shell divs transparent does nothing while these inner
+           wrappers still paint solid over the same box, which is why the
+           first two attempts at this showed no visible change at all. */
+        :global(.yat-row1-shell.pp-hero-row) { background:transparent !important; }
+        :global(.yat-row1-shell.pp-hero-row .yat-topbar) { background:transparent !important; }
+        :global(.yat-row2-shell.pp-hero-row) { background:transparent !important; border-color:transparent !important; }
+        :global(.yat-row2-shell.pp-hero-row .yat-schoolrow) { background:transparent !important; }
+
         /* -- responsive: proportions only, same single layered frame at
            every width (never restructures into a grid or stacks into two
            boxes) -- exact scaling from layered-story-strip.js's own
@@ -854,5 +890,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         }
       `}</style>
     </section>
+    </>
   );
 }
