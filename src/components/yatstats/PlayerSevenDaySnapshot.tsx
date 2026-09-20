@@ -1,20 +1,18 @@
-import { query } from '@/lib/db';
+import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus } from '@/lib/db';
 
-type SnapshotRow = {
-  yatstats_playerid: string;
-  sportsblaze_player_id: string;
-  sportsblaze_game_id: string;
+type GameLogRow = {
   game_date?: string | null;
-  game_status?: string | null;
-  played_team_id?: string | null;
-  position?: string | null;
-  started?: boolean | null;
-  away_team_id?: string | null;
-  away_team_name?: string | null;
-  home_team_id?: string | null;
-  home_team_name?: string | null;
-  batting_summary?: string | null;
-  stats?: Record<string, unknown> | null;
+  team_name?: string | null;
+  opponent_name?: string | null;
+  home_away?: string | null;
+  line_summary?: string | null;
+};
+
+type ScheduleRow = {
+  game_date?: string | null;
+  opponent?: string | null;
+  location?: string | null;
+  is_home?: boolean | null;
 };
 
 function formatDate(value?: string | null) {
@@ -28,87 +26,39 @@ function firstNameOf(displayName: string) {
   return String(displayName || 'Player').trim().split(/\s+/)[0] || 'Player';
 }
 
-function opponentLabel(row: SnapshotRow) {
-  const away = String(row.away_team_name || '').trim();
-  const home = String(row.home_team_name || '').trim();
-  const played = String(row.played_team_id || '').trim();
-  const awayId = String(row.away_team_id || '').trim();
-  const homeId = String(row.home_team_id || '').trim();
-
-  if (played && homeId && played === homeId && away) return `vs. ${away}`;
-  if (played && awayId && played === awayId && home) return `@ ${home}`;
-  if (away && home) return `${away} @ ${home}`;
-  return away || home || 'Game';
+function opponentLabel(row: GameLogRow) {
+  const opponent = String(row.opponent_name || '').trim();
+  if (!opponent) return 'Game';
+  return row.home_away === 'away' ? `@ ${opponent}` : `vs. ${opponent}`;
 }
 
-function numberValue(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
+function upcomingLabel(row: ScheduleRow) {
+  const opponent = String(row.opponent || '').trim();
+  if (!opponent) return 'Game';
+  return row.is_home ? `vs. ${opponent}` : `@ ${opponent}`;
 }
 
-function statSummary(row: SnapshotRow) {
-  const explicit = String(row.batting_summary || '').trim();
-  if (explicit) return explicit.replace(/\s*\|\s*/g, ' | ');
+async function getRecentRows(playerId: string): Promise<GameLogRow[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = await getPlayerGameLogs(playerId);
 
-  const stats = row.stats || {};
-  const pitchingSummary = String(stats.pitching_summary || '').trim();
-  if (pitchingSummary) return pitchingSummary.replace(/\s*\|\s*/g, ' | ');
-
-  const h = stats.batting_hits;
-  const ab = stats.batting_at_bats;
-  const rbi = numberValue(stats.batting_rbi);
-  const runs = numberValue(stats.batting_runs);
-  const doubles = numberValue(stats.batting_doubles);
-  const triples = numberValue(stats.batting_triples);
-  const homers = numberValue(stats.batting_home_runs);
-  const walks = numberValue(stats.batting_base_on_balls);
-  const strikeouts = numberValue(stats.batting_strikeouts);
-  const stolen = numberValue(stats.batting_stolen_bases);
-
-  const parts: string[] = [];
-  if (h !== undefined && ab !== undefined) parts.push(`${h}-${ab}`);
-  if (doubles > 0) parts.push(`${doubles > 1 ? doubles : ''}2B`);
-  if (triples > 0) parts.push(`${triples > 1 ? triples : ''}3B`);
-  if (homers > 0) parts.push(`${homers > 1 ? homers : ''}HR`);
-  if (rbi > 0) parts.push(`${rbi} RBI`);
-  if (runs > 0) parts.push(`${runs} R`);
-  if (walks > 0) parts.push(`${walks > 1 ? walks : ''}BB`);
-  if (strikeouts > 0) parts.push(`${strikeouts}K`);
-  if (stolen > 0) parts.push(`${stolen > 1 ? stolen : ''}SB`);
-
-  return parts.join(' | ') || 'Game result logged';
+  return (rows as GameLogRow[])
+    .filter((row) => row.game_date && String(row.game_date).slice(0, 10) <= today)
+    .sort((a, b) => String(b.game_date || '').localeCompare(String(a.game_date || '')))
+    .slice(0, 3);
 }
 
-async function getRecentRows(playerId: string) {
-  try {
-    const { rows } = await query(
-      `
-        select
-          yatstats_playerid,
-          sportsblaze_player_id,
-          sportsblaze_game_id,
-          game_date,
-          game_status,
-          played_team_id,
-          position,
-          started,
-          away_team_id,
-          away_team_name,
-          home_team_id,
-          home_team_name,
-          batting_summary,
-          stats
-        from public.sportsblaze_mlb_player_gamelogs
-        where yatstats_playerid = $1
-        order by game_date desc nulls last
-        limit 3
-      `,
-      [playerId]
-    );
-    return rows as SnapshotRow[];
-  } catch {
-    return [];
-  }
+async function getUpcomingRows(playerId: string): Promise<ScheduleRow[]> {
+  const transactionStatus = await getFlipCardTransactionStatus(playerId);
+  const teamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
+  if (!teamId) return [];
+
+  const today = new Date().toISOString().slice(0, 10);
+  const schedule = await getTeamSchedule(teamId);
+
+  return (schedule as ScheduleRow[])
+    .filter((row) => row.game_date && String(row.game_date).slice(0, 10) >= today)
+    .slice(0, 3);
 }
 
 export default async function PlayerSevenDaySnapshot({
@@ -122,11 +72,15 @@ export default async function PlayerSevenDaySnapshot({
 }) {
   if (!playerId) return null;
 
-  const rows = await getRecentRows(playerId);
-  if (!rows.length) return null;
+  const [recentRows, upcomingRows] = await Promise.all([
+    getRecentRows(playerId),
+    getUpcomingRows(playerId),
+  ]);
+
+  if (!recentRows.length && !upcomingRows.length) return null;
 
   const firstName = firstNameOf(displayName);
-  const ordered = [...rows].reverse();
+  const ordered = [...recentRows].reverse();
 
   return (
     <section className="yat-snapshot" aria-label={`${displayName} seven day snapshot`}>
@@ -138,18 +92,29 @@ export default async function PlayerSevenDaySnapshot({
       <a className="yat-snapshot-polaroid" href={profileHref}>
         <div className="yat-snapshot-paper">
           <h3>7-Day Snapshot</h3>
-          <div className="yat-snapshot-lines">
-            {ordered.map((row) => (
-              <div className="yat-snapshot-line" key={`${row.sportsblaze_player_id}-${row.sportsblaze_game_id}`}>
-                <strong>{formatDate(row.game_date)} {opponentLabel(row)}</strong>
-                <span>{statSummary(row)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="yat-snapshot-upcoming">
-            <div><strong>TODAY</strong><span>Schedule window coming next</span></div>
-            <div><strong>NEXT</strong><span>Full season view on profile</span></div>
-          </div>
+
+          {ordered.length > 0 && (
+            <div className="yat-snapshot-lines">
+              {ordered.map((row, i) => (
+                <div className="yat-snapshot-line" key={`recent-${i}-${row.game_date}`}>
+                  <strong>{formatDate(row.game_date)} {opponentLabel(row)}</strong>
+                  <span>{row.line_summary || 'Game result logged'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {upcomingRows.length > 0 && (
+            <div className="yat-snapshot-upcoming">
+              {upcomingRows.map((row, i) => (
+                <div key={`upcoming-${i}-${row.game_date}`}>
+                  <strong>{i === 0 ? 'NEXT' : formatDate(row.game_date)}</strong>
+                  <span>{formatDate(row.game_date)} {upcomingLabel(row)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="yat-snapshot-signature">{displayName}</div>
         </div>
       </a>

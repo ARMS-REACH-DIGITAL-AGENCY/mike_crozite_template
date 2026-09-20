@@ -16,8 +16,7 @@ import {
   getPlayerCareerBatting,
   getPlayerCareerPitching,
   getTeamSchedule,
-  getPlayerBattingGameLog,
-  getPlayerPitchingGameLog,
+  getPlayerGameLogs,
   getTeamContext,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
@@ -259,24 +258,18 @@ export default async function ProfilePage({ params }: Props) {
       : null
   ) as PitchingSeason | null;
 
-  const [teamSchedule, battingGameLog, pitchingGameLog] = currentTeamId
-    ? await Promise.all([
-        getTeamSchedule(currentTeamId),
-        getPlayerBattingGameLog(safePlayerId, currentTeamId),
-        getPlayerPitchingGameLog(safePlayerId, currentTeamId),
-      ])
-    : [[], [], []];
+  const [teamSchedule, gameLogs] = await Promise.all([
+    currentTeamId ? getTeamSchedule(currentTeamId) : Promise.resolve([]),
+    getPlayerGameLogs(safePlayerId),
+  ]);
 
-  const batStatsByDate = new Map<string, any>();
-  for (const row of battingGameLog) {
+  // Keyed by date so it merges onto the season schedule below regardless of
+  // which team the player suited up for that day (a mid-season trade should
+  // not blank out his pre-trade line scores).
+  const gameLogByDate = new Map<string, any>();
+  for (const row of gameLogs as any[]) {
     const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
-    if (d) batStatsByDate.set(d, row);
-  }
-
-  const pitStatsByDate = new Map<string, any>();
-  for (const row of pitchingGameLog) {
-    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
-    if (d) pitStatsByDate.set(d, row);
+    if (d) gameLogByDate.set(d, row);
   }
 
   // ── Stats grids ──────────────────────────────────────────────────────────────
@@ -419,16 +412,22 @@ export default async function ProfilePage({ params }: Props) {
                     <th>DATE</th>
                     <th>OPPONENT</th>
                     <th>LOCATION</th>
+                    <th>LINE</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {upcomingGames.map((g: any, i: number) => (
-                    <tr key={i}>
-                      <td>{g.game_date ? String(g.game_date).slice(0, 10) : "--"}</td>
-                      <td>{g.opponent || g.away_team || "--"}</td>
-                      <td>{g.location || (g.is_home ? "HOME" : "AWAY")}</td>
-                    </tr>
-                  ))}
+                  {upcomingGames.map((g: any, i: number) => {
+                    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+                    const log = d ? gameLogByDate.get(d) : null;
+                    return (
+                      <tr key={i}>
+                        <td>{d || "--"}</td>
+                        <td>{g.opponent || g.away_team || "--"}</td>
+                        <td>{g.location || (g.is_home ? "HOME" : "AWAY")}</td>
+                        <td>{log?.line_summary || "--"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -447,16 +446,22 @@ export default async function ProfilePage({ params }: Props) {
                     <th>DATE</th>
                     <th>OPPONENT</th>
                     <th>RESULT</th>
+                    <th>LINE</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentGames.map((g: any, i: number) => (
-                    <tr key={i}>
-                      <td>{g.game_date ? String(g.game_date).slice(0, 10) : "--"}</td>
-                      <td>{g.opponent || g.away_team || "--"}</td>
-                      <td>{g.result || "--"}</td>
-                    </tr>
-                  ))}
+                  {recentGames.map((g: any, i: number) => {
+                    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+                    const log = d ? gameLogByDate.get(d) : null;
+                    return (
+                      <tr key={i}>
+                        <td>{d || "--"}</td>
+                        <td>{g.opponent || g.away_team || "--"}</td>
+                        <td>{g.result || "--"}</td>
+                        <td>{log?.line_summary || "--"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -7,7 +7,7 @@
 // 2. Tab strip - six icon/label tabs in a single row.
 // 3. Content panel - active tab content, no internal scroll.
 //
-// Tabs: Schedule | Stats | News | Social | Connect | Upload
+// Tabs: Game Log | Stats | News | Social | Connect | Upload
 // Default active tab: Stats
 //
 // YATI MASCOT ASSET RULE:
@@ -88,7 +88,7 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: "schedule", label: "Schedule", icon: "ri-calendar-line" },
+  { id: "schedule", label: "Game Log", icon: "ri-calendar-line" },
   { id: "stats",    label: "Stats",    icon: "ri-bar-chart-2-line" },
   { id: "news",     label: "News",     icon: "ri-newspaper-line" },
   { id: "social",   label: "Social",   icon: "ri-share-line" },
@@ -158,7 +158,7 @@ function SchedulePanel({ player }: { player: Record<string, unknown> }) {
     return (
       <div className="fz-placeholder">
         <i className="ri-calendar-line fz-ph-icon" />
-        <div className="fz-ph-text">Full schedule available on the player profile page.</div>
+        <div className="fz-ph-text">Full schedule &amp; game log available on the player profile page.</div>
       </div>
     );
   }

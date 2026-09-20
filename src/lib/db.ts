@@ -1608,25 +1608,32 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
 }
 
 // ---------------------------------------------------------------------------
-// PLAYER GAME LOG - per-game batting stats for a player on a given team.
+// PLAYER GAME LOG - per-game line scores for a player, any source/team.
+// Populated by scripts/sync-mlb-player-gamelogs.ts (source = 'mlb_api');
+// source is source-agnostic so a future Presto Sports (JUCO/NAIA/D2/D3) feed
+// can land in the same table. Not scoped by team_id - a player traded
+// mid-season should still show his pre-trade games on the same schedule.
 // ---------------------------------------------------------------------------
-export async function getPlayerBattingGameLog(playerId: string, teamId: string): Promise<any[]> {
+export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT * FROM batting_game_log WHERE playerid::text = $1 AND team_id::text = $2 ORDER BY game_date ASC`,
-      [playerId, teamId]
-    );
-    return rows;
-  } catch {
-    return [];
-  }
-}
-
-export async function getPlayerPitchingGameLog(playerId: string, teamId: string): Promise<any[]> {
-  try {
-    const { rows } = await query(
-      `SELECT * FROM pitching_game_log WHERE playerid::text = $1 AND team_id::text = $2 ORDER BY game_date ASC`,
-      [playerId, teamId]
+      `SELECT
+         playerid,
+         source,
+         source_game_id,
+         source_team_id,
+         stat_type,
+         game_date,
+         game_status,
+         team_name,
+         opponent_name,
+         home_away,
+         line_summary,
+         stats
+       FROM public.player_game_logs
+       WHERE playerid::text = $1
+       ORDER BY game_date ASC`,
+      [playerId]
     );
     return rows;
   } catch {
