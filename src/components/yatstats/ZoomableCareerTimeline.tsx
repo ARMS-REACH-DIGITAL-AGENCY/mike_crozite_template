@@ -5,13 +5,24 @@ import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Full-bleed hero carousel -- one slide per season, matching the corporate
-// homepage slideshow's visual pattern. Replaces the old 156px filmstrip
-// (--row3-h 100px + --row4-h 56px). Row4 stays folded to 0 (already merged
-// into this one row); the extra height comes out of the FunZone panel's
-// budget below via the --row3-h/--row4-h var overrides further down.
-const HERO_H = 340;
+// homepage slideshow's visual pattern. Height is the EXACT value from the
+// real corporate hero (armsreach/sites/yatstats/hero-journey.js's
+// .yat-journey-canvas), not a guess: clamp(500px,45vw,720px). Replaces the
+// old 156px filmstrip (--row3-h 100px + --row4-h 56px); the extra height
+// comes out of the FunZone panel's budget below.
+const HERO_H_CSS = 'clamp(500px,45vw,720px)';
+// Same two responsive steps as the real corporate hero (hero-journey.js's
+// @media max-width:980px / 620px). Below 620px the corporate version drops
+// the fixed clamp entirely in favor of a 56.25vw (16:9-ish) banner with a
+// 300-420px floor/ceiling -- expressed here as one equivalent clamp().
+const HERO_H_TABLET_CSS = 'clamp(390px,58vw,580px)';
+const HERO_H_MOBILE_CSS = 'clamp(300px,56.25vw,420px)';
 const TIMELINE_YELLOW = '#ffb21c';
-const HERO_BG = '/img/career-path-hero-bg.png';
+// Same asset the corporate hero and this component's own HS anchor slide
+// have always pointed at (hero-journey.js's CAREER_BG) -- one canonical
+// background image, not a separate copy, so there is exactly one crop of
+// the swoosh graphic to ever get right.
+const HERO_BG = '/img/career-path-default.png';
 const YS_CREST_FALLBACK = '/img/ys-crest.png';
 const YATI_PLACEHOLDERS = [
   '/img/yati-placeholders/yati-standing-hips.png',
@@ -619,6 +630,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-cutout-person-shell">
                     <SmartImage className="zt-cutout-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(activeSlide.title)} cutout`} />
                   </span>
+                  <span className="zt-sheen" aria-hidden="true" />
                   <span className="zt-slide-copy zt-anchor-copy">
                     <span className="zt-slide-kicker">HIGH SCHOOL<span className="zt-rule" /></span>
                     <span className="zt-quote">
@@ -637,6 +649,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-cutout-person-shell">
                     <SmartImage className="zt-cutout-person" src={activeSlide.seasonCutoutSrc} srcs={[activeSlide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${activeSlide.year}`} />
                   </span>
+                  <span className="zt-sheen" aria-hidden="true" />
                   <span className="zt-slide-copy">
                     <span className="zt-slide-kicker">{activeSlide.year} · {activeSlide.caption}<span className="zt-rule" /></span>
                     <span className="zt-slide-headline">{activeSlide.title}</span>
@@ -657,6 +670,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-cutout-person-shell">
                     <SmartImage className="zt-cutout-person zt-cutout-person-cover" src={activeSlide.src} alt="Current" />
                   </span>
+                  <span className="zt-sheen" aria-hidden="true" />
                   <span className="zt-slide-copy">
                     <span className="zt-slide-kicker">{activeSlide.year}<span className="zt-rule" /></span>
                     <span className="zt-slide-headline">{player?.playerName || ''}</span>
@@ -734,24 +748,36 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            because the swoosh baked into the photo has one fixed spot
            (starts low-left near the cutout's feet, arcs up-right) and
            animating the crop drags it out of place. */
-        .zt-hero-bg-layer { position:fixed; top:0; left:0; right:0; height:calc(var(--row1-h,36px) + var(--row2-h,54px) + ${HERO_H}px); z-index:0; overflow:hidden; pointer-events:none; }
-        .zt-hero-bg-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:left bottom; }
+        .zt-hero-bg-layer { position:fixed; top:0; left:0; right:0; height:calc(var(--row1-h,36px) + var(--row2-h,54px) + ${HERO_H_CSS}); z-index:0; overflow:hidden; pointer-events:none; }
+        .zt-hero-bg-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center center; }
 
         .zt-carousel { position:relative; z-index:1; height:100%; width:100%; }
         .zt-slide { position:absolute; inset:0; }
         .zt-slide-surface { position:relative; display:block; width:100%; height:100%; border:0; padding:0; margin:0; background:transparent; cursor:default; overflow:hidden; text-align:left; }
         .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
 
-        /* -- shared foreground cutout (anchor / season / today) ---------- */
-        .zt-cutout-person-shell { position:absolute; inset:0; z-index:2; display:block; pointer-events:none; }
-        .zt-cutout-person-shell :global(.zt-cutout-person) { position:absolute; left:2%; bottom:0; width:auto; height:100%; max-width:52%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 10px 14px rgba(0,0,0,.65)); }
-        .zt-cutout-person-shell :global(.zt-cutout-person-cover) { height:100%; max-width:none; width:40%; object-fit:cover; object-position:center top; left:0; border-radius:0 0 8px 0; }
+        /* -- shared foreground cutout (anchor / season / today) -- exact
+           proportions from the real corporate hero's
+           .yat-journey-cutout-wrap (left:2.4%, bottom:-1%, width:37%,
+           height:103% -- the slight overshoot past the box edges is
+           intentional, it's how the corporate version reads as "bleeding"
+           off the bottom rather than sitting neatly inside a frame). ---- */
+        .zt-cutout-person-shell { position:absolute; left:2.4%; bottom:-1%; z-index:2; width:37%; height:103%; pointer-events:none; }
+        .zt-cutout-person-shell :global(.zt-cutout-person) { position:absolute; left:0; bottom:0; width:100%; height:100%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 10px 14px rgba(0,0,0,.65)); }
+        .zt-cutout-person-shell :global(.zt-cutout-person-cover) { object-fit:cover; object-position:center top; }
+
+        /* -- subtle graduated screen over the whole slide, exact recipe
+           from the real corporate hero's .yat-journey-sheen -- a light
+           double gradient, not a heavy dark overlay. */
+        .zt-sheen { position:absolute; inset:0; z-index:2; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.10),transparent 34%,transparent 79%,rgba(0,0,0,.05)),linear-gradient(180deg,rgba(0,0,0,.12),transparent 16%,transparent 80%,rgba(0,0,0,.20)); }
 
         /* -- large screened-back logo, right side -- team logo when we
-           have one, YS crest otherwise. Same slot the corporate site fills
-           with its own ghosted brand mark. Pure background texture, so it
-           sits below the copy/cutout and never competes for attention. */
-        .zt-watermark { position:absolute; z-index:1; top:0; right:0; bottom:0; width:46%; display:flex; align-items:center; justify-content:center; padding:6% 6% 6% 0; opacity:.16; filter:grayscale(1) brightness(1.6); pointer-events:none; }
+           have one, YS crest otherwise. This is a per-player addition on
+           top of the corporate hero's pattern (the corporate hero has no
+           watermark slot -- it doesn't need one, it isn't showing one
+           player's data), sized like the ghosted brand mark in the sample
+           mockup: a meaningful chunk of the right side, not edge-to-edge. */
+        .zt-watermark { position:absolute; z-index:1; top:8%; bottom:8%; right:4%; width:32%; display:flex; align-items:center; justify-content:center; opacity:.14; filter:grayscale(1) brightness(1.6); pointer-events:none; }
         .zt-watermark :global(img) { width:100%; height:100%; object-fit:contain; }
 
         /* -- copy block: small gold kicker + rule, then a big headline
@@ -760,8 +786,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-slide-copy { position:absolute; z-index:3; left:24px; right:24px; bottom:22px; display:flex; flex-direction:column; gap:6px; max-width:60%; }
         .zt-slide-kicker { display:flex; flex-direction:column; align-items:flex-start; gap:6px; color:${TIMELINE_YELLOW}; font:700 11px/1.2 Oswald,sans-serif; letter-spacing:.14em; text-transform:uppercase; }
         .zt-rule { display:block; width:30px; height:2px; background:${TIMELINE_YELLOW}; }
-        .zt-slide-headline { font:800 clamp(30px,6vw,52px)/1.02 'Bebas Neue',Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.75); }
-        .zt-slide-subline { color:rgba(255,255,255,.88); font:500 13.5px/1.35 Oswald,sans-serif; }
+        .zt-slide-headline { font:800 clamp(30px,6vw,52px)/1.02 'Bebas Neue',Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.75); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-slide-subline { color:rgba(255,255,255,.88); font:500 13.5px/1.35 Oswald,sans-serif; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-slide-cta { color:rgba(255,255,255,.6); font:400 10.5px/1.35 system-ui,sans-serif; margin-top:2px; }
 
         .zt-anchor-copy { max-width:66%; gap:12px; }
@@ -800,22 +826,52 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            without that specificity edge this becomes a stylesheet-order
            coin flip, which is exactly what silently broke it the first
            time (uncapped table spilling the whole page past 100dvh). */
-        :global(body:has(.yat-profile-career-strip)) { --row3-h:${HERO_H}px !important; --row4-h:0px !important; }
+        :global(body:has(.yat-profile-career-strip)) { --row3-h:${HERO_H_CSS} !important; --row4-h:0px !important; }
         :global(body:has(.yat-profile-career-strip) .yat-row1-shell) { background:rgba(0,0,0,.55) !important; }
         :global(body:has(.yat-profile-career-strip) .yat-row2-shell) { background:transparent !important; border-color:transparent !important; }
         :global(body:has(.yat-profile-career-strip) .yat-row3-shell) { background:transparent !important; border-bottom:0 !important; }
-        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${HERO_H}px !important; height:${HERO_H}px !important; overflow:hidden !important; }
+        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${HERO_H_CSS} !important; height:${HERO_H_CSS} !important; overflow:hidden !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
-        :global(.yat-profile-career-strip) { height:${HERO_H}px !important; min-height:${HERO_H}px !important; }
+        :global(.yat-profile-career-strip) { height:${HERO_H_CSS} !important; min-height:${HERO_H_CSS} !important; }
         :global(body:has(.yat-profile-career-strip) .pp-funzone-outer) {
-          height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - ${HERO_H}px - var(--footerH,76px)) !important;
+          height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - ${HERO_H_CSS} - var(--footerH,76px)) !important;
           min-height:160px !important;
         }
-        @media (max-width:760px) {
+
+        /* -- responsive steps matching the real corporate hero exactly
+           (hero-journey.js's own @media max-width:980px / 620px breaks). */
+        @media (max-width:980px) {
+          .zt-cutout-person-shell { left:-1%; width:44%; height:102%; }
+          :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${HERO_H_TABLET_CSS} !important; height:${HERO_H_TABLET_CSS} !important; }
+          :global(.yat-profile-career-strip) { height:${HERO_H_TABLET_CSS} !important; min-height:${HERO_H_TABLET_CSS} !important; }
+          .zt-hero-bg-layer { height:calc(var(--row1-h,34px) + var(--row2-h,48px) + ${HERO_H_TABLET_CSS}); }
+          :global(body:has(.yat-profile-career-strip)) { --row3-h:${HERO_H_TABLET_CSS} !important; }
           :global(body:has(.yat-profile-career-strip) .pp-funzone-outer) {
-            height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - ${HERO_H}px - var(--footerH,76px)) !important;
+            height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - ${HERO_H_TABLET_CSS} - var(--footerH,76px)) !important;
             min-height:160px !important;
           }
+        }
+        @media (max-width:620px) {
+          .zt-cutout-person-shell { left:-5%; width:51%; height:103%; }
+          :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${HERO_H_MOBILE_CSS} !important; height:${HERO_H_MOBILE_CSS} !important; }
+          :global(.yat-profile-career-strip) { height:${HERO_H_MOBILE_CSS} !important; min-height:${HERO_H_MOBILE_CSS} !important; }
+          .zt-hero-bg-layer { height:calc(var(--row1-h,34px) + var(--row2-h,48px) + ${HERO_H_MOBILE_CSS}); }
+          :global(body:has(.yat-profile-career-strip)) { --row3-h:${HERO_H_MOBILE_CSS} !important; }
+          :global(body:has(.yat-profile-career-strip) .pp-funzone-outer) {
+            height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - ${HERO_H_MOBILE_CSS} - var(--footerH,76px)) !important;
+            min-height:160px !important;
+          }
+          /* Short banner leaves very little vertical room -- same reason
+             the real corporate mobile hero carries almost no text at all.
+             Kicker + one-line headline + one-line stat line survive;
+             the CTA line is the one thing cut. */
+          .zt-slide-copy { left:16px; right:16px; bottom:12px; max-width:58%; gap:3px; }
+          .zt-slide-kicker { font-size:9px; gap:3px; }
+          .zt-rule { width:20px; }
+          .zt-slide-headline { font-size:22px; }
+          .zt-slide-subline { font-size:11px; }
+          .zt-slide-cta { display:none; }
+          .zt-anchor-copy .zt-quote { font-size:16px; }
         }
       `}</style>
     </section>
