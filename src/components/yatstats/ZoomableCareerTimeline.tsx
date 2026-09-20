@@ -740,9 +740,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center 48%; filter:brightness(.78) saturate(.94); }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
-        /* -- team logo: its own big plain layer on the right, no box, no
-           border, no padding -- just a large image sitting behind the copy. */
-        .zt-logo-layer { position:absolute; z-index:3; top:6%; bottom:6%; right:3%; width:38%; display:flex; align-items:center; justify-content:center; opacity:.5; pointer-events:none; }
+        /* -- team logo: its own big plain layer on the right, bleeding off
+           the edge of the frame -- matching the real corporate hero, where
+           the ghosted crest is only partly visible, clipped by the frame's
+           right edge, not fully contained inside it. */
+        .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.4; pointer-events:none; }
         .zt-logo-layer :global(img) { width:100%; height:100%; object-fit:contain; }
 
         .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:2.5%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
@@ -750,16 +752,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
-        /* Compact and bottom-left, near the photo -- clear of the logo
-           layer on the right (which starts at ~59% width) -- matching the
-           original target mockup's tagline block, not the wide right-hand
-           copy column from layered-story-strip.js. Plain block children,
-           no flex, so text wrapping is unambiguous. */
-        .zt-copy { position:absolute; z-index:6; left:clamp(140px,17vw,240px); right:42%; bottom:16px; background:transparent; }
-        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font:500 clamp(8px,.7vw,10px)/1.2 Oswald,sans-serif; letter-spacing:.13em; text-transform:uppercase; }
-        .zt-title { display:block; width:100%; margin:0 0 4px; font:400 clamp(16px,2.2vw,26px)/1.05 'Bebas Neue',Oswald,sans-serif; letter-spacing:.005em; text-transform:uppercase; color:#f3f3f1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        /* Starts past the photo, roughly a third of the way in, and runs
+           into the ghosted logo's left edge (the logo is faint enough that
+           text stays legible over it) -- matching the real corporate
+           hero's proportions: kicker/headline/bodycopy stacked and
+           vertically centered in the space above the bottom chrome bar.
+           Font declarations are split into separate properties instead of
+           the "font:" shorthand: the shorthand's own commas (font-family
+           list) and slash (size/line-height) combined with clamp()'s
+           internal commas was silently dropping the whole declaration in
+           production, which is why this text was invisible there. */
+        .zt-copy { position:absolute; z-index:6; left:30%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:center; background:transparent; }
+        .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
+        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
+        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-title { white-space:normal; overflow-wrap:anywhere; }
-        .zt-bodycopy { display:block; width:100%; margin:0; color:#b0b3b6; font:300 clamp(9px,.75vw,11px)/1.35 Oswald,sans-serif; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:10.5px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
 
         .zt-upload-inline-cta { margin-top:4px; display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(255,178,28,.1); color:${TIMELINE_YELLOW}; font:700 8.5px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; cursor:pointer; }
@@ -770,13 +778,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-yatzaboy b { font-size:9px; }
         .zt-comment-pill { display:flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.35); color:#fff; font:700 9px/1 Oswald,sans-serif; cursor:pointer; }
 
-        /* -- nav arrows + dots -------------------------------------------- */
-        .zt-nav { position:absolute; z-index:5; top:50%; transform:translateY(-50%); width:30px; height:30px; border-radius:50%; border:1px solid rgba(255,255,255,.3); background:rgba(0,0,0,.45); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:16px; }
+        /* -- bottom chrome: a segmented progress bar plus a pair of square
+           prev/next buttons at the bottom-right, matching the real
+           corporate hero's bottom bar (sitting just above its baseline
+           gold line), not round dots and mid-edge circular arrows. */
+        .zt-nav { position:absolute; z-index:7; bottom:5px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
         .zt-nav:disabled { opacity:.3; cursor:default; }
-        .zt-nav-prev { left:6px; }
+        .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        .zt-dots { position:absolute; z-index:5; left:0; right:0; bottom:4px; display:flex; justify-content:center; gap:5px; }
-        .zt-dot { width:6px; height:6px; border-radius:50%; border:0; background:rgba(255,255,255,.35); padding:0; cursor:pointer; }
+        .zt-dots { position:absolute; z-index:6; left:6%; right:60px; bottom:11px; display:flex; align-items:center; gap:4px; }
+        .zt-dot { flex:1; max-width:20px; height:2.5px; border-radius:1px; border:0; background:rgba(255,255,255,.28); padding:0; cursor:pointer; }
         .zt-dot.active { background:${TIMELINE_YELLOW}; }
 
         /* Height stays entirely local to this component's own row3/row4 --
@@ -794,8 +805,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
           .zt-visual :global(.zt-person) { width:clamp(108px,23vw,172px); height:107%; }
-          .zt-logo-layer { width:34%; right:2%; }
-          .zt-copy { left:clamp(120px,22vw,190px); right:40%; bottom:14px; }
+          .zt-logo-layer { width:50%; right:-12%; }
+          .zt-copy { left:clamp(120px,28vw,220px); right:5%; bottom:20px; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
@@ -804,12 +815,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           .zt-visual :global(.zt-person) { left:1%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
-          .zt-logo-layer { width:44%; right:1%; opacity:.4; }
-          .zt-copy { left:32%; right:4%; bottom:10px; }
+          .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
+          .zt-copy { left:34%; right:4%; bottom:18px; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
-          .zt-anchor .zt-copy { display:none; }
         }
       `}</style>
     </section>
