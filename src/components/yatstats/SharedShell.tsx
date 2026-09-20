@@ -164,7 +164,14 @@ export default function SharedShell({
           {row4Content
             ? row4Content
             : profilePlayerId
-              ? <ZoomableCareerTimeline playerId={profilePlayerId} variant="line" />
+              // The player profile's thin year-tick timeline (the old
+              // variant="line" row) is now folded into the taller
+              // variant="images" strip in row 3 above -- one row instead of
+              // two, per ZoomableCareerTimeline.tsx's own row3/row4 height
+              // override. Rendering nothing here (rather than a second,
+              // now-redundant ZoomableCareerTimeline instance) also drops a
+              // duplicate season-stats/uploads fetch this page no longer needs.
+              ? null
               : (
                   <MetadataRow
                     isPlayerProfile={isPlayerProfile}
