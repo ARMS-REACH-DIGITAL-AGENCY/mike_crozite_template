@@ -317,8 +317,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             </div>
           </a>
 
-          <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
-
           <FunZone
             player={p}
             isPitcher={isPitcher}
@@ -331,6 +329,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
             schoolLocation={schoolLocation}
+            scheduleSnapshot={
+              <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
+            }
           />
         </div>
       </div>

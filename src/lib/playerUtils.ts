@@ -1,6 +1,23 @@
 // src/lib/playerUtils.ts
 // Shared helper functions for player data formatting
 
+/**
+ * Normalizes a DB-returned date value to "YYYY-MM-DD".
+ *
+ * node-postgres parses a DATE column into a JS Date object by default (no
+ * custom type parser is registered in db.ts), so `String(value)` on a real
+ * row gives something like "Sat Sep 19 2026 00:00:00 GMT+0000 (Coordinated
+ * Universal Time)", not an ISO date string - .slice(0, 10) on that yields
+ * "Sat Sep 19", which silently never matches a "YYYY-MM-DD" key anywhere
+ * this is used for date-keyed lookups. Handles both a Date object and a
+ * pre-stringified value (e.g. from a tool that already serialized to JSON).
+ */
+export function toISODate(value: unknown): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 export function fmt(key: string, value: unknown): string {
   if (value === null || value === undefined || value === "" || value === "--") return "--";
   const DECIMAL = ["AVG","OBP","SLG","OPS","ERA","WHIP","H9","BB9","K9","KBB","K/9","K/BB"];

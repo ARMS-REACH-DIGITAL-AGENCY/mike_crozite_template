@@ -1,4 +1,9 @@
+import SafeImage from "@/components/SafeImage";
 import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus, getMlbTeamLogoMap } from '@/lib/db';
+import { toISODate } from '@/lib/playerUtils';
+
+const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
+const YATCREST_URL = `${S3_BASE}/assets/YatCrest.png`;
 
 type GameLogRow = {
   game_date?: string | null;
@@ -39,10 +44,6 @@ function formatDate(iso: string) {
   return `${Number(m)}/${Number(d)}`;
 }
 
-function firstNameOf(displayName: string) {
-  return String(displayName || 'Player').trim().split(/\s+/)[0] || 'Player';
-}
-
 function matchupLabel(opponent: string | null | undefined, isHome: boolean | null | undefined) {
   const name = String(opponent || '').trim();
   if (!name) return 'Game';
@@ -69,7 +70,7 @@ async function getSevenDayWindow(playerId: string): Promise<DayEntry[]> {
 
   const gameLogByDate = new Map<string, GameLogRow[]>();
   for (const row of gameLogs as GameLogRow[]) {
-    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    const d = toISODate(row.game_date);
     if (!d) continue;
     const bucket = gameLogByDate.get(d) ?? [];
     bucket.push(row);
@@ -78,7 +79,7 @@ async function getSevenDayWindow(playerId: string): Promise<DayEntry[]> {
 
   const scheduleByDate = new Map<string, ScheduleRow>();
   for (const row of schedule as ScheduleRow[]) {
-    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    const d = toISODate(row.game_date);
     if (d) scheduleByDate.set(d, row);
   }
 
@@ -134,9 +135,16 @@ async function getSevenDayWindow(playerId: string): Promise<DayEntry[]> {
   return days;
 }
 
+/**
+ * Lives inside FunZone's GAME LOG tab panel (passed in as a prop from
+ * PlayerCardBack, since this is an async Server Component and FunZone is a
+ * Client Component) - not a standalone section above the tab strip, and not
+ * its own CTA (FunZone's YatiCta strip already says "See X's full season
+ * schedule & game log..." for this tab). Typography matches the rest of
+ * FunZone: Bebas Neue for headlines, Oswald for labels/body - no script font.
+ */
 export default async function PlayerSevenDaySnapshot({
   playerId,
-  displayName,
   profileHref,
 }: {
   playerId: string;
@@ -149,60 +157,134 @@ export default async function PlayerSevenDaySnapshot({
   const hasAnyRealData = days.some((d) => d.isOffDay || d.headline !== '--');
   if (!hasAnyRealData) return null;
 
-  const firstName = firstNameOf(displayName);
   const results = days.slice(0, 4); // 3 days back through today
   const upcoming = days.slice(4); // next 3 days
+  const photoSrc = `${S3_BASE}/players/now/${playerId}.jpg`;
 
   return (
-    <section className="yat-snapshot" aria-label={`${displayName} seven day snapshot`}>
-      <a className="yat-snapshot-cta" href={profileHref}>
-        <span className="yat-snapshot-icon" aria-hidden="true" />
-        <span>See {firstName}&apos;s full season schedule &amp; game log on his profile page.</span>
-      </a>
+    <a className="yat-snap" href={profileHref} aria-label="7-Day Snapshot - full season schedule and game log">
+      <div className="yat-snap-photo">
+        <SafeImage src={photoSrc} alt="" className="yat-snap-photo-img" placeholderSrc={YATCREST_URL} />
+      </div>
 
-      <a className="yat-snapshot-polaroid" href={profileHref}>
-        <div className="yat-snapshot-paper">
-          <h3>7-Day Snapshot</h3>
+      <div className="yat-snap-frame">
+        <div className="yat-snap-title">7-DAY SNAPSHOT</div>
 
-          <div className="yat-snapshot-lines">
-            {results.map((day) => (
-              <div className="yat-snapshot-line" key={day.iso}>
-                <strong>{day.dateLabel} {day.isOffDay ? 'OFF DAY' : day.headline}</strong>
-                {!day.isOffDay && <span>{day.detail}</span>}
-              </div>
-            ))}
-          </div>
-
-          <div className="yat-snapshot-upcoming">
-            {upcoming.map((day) => (
-              <div key={day.iso}>
-                <strong>{day.dateLabel}</strong>
-                <span>{day.isOffDay ? 'OFF DAY' : `${day.headline}${day.detail ? ` - ${day.detail}` : ''}`}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="yat-snapshot-signature">{displayName}</div>
+        <div className="yat-snap-rows">
+          {results.map((day) => (
+            <div className="yat-snap-row" key={day.iso}>
+              <span className="yat-snap-date">{day.dateLabel}</span>
+              <span className="yat-snap-matchup">{day.isOffDay ? 'OFF DAY' : day.headline}</span>
+              {!day.isOffDay && <span className="yat-snap-line">{day.detail}</span>}
+            </div>
+          ))}
         </div>
-      </a>
+
+        <div className="yat-snap-divider" />
+
+        <div className="yat-snap-rows yat-snap-rows-upcoming">
+          {upcoming.map((day) => (
+            <div className="yat-snap-row" key={day.iso}>
+              <span className="yat-snap-date">{day.dateLabel}</span>
+              <span className="yat-snap-matchup">
+                {day.isOffDay ? 'OFF DAY' : `${day.headline}${day.detail ? ` – ${day.detail}` : ''}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <style>{`
-        .yat-snapshot{ flex:0 0 auto; position:relative; z-index:4; padding:clamp(6px,2.2cqi,12px) clamp(6px,2.5cqi,14px); background:linear-gradient(180deg,rgba(205,198,187,.96),rgba(183,176,165,.94)); border-top:1px solid rgba(45,35,24,.22); border-bottom:1px solid rgba(45,35,24,.24); color:#17120c; }
-        .yat-snapshot-cta{ display:flex; align-items:center; gap:clamp(5px,1.8cqi,9px); min-height:clamp(20px,7cqi,34px); margin:0 auto clamp(6px,2cqi,11px); padding:clamp(3px,1.5cqi,7px) clamp(6px,2.3cqi,12px); border:1px solid rgba(40,31,22,.24); border-radius:999px; background:rgba(255,255,255,.82); box-shadow:0 1px 0 rgba(255,255,255,.85), 0 2px 7px rgba(0,0,0,.16); color:#15100a; text-decoration:none; font:900 clamp(6px,2.3cqi,11px)/1.15 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; }
-        .yat-snapshot-icon{ width:clamp(16px,5.8cqi,28px); height:clamp(18px,6.8cqi,32px); flex:0 0 auto; background:url('https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/${playerId}.jpg') center/cover no-repeat; border-radius:2px; box-shadow:0 1px 4px rgba(0,0,0,.24); }
-        .yat-snapshot-polaroid{ display:block; text-decoration:none; color:inherit; }
-        .yat-snapshot-paper{ width:min(82%,320px); margin:0 auto; padding:clamp(8px,3cqi,16px) clamp(9px,3.4cqi,18px) clamp(17px,7cqi,38px); transform:rotate(-1.4deg); background:linear-gradient(180deg,#fff 0%,#f6f4ee 58%,#ebe7dc 100%); border:1px solid rgba(0,0,0,.10); box-shadow:0 7px 16px rgba(0,0,0,.28), inset 0 0 24px rgba(101,84,61,.12); position:relative; overflow:hidden; }
-        .yat-snapshot-paper::before{ content:''; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 20% 5%,rgba(255,255,255,.92),rgba(255,255,255,0) 28%), repeating-linear-gradient(172deg,rgba(0,0,0,.025) 0 1px,transparent 1px 5px); mix-blend-mode:multiply; opacity:.6; }
-        .yat-snapshot-paper h3{ position:relative; z-index:1; margin:0 0 clamp(7px,2.6cqi,13px); font:900 clamp(9px,3.5cqi,18px)/1 Oswald,sans-serif; letter-spacing:.02em; text-transform:none; color:#17120c; }
-        .yat-snapshot-lines{ position:relative; z-index:1; display:flex; flex-direction:column; gap:clamp(6px,2.2cqi,12px); }
-        .yat-snapshot-line{ display:grid; gap:clamp(1px,.7cqi,3px); font-family:Oswald,sans-serif; color:#15110c; }
-        .yat-snapshot-line strong{ font:900 clamp(8px,3.1cqi,15px)/1.1 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .yat-snapshot-line span{ font:800 clamp(7px,2.8cqi,14px)/1.1 Oswald,sans-serif; color:#312820; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .yat-snapshot-upcoming{ position:relative; z-index:1; margin-top:clamp(7px,2.6cqi,13px); display:grid; gap:clamp(4px,1.4cqi,8px); border-top:1px solid rgba(30,24,18,.16); padding-top:clamp(5px,1.9cqi,10px); }
-        .yat-snapshot-upcoming div{ display:flex; align-items:baseline; gap:clamp(5px,1.8cqi,9px); color:#5a5148; font:800 clamp(6px,2.2cqi,10px)/1.1 Oswald,sans-serif; text-transform:uppercase; letter-spacing:.04em; }
-        .yat-snapshot-upcoming strong{ color:#1f1710; }
-        .yat-snapshot-signature{ position:relative; z-index:1; margin-top:clamp(7px,2.8cqi,15px); transform:rotate(-3deg); font:400 clamp(14px,6.8cqi,36px)/.9 'Brush Script MT','Segoe Script',cursive; color:#16120e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .yat-snap{
+          display:flex;
+          flex-direction:column;
+          height:100%;
+          min-height:0;
+          text-decoration:none;
+          color:inherit;
+          border:1px solid rgba(30,22,14,0.18);
+          border-radius:clamp(4px,1.2cqi,7px);
+          overflow:hidden;
+          background:#fff;
+        }
+        .yat-snap-photo{
+          position:relative;
+          width:100%;
+          flex-shrink:0;
+          aspect-ratio:16/6;
+          background:#c2b9ae;
+          overflow:hidden;
+        }
+        .yat-snap-photo-img{
+          position:absolute;
+          inset:0;
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          object-position:top center;
+          display:block;
+        }
+        .yat-snap-frame{
+          flex:1;
+          min-height:0;
+          overflow:hidden;
+          padding:clamp(5px,1.8cqi,10px) clamp(6px,2cqi,11px);
+          display:flex;
+          flex-direction:column;
+          gap:clamp(3px,1.2cqi,7px);
+        }
+        .yat-snap-title{
+          font:700 clamp(7px,2.4cqi,11px)/1 "Bebas Neue",sans-serif;
+          letter-spacing:.08em;
+          color:rgba(30,22,14,0.55);
+        }
+        .yat-snap-rows{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(2px,.9cqi,5px);
+          min-height:0;
+        }
+        .yat-snap-row{
+          display:flex;
+          align-items:baseline;
+          gap:clamp(4px,1.4cqi,8px);
+          min-width:0;
+        }
+        .yat-snap-date{
+          flex:0 0 auto;
+          font:700 clamp(8px,2.8cqi,13px)/1 "Bebas Neue",sans-serif;
+          letter-spacing:.02em;
+          color:#17120c;
+          min-width:2.4em;
+        }
+        .yat-snap-matchup{
+          flex:0 1 auto;
+          min-width:0;
+          font:600 clamp(6.5px,2.2cqi,9.5px)/1.2 Oswald,sans-serif;
+          letter-spacing:.02em;
+          text-transform:uppercase;
+          color:#3a2f24;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        .yat-snap-line{
+          flex:1 1 auto;
+          min-width:0;
+          font:400 clamp(6.5px,2.2cqi,9.5px)/1.2 Oswald,sans-serif;
+          color:#6b5d4d;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          text-align:right;
+        }
+        .yat-snap-divider{
+          height:1px;
+          background:rgba(30,22,14,0.14);
+          margin:clamp(1px,.6cqi,3px) 0;
+        }
+        .yat-snap-rows-upcoming .yat-snap-matchup{ color:#6b5d4d; }
       `}</style>
-    </section>
+    </a>
   );
 }

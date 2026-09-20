@@ -22,7 +22,7 @@ import {
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
 } from "@/lib/db";
-import { mlbTeamLogoUrl } from "@/lib/playerUtils";
+import { mlbTeamLogoUrl, toISODate } from "@/lib/playerUtils";
 type Props = {
   params: Promise<{
     hsid: string;
@@ -289,7 +289,7 @@ export default async function ProfilePage({ params }: Props) {
   // not blank out his pre-trade line scores).
   const gameLogByDate = new Map<string, any>();
   for (const row of gameLogs as any[]) {
-    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    const d = toISODate(row.game_date);
     if (d) gameLogByDate.set(d, row);
   }
 
@@ -390,13 +390,13 @@ export default async function ProfilePage({ params }: Props) {
   // No cap here on purpose - this is the full season, every game, one row
   // each. getTeamSchedule's own `limit` param (default 300) is the only cap.
   const upcomingGames = (teamSchedule as any[]).filter((g) => {
-    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+    const d = toISODate(g.game_date);
     return d >= new Date().toISOString().slice(0, 10);
   });
 
   const recentGames = (teamSchedule as any[])
     .filter((g) => {
-      const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+      const d = toISODate(g.game_date);
       return d < new Date().toISOString().slice(0, 10);
     })
     .sort((a: any, b: any) =>
@@ -477,7 +477,7 @@ export default async function ProfilePage({ params }: Props) {
                 </thead>
                 <tbody>
                   {upcomingGames.map((g: any, i: number) => {
-                    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+                    const d = toISODate(g.game_date);
                     const log = d ? gameLogByDate.get(d) : null;
                     return (
                       <tr key={i}>
@@ -519,7 +519,7 @@ export default async function ProfilePage({ params }: Props) {
                 </thead>
                 <tbody>
                   {recentGames.map((g: any, i: number) => {
-                    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+                    const d = toISODate(g.game_date);
                     const log = d ? gameLogByDate.get(d) : null;
                     const badge = resultBadge(g.result);
                     const box: any = isPitcher ? pitchingBoxScore(log?.stats) : battingBoxScore(log?.stats);
