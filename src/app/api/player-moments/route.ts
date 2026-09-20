@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { query } from "@/lib/db";
 import { addTagToGHLContact, findOrCreateGhlContact } from "@/lib/gohighlevel";
+import { ensurePlayerMomentSocialTables } from "@/lib/playerMomentSocial";
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const DEFAULT_S3_REGION = "us-west-2";
@@ -337,6 +338,7 @@ const returningSql = `
 export async function GET(req: NextRequest) {
   try {
     await ensureTable();
+    await ensurePlayerMomentSocialTables();
     const { searchParams } = new URL(req.url);
     const playerId = searchParams.get("playerId");
 
@@ -346,11 +348,34 @@ export async function GET(req: NextRequest) {
     const viewerUid = String(session?.uid || "").trim();
 
     const { rows } = await query(
-      `select ${returningSql}
-       from public.player_moment_submissions
-       where playerid = $1
-         and (coalesce(is_private, false) = false or contributor_firebase_uid = $2)
-       order by coalesce(sort_date, created_at::date) asc, created_at asc
+      `select ${returningSql},
+        coalesce(r.reaction_count, 0) as reaction_count,
+        coalesce(vr.viewer_reacted, false) as viewer_reacted,
+        coalesce(c.comments, '[]'::json) as comments
+       from public.player_moment_submissions m
+       left join (
+         select moment_id, count(*)::int as reaction_count
+         from public.player_moment_reactions
+         where reaction_type = 'yataboy'
+         group by moment_id
+       ) r on r.moment_id = m.id
+       left join (
+         select moment_id, true as viewer_reacted
+         from public.player_moment_reactions
+         where reaction_type = 'yataboy' and contributor_firebase_uid = $2
+       ) vr on vr.moment_id = m.id
+       left join (
+         select moment_id, json_agg(
+           json_build_object('id', id::text, 'contributor_name', contributor_name, 'body', body, 'created_at', created_at)
+           order by created_at asc
+         ) as comments
+         from public.player_moment_comments
+         where status = 'visible'
+         group by moment_id
+       ) c on c.moment_id = m.id
+       where m.playerid = $1
+         and (coalesce(m.is_private, false) = false or m.contributor_firebase_uid = $2)
+       order by coalesce(m.sort_date, m.created_at::date) asc, m.created_at asc
        limit 48`,
       [String(playerId), viewerUid]
     );

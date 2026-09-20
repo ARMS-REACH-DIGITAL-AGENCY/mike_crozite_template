@@ -118,10 +118,6 @@ function setScope(scope: SortScope) {
   root.querySelectorAll<HTMLElement>('[data-yat-sort-scope]').forEach((button) => button.classList.toggle('active', button.dataset.yatSortScope === scope));
 }
 function favoriteScopeCards(cards: HTMLElement[]): HTMLElement[] { return (!favoritesSortEnabled || !favoriteSortPlayerIds.size) ? cards : cards.filter((card) => favoriteSortPlayerIds.has(getPlayerId(card))); }
-function enforceFavoriteVisibility(cards: HTMLElement[]) {
-  if (!favoritesSortEnabled || !favoriteSortPlayerIds.size) return;
-  cards.forEach((card) => { const wrap = getCardWrap(card); const keep = favoriteSortPlayerIds.has(getPlayerId(card)); wrap.style.display = keep ? '' : 'none'; if (keep) wrap.removeAttribute('hidden'); });
-}
 
 function applyFlipCardSort() {
   const checked = getSelectedSortInput();
@@ -134,7 +130,13 @@ function applyFlipCardSort() {
   const cards = Array.from(section.querySelectorAll('.yat-card[data-playerid]')) as HTMLElement[];
   const wraps = cards.map(getCardWrap);
   wraps.forEach((wrap, index) => { if (!wrap.dataset.sortOriginalIndex) wrap.dataset.sortOriginalIndex = String(index); });
-  enforceFavoriteVisibility(cards);
+  // Visibility (favorites-gallery restriction AND whatever the fan has
+  // checked in Filters - level, status, etc.) is GalleryFilterController's
+  // job alone now. This used to also force every favorited card's wrap
+  // back to visible here, running ~80ms after GalleryFilterController's own
+  // pass (see rerunSortIfActive below) - it always won that race, so
+  // checking a level filter while a stat sort was active looked like the
+  // filter did nothing at all.
   if (!checked) {
     if (status) status.textContent = favoritesSortEnabled ? 'Favorites gallery order.' : 'Default roster order.';
     if (favoritesSortEnabled) syncStripToSortedCards(getVisibleCards(section));
