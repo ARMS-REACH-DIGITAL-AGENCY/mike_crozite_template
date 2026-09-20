@@ -211,7 +211,9 @@ export default async function PlayerSevenDaySnapshot({
           position:relative;
           width:100%;
           flex-shrink:0;
-          aspect-ratio:16/6;
+          /* Closer to square (real Polaroids are square photos) and tall
+             enough to actually show a face instead of just a cap brim. */
+          aspect-ratio:4/3;
           background:#c2b9ae;
           overflow:hidden;
         }
@@ -221,7 +223,7 @@ export default async function PlayerSevenDaySnapshot({
           width:100%;
           height:100%;
           object-fit:cover;
-          object-position:top center;
+          object-position:center 22%;
           display:block;
         }
         .yat-snap-frame{
