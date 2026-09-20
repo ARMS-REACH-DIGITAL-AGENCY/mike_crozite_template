@@ -31,6 +31,7 @@ const YATI_PLACEHOLDERS = [
 
 type StatRow = {
   year?: string | number;
+  age?: string | number;
   team?: string;
   teamid?: string | number;
   team_id?: string | number;
@@ -49,7 +50,7 @@ type StatRow = {
   ip?: string | number;
 };
 
-type SlideKind = 'anchor' | 'season' | 'upload' | 'today';
+type SlideKind = 'anchor' | 'season' | 'upload' | 'today' | 'lifeyear';
 
 type MomentComment = {
   id: string;
@@ -70,6 +71,9 @@ type Slide = {
   teamLogoSrcs?: string[];
   seasonCutoutSrc?: string;
   yatiFallback?: string;
+  // lifeyear-kind only (the empty, no-photo-yet placeholder for a
+  // pre-high-school year of the player's life)
+  age?: number;
   // upload-kind only
   momentDbId?: string;
   contributorName?: string;
@@ -473,8 +477,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const currentYear = new Date().getFullYear();
     const statYears = stats.map((row) => yearOf(row.year)).filter((year): year is number => typeof year === 'number');
     const firstStatYear = statYears.length ? Math.min(...statYears) : currentYear;
-    const hsYear = Math.max(1900, firstStatYear - 1);
     const endYear = Math.max(currentYear, ...statYears, firstStatYear);
+
+    // We can't count on knowing a player's real DOB, so the life-year
+    // screens before high school are standardized: always exactly 17 of
+    // them (ages 1-17), with HS always the 18th screen -- rather than
+    // however many actually happened to fall before a per-player derived
+    // birth year (which would make some players' HS screen the 17th, some
+    // the 18th, some the 15th depending on data quality). When a stat row's
+    // age field lets us derive a real birth year we still use it, purely to
+    // pick a more accurate hsYear (and thus real calendar years for those
+    // 17 screens, so an already-dated fan photo can land in the right one);
+    // when it can't be derived, hsYear falls back to the old
+    // firstStatYear-1 heuristic and the 17 screens just count back from
+    // that -- either way there are always 17 of them.
+    const HS_GRAD_AGE = 18;
+    const rowWithAge = stats
+      .map((row) => ({ year: yearOf(row.year), age: Number(row.age) }))
+      .filter((r): r is { year: number; age: number } => typeof r.year === 'number' && Number.isFinite(r.age) && r.age > 0)
+      .sort((a, b) => a.year - b.year)[0];
+    const birthYear = rowWithAge ? rowWithAge.year - rowWithAge.age : null;
+    const hsYear = birthYear ? birthYear + HS_GRAD_AGE : Math.max(1900, firstStatYear - 1);
 
     const seen = new Set<string>();
     const seasons: Slide[] = [];
@@ -503,15 +526,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     });
     seasons.sort((a, b) => a.year - b.year || a.title.localeCompare(b.title));
 
-    const uploaded: Slide[] = uploads
+    // hsYear - 17 .. hsYear - 1 are the 17 standardized life-year slots,
+    // whether or not a real birth year could be derived (see above) -- a
+    // fan photo dated into that range fills its year's placeholder instead
+    // of clamping up to hsYear.
+    const lifeYearStart = hsYear - (HS_GRAD_AGE - 1);
+    const preHsUploaded: Slide[] = [];
+    const postHsUploaded: Slide[] = [];
+    uploads
       .filter((item) => !isCurrentHeadshotUrl(item.image_data_url, playerId))
-      .map((item): Slide => {
-        const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
+      .forEach((item) => {
+        const rawYear = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
+        const isPreHs = rawYear >= lifeYearStart && rawYear < hsYear;
+        const year = isPreHs ? rawYear : clamp(rawYear, hsYear, endYear);
         const override = localOverrides[`upload-${item.id}`];
-        return {
+        const slide: Slide = {
           id: `upload-${item.id}`,
           kind: 'upload',
-          year: clamp(year, hsYear, endYear),
+          year,
           title: item.title || 'Fan memory',
           caption: item.caption || '',
           src: item.image_url || item.image_data_url,
@@ -522,7 +554,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           viewerReacted: override ? override.viewerReacted : Boolean(item.viewer_reacted),
           comments: [...(item.comments || []), ...(override?.extraComments || [])],
         };
-      }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
+        (isPreHs ? preHsUploaded : postHsUploaded).push(slide);
+      });
+    preHsUploaded.sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
+    postHsUploaded.sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
+
+    // Always exactly 17 life-year screens (standardized -- see above),
+    // ages 1 through 17, filled with a fan photo already dated to that
+    // year where one exists, otherwise an empty invite screen for that
+    // specific age.
+    const filledLifeYears = new Set(preHsUploaded.map((s) => s.year));
+    const lifeYears: Slide[] = Array.from({ length: HS_GRAD_AGE - 1 }, (_, i) => lifeYearStart + i)
+      .filter((year) => !filledLifeYears.has(year))
+      .map((year) => ({
+        id: `lifeyear-${year}`,
+        kind: 'lifeyear' as const,
+        year,
+        age: year - lifeYearStart + 1,
+        title: `Age ${year - lifeYearStart + 1}`,
+      }));
 
     const anchor: Slide = {
       id: 'career-path-anchor',
@@ -539,13 +589,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
     };
 
-    const slides = [anchor, ...seasons, ...uploaded, today].sort((a, b) => a.year - b.year);
-    // Keep the anchor pinned first regardless of year math -- it is always
-    // where the carousel opens, per the fixed HS-slide-one design.
-    const anchorPos = slides.findIndex((s) => s.kind === 'anchor');
-    if (anchorPos > 0) slides.unshift(slides.splice(anchorPos, 1)[0]);
+    // No more force-pinning the anchor to index 0: preHsUploaded + lifeYears
+    // always total exactly 17 screens between them, so sorted by year the
+    // anchor always lands at index 17 -- the 18th screen -- instead of
+    // always being first. A fan can still swipe further back through those
+    // 17 life years, all the way to age 1.
+    const slides = [...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, today]
+      .sort((a, b) => a.year - b.year);
+    const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
-    return { startYear: hsYear, endYear, slides };
+    return { startYear: birthYear ?? hsYear, endYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
   }, [stats, uploads, playerId, localOverrides, player?.playerName]);
 
   const ready = statsLoaded && uploadsLoaded;
@@ -553,8 +606,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   useEffect(() => {
     if (!ready || initializedRef.current) return;
     initializedRef.current = true;
-    setScrollProgress(0); // opens on the HS anchor slide
-  }, [ready]);
+    // Opens on the HS anchor slide (now the 18th screen, not the first --
+    // see model.anchorIndex above), jumped to instantly rather than
+    // animated in from slide 0 since there's no slide 0-through-17 pass to
+    // show on first paint.
+    setScrollProgress(model.anchorIndex);
+    scrollToIndex(model.anchorIndex, false);
+  }, [ready, model.anchorIndex]);
 
   useEffect(() => {
     const maxIndex = Math.max(0, model.slides.length - 1);
@@ -688,56 +746,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
-      {/* Hero visuals live in their own non-scrolling stack, one per slide,
-          each opacity-driven by how close the continuous scroll position
-          is to that slide's index -- the dissolve. They never move
-          horizontally; only the copy track below does. Slides fully faded
-          out (more than one slide-width away) are skipped entirely so
-          their images aren't loaded until scroll brings them near. */}
-      <div className="zt-visual-stack" aria-hidden="true">
-        {ready && model.slides.map((slide, i) => {
-          const opacity = clamp(1 - Math.abs(scrollProgress - i), 0, 1);
-          if (opacity <= 0) return null;
-          return (
-            <span key={slide.id} className={`zt-visual zt-${slide.kind}`} style={{ opacity }}>
-              {/* No background image here for anchor/season -- .zt-hero-bleed
-                  (a single fixed layer behind rows 1-3) covers this whole
-                  area too, so this is a transparent window onto that one
-                  continuous image instead of a second, independently-cropped
-                  copy of it (two separate object-fit:cover crops of the same
-                  photo at different container heights don't line up). */}
-              <span className="zt-visual-gradient" aria-hidden="true" />
-              {slide.kind === 'season' && (
-                <span className="zt-logo-layer" aria-hidden="true">
-                  <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
-                </span>
-              )}
-              {slide.kind === 'anchor' && (
-                <span className="zt-logo-layer" aria-hidden="true">
-                  <SmartImage src={YS_CREST_FALLBACK} alt="" />
-                </span>
-              )}
-              {slide.kind === 'anchor' && (
-                <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
-              )}
-              {(slide.kind === 'anchor' || slide.kind === 'season') && player?.playerName && (
-                <span className="zt-player-name">{player.playerName}</span>
-              )}
-              {slide.kind === 'season' && (
-                <SmartImage className="zt-person zt-person-yati" src={slide.seasonCutoutSrc} srcs={[slide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
-              )}
-              {slide.kind === 'today' && (
-                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
-              )}
-              {slide.kind === 'upload' && (
-                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
-              )}
-              <span className="zt-visual-baseline" aria-hidden="true" />
-            </span>
-          );
-        })}
-      </div>
-
+      {/* Each slide carries its own visual (gradient, logo, cutout, name)
+          right alongside its copy, and both move together as one card --
+          matching the corporate site's own model (layered-story-strip.js
+          never dissolves between slides either). A separate non-scrolling,
+          opacity-crossfaded visual stack was tried here first per an
+          earlier request for a dissolve transition, but two *different*
+          logos/cutouts sitting at partial opacity in the exact same spot
+          reads as a rendering glitch, not a cinematic fade -- confirmed by
+          screenshots of it happening mid-drag on a real device -- so this
+          reverts to a hard cut, keeping only the free-scroll mechanism
+          (native scroll + drag + wheel) from that request. The background
+          bleed above is unaffected: it's one shared, non-cropped photo
+          behind every slide, not a per-slide image, so it was never part
+          of this problem. */}
       <div
         className="zt-carousel"
         ref={trackRef}
@@ -749,6 +771,33 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       >
         {ready && model.slides.map((slide) => (
           <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
+            <span className="zt-visual-gradient" aria-hidden="true" />
+            {slide.kind === 'season' && (
+              <span className="zt-logo-layer" aria-hidden="true">
+                <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
+              </span>
+            )}
+            {slide.kind === 'anchor' && (
+              <span className="zt-logo-layer" aria-hidden="true">
+                <SmartImage src={YS_CREST_FALLBACK} alt="" />
+              </span>
+            )}
+            {slide.kind === 'anchor' && (
+              <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+            )}
+            {(slide.kind === 'anchor' || slide.kind === 'season') && player?.playerName && (
+              <span className="zt-player-name">{player.playerName}</span>
+            )}
+            {slide.kind === 'season' && (
+              <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
+            )}
+            {slide.kind === 'today' && (
+              <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
+            )}
+            {slide.kind === 'upload' && (
+              <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
+            )}
+            <span className="zt-visual-baseline" aria-hidden="true" />
             <span className="zt-copy">
               {slide.kind === 'anchor' && (
                 <>
@@ -771,6 +820,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <>
                   <span className="zt-kick">{slide.year}</span>
                   <span className="zt-title">{player?.playerName || ''}</span>
+                </>
+              )}
+              {slide.kind === 'lifeyear' && (
+                <>
+                  <span className="zt-kick">Age {slide.age}</span>
+                  <span className="zt-title">This year is still a blank page.</span>
+                  <span className="zt-bodycopy">No photo yet from {player?.playerName ? firstName(player.playerName) : 'his'} childhood at this age -- be the first to add one.</span>
+                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
+                    <i className="ri-upload-cloud-line" /> Share a photo from this year
+                  </button>
                 </>
               )}
               {slide.kind === 'upload' && (
@@ -829,24 +888,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       <style jsx>{`
         .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
 
-        /* The hero visuals and the scrolling copy track are two entirely
-           separate layers now, not one card per slide: the visual stack
-           never moves horizontally, it only dissolves between slides
-           (opacity set inline, from scrollProgress); the copy track is a
-           plain native horizontally-scrollable strip underneath it, free
-           scroll matching the corporate site's real timeline mechanism
-           (layered-story-strip.js) -- scroll-snap explicitly off, mouse
-           drag via pointer events since browsers don't drag-scroll for
-           mice, touch/trackpad get native scrolling for free. */
-        .zt-visual-stack { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; }
-        .zt-visual { position:absolute; inset:0; overflow:hidden; background:transparent; }
-        .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
-
+        /* One card per slide -- visual (gradient/logo/cutout/name) and copy
+           live together and move together, a plain native horizontally-
+           scrollable strip: free scroll matching the corporate site's real
+           timeline mechanism (layered-story-strip.js) -- scroll-snap
+           explicitly off, mouse drag via pointer events since browsers
+           don't drag-scroll for mice, touch/trackpad get native scrolling
+           for free. No cross-slide opacity blending: two different
+           logos/cutouts sitting at partial opacity in the same spot reads
+           as a glitch, not a dissolve, so slides hard-cut past each other
+           like the corporate source does, instead of fading through one
+           another. */
         .zt-carousel { position:relative; z-index:2; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
         .zt-carousel:active { cursor:grabbing; }
         .zt-carousel::-webkit-scrollbar { display:none; }
-        .zt-slide { position:relative; flex:0 0 100%; width:100%; min-width:100%; height:100%; overflow:hidden; cursor:default; }
+        .zt-slide { position:relative; flex:0 0 100%; width:100%; min-width:100%; height:100%; overflow:hidden; cursor:default; background:transparent; }
         .zt-slide.zt-upload { cursor:pointer; }
+        .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
         /* -- team logo: its own big plain layer on the right, bleeding off
            the edge of the frame -- matching the real corporate hero, where
@@ -863,15 +921,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            player/YaTi image must land in the same spot on every slide,
            not just the anchor. .zt-person-yati carries no positional
            overrides of its own anymore; it's the same box as .zt-person. */
-        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
+        .zt-slide :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-slide :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
         /* Player's name -- bottom-left, to the left of the (now
            right-shifted) cutout, sitting low in the frame where the
            swoosh starts its curve, separate from the marketing
            kicker/headline column on the right. Anchor slide only. */
-        .zt-player-name { position:absolute; z-index:4; left:2.5%; bottom:6%; display:block; margin:0; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-player-name { position:absolute; z-index:4; left:4%; bottom:6%; display:block; margin:0; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -887,9 +945,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .zt-anchor .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
         .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:10.5px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .zt-anchor .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
+        /* No cutout/logo on a life-year slide (there's no photo yet) -- the
+           copy block gets the room that would otherwise be reserved for
+           one, so the invite reads as a real screen instead of empty
+           space with a caption stuck to the right. */
+        .zt-lifeyear .zt-copy { left:6%; }
 
         .zt-upload-inline-cta { margin-top:4px; display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(255,178,28,.1); color:${TIMELINE_YELLOW}; font:700 8.5px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; cursor:pointer; }
 
@@ -954,6 +1017,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            against row1/row2 using row3-shell's own z-index (60 vs their
            70/65), which is unaffected by this. */
         :global(.zt-hero-bleed) { position:fixed; z-index:-1; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H}px); overflow:hidden; pointer-events:none; background:#060708; }
+        /* Tried zooming this photo in (transform:scale()) to push its
+           swoosh curve further from the left edge on wide desktop windows,
+           where object-fit:cover's width-driven scaling otherwise parks it
+           at a fixed ~7.5% of viewport width -- measured and solved for
+           exactly, not eyeballed. Reverted: it also zoomed in on the
+           outfield-wall stripe along the top of the frame, which at that
+           magnification blew out into a wash of amber across the whole
+           width instead of reading as a thin background detail -- the fix
+           made the photo look worse than the problem it solved. Left at
+           plain object-fit:cover for now; the player-name/copy positions
+           below were nudged instead (see left offsets) to keep them off
+           the true edge without touching the photo itself. */
         :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
         /* .yat-topbar and .yat-schoolrow (rendered inside these shells by
            GlobalTopbar/SchoolContextBar) carry their own separate
@@ -971,10 +1046,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
+          .zt-slide :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
-          .zt-player-name { left:2%; bottom:5%; }
+          .zt-player-name { left:3.5%; bottom:5%; }
           .zt-dots { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
@@ -982,10 +1057,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         @media (max-width:620px) {
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          .zt-visual :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
+          .zt-slide :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-copy { left:32%; right:4%; bottom:18px; }
-          .zt-player-name { left:2%; bottom:4%; }
+          .zt-player-name { left:3%; bottom:4%; }
           .zt-dots { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
