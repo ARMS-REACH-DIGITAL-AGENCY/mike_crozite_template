@@ -17,6 +17,8 @@ no external API), adapted for team logos:
 Environment variables:
 - YATSTATS_S3_BUCKET: default yatstats-assets
 - YATSTATS_S3_SOURCE_PREFIX: default teams/
+- YATSTATS_S3_SOURCE_KEY: optional exact single key (e.g. teams/14134.png) to
+  process instead of scanning SOURCE_PREFIX - for testing one specific logo
 - YATSTATS_S3_OUTPUT_PREFIX: default teams/cutouts/ (ignored if IN_PLACE=true)
 - IN_PLACE: true/false, default false - true writes back to the exact same
   key as the source (overwrites the live logo), ignoring OUTPUT_PREFIX
@@ -24,7 +26,7 @@ Environment variables:
 - DRY_RUN: true/false, default true
 - OVERWRITE: true/false, default false; only controls replacing an output
   that already exists at the destination key
-- MAX_FILES: optional integer limit for testing
+- MAX_FILES: optional integer limit for testing (ignored when SOURCE_KEY is set)
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from rembg import remove
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
 SOURCE_PREFIX = os.getenv("YATSTATS_S3_SOURCE_PREFIX", "teams/")
+SOURCE_KEY = os.getenv("YATSTATS_S3_SOURCE_KEY", "").strip()
 IN_PLACE = os.getenv("IN_PLACE", "false").lower() == "true"
 OUTPUT_PREFIX = os.getenv("YATSTATS_S3_OUTPUT_PREFIX", "teams/cutouts/")
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-west-2"
@@ -125,7 +128,10 @@ def process_image_bytes(input_bytes: bytes) -> bytes:
 
 def main() -> int:
     print(f"Bucket: {BUCKET}")
-    print(f"Source prefix: {normalize_prefix(SOURCE_PREFIX)}")
+    if SOURCE_KEY:
+        print(f"Source key (single file): {SOURCE_KEY}")
+    else:
+        print(f"Source prefix: {normalize_prefix(SOURCE_PREFIX)}")
     print(f"In place (overwrite originals): {IN_PLACE}")
     if not IN_PLACE:
         print(f"Output prefix: {normalize_prefix(OUTPUT_PREFIX)}")
@@ -134,9 +140,12 @@ def main() -> int:
     print(f"Overwrite existing outputs: {OVERWRITE}")
     print(f"Max files: {MAX_FILES if MAX_FILES is not None else 'all'}")
 
-    keys = list_source_keys(BUCKET, SOURCE_PREFIX)
-    if MAX_FILES is not None:
-        keys = keys[:MAX_FILES]
+    if SOURCE_KEY:
+        keys = [SOURCE_KEY]
+    else:
+        keys = list_source_keys(BUCKET, SOURCE_PREFIX)
+        if MAX_FILES is not None:
+            keys = keys[:MAX_FILES]
 
     print(f"Found {len(keys)} source images to inspect.")
 

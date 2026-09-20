@@ -28,7 +28,11 @@ on:
           - "false"
           - "true"
       max_files:
-        description: "Optional max files to process/test. Leave blank for all."
+        description: "Optional max files to process/test. Leave blank for all. Ignored if source_key is set."
+        required: false
+        default: ""
+      source_key:
+        description: "Optional exact single S3 key to test (e.g. teams/14134.png), instead of scanning source_prefix"
         required: false
         default: ""
       source_prefix:
@@ -53,6 +57,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       YATSTATS_S3_BUCKET: yatstats-assets
       YATSTATS_S3_SOURCE_PREFIX: ${{ github.event.inputs.source_prefix || 'teams/' }}
+      YATSTATS_S3_SOURCE_KEY: ${{ github.event.inputs.source_key || '' }}
       YATSTATS_S3_OUTPUT_PREFIX: ${{ github.event.inputs.output_prefix || 'teams/cutouts/' }}
       IN_PLACE: ${{ github.event.inputs.in_place || 'false' }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
