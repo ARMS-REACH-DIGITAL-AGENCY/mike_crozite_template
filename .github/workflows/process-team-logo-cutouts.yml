@@ -43,6 +43,10 @@ on:
         description: "S3 staging prefix for cutout output (ignored when in_place=true)"
         required: false
         default: "teams/cutouts/"
+      bg_tolerance:
+        description: "Color-distance tolerance for matching the sampled background color (0-441). Raise if a background isn't fully removed; lower if the fill eats into the artwork."
+        required: false
+        default: "30"
 
 jobs:
   process-team-logo-cutouts:
@@ -63,6 +67,7 @@ jobs:
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}
+      BG_TOLERANCE: ${{ github.event.inputs.bg_tolerance || '30' }}
 
     steps:
       - name: Check out repository
@@ -76,7 +81,7 @@ jobs:
       - name: Install image processing dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install boto3 pillow rembg onnxruntime
+          pip install boto3 pillow numpy scipy
 
       - name: Process team logo cutouts from S3
         run: python scripts/process-team-logo-cutouts-s3.py
