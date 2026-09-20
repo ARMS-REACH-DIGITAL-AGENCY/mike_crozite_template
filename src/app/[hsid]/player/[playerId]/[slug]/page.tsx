@@ -196,8 +196,18 @@ export default async function ProfilePage({ params }: Props) {
   // v_player_current_team_resolved chain and a player's most recent stat-
   // bearing season, which can point at a stale team after a transfer or a
   // redshirt year with no season on record yet.
-  const currentTeamId = (transactionStatus as any)?.current_team_source_team_id
+  // current_team_source_team_id is the raw MLB Stats API team id (e.g. 147
+  // for the Yankees) when the source is mlb_api - NOT the tbc_teamid that
+  // v_team_schedule_feed/college_schedule_games_raw and this codebase's own
+  // team logos are keyed by (Yankees there is 20, not 147). Kept separately
+  // so the schedule fetch below can translate it; getTeamContext and the
+  // other two fallbacks already return tbc-scheme ids.
+  const rawMlbTeamId = (transactionStatus as any)?.current_team_source_team_id
     ? String((transactionStatus as any).current_team_source_team_id)
+    : null;
+
+  const currentTeamId = rawMlbTeamId
+    ? rawMlbTeamId
     : resolvedCurrentTeam?.teamid
       ? String(resolvedCurrentTeam.teamid)
       : (mostRecentSeason as any)?.teamid
@@ -260,11 +270,19 @@ export default async function ProfilePage({ params }: Props) {
       : null
   ) as PitchingSeason | null;
 
-  const [teamSchedule, gameLogs, mlbTeamLogoMap] = await Promise.all([
-    currentTeamId ? getTeamSchedule(currentTeamId) : Promise.resolve([]),
+  const [gameLogs, mlbTeamLogoMap] = await Promise.all([
     getPlayerGameLogs(safePlayerId),
     getMlbTeamLogoMap(),
   ]);
+
+  // Translate the raw MLB team id to the tbc_teamid getTeamSchedule expects.
+  // A currentTeamId that came from the other two fallbacks is already in
+  // the right scheme, so it passes through unchanged.
+  const scheduleTeamId = rawMlbTeamId
+    ? mlbTeamLogoMap.get(rawMlbTeamId) || null
+    : currentTeamId;
+
+  const teamSchedule = scheduleTeamId ? await getTeamSchedule(scheduleTeamId) : [];
 
   // Keyed by date so it merges onto the season schedule below regardless of
   // which team the player suited up for that day (a mid-season trade should

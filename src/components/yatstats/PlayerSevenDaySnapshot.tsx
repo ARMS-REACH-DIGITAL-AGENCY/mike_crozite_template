@@ -1,4 +1,4 @@
-import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus } from '@/lib/db';
+import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus, getMlbTeamLogoMap } from '@/lib/db';
 
 type GameLogRow = {
   game_date?: string | null;
@@ -52,15 +52,20 @@ function matchupLabel(opponent: string | null | undefined, isHome: boolean | nul
 async function getSevenDayWindow(playerId: string): Promise<DayEntry[]> {
   const today = isoDate(new Date());
 
-  const transactionStatus = await getFlipCardTransactionStatus(playerId);
-  const teamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
-
-  const [gameLogs, schedule] = await Promise.all([
+  const [transactionStatus, gameLogs, mlbTeamLogoMap] = await Promise.all([
+    getFlipCardTransactionStatus(playerId),
     getPlayerGameLogs(playerId),
-    teamId ? getTeamSchedule(teamId) : Promise.resolve([]),
+    getMlbTeamLogoMap(),
   ]);
 
-  const hasSchedule = teamId && (schedule as ScheduleRow[]).length > 0;
+  // current_team_source_team_id is the raw MLB Stats API team id (e.g. 147
+  // for the Yankees); v_team_schedule_feed is keyed by tbc_teamid (Yankees
+  // there is 20) - same crosswalk used for opponent logos translates it.
+  const rawMlbTeamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
+  const teamId = rawMlbTeamId ? mlbTeamLogoMap.get(rawMlbTeamId) || '' : '';
+
+  const schedule = teamId ? await getTeamSchedule(teamId) : [];
+  const hasSchedule = Boolean(teamId) && (schedule as ScheduleRow[]).length > 0;
 
   const gameLogByDate = new Map<string, GameLogRow[]>();
   for (const row of gameLogs as GameLogRow[]) {
