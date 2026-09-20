@@ -6,7 +6,7 @@
 // Block 4 — Two-column player metadata
 // Block 5 — Profile-page six-tab FunZone (inline, not the shared FunZone component)
 
-"use client" in (0 as any); // this file is a Server Component — no "use client"
+// this file is a Server Component — no "use client"
 
 import {
   findPlayersBySlug,

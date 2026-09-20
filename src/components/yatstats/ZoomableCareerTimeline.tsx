@@ -4,16 +4,21 @@ import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-// Row heights before this component merged them: --row3-h (100px, the old
-// plain image strip) + --row4-h (56px, the old separate thin year-tick
-// line). Combining them into one taller row reuses that same total budget
-// instead of asking the page for more -- the FunZone panel below is
-// completely unaffected.
-const ROW_H = 156;
-const ANCHOR_W = 300; // anchor + upload: full copy panel, needs the most room
-const SEASON_W = 220; // season: logo + cutout + a short caption
-const CARD_W = 130; // headshot: image only
+// Full-bleed hero carousel -- one slide per season, matching the corporate
+// homepage slideshow's visual pattern. Replaces the old 156px filmstrip
+// (--row3-h 100px + --row4-h 56px). Row4 stays folded to 0 (already merged
+// into this one row); the extra height comes out of the FunZone panel's
+// budget below via the --row3-h/--row4-h var overrides further down.
+const HERO_H = 340;
 const TIMELINE_YELLOW = '#ffb21c';
+const HERO_BG = '/img/career-path-hero-bg.png';
+const YS_CREST_FALLBACK = '/img/ys-crest.png';
+const YATI_PLACEHOLDERS = [
+  '/img/yati-placeholders/yati-standing-hips.png',
+  '/img/yati-placeholders/yati-running-field.png',
+  '/img/yati-placeholders/yati-catcher-back.png',
+  '/img/yati-placeholders/yati-thinking.png',
+];
 
 type StatRow = {
   year?: string | number;
@@ -23,9 +28,19 @@ type StatRow = {
   level?: string;
   org_conf?: string;
   league?: string;
+  // batting
+  avg?: string | number;
+  bavg?: string | number;
+  hr?: string | number;
+  rbi?: string | number;
+  // pitching
+  w?: string | number;
+  l?: string | number;
+  era?: string | number;
+  ip?: string | number;
 };
 
-type MomentKind = 'anchor' | 'season' | 'upload' | 'headshot';
+type SlideKind = 'anchor' | 'season' | 'upload' | 'today';
 
 type MomentComment = {
   id: string;
@@ -34,16 +49,18 @@ type MomentComment = {
   created_at: string;
 };
 
-type Moment = {
+type Slide = {
   id: string;
-  kind: MomentKind;
+  kind: SlideKind;
   year: number;
-  label: string;
   title: string;
   caption?: string;
+  headline?: string;
   src?: string;
   srcs?: string[];
-  width: number;
+  teamLogoSrcs?: string[];
+  seasonCutoutSrc?: string;
+  yatiFallback?: string;
   // upload-kind only
   momentDbId?: string;
   contributorName?: string;
@@ -110,6 +127,19 @@ function teamLogoCandidates(row: StatRow) {
   ];
 }
 
+// Season-specific hero cutout, keyed by {playerId}_{year} -- plain S3
+// naming convention (no DB row, no filename-date parsing needed since the
+// season year already IS the join key). Falls back through SmartImage's
+// onError chain to a rotating YaTi placeholder when the real cutout
+// doesn't exist yet.
+function seasonCutoutCandidates(playerId: string, year: number) {
+  return [`${S3_BASE}/players/season-cutouts/${encodeURIComponent(playerId)}_${year}.png`];
+}
+
+function yatiPlaceholderFor(index: number) {
+  return YATI_PLACEHOLDERS[index % YATI_PLACEHOLDERS.length];
+}
+
 function firstName(full?: string) {
   return String(full || '').trim().split(/\s+/)[0] || 'Player';
 }
@@ -130,6 +160,30 @@ function timeAgo(iso: string) {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months} mo ago`;
   return `${Math.floor(months / 12)} yr ago`;
+}
+
+// Plain, factual, computed-from-real-stats headline. No judgment calls, no
+// invented narrative -- just the numbers, so it is never wrong and never
+// empty for a season that has stats. A hand-written headline (added later,
+// per player, per season) can override this; this is only the default.
+function statLineHeadline(row: StatRow, teamName: string): string {
+  const isPitching = row.w !== undefined || row.l !== undefined || row.era !== undefined || row.ip !== undefined;
+  const parts: string[] = [];
+
+  if (isPitching) {
+    const w = row.w, l = row.l, era = row.era, ip = row.ip;
+    if (w !== undefined && w !== '' && l !== undefined && l !== '') parts.push(`${w}-${l}`);
+    if (era !== undefined && era !== '') parts.push(`${era} ERA`);
+    if (ip !== undefined && ip !== '') parts.push(`${ip} IP`);
+  } else {
+    const avg = row.avg ?? row.bavg;
+    if (avg !== undefined && avg !== '') parts.push(`${avg} AVG`);
+    if (row.hr !== undefined && row.hr !== '' && Number(row.hr) > 0) parts.push(`${row.hr} HR`);
+    if (row.rbi !== undefined && row.rbi !== '') parts.push(`${row.rbi} RBI`);
+  }
+
+  if (!parts.length) return teamName ? `Played for ${teamName}.` : 'A season on the roster.';
+  return `${parts.join(' · ')}${teamName ? ` — ${teamName}` : ''}`;
 }
 
 function openAccountDrawer(tab: 'signin' | 'register') {
@@ -182,30 +236,7 @@ function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string
   return <img className={className} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
 }
 
-// Background + player-cutout layering for the one-off anchor card only --
-// matches the corporate slideshow's visual/person layer structure.
-function CutoutOverlay({ bgSrc, playerId, playerName }: { bgSrc?: string; playerId: string; playerName?: string }) {
-  return (
-    <span className="zt-cutout-shell">
-      <SmartImage className="zt-cutout-bg zt-cutout-bg-cover" src={bgSrc} alt="" />
-      <SmartImage className="zt-cutout-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(playerName)} cutout`} />
-    </span>
-  );
-}
-
-// Season cards: a soft, dark graduated background (not the flat logo image
-// itself) with the team logo sitting on top as a small graphic, like a
-// badge -- no player silhouette repeating card after card down the strip.
-function SeasonBadge({ srcs, teamName }: { srcs?: string[]; teamName: string }) {
-  return (
-    <span className="zt-season-badge-shell">
-      <span className="zt-season-badge-glow" aria-hidden="true" />
-      <SmartImage className="zt-season-badge-logo" srcs={srcs} alt={teamName} />
-    </span>
-  );
-}
-
-function ReactionButton({ moment, session, onToggled }: { moment: Moment; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
+function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
   const [busy, setBusy] = useState(false);
 
   async function handleClick(event: MouseEvent) {
@@ -242,7 +273,7 @@ function ReactionButton({ moment, session, onToggled }: { moment: Moment; sessio
   );
 }
 
-function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReactionToggled }: { moment: Moment; session: FanSession | null; onClose: () => void; onCommentPosted: (id: string, comment: MomentComment) => void; onReactionToggled: (id: string, reacted: boolean, count: number) => void }) {
+function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReactionToggled }: { moment: Slide; session: FanSession | null; onClose: () => void; onCommentPosted: (id: string, comment: MomentComment) => void; onReactionToggled: (id: string, reacted: boolean, count: number) => void }) {
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
@@ -387,7 +418,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [localOverrides, setLocalOverrides] = useState<Record<string, { reactionCount: number; viewerReacted: boolean; extraComments: MomentComment[] }>>({});
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -412,6 +444,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     let cancelled = false;
     setUploadsLoaded(false);
     setLocalOverrides({});
+    initializedRef.current = false;
     fetch(`/api/player-moments?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => { if (!cancelled) setUploads(Array.isArray(data?.moments) ? data.moments : []); })
@@ -428,7 +461,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const endYear = Math.max(currentYear, ...statYears, firstStatYear);
 
     const seen = new Set<string>();
-    const seasons: Moment[] = [];
+    const seasons: Slide[] = [];
+    let seasonIndex = 0;
     stats.forEach((row) => {
       const year = yearOf(row.year);
       const team = String(row.team || '').trim();
@@ -438,35 +472,33 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       const key = `${year}|${team}|${level}|${org}`;
       if (seen.has(key)) return;
       seen.add(key);
-      const srcs = teamLogoCandidates(row);
+      const teamLogoSrcs = teamLogoCandidates(row);
       seasons.push({
         id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
         kind: 'season',
         year,
-        label: String(year),
         title: team,
         caption: `${level}${org ? ` · ${org}` : ''}`,
-        src: srcs[0],
-        srcs,
-        width: SEASON_W,
+        headline: statLineHeadline(row, team),
+        teamLogoSrcs,
+        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
+        yatiFallback: yatiPlaceholderFor(seasonIndex++),
       });
     });
     seasons.sort((a, b) => a.year - b.year || a.title.localeCompare(b.title));
 
-    const uploaded: Moment[] = uploads
+    const uploaded: Slide[] = uploads
       .filter((item) => !isCurrentHeadshotUrl(item.image_data_url, playerId))
-      .map((item): Moment => {
+      .map((item): Slide => {
         const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
         const override = localOverrides[`upload-${item.id}`];
         return {
           id: `upload-${item.id}`,
           kind: 'upload',
           year: clamp(year, hsYear, endYear),
-          label: String(year),
           title: item.title || 'Fan memory',
           caption: item.caption || '',
           src: item.image_url || item.image_data_url,
-          width: ANCHOR_W,
           momentDbId: item.id,
           contributorName: item.contributor_name,
           relationship: item.relationship,
@@ -476,43 +508,44 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         };
       }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
 
-    const anchor: Moment = {
+    const anchor: Slide = {
       id: 'career-path-anchor',
       kind: 'anchor',
       year: hsYear,
-      label: 'HS',
-      title: 'High school journey anchor',
-      width: ANCHOR_W,
+      title: player?.playerName || 'High School',
     };
 
-    const headshot: Moment = {
+    const today: Slide = {
       id: 'current-headshot',
-      kind: 'headshot',
+      kind: 'today',
       year: endYear,
-      label: String(endYear),
-      title: 'Current headshot',
+      title: 'Today',
       src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
-      width: CARD_W,
     };
 
-    return {
-      startYear: hsYear,
-      endYear,
-      moments: [anchor, ...uploaded, ...seasons, headshot],
-      ticks: Array.from(new Set([hsYear, ...statYears, endYear])).sort((a, b) => a - b),
-    };
-  }, [stats, uploads, playerId, localOverrides]);
+    const slides = [anchor, ...seasons, ...uploaded, today].sort((a, b) => a.year - b.year);
+    // Keep the anchor pinned first regardless of year math -- it is always
+    // where the carousel opens, per the fixed HS-slide-one design.
+    const anchorPos = slides.findIndex((s) => s.kind === 'anchor');
+    if (anchorPos > 0) slides.unshift(slides.splice(anchorPos, 1)[0]);
+
+    return { startYear: hsYear, endYear, slides };
+  }, [stats, uploads, playerId, localOverrides, player?.playerName]);
 
   const ready = statsLoaded && uploadsLoaded;
-  const canvasWidth = useMemo(() => model.moments.reduce((sum, moment) => sum + moment.width, 0), [model.moments]);
-  const openMoment = openMomentId ? model.moments.find((moment) => moment.id === openMomentId) || null : null;
 
   useEffect(() => {
-    if (!ready || variant !== 'images') return;
-    requestAnimationFrame(() => {
-      if (scrollerRef.current) scrollerRef.current.scrollLeft = 0;
-    });
-  }, [ready, variant, playerId]);
+    if (!ready || initializedRef.current) return;
+    initializedRef.current = true;
+    setActiveIndex(0); // opens on the HS anchor slide
+  }, [ready]);
+
+  useEffect(() => {
+    if (activeIndex > model.slides.length - 1) setActiveIndex(Math.max(0, model.slides.length - 1));
+  }, [model.slides.length, activeIndex]);
+
+  const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
+  const activeSlide = model.slides[activeIndex];
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
     setLocalOverrides((prev) => ({
@@ -524,7 +557,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   function handleCommentPosted(id: string, comment: MomentComment) {
     setLocalOverrides((prev) => {
       const existing = prev[id];
-      const fallbackMoment = model.moments.find((m) => m.id === id);
+      const fallbackMoment = model.slides.find((m) => m.id === id);
       return {
         ...prev,
         [id]: {
@@ -548,109 +581,123 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
   }
 
-  function handleMomentClick(moment: Moment) {
-    if (moment.kind === 'season') openUpload(moment.year);
-    if (moment.kind === 'upload') setOpenMomentId(moment.id);
+  function goPrev() { setActiveIndex((i) => Math.max(0, i - 1)); }
+  function goNext() { setActiveIndex((i) => Math.min(model.slides.length - 1, i + 1)); }
+
+  function handleSlideClick(slide: Slide) {
+    if (slide.kind === 'upload') setOpenMomentId(slide.id);
   }
 
   if (variant === 'line') {
-    const lineWidth = Math.max(360, (model.endYear - model.startYear + 1) * CARD_W + 42 * 2);
-    const lineLeft = (year: number) => {
-      const span = Math.max(1, model.endYear - model.startYear);
-      return 42 + ((year - model.startYear) / span) * Math.max(1, lineWidth - 42 * 2);
-    };
-
-    return (
-      <section className="zt-line-shell">
-        <div className="zt-line-window">
-          <div className="zt-line-canvas" style={{ width: lineWidth }}>
-            <div className="zt-line" />
-            {model.ticks.map((year) => (
-              <span className="zt-tick" key={year} style={{ left: lineLeft(year) }}><i /><b>{year === model.startYear ? 'HS' : year === model.endYear ? 'Today' : year}</b></span>
-            ))}
-          </div>
-        </div>
-        <style jsx>{`
-          .zt-line-shell { position:relative; height:100%; overflow:hidden; background:transparent; }
-          .zt-line-window { height:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
-          .zt-line-window::-webkit-scrollbar { display:none; }
-          .zt-line-canvas { position:relative; height:100%; min-width:100%; }
-          .zt-line { position:absolute; left:0; right:0; top:50%; height:2px; background:${TIMELINE_YELLOW}; }
-          .zt-tick { position:absolute; top:50%; transform:translateX(-50%); display:grid; justify-items:center; gap:4px; pointer-events:none; }
-          .zt-tick i { width:1px; height:14px; background:rgba(255,255,255,.35); transform:translateY(-7px); }
-          .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); }
-        `}</style>
-      </section>
-    );
+    return null;
   }
 
   return (
-    <section className="zt-shell-images" id="playerCareerImages">
-      <div className="zt-window-images" ref={scrollerRef}>
-        <div className="zt-canvas-images" style={{ width: ready ? canvasWidth : ANCHOR_W }}>
-          {ready && model.moments.map((moment, index) => {
-            let left = 0;
-            for (let i = 0; i < index; i += 1) left += model.moments[i].width;
+    <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+      <div className="zt-hero-bg-layer" aria-hidden="true">
+        <img className="zt-hero-bg-img" src={HERO_BG} alt="" />
+      </div>
 
-            return (
-              <div key={moment.id} className={`zt-moment zt-${moment.kind}`} style={{ left, width: moment.width }}>
-                <button type="button" className="zt-moment-surface" onClick={() => handleMomentClick(moment)} title={moment.title}>
-                  {moment.kind === 'anchor' && (
-                    <CutoutOverlay bgSrc="/img/career-path-default.png" playerId={playerId} playerName={player?.playerName} />
-                  )}
-
-                  {moment.kind === 'season' && (
-                    <>
-                      <SeasonBadge srcs={moment.srcs} teamName={moment.title} />
-                      <span className="zt-season-copy">
-                        <b>{moment.title}</b>
-                        <em>{moment.caption}</em>
-                      </span>
-                    </>
-                  )}
-
-                  {moment.kind === 'headshot' && (
-                    <span className="zt-plain-image">
-                      <SmartImage src={moment.src} alt={moment.title} />
+      <div className="zt-carousel">
+        {ready && activeSlide && (
+          <div key={activeSlide.id} className={`zt-slide zt-${activeSlide.kind}`}>
+            <button type="button" className="zt-slide-surface" onClick={() => handleSlideClick(activeSlide)} title={activeSlide.title}>
+              {activeSlide.kind === 'anchor' && (
+                <>
+                  <span className="zt-cutout-person-shell">
+                    <SmartImage className="zt-cutout-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(activeSlide.title)} cutout`} />
+                  </span>
+                  <span className="zt-slide-copy zt-anchor-copy">
+                    <span className="zt-slide-name">{player?.playerName || activeSlide.title}</span>
+                    <span className="zt-anchor-tagline">
+                      When a baseball player&apos;s journey doesn&apos;t end at graduation...<br />
+                      Neither should his story.
                     </span>
-                  )}
+                  </span>
+                </>
+              )}
 
-                  {moment.kind === 'upload' && (
-                    <>
-                      <span className="zt-upload-bg">
-                        <SmartImage src={moment.src} alt={moment.title} />
-                      </span>
-                      <span className="zt-upload-shade" />
-                      <span className="zt-upload-copy">
-                        {(moment.relationship || moment.contributorName) && (
-                          <span className="zt-upload-kicker">
-                            {[moment.relationship, moment.contributorName].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
-                        <span className="zt-upload-title">{moment.title}</span>
-                      </span>
-                    </>
-                  )}
-                </button>
+              {activeSlide.kind === 'season' && (
+                <>
+                  <span className="zt-team-badge">
+                    <SmartImage className="zt-team-logo" srcs={activeSlide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt={activeSlide.title} />
+                  </span>
+                  <span className="zt-cutout-person-shell">
+                    <SmartImage className="zt-cutout-person" src={activeSlide.seasonCutoutSrc} srcs={[activeSlide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${activeSlide.year}`} />
+                  </span>
+                  <span className="zt-slide-copy">
+                    <span className="zt-slide-name">{player?.playerName || ''}</span>
+                    <span className="zt-slide-kicker">{activeSlide.year} · {activeSlide.title}</span>
+                    <span className="zt-slide-headline">{activeSlide.headline}</span>
+                    <span className="zt-slide-cta">Share an image of {firstName(player?.playerName || activeSlide.title)} that helps tell the story of his baseball journey.</span>
+                  </span>
+                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(activeSlide.year); }}>
+                    <i className="ri-upload-cloud-line" /> Add a photo
+                  </button>
+                </>
+              )}
 
-                {moment.kind === 'upload' && (
-                  <>
-                    <button type="button" className="zt-open-story-cta" onClick={() => setOpenMomentId(moment.id)} aria-label="Open story">
-                      <i className="ri-expand-diagonal-line" />
+              {activeSlide.kind === 'today' && (
+                <>
+                  <span className="zt-cutout-person-shell">
+                    <SmartImage className="zt-cutout-person zt-cutout-person-cover" src={activeSlide.src} alt="Current" />
+                  </span>
+                  <span className="zt-slide-copy">
+                    <span className="zt-slide-name">{player?.playerName || ''}</span>
+                    <span className="zt-slide-kicker">{activeSlide.year} · Today</span>
+                  </span>
+                </>
+              )}
+
+              {activeSlide.kind === 'upload' && (
+                <>
+                  <span className="zt-upload-bg">
+                    <SmartImage src={activeSlide.src} alt={activeSlide.title} />
+                  </span>
+                  <span className="zt-upload-shade" />
+                  <span className="zt-slide-copy">
+                    {(activeSlide.relationship || activeSlide.contributorName) && (
+                      <span className="zt-slide-kicker">
+                        {[activeSlide.relationship, activeSlide.contributorName].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    <span className="zt-slide-name">{activeSlide.title}</span>
+                    {activeSlide.caption ? <span className="zt-slide-headline">{activeSlide.caption}</span> : null}
+                  </span>
+                  <div className="zt-upload-actions">
+                    <ReactionButton moment={activeSlide} session={session} onToggled={handleReactionToggled} />
+                    <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); setOpenMomentId(activeSlide.id); }}>
+                      <i className="ri-chat-3-line" />
+                      {(activeSlide.comments || []).length}
                     </button>
-                    <div className="zt-upload-actions">
-                      <ReactionButton moment={moment} session={session} onToggled={handleReactionToggled} />
-                      <button type="button" className="zt-comment-pill" onClick={() => setOpenMomentId(moment.id)}>
-                        <i className="ri-chat-3-line" />
-                        {(moment.comments || []).length}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  </div>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {ready && model.slides.length > 1 && (
+          <>
+            <button type="button" className="zt-nav zt-nav-prev" onClick={goPrev} disabled={activeIndex === 0} aria-label="Previous">
+              <i className="ri-arrow-left-s-line" />
+            </button>
+            <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
+              <i className="ri-arrow-right-s-line" />
+            </button>
+            <div className="zt-dots">
+              {model.slides.map((slide, i) => (
+                <button
+                  type="button"
+                  key={slide.id}
+                  className={`zt-dot${i === activeIndex ? ' active' : ''}`}
+                  onClick={() => setActiveIndex(i)}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {openMoment && (
@@ -665,73 +712,70 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
       <style jsx>{`
         .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
-        .zt-window-images { height:100%; overflow-x:auto; overflow-y:hidden; padding-left:0; scrollbar-width:none; }
-        .zt-window-images::-webkit-scrollbar { display:none; }
-        .zt-canvas-images { position:relative; height:100%; min-width:100%; transition:none; }
 
-        .zt-moment { position:absolute; top:0; height:100%; }
-        .zt-moment.zt-anchor { z-index:2; }
-        .zt-moment:not(.zt-anchor) { z-index:1; }
-        .zt-moment-surface { position:relative; display:block; width:100%; height:100%; border:0; padding:0; margin:0; background:#090909; cursor:pointer; overflow:hidden; }
-        .zt-moment:not(.zt-anchor) .zt-moment-surface { border-bottom:3px solid ${TIMELINE_YELLOW}; }
+        /* -- full-bleed field/fence background, ambient slow pan -- shared
+           across every slide, same static asset repeated everywhere. */
+        .zt-hero-bg-layer { position:absolute; inset:0; z-index:0; overflow:hidden; }
+        .zt-hero-bg-img { position:absolute; top:50%; left:50%; width:112%; height:112%; max-width:none; object-fit:cover; transform:translate(-50%,-50%) scale(1); animation:zt-hero-pan 42s ease-in-out infinite alternate; }
+        @keyframes zt-hero-pan { from { transform:translate(-50%,-50%) scale(1); } to { transform:translate(-52%,-48%) scale(1.06); } }
 
-        /* -- anchor: background + one-off player cutout ------------------ */
-        .zt-moment-surface :global(.zt-cutout-shell) { position:absolute; inset:0; display:block; }
-        .zt-moment-surface :global(.zt-cutout-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-position:center center; }
-        .zt-moment-surface :global(.zt-cutout-bg-cover) { object-fit:cover; }
-        .zt-moment-surface :global(.zt-cutout-person) { position:absolute; z-index:2; left:-2px; bottom:0; width:auto; height:92%; max-width:56%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 6px 9px rgba(0,0,0,.65)); pointer-events:none; }
+        .zt-carousel { position:relative; z-index:1; height:100%; width:100%; }
+        .zt-slide { position:absolute; inset:0; }
+        .zt-slide-surface { position:relative; display:block; width:100%; height:100%; border:0; padding:0; margin:0; background:transparent; cursor:default; overflow:hidden; text-align:left; }
+        .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
 
-        /* -- season: soft dark gradient with the logo as a small graphic
-           on top, not the logo itself as a hard-edged background, and no
-           player silhouette repeating card after card down the strip. */
-        .zt-moment-surface :global(.zt-season-badge-shell) { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.07),transparent 55%),linear-gradient(180deg,#16181c 0%,#0b0c0d 65%,#040505 100%); }
-        .zt-moment-surface :global(.zt-season-badge-glow) { position:absolute; width:62%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%); pointer-events:none; }
-        .zt-moment-surface :global(.zt-season-badge-logo) { position:relative; z-index:1; width:50%; max-height:56%; object-fit:contain; filter:drop-shadow(0 6px 10px rgba(0,0,0,.55)); }
+        /* -- shared foreground cutout (anchor / season / today) ---------- */
+        .zt-cutout-person-shell { position:absolute; inset:0; z-index:2; display:block; pointer-events:none; }
+        .zt-cutout-person-shell :global(.zt-cutout-person) { position:absolute; left:4%; bottom:0; width:auto; height:96%; max-width:46%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 12px rgba(0,0,0,.6)); }
+        .zt-cutout-person-shell :global(.zt-cutout-person-cover) { height:100%; max-width:none; width:38%; object-fit:cover; object-position:center top; left:0; border-radius:0 0 8px 0; }
 
-        .zt-season-copy { position:absolute; z-index:3; left:0; right:0; bottom:0; padding:6px 8px; background:linear-gradient(0deg,rgba(0,0,0,.72),transparent); display:flex; flex-direction:column; gap:1px; }
-        .zt-season-copy b { font:800 11px/1.1 'Bebas Neue',Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; color:#fff; }
-        .zt-season-copy em { font:400 8.5px/1.1 Oswald,sans-serif; color:rgba(255,255,255,.75); font-style:normal; }
+        /* -- team logo badge, top-left, small graphic over the hero ------ */
+        .zt-team-badge { position:absolute; z-index:3; top:14px; left:14px; width:52px; height:52px; border-radius:8px; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; padding:6px; }
+        .zt-team-badge :global(img) { width:100%; height:100%; object-fit:contain; }
 
-        .zt-plain-image { position:relative; display:block; width:100%; height:100%; }
-        .zt-plain-image :global(img) { width:100%; height:100%; object-fit:cover; display:block; }
+        /* -- copy block, lower-left, matches the corporate hero pattern -- */
+        .zt-slide-copy { position:absolute; z-index:3; left:22px; right:22px; bottom:20px; display:flex; flex-direction:column; gap:4px; max-width:56%; }
+        .zt-slide-name { font:800 clamp(22px,4vw,34px)/1 'Bebas Neue',Oswald,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.7); }
+        .zt-slide-kicker { color:${TIMELINE_YELLOW}; font:700 11px/1.2 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+        .zt-slide-headline { color:rgba(255,255,255,.92); font:500 13px/1.35 Oswald,sans-serif; }
+        .zt-slide-cta { color:rgba(255,255,255,.62); font:400 10.5px/1.35 system-ui,sans-serif; margin-top:2px; }
 
-        /* -- upload: fan photo + wall-post copy panel --------------------- */
-        .zt-upload-bg { position:absolute; inset:0; display:block; }
+        .zt-anchor-copy { max-width:64%; gap:8px; }
+        .zt-anchor-tagline { color:rgba(255,255,255,.94); font:600 15px/1.35 Oswald,sans-serif; }
+
+        .zt-upload-inline-cta { position:absolute; z-index:3; top:14px; right:14px; display:flex; align-items:center; gap:5px; height:26px; padding:0 10px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.5); color:${TIMELINE_YELLOW}; font:700 9.5px/1 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
+
+        /* -- upload (fan moment) slide ------------------------------------ */
+        .zt-upload-bg { position:absolute; inset:0; z-index:1; display:block; }
         .zt-upload-bg :global(img) { width:100%; height:100%; object-fit:cover; display:block; }
-        /* Soft graduated screen, matching the corporate slideshow's own
-           visual:before treatment -- photo reads clearly up top, fades
-           smoothly into solid dark where the copy panel sits, rather than
-           a hard two-stop cutoff. */
-        .zt-upload-shade { position:absolute; inset:0; background:linear-gradient(180deg,rgba(4,5,6,.06) 0%,rgba(4,5,6,.22) 40%,rgba(4,5,6,.62) 68%,rgba(4,5,6,.92) 88%,rgba(4,5,6,.97) 100%); pointer-events:none; }
-        .zt-upload-copy { position:absolute; left:0; right:0; bottom:0; padding:8px 10px; display:flex; flex-direction:column; gap:2px; text-align:left; }
-        .zt-upload-kicker { color:${TIMELINE_YELLOW}; font:700 8px/1 Oswald,sans-serif; letter-spacing:.09em; text-transform:uppercase; }
-        .zt-upload-title { color:#fff; font:700 12.5px/1.25 Oswald,sans-serif; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-
-        .zt-open-story-cta { position:absolute; z-index:4; top:6px; left:6px; width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,.35); background:rgba(0,0,0,.55); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:12px; }
-        .zt-upload-actions { position:absolute; z-index:4; top:6px; right:6px; display:flex; gap:5px; }
-        .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:22px; padding:0 8px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.55); color:${TIMELINE_YELLOW}; font:800 7.5px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
+        .zt-upload-shade { position:absolute; inset:0; z-index:2; background:linear-gradient(180deg,rgba(4,5,6,.05) 0%,rgba(4,5,6,.2) 45%,rgba(4,5,6,.6) 70%,rgba(4,5,6,.92) 100%); pointer-events:none; }
+        .zt-upload-actions { position:absolute; z-index:4; top:14px; right:14px; display:flex; gap:6px; }
+        .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:26px; padding:0 10px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.55); color:${TIMELINE_YELLOW}; font:800 9px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
         .zt-yatzaboy.active { background:${TIMELINE_YELLOW}; color:#1a1208; }
-        .zt-yatzaboy b { font-size:9px; }
-        .zt-comment-pill { display:flex; align-items:center; gap:3px; height:22px; padding:0 7px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.55); color:#fff; font:700 9px/1 Oswald,sans-serif; cursor:pointer; }
+        .zt-yatzaboy b { font-size:10px; }
+        .zt-comment-pill { display:flex; align-items:center; gap:4px; height:26px; padding:0 9px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.55); color:#fff; font:700 10px/1 Oswald,sans-serif; cursor:pointer; }
 
-        /* :has() carries higher specificity than the plain-class rule below,
-           so this wins on the player profile page regardless of source
-           order, while every other page type (gallery/news, no
-           .yat-profile-career-strip marker present) keeps the original
-           row3-h-driven height untouched. */
-        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; }
+        /* -- nav arrows + dots -------------------------------------------- */
+        .zt-nav { position:absolute; z-index:5; top:50%; transform:translateY(-50%); width:34px; height:34px; border-radius:50%; border:1px solid rgba(255,255,255,.3); background:rgba(0,0,0,.45); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:18px; }
+        .zt-nav:disabled { opacity:.3; cursor:default; }
+        .zt-nav-prev { left:10px; }
+        .zt-nav-next { right:10px; }
+        .zt-dots { position:absolute; z-index:5; left:0; right:0; bottom:6px; display:flex; justify-content:center; gap:5px; }
+        .zt-dot { width:6px; height:6px; border-radius:50%; border:0; background:rgba(255,255,255,.35); padding:0; cursor:pointer; }
+        .zt-dot.active { background:${TIMELINE_YELLOW}; }
+
+        /* -- page-scoped layout: bigger hero row, header rows transparent
+           over the hero image, funzone panel gets what's left. Same
+           :has()-scoping idiom already used elsewhere in this codebase --
+           anchored on body since row1/row2 are earlier DOM siblings of
+           row3, not descendants, so :has() has to live above all three. */
+        :global(body:has(.yat-profile-career-strip)) { --row3-h:${HERO_H}px !important; --row4-h:0px !important; }
+        :global(body:has(.yat-profile-career-strip) .yat-row1-shell) { background:rgba(0,0,0,.55) !important; }
+        :global(body:has(.yat-profile-career-strip) .yat-row2-shell) { background:transparent !important; border-color:transparent !important; }
+        :global(body:has(.yat-profile-career-strip) .yat-row3-shell) { background:transparent !important; border-bottom:0 !important; }
+        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${HERO_H}px !important; height:${HERO_H}px !important; overflow:hidden !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
-        /* .zt-shell-images below relies on height:100% cascading all the way
-           down from .yat-row3-shell -- but SharedShell.tsx renders an
-           unstyled wrapper div (.yat-profile-career-strip) in between with
-           no height of its own. A percentage height against an auto-height
-           ancestor resolves to nothing, and since every moment card is
-           position:absolute (needed for the horizontal strip's manual left
-           offsets), the cards contribute zero height back up the chain --
-           so this wrapper needs an explicit height too, not just the row
-           itself, or the whole strip silently renders empty. */
-        :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
-        :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, 100px) !important; height:var(--row3-h, 100px) !important; }
+        :global(.yat-profile-career-strip) { height:${HERO_H}px !important; min-height:${HERO_H}px !important; }
       `}</style>
     </section>
   );
