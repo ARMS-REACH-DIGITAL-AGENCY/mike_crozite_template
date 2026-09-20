@@ -4,16 +4,15 @@ import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-// One-slide-per-season carousel, matching the real corporate "story strip"
-// (armsreach/sites/yatstats/audience-site.js's .story/.slide/.visual/.copy)
-// exactly -- a grid split, photo confined to a fixed-width left column,
-// copy in a completely separate right column on its own background. Text
-// never touches the photo at any breakpoint, including mobile, where the
-// grid stacks (photo band on top, copy below) instead of overlaying.
-// Height stays close to the row3 budget this component already owned
-// before this redesign (156px) rather than the corporate story strip's own
-// literal height (226-310px) -- deliberately not touching the FunZone
-// panel's height budget below this component.
+// One-slide-per-season carousel. ONE continuous frame -- no grid split, no
+// second box, no border -- at every breakpoint. The cutout is confined to
+// roughly the left third of the frame; copy sits in the right two-thirds,
+// vertically centered, over a gradient that darkens specifically on that
+// side for legibility. Same single-frame structure on mobile too, just
+// smaller type -- it never restructures into two stacked boxes.
+// Height stays local to the row3 budget this component already owned
+// before this redesign (156px), just a bigger number -- deliberately not
+// touching the FunZone panel's height budget below this component.
 const ROW_H = 260;
 const TIMELINE_YELLOW = '#ffb21c';
 // Same asset the corporate hero and this component's own HS anchor slide
@@ -606,13 +605,28 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         {ready && activeSlide && (
           <div key={activeSlide.id} className={`zt-slide zt-${activeSlide.kind}`}>
             <button type="button" className="zt-slide-surface" onClick={() => handleSlideClick(activeSlide)} title={activeSlide.title}>
-              {/* Photo confined to its own column -- never behind the copy,
-                  at any breakpoint (stacked on top on mobile instead of
-                  overlaid), matching audience-site.js's .visual/.copy grid
-                  split exactly. */}
+              {/* Layers, stacked in this exact order -- matching the real
+                  corporate site's layered-story-strip.js: (1) full-bleed
+                  background photo, (2) a gradient that darkens toward the
+                  right so text is legible there, (3) the team logo as its
+                  own big plain layer on the right -- no box, no border,
+                  just a large image -- (4) the player cutout confined to a
+                  narrow strip on the left, (5) a thin gold baseline, then
+                  (6) the copy, offset past the cutout, on top of everything. */}
               <span className="zt-visual">
                 {(activeSlide.kind === 'anchor' || activeSlide.kind === 'season') && (
                   <SmartImage className="zt-visual-bg" src={HERO_BG} alt="" />
+                )}
+                <span className="zt-visual-gradient" aria-hidden="true" />
+                {activeSlide.kind === 'season' && (
+                  <span className="zt-logo-layer" aria-hidden="true">
+                    <SmartImage srcs={activeSlide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
+                  </span>
+                )}
+                {activeSlide.kind === 'anchor' && (
+                  <span className="zt-logo-layer" aria-hidden="true">
+                    <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                  </span>
                 )}
                 {activeSlide.kind === 'anchor' && (
                   <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(activeSlide.title)} cutout`} />
@@ -626,12 +640,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 {activeSlide.kind === 'upload' && (
                   <SmartImage className="zt-person zt-person-cover" src={activeSlide.src} alt={activeSlide.title} />
                 )}
-                <span className="zt-visual-sheen" aria-hidden="true" />
-                {activeSlide.kind === 'season' && (
-                  <span className="zt-visual-badge">
-                    <SmartImage srcs={activeSlide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt={activeSlide.title} />
-                  </span>
-                )}
+                <span className="zt-visual-baseline" aria-hidden="true" />
               </span>
 
               <span className="zt-copy">
@@ -639,7 +648,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <>
                     <span className="zt-kick">The hometown never stopped caring</span>
                     <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
-                    <span className="zt-bodycopy">Follow {firstName(player?.playerName || activeSlide.title)}&apos;s journey through college and professional baseball.</span>
+                    <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
                   </>
                 )}
                 {activeSlide.kind === 'season' && (
@@ -648,7 +657,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     <span className="zt-title">{activeSlide.title}</span>
                     <span className="zt-bodycopy">{activeSlide.headline}</span>
                     <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(activeSlide.year); }}>
-                      <i className="ri-upload-cloud-line" /> Share an image of {firstName(player?.playerName || activeSlide.title)}
+                      <i className="ri-upload-cloud-line" /> Share an image of {player?.playerName ? firstName(player.playerName) : 'him'}
                     </button>
                   </>
                 )}
@@ -717,31 +726,43 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-carousel { position:relative; height:100%; width:100%; }
         .zt-slide { position:absolute; inset:0; }
 
-        /* -- grid split, exact structure from the real corporate "story
-           strip" (audience-site.js's .slide/.visual/.copy): photo confined
-           to a fixed-width left column, copy in a totally separate right
-           column on its own background. Never an overlay -- text can never
-           sit on top of the photo at any breakpoint. */
-        .zt-slide-surface { position:relative; display:grid; grid-template-columns:clamp(180px,29vw,340px) minmax(0,1fr); width:100%; height:100%; border:0; padding:0; margin:0; background:linear-gradient(135deg,#141618,#0b0c0d); cursor:default; overflow:hidden; text-align:left; }
+        /* -- one continuous layered frame, exact recipe from the real
+           corporate site's layered-story-strip.js (verified by rendering
+           the actual production script locally): background photo, a
+           gradient that darkens toward the right, the cutout confined to a
+           narrow left strip, and copy positioned past it with padding, not
+           absolute-pinned -- so it's never behind the photo and there is no
+           second box or border anywhere. */
+        .zt-slide-surface { position:relative; width:100%; height:100%; border:0; padding:0; margin:0; background:#060708; cursor:default; overflow:hidden; text-align:left; isolation:isolate; }
         .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
 
-        .zt-visual { position:relative; overflow:hidden; border-right:1px solid rgba(255,255,255,.14); background:#25302d; }
-        .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter:brightness(.88) saturate(.95); }
-        .zt-visual :global(.zt-person) { position:absolute; z-index:2; left:0; bottom:-2%; width:55%; height:103%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 20px rgba(0,0,0,.4)); }
-        .zt-visual :global(.zt-person-yati) { left:6%; bottom:-3%; width:48%; height:96%; object-position:center bottom; }
-        .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; object-fit:cover; object-position:center top; }
-        .zt-visual-sheen { position:absolute; z-index:3; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.06),transparent 50%,rgba(0,0,0,.25)),linear-gradient(180deg,transparent 62%,rgba(0,0,0,.58)); }
-        .zt-visual-badge { position:absolute; z-index:4; left:10px; top:10px; width:34px; height:34px; border-radius:6px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; padding:4px; }
-        .zt-visual-badge :global(img) { width:100%; height:100%; object-fit:contain; }
+        .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:#1b2522; }
+        .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center 48%; filter:brightness(.78) saturate(.94); }
+        .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
-        .zt-copy { position:relative; display:flex; flex-direction:column; justify-content:center; gap:5px; padding:16px clamp(18px,3vw,32px) 16px clamp(14px,2.5vw,24px); background:radial-gradient(circle at 82% 8%,rgba(200,169,110,.10),transparent 32%); min-width:0; }
-        .zt-kick { color:${TIMELINE_YELLOW}; font:500 9px/1.2 Oswald,sans-serif; letter-spacing:.13em; text-transform:uppercase; }
-        .zt-title { max-width:100%; font:400 clamp(17px,2.4vw,30px)/1.05 'Bebas Neue',Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .zt-anchor .zt-title { white-space:normal; -webkit-line-clamp:3; -webkit-box-orient:vertical; display:-webkit-box; overflow:hidden; }
-        .zt-bodycopy { max-width:100%; color:#a5a8ac; font:300 clamp(10.5px,.9vw,13px)/1.4 Oswald,sans-serif; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .zt-anchor .zt-bodycopy { white-space:normal; }
+        /* -- team logo: its own big plain layer on the right, no box, no
+           border, no padding -- just a large image sitting behind the copy. */
+        .zt-logo-layer { position:absolute; z-index:3; top:6%; bottom:6%; right:3%; width:38%; display:flex; align-items:center; justify-content:center; opacity:.5; pointer-events:none; }
+        .zt-logo-layer :global(img) { width:100%; height:100%; object-fit:contain; }
 
-        .zt-upload-inline-cta { align-self:flex-start; margin-top:4px; display:flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(255,178,28,.1); color:${TIMELINE_YELLOW}; font:700 8.5px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; cursor:pointer; }
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:2.5%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-visual :global(.zt-person-yati) { left:4%; bottom:-6%; width:clamp(112px,13vw,194px); height:104%; object-position:center bottom; }
+        .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
+        .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
+
+        /* Compact and bottom-left, near the photo -- clear of the logo
+           layer on the right (which starts at ~59% width) -- matching the
+           original target mockup's tagline block, not the wide right-hand
+           copy column from layered-story-strip.js. Plain block children,
+           no flex, so text wrapping is unambiguous. */
+        .zt-copy { position:absolute; z-index:6; left:clamp(140px,17vw,240px); right:42%; bottom:16px; background:transparent; }
+        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font:500 clamp(8px,.7vw,10px)/1.2 Oswald,sans-serif; letter-spacing:.13em; text-transform:uppercase; }
+        .zt-title { display:block; width:100%; margin:0 0 4px; font:400 clamp(16px,2.2vw,26px)/1.05 'Bebas Neue',Oswald,sans-serif; letter-spacing:.005em; text-transform:uppercase; color:#f3f3f1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-anchor .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-bodycopy { display:block; width:100%; margin:0; color:#b0b3b6; font:300 clamp(9px,.75vw,11px)/1.35 Oswald,sans-serif; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-anchor .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
+
+        .zt-upload-inline-cta { margin-top:4px; display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(255,178,28,.1); color:${TIMELINE_YELLOW}; font:700 8.5px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; cursor:pointer; }
 
         .zt-upload-actions { display:flex; gap:6px; margin-top:6px; }
         .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.35); color:${TIMELINE_YELLOW}; font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
@@ -767,21 +788,28 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
         :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
 
-        /* -- responsive steps, exact breakpoints and column ratios from
-           audience-site.js's own @media max-width:900px / 620px. Below
-           620px the grid stacks (photo band on top, copy below) instead of
-           splitting side by side -- never an overlay. */
+        /* -- responsive: proportions only, same single layered frame at
+           every width (never restructures into a grid or stacks into two
+           boxes) -- exact scaling from layered-story-strip.js's own
+           @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-slide-surface { grid-template-columns:34% 66%; }
-          .zt-copy { padding:12px 14px 12px; }
+          .zt-visual :global(.zt-person) { width:clamp(108px,23vw,172px); height:107%; }
+          .zt-logo-layer { width:34%; right:2%; }
+          .zt-copy { left:clamp(120px,22vw,190px); right:40%; bottom:14px; }
+          .zt-title { font-size:clamp(15px,3.4vw,22px); }
+          .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
         @media (max-width:620px) {
-          .zt-slide-surface { grid-template-columns:1fr; grid-template-rows:38% 62%; }
-          .zt-visual { border-right:0; border-bottom:1px solid rgba(255,255,255,.14); }
-          .zt-visual :global(.zt-person) { width:40%; height:110%; }
-          .zt-copy { justify-content:flex-start; padding-top:10px; gap:3px; }
-          .zt-title { font-size:16px; }
-          .zt-bodycopy { font-size:10px; }
+          .zt-visual :global(.zt-visual-bg) { object-position:44% 50%; }
+          .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
+          .zt-visual :global(.zt-person) { left:1%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
+          .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
+          .zt-logo-layer { width:44%; right:1%; opacity:.4; }
+          .zt-copy { left:32%; right:4%; bottom:10px; }
+          .zt-kick { font-size:7px; margin-bottom:3px; }
+          .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
+          .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
+          .zt-anchor .zt-copy { display:none; }
         }
       `}</style>
     </section>
