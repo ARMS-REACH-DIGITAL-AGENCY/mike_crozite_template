@@ -1,6 +1,6 @@
 'use client';
 
-import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, TouchEvent as ReactTouchEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -595,13 +595,41 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     if (slide.kind === 'upload') setOpenMomentId(slide.id);
   }
 
+  // Finger-swipe through slides, matching the corporate site's touch
+  // carousel. A short/near-vertical touch is left alone so it still
+  // registers as a tap (opening an upload moment, etc); only a real
+  // horizontal drag past the threshold advances the slide.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  function handleTouchStart(event: ReactTouchEvent) {
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+  function handleTouchEnd(event: ReactTouchEvent) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    if (deltaX < 0) goNext(); else goPrev();
+  }
+
   if (variant === 'line') {
     return null;
   }
 
   return (
-    <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
-      <div className="zt-carousel">
+    <>
+      {/* Sits behind the sticky header rows (fixed, not part of row3's own
+          box) so the hero photo reads as one continuous backdrop under
+          rows 1 & 2 with their icons/logo on top of it, instead of the
+          photo being boxed in below them. */}
+      <div className="zt-hero-bleed" aria-hidden="true">
+        <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
+      </div>
+      <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+      <div className="zt-carousel" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {ready && activeSlide && (
           <div key={activeSlide.id} className={`zt-slide zt-${activeSlide.kind}`}>
             <button type="button" className="zt-slide-surface" onClick={() => handleSlideClick(activeSlide)} title={activeSlide.title}>
@@ -614,9 +642,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   narrow strip on the left, (5) a thin gold baseline, then
                   (6) the copy, offset past the cutout, on top of everything. */}
               <span className="zt-visual">
-                {(activeSlide.kind === 'anchor' || activeSlide.kind === 'season') && (
-                  <SmartImage className="zt-visual-bg" src={HERO_BG} alt="" />
-                )}
+                {/* No per-slide background image here for anchor/season --
+                    the fixed .zt-hero-bleed layer behind rows 1-3 already
+                    shows this same photo, and row3's own background is
+                    transparent so it shows through as one continuous
+                    image with no seam between a second, separately-cropped
+                    copy. */}
                 <span className="zt-visual-gradient" aria-hidden="true" />
                 {activeSlide.kind === 'season' && (
                   <span className="zt-logo-layer" aria-hidden="true">
@@ -733,11 +764,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            narrow left strip, and copy positioned past it with padding, not
            absolute-pinned -- so it's never behind the photo and there is no
            second box or border anywhere. */
-        .zt-slide-surface { position:relative; width:100%; height:100%; border:0; padding:0; margin:0; background:#060708; cursor:default; overflow:hidden; text-align:left; isolation:isolate; }
+        .zt-slide-surface { position:relative; width:100%; height:100%; border:0; padding:0; margin:0; background:transparent; cursor:default; overflow:hidden; text-align:left; isolation:isolate; }
         .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
 
-        .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:#1b2522; }
-        .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center 48%; filter:brightness(.78) saturate(.94); }
+        .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:transparent; }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
         /* -- team logo: its own big plain layer on the right, bleeding off
@@ -795,9 +825,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            just a bigger number. Deliberately NOT touching --row3-h/--row4-h
            vars or .pp-funzone-outer (that's the FunZone panel below this
            component, out of scope for this pass). */
-        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; }
+        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; background:transparent !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
         :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
+
+        /* The hero photo reads as one continuous backdrop under the sticky
+           header rows (school logo, hamburger, search, YAT?STATS crest)
+           instead of a separate boxed strip below them: this fixed layer
+           sits behind rows 1 & 2 (z-index below their 70/65, above row3's
+           own 60) and their backgrounds are made transparent so the icons
+           paint directly on top of the photo. Row3 itself is untouched --
+           it keeps clipping its own carousel horizontally as before. */
+        .zt-hero-bleed { position:fixed; z-index:58; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H}px); overflow:hidden; pointer-events:none; background:#060708; }
+        .zt-hero-bleed :global(.zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center 48%; filter:brightness(.78) saturate(.94); }
+        :global(.yat-row1-shell:has(~ main .yat-profile-career-strip)) { background:transparent !important; }
+        :global(.yat-row2-shell:has(~ main .yat-profile-career-strip)) { background:transparent !important; border-color:transparent !important; }
 
         /* -- responsive: proportions only, same single layered frame at
            every width (never restructures into a grid or stacks into two
@@ -811,7 +853,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
         @media (max-width:620px) {
-          .zt-visual :global(.zt-visual-bg) { object-position:44% 50%; }
+          .zt-hero-bleed :global(.zt-hero-bleed-bg) { object-position:44% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           .zt-visual :global(.zt-person) { left:1%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
@@ -823,5 +865,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         }
       `}</style>
     </section>
+    </>
   );
 }
