@@ -1629,7 +1629,8 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
          opponent_name,
          home_away,
          line_summary,
-         stats
+         stats,
+         raw_payload->'opponent'->>'id' AS opponent_mlb_id
        FROM public.player_game_logs
        WHERE playerid::text = $1
        ORDER BY game_date ASC`,
@@ -1639,6 +1640,42 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
   } catch {
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// MLB TEAM LOGO MAP - mlb_org_id (MLB Stats API team.id, e.g. 147 for the
+// Yankees) -> teamid (the actual S3 logo key: teams/{teamid}.png).
+//
+// NOT the same as teams.teamid/mlb_stats_api_id - that pairing looks like
+// the right crosswalk but does not match what's actually in S3 (verified:
+// teams.teamid=10 is labeled Minnesota Twins there, but teams/10.png in S3
+// is the Rockies). "150-pro_team_look_up_tbc_mlb".teamid is the one that's
+// actually verified against the real S3 files (10 -> Rockies, 14 -> Royals,
+// 28 -> Rays, all confirmed).
+// ---------------------------------------------------------------------------
+export async function getMlbTeamLogoMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const { rows } = await query(
+      `SELECT mlb_org_id, teamid
+       FROM public."150-pro_team_look_up_tbc_mlb"
+       WHERE mlb_org_id IS NOT NULL AND teamid IS NOT NULL AND level = 'MLB'`
+    );
+    for (const row of rows as { mlb_org_id: string; teamid: string }[]) {
+      map.set(String(row.mlb_org_id), String(row.teamid));
+    }
+  } catch {
+    // fall through with whatever was collected
+  }
+  return map;
+}
+
+export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown): string | null {
+  const key = String(mlbTeamId || "").trim();
+  if (!key) return null;
+  const teamid = logoMap.get(key);
+  if (!teamid) return null;
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${teamid}.png`;
 }
 
 // ---------------------------------------------------------------------------

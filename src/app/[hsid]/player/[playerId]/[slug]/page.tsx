@@ -17,6 +17,8 @@ import {
   getPlayerCareerPitching,
   getTeamSchedule,
   getPlayerGameLogs,
+  getMlbTeamLogoMap,
+  mlbTeamLogoUrl,
   getTeamContext,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
@@ -258,9 +260,10 @@ export default async function ProfilePage({ params }: Props) {
       : null
   ) as PitchingSeason | null;
 
-  const [teamSchedule, gameLogs] = await Promise.all([
+  const [teamSchedule, gameLogs, mlbTeamLogoMap] = await Promise.all([
     currentTeamId ? getTeamSchedule(currentTeamId) : Promise.resolve([]),
     getPlayerGameLogs(safePlayerId),
+    getMlbTeamLogoMap(),
   ]);
 
   // Keyed by date so it merges onto the season schedule below regardless of
@@ -502,10 +505,14 @@ export default async function ProfilePage({ params }: Props) {
                     const log = d ? gameLogByDate.get(d) : null;
                     const badge = resultBadge(g.result);
                     const box: any = isPitcher ? pitchingBoxScore(log?.stats) : battingBoxScore(log?.stats);
+                    const logoUrl = mlbTeamLogoUrl(mlbTeamLogoMap, log?.opponent_mlb_id);
                     return (
                       <tr key={i}>
                         <td>{d || "--"}</td>
-                        <td>{g.opponent || g.away_team || "--"}</td>
+                        <td className="pp-sched-opponent">
+                          {logoUrl && <img src={logoUrl} alt="" className="pp-sched-opponent-logo" />}
+                          {g.opponent || g.away_team || "--"}
+                        </td>
                         <td>{badge && <span className={badge.className}>{badge.letter}</span>}</td>
                         {isPitcher ? (
                           <>
@@ -1053,6 +1060,8 @@ export default async function ProfilePage({ params }: Props) {
         .pp-result-w { color: #2ecc71; font-weight: 700; }
         .pp-result-l { color: #e74c3c; font-weight: 700; }
         .pp-result-t { color: var(--muted, #888); font-weight: 700; }
+        .pp-sched-opponent { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .pp-sched-opponent-logo { width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
 
         /* Social */
         .pp-social-tag {
