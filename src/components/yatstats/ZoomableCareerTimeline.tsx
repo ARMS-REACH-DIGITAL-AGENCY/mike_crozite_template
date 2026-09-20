@@ -760,7 +760,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
 
         .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:#1b2522; }
-        .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center 48%; filter:brightness(.78) saturate(.94); }
+        .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
         /* -- team logo: its own big plain layer on the right, bleeding off
@@ -841,7 +841,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
         @media (max-width:620px) {
-          .zt-visual :global(.zt-visual-bg) { object-position:44% 50%; }
+          .zt-visual :global(.zt-visual-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           .zt-visual :global(.zt-person) { left:1%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
