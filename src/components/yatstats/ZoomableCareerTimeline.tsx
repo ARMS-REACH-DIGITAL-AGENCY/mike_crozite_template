@@ -594,6 +594,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   return (
     <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+      {/* Bleeds up behind rows 1 & 2 (both made transparent below) so the
+          same field/fence photo reads as one continuous shot from the top
+          of the page down through the carousel, matching the corporate
+          site. Fixed (not absolute) so it stays pinned at scroll position 0
+          regardless of which row-shell box actually contains it -- this
+          page never scrolls, so fixed and "top of page" are the same
+          point. No pan/zoom: the swoosh baked into the image has a fixed
+          spot (starts low-left near the cutout's feet, arcs up-right) and
+          animating the crop just drags it out of position. */}
       <div className="zt-hero-bg-layer" aria-hidden="true">
         <img className="zt-hero-bg-img" src={HERO_BG} alt="" />
       </div>
@@ -604,14 +613,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             <button type="button" className="zt-slide-surface" onClick={() => handleSlideClick(activeSlide)} title={activeSlide.title}>
               {activeSlide.kind === 'anchor' && (
                 <>
+                  <span className="zt-watermark" aria-hidden="true">
+                    <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                  </span>
                   <span className="zt-cutout-person-shell">
                     <SmartImage className="zt-cutout-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(activeSlide.title)} cutout`} />
                   </span>
                   <span className="zt-slide-copy zt-anchor-copy">
-                    <span className="zt-slide-name">{player?.playerName || activeSlide.title}</span>
-                    <span className="zt-anchor-tagline">
-                      When a baseball player&apos;s journey doesn&apos;t end at graduation...<br />
-                      Neither should his story.
+                    <span className="zt-slide-kicker">HIGH SCHOOL<span className="zt-rule" /></span>
+                    <span className="zt-quote">
+                      &ldquo;When a baseball player&apos;s journey doesn&apos;t end at graduation,{' '}
+                      <mark className="zt-quote-mark">neither should his story.</mark>&rdquo;
                     </span>
                   </span>
                 </>
@@ -619,16 +631,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
               {activeSlide.kind === 'season' && (
                 <>
-                  <span className="zt-team-badge">
-                    <SmartImage className="zt-team-logo" srcs={activeSlide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt={activeSlide.title} />
+                  <span className="zt-watermark" aria-hidden="true">
+                    <SmartImage srcs={activeSlide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
                   </span>
                   <span className="zt-cutout-person-shell">
                     <SmartImage className="zt-cutout-person" src={activeSlide.seasonCutoutSrc} srcs={[activeSlide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${activeSlide.year}`} />
                   </span>
                   <span className="zt-slide-copy">
-                    <span className="zt-slide-name">{player?.playerName || ''}</span>
-                    <span className="zt-slide-kicker">{activeSlide.year} · {activeSlide.title}</span>
-                    <span className="zt-slide-headline">{activeSlide.headline}</span>
+                    <span className="zt-slide-kicker">{activeSlide.year} · {activeSlide.caption}<span className="zt-rule" /></span>
+                    <span className="zt-slide-headline">{activeSlide.title}</span>
+                    <span className="zt-slide-subline">{activeSlide.headline}</span>
                     <span className="zt-slide-cta">Share an image of {firstName(player?.playerName || activeSlide.title)} that helps tell the story of his baseball journey.</span>
                   </span>
                   <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(activeSlide.year); }}>
@@ -639,12 +651,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
               {activeSlide.kind === 'today' && (
                 <>
+                  <span className="zt-watermark" aria-hidden="true">
+                    <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                  </span>
                   <span className="zt-cutout-person-shell">
                     <SmartImage className="zt-cutout-person zt-cutout-person-cover" src={activeSlide.src} alt="Current" />
                   </span>
                   <span className="zt-slide-copy">
-                    <span className="zt-slide-name">{player?.playerName || ''}</span>
-                    <span className="zt-slide-kicker">{activeSlide.year} · Today</span>
+                    <span className="zt-slide-kicker">{activeSlide.year}<span className="zt-rule" /></span>
+                    <span className="zt-slide-headline">{player?.playerName || ''}</span>
                   </span>
                 </>
               )}
@@ -661,8 +676,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                         {[activeSlide.relationship, activeSlide.contributorName].filter(Boolean).join(' · ')}
                       </span>
                     )}
-                    <span className="zt-slide-name">{activeSlide.title}</span>
-                    {activeSlide.caption ? <span className="zt-slide-headline">{activeSlide.caption}</span> : null}
+                    <span className="zt-slide-headline">{activeSlide.title}</span>
+                    {activeSlide.caption ? <span className="zt-slide-subline">{activeSlide.caption}</span> : null}
                   </span>
                   <div className="zt-upload-actions">
                     <ReactionButton moment={activeSlide} session={session} onToggled={handleReactionToggled} />
@@ -713,11 +728,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       <style jsx>{`
         .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
 
-        /* -- full-bleed field/fence background, ambient slow pan -- shared
-           across every slide, same static asset repeated everywhere. */
-        .zt-hero-bg-layer { position:absolute; inset:0; z-index:0; overflow:hidden; }
-        .zt-hero-bg-img { position:absolute; top:50%; left:50%; width:112%; height:112%; max-width:none; object-fit:cover; transform:translate(-50%,-50%) scale(1); animation:zt-hero-pan 42s ease-in-out infinite alternate; }
-        @keyframes zt-hero-pan { from { transform:translate(-50%,-50%) scale(1); } to { transform:translate(-52%,-48%) scale(1.06); } }
+        /* -- full-bleed field/fence background, fixed to the viewport so it
+           visually continues up behind the now-transparent row1/row2, not
+           just filling row3's own box. Static composition -- no pan/zoom --
+           because the swoosh baked into the photo has one fixed spot
+           (starts low-left near the cutout's feet, arcs up-right) and
+           animating the crop drags it out of place. */
+        .zt-hero-bg-layer { position:fixed; top:0; left:0; right:0; height:calc(var(--row1-h,36px) + var(--row2-h,54px) + ${HERO_H}px); z-index:0; overflow:hidden; pointer-events:none; }
+        .zt-hero-bg-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:left bottom; }
 
         .zt-carousel { position:relative; z-index:1; height:100%; width:100%; }
         .zt-slide { position:absolute; inset:0; }
@@ -726,22 +744,29 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
         /* -- shared foreground cutout (anchor / season / today) ---------- */
         .zt-cutout-person-shell { position:absolute; inset:0; z-index:2; display:block; pointer-events:none; }
-        .zt-cutout-person-shell :global(.zt-cutout-person) { position:absolute; left:4%; bottom:0; width:auto; height:96%; max-width:46%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 12px rgba(0,0,0,.6)); }
-        .zt-cutout-person-shell :global(.zt-cutout-person-cover) { height:100%; max-width:none; width:38%; object-fit:cover; object-position:center top; left:0; border-radius:0 0 8px 0; }
+        .zt-cutout-person-shell :global(.zt-cutout-person) { position:absolute; left:2%; bottom:0; width:auto; height:100%; max-width:52%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 10px 14px rgba(0,0,0,.65)); }
+        .zt-cutout-person-shell :global(.zt-cutout-person-cover) { height:100%; max-width:none; width:40%; object-fit:cover; object-position:center top; left:0; border-radius:0 0 8px 0; }
 
-        /* -- team logo badge, top-left, small graphic over the hero ------ */
-        .zt-team-badge { position:absolute; z-index:3; top:14px; left:14px; width:52px; height:52px; border-radius:8px; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; padding:6px; }
-        .zt-team-badge :global(img) { width:100%; height:100%; object-fit:contain; }
+        /* -- large screened-back logo, right side -- team logo when we
+           have one, YS crest otherwise. Same slot the corporate site fills
+           with its own ghosted brand mark. Pure background texture, so it
+           sits below the copy/cutout and never competes for attention. */
+        .zt-watermark { position:absolute; z-index:1; top:0; right:0; bottom:0; width:46%; display:flex; align-items:center; justify-content:center; padding:6% 6% 6% 0; opacity:.16; filter:grayscale(1) brightness(1.6); pointer-events:none; }
+        .zt-watermark :global(img) { width:100%; height:100%; object-fit:contain; }
 
-        /* -- copy block, lower-left, matches the corporate hero pattern -- */
-        .zt-slide-copy { position:absolute; z-index:3; left:22px; right:22px; bottom:20px; display:flex; flex-direction:column; gap:4px; max-width:56%; }
-        .zt-slide-name { font:800 clamp(22px,4vw,34px)/1 'Bebas Neue',Oswald,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.7); }
-        .zt-slide-kicker { color:${TIMELINE_YELLOW}; font:700 11px/1.2 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
-        .zt-slide-headline { color:rgba(255,255,255,.92); font:500 13px/1.35 Oswald,sans-serif; }
-        .zt-slide-cta { color:rgba(255,255,255,.62); font:400 10.5px/1.35 system-ui,sans-serif; margin-top:2px; }
+        /* -- copy block: small gold kicker + rule, then a big headline
+           sized like the corporate site's own hero type, matching its
+           font (Bebas Neue) and left-aligned lower-third position. -------- */
+        .zt-slide-copy { position:absolute; z-index:3; left:24px; right:24px; bottom:22px; display:flex; flex-direction:column; gap:6px; max-width:60%; }
+        .zt-slide-kicker { display:flex; flex-direction:column; align-items:flex-start; gap:6px; color:${TIMELINE_YELLOW}; font:700 11px/1.2 Oswald,sans-serif; letter-spacing:.14em; text-transform:uppercase; }
+        .zt-rule { display:block; width:30px; height:2px; background:${TIMELINE_YELLOW}; }
+        .zt-slide-headline { font:800 clamp(30px,6vw,52px)/1.02 'Bebas Neue',Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.75); }
+        .zt-slide-subline { color:rgba(255,255,255,.88); font:500 13.5px/1.35 Oswald,sans-serif; }
+        .zt-slide-cta { color:rgba(255,255,255,.6); font:400 10.5px/1.35 system-ui,sans-serif; margin-top:2px; }
 
-        .zt-anchor-copy { max-width:64%; gap:8px; }
-        .zt-anchor-tagline { color:rgba(255,255,255,.94); font:600 15px/1.35 Oswald,sans-serif; }
+        .zt-anchor-copy { max-width:66%; gap:12px; }
+        .zt-quote { font:400 italic clamp(19px,3.4vw,28px)/1.32 Georgia,'Times New Roman',serif; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.7); }
+        .zt-quote-mark { background:${TIMELINE_YELLOW}; color:#1a1208; padding:1px 6px; font-style:normal; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
 
         .zt-upload-inline-cta { position:absolute; z-index:3; top:14px; right:14px; display:flex; align-items:center; gap:5px; height:26px; padding:0 10px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.5); color:${TIMELINE_YELLOW}; font:700 9.5px/1 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
 
@@ -765,10 +790,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-dot.active { background:${TIMELINE_YELLOW}; }
 
         /* -- page-scoped layout: bigger hero row, header rows transparent
-           over the hero image, funzone panel gets what's left. Same
-           :has()-scoping idiom already used elsewhere in this codebase --
-           anchored on body since row1/row2 are earlier DOM siblings of
-           row3, not descendants, so :has() has to live above all three. */
+           over the hero image, funzone panel gets what's left. Anchored on
+           body since row1/row2 are earlier DOM siblings of row3, not
+           descendants, so :has() has to live above all three.
+           .pp-funzone-outer's height is overridden DIRECTLY here (not just
+           via the --row3-h/--row4-h vars it normally reads) with a
+           selector one level more specific than ProfileFunZoneCleanupStyles'
+           bare ".pp-funzone-outer" rule -- both declare !important, so
+           without that specificity edge this becomes a stylesheet-order
+           coin flip, which is exactly what silently broke it the first
+           time (uncapped table spilling the whole page past 100dvh). */
         :global(body:has(.yat-profile-career-strip)) { --row3-h:${HERO_H}px !important; --row4-h:0px !important; }
         :global(body:has(.yat-profile-career-strip) .yat-row1-shell) { background:rgba(0,0,0,.55) !important; }
         :global(body:has(.yat-profile-career-strip) .yat-row2-shell) { background:transparent !important; border-color:transparent !important; }
@@ -776,6 +807,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${HERO_H}px !important; height:${HERO_H}px !important; overflow:hidden !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
         :global(.yat-profile-career-strip) { height:${HERO_H}px !important; min-height:${HERO_H}px !important; }
+        :global(body:has(.yat-profile-career-strip) .pp-funzone-outer) {
+          height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - ${HERO_H}px - var(--footerH,76px)) !important;
+          min-height:160px !important;
+        }
+        @media (max-width:760px) {
+          :global(body:has(.yat-profile-career-strip) .pp-funzone-outer) {
+            height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - ${HERO_H}px - var(--footerH,76px)) !important;
+            min-height:160px !important;
+          }
+        }
       `}</style>
     </section>
   );
