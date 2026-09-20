@@ -11,9 +11,11 @@ const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // side for legibility. Same single-frame structure on mobile too, just
 // smaller type -- it never restructures into two stacked boxes.
 // Height stays local to the row3 budget this component already owned
-// before this redesign (156px), just a bigger number -- deliberately not
-// touching the FunZone panel's height budget below this component.
-const ROW_H = 260;
+// before this redesign (156px). Now that the background photo bleeds up
+// behind rows 1 & 2, row3 itself doesn't need to carry that height on its
+// own to read as a full hero -- shrunk from 260 accordingly. Deliberately
+// not touching the FunZone panel's height budget below this component.
+const ROW_H = 200;
 const TIMELINE_YELLOW = '#ffb21c';
 // Same asset the corporate hero and this component's own HS anchor slide
 // have always pointed at (audience-site.js's BG) -- one canonical
@@ -827,7 +829,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        .zt-dots { position:absolute; z-index:6; left:6%; right:60px; bottom:11px; display:flex; align-items:center; gap:4px; }
+        .zt-dots { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; display:flex; align-items:center; gap:4px; }
         .zt-dot { flex:1; max-width:20px; height:2.5px; border-radius:1px; border:0; background:rgba(255,255,255,.28); padding:0; cursor:pointer; }
         .zt-dot.active { background:${TIMELINE_YELLOW}; }
 
@@ -876,6 +878,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
           .zt-player-name { left:2%; bottom:5%; }
+          .zt-dots { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
@@ -887,6 +890,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-copy { left:32%; right:4%; bottom:18px; }
           .zt-player-name { left:2%; bottom:4%; }
+          .zt-dots { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
