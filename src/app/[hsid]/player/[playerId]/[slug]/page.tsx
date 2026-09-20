@@ -286,11 +286,31 @@ export default async function ProfilePage({ params }: Props) {
 
   // Keyed by date so it merges onto the season schedule below regardless of
   // which team the player suited up for that day (a mid-season trade should
-  // not blank out his pre-trade line scores).
-  const gameLogByDate = new Map<string, any>();
+  // not blank out his pre-trade line scores). Stored as an array per date,
+  // not a single row, because a doubleheader gives two schedule rows for
+  // the same date - a single-value map would show the same box score
+  // twice instead of each game's own line.
+  const gameLogByDate = new Map<string, any[]>();
   for (const row of gameLogs as any[]) {
     const d = toISODate(row.game_date);
-    if (d) gameLogByDate.set(d, row);
+    if (!d) continue;
+    const bucket = gameLogByDate.get(d) ?? [];
+    bucket.push(row);
+    gameLogByDate.set(d, bucket);
+  }
+
+  // Pulls one game log entry for a date, preferring the given stat_type -
+  // needed because a two-way player can have both a batting and a pitching
+  // row for the SAME game on the same date, and a plain array.shift() could
+  // grab the wrong one. Removes the entry it returns (splice, not a plain
+  // lookup) so a genuine doubleheader's two same-type rows are each
+  // consumed once instead of both schedule rows showing the same log.
+  function takeGameLog(date: string, preferredType: "batting" | "pitching"): any | undefined {
+    const bucket = gameLogByDate.get(date);
+    if (!bucket || bucket.length === 0) return undefined;
+    const idx = bucket.findIndex((r) => r.stat_type === preferredType);
+    const useIdx = idx !== -1 ? idx : 0;
+    return bucket.splice(useIdx, 1)[0];
   }
 
   // ── Stats grids ──────────────────────────────────────────────────────────────
@@ -399,9 +419,7 @@ export default async function ProfilePage({ params }: Props) {
       const d = toISODate(g.game_date);
       return d < new Date().toISOString().slice(0, 10);
     })
-    .sort((a: any, b: any) =>
-      String(b.game_date || "").localeCompare(String(a.game_date || ""))
-    );
+    .sort((a: any, b: any) => toISODate(b.game_date).localeCompare(toISODate(a.game_date)));
 
   // ── Box score columns (Fox Sports-style game log) ───────────────────────────
 
@@ -478,7 +496,7 @@ export default async function ProfilePage({ params }: Props) {
                 <tbody>
                   {upcomingGames.map((g: any, i: number) => {
                     const d = toISODate(g.game_date);
-                    const log = d ? gameLogByDate.get(d) : null;
+                    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
                     return (
                       <tr key={i}>
                         <td>{d || "--"}</td>
@@ -520,7 +538,7 @@ export default async function ProfilePage({ params }: Props) {
                 <tbody>
                   {recentGames.map((g: any, i: number) => {
                     const d = toISODate(g.game_date);
-                    const log = d ? gameLogByDate.get(d) : null;
+                    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
                     const badge = resultBadge(g.result);
                     const box: any = isPitcher ? pitchingBoxScore(log?.stats) : battingBoxScore(log?.stats);
                     const logoUrl = mlbTeamLogoUrl(mlbTeamLogoMap, log?.opponent_mlb_id);
