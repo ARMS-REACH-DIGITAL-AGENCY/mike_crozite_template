@@ -645,9 +645,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   narrow strip on the left, (5) a thin gold baseline, then
                   (6) the copy, offset past the cutout, on top of everything. */}
               <span className="zt-visual">
-                {(activeSlide.kind === 'anchor' || activeSlide.kind === 'season') && (
-                  <SmartImage className="zt-visual-bg" src={HERO_BG} alt="" />
-                )}
+                {/* No separate background image for anchor/season here --
+                    .zt-hero-bleed (a single fixed layer behind rows 1-3)
+                    now covers this whole area too, so row3 is just a
+                    transparent window onto that one continuous image
+                    instead of a second, independently-cropped copy of it
+                    (two separate object-fit:cover crops of the same photo
+                    at different container heights don't line up, which is
+                    exactly the seam that was visible before this). */}
                 <span className="zt-visual-gradient" aria-hidden="true" />
                 {activeSlide.kind === 'season' && (
                   <span className="zt-logo-layer" aria-hidden="true">
@@ -767,11 +772,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            narrow left strip, and copy positioned past it with padding, not
            absolute-pinned -- so it's never behind the photo and there is no
            second box or border anywhere. */
-        .zt-slide-surface { position:relative; width:100%; height:100%; border:0; padding:0; margin:0; background:#060708; cursor:default; overflow:hidden; text-align:left; isolation:isolate; }
+        .zt-slide-surface { position:relative; width:100%; height:100%; border:0; padding:0; margin:0; background:transparent; cursor:default; overflow:hidden; text-align:left; isolation:isolate; }
         .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
 
-        .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:#1b2522; }
-        .zt-visual :global(.zt-visual-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
+        .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:transparent; }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
         /* -- team logo: its own big plain layer on the right, bleeding off
@@ -838,7 +842,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            just a bigger number. Deliberately NOT touching --row3-h/--row4-h
            vars or .pp-funzone-outer (that's the FunZone panel below this
            component, out of scope for this pass). */
-        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; }
+        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; background:transparent !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
         :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
 
@@ -846,18 +850,37 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            (isPlayerProfile is already known there) rather than a
            cross-sibling :has() selector guessed from in here -- that
            guess didn't reliably match on the real deployed page last
-           time. This strip is sized to exactly their own combined height,
-           not row3's, so it never overlaps or needs to line up with the
-           carousel's own background below it. */
-        /* :global() here isn't optional: this div is a sibling of
+           time. This one fixed layer now spans rows 1+2+3 combined (not
+           just 1+2) and row3's own background/visual/slide-surface are
+           all transparent, so row3 is a window onto the *same* image
+           instead of a second, independently-cropped copy of it -- two
+           separate object-fit:cover crops of the same photo at different
+           container heights don't line up, which was the visible seam
+           right at the row2/row3 boundary before this.
+           :global() here isn't optional: this div is a sibling of
            <section>, not its descendant, at the top level of the returned
            Fragment -- styled-jsx's scope hash didn't get attached to it
            (confirmed via computed style: position was landing as "static"
            instead of "fixed" because the scoped selector's compiled hash
            class never matched this element), so a plain scoped rule here
            silently matches nothing. */
-        :global(.zt-hero-bleed) { position:fixed; z-index:58; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px)); overflow:hidden; pointer-events:none; background:#060708; }
-        :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 40%; filter:brightness(.78) saturate(.94); }
+        /* z-index is negative, not just "less than row3-shell's 60": this
+           div is DOM-nested inside .yat-row3-shell (a sticky+z-index
+           element, so a stacking context of its own), and position:fixed
+           only escapes its CONTAINING BLOCK, not its STACKING CONTEXT --
+           its z-index is still compared against its local siblings inside
+           row3-shell (like .zt-shell-images, z-index:auto), not against
+           row1/row2 directly. A positive value here painted this layer
+           ABOVE .zt-shell-images's entire contents once the two started
+           spatially overlapping (once this layer grew tall enough to
+           reach into row3's own area) -- hiding the whole carousel behind
+           it. Negative z-index paints behind z-index:auto content in the
+           same stacking context, which is what's needed here; row3-shell
+           as a whole (all of it, this div included) is still compared
+           against row1/row2 using row3-shell's own z-index (60 vs their
+           70/65), which is unaffected by this. */
+        :global(.zt-hero-bleed) { position:fixed; z-index:-1; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H}px); overflow:hidden; pointer-events:none; background:#060708; }
+        :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
         /* .yat-topbar and .yat-schoolrow (rendered inside these shells by
            GlobalTopbar/SchoolContextBar) carry their own separate
            background:var(--header-bg) in YatStyles.tsx -- making just the
@@ -883,7 +906,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
         @media (max-width:620px) {
-          .zt-visual :global(.zt-visual-bg) { object-position:0% 50%; }
+          :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           .zt-visual :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
