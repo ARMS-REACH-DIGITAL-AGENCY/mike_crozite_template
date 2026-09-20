@@ -1670,14 +1670,6 @@ export async function getMlbTeamLogoMap(): Promise<Map<string, string>> {
   return map;
 }
 
-export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown): string | null {
-  const key = String(mlbTeamId || "").trim();
-  if (!key) return null;
-  const teamid = logoMap.get(key);
-  if (!teamid) return null;
-  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${teamid}.png`;
-}
-
 // ---------------------------------------------------------------------------
 // NEWS ARTICLES - from news_articles table (populated by Webz.io cron job)
 // ---------------------------------------------------------------------------

@@ -18,11 +18,11 @@ import {
   getTeamSchedule,
   getPlayerGameLogs,
   getMlbTeamLogoMap,
-  mlbTeamLogoUrl,
   getTeamContext,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
 } from "@/lib/db";
+import { mlbTeamLogoUrl } from "@/lib/playerUtils";
 type Props = {
   params: Promise<{
     hsid: string;
