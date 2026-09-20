@@ -22,7 +22,8 @@ import {
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
 } from "@/lib/db";
-import { mlbTeamLogoUrl, toISODate } from "@/lib/playerUtils";
+import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
+import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 type Props = {
   params: Promise<{
     hsid: string;
@@ -408,18 +409,16 @@ export default async function ProfilePage({ params }: Props) {
   // ── Schedule rows ─────────────────────────────────────────────────────────────
 
   // No cap here on purpose - this is the full season, every game, one row
-  // each. getTeamSchedule's own `limit` param (default 300) is the only cap.
-  const upcomingGames = (teamSchedule as any[]).filter((g) => {
-    const d = toISODate(g.game_date);
-    return d >= new Date().toISOString().slice(0, 10);
-  });
-
-  const recentGames = (teamSchedule as any[])
-    .filter((g) => {
-      const d = toISODate(g.game_date);
-      return d < new Date().toISOString().slice(0, 10);
-    })
-    .sort((a: any, b: any) => toISODate(b.game_date).localeCompare(toISODate(a.game_date)));
+  // each, chronological ascending (game 1 -> last game). getTeamSchedule's
+  // own `limit` param (default 300) is the only cap. Past and upcoming
+  // games render in a single table (PlayerScheduleTable) rather than two
+  // separate ones - a fan can sort any column, including flipping the
+  // default ascending date order to descending, so there's no need to
+  // pre-split into "recent" vs "upcoming" buckets here.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const allGames = (teamSchedule as any[])
+    .slice()
+    .sort((a: any, b: any) => toISODate(a.game_date).localeCompare(toISODate(b.game_date)));
 
   // ── Box score columns (Fox Sports-style game log) ───────────────────────────
 
@@ -453,13 +452,44 @@ export default async function ProfilePage({ params }: Props) {
     };
   }
 
-  function resultBadge(result: unknown): { letter: string; className: string } | null {
+  function resultBadge(result: unknown): { letter: "W" | "L" | "T"; className: string } | null {
     const r = String(result || "").trim();
     if (r.startsWith("W")) return { letter: "W", className: "pp-result-w" };
     if (r.startsWith("L")) return { letter: "L", className: "pp-result-l" };
     if (r.startsWith("T")) return { letter: "T", className: "pp-result-t" };
     return null;
   }
+
+  const statHeaders = isPitcher
+    ? ["IP", "H", "R", "ER", "BB", "K"]
+    : ["AB", "H", "R", "HR", "RBI", "BB", "SO"];
+
+  const scheduleTableRows: ScheduleTableRow[] = allGames.map((g: any) => {
+    const d = toISODate(g.game_date);
+    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
+    const badge = resultBadge(g.result);
+    const logoUrl = mlbTeamLogoUrl(mlbTeamLogoMap, log?.opponent_mlb_id);
+
+    const stats = isPitcher
+      ? (() => {
+          const box = pitchingBoxScore(log?.stats);
+          return [box.ip, box.h, box.r, box.er, box.bb, box.so];
+        })()
+      : (() => {
+          const box = battingBoxScore(log?.stats);
+          return [box.ab, box.h, box.r, box.hr, box.rbi, box.bb, box.so];
+        })();
+
+    return {
+      iso: d || "",
+      dateLabel: formatDisplayDate(d) || d || "--",
+      opponent: g.opponent || g.away_team || "--",
+      logoUrl,
+      resultLetter: badge?.letter ?? null,
+      resultClass: badge?.className ?? "",
+      stats,
+    };
+  });
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
@@ -481,89 +511,12 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
-          {upcomingGames.length > 0 ? (
-            <div className="pp-sched-section">
-              <div className="pp-sched-heading">UPCOMING GAMES</div>
-              <table className="pp-sched-table">
-                <thead>
-                  <tr>
-                    <th>DATE</th>
-                    <th>OPPONENT</th>
-                    <th>LOCATION</th>
-                    <th>LINE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {upcomingGames.map((g: any, i: number) => {
-                    const d = toISODate(g.game_date);
-                    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
-                    return (
-                      <tr key={i}>
-                        <td>{d || "--"}</td>
-                        <td>{g.opponent || g.away_team || "--"}</td>
-                        <td>{g.location || (g.is_home ? "HOME" : "AWAY")}</td>
-                        <td>{log?.line_summary || "--"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          {scheduleTableRows.length > 0 ? (
+            <PlayerScheduleTable rows={scheduleTableRows} statHeaders={statHeaders} todayIso={todayIso} />
           ) : (
             <div className="pp-fz-placeholder">
               <i className="ri-calendar-line pp-ph-icon" />
               <p>Schedule will appear here once available.</p>
-            </div>
-          )}
-          {recentGames.length > 0 && (
-            <div className="pp-sched-section">
-              <div className="pp-sched-heading">GAME LOG</div>
-              <table className="pp-sched-table pp-boxscore-table">
-                <thead>
-                  <tr>
-                    <th>DATE</th>
-                    <th>OPPONENT</th>
-                    <th></th>
-                    {isPitcher ? (
-                      <>
-                        <th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th>
-                      </>
-                    ) : (
-                      <>
-                        <th>AB</th><th>H</th><th>R</th><th>HR</th><th>RBI</th><th>BB</th><th>SO</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentGames.map((g: any, i: number) => {
-                    const d = toISODate(g.game_date);
-                    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
-                    const badge = resultBadge(g.result);
-                    const box: any = isPitcher ? pitchingBoxScore(log?.stats) : battingBoxScore(log?.stats);
-                    const logoUrl = mlbTeamLogoUrl(mlbTeamLogoMap, log?.opponent_mlb_id);
-                    return (
-                      <tr key={i}>
-                        <td>{d || "--"}</td>
-                        <td className="pp-sched-opponent">
-                          {logoUrl && <img src={logoUrl} alt="" className="pp-sched-opponent-logo" />}
-                          {g.opponent || g.away_team || "--"}
-                        </td>
-                        <td>{badge && <span className={badge.className}>{badge.letter}</span>}</td>
-                        {isPitcher ? (
-                          <>
-                            <td>{box.ip}</td><td>{box.h}</td><td>{box.r}</td><td>{box.er}</td><td>{box.bb}</td><td>{box.so}</td>
-                          </>
-                        ) : (
-                          <>
-                            <td>{box.ab}</td><td>{box.h}</td><td>{box.r}</td><td>{box.hr}</td><td>{box.rbi}</td><td>{box.bb}</td><td>{box.so}</td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>
@@ -1057,47 +1010,6 @@ export default async function ProfilePage({ params }: Props) {
         .pp-season-table tr:hover td {
           background: rgba(255,255,255,.025);
         }
-
-        /* Schedule table */
-        .pp-sched-section { margin-bottom: 16px; }
-        .pp-sched-heading {
-          font: 700 10px "Bebas Neue", sans-serif;
-          letter-spacing: .08em;
-          color: var(--muted, #888);
-          margin-bottom: 6px;
-          text-transform: uppercase;
-        }
-        .pp-sched-table {
-          width: 100%;
-          border-collapse: collapse;
-          font: 400 10px/1.4 Oswald, sans-serif;
-        }
-        .pp-sched-table th {
-          font: 600 8px/1 Oswald, sans-serif;
-          letter-spacing: .1em;
-          color: var(--muted, #888);
-          padding: 4px 6px;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
-          text-align: left;
-        }
-        .pp-sched-table td {
-          padding: 5px 6px;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.06));
-          color: var(--fg, #f0f0f0);
-        }
-        .pp-boxscore-table th,
-        .pp-boxscore-table td {
-          text-align: center;
-        }
-        .pp-boxscore-table th:first-child, .pp-boxscore-table td:first-child,
-        .pp-boxscore-table th:nth-child(2), .pp-boxscore-table td:nth-child(2) {
-          text-align: left;
-        }
-        .pp-result-w { color: #2ecc71; font-weight: 700; }
-        .pp-result-l { color: #e74c3c; font-weight: 700; }
-        .pp-result-t { color: var(--muted, #888); font-weight: 700; }
-        .pp-sched-opponent { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-        .pp-sched-opponent-logo { width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
 
         /* Social */
         .pp-social-tag {

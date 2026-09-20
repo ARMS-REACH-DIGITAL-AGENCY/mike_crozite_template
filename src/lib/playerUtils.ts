@@ -64,6 +64,21 @@ export function mlbTeamAbbreviation(mlbTeamId: unknown): string {
   return MLB_TEAM_ABBR[String(mlbTeamId || "").trim()] || "";
 }
 
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// "2026-09-17" -> "Sep 17, 2026". Parses the ISO string directly instead of
+// going through Date + Intl so the result never shifts with the runtime's
+// timezone (a plain `new Date("2026-09-17")` is UTC midnight, which prints
+// as the previous day in any timezone behind UTC).
+export function formatDisplayDate(iso: unknown): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  if (!match) return "";
+  const [, y, m, d] = match;
+  const monthName = MONTH_ABBR[Number(m) - 1];
+  if (!monthName) return "";
+  return `${monthName} ${Number(d)}, ${y}`;
+}
+
 export function parseDraft(raw: string | null): string {
   if (!raw) return "";
   const parts = raw.split("-");
