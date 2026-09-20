@@ -366,12 +366,12 @@ export default async function ProfilePage({ params }: Props) {
 
   // ── Schedule rows ─────────────────────────────────────────────────────────────
 
-  const upcomingGames = (teamSchedule as any[])
-    .filter((g) => {
-      const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
-      return d >= new Date().toISOString().slice(0, 10);
-    })
-    .slice(0, 5);
+  // No cap here on purpose - this is the full season, every game, one row
+  // each. getTeamSchedule's own `limit` param (default 300) is the only cap.
+  const upcomingGames = (teamSchedule as any[]).filter((g) => {
+    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
+    return d >= new Date().toISOString().slice(0, 10);
+  });
 
   const recentGames = (teamSchedule as any[])
     .filter((g) => {
@@ -380,8 +380,47 @@ export default async function ProfilePage({ params }: Props) {
     })
     .sort((a: any, b: any) =>
       String(b.game_date || "").localeCompare(String(a.game_date || ""))
-    )
-    .slice(0, 5);
+    );
+
+  // ── Box score columns (Fox Sports-style game log) ───────────────────────────
+
+  function statCell(v: unknown): string {
+    const n = Number(v);
+    return Number.isFinite(n) ? String(n) : "-";
+  }
+
+  function battingBoxScore(stats: Record<string, unknown> | null | undefined) {
+    const s = stats || {};
+    return {
+      ab: statCell(s.atBats),
+      h: statCell(s.hits),
+      r: statCell(s.runs),
+      hr: statCell(s.homeRuns),
+      rbi: statCell(s.rbi),
+      bb: statCell(s.baseOnBalls),
+      so: statCell(s.strikeOuts),
+    };
+  }
+
+  function pitchingBoxScore(stats: Record<string, unknown> | null | undefined) {
+    const s = stats || {};
+    return {
+      ip: s.inningsPitched != null ? String(s.inningsPitched) : "-",
+      h: statCell(s.hits),
+      r: statCell(s.runs),
+      er: statCell(s.earnedRuns),
+      bb: statCell(s.baseOnBalls),
+      so: statCell(s.strikeOuts),
+    };
+  }
+
+  function resultBadge(result: unknown): { letter: string; className: string } | null {
+    const r = String(result || "").trim();
+    if (r.startsWith("W")) return { letter: "W", className: "pp-result-w" };
+    if (r.startsWith("L")) return { letter: "L", className: "pp-result-l" };
+    if (r.startsWith("T")) return { letter: "T", className: "pp-result-t" };
+    return null;
+  }
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
@@ -439,26 +478,44 @@ export default async function ProfilePage({ params }: Props) {
           )}
           {recentGames.length > 0 && (
             <div className="pp-sched-section">
-              <div className="pp-sched-heading">RECENT RESULTS</div>
-              <table className="pp-sched-table">
+              <div className="pp-sched-heading">GAME LOG</div>
+              <table className="pp-sched-table pp-boxscore-table">
                 <thead>
                   <tr>
                     <th>DATE</th>
                     <th>OPPONENT</th>
-                    <th>RESULT</th>
-                    <th>LINE</th>
+                    <th></th>
+                    {isPitcher ? (
+                      <>
+                        <th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th>
+                      </>
+                    ) : (
+                      <>
+                        <th>AB</th><th>H</th><th>R</th><th>HR</th><th>RBI</th><th>BB</th><th>SO</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {recentGames.map((g: any, i: number) => {
                     const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
                     const log = d ? gameLogByDate.get(d) : null;
+                    const badge = resultBadge(g.result);
+                    const box: any = isPitcher ? pitchingBoxScore(log?.stats) : battingBoxScore(log?.stats);
                     return (
                       <tr key={i}>
                         <td>{d || "--"}</td>
                         <td>{g.opponent || g.away_team || "--"}</td>
-                        <td>{g.result || "--"}</td>
-                        <td>{log?.line_summary || "--"}</td>
+                        <td>{badge && <span className={badge.className}>{badge.letter}</span>}</td>
+                        {isPitcher ? (
+                          <>
+                            <td>{box.ip}</td><td>{box.h}</td><td>{box.r}</td><td>{box.er}</td><td>{box.bb}</td><td>{box.so}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td>{box.ab}</td><td>{box.h}</td><td>{box.r}</td><td>{box.hr}</td><td>{box.rbi}</td><td>{box.bb}</td><td>{box.so}</td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -985,6 +1042,17 @@ export default async function ProfilePage({ params }: Props) {
           border-bottom: 1px solid var(--line, rgba(255,255,255,.06));
           color: var(--fg, #f0f0f0);
         }
+        .pp-boxscore-table th,
+        .pp-boxscore-table td {
+          text-align: center;
+        }
+        .pp-boxscore-table th:first-child, .pp-boxscore-table td:first-child,
+        .pp-boxscore-table th:nth-child(2), .pp-boxscore-table td:nth-child(2) {
+          text-align: left;
+        }
+        .pp-result-w { color: #2ecc71; font-weight: 700; }
+        .pp-result-l { color: #e74c3c; font-weight: 700; }
+        .pp-result-t { color: var(--muted, #888); font-weight: 700; }
 
         /* Social */
         .pp-social-tag {

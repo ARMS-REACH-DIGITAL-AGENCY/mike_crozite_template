@@ -11,54 +11,122 @@ type GameLogRow = {
 type ScheduleRow = {
   game_date?: string | null;
   opponent?: string | null;
-  location?: string | null;
   is_home?: boolean | null;
+  status?: string | null;
+  result?: string | null;
 };
 
-function formatDate(value?: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+type DayEntry = {
+  iso: string;
+  dateLabel: string;
+  headline: string;
+  detail: string;
+  isOffDay: boolean;
+};
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(iso: string, delta: number) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return isoDate(d);
+}
+
+function formatDate(iso: string) {
+  const [, m, d] = iso.split('-');
+  return `${Number(m)}/${Number(d)}`;
 }
 
 function firstNameOf(displayName: string) {
   return String(displayName || 'Player').trim().split(/\s+/)[0] || 'Player';
 }
 
-function opponentLabel(row: GameLogRow) {
-  const opponent = String(row.opponent_name || '').trim();
-  if (!opponent) return 'Game';
-  return row.home_away === 'away' ? `@ ${opponent}` : `vs. ${opponent}`;
+function matchupLabel(opponent: string | null | undefined, isHome: boolean | null | undefined) {
+  const name = String(opponent || '').trim();
+  if (!name) return 'Game';
+  return isHome === false ? `@ ${name}` : `vs. ${name}`;
 }
 
-function upcomingLabel(row: ScheduleRow) {
-  const opponent = String(row.opponent || '').trim();
-  if (!opponent) return 'Game';
-  return row.is_home ? `vs. ${opponent}` : `@ ${opponent}`;
-}
+async function getSevenDayWindow(playerId: string): Promise<DayEntry[]> {
+  const today = isoDate(new Date());
 
-async function getRecentRows(playerId: string): Promise<GameLogRow[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  const rows = await getPlayerGameLogs(playerId);
-
-  return (rows as GameLogRow[])
-    .filter((row) => row.game_date && String(row.game_date).slice(0, 10) <= today)
-    .sort((a, b) => String(b.game_date || '').localeCompare(String(a.game_date || '')))
-    .slice(0, 3);
-}
-
-async function getUpcomingRows(playerId: string): Promise<ScheduleRow[]> {
   const transactionStatus = await getFlipCardTransactionStatus(playerId);
   const teamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
-  if (!teamId) return [];
 
-  const today = new Date().toISOString().slice(0, 10);
-  const schedule = await getTeamSchedule(teamId);
+  const [gameLogs, schedule] = await Promise.all([
+    getPlayerGameLogs(playerId),
+    teamId ? getTeamSchedule(teamId) : Promise.resolve([]),
+  ]);
 
-  return (schedule as ScheduleRow[])
-    .filter((row) => row.game_date && String(row.game_date).slice(0, 10) >= today)
-    .slice(0, 3);
+  const hasSchedule = teamId && (schedule as ScheduleRow[]).length > 0;
+
+  const gameLogByDate = new Map<string, GameLogRow[]>();
+  for (const row of gameLogs as GameLogRow[]) {
+    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    if (!d) continue;
+    const bucket = gameLogByDate.get(d) ?? [];
+    bucket.push(row);
+    gameLogByDate.set(d, bucket);
+  }
+
+  const scheduleByDate = new Map<string, ScheduleRow>();
+  for (const row of schedule as ScheduleRow[]) {
+    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
+    if (d) scheduleByDate.set(d, row);
+  }
+
+  const days: DayEntry[] = [];
+
+  for (let offset = -3; offset <= 3; offset++) {
+    const iso = addDays(today, offset);
+    const dateLabel = formatDate(iso);
+    const logRows = gameLogByDate.get(iso);
+    const scheduleRow = scheduleByDate.get(iso);
+
+    if (logRows && logRows.length > 0) {
+      // A two-way player can have both a batting and a pitching row for the
+      // same date - show both lines rather than picking one.
+      const opponent = logRows[0].opponent_name;
+      const isHome = logRows[0].home_away === 'home';
+      days.push({
+        iso,
+        dateLabel,
+        headline: matchupLabel(opponent, isHome),
+        detail: logRows.map((r) => r.line_summary || 'Game result logged').join(' | '),
+        isOffDay: false,
+      });
+      continue;
+    }
+
+    if (scheduleRow) {
+      const isFuture = offset > 0;
+      days.push({
+        iso,
+        dateLabel,
+        headline: matchupLabel(scheduleRow.opponent, scheduleRow.is_home),
+        detail: isFuture
+          ? 'Upcoming'
+          : scheduleRow.result || (scheduleRow.status ? scheduleRow.status : 'Result pending'),
+        isOffDay: false,
+      });
+      continue;
+    }
+
+    if (hasSchedule) {
+      // We have this team's schedule and there's genuinely no game on this
+      // date - a real off day, not a data gap.
+      days.push({ iso, dateLabel, headline: 'OFF DAY', detail: '', isOffDay: true });
+      continue;
+    }
+
+    // No schedule data at all for this player's team - we can't tell an off
+    // day from a data gap, so say so rather than guessing.
+    days.push({ iso, dateLabel, headline: '--', detail: '', isOffDay: false });
+  }
+
+  return days;
 }
 
 export default async function PlayerSevenDaySnapshot({
@@ -72,15 +140,13 @@ export default async function PlayerSevenDaySnapshot({
 }) {
   if (!playerId) return null;
 
-  const [recentRows, upcomingRows] = await Promise.all([
-    getRecentRows(playerId),
-    getUpcomingRows(playerId),
-  ]);
-
-  if (!recentRows.length && !upcomingRows.length) return null;
+  const days = await getSevenDayWindow(playerId);
+  const hasAnyRealData = days.some((d) => d.isOffDay || d.headline !== '--');
+  if (!hasAnyRealData) return null;
 
   const firstName = firstNameOf(displayName);
-  const ordered = [...recentRows].reverse();
+  const results = days.slice(0, 4); // 3 days back through today
+  const upcoming = days.slice(4); // next 3 days
 
   return (
     <section className="yat-snapshot" aria-label={`${displayName} seven day snapshot`}>
@@ -93,27 +159,23 @@ export default async function PlayerSevenDaySnapshot({
         <div className="yat-snapshot-paper">
           <h3>7-Day Snapshot</h3>
 
-          {ordered.length > 0 && (
-            <div className="yat-snapshot-lines">
-              {ordered.map((row, i) => (
-                <div className="yat-snapshot-line" key={`recent-${i}-${row.game_date}`}>
-                  <strong>{formatDate(row.game_date)} {opponentLabel(row)}</strong>
-                  <span>{row.line_summary || 'Game result logged'}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="yat-snapshot-lines">
+            {results.map((day) => (
+              <div className="yat-snapshot-line" key={day.iso}>
+                <strong>{day.dateLabel} {day.isOffDay ? 'OFF DAY' : day.headline}</strong>
+                {!day.isOffDay && <span>{day.detail}</span>}
+              </div>
+            ))}
+          </div>
 
-          {upcomingRows.length > 0 && (
-            <div className="yat-snapshot-upcoming">
-              {upcomingRows.map((row, i) => (
-                <div key={`upcoming-${i}-${row.game_date}`}>
-                  <strong>{i === 0 ? 'NEXT' : formatDate(row.game_date)}</strong>
-                  <span>{formatDate(row.game_date)} {upcomingLabel(row)}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="yat-snapshot-upcoming">
+            {upcoming.map((day) => (
+              <div key={day.iso}>
+                <strong>{day.dateLabel}</strong>
+                <span>{day.isOffDay ? 'OFF DAY' : `${day.headline}${day.detail ? ` - ${day.detail}` : ''}`}</span>
+              </div>
+            ))}
+          </div>
 
           <div className="yat-snapshot-signature">{displayName}</div>
         </div>

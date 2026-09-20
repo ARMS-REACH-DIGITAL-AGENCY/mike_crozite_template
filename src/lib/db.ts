@@ -1537,7 +1537,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 // ---------------------------------------------------------------------------
 // TEAM SCHEDULE - chronological game feed for a given team_id.
 // ---------------------------------------------------------------------------
-export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
+export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[]> {
   try {
     // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
     // team_schedules). College teams' games live in college_schedule_games_raw,
