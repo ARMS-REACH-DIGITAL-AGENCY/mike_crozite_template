@@ -1,6 +1,6 @@
 'use client';
 
-import { MouseEvent, TouchEvent as ReactTouchEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -427,7 +427,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [localOverrides, setLocalOverrides] = useState<Record<string, { reactionCount: number; viewerReacted: boolean; extraComments: MomentComment[] }>>({});
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  // Continuous scroll position, in slide-widths (1.35 == 35% of the way from
+  // slide 1 into slide 2) -- the source of truth for both which slide reads
+  // as "active" (dots/arrows) and how far each slide's hero visual has
+  // dissolved in/out, instead of a plain integer index that only ever jumps.
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ dragging: boolean; moved: boolean; startX: number; startScroll: number; pointerId: number | null }>({ dragging: false, moved: false, startX: 0, startScroll: 0, pointerId: null });
+  const scrollRafRef = useRef<number | null>(null);
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -546,15 +553,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   useEffect(() => {
     if (!ready || initializedRef.current) return;
     initializedRef.current = true;
-    setActiveIndex(0); // opens on the HS anchor slide
+    setScrollProgress(0); // opens on the HS anchor slide
   }, [ready]);
 
   useEffect(() => {
-    if (activeIndex > model.slides.length - 1) setActiveIndex(Math.max(0, model.slides.length - 1));
-  }, [model.slides.length, activeIndex]);
+    const maxIndex = Math.max(0, model.slides.length - 1);
+    if (scrollProgress > maxIndex) setScrollProgress(maxIndex);
+  }, [model.slides.length, scrollProgress]);
 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
-  const activeSlide = model.slides[activeIndex];
+  const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
     setLocalOverrides((prev) => ({
@@ -590,32 +598,80 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
   }
 
-  function goPrev() { setActiveIndex((i) => Math.max(0, i - 1)); }
-  function goNext() { setActiveIndex((i) => Math.min(model.slides.length - 1, i + 1)); }
+  // Free scroll, matching the corporate site's real timeline mechanism
+  // (layered-story-strip.js): the track is a plain native horizontally
+  // scrollable element with scroll-snap turned OFF, not a click-only
+  // stepper -- touch/trackpad get native scrolling for free, and a
+  // pointer-drag handler gives mouse users the same "grab the timeline"
+  // feel (mice have no built-in click-and-drag-to-scroll). Layered on top
+  // of that free scroll -- and this part isn't in the corporate source,
+  // it's new -- the hero visual for each slide dissolves in/out based on
+  // how close the continuous scroll position is to that slide's index,
+  // instead of hard-cutting between slides.
+  function scrollToIndex(index: number, smooth = true) {
+    const el = trackRef.current;
+    if (!el) return;
+    const width = el.clientWidth || 1;
+    const target = clamp(index, 0, Math.max(0, model.slides.length - 1));
+    el.scrollTo({ left: target * width, behavior: smooth ? 'smooth' : 'auto' });
+  }
+  function goPrev() { scrollToIndex(Math.round(scrollProgress) - 1); }
+  function goNext() { scrollToIndex(Math.round(scrollProgress) + 1); }
+
+  function handleScroll() {
+    if (scrollRafRef.current != null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = trackRef.current;
+      if (!el) return;
+      const width = el.clientWidth || 1;
+      setScrollProgress(el.scrollLeft / width);
+    });
+  }
+
+  function handlePointerDown(event: ReactPointerEvent) {
+    if (event.pointerType === 'touch' || event.button !== 0) return;
+    const el = trackRef.current;
+    if (!el) return;
+    dragRef.current = { dragging: true, moved: false, startX: event.clientX, startScroll: el.scrollLeft, pointerId: event.pointerId };
+    try { el.setPointerCapture(event.pointerId); } catch {}
+  }
+  function handlePointerMove(event: ReactPointerEvent) {
+    const drag = dragRef.current;
+    const el = trackRef.current;
+    if (!drag.dragging || !el || event.pointerId !== drag.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    if (Math.abs(dx) > 3) drag.moved = true;
+    el.scrollLeft = drag.startScroll - dx;
+  }
+  function handlePointerUp() {
+    const drag = dragRef.current;
+    if (!drag.dragging) return;
+    try { if (drag.pointerId != null) trackRef.current?.releasePointerCapture(drag.pointerId); } catch {}
+    dragRef.current = { ...drag, dragging: false };
+  }
 
   function handleSlideClick(slide: Slide) {
+    if (dragRef.current.moved) return;
     if (slide.kind === 'upload') setOpenMomentId(slide.id);
   }
 
-  // Finger-swipe through slides, matching the corporate site's touch
-  // carousel. A short/near-vertical touch is left alone so it still
-  // registers as a tap (opening an upload moment, etc); only a real
-  // horizontal drag past the threshold advances the slide.
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  function handleTouchStart(event: ReactTouchEvent) {
-    const touch = event.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  }
-  function handleTouchEnd(event: ReactTouchEvent) {
-    const start = touchStartRef.current;
-    touchStartRef.current = null;
-    if (!start) return;
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return;
-    if (deltaX < 0) goNext(); else goPrev();
-  }
+  // Desktop mice only scroll vertically by default; redirect vertical
+  // wheel delta into horizontal scroll so a plain wheel also moves the
+  // timeline, matching audience-site.js's own wheel handler. A native
+  // listener (not React's onWheel) is required to call preventDefault --
+  // React's synthetic wheel handler is attached passively.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    function onWheel(event: WheelEvent) {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      el!.scrollLeft += event.deltaY;
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   if (variant === 'line') {
     return null;
@@ -632,123 +688,133 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
-      <div className="zt-carousel" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        {ready && activeSlide && (
-          <div key={activeSlide.id} className={`zt-slide zt-${activeSlide.kind}`}>
-            <button type="button" className="zt-slide-surface" onClick={() => handleSlideClick(activeSlide)} title={activeSlide.title}>
-              {/* Layers, stacked in this exact order -- matching the real
-                  corporate site's layered-story-strip.js: (1) full-bleed
-                  background photo, (2) a gradient that darkens toward the
-                  right so text is legible there, (3) the team logo as its
-                  own big plain layer on the right -- no box, no border,
-                  just a large image -- (4) the player cutout confined to a
-                  narrow strip on the left, (5) a thin gold baseline, then
-                  (6) the copy, offset past the cutout, on top of everything. */}
-              <span className="zt-visual">
-                {/* No separate background image for anchor/season here --
-                    .zt-hero-bleed (a single fixed layer behind rows 1-3)
-                    now covers this whole area too, so row3 is just a
-                    transparent window onto that one continuous image
-                    instead of a second, independently-cropped copy of it
-                    (two separate object-fit:cover crops of the same photo
-                    at different container heights don't line up, which is
-                    exactly the seam that was visible before this). */}
-                <span className="zt-visual-gradient" aria-hidden="true" />
-                {activeSlide.kind === 'season' && (
-                  <span className="zt-logo-layer" aria-hidden="true">
-                    <SmartImage srcs={activeSlide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
-                  </span>
-                )}
-                {activeSlide.kind === 'anchor' && (
-                  <span className="zt-logo-layer" aria-hidden="true">
-                    <SmartImage src={YS_CREST_FALLBACK} alt="" />
-                  </span>
-                )}
-                {activeSlide.kind === 'anchor' && (
-                  <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(activeSlide.title)} cutout`} />
-                )}
-                {activeSlide.kind === 'anchor' && player?.playerName && (
-                  <span className="zt-player-name">{player.playerName}</span>
-                )}
-                {activeSlide.kind === 'season' && (
-                  <SmartImage className="zt-person zt-person-yati" src={activeSlide.seasonCutoutSrc} srcs={[activeSlide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${activeSlide.year}`} />
-                )}
-                {activeSlide.kind === 'today' && (
-                  <SmartImage className="zt-person zt-person-cover" src={activeSlide.src} alt="Current" />
-                )}
-                {activeSlide.kind === 'upload' && (
-                  <SmartImage className="zt-person zt-person-cover" src={activeSlide.src} alt={activeSlide.title} />
-                )}
-                <span className="zt-visual-baseline" aria-hidden="true" />
-              </span>
-
-              <span className="zt-copy">
-                {activeSlide.kind === 'anchor' && (
-                  <>
-                    <span className="zt-kick">The hometown never stopped caring</span>
-                    <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
-                    <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
-                  </>
-                )}
-                {activeSlide.kind === 'season' && (
-                  <>
-                    <span className="zt-kick">{activeSlide.year} · {activeSlide.caption}</span>
-                    <span className="zt-title">{activeSlide.title}</span>
-                    <span className="zt-bodycopy">{activeSlide.headline}</span>
-                    <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(activeSlide.year); }}>
-                      <i className="ri-upload-cloud-line" /> Share an image of {player?.playerName ? firstName(player.playerName) : 'him'}
-                    </button>
-                  </>
-                )}
-                {activeSlide.kind === 'today' && (
-                  <>
-                    <span className="zt-kick">{activeSlide.year}</span>
-                    <span className="zt-title">{player?.playerName || ''}</span>
-                  </>
-                )}
-                {activeSlide.kind === 'upload' && (
-                  <>
-                    {(activeSlide.relationship || activeSlide.contributorName) && (
-                      <span className="zt-kick">{[activeSlide.relationship, activeSlide.contributorName].filter(Boolean).join(' · ')}</span>
-                    )}
-                    <span className="zt-title">{activeSlide.title}</span>
-                    {activeSlide.caption ? <span className="zt-bodycopy">{activeSlide.caption}</span> : null}
-                    <div className="zt-upload-actions">
-                      <ReactionButton moment={activeSlide} session={session} onToggled={handleReactionToggled} />
-                      <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); setOpenMomentId(activeSlide.id); }}>
-                        <i className="ri-chat-3-line" />
-                        {(activeSlide.comments || []).length}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </span>
-            </button>
-          </div>
-        )}
-
-        {ready && model.slides.length > 1 && (
-          <>
-            <button type="button" className="zt-nav zt-nav-prev" onClick={goPrev} disabled={activeIndex === 0} aria-label="Previous">
-              <i className="ri-arrow-left-s-line" />
-            </button>
-            <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
-              <i className="ri-arrow-right-s-line" />
-            </button>
-            <div className="zt-dots">
-              {model.slides.map((slide, i) => (
-                <button
-                  type="button"
-                  key={slide.id}
-                  className={`zt-dot${i === activeIndex ? ' active' : ''}`}
-                  onClick={() => setActiveIndex(i)}
-                  aria-label={`Slide ${i + 1}`}
-                />
-              ))}
-            </div>
-          </>
-        )}
+      {/* Hero visuals live in their own non-scrolling stack, one per slide,
+          each opacity-driven by how close the continuous scroll position
+          is to that slide's index -- the dissolve. They never move
+          horizontally; only the copy track below does. Slides fully faded
+          out (more than one slide-width away) are skipped entirely so
+          their images aren't loaded until scroll brings them near. */}
+      <div className="zt-visual-stack" aria-hidden="true">
+        {ready && model.slides.map((slide, i) => {
+          const opacity = clamp(1 - Math.abs(scrollProgress - i), 0, 1);
+          if (opacity <= 0) return null;
+          return (
+            <span key={slide.id} className={`zt-visual zt-${slide.kind}`} style={{ opacity }}>
+              {/* No background image here for anchor/season -- .zt-hero-bleed
+                  (a single fixed layer behind rows 1-3) covers this whole
+                  area too, so this is a transparent window onto that one
+                  continuous image instead of a second, independently-cropped
+                  copy of it (two separate object-fit:cover crops of the same
+                  photo at different container heights don't line up). */}
+              <span className="zt-visual-gradient" aria-hidden="true" />
+              {slide.kind === 'season' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'anchor' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'anchor' && (
+                <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+              )}
+              {(slide.kind === 'anchor' || slide.kind === 'season') && player?.playerName && (
+                <span className="zt-player-name">{player.playerName}</span>
+              )}
+              {slide.kind === 'season' && (
+                <SmartImage className="zt-person zt-person-yati" src={slide.seasonCutoutSrc} srcs={[slide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
+              )}
+              {slide.kind === 'today' && (
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
+              )}
+              {slide.kind === 'upload' && (
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
+              )}
+              <span className="zt-visual-baseline" aria-hidden="true" />
+            </span>
+          );
+        })}
       </div>
+
+      <div
+        className="zt-carousel"
+        ref={trackRef}
+        onScroll={handleScroll}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        {ready && model.slides.map((slide) => (
+          <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
+            <span className="zt-copy">
+              {slide.kind === 'anchor' && (
+                <>
+                  <span className="zt-kick">The hometown never stopped caring</span>
+                  <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
+                  <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
+                </>
+              )}
+              {slide.kind === 'season' && (
+                <>
+                  <span className="zt-kick">{slide.year} · {slide.caption}</span>
+                  <span className="zt-title">{slide.title}</span>
+                  <span className="zt-bodycopy">{slide.headline}</span>
+                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
+                    <i className="ri-upload-cloud-line" /> Share an image of {player?.playerName ? firstName(player.playerName) : 'him'}
+                  </button>
+                </>
+              )}
+              {slide.kind === 'today' && (
+                <>
+                  <span className="zt-kick">{slide.year}</span>
+                  <span className="zt-title">{player?.playerName || ''}</span>
+                </>
+              )}
+              {slide.kind === 'upload' && (
+                <>
+                  {(slide.relationship || slide.contributorName) && (
+                    <span className="zt-kick">{[slide.relationship, slide.contributorName].filter(Boolean).join(' · ')}</span>
+                  )}
+                  <span className="zt-title">{slide.title}</span>
+                  {slide.caption ? <span className="zt-bodycopy">{slide.caption}</span> : null}
+                  <div className="zt-upload-actions">
+                    <ReactionButton moment={slide} session={session} onToggled={handleReactionToggled} />
+                    <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); setOpenMomentId(slide.id); }}>
+                      <i className="ri-chat-3-line" />
+                      {(slide.comments || []).length}
+                    </button>
+                  </div>
+                </>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {ready && model.slides.length > 1 && (
+        <>
+          <button type="button" className="zt-nav zt-nav-prev" onClick={goPrev} disabled={activeIndex === 0} aria-label="Previous">
+            <i className="ri-arrow-left-s-line" />
+          </button>
+          <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
+            <i className="ri-arrow-right-s-line" />
+          </button>
+          <div className="zt-dots">
+            {model.slides.map((slide, i) => (
+              <button
+                type="button"
+                key={slide.id}
+                className={`zt-dot${i === activeIndex ? ' active' : ''}`}
+                onClick={() => scrollToIndex(i)}
+                aria-label={`Slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {openMoment && (
         <MomentDetailModal
@@ -762,21 +828,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
       <style jsx>{`
         .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
-        .zt-carousel { position:relative; height:100%; width:100%; }
-        .zt-slide { position:absolute; inset:0; }
 
-        /* -- one continuous layered frame, exact recipe from the real
-           corporate site's layered-story-strip.js (verified by rendering
-           the actual production script locally): background photo, a
-           gradient that darkens toward the right, the cutout confined to a
-           narrow left strip, and copy positioned past it with padding, not
-           absolute-pinned -- so it's never behind the photo and there is no
-           second box or border anywhere. */
-        .zt-slide-surface { position:relative; width:100%; height:100%; border:0; padding:0; margin:0; background:transparent; cursor:default; overflow:hidden; text-align:left; isolation:isolate; }
-        .zt-slide.zt-upload .zt-slide-surface { cursor:pointer; }
-
-        .zt-visual { position:absolute; z-index:1; inset:0; overflow:hidden; background:transparent; }
+        /* The hero visuals and the scrolling copy track are two entirely
+           separate layers now, not one card per slide: the visual stack
+           never moves horizontally, it only dissolves between slides
+           (opacity set inline, from scrollProgress); the copy track is a
+           plain native horizontally-scrollable strip underneath it, free
+           scroll matching the corporate site's real timeline mechanism
+           (layered-story-strip.js) -- scroll-snap explicitly off, mouse
+           drag via pointer events since browsers don't drag-scroll for
+           mice, touch/trackpad get native scrolling for free. */
+        .zt-visual-stack { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; }
+        .zt-visual { position:absolute; inset:0; overflow:hidden; background:transparent; }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
+
+        .zt-carousel { position:relative; z-index:2; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
+        .zt-carousel:active { cursor:grabbing; }
+        .zt-carousel::-webkit-scrollbar { display:none; }
+        .zt-slide { position:relative; flex:0 0 100%; width:100%; min-width:100%; height:100%; overflow:hidden; cursor:default; }
+        .zt-slide.zt-upload { cursor:pointer; }
 
         /* -- team logo: its own big plain layer on the right, bleeding off
            the edge of the frame -- matching the real corporate hero, where
@@ -788,8 +858,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         /* Moved in from the very edge, closer to the headline, so it sits
            inside the background photo's own swoosh curve instead of off
            to the side of it. */
+        /* Every hero image (real cutout, YaTi placeholder, cover photo)
+           shares this exact position/size -- per direct feedback, the
+           player/YaTi image must land in the same spot on every slide,
+           not just the anchor. .zt-person-yati carries no positional
+           overrides of its own anymore; it's the same box as .zt-person. */
         .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        .zt-visual :global(.zt-person-yati) { left:4%; bottom:-6%; width:clamp(112px,13vw,194px); height:104%; object-position:center bottom; }
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -909,7 +983,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           .zt-visual :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
-          .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-copy { left:32%; right:4%; bottom:18px; }
           .zt-player-name { left:2%; bottom:4%; }
