@@ -660,6 +660,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 {activeSlide.kind === 'anchor' && (
                   <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(activeSlide.title)} cutout`} />
                 )}
+                {activeSlide.kind === 'anchor' && player?.playerName && (
+                  <span className="zt-player-name">{player.playerName}</span>
+                )}
                 {activeSlide.kind === 'season' && (
                   <SmartImage className="zt-person zt-person-yati" src={activeSlide.seasonCutoutSrc} srcs={[activeSlide.yatiFallback || YATI_PLACEHOLDERS[0]]} alt={`${player?.playerName || 'Player'} — ${activeSlide.year}`} />
                 )}
@@ -675,9 +678,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-copy">
                 {activeSlide.kind === 'anchor' && (
                   <>
-                    {player?.playerName && (
-                      <span className="zt-name">{player.playerName}</span>
-                    )}
                     <span className="zt-kick">The hometown never stopped caring</span>
                     <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
                     <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
@@ -779,29 +779,32 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.4; pointer-events:none; }
         .zt-logo-layer :global(img) { width:100%; height:100%; object-fit:contain; }
 
-        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:2.5%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* Moved in from the very edge, closer to the headline, so it sits
+           inside the background photo's own swoosh curve instead of off
+           to the side of it. */
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
         .zt-visual :global(.zt-person-yati) { left:4%; bottom:-6%; width:clamp(112px,13vw,194px); height:104%; object-position:center bottom; }
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
-        /* Starts past the photo, roughly a third of the way in, and runs
-           into the ghosted logo's left edge (the logo is faint enough that
-           text stays legible over it) -- matching the real corporate
-           hero's proportions: kicker/headline/bodycopy stacked and
-           vertically centered in the space above the bottom chrome bar.
-           Font declarations are split into separate properties instead of
-           the "font:" shorthand: the shorthand's own commas (font-family
-           list) and slash (size/line-height) combined with clamp()'s
-           internal commas was silently dropping the whole declaration in
-           production, which is why this text was invisible there. */
-        .zt-copy { position:absolute; z-index:6; left:30%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:center; background:transparent; }
-        .zt-name, .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
-        /* Player's full name, above the marketing kicker -- the only
-           place it appears now that row2's own block no longer carries
-           it. Bolder/bigger than the kicker but well clear of the title
-           so it doesn't read as a second headline. */
-        .zt-name { display:block; margin:0 0 3px; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:13px; line-height:1.15; letter-spacing:.03em; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .zt-anchor .zt-name { white-space:normal; overflow-wrap:anywhere; }
+        /* Player's name -- bottom-left, to the left of the (now
+           right-shifted) cutout, sitting low in the frame where the
+           swoosh starts its curve, separate from the marketing
+           kicker/headline column on the right. Anchor slide only. */
+        .zt-player-name { position:absolute; z-index:4; left:2.5%; bottom:6%; display:block; margin:0; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+
+        /* Starts past the photo, closer to the ghosted logo's left edge
+           (the logo is faint enough that text stays legible over it) --
+           matching the real corporate hero's proportions: kicker/headline/
+           bodycopy stacked and vertically centered in the space above the
+           bottom chrome bar. Font declarations are split into separate
+           properties instead of the "font:" shorthand: the shorthand's
+           own commas (font-family list) and slash (size/line-height)
+           combined with clamp()'s internal commas was silently dropping
+           the whole declaration in production, which is why this text
+           was invisible there. */
+        .zt-copy { position:absolute; z-index:6; left:40%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:center; background:transparent; }
+        .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-title { white-space:normal; overflow-wrap:anywhere; }
@@ -869,21 +872,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-visual :global(.zt-person) { width:clamp(108px,23vw,172px); height:107%; }
+          .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
           .zt-logo-layer { width:50%; right:-12%; }
-          .zt-copy { left:clamp(120px,28vw,220px); right:5%; bottom:20px; }
-          .zt-name { font-size:clamp(11px,2vw,12.5px); }
+          .zt-copy { left:38%; right:5%; bottom:20px; }
+          .zt-player-name { left:2%; bottom:5%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
         @media (max-width:620px) {
           .zt-visual :global(.zt-visual-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          .zt-visual :global(.zt-person) { left:1%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
+          .zt-visual :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
-          .zt-copy { left:34%; right:4%; bottom:18px; }
-          .zt-name { font-size:clamp(9.5px,3vw,11px); margin-bottom:2px; }
+          .zt-copy { left:32%; right:4%; bottom:18px; }
+          .zt-player-name { left:2%; bottom:4%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
