@@ -666,6 +666,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-copy">
                 {activeSlide.kind === 'anchor' && (
                   <>
+                    {player?.playerName && (
+                      <span className="zt-name">{player.playerName}</span>
+                    )}
                     <span className="zt-kick">The hometown never stopped caring</span>
                     <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
                     <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
@@ -783,7 +786,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            internal commas was silently dropping the whole declaration in
            production, which is why this text was invisible there. */
         .zt-copy { position:absolute; z-index:6; left:30%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:center; background:transparent; }
-        .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
+        .zt-name, .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
+        /* Player's full name, above the marketing kicker -- the only
+           place it appears now that row2's own block no longer carries
+           it. Bolder/bigger than the kicker but well clear of the title
+           so it doesn't read as a second headline. */
+        .zt-name { display:block; margin:0 0 3px; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:13px; line-height:1.15; letter-spacing:.03em; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-anchor .zt-name { white-space:normal; overflow-wrap:anywhere; }
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-title { white-space:normal; overflow-wrap:anywhere; }
@@ -827,6 +836,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual :global(.zt-person) { width:clamp(108px,23vw,172px); height:107%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:clamp(120px,28vw,220px); right:5%; bottom:20px; }
+          .zt-name { font-size:clamp(11px,2vw,12.5px); }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
@@ -837,6 +847,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual :global(.zt-person-yati) { left:3%; width:clamp(70px,24vw,102px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-copy { left:34%; right:4%; bottom:18px; }
+          .zt-name { font-size:clamp(9.5px,3vw,11px); margin-bottom:2px; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
