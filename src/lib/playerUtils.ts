@@ -48,6 +48,22 @@ export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown)
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${teamid}.png`;
 }
 
+// Raw MLB Stats API team id -> official 3-letter abbreviation. Fixed set of
+// 30 clubs, stable year to year - not worth a DB round trip or crosswalk
+// table for a lookup this small and static.
+const MLB_TEAM_ABBR: Record<string, string> = {
+  "108": "LAA", "109": "ARI", "110": "BAL", "111": "BOS", "112": "CHC",
+  "113": "CIN", "114": "CLE", "115": "COL", "116": "DET", "117": "HOU",
+  "118": "KC", "119": "LAD", "120": "WSH", "121": "NYM", "133": "ATH",
+  "134": "PIT", "135": "SD", "136": "SEA", "137": "SF", "138": "STL",
+  "139": "TB", "140": "TEX", "141": "TOR", "142": "MIN", "143": "PHI",
+  "144": "ATL", "145": "CWS", "146": "MIA", "147": "NYY", "158": "MIL",
+};
+
+export function mlbTeamAbbreviation(mlbTeamId: unknown): string {
+  return MLB_TEAM_ABBR[String(mlbTeamId || "").trim()] || "";
+}
+
 export function parseDraft(raw: string | null): string {
   if (!raw) return "";
   const parts = raw.split("-");

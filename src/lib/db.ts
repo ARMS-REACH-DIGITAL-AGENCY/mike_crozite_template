@@ -1558,7 +1558,10 @@ export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[
            home_away,
            opponent,
            home_score,
-           away_score
+           away_score,
+           game_pk,
+           home_team_id,
+           away_team_id
          FROM v_team_schedule_feed
          WHERE tbc_teamid::text = $1
 
@@ -1576,7 +1579,10 @@ export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[
            CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN 'Home' ELSE 'Away' END AS home_away,
            CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN g.away_team_name ELSE g.home_team_name END AS opponent,
            g.home_score,
-           g.away_score
+           g.away_score,
+           NULL::bigint AS game_pk,
+           NULL::integer AS home_team_id,
+           NULL::integer AS away_team_id
          FROM college_schedule_games_raw g
          WHERE g.teamid::text = $1
        )
