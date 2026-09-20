@@ -1,0 +1,52 @@
+name: MLB Player Game Log Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year to sync (defaults to current year)."
+        required: false
+        type: string
+  schedule:
+    # Every 4 hours - catches games going Final throughout the day.
+    - cron: "20 */4 * * *"
+
+jobs:
+  sync-mlb-player-gamelogs:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout Easter-NEWS branch
+        uses: actions/checkout@v4
+        with:
+          ref: Easter-NEWS
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Confirm branch
+        run: |
+          git branch --show-current
+          git rev-parse --short HEAD
+
+      - name: Run MLB player game log sync
+        env:
+          SEASON_INPUT: ${{ github.event.inputs.season }}
+        run: |
+          ARGS=()
+          if [ -n "$SEASON_INPUT" ]; then
+            if ! [[ "$SEASON_INPUT" =~ ^[0-9]{4}$ ]]; then
+              echo "::error::season must be a 4-digit year, got: $SEASON_INPUT"
+              exit 1
+            fi
+            ARGS+=(--season "$SEASON_INPUT")
+          fi
+          npx tsx ./scripts/sync-mlb-player-gamelogs.ts "${ARGS[@]}"
