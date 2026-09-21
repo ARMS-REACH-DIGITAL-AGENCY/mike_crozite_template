@@ -35,6 +35,30 @@ const YATI_PLACEHOLDERS = [
   '/img/yati-placeholders/yati-thinking.png',
 ];
 
+// One life-lesson quote per pre-HS life-year screen (age 1 through
+// HS_GRAD_AGE-1), standing in for the old "this year is still a blank
+// page" placeholder copy on any of those 17 screens that has no fan photo
+// dated to it yet.
+const LIFE_YEAR_QUOTES: Record<number, string> = {
+  1: "You Win Some. You Lose Some.\nThere's No Crying in Baseball.",
+  2: 'The wonder years are when the seeds are planted for the love of the game.',
+  3: "You can't win if you don't play. Take your hacks or always wonder.",
+  4: "A hero can shape the greatness in a child that's waiting to be discovered.",
+  5: 'Some of the best friendships began in the dugout.',
+  6: 'Courage is the absence of fear. Adversity is the opportunity to overcome it.',
+  7: "Sometimes it's the simplest things that make the biggest difference.\nDo simple better.",
+  8: 'Have Fun. Winning is Fun.\nALWAYS Play to Win.',
+  9: 'Baseball at its simplest form,\nis basically just playing catch.',
+  10: "Practice doesn't make perfect.\nIt makes permanent.\nSo practice perfectly.",
+  11: 'Adversity met with grace\nreveals the character of a man.',
+  12: 'Great plays are made\nbefore the pitch is even thrown.',
+  13: 'The stage may be bigger,\nbut the game is still the same.',
+  14: 'Trust in those beside you transforms individual talent\ninto collective strength.',
+  15: "You're always going to win as\na team and lose as a team.\nCheck your ego at the door.",
+  16: 'True accountability is doing the unseen work when nobody is watching.',
+  17: 'Relentlessly pursue your dreams; greatness is earned through the courage to never stop chasing them.',
+};
+
 type StatRow = {
   year?: string | number;
   age?: string | number;
@@ -635,6 +659,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
   const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
+  // Fraction of the rail the "traveled" fill covers, driven by the
+  // continuous scroll position (not the rounded activeIndex) so it tracks
+  // smoothly mid-drag instead of snapping slide-to-slide.
+  const railProgress = model.slides.length > 1
+    ? clamp(scrollProgress, 0, model.slides.length - 1) / (model.slides.length - 1)
+    : 0;
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
     setLocalOverrides((prev) => ({
@@ -896,8 +926,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               {slide.kind === 'lifeyear' && (
                 <>
                   <span className="zt-kick">Age {slide.age}</span>
-                  <span className="zt-title">This year is still a blank page.</span>
-                  <span className="zt-bodycopy">No photo yet from {player?.playerName ? firstName(player.playerName) : 'his'} childhood at this age -- be the first to add one.</span>
+                  <span className="zt-title">&ldquo;{LIFE_YEAR_QUOTES[slide.age ?? 0]}&rdquo;</span>
                   <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
                     <i className="ri-upload-cloud-line" /> Share a photo from this year
                   </button>
@@ -932,16 +961,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
             <i className="ri-arrow-right-s-line" />
           </button>
-          <div className="zt-dots">
+          <div className="zt-rail">
+            <span className="zt-rail-track" aria-hidden="true" />
+            <span className="zt-rail-fill" style={{ width: `${railProgress * 100}%` }} aria-hidden="true" />
             {model.slides.map((slide, i) => (
               <button
                 type="button"
                 key={slide.id}
-                className={`zt-dot${i === activeIndex ? ' active' : ''}`}
+                className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
+                style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
                 onClick={() => scrollToIndex(i)}
                 aria-label={`Slide ${i + 1}`}
               />
             ))}
+            <span className="zt-rail-year" style={{ left: `${railProgress * 100}%` }} aria-hidden="true">
+              {model.slides[activeIndex]?.year ?? ''}
+            </span>
           </div>
         </>
       )}
@@ -1026,6 +1061,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-lifeyear .zt-title { white-space:pre-line; font-style:italic; }
         .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:10.5px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* No cutout/logo on a life-year slide (there's no photo yet) -- the
@@ -1042,17 +1078,30 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-yatzaboy b { font-size:9px; }
         .zt-comment-pill { display:flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.35); color:#fff; font:700 9px/1 Oswald,sans-serif; cursor:pointer; }
 
-        /* -- bottom chrome: a segmented progress bar plus a pair of square
-           prev/next buttons at the bottom-right, matching the real
+        /* -- bottom chrome: a continuous progress rail plus a pair of
+           square prev/next buttons at the bottom-right, matching the real
            corporate hero's bottom bar (sitting just above its baseline
-           gold line), not round dots and mid-edge circular arrows. */
+           gold line), not round dots and mid-edge circular arrows.
+           The rail reads as ONE continuous line (picking up visually from
+           .zt-visual-baseline's full-bleed gold glow below it, which is
+           this same frame's one "burned into the background" swoosh/line)
+           rather than a row of separate hash marks: a single gold "fill"
+           covers the traveled distance, per-slide stops are thin ticks
+           embedded in that same line instead of standalone bars, and the
+           current stop is called out by breaking the line and setting the
+           year directly into that gap -- an opaque year chip painted over
+           both the fill and the track -- rather than lighting a mark up
+           gold. */
         .zt-nav { position:absolute; z-index:7; bottom:5px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        .zt-dots { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; display:flex; align-items:center; gap:4px; }
-        .zt-dot { flex:1; max-width:20px; height:2.5px; border-radius:1px; border:0; background:rgba(255,255,255,.28); padding:0; cursor:pointer; }
-        .zt-dot.active { background:${TIMELINE_YELLOW}; }
+        .zt-rail { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; height:12px; }
+        .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
+        .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
+        .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:rgba(4,5,6,.55); cursor:pointer; }
+        .zt-rail-tick.active { background:transparent; cursor:default; }
+        .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; }
 
         /* Height stays entirely local to this component's own row3/row4 --
            the same two rules this file already had before this redesign,
@@ -1130,7 +1179,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
           .zt-persist-id { left:3.5%; bottom:9px; }
-          .zt-dots { left:38%; }
+          .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
@@ -1166,7 +1215,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              just expressed as a "right" edge doesn't work any more once
              the box is wider than the viewport (the box's actual right
              edge is now off-screen), so it's left+width instead of
-             left+right. .zt-dots/.zt-nav are unaffected: they're
+             left+right. .zt-rail/.zt-nav are unaffected: they're
              positioned relative to the outer (un-doubled) frame, not to
              any one .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
@@ -1178,7 +1227,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              for the same reason (this slide is 200% wide, so "right"
              would measure from an edge that's off-screen). */
           .zt-lifeyear .zt-copy { left:4%; width:44%; }
-          .zt-dots { left:32%; }
+          .zt-rail { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
