@@ -746,20 +746,68 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
-      {/* Each slide carries its own visual (gradient, logo, cutout, name)
-          right alongside its copy, and both move together as one card --
-          matching the corporate site's own model (layered-story-strip.js
-          never dissolves between slides either). A separate non-scrolling,
-          opacity-crossfaded visual stack was tried here first per an
-          earlier request for a dissolve transition, but two *different*
-          logos/cutouts sitting at partial opacity in the exact same spot
-          reads as a rendering glitch, not a cinematic fade -- confirmed by
-          screenshots of it happening mid-drag on a real device -- so this
-          reverts to a hard cut, keeping only the free-scroll mechanism
-          (native scroll + drag + wheel) from that request. The background
-          bleed above is unaffected: it's one shared, non-cropped photo
-          behind every slide, not a per-slide image, so it was never part
-          of this problem. */}
+      {/* Hero visuals live in their own non-scrolling stack, one per slide,
+          each opacity-driven by how close the continuous scroll position is
+          to that slide's index. The falloff is DELIBERATELY steeper than a
+          plain triangle (1 - 2*|d| instead of 1 - |d|, both clamped to
+          [0,1]): a plain linear falloff puts two ADJACENT slides at 0.5
+          opacity simultaneously at the halfway point of a drag -- a true
+          50/50 double-exposure of two different logos/cutouts, which read
+          as a rendering glitch rather than a dissolve (confirmed via
+          screenshots of it happening on a real device). Doubling the slope
+          makes each slide reach 0 by the halfway point instead of at a full
+          slide-width away, so the outgoing slide has fully dissolved out
+          before the incoming one starts dissolving in -- sequential, never
+          overlapping, with a brief fully-transparent instant exactly at the
+          midpoint. The copy track below is a separate, plain native
+          horizontally-scrollable strip underneath it (free scroll matching
+          the corporate site's real timeline mechanism, layered-story-
+          strip.js) -- scroll-snap explicitly off, mouse drag via pointer
+          events since browsers don't drag-scroll for mice, touch/trackpad
+          get native scrolling for free. */}
+      <div className="zt-visual-stack" aria-hidden="true">
+        {ready && model.slides.map((slide, i) => {
+          const opacity = clamp(1 - 2 * Math.abs(scrollProgress - i), 0, 1);
+          if (opacity <= 0) return null;
+          return (
+            <span key={slide.id} className={`zt-visual zt-${slide.kind}`} style={{ opacity }}>
+              {/* No background image here for anchor/season -- .zt-hero-bleed
+                  (a single fixed layer behind rows 1-3) covers this whole
+                  area too, so this is a transparent window onto that one
+                  continuous image instead of a second, independently-cropped
+                  copy of it. */}
+              <span className="zt-visual-gradient" aria-hidden="true" />
+              {slide.kind === 'season' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'anchor' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'anchor' && (
+                <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+              )}
+              {(slide.kind === 'anchor' || slide.kind === 'season') && player?.playerName && (
+                <span className="zt-player-name">{player.playerName}</span>
+              )}
+              {slide.kind === 'season' && (
+                <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
+              )}
+              {slide.kind === 'today' && (
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
+              )}
+              {slide.kind === 'upload' && (
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
+              )}
+              <span className="zt-visual-baseline" aria-hidden="true" />
+            </span>
+          );
+        })}
+      </div>
+
       <div
         className="zt-carousel"
         ref={trackRef}
@@ -771,33 +819,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       >
         {ready && model.slides.map((slide) => (
           <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
-            <span className="zt-visual-gradient" aria-hidden="true" />
-            {slide.kind === 'season' && (
-              <span className="zt-logo-layer" aria-hidden="true">
-                <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
-              </span>
-            )}
-            {slide.kind === 'anchor' && (
-              <span className="zt-logo-layer" aria-hidden="true">
-                <SmartImage src={YS_CREST_FALLBACK} alt="" />
-              </span>
-            )}
-            {slide.kind === 'anchor' && (
-              <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
-            )}
-            {(slide.kind === 'anchor' || slide.kind === 'season') && player?.playerName && (
-              <span className="zt-player-name">{player.playerName}</span>
-            )}
-            {slide.kind === 'season' && (
-              <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
-            )}
-            {slide.kind === 'today' && (
-              <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
-            )}
-            {slide.kind === 'upload' && (
-              <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
-            )}
-            <span className="zt-visual-baseline" aria-hidden="true" />
             <span className="zt-copy">
               {slide.kind === 'anchor' && (
                 <>
@@ -888,23 +909,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       <style jsx>{`
         .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
 
-        /* One card per slide -- visual (gradient/logo/cutout/name) and copy
-           live together and move together, a plain native horizontally-
-           scrollable strip: free scroll matching the corporate site's real
-           timeline mechanism (layered-story-strip.js) -- scroll-snap
-           explicitly off, mouse drag via pointer events since browsers
-           don't drag-scroll for mice, touch/trackpad get native scrolling
-           for free. No cross-slide opacity blending: two different
-           logos/cutouts sitting at partial opacity in the same spot reads
-           as a glitch, not a dissolve, so slides hard-cut past each other
-           like the corporate source does, instead of fading through one
-           another. */
+        /* The hero visuals and the scrolling copy track are two entirely
+           separate layers: the visual stack never moves horizontally, it
+           only dissolves between slides (opacity set inline, from
+           scrollProgress, one slide fully out before the next fades in --
+           see the opacity formula above); the copy track is a plain native
+           horizontally-scrollable strip underneath it, free scroll matching
+           the corporate site's real timeline mechanism
+           (layered-story-strip.js) -- scroll-snap explicitly off, mouse
+           drag via pointer events since browsers don't drag-scroll for
+           mice, touch/trackpad get native scrolling for free. */
+        .zt-visual-stack { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; }
+        .zt-visual { position:absolute; inset:0; overflow:hidden; background:transparent; }
+        .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
+
         .zt-carousel { position:relative; z-index:2; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
         .zt-carousel:active { cursor:grabbing; }
         .zt-carousel::-webkit-scrollbar { display:none; }
         .zt-slide { position:relative; flex:0 0 100%; width:100%; min-width:100%; height:100%; overflow:hidden; cursor:default; background:transparent; }
         .zt-slide.zt-upload { cursor:pointer; }
-        .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
         /* -- team logo: its own big plain layer on the right, bleeding off
            the edge of the frame -- matching the real corporate hero, where
@@ -921,8 +944,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            player/YaTi image must land in the same spot on every slide,
            not just the anchor. .zt-person-yati carries no positional
            overrides of its own anymore; it's the same box as .zt-person. */
-        .zt-slide :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        .zt-slide :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
         /* Player's name -- bottom-left, to the left of the (now
@@ -1046,7 +1069,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-slide :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
+          .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
           .zt-player-name { left:3.5%; bottom:5%; }
@@ -1057,7 +1080,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         @media (max-width:620px) {
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          .zt-slide :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
+          .zt-visual :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-copy { left:32%; right:4%; bottom:18px; }
           .zt-player-name { left:3%; bottom:4%; }
