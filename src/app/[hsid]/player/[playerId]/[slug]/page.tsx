@@ -203,6 +203,8 @@ export default async function ProfilePage({ params }: Props) {
   // team logos are keyed by (Yankees there is 20, not 147). Kept separately
   // so the schedule fetch below can translate it; getTeamContext and the
   // other two fallbacks already return tbc-scheme ids.
+  const currentTeamSource = String((transactionStatus as any)?.current_team_source || "").trim();
+
   const rawMlbTeamId = (transactionStatus as any)?.current_team_source_team_id
     ? String((transactionStatus as any).current_team_source_team_id)
     : null;
@@ -276,15 +278,19 @@ export default async function ProfilePage({ params }: Props) {
     getTeamIdMap(),
   ]);
 
-  // Translate the raw MLB team id to the tbc_teamid getTeamSchedule expects.
-  // team_id_map is keyed 1:1 by each team's own raw id at any level (MLB or
-  // any minor-league affiliate) - unlike a parent-org-scoped crosswalk, this
-  // resolves a minor leaguer's own affiliate team the same way it resolves
-  // an MLB roster player's team. A currentTeamId that came from the other
-  // two fallbacks is already in the right scheme, so it passes through
-  // unchanged.
+  // current_team_source_team_id only needs translating through team_id_map
+  // when it's actually a raw MLB Stats API id, i.e. current_team_source is
+  // 'mlb_api' - team_id_map is keyed 1:1 by each pro team's own raw id at
+  // any level (MLB or any minor-league affiliate), so this resolves a
+  // minor leaguer's own affiliate team the same way it resolves an MLB
+  // roster player's team. The college/HS tbc_* pipelines store the
+  // already-correct tbc_teamid in this same field, so running THAT through
+  // team_id_map (a pro-only crosswalk) would just fail to find it - that
+  // silently broke every college player's schedule until this check existed.
   const scheduleTeamId = rawMlbTeamId
-    ? teamIdMap.get(rawMlbTeamId) || null
+    ? currentTeamSource === "mlb_api"
+      ? teamIdMap.get(rawMlbTeamId) || null
+      : rawMlbTeamId
     : currentTeamId;
 
   const teamSchedule = scheduleTeamId ? await getTeamSchedule(scheduleTeamId) : [];

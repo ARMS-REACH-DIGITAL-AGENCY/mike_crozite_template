@@ -136,13 +136,20 @@ async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
     getTeamIdMap(),
   ]);
 
-  // current_team_source_team_id is the player's CURRENT team's own raw MLB
-  // Stats API id - for a minor leaguer that's the affiliate's own id (e.g.
-  // Somerset Patriots), not the parent club's. v_team_schedule_feed is
-  // keyed by tbc_teamid, so it needs translating either way - same
-  // crosswalk used for opponent logos handles both cases.
-  const rawMlbTeamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
-  const teamId = rawMlbTeamId ? teamIdMap.get(rawMlbTeamId) || '' : '';
+  // current_team_source_team_id is only a raw MLB Stats API id needing
+  // translation through teamIdMap when current_team_source is 'mlb_api'
+  // (a minor leaguer's own affiliate id, e.g. Somerset Patriots, works the
+  // same way as an MLB roster player's). The college/HS tbc_* pipelines
+  // store the already-correct tbc_teamid in this same field - translating
+  // that through a pro-only crosswalk would just fail to find it, which
+  // silently broke every college player's snapshot until this check existed.
+  const currentTeamSource = String((transactionStatus as any)?.current_team_source || '').trim();
+  const rawTeamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
+  const teamId = rawTeamId
+    ? currentTeamSource === 'mlb_api'
+      ? teamIdMap.get(rawTeamId) || ''
+      : rawTeamId
+    : '';
 
   const schedule = teamId ? await getTeamSchedule(teamId) : [];
   const hasSchedule = Boolean(teamId) && (schedule as ScheduleRow[]).length > 0;
