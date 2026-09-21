@@ -17,10 +17,13 @@ import {
   getPlayerCareerPitching,
   getTeamSchedule,
   getPlayerGameLogs,
+  getTeamIdMap,
   getTeamContext,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
 } from "@/lib/db";
+import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
+import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 type Props = {
   params: Promise<{
     hsid: string;
@@ -194,8 +197,20 @@ export default async function ProfilePage({ params }: Props) {
   // v_player_current_team_resolved chain and a player's most recent stat-
   // bearing season, which can point at a stale team after a transfer or a
   // redshirt year with no season on record yet.
-  const currentTeamId = (transactionStatus as any)?.current_team_source_team_id
+  // current_team_source_team_id is the raw MLB Stats API team id (e.g. 147
+  // for the Yankees) when the source is mlb_api - NOT the tbc_teamid that
+  // v_team_schedule_feed/college_schedule_games_raw and this codebase's own
+  // team logos are keyed by (Yankees there is 20, not 147). Kept separately
+  // so the schedule fetch below can translate it; getTeamContext and the
+  // other two fallbacks already return tbc-scheme ids.
+  const currentTeamSource = String((transactionStatus as any)?.current_team_source || "").trim();
+
+  const rawMlbTeamId = (transactionStatus as any)?.current_team_source_team_id
     ? String((transactionStatus as any).current_team_source_team_id)
+    : null;
+
+  const currentTeamId = rawMlbTeamId
+    ? rawMlbTeamId
     : resolvedCurrentTeam?.teamid
       ? String(resolvedCurrentTeam.teamid)
       : (mostRecentSeason as any)?.teamid
@@ -258,18 +273,55 @@ export default async function ProfilePage({ params }: Props) {
       : null
   ) as PitchingSeason | null;
 
-  const [teamSchedule, gameLogs] = await Promise.all([
-    currentTeamId ? getTeamSchedule(currentTeamId) : Promise.resolve([]),
+  const [gameLogs, teamIdMap] = await Promise.all([
     getPlayerGameLogs(safePlayerId),
+    getTeamIdMap(),
   ]);
+
+  // current_team_source_team_id only needs translating through team_id_map
+  // when it's actually a raw MLB Stats API id, i.e. current_team_source is
+  // 'mlb_api' - team_id_map is keyed 1:1 by each pro team's own raw id at
+  // any level (MLB or any minor-league affiliate), so this resolves a
+  // minor leaguer's own affiliate team the same way it resolves an MLB
+  // roster player's team. The college/HS tbc_* pipelines store the
+  // already-correct tbc_teamid in this same field, so running THAT through
+  // team_id_map (a pro-only crosswalk) would just fail to find it - that
+  // silently broke every college player's schedule until this check existed.
+  const scheduleTeamId = rawMlbTeamId
+    ? currentTeamSource === "mlb_api"
+      ? teamIdMap.get(rawMlbTeamId) || null
+      : rawMlbTeamId
+    : currentTeamId;
+
+  const teamSchedule = scheduleTeamId ? await getTeamSchedule(scheduleTeamId) : [];
 
   // Keyed by date so it merges onto the season schedule below regardless of
   // which team the player suited up for that day (a mid-season trade should
-  // not blank out his pre-trade line scores).
-  const gameLogByDate = new Map<string, any>();
+  // not blank out his pre-trade line scores). Stored as an array per date,
+  // not a single row, because a doubleheader gives two schedule rows for
+  // the same date - a single-value map would show the same box score
+  // twice instead of each game's own line.
+  const gameLogByDate = new Map<string, any[]>();
   for (const row of gameLogs as any[]) {
-    const d = row.game_date ? String(row.game_date).slice(0, 10) : null;
-    if (d) gameLogByDate.set(d, row);
+    const d = toISODate(row.game_date);
+    if (!d) continue;
+    const bucket = gameLogByDate.get(d) ?? [];
+    bucket.push(row);
+    gameLogByDate.set(d, bucket);
+  }
+
+  // Pulls one game log entry for a date, preferring the given stat_type -
+  // needed because a two-way player can have both a batting and a pitching
+  // row for the SAME game on the same date, and a plain array.shift() could
+  // grab the wrong one. Removes the entry it returns (splice, not a plain
+  // lookup) so a genuine doubleheader's two same-type rows are each
+  // consumed once instead of both schedule rows showing the same log.
+  function takeGameLog(date: string, preferredType: "batting" | "pitching"): any | undefined {
+    const bucket = gameLogByDate.get(date);
+    if (!bucket || bucket.length === 0) return undefined;
+    const idx = bucket.findIndex((r) => r.stat_type === preferredType);
+    const useIdx = idx !== -1 ? idx : 0;
+    return bucket.splice(useIdx, 1)[0];
   }
 
   // ── Stats grids ──────────────────────────────────────────────────────────────
@@ -366,22 +418,88 @@ export default async function ProfilePage({ params }: Props) {
 
   // ── Schedule rows ─────────────────────────────────────────────────────────────
 
-  const upcomingGames = (teamSchedule as any[])
-    .filter((g) => {
-      const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
-      return d >= new Date().toISOString().slice(0, 10);
-    })
-    .slice(0, 5);
+  // No cap here on purpose - this is the full season, every game, one row
+  // each, chronological ascending (game 1 -> last game). getTeamSchedule's
+  // own `limit` param (default 300) is the only cap. Past and upcoming
+  // games render in a single table (PlayerScheduleTable) rather than two
+  // separate ones - a fan can sort any column, including flipping the
+  // default ascending date order to descending, so there's no need to
+  // pre-split into "recent" vs "upcoming" buckets here.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const allGames = (teamSchedule as any[])
+    .slice()
+    .sort((a: any, b: any) => toISODate(a.game_date).localeCompare(toISODate(b.game_date)));
 
-  const recentGames = (teamSchedule as any[])
-    .filter((g) => {
-      const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
-      return d < new Date().toISOString().slice(0, 10);
-    })
-    .sort((a: any, b: any) =>
-      String(b.game_date || "").localeCompare(String(a.game_date || ""))
-    )
-    .slice(0, 5);
+  // ── Box score columns (Fox Sports-style game log) ───────────────────────────
+
+  function statCell(v: unknown): string {
+    const n = Number(v);
+    return Number.isFinite(n) ? String(n) : "-";
+  }
+
+  function battingBoxScore(stats: Record<string, unknown> | null | undefined) {
+    const s = stats || {};
+    return {
+      ab: statCell(s.atBats),
+      h: statCell(s.hits),
+      r: statCell(s.runs),
+      hr: statCell(s.homeRuns),
+      rbi: statCell(s.rbi),
+      bb: statCell(s.baseOnBalls),
+      so: statCell(s.strikeOuts),
+    };
+  }
+
+  function pitchingBoxScore(stats: Record<string, unknown> | null | undefined) {
+    const s = stats || {};
+    return {
+      ip: s.inningsPitched != null ? String(s.inningsPitched) : "-",
+      h: statCell(s.hits),
+      r: statCell(s.runs),
+      er: statCell(s.earnedRuns),
+      bb: statCell(s.baseOnBalls),
+      so: statCell(s.strikeOuts),
+    };
+  }
+
+  function resultBadge(result: unknown): { letter: "W" | "L" | "T"; className: string } | null {
+    const r = String(result || "").trim();
+    if (r.startsWith("W")) return { letter: "W", className: "pp-result-w" };
+    if (r.startsWith("L")) return { letter: "L", className: "pp-result-l" };
+    if (r.startsWith("T")) return { letter: "T", className: "pp-result-t" };
+    return null;
+  }
+
+  const statHeaders = isPitcher
+    ? ["IP", "H", "R", "ER", "BB", "K"]
+    : ["AB", "H", "R", "HR", "RBI", "BB", "SO"];
+
+  const scheduleTableRows: ScheduleTableRow[] = allGames.map((g: any) => {
+    const d = toISODate(g.game_date);
+    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
+    const badge = resultBadge(g.result);
+    const logoUrl = mlbTeamLogoUrl(teamIdMap, log?.opponent_mlb_id);
+
+    const stats = isPitcher
+      ? (() => {
+          const box = pitchingBoxScore(log?.stats);
+          return [box.ip, box.h, box.r, box.er, box.bb, box.so];
+        })()
+      : (() => {
+          const box = battingBoxScore(log?.stats);
+          return [box.ab, box.h, box.r, box.hr, box.rbi, box.bb, box.so];
+        })();
+
+    return {
+      iso: d || "",
+      dateLabel: formatDisplayDate(d) || d || "--",
+      opponent: g.opponent || g.away_team || "--",
+      logoUrl,
+      resultLetter: badge?.letter ?? null,
+      resultClass: badge?.className ?? "",
+      stats,
+    };
+  });
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
@@ -403,67 +521,12 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
-          {upcomingGames.length > 0 ? (
-            <div className="pp-sched-section">
-              <div className="pp-sched-heading">UPCOMING GAMES</div>
-              <table className="pp-sched-table">
-                <thead>
-                  <tr>
-                    <th>DATE</th>
-                    <th>OPPONENT</th>
-                    <th>LOCATION</th>
-                    <th>LINE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {upcomingGames.map((g: any, i: number) => {
-                    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
-                    const log = d ? gameLogByDate.get(d) : null;
-                    return (
-                      <tr key={i}>
-                        <td>{d || "--"}</td>
-                        <td>{g.opponent || g.away_team || "--"}</td>
-                        <td>{g.location || (g.is_home ? "HOME" : "AWAY")}</td>
-                        <td>{log?.line_summary || "--"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          {scheduleTableRows.length > 0 ? (
+            <PlayerScheduleTable rows={scheduleTableRows} statHeaders={statHeaders} todayIso={todayIso} />
           ) : (
             <div className="pp-fz-placeholder">
               <i className="ri-calendar-line pp-ph-icon" />
               <p>Schedule will appear here once available.</p>
-            </div>
-          )}
-          {recentGames.length > 0 && (
-            <div className="pp-sched-section">
-              <div className="pp-sched-heading">RECENT RESULTS</div>
-              <table className="pp-sched-table">
-                <thead>
-                  <tr>
-                    <th>DATE</th>
-                    <th>OPPONENT</th>
-                    <th>RESULT</th>
-                    <th>LINE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentGames.map((g: any, i: number) => {
-                    const d = g.game_date ? String(g.game_date).slice(0, 10) : "";
-                    const log = d ? gameLogByDate.get(d) : null;
-                    return (
-                      <tr key={i}>
-                        <td>{d || "--"}</td>
-                        <td>{g.opponent || g.away_team || "--"}</td>
-                        <td>{g.result || "--"}</td>
-                        <td>{log?.line_summary || "--"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>
@@ -956,34 +1019,6 @@ export default async function ProfilePage({ params }: Props) {
         }
         .pp-season-table tr:hover td {
           background: rgba(255,255,255,.025);
-        }
-
-        /* Schedule table */
-        .pp-sched-section { margin-bottom: 16px; }
-        .pp-sched-heading {
-          font: 700 10px "Bebas Neue", sans-serif;
-          letter-spacing: .08em;
-          color: var(--muted, #888);
-          margin-bottom: 6px;
-          text-transform: uppercase;
-        }
-        .pp-sched-table {
-          width: 100%;
-          border-collapse: collapse;
-          font: 400 10px/1.4 Oswald, sans-serif;
-        }
-        .pp-sched-table th {
-          font: 600 8px/1 Oswald, sans-serif;
-          letter-spacing: .1em;
-          color: var(--muted, #888);
-          padding: 4px 6px;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
-          text-align: left;
-        }
-        .pp-sched-table td {
-          padding: 5px 6px;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.06));
-          color: var(--fg, #f0f0f0);
         }
 
         /* Social */

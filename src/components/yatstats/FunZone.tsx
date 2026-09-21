@@ -30,6 +30,7 @@
 // - fz-panel gets whatever space remains after CTA and tabs.
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 // Constants
 
@@ -69,6 +70,13 @@ interface FunZoneProps {
   schoolName?: string | null;
   /** School location (school_success.hslocation, e.g. "Lakeside, CA"), for the share message. */
   schoolLocation?: string | null;
+  /**
+   * Pre-rendered PlayerSevenDaySnapshot (an async Server Component) from
+   * PlayerCardBack - rendered here rather than imported directly since this
+   * file is a Client Component and can't itself render an async Server
+   * Component, only receive one as already-rendered children/a prop.
+   */
+  scheduleSnapshot?: ReactNode;
 }
 
 interface NewsTease {
@@ -159,14 +167,8 @@ function YatiCta({
 
 // Tab panel renderers
 
-function SchedulePanel({ player }: { player: Record<string, unknown> }) {
-  const nextGame = player.next_game_text || player.next_game_date || null;
-  const g1 = player.lg1_line || null;
-  const g2 = player.lg2_line || null;
-  const g3 = player.lg3_line || null;
-  const hasSchedule = nextGame || g1 || g2 || g3;
-
-  if (!hasSchedule) {
+function SchedulePanel({ scheduleSnapshot }: { scheduleSnapshot?: ReactNode }) {
+  if (!scheduleSnapshot) {
     return (
       <div className="fz-placeholder">
         <i className="ri-calendar-line fz-ph-icon" />
@@ -175,24 +177,7 @@ function SchedulePanel({ player }: { player: Record<string, unknown> }) {
     );
   }
 
-  return (
-    <div className="fz-schedule">
-      {nextGame && (
-        <div className="fz-sched-block">
-          <div className="fz-sched-pill">NEXT GAME</div>
-          <div className="fz-sched-val">{String(nextGame)}</div>
-        </div>
-      )}
-      {(g1 || g2 || g3) && (
-        <div className="fz-sched-block">
-          <div className="fz-sched-pill">LAST 3 GAMES</div>
-          {g1 && <div className="fz-sched-val">{String(g1)}</div>}
-          {g2 && <div className="fz-sched-val">{String(g2)}</div>}
-          {g3 && <div className="fz-sched-val">{String(g3)}</div>}
-        </div>
-      )}
-    </div>
-  );
+  return <>{scheduleSnapshot}</>;
 }
 
 function StatsPanel({
@@ -520,6 +505,7 @@ export default function FunZone({
   shareBaseUrl,
   schoolName,
   schoolLocation,
+  scheduleSnapshot,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [activeStatsIndex, setActiveStatsIndex] = useState(0);
@@ -577,7 +563,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "schedule" ? " fz-panel-active" : ""}`}
         data-fz-tab="schedule"
       >
-        <SchedulePanel player={player} />
+        <SchedulePanel scheduleSnapshot={scheduleSnapshot} />
       </div>
       <div
         className={`fz-panel${activeTab === "stats" ? " fz-panel-active" : ""}`}
@@ -902,27 +888,6 @@ export default function FunZone({
           font:700 clamp(16px,5.6cqi,28px)/1 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           white-space:nowrap;
-        }
-
-        /* -- Schedule panel --------------------------------------------- */
-        .fz-schedule{display:flex;flex-direction:column;gap:8px}
-        .fz-sched-block{display:flex;flex-direction:column;gap:3px}
-        .fz-sched-pill{
-          display:inline-block;
-          background:rgba(30,22,14,0.08);
-          border:1px solid rgba(30,22,14,0.18);
-          border-radius:10px;
-          padding:2px 8px;
-          font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
-          letter-spacing:.08em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.55);
-          margin-bottom:1px;
-        }
-        .fz-sched-val{
-          font:300 clamp(8px,2.5cqi,11px)/1.3 Oswald,sans-serif;
-          color:rgba(30,22,14,0.85);
-          padding-left:2px;
         }
 
         /* -- News teaser ------------------------------------------------ */

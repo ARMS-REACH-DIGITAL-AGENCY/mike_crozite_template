@@ -1,6 +1,23 @@
 // src/lib/playerUtils.ts
 // Shared helper functions for player data formatting
 
+/**
+ * Normalizes a DB-returned date value to "YYYY-MM-DD".
+ *
+ * node-postgres parses a DATE column into a JS Date object by default (no
+ * custom type parser is registered in db.ts), so `String(value)` on a real
+ * row gives something like "Sat Sep 19 2026 00:00:00 GMT+0000 (Coordinated
+ * Universal Time)", not an ISO date string - .slice(0, 10) on that yields
+ * "Sat Sep 19", which silently never matches a "YYYY-MM-DD" key anywhere
+ * this is used for date-keyed lookups. Handles both a Date object and a
+ * pre-stringified value (e.g. from a tool that already serialized to JSON).
+ */
+export function toISODate(value: unknown): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 export function fmt(key: string, value: unknown): string {
   if (value === null || value === undefined || value === "" || value === "--") return "--";
   const DECIMAL = ["AVG","OBP","SLG","OPS","ERA","WHIP","H9","BB9","K9","KBB","K/9","K/BB"];
@@ -15,6 +32,51 @@ export function fmt(key: string, value: unknown): string {
   }
   if (k === "IP") { const n = parseFloat(String(value)); return isNaN(n) ? String(value) : n.toFixed(1); }
   return String(value);
+}
+
+/**
+ * Builds the S3 logo URL for a team, given the pre-fetched raw MLB Stats
+ * API id -> tbc_teamid map from getTeamIdMap() in db.ts. Pure/sync - lives
+ * here rather than in db.ts because db.ts has 'use server' at module scope,
+ * which forces every export to be an async Server Action.
+ */
+export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown): string | null {
+  const key = String(mlbTeamId || "").trim();
+  if (!key) return null;
+  const teamid = logoMap.get(key);
+  if (!teamid) return null;
+  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${teamid}.png`;
+}
+
+// Raw MLB Stats API team id -> official 3-letter abbreviation. Fixed set of
+// 30 clubs, stable year to year - not worth a DB round trip or crosswalk
+// table for a lookup this small and static.
+const MLB_TEAM_ABBR: Record<string, string> = {
+  "108": "LAA", "109": "ARI", "110": "BAL", "111": "BOS", "112": "CHC",
+  "113": "CIN", "114": "CLE", "115": "COL", "116": "DET", "117": "HOU",
+  "118": "KC", "119": "LAD", "120": "WSH", "121": "NYM", "133": "ATH",
+  "134": "PIT", "135": "SD", "136": "SEA", "137": "SF", "138": "STL",
+  "139": "TB", "140": "TEX", "141": "TOR", "142": "MIN", "143": "PHI",
+  "144": "ATL", "145": "CWS", "146": "MIA", "147": "NYY", "158": "MIL",
+};
+
+export function mlbTeamAbbreviation(mlbTeamId: unknown): string {
+  return MLB_TEAM_ABBR[String(mlbTeamId || "").trim()] || "";
+}
+
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// "2026-09-17" -> "Sep 17, 2026". Parses the ISO string directly instead of
+// going through Date + Intl so the result never shifts with the runtime's
+// timezone (a plain `new Date("2026-09-17")` is UTC midnight, which prints
+// as the previous day in any timezone behind UTC).
+export function formatDisplayDate(iso: unknown): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  if (!match) return "";
+  const [, y, m, d] = match;
+  const monthName = MONTH_ABBR[Number(m) - 1];
+  if (!monthName) return "";
+  return `${monthName} ${Number(d)}, ${y}`;
 }
 
 export function parseDraft(raw: string | null): string {

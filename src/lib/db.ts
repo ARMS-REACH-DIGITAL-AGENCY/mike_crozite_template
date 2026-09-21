@@ -1537,7 +1537,7 @@ export async function getTeamContext(teamId: string): Promise<{ organization?: s
 // ---------------------------------------------------------------------------
 // TEAM SCHEDULE - chronological game feed for a given team_id.
 // ---------------------------------------------------------------------------
-export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[]> {
+export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[]> {
   try {
     // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
     // team_schedules). College teams' games live in college_schedule_games_raw,
@@ -1558,7 +1558,10 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
            home_away,
            opponent,
            home_score,
-           away_score
+           away_score,
+           game_pk,
+           home_team_id,
+           away_team_id
          FROM v_team_schedule_feed
          WHERE tbc_teamid::text = $1
 
@@ -1576,7 +1579,10 @@ export async function getTeamSchedule(teamId: string, limit = 200): Promise<any[
            CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN 'Home' ELSE 'Away' END AS home_away,
            CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN g.away_team_name ELSE g.home_team_name END AS opponent,
            g.home_score,
-           g.away_score
+           g.away_score,
+           NULL::bigint AS game_pk,
+           NULL::integer AS home_team_id,
+           NULL::integer AS away_team_id
          FROM college_schedule_games_raw g
          WHERE g.teamid::text = $1
        )
@@ -1629,7 +1635,8 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
          opponent_name,
          home_away,
          line_summary,
-         stats
+         stats,
+         raw_payload->'opponent'->>'id' AS opponent_mlb_id
        FROM public.player_game_logs
        WHERE playerid::text = $1
        ORDER BY game_date ASC`,
@@ -1639,6 +1646,46 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
   } catch {
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// MLB TEAM LOGO MAP - mlb_org_id (MLB Stats API team.id, e.g. 147 for the
+// Yankees) -> teamid (the actual S3 logo key: teams/{teamid}.png).
+//
+// NOT the same as teams.teamid/mlb_stats_api_id - that pairing looks like
+// the right crosswalk but does not match what's actually in S3 (verified:
+// teams.teamid=10 is labeled Minnesota Twins there, but teams/10.png in S3
+// is the Rockies). "150-pro_team_look_up_tbc_mlb".teamid is the one that's
+// actually verified against the real S3 files (10 -> Rockies, 14 -> Royals,
+// 28 -> Rays, all confirmed).
+//
+// team_id_map, not "150-pro_team_look_up_tbc_mlb", is the crosswalk to use
+// for "what tbc_teamid is THIS raw MLB Stats API team id" at any level.
+// "150-pro_team_look_up_tbc_mlb".mlb_org_id is the PARENT organization's id,
+// shared by every affiliate (all Yankees levels carry mlb_org_id=147) - so
+// it can only ever resolve the raw id of the actual top-level MLB club
+// itself, never a minor-league affiliate's own distinct raw id (e.g.
+// Somerset Patriots' own raw id, not the Yankees'). team_id_map is instead
+// keyed 1:1 by each team's own real raw id (populated from team_schedules,
+// the full MLB+MiLB ingest - see scripts/sync_mlb_schedules.py), so the
+// same lookup resolves a schedule teamid or opponent logo correctly
+// whether the team is an MLB club or any of its minor-league affiliates.
+// ---------------------------------------------------------------------------
+export async function getTeamIdMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const { rows } = await query(
+      `SELECT mlb_stats_api_id, tbc_teamid
+       FROM public.team_id_map
+       WHERE mlb_stats_api_id IS NOT NULL AND tbc_teamid IS NOT NULL`
+    );
+    for (const row of rows as { mlb_stats_api_id: string; tbc_teamid: string }[]) {
+      map.set(String(row.mlb_stats_api_id), String(row.tbc_teamid));
+    }
+  } catch {
+    // fall through with whatever was collected
+  }
+  return map;
 }
 
 // ---------------------------------------------------------------------------
@@ -1891,6 +1938,7 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
       `SELECT
          playerid,
          current_team_name,
+         current_team_source,
          current_team_source_team_id,
          team_affiliation_status,
          last_transaction_type,
