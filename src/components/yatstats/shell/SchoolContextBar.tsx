@@ -16,10 +16,6 @@ interface SchoolContextBarProps {
   activeSection: string;
 }
 
-function formatSlugToLabel(slug: string): string {
-  return slug.split('-').filter(Boolean).map((part) => part.toUpperCase()).join(' ');
-}
-
 function joinSchoolUrl(base: string, suffix = ''): string {
   const cleanBase = String(base || '').replace(/\/$/, '');
   return cleanBase ? `${cleanBase}${suffix}` : suffix || '/';
@@ -156,9 +152,11 @@ export default function SchoolContextBar({
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
-      const segments = pathname.split('/').filter(Boolean);
-      const slug = segments[segments.length - 1] || '';
-      return slug ? formatSlugToLabel(slug) : 'PLAYER PROFILE';
+      // The player's name now shows large inside the Career Path Timeline
+      // slides themselves, so this breadcrumb line no longer needs to
+      // repeat it -- matches the ACTIVE ALUMNI NEWS / ALL-TIME LIST pattern
+      // used by every other section label below.
+      return 'CAREER PATH TIMELINE';
     }
 
     return SECTION_LABELS[activeSection] || activeSection.toUpperCase();

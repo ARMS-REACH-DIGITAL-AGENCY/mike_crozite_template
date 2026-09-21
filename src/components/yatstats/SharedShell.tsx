@@ -127,11 +127,11 @@ export default function SharedShell({
       {!isPlayerProfile && <GalleryFilterController />}
       {!isPlayerProfile && <Row3MirrorGuard />}
 
-      <div className="yat-row1-shell">
+      <div className={`yat-row1-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <GlobalTopbar hsid={hsid} />
       </div>
 
-      <div className="yat-row2-shell">
+      <div className={`yat-row2-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <SchoolContextBar
           isPlayerProfile={isPlayerProfile}
           isGallery={isGallery}

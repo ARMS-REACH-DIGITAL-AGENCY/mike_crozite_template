@@ -1,31 +1,62 @@
 'use client';
 
-import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-// Row heights before this component merged them: --row3-h (100px, the old
-// plain image strip) + --row4-h (56px, the old separate thin year-tick
-// line). Combining them into one taller row reuses that same total budget
-// instead of asking the page for more -- the FunZone panel below is
-// completely unaffected.
-const ROW_H = 156;
-const ANCHOR_W = 300; // anchor + upload: full copy panel, needs the most room
-const SEASON_W = 220; // season: logo + cutout + a short caption
-const CARD_W = 130; // headshot: image only
+// One-slide-per-season carousel. ONE continuous frame -- no grid split, no
+// second box, no border -- at every breakpoint. The cutout is confined to
+// roughly the left third of the frame; copy sits in the right two-thirds,
+// vertically centered, over a gradient that darkens specifically on that
+// side for legibility. Same single-frame structure on mobile too, just
+// smaller type -- it never restructures into two stacked boxes.
+// Height stays local to the row3 budget this component already owned
+// before this redesign (156px). Now that the background photo bleeds up
+// behind rows 1 & 2, row3 itself doesn't need to carry that height on its
+// own to read as a full hero -- shrunk from 260 accordingly. Deliberately
+// not touching the FunZone panel's height budget below this component.
+const ROW_H = 200;
+// Mobile carries the exact same content (kicker/title/bodycopy still
+// vertically centered) at a shorter box -- 200px was leaving real dead
+// space above the hero image/headline once the type scaled down for
+// narrow screens, per direct feedback ("very tall with a lot of dead
+// space").
+const ROW_H_MOBILE = 150;
 const TIMELINE_YELLOW = '#ffb21c';
+// Same asset the corporate hero and this component's own HS anchor slide
+// have always pointed at (audience-site.js's BG) -- one canonical
+// background image, not a separate copy.
+const HERO_BG = '/img/career-path-default.png';
+const YS_CREST_FALLBACK = '/img/ys-crest.png';
+const YATI_PLACEHOLDERS = [
+  '/img/yati-placeholders/yati-standing-hips.png',
+  '/img/yati-placeholders/yati-running-field.png',
+  '/img/yati-placeholders/yati-catcher-back.png',
+  '/img/yati-placeholders/yati-thinking.png',
+];
 
 type StatRow = {
   year?: string | number;
+  age?: string | number;
   team?: string;
   teamid?: string | number;
   team_id?: string | number;
   level?: string;
   org_conf?: string;
   league?: string;
+  // batting
+  avg?: string | number;
+  bavg?: string | number;
+  hr?: string | number;
+  rbi?: string | number;
+  // pitching
+  w?: string | number;
+  l?: string | number;
+  era?: string | number;
+  ip?: string | number;
 };
 
-type MomentKind = 'anchor' | 'season' | 'upload' | 'headshot';
+type SlideKind = 'anchor' | 'season' | 'upload' | 'today' | 'lifeyear';
 
 type MomentComment = {
   id: string;
@@ -34,16 +65,21 @@ type MomentComment = {
   created_at: string;
 };
 
-type Moment = {
+type Slide = {
   id: string;
-  kind: MomentKind;
+  kind: SlideKind;
   year: number;
-  label: string;
   title: string;
   caption?: string;
+  headline?: string;
   src?: string;
   srcs?: string[];
-  width: number;
+  teamLogoSrcs?: string[];
+  seasonCutoutSrc?: string;
+  yatiFallback?: string;
+  // lifeyear-kind only (the empty, no-photo-yet placeholder for a
+  // pre-high-school year of the player's life)
+  age?: number;
   // upload-kind only
   momentDbId?: string;
   contributorName?: string;
@@ -110,6 +146,19 @@ function teamLogoCandidates(row: StatRow) {
   ];
 }
 
+// Season-specific hero cutout, keyed by {playerId}_{year} -- plain S3
+// naming convention (no DB row, no filename-date parsing needed since the
+// season year already IS the join key). Falls back through SmartImage's
+// onError chain to a rotating YaTi placeholder when the real cutout
+// doesn't exist yet.
+function seasonCutoutCandidates(playerId: string, year: number) {
+  return [`${S3_BASE}/players/season-cutouts/${encodeURIComponent(playerId)}_${year}.png`];
+}
+
+function yatiPlaceholderFor(index: number) {
+  return YATI_PLACEHOLDERS[index % YATI_PLACEHOLDERS.length];
+}
+
 function firstName(full?: string) {
   return String(full || '').trim().split(/\s+/)[0] || 'Player';
 }
@@ -130,6 +179,30 @@ function timeAgo(iso: string) {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months} mo ago`;
   return `${Math.floor(months / 12)} yr ago`;
+}
+
+// Plain, factual, computed-from-real-stats headline. No judgment calls, no
+// invented narrative -- just the numbers, so it is never wrong and never
+// empty for a season that has stats. A hand-written headline (added later,
+// per player, per season) can override this; this is only the default.
+function statLineHeadline(row: StatRow, teamName: string): string {
+  const isPitching = row.w !== undefined || row.l !== undefined || row.era !== undefined || row.ip !== undefined;
+  const parts: string[] = [];
+
+  if (isPitching) {
+    const w = row.w, l = row.l, era = row.era, ip = row.ip;
+    if (w !== undefined && w !== '' && l !== undefined && l !== '') parts.push(`${w}-${l}`);
+    if (era !== undefined && era !== '') parts.push(`${era} ERA`);
+    if (ip !== undefined && ip !== '') parts.push(`${ip} IP`);
+  } else {
+    const avg = row.avg ?? row.bavg;
+    if (avg !== undefined && avg !== '') parts.push(`${avg} AVG`);
+    if (row.hr !== undefined && row.hr !== '' && Number(row.hr) > 0) parts.push(`${row.hr} HR`);
+    if (row.rbi !== undefined && row.rbi !== '') parts.push(`${row.rbi} RBI`);
+  }
+
+  if (!parts.length) return teamName ? `Played for ${teamName}.` : 'A season on the roster.';
+  return `${parts.join(' · ')}${teamName ? ` — ${teamName}` : ''}`;
 }
 
 function openAccountDrawer(tab: 'signin' | 'register') {
@@ -190,30 +263,7 @@ function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string
   return <img className={className} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
 }
 
-// Background + player-cutout layering for the one-off anchor card only --
-// matches the corporate slideshow's visual/person layer structure.
-function CutoutOverlay({ bgSrc, playerId, playerName }: { bgSrc?: string; playerId: string; playerName?: string }) {
-  return (
-    <span className="zt-cutout-shell">
-      <SmartImage className="zt-cutout-bg zt-cutout-bg-cover" src={bgSrc} alt="" />
-      <SmartImage className="zt-cutout-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(playerName)} cutout`} />
-    </span>
-  );
-}
-
-// Season cards: a soft, dark graduated background (not the flat logo image
-// itself) with the team logo sitting on top as a small graphic, like a
-// badge -- no player silhouette repeating card after card down the strip.
-function SeasonBadge({ srcs, teamName }: { srcs?: string[]; teamName: string }) {
-  return (
-    <span className="zt-season-badge-shell">
-      <span className="zt-season-badge-glow" aria-hidden="true" />
-      <SmartImage className="zt-season-badge-logo" srcs={srcs} alt={teamName} />
-    </span>
-  );
-}
-
-function ReactionButton({ moment, session, onToggled }: { moment: Moment; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
+function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
   const [busy, setBusy] = useState(false);
 
   async function handleClick(event: MouseEvent) {
@@ -250,7 +300,7 @@ function ReactionButton({ moment, session, onToggled }: { moment: Moment; sessio
   );
 }
 
-function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReactionToggled }: { moment: Moment; session: FanSession | null; onClose: () => void; onCommentPosted: (id: string, comment: MomentComment) => void; onReactionToggled: (id: string, reacted: boolean, count: number) => void }) {
+function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReactionToggled }: { moment: Slide; session: FanSession | null; onClose: () => void; onCommentPosted: (id: string, comment: MomentComment) => void; onReactionToggled: (id: string, reacted: boolean, count: number) => void }) {
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
@@ -395,7 +445,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [localOverrides, setLocalOverrides] = useState<Record<string, { reactionCount: number; viewerReacted: boolean; extraComments: MomentComment[] }>>({});
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // Continuous scroll position, in slide-widths (1.35 == 35% of the way from
+  // slide 1 into slide 2) -- the source of truth for both which slide reads
+  // as "active" (dots/arrows) and how far each slide's hero visual has
+  // dissolved in/out, instead of a plain integer index that only ever jumps.
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ dragging: boolean; moved: boolean; startX: number; startScroll: number; pointerId: number | null }>({ dragging: false, moved: false, startX: 0, startScroll: 0, pointerId: null });
+  const scrollRafRef = useRef<number | null>(null);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -420,6 +478,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     let cancelled = false;
     setUploadsLoaded(false);
     setLocalOverrides({});
+    initializedRef.current = false;
     fetch(`/api/player-moments?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => { if (!cancelled) setUploads(Array.isArray(data?.moments) ? data.moments : []); })
@@ -432,11 +491,31 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const currentYear = new Date().getFullYear();
     const statYears = stats.map((row) => yearOf(row.year)).filter((year): year is number => typeof year === 'number');
     const firstStatYear = statYears.length ? Math.min(...statYears) : currentYear;
-    const hsYear = Math.max(1900, firstStatYear - 1);
     const endYear = Math.max(currentYear, ...statYears, firstStatYear);
 
+    // We can't count on knowing a player's real DOB, so the life-year
+    // screens before high school are standardized: always exactly 17 of
+    // them (ages 1-17), with HS always the 18th screen -- rather than
+    // however many actually happened to fall before a per-player derived
+    // birth year (which would make some players' HS screen the 17th, some
+    // the 18th, some the 15th depending on data quality). When a stat row's
+    // age field lets us derive a real birth year we still use it, purely to
+    // pick a more accurate hsYear (and thus real calendar years for those
+    // 17 screens, so an already-dated fan photo can land in the right one);
+    // when it can't be derived, hsYear falls back to the old
+    // firstStatYear-1 heuristic and the 17 screens just count back from
+    // that -- either way there are always 17 of them.
+    const HS_GRAD_AGE = 18;
+    const rowWithAge = stats
+      .map((row) => ({ year: yearOf(row.year), age: Number(row.age) }))
+      .filter((r): r is { year: number; age: number } => typeof r.year === 'number' && Number.isFinite(r.age) && r.age > 0)
+      .sort((a, b) => a.year - b.year)[0];
+    const birthYear = rowWithAge ? rowWithAge.year - rowWithAge.age : null;
+    const hsYear = birthYear ? birthYear + HS_GRAD_AGE : Math.max(1900, firstStatYear - 1);
+
     const seen = new Set<string>();
-    const seasons: Moment[] = [];
+    const seasons: Slide[] = [];
+    let seasonIndex = 0;
     stats.forEach((row) => {
       const year = yearOf(row.year);
       const team = String(row.team || '').trim();
@@ -446,35 +525,42 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       const key = `${year}|${team}|${level}|${org}`;
       if (seen.has(key)) return;
       seen.add(key);
-      const srcs = teamLogoCandidates(row);
+      const teamLogoSrcs = teamLogoCandidates(row);
       seasons.push({
         id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
         kind: 'season',
         year,
-        label: String(year),
         title: team,
         caption: `${level}${org ? ` · ${org}` : ''}`,
-        src: srcs[0],
-        srcs,
-        width: SEASON_W,
+        headline: statLineHeadline(row, team),
+        teamLogoSrcs,
+        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
+        yatiFallback: yatiPlaceholderFor(seasonIndex++),
       });
     });
     seasons.sort((a, b) => a.year - b.year || a.title.localeCompare(b.title));
 
-    const uploaded: Moment[] = uploads
+    // hsYear - 17 .. hsYear - 1 are the 17 standardized life-year slots,
+    // whether or not a real birth year could be derived (see above) -- a
+    // fan photo dated into that range fills its year's placeholder instead
+    // of clamping up to hsYear.
+    const lifeYearStart = hsYear - (HS_GRAD_AGE - 1);
+    const preHsUploaded: Slide[] = [];
+    const postHsUploaded: Slide[] = [];
+    uploads
       .filter((item) => !isCurrentHeadshotUrl(item.image_data_url, playerId))
-      .map((item): Moment => {
-        const year = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
+      .forEach((item) => {
+        const rawYear = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
+        const isPreHs = rawYear >= lifeYearStart && rawYear < hsYear;
+        const year = isPreHs ? rawYear : clamp(rawYear, hsYear, endYear);
         const override = localOverrides[`upload-${item.id}`];
-        return {
+        const slide: Slide = {
           id: `upload-${item.id}`,
           kind: 'upload',
-          year: clamp(year, hsYear, endYear),
-          label: String(year),
+          year,
           title: item.title || 'Fan memory',
           caption: item.caption || '',
           src: item.image_url || item.image_data_url,
-          width: ANCHOR_W,
           momentDbId: item.id,
           contributorName: item.contributor_name,
           relationship: item.relationship,
@@ -482,45 +568,73 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           viewerReacted: override ? override.viewerReacted : Boolean(item.viewer_reacted),
           comments: [...(item.comments || []), ...(override?.extraComments || [])],
         };
-      }).sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
+        (isPreHs ? preHsUploaded : postHsUploaded).push(slide);
+      });
+    preHsUploaded.sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
+    postHsUploaded.sort((a, b) => a.year - b.year || a.id.localeCompare(b.id));
 
-    const anchor: Moment = {
+    // Always exactly 17 life-year screens (standardized -- see above),
+    // ages 1 through 17, filled with a fan photo already dated to that
+    // year where one exists, otherwise an empty invite screen for that
+    // specific age.
+    const filledLifeYears = new Set(preHsUploaded.map((s) => s.year));
+    const lifeYears: Slide[] = Array.from({ length: HS_GRAD_AGE - 1 }, (_, i) => lifeYearStart + i)
+      .filter((year) => !filledLifeYears.has(year))
+      .map((year) => ({
+        id: `lifeyear-${year}`,
+        kind: 'lifeyear' as const,
+        year,
+        age: year - lifeYearStart + 1,
+        title: `Age ${year - lifeYearStart + 1}`,
+      }));
+
+    const anchor: Slide = {
       id: 'career-path-anchor',
       kind: 'anchor',
       year: hsYear,
-      label: 'HS',
-      title: 'High school journey anchor',
-      width: ANCHOR_W,
+      title: player?.playerName || 'High School',
     };
 
-    const headshot: Moment = {
+    const today: Slide = {
       id: 'current-headshot',
-      kind: 'headshot',
+      kind: 'today',
       year: endYear,
-      label: String(endYear),
-      title: 'Current headshot',
+      title: 'Today',
       src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
-      width: CARD_W,
     };
 
-    return {
-      startYear: hsYear,
-      endYear,
-      moments: [anchor, ...uploaded, ...seasons, headshot],
-      ticks: Array.from(new Set([hsYear, ...statYears, endYear])).sort((a, b) => a - b),
-    };
-  }, [stats, uploads, playerId, localOverrides]);
+    // No more force-pinning the anchor to index 0: preHsUploaded + lifeYears
+    // always total exactly 17 screens between them, so sorted by year the
+    // anchor always lands at index 17 -- the 18th screen -- instead of
+    // always being first. A fan can still swipe further back through those
+    // 17 life years, all the way to age 1.
+    const slides = [...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, today]
+      .sort((a, b) => a.year - b.year);
+    const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
+
+    return { startYear: birthYear ?? hsYear, endYear, hsYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
+  }, [stats, uploads, playerId, localOverrides, player?.playerName]);
 
   const ready = statsLoaded && uploadsLoaded;
-  const canvasWidth = useMemo(() => model.moments.reduce((sum, moment) => sum + moment.width, 0), [model.moments]);
-  const openMoment = openMomentId ? model.moments.find((moment) => moment.id === openMomentId) || null : null;
 
   useEffect(() => {
-    if (!ready || variant !== 'images') return;
-    requestAnimationFrame(() => {
-      if (scrollerRef.current) scrollerRef.current.scrollLeft = 0;
-    });
-  }, [ready, variant, playerId]);
+    if (!ready || initializedRef.current) return;
+    initializedRef.current = true;
+    // Opens on the HS anchor slide (now the 18th screen, not the first --
+    // see model.anchorIndex above), jumped to instantly rather than
+    // animated in from slide 0 since there's no slide 0-through-17 pass to
+    // show on first paint.
+    setScrollProgress(model.anchorIndex);
+    scrollToIndex(model.anchorIndex, false);
+  }, [ready, model.anchorIndex]);
+
+  useEffect(() => {
+    const maxIndex = Math.max(0, model.slides.length - 1);
+    if (scrollProgress > maxIndex) setScrollProgress(maxIndex);
+  }, [model.slides.length, scrollProgress]);
+
+  const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
+  const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
     setLocalOverrides((prev) => ({
@@ -532,7 +646,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   function handleCommentPosted(id: string, comment: MomentComment) {
     setLocalOverrides((prev) => {
       const existing = prev[id];
-      const fallbackMoment = model.moments.find((m) => m.id === id);
+      const fallbackMoment = model.slides.find((m) => m.id === id);
       return {
         ...prev,
         [id]: {
@@ -560,110 +674,277 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
   }
 
-  function handleMomentClick(moment: Moment) {
-    if (moment.kind === 'season') openUpload(moment.year);
-    if (moment.kind === 'upload') setOpenMomentId(moment.id);
+  // Free scroll, matching the corporate site's real timeline mechanism
+  // (layered-story-strip.js): the track is a plain native horizontally
+  // scrollable element with scroll-snap turned OFF, not a click-only
+  // stepper -- touch/trackpad get native scrolling for free, and a
+  // pointer-drag handler gives mouse users the same "grab the timeline"
+  // feel (mice have no built-in click-and-drag-to-scroll). Layered on top
+  // of that free scroll -- and this part isn't in the corporate source,
+  // it's new -- the hero visual for each slide dissolves in/out based on
+  // how close the continuous scroll position is to that slide's index,
+  // instead of hard-cutting between slides.
+  //
+  // A "slide" is NOT always exactly one track.clientWidth: on narrow
+  // screens each .zt-slide is deliberately 200% of the viewport (see the
+  // 620px media query below), so it takes twice the physical scroll
+  // distance to reach the next moment -- otherwise a phone-width screen
+  // gave every moment barely any room of its own, with the next hero image
+  // arriving almost as soon as you started swiping, per direct feedback.
+  // Read the actual rendered slide width instead of assuming it equals the
+  // container's width.
+  function getSlideWidth() {
+    const el = trackRef.current;
+    if (!el) return 1;
+    const first = el.firstElementChild as HTMLElement | null;
+    return first?.getBoundingClientRect().width || el.clientWidth || 1;
+  }
+  function scrollToIndex(index: number, smooth = true) {
+    const el = trackRef.current;
+    if (!el) return;
+    const width = getSlideWidth();
+    const target = clamp(index, 0, Math.max(0, model.slides.length - 1));
+    el.scrollTo({ left: target * width, behavior: smooth ? 'smooth' : 'auto' });
+  }
+  function goPrev() { scrollToIndex(Math.round(scrollProgress) - 1); }
+  function goNext() { scrollToIndex(Math.round(scrollProgress) + 1); }
+
+  function handleScroll() {
+    if (scrollRafRef.current != null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = trackRef.current;
+      if (!el) return;
+      const width = getSlideWidth();
+      setScrollProgress(el.scrollLeft / width);
+    });
   }
 
-  if (variant === 'line') {
-    const lineWidth = Math.max(360, (model.endYear - model.startYear + 1) * CARD_W + 42 * 2);
-    const lineLeft = (year: number) => {
-      const span = Math.max(1, model.endYear - model.startYear);
-      return 42 + ((year - model.startYear) / span) * Math.max(1, lineWidth - 42 * 2);
-    };
+  function handlePointerDown(event: ReactPointerEvent) {
+    if (event.pointerType === 'touch' || event.button !== 0) return;
+    const el = trackRef.current;
+    if (!el) return;
+    dragRef.current = { dragging: true, moved: false, startX: event.clientX, startScroll: el.scrollLeft, pointerId: event.pointerId };
+    try { el.setPointerCapture(event.pointerId); } catch {}
+  }
+  function handlePointerMove(event: ReactPointerEvent) {
+    const drag = dragRef.current;
+    const el = trackRef.current;
+    if (!drag.dragging || !el || event.pointerId !== drag.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    if (Math.abs(dx) > 3) drag.moved = true;
+    el.scrollLeft = drag.startScroll - dx;
+  }
+  function handlePointerUp() {
+    const drag = dragRef.current;
+    if (!drag.dragging) return;
+    try { if (drag.pointerId != null) trackRef.current?.releasePointerCapture(drag.pointerId); } catch {}
+    dragRef.current = { ...drag, dragging: false };
+  }
 
-    return (
-      <section className="zt-line-shell">
-        <div className="zt-line-window">
-          <div className="zt-line-canvas" style={{ width: lineWidth }}>
-            <div className="zt-line" />
-            {model.ticks.map((year) => (
-              <span className="zt-tick" key={year} style={{ left: lineLeft(year) }}><i /><b>{year === model.startYear ? 'HS' : year === model.endYear ? 'Today' : year}</b></span>
-            ))}
-          </div>
-        </div>
-        <style jsx>{`
-          .zt-line-shell { position:relative; height:100%; overflow:hidden; background:transparent; }
-          .zt-line-window { height:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
-          .zt-line-window::-webkit-scrollbar { display:none; }
-          .zt-line-canvas { position:relative; height:100%; min-width:100%; }
-          .zt-line { position:absolute; left:0; right:0; top:50%; height:2px; background:${TIMELINE_YELLOW}; }
-          .zt-tick { position:absolute; top:50%; transform:translateX(-50%); display:grid; justify-items:center; gap:4px; pointer-events:none; }
-          .zt-tick i { width:1px; height:14px; background:rgba(255,255,255,.35); transform:translateY(-7px); }
-          .zt-tick b { color:#fff; font:900 10px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; transform:translateY(-4px); }
-        `}</style>
-      </section>
-    );
+  function handleSlideClick(slide: Slide) {
+    if (dragRef.current.moved) return;
+    if (slide.kind === 'upload') setOpenMomentId(slide.id);
+  }
+
+  // Desktop mice only scroll vertically by default; redirect vertical
+  // wheel delta into horizontal scroll so a plain wheel also moves the
+  // timeline, matching audience-site.js's own wheel handler. A native
+  // listener (not React's onWheel) is required to call preventDefault --
+  // React's synthetic wheel handler is attached passively.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    function onWheel(event: WheelEvent) {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      el!.scrollLeft += event.deltaY;
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  if (variant === 'line') {
+    return null;
   }
 
   return (
-    <section className="zt-shell-images" id="playerCareerImages">
-      <div className="zt-window-images" ref={scrollerRef}>
-        <div className="zt-canvas-images" style={{ width: ready ? canvasWidth : ANCHOR_W }}>
-          {ready && model.moments.map((moment, index) => {
-            let left = 0;
-            for (let i = 0; i < index; i += 1) left += model.moments[i].width;
-
-            return (
-              <div key={moment.id} className={`zt-moment zt-${moment.kind}`} style={{ left, width: moment.width }}>
-                <button type="button" className="zt-moment-surface" onClick={() => handleMomentClick(moment)} title={moment.title}>
-                  {moment.kind === 'anchor' && (
-                    <CutoutOverlay bgSrc="/img/career-path-default.png" playerId={playerId} playerName={player?.playerName} />
-                  )}
-
-                  {moment.kind === 'season' && (
-                    <>
-                      <SeasonBadge srcs={moment.srcs} teamName={moment.title} />
-                      <span className="zt-season-copy">
-                        <b>{moment.title}</b>
-                        <em>{moment.caption}</em>
-                      </span>
-                    </>
-                  )}
-
-                  {moment.kind === 'headshot' && (
-                    <span className="zt-plain-image">
-                      <SmartImage src={moment.src} alt={moment.title} />
-                    </span>
-                  )}
-
-                  {moment.kind === 'upload' && (
-                    <>
-                      <span className="zt-upload-bg">
-                        <SmartImage src={moment.src} alt={moment.title} />
-                      </span>
-                      <span className="zt-upload-shade" />
-                      <span className="zt-upload-copy">
-                        {(moment.relationship || moment.contributorName) && (
-                          <span className="zt-upload-kicker">
-                            {[moment.relationship, moment.contributorName].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
-                        <span className="zt-upload-title">{moment.title}</span>
-                      </span>
-                    </>
-                  )}
-                </button>
-
-                {moment.kind === 'upload' && (
-                  <>
-                    <button type="button" className="zt-open-story-cta" onClick={() => setOpenMomentId(moment.id)} aria-label="Open story">
-                      <i className="ri-expand-diagonal-line" />
-                    </button>
-                    <div className="zt-upload-actions">
-                      <ReactionButton moment={moment} session={session} onToggled={handleReactionToggled} />
-                      <button type="button" className="zt-comment-pill" onClick={() => setOpenMomentId(moment.id)}>
-                        <i className="ri-chat-3-line" />
-                        {(moment.comments || []).length}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
+    <>
+      {/* A small independent strip, sized to exactly rows 1+2's combined
+          height (not row3's) -- it never touches or overlaps row3's own
+          box, so there's no seam or height math shared with the carousel
+          below. Just the same photo, cropped on its own for this strip,
+          sitting behind the now-transparent header bars. */}
+      <div className="zt-hero-bleed" aria-hidden="true">
+        <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
       </div>
+      <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+      {/* Class-of/name is its own layer here, not inside .zt-hero-bleed
+          (that div sits at z-index:-1, deliberately painted BEHIND this
+          entire section's own content -- see the z-index note further
+          down -- so anything placed inside it is hidden behind the
+          carousel too, confirmed by direct feedback that it wasn't
+          showing up at all in production) and not inside the per-slide
+          visual stack either (so it's always there regardless of which
+          slide is dissolved in, per direct feedback it should never
+          disappear -- and it never sits under the headline, since the
+          headline lives in the copy track's own right-hand column). A
+          plain child of this <section>, so it needs no :global() -- it's
+          a normal descendant, not a Fragment-level sibling. */}
+      {player?.playerName && (
+        <div className="zt-persist-id" aria-hidden="true">
+          <span className="zt-persist-classof">Class of {model.hsYear}</span>
+          <span className="zt-persist-name">{player.playerName}</span>
+        </div>
+      )}
+      {/* Hero visuals live in their own non-scrolling stack, one per slide
+          -- they never move horizontally, only the copy track underneath
+          does -- each opacity-driven by how close the continuous scroll
+          position is to that slide's index. The falloff is steep (4x, not
+          a plain 1-|d| triangle): each slide sits at full opacity across
+          most of its own dwell range, then dissolves out fast in just the
+          last quarter of the distance to the next slide, and the next one
+          dissolves in fast over its own first quarter -- a quick in/out
+          snap rather than a slow morph, with a wider fully-transparent gap
+          between them (from a quarter out to three-quarters of the way
+          across) so the two are never simultaneously visible even
+          fractionally -- confirmed via getComputedStyle at several forced
+          scroll positions. A plainer 1-|d| triangle was tried first and
+          rejected: it puts two ADJACENT slides at 0.5 opacity at the same
+          instant, a true double-exposure of two different logos/cutouts,
+          which reads as a rendering glitch, not a dissolve. The copy track
+          below is a separate, plain native horizontally-scrollable strip
+          (free scroll matching the corporate site's real timeline
+          mechanism, layered-story-strip.js) -- scroll-snap explicitly off,
+          mouse drag via pointer events since browsers don't drag-scroll
+          for mice, touch/trackpad get native scrolling for free. */}
+      <div className="zt-visual-stack" aria-hidden="true">
+        {ready && model.slides.map((slide, i) => {
+          const opacity = clamp(1 - 4 * Math.abs(scrollProgress - i), 0, 1);
+          if (opacity <= 0) return null;
+          return (
+            <span key={slide.id} className={`zt-visual zt-${slide.kind}`} style={{ opacity }}>
+              {/* No background image here for anchor/season -- .zt-hero-bleed
+                  (a single fixed layer behind rows 1-3) covers this whole
+                  area too, so this is a transparent window onto that one
+                  continuous image instead of a second, independently-cropped
+                  copy of it. */}
+              <span className="zt-visual-gradient" aria-hidden="true" />
+              {slide.kind === 'season' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'anchor' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'anchor' && (
+                <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+              )}
+              {slide.kind === 'season' && (
+                <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
+              )}
+              {slide.kind === 'today' && (
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
+              )}
+              {slide.kind === 'upload' && (
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
+              )}
+              <span className="zt-visual-baseline" aria-hidden="true" />
+            </span>
+          );
+        })}
+      </div>
+
+      <div
+        className="zt-carousel"
+        ref={trackRef}
+        onScroll={handleScroll}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        {ready && model.slides.map((slide) => (
+          <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
+            <span className="zt-copy">
+              {slide.kind === 'anchor' && (
+                <>
+                  <span className="zt-kick">The hometown never stopped caring</span>
+                  <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
+                  <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
+                </>
+              )}
+              {slide.kind === 'season' && (
+                <>
+                  <span className="zt-kick">{slide.year} · {slide.caption}</span>
+                  <span className="zt-title">{slide.title}</span>
+                  <span className="zt-bodycopy">{slide.headline}</span>
+                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
+                    <i className="ri-upload-cloud-line" /> Share an image of {player?.playerName ? firstName(player.playerName) : 'him'}
+                  </button>
+                </>
+              )}
+              {slide.kind === 'today' && (
+                <>
+                  <span className="zt-kick">{slide.year}</span>
+                  <span className="zt-title">{player?.playerName || ''}</span>
+                </>
+              )}
+              {slide.kind === 'lifeyear' && (
+                <>
+                  <span className="zt-kick">Age {slide.age}</span>
+                  <span className="zt-title">This year is still a blank page.</span>
+                  <span className="zt-bodycopy">No photo yet from {player?.playerName ? firstName(player.playerName) : 'his'} childhood at this age -- be the first to add one.</span>
+                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
+                    <i className="ri-upload-cloud-line" /> Share a photo from this year
+                  </button>
+                </>
+              )}
+              {slide.kind === 'upload' && (
+                <>
+                  {(slide.relationship || slide.contributorName) && (
+                    <span className="zt-kick">{[slide.relationship, slide.contributorName].filter(Boolean).join(' · ')}</span>
+                  )}
+                  <span className="zt-title">{slide.title}</span>
+                  {slide.caption ? <span className="zt-bodycopy">{slide.caption}</span> : null}
+                  <div className="zt-upload-actions">
+                    <ReactionButton moment={slide} session={session} onToggled={handleReactionToggled} />
+                    <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); setOpenMomentId(slide.id); }}>
+                      <i className="ri-chat-3-line" />
+                      {(slide.comments || []).length}
+                    </button>
+                  </div>
+                </>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {ready && model.slides.length > 1 && (
+        <>
+          <button type="button" className="zt-nav zt-nav-prev" onClick={goPrev} disabled={activeIndex === 0} aria-label="Previous">
+            <i className="ri-arrow-left-s-line" />
+          </button>
+          <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
+            <i className="ri-arrow-right-s-line" />
+          </button>
+          <div className="zt-dots">
+            {model.slides.map((slide, i) => (
+              <button
+                type="button"
+                key={slide.id}
+                className={`zt-dot${i === activeIndex ? ' active' : ''}`}
+                onClick={() => scrollToIndex(i)}
+                aria-label={`Slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {openMoment && (
         <MomentDetailModal
@@ -677,74 +958,233 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
       <style jsx>{`
         .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
-        .zt-window-images { height:100%; overflow-x:auto; overflow-y:hidden; padding-left:0; scrollbar-width:none; }
-        .zt-window-images::-webkit-scrollbar { display:none; }
-        .zt-canvas-images { position:relative; height:100%; min-width:100%; transition:none; }
 
-        .zt-moment { position:absolute; top:0; height:100%; }
-        .zt-moment.zt-anchor { z-index:2; }
-        .zt-moment:not(.zt-anchor) { z-index:1; }
-        .zt-moment-surface { position:relative; display:block; width:100%; height:100%; border:0; padding:0; margin:0; background:#090909; cursor:pointer; overflow:hidden; }
-        .zt-moment:not(.zt-anchor) .zt-moment-surface { border-bottom:3px solid ${TIMELINE_YELLOW}; }
+        /* The hero visuals and the scrolling copy track are two entirely
+           separate layers: the visual stack never moves horizontally, it
+           only dissolves between slides (opacity set inline, from
+           scrollProgress, one slide fully out before the next fades in --
+           see the opacity formula above); the copy track is a plain native
+           horizontally-scrollable strip underneath it, free scroll matching
+           the corporate site's real timeline mechanism
+           (layered-story-strip.js) -- scroll-snap explicitly off, mouse
+           drag via pointer events since browsers don't drag-scroll for
+           mice, touch/trackpad get native scrolling for free. */
+        .zt-visual-stack { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; }
+        .zt-visual { position:absolute; inset:0; overflow:hidden; background:transparent; }
+        .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
-        /* -- anchor: background + one-off player cutout ------------------ */
-        .zt-moment-surface :global(.zt-cutout-shell) { position:absolute; inset:0; display:block; }
-        .zt-moment-surface :global(.zt-cutout-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-position:center center; }
-        .zt-moment-surface :global(.zt-cutout-bg-cover) { object-fit:cover; }
-        .zt-moment-surface :global(.zt-cutout-person) { position:absolute; z-index:2; left:-2px; bottom:0; width:auto; height:92%; max-width:56%; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 6px 9px rgba(0,0,0,.65)); pointer-events:none; }
+        .zt-carousel { position:relative; z-index:2; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
+        .zt-carousel:active { cursor:grabbing; }
+        .zt-carousel::-webkit-scrollbar { display:none; }
+        .zt-slide { position:relative; flex:0 0 100%; width:100%; min-width:100%; height:100%; overflow:hidden; cursor:default; background:transparent; }
+        .zt-slide.zt-upload { cursor:pointer; }
 
-        /* -- season: soft dark gradient with the logo as a small graphic
-           on top, not the logo itself as a hard-edged background, and no
-           player silhouette repeating card after card down the strip. */
-        .zt-moment-surface :global(.zt-season-badge-shell) { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.07),transparent 55%),linear-gradient(180deg,#16181c 0%,#0b0c0d 65%,#040505 100%); }
-        .zt-moment-surface :global(.zt-season-badge-glow) { position:absolute; width:62%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%); pointer-events:none; }
-        .zt-moment-surface :global(.zt-season-badge-logo) { position:relative; z-index:1; width:50%; max-height:56%; object-fit:contain; filter:drop-shadow(0 6px 10px rgba(0,0,0,.55)); }
+        /* -- team logo: its own big plain layer on the right, bleeding off
+           the edge of the frame -- matching the real corporate hero, where
+           the ghosted crest is only partly visible, clipped by the frame's
+           right edge, not fully contained inside it. */
+        .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.4; pointer-events:none; }
+        .zt-logo-layer :global(img) { width:100%; height:100%; object-fit:contain; }
 
-        .zt-season-copy { position:absolute; z-index:3; left:0; right:0; bottom:0; padding:6px 8px; background:linear-gradient(0deg,rgba(0,0,0,.72),transparent); display:flex; flex-direction:column; gap:1px; }
-        .zt-season-copy b { font:800 11px/1.1 'Bebas Neue',Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; color:#fff; }
-        .zt-season-copy em { font:400 8.5px/1.1 Oswald,sans-serif; color:rgba(255,255,255,.75); font-style:normal; }
+        /* Moved in from the very edge, closer to the headline, so it sits
+           inside the background photo's own swoosh curve instead of off
+           to the side of it. */
+        /* Every hero image (real cutout, YaTi placeholder, cover photo)
+           shares this exact position/size -- per direct feedback, the
+           player/YaTi image must land in the same spot on every slide,
+           not just the anchor. .zt-person-yati carries no positional
+           overrides of its own anymore; it's the same box as .zt-person. */
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
+        .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
-        .zt-plain-image { position:relative; display:block; width:100%; height:100%; }
-        .zt-plain-image :global(img) { width:100%; height:100%; object-fit:cover; display:block; }
+        /* Class-of/name block -- bottom-left, to the left of the cutout,
+           sitting low in the frame where the swoosh starts its curve,
+           separate from the marketing kicker/headline column on the
+           right (which never runs into it -- the headline sits in its own
+           right-hand column, not stacked above this). Lives on
+           .zt-hero-bleed (see the JSX above), not inside the per-slide
+           visual, so it's :global() for the same reason the rest of that
+           layer is: it's a sibling of <section>, not its descendant, so
+           styled-jsx's scope hash never attaches to it. */
+        .zt-persist-id { position:absolute; z-index:8; left:4%; bottom:12px; display:flex; flex-direction:column; gap:2px; pointer-events:none; }
+        .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
+        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 
-        /* -- upload: fan photo + wall-post copy panel --------------------- */
-        .zt-upload-bg { position:absolute; inset:0; display:block; }
-        .zt-upload-bg :global(img) { width:100%; height:100%; object-fit:cover; display:block; }
-        /* Soft graduated screen, matching the corporate slideshow's own
-           visual:before treatment -- photo reads clearly up top, fades
-           smoothly into solid dark where the copy panel sits, rather than
-           a hard two-stop cutoff. */
-        .zt-upload-shade { position:absolute; inset:0; background:linear-gradient(180deg,rgba(4,5,6,.06) 0%,rgba(4,5,6,.22) 40%,rgba(4,5,6,.62) 68%,rgba(4,5,6,.92) 88%,rgba(4,5,6,.97) 100%); pointer-events:none; }
-        .zt-upload-copy { position:absolute; left:0; right:0; bottom:0; padding:8px 10px; display:flex; flex-direction:column; gap:2px; text-align:left; }
-        .zt-upload-kicker { color:${TIMELINE_YELLOW}; font:700 8px/1 Oswald,sans-serif; letter-spacing:.09em; text-transform:uppercase; }
-        .zt-upload-title { color:#fff; font:700 12.5px/1.25 Oswald,sans-serif; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        /* Starts past the photo, closer to the ghosted logo's left edge
+           (the logo is faint enough that text stays legible over it) --
+           matching the real corporate hero's proportions: kicker/headline/
+           bodycopy stacked and vertically centered in the space above the
+           bottom chrome bar. Font declarations are split into separate
+           properties instead of the "font:" shorthand: the shorthand's
+           own commas (font-family list) and slash (size/line-height)
+           combined with clamp()'s internal commas was silently dropping
+           the whole declaration in production, which is why this text
+           was invisible there. */
+        .zt-copy { position:absolute; z-index:6; left:40%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:center; background:transparent; }
+        .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
+        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
+        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:10.5px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
+        /* No cutout/logo on a life-year slide (there's no photo yet) -- the
+           copy block gets the room that would otherwise be reserved for
+           one, so the invite reads as a real screen instead of empty
+           space with a caption stuck to the right. */
+        .zt-lifeyear .zt-copy { left:6%; }
 
-        .zt-open-story-cta { position:absolute; z-index:4; top:6px; left:6px; width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,.35); background:rgba(0,0,0,.55); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:12px; }
-        .zt-upload-actions { position:absolute; z-index:4; top:6px; right:6px; display:flex; gap:5px; }
-        .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:22px; padding:0 8px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.55); color:${TIMELINE_YELLOW}; font:800 7.5px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
+        .zt-upload-inline-cta { margin-top:4px; display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(255,178,28,.1); color:${TIMELINE_YELLOW}; font:700 8.5px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; cursor:pointer; }
+
+        .zt-upload-actions { display:flex; gap:6px; margin-top:6px; }
+        .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.35); color:${TIMELINE_YELLOW}; font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
         .zt-yatzaboy.active { background:${TIMELINE_YELLOW}; color:#1a1208; }
         .zt-yatzaboy b { font-size:9px; }
-        .zt-comment-pill { display:flex; align-items:center; gap:3px; height:22px; padding:0 7px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.55); color:#fff; font:700 9px/1 Oswald,sans-serif; cursor:pointer; }
+        .zt-comment-pill { display:flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.35); color:#fff; font:700 9px/1 Oswald,sans-serif; cursor:pointer; }
 
-        /* :has() carries higher specificity than the plain-class rule below,
-           so this wins on the player profile page regardless of source
-           order, while every other page type (gallery/news, no
-           .yat-profile-career-strip marker present) keeps the original
-           row3-h-driven height untouched. */
-        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; }
+        /* -- bottom chrome: a segmented progress bar plus a pair of square
+           prev/next buttons at the bottom-right, matching the real
+           corporate hero's bottom bar (sitting just above its baseline
+           gold line), not round dots and mid-edge circular arrows. */
+        .zt-nav { position:absolute; z-index:7; bottom:5px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
+        .zt-nav:disabled { opacity:.3; cursor:default; }
+        .zt-nav-prev { right:30px; left:auto; }
+        .zt-nav-next { right:6px; }
+        .zt-dots { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; display:flex; align-items:center; gap:4px; }
+        .zt-dot { flex:1; max-width:20px; height:2.5px; border-radius:1px; border:0; background:rgba(255,255,255,.28); padding:0; cursor:pointer; }
+        .zt-dot.active { background:${TIMELINE_YELLOW}; }
+
+        /* Height stays entirely local to this component's own row3/row4 --
+           the same two rules this file already had before this redesign,
+           just a bigger number. Deliberately NOT touching --row3-h/--row4-h
+           vars or .pp-funzone-outer (that's the FunZone panel below this
+           component, out of scope for this pass). */
+        :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H}px !important; height:${ROW_H}px !important; overflow:hidden !important; background:transparent !important; }
         :global(.yat-row3-shell:has(.yat-profile-career-strip) ~ .yat-row4-shell) { min-height:0 !important; height:0 !important; overflow:hidden !important; border:0 !important; padding:0 !important; }
-        /* .zt-shell-images below relies on height:100% cascading all the way
-           down from .yat-row3-shell -- but SharedShell.tsx renders an
-           unstyled wrapper div (.yat-profile-career-strip) in between with
-           no height of its own. A percentage height against an auto-height
-           ancestor resolves to nothing, and since every moment card is
-           position:absolute (needed for the horizontal strip's manual left
-           offsets), the cards contribute zero height back up the chain --
-           so this wrapper needs an explicit height too, not just the row
-           itself, or the whole strip silently renders empty. */
         :global(.yat-profile-career-strip) { height:${ROW_H}px !important; min-height:${ROW_H}px !important; }
-        :global(.yat-row3-shell), :global(.yat-row3-shell .gallery-strip), :global(.yat-row3-shell .golden-line-strip), :global(.yat-profile-meta-row-host) { min-height:var(--row3-h, 100px) !important; height:var(--row3-h, 100px) !important; }
+
+        /* Rows 1 & 2 get a plain marker class from SharedShell.tsx itself
+           (isPlayerProfile is already known there) rather than a
+           cross-sibling :has() selector guessed from in here -- that
+           guess didn't reliably match on the real deployed page last
+           time. This one fixed layer now spans rows 1+2+3 combined (not
+           just 1+2) and row3's own background/visual/slide-surface are
+           all transparent, so row3 is a window onto the *same* image
+           instead of a second, independently-cropped copy of it -- two
+           separate object-fit:cover crops of the same photo at different
+           container heights don't line up, which was the visible seam
+           right at the row2/row3 boundary before this.
+           :global() here isn't optional: this div is a sibling of
+           <section>, not its descendant, at the top level of the returned
+           Fragment -- styled-jsx's scope hash didn't get attached to it
+           (confirmed via computed style: position was landing as "static"
+           instead of "fixed" because the scoped selector's compiled hash
+           class never matched this element), so a plain scoped rule here
+           silently matches nothing. */
+        /* z-index is negative, not just "less than row3-shell's 60": this
+           div is DOM-nested inside .yat-row3-shell (a sticky+z-index
+           element, so a stacking context of its own), and position:fixed
+           only escapes its CONTAINING BLOCK, not its STACKING CONTEXT --
+           its z-index is still compared against its local siblings inside
+           row3-shell (like .zt-shell-images, z-index:auto), not against
+           row1/row2 directly. A positive value here painted this layer
+           ABOVE .zt-shell-images's entire contents once the two started
+           spatially overlapping (once this layer grew tall enough to
+           reach into row3's own area) -- hiding the whole carousel behind
+           it. Negative z-index paints behind z-index:auto content in the
+           same stacking context, which is what's needed here; row3-shell
+           as a whole (all of it, this div included) is still compared
+           against row1/row2 using row3-shell's own z-index (60 vs their
+           70/65), which is unaffected by this. */
+        :global(.zt-hero-bleed) { position:fixed; z-index:-1; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H}px); overflow:hidden; pointer-events:none; background:#060708; }
+        /* Tried zooming this photo in (transform:scale()) to push its
+           swoosh curve further from the left edge on wide desktop windows,
+           where object-fit:cover's width-driven scaling otherwise parks it
+           at a fixed ~7.5% of viewport width -- measured and solved for
+           exactly, not eyeballed. Reverted: it also zoomed in on the
+           outfield-wall stripe along the top of the frame, which at that
+           magnification blew out into a wash of amber across the whole
+           width instead of reading as a thin background detail -- the fix
+           made the photo look worse than the problem it solved. Left at
+           plain object-fit:cover for now; the player-name/copy positions
+           below were nudged instead (see left offsets) to keep them off
+           the true edge without touching the photo itself. */
+        :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
+        /* .yat-topbar and .yat-schoolrow (rendered inside these shells by
+           GlobalTopbar/SchoolContextBar) carry their own separate
+           background:var(--header-bg) in YatStyles.tsx -- making just the
+           outer shell divs transparent does nothing while these inner
+           wrappers still paint solid over the same box, which is why the
+           first two attempts at this showed no visible change at all. */
+        :global(.yat-row1-shell.pp-hero-row) { background:transparent !important; }
+        :global(.yat-row1-shell.pp-hero-row .yat-topbar) { background:transparent !important; }
+        :global(.yat-row2-shell.pp-hero-row) { background:transparent !important; border-color:transparent !important; }
+        :global(.yat-row2-shell.pp-hero-row .yat-schoolrow) { background:transparent !important; }
+
+        /* -- responsive: proportions only, same single layered frame at
+           every width (never restructures into a grid or stacks into two
+           boxes) -- exact scaling from layered-story-strip.js's own
+           @media max-width:900px / 620px. */
+        @media (max-width:900px) {
+          .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
+          .zt-logo-layer { width:50%; right:-12%; }
+          .zt-copy { left:38%; right:5%; bottom:20px; }
+          .zt-persist-id { left:3.5%; bottom:9px; }
+          .zt-dots { left:38%; }
+          .zt-title { font-size:clamp(15px,3.4vw,22px); }
+          .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
+        }
+        @media (max-width:620px) {
+          /* Shorter box: 200px was leaving real dead space above the hero
+             image/headline once type scaled down this far, per direct
+             feedback. The row3-shell/row4-shell/profile-strip trio and the
+             hero-bleed height calc all have to shrink together or the
+             bleed photo would run past row3's now-shorter bottom edge. */
+          :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H_MOBILE}px !important; height:${ROW_H_MOBILE}px !important; }
+          :global(.yat-profile-career-strip) { height:${ROW_H_MOBILE}px !important; min-height:${ROW_H_MOBILE}px !important; }
+          :global(.zt-hero-bleed) { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H_MOBILE}px) !important; }
+          :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
+          .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
+          /* Shifted right from the very edge (was left:6%) to leave the
+             class-of/name block below room to sit without the two
+             colliding -- the shorter box above also means less vertical
+             room to stack them instead. */
+          .zt-visual :global(.zt-person) { left:24%; bottom:-3%; width:clamp(70px,24vw,100px); height:104%; }
+          .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
+          .zt-persist-id { left:2.5%; bottom:7px; }
+          .zt-persist-classof { font-size:9px; }
+          .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
+          /* Each slide is 200% of the viewport here, not 100% -- doubling
+             the physical scroll distance between moments so a phone-width
+             screen still gives each one real room, matching how much
+             "throw" there is between hero images on desktop, per direct
+             feedback. .zt-copy's left/right (percentages of the SLIDE's
+             own box) are halved from their 100%-slide values below to
+             land in the exact same on-screen position they would in a
+             100%-wide slide -- e.g. 16%/32%-width of a 200%-wide box is
+             the same absolute spot as 32%/64%-width of a 100%-wide one --
+             just expressed as a "right" edge doesn't work any more once
+             the box is wider than the viewport (the box's actual right
+             edge is now off-screen), so it's left+width instead of
+             left+right. .zt-dots/.zt-nav are unaffected: they're
+             positioned relative to the outer (un-doubled) frame, not to
+             any one .zt-slide. */
+          .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
+          .zt-copy { left:16%; right:auto; width:32%; bottom:14px; }
+          /* Life-year screens have no cutout reserving space, so they get
+             the same "use nearly the full frame" treatment on mobile as
+             they already get on desktop via this same higher-specificity
+             override -- expressed as left+width like the rule above,
+             for the same reason (this slide is 200% wide, so "right"
+             would measure from an edge that's off-screen). */
+          .zt-lifeyear .zt-copy { left:4%; width:44%; }
+          .zt-dots { left:32%; }
+          .zt-kick { font-size:7px; margin-bottom:3px; }
+          .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
+          .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
+        }
       `}</style>
     </section>
+    </>
   );
 }
