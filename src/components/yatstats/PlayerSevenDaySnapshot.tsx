@@ -265,12 +265,9 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap{
           display:flex;
           flex-direction:column;
-          height:100%;
-          min-height:0;
           background:linear-gradient(180deg,#f7f3ea,#ece5d5);
           border:1px solid rgba(30,22,14,0.18);
           border-radius:clamp(4px,1.2cqi,8px);
-          overflow:hidden;
           padding:clamp(5px,1.8cqi,10px);
         }
         .yat-snap-title{
@@ -287,8 +284,6 @@ export default async function PlayerSevenDaySnapshot({
           display:flex;
           flex-direction:column;
           gap:clamp(3px,1.1cqi,6px);
-          min-height:0;
-          overflow:hidden;
         }
         .yat-snap-row{
           display:grid;
