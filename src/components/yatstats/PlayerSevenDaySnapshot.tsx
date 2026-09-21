@@ -360,12 +360,12 @@ export default async function PlayerSevenDaySnapshot({
           min-width:2.1em;
         }
         .yat-snap-date-mon, .yat-snap-date-dow{
-          font:700 clamp(4.5px,1.5cqi,7px)/1 Oswald,sans-serif;
+          font:700 clamp(5.5px,1.8cqi,8.5px)/1 Oswald,sans-serif;
           letter-spacing:.05em;
           color:#8a7c68;
         }
         .yat-snap-date-day{
-          font:700 clamp(8px,3cqi,15px)/1.05 "Bebas Neue",sans-serif;
+          font:700 clamp(9.5px,3.6cqi,17px)/1.05 "Bebas Neue",sans-serif;
           color:#17120c;
         }
         .yat-snap-logo{
@@ -387,7 +387,7 @@ export default async function PlayerSevenDaySnapshot({
           flex-direction:column;
         }
         .yat-snap-matchup{
-          font:700 clamp(6px,2cqi,9.5px)/1.1 Oswald,sans-serif;
+          font:700 clamp(7px,2.4cqi,11px)/1.1 Oswald,sans-serif;
           letter-spacing:.02em;
           text-transform:uppercase;
           color:#221a12;
@@ -396,7 +396,7 @@ export default async function PlayerSevenDaySnapshot({
           text-overflow:ellipsis;
         }
         .yat-snap-venue{
-          font:400 clamp(5px,1.5cqi,7.5px)/1.1 Oswald,sans-serif;
+          font:400 clamp(6px,1.8cqi,8.5px)/1.1 Oswald,sans-serif;
           color:#8a7c68;
           white-space:nowrap;
           overflow:hidden;
@@ -409,7 +409,7 @@ export default async function PlayerSevenDaySnapshot({
           flex-direction:column;
         }
         .yat-snap-score{
-          font:700 clamp(6.5px,2.2cqi,10px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          font:700 clamp(7.5px,2.6cqi,11.5px)/1.1 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           white-space:nowrap;
         }
@@ -420,7 +420,7 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-score-time{ color:#221a12; }
         .yat-snap-score-ppd{ color:#8a7c68; }
         .yat-snap-sub{
-          font:400 clamp(5px,1.5cqi,7.5px)/1.1 Oswald,sans-serif;
+          font:400 clamp(6px,1.8cqi,8.5px)/1.1 Oswald,sans-serif;
           color:#6b5d4d;
           white-space:nowrap;
           overflow:hidden;
@@ -430,15 +430,15 @@ export default async function PlayerSevenDaySnapshot({
           display:flex;
           align-items:center;
           justify-content:center;
-          width:clamp(9px,3cqi,13px);
+          width:clamp(10px,3.4cqi,15px);
           flex:0 0 auto;
           color:#8a7c68;
-          font-size:clamp(8px,2.6cqi,11px);
+          font-size:clamp(9.5px,3cqi,13px);
         }
         .yat-snap-offday{
           grid-column:2 / -1;
           text-align:center;
-          font:700 clamp(6px,2cqi,9px)/1 Oswald,sans-serif;
+          font:700 clamp(7px,2.4cqi,10.5px)/1 Oswald,sans-serif;
           letter-spacing:.08em;
           text-transform:uppercase;
           color:#a89a86;
