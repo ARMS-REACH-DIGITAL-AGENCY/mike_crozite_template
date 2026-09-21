@@ -923,7 +923,7 @@ function extractGameId(row: AnyRecord): string | null {
 async function ingestGamesAndBoxScores(league: IndyLeagueConfig, dryRun: boolean, force: boolean, maxGames: number) {
   const fetched = await fetchJson(leagueGamesUrl(league));
   const gameRows = parseGameRows(fetched.payload);
-  let gamesFound = gameRows.length;
+  const gamesFound = gameRows.length;
   let boxScoresFetched = 0;
   let playerGameRows = 0;
 

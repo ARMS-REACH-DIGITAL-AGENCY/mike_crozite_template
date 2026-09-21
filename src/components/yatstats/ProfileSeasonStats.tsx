@@ -73,10 +73,18 @@ export default function ProfileSeasonStats({ playerId }: { playerId: string }) {
   const [payload, setPayload] = useState<StatsPayload | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // Reset to loading during render (not in the fetch effect) when playerId
+  // changes, to avoid the extra render pass an effect-based reset would
+  // cause -- loading already starts true on mount, so this only fires on
+  // an actual playerId change.
+  const [prevPlayerId, setPrevPlayerId] = useState(playerId);
+  if (playerId !== prevPlayerId) {
+    setPrevPlayerId(playerId);
+    setLoading(true);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
       .then(async (res) => {
         const data = await res.json();
