@@ -1658,17 +1658,29 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
 // is the Rockies). "150-pro_team_look_up_tbc_mlb".teamid is the one that's
 // actually verified against the real S3 files (10 -> Rockies, 14 -> Royals,
 // 28 -> Rays, all confirmed).
+//
+// team_id_map, not "150-pro_team_look_up_tbc_mlb", is the crosswalk to use
+// for "what tbc_teamid is THIS raw MLB Stats API team id" at any level.
+// "150-pro_team_look_up_tbc_mlb".mlb_org_id is the PARENT organization's id,
+// shared by every affiliate (all Yankees levels carry mlb_org_id=147) - so
+// it can only ever resolve the raw id of the actual top-level MLB club
+// itself, never a minor-league affiliate's own distinct raw id (e.g.
+// Somerset Patriots' own raw id, not the Yankees'). team_id_map is instead
+// keyed 1:1 by each team's own real raw id (populated from team_schedules,
+// the full MLB+MiLB ingest - see scripts/sync_mlb_schedules.py), so the
+// same lookup resolves a schedule teamid or opponent logo correctly
+// whether the team is an MLB club or any of its minor-league affiliates.
 // ---------------------------------------------------------------------------
-export async function getMlbTeamLogoMap(): Promise<Map<string, string>> {
+export async function getTeamIdMap(): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   try {
     const { rows } = await query(
-      `SELECT mlb_org_id, teamid
-       FROM public."150-pro_team_look_up_tbc_mlb"
-       WHERE mlb_org_id IS NOT NULL AND teamid IS NOT NULL AND level = 'MLB'`
+      `SELECT mlb_stats_api_id, tbc_teamid
+       FROM public.team_id_map
+       WHERE mlb_stats_api_id IS NOT NULL AND tbc_teamid IS NOT NULL`
     );
-    for (const row of rows as { mlb_org_id: string; teamid: string }[]) {
-      map.set(String(row.mlb_org_id), String(row.teamid));
+    for (const row of rows as { mlb_stats_api_id: string; tbc_teamid: string }[]) {
+      map.set(String(row.mlb_stats_api_id), String(row.tbc_teamid));
     }
   } catch {
     // fall through with whatever was collected

@@ -1,4 +1,4 @@
-import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus, getMlbTeamLogoMap } from '@/lib/db';
+import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus, getTeamIdMap } from '@/lib/db';
 import { toISODate, mlbTeamLogoUrl, mlbTeamAbbreviation } from '@/lib/playerUtils';
 
 type GameLogRow = {
@@ -68,11 +68,11 @@ function buildGameItem(
   iso: string,
   game: ScheduleRow,
   logsByGamePk: Map<string, GameLogRow[]>,
-  mlbTeamLogoMap: Map<string, string>
+  teamIdMap: Map<string, string>
 ): SnapshotItem {
   const isHome = game.is_home === true || game.home_away === 'Home';
   const opponentRawId = isHome ? game.away_team_id : game.home_team_id;
-  const logoUrl = opponentRawId ? mlbTeamLogoUrl(mlbTeamLogoMap, opponentRawId) : null;
+  const logoUrl = opponentRawId ? mlbTeamLogoUrl(teamIdMap, opponentRawId) : null;
   const abbr = mlbTeamAbbreviation(opponentRawId);
   const opponentLabel = abbr || String(game.opponent || 'TBD').trim();
   const matchup = `${isHome ? 'vs' : 'at'} ${opponentLabel}`;
@@ -130,17 +130,19 @@ function buildGameItem(
 async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
   const today = isoDate(new Date());
 
-  const [transactionStatus, gameLogs, mlbTeamLogoMap] = await Promise.all([
+  const [transactionStatus, gameLogs, teamIdMap] = await Promise.all([
     getFlipCardTransactionStatus(playerId),
     getPlayerGameLogs(playerId),
-    getMlbTeamLogoMap(),
+    getTeamIdMap(),
   ]);
 
-  // current_team_source_team_id is the raw MLB Stats API team id (e.g. 147
-  // for the Yankees); v_team_schedule_feed is keyed by tbc_teamid (Yankees
-  // there is 20) - same crosswalk used for opponent logos translates it.
+  // current_team_source_team_id is the player's CURRENT team's own raw MLB
+  // Stats API id - for a minor leaguer that's the affiliate's own id (e.g.
+  // Somerset Patriots), not the parent club's. v_team_schedule_feed is
+  // keyed by tbc_teamid, so it needs translating either way - same
+  // crosswalk used for opponent logos handles both cases.
   const rawMlbTeamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
-  const teamId = rawMlbTeamId ? mlbTeamLogoMap.get(rawMlbTeamId) || '' : '';
+  const teamId = rawMlbTeamId ? teamIdMap.get(rawMlbTeamId) || '' : '';
 
   const schedule = teamId ? await getTeamSchedule(teamId) : [];
   const hasSchedule = Boolean(teamId) && (schedule as ScheduleRow[]).length > 0;
@@ -177,7 +179,7 @@ async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
     }
 
     for (const game of gamesForDate) {
-      items.push(buildGameItem(iso, game, logsByGamePk, mlbTeamLogoMap));
+      items.push(buildGameItem(iso, game, logsByGamePk, teamIdMap));
     }
   }
 
@@ -204,9 +206,40 @@ export default async function PlayerSevenDaySnapshot({
 
   const items = await getSevenDayWindow(playerId);
   const hasAnyRealData = items.some((it) => it.kind !== 'unknown');
-  if (!hasAnyRealData) return null;
 
   const todayIso = isoDate(new Date());
+
+  if (!hasAnyRealData) {
+    return (
+      <div className="yat-snap yat-snap-empty" aria-label="7-Day Snapshot - schedule and game log">
+        <div className="yat-snap-title">7-Day Snapshot</div>
+        <div className="yat-snap-empty-body">
+          <i className="ri-calendar-line" aria-hidden="true" />
+          <p>Schedule will appear here once available.</p>
+        </div>
+        <style>{`
+          .yat-snap-empty{ justify-content:center; align-items:center; }
+          .yat-snap-empty .yat-snap-title{ align-self:stretch; }
+          .yat-snap-empty-body{
+            flex:1;
+            min-height:0;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:clamp(3px,1.2cqi,7px);
+            color:#8a7c68;
+            text-align:center;
+          }
+          .yat-snap-empty-body i{ font-size:clamp(14px,5cqi,24px); }
+          .yat-snap-empty-body p{
+            margin:0;
+            font:400 clamp(6.5px,2.1cqi,9.5px)/1.3 Oswald,sans-serif;
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="yat-snap" aria-label="7-Day Snapshot - schedule and game log">

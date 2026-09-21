@@ -35,10 +35,10 @@ export function fmt(key: string, value: unknown): string {
 }
 
 /**
- * Builds the S3 logo URL for an MLB opponent, given the pre-fetched
- * mlb_org_id -> teamid map from getMlbTeamLogoMap() in db.ts. Pure/sync -
- * lives here rather than in db.ts because db.ts has 'use server' at module
- * scope, which forces every export to be an async Server Action.
+ * Builds the S3 logo URL for a team, given the pre-fetched raw MLB Stats
+ * API id -> tbc_teamid map from getTeamIdMap() in db.ts. Pure/sync - lives
+ * here rather than in db.ts because db.ts has 'use server' at module scope,
+ * which forces every export to be an async Server Action.
  */
 export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown): string | null {
   const key = String(mlbTeamId || "").trim();

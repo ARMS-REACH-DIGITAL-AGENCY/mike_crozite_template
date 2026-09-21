@@ -17,7 +17,7 @@ import {
   getPlayerCareerPitching,
   getTeamSchedule,
   getPlayerGameLogs,
-  getMlbTeamLogoMap,
+  getTeamIdMap,
   getTeamContext,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
@@ -271,16 +271,20 @@ export default async function ProfilePage({ params }: Props) {
       : null
   ) as PitchingSeason | null;
 
-  const [gameLogs, mlbTeamLogoMap] = await Promise.all([
+  const [gameLogs, teamIdMap] = await Promise.all([
     getPlayerGameLogs(safePlayerId),
-    getMlbTeamLogoMap(),
+    getTeamIdMap(),
   ]);
 
   // Translate the raw MLB team id to the tbc_teamid getTeamSchedule expects.
-  // A currentTeamId that came from the other two fallbacks is already in
-  // the right scheme, so it passes through unchanged.
+  // team_id_map is keyed 1:1 by each team's own raw id at any level (MLB or
+  // any minor-league affiliate) - unlike a parent-org-scoped crosswalk, this
+  // resolves a minor leaguer's own affiliate team the same way it resolves
+  // an MLB roster player's team. A currentTeamId that came from the other
+  // two fallbacks is already in the right scheme, so it passes through
+  // unchanged.
   const scheduleTeamId = rawMlbTeamId
-    ? mlbTeamLogoMap.get(rawMlbTeamId) || null
+    ? teamIdMap.get(rawMlbTeamId) || null
     : currentTeamId;
 
   const teamSchedule = scheduleTeamId ? await getTeamSchedule(scheduleTeamId) : [];
@@ -468,7 +472,7 @@ export default async function ProfilePage({ params }: Props) {
     const d = toISODate(g.game_date);
     const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
     const badge = resultBadge(g.result);
-    const logoUrl = mlbTeamLogoUrl(mlbTeamLogoMap, log?.opponent_mlb_id);
+    const logoUrl = mlbTeamLogoUrl(teamIdMap, log?.opponent_mlb_id);
 
     const stats = isPitcher
       ? (() => {
