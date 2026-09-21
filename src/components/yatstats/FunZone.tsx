@@ -515,9 +515,13 @@ export default function FunZone({
       : [{ label: statBarLabel, stats }];
   const activeStatsBucket = resolvedStatBuckets[Math.min(activeStatsIndex, resolvedStatBuckets.length - 1)];
 
-  useEffect(() => {
+  // Reset during render (not in an effect) when the bucket count changes,
+  // to avoid the extra render pass a useEffect-based reset would cause.
+  const [prevStatBucketsLength, setPrevStatBucketsLength] = useState(resolvedStatBuckets.length);
+  if (resolvedStatBuckets.length !== prevStatBucketsLength) {
+    setPrevStatBucketsLength(resolvedStatBuckets.length);
     setActiveStatsIndex(0);
-  }, [resolvedStatBuckets.length]);
+  }
 
   const imageId = String(player.playerid || "");
   const slug = String(player.slug || "");

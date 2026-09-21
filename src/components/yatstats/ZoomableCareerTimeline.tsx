@@ -175,8 +175,16 @@ function useFanSession() {
 
 function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string[]; alt: string; className?: string }) {
   const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
+  const sourcesKey = sources.join('|');
   const [index, setIndex] = useState(0);
-  useEffect(() => setIndex(0), [sources.join('|')]);
+  // Resetting the fallback index during render (not in an effect) when the
+  // source list changes avoids the extra render pass an effect-based
+  // reset would cause.
+  const [prevSourcesKey, setPrevSourcesKey] = useState(sourcesKey);
+  if (sourcesKey !== prevSourcesKey) {
+    setPrevSourcesKey(sourcesKey);
+    setIndex(0);
+  }
   const active = sources[index];
   if (!active) return null;
   return <img className={className} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
@@ -544,6 +552,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         sessionStorage.setItem('yat:goldenLinePrefillPlayerName', String(player?.playerName || ''));
       }
     } catch {}
+    // openUpload only ever runs from handleMomentClick's onClick handler,
+    // never during render, so navigating via location.hash here is a
+    // normal, safe side effect -- not a Rules-of-React violation.
+    // eslint-disable-next-line react-hooks/immutability
     window.location.hash = 'ppTab-upload';
     window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
   }

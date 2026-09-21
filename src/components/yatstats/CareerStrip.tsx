@@ -121,7 +121,14 @@ function isLegacyJourneyMoment(item: SubmittedMoment, playerId: string) {
 
 function MomentImage({ src, title }: { src?: string; title: string }) {
   const [failed, setFailed] = useState(!src);
-  useEffect(() => setFailed(!src), [src]);
+  // Resetting "failed" when src changes during render (not in an effect)
+  // avoids the extra render pass useEffect(() => setFailed(!src), [src])
+  // would otherwise cause on every src change.
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setFailed(!src);
+  }
 
   if (failed || !src) {
     return (
@@ -204,6 +211,10 @@ export default function CareerStrip({ playerId }: { playerId: string }) {
       sessionStorage.setItem("yat:goldenLineHsid", hsid);
       window.dispatchEvent(new CustomEvent("yat:golden-line-stage"));
     } catch {}
+    // openUpload only ever runs from an onClick handler (see the gl-card
+    // button below), never during render, so navigating via location.hash
+    // here is a normal, safe side effect -- not a Rules-of-React violation.
+    // eslint-disable-next-line react-hooks/immutability
     window.location.hash = "ppTab-upload";
   }
 
