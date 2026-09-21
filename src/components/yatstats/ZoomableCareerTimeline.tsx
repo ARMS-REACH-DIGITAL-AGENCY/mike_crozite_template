@@ -746,28 +746,30 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
-      {/* Hero visuals live in their own non-scrolling stack, one per slide,
-          each opacity-driven by how close the continuous scroll position is
-          to that slide's index. The falloff is DELIBERATELY steeper than a
-          plain triangle (1 - 2*|d| instead of 1 - |d|, both clamped to
-          [0,1]): a plain linear falloff puts two ADJACENT slides at 0.5
-          opacity simultaneously at the halfway point of a drag -- a true
-          50/50 double-exposure of two different logos/cutouts, which read
-          as a rendering glitch rather than a dissolve (confirmed via
-          screenshots of it happening on a real device). Doubling the slope
-          makes each slide reach 0 by the halfway point instead of at a full
-          slide-width away, so the outgoing slide has fully dissolved out
-          before the incoming one starts dissolving in -- sequential, never
-          overlapping, with a brief fully-transparent instant exactly at the
-          midpoint. The copy track below is a separate, plain native
-          horizontally-scrollable strip underneath it (free scroll matching
-          the corporate site's real timeline mechanism, layered-story-
-          strip.js) -- scroll-snap explicitly off, mouse drag via pointer
-          events since browsers don't drag-scroll for mice, touch/trackpad
-          get native scrolling for free. */}
+      {/* Hero visuals live in their own non-scrolling stack, one per slide
+          -- they never move horizontally, only the copy track underneath
+          does -- each opacity-driven by how close the continuous scroll
+          position is to that slide's index. The falloff is steep (4x, not
+          a plain 1-|d| triangle): each slide sits at full opacity across
+          most of its own dwell range, then dissolves out fast in just the
+          last quarter of the distance to the next slide, and the next one
+          dissolves in fast over its own first quarter -- a quick in/out
+          snap rather than a slow morph, with a wider fully-transparent gap
+          between them (from a quarter out to three-quarters of the way
+          across) so the two are never simultaneously visible even
+          fractionally -- confirmed via getComputedStyle at several forced
+          scroll positions. A plainer 1-|d| triangle was tried first and
+          rejected: it puts two ADJACENT slides at 0.5 opacity at the same
+          instant, a true double-exposure of two different logos/cutouts,
+          which reads as a rendering glitch, not a dissolve. The copy track
+          below is a separate, plain native horizontally-scrollable strip
+          (free scroll matching the corporate site's real timeline
+          mechanism, layered-story-strip.js) -- scroll-snap explicitly off,
+          mouse drag via pointer events since browsers don't drag-scroll
+          for mice, touch/trackpad get native scrolling for free. */}
       <div className="zt-visual-stack" aria-hidden="true">
         {ready && model.slides.map((slide, i) => {
-          const opacity = clamp(1 - 2 * Math.abs(scrollProgress - i), 0, 1);
+          const opacity = clamp(1 - 4 * Math.abs(scrollProgress - i), 0, 1);
           if (opacity <= 0) return null;
           return (
             <span key={slide.id} className={`zt-visual zt-${slide.kind}`} style={{ opacity }}>
