@@ -16,6 +16,12 @@ const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // own to read as a full hero -- shrunk from 260 accordingly. Deliberately
 // not touching the FunZone panel's height budget below this component.
 const ROW_H = 200;
+// Mobile carries the exact same content (kicker/title/bodycopy still
+// vertically centered) at a shorter box -- 200px was leaving real dead
+// space above the hero image/headline once the type scaled down for
+// narrow screens, per direct feedback ("very tall with a lot of dead
+// space").
+const ROW_H_MOBILE = 150;
 const TIMELINE_YELLOW = '#ffb21c';
 // Same asset the corporate hero and this component's own HS anchor slide
 // have always pointed at (audience-site.js's BG) -- one canonical
@@ -598,7 +604,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       .sort((a, b) => a.year - b.year);
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
-    return { startYear: birthYear ?? hsYear, endYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
+    return { startYear: birthYear ?? hsYear, endYear, hsYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
   }, [stats, uploads, playerId, localOverrides, player?.playerName]);
 
   const ready = statsLoaded && uploadsLoaded;
@@ -666,10 +672,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // it's new -- the hero visual for each slide dissolves in/out based on
   // how close the continuous scroll position is to that slide's index,
   // instead of hard-cutting between slides.
+  //
+  // A "slide" is NOT always exactly one track.clientWidth: on narrow
+  // screens each .zt-slide is deliberately 200% of the viewport (see the
+  // 620px media query below), so it takes twice the physical scroll
+  // distance to reach the next moment -- otherwise a phone-width screen
+  // gave every moment barely any room of its own, with the next hero image
+  // arriving almost as soon as you started swiping, per direct feedback.
+  // Read the actual rendered slide width instead of assuming it equals the
+  // container's width.
+  function getSlideWidth() {
+    const el = trackRef.current;
+    if (!el) return 1;
+    const first = el.firstElementChild as HTMLElement | null;
+    return first?.getBoundingClientRect().width || el.clientWidth || 1;
+  }
   function scrollToIndex(index: number, smooth = true) {
     const el = trackRef.current;
     if (!el) return;
-    const width = el.clientWidth || 1;
+    const width = getSlideWidth();
     const target = clamp(index, 0, Math.max(0, model.slides.length - 1));
     el.scrollTo({ left: target * width, behavior: smooth ? 'smooth' : 'auto' });
   }
@@ -682,7 +703,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       scrollRafRef.current = null;
       const el = trackRef.current;
       if (!el) return;
-      const width = el.clientWidth || 1;
+      const width = getSlideWidth();
       setScrollProgress(el.scrollLeft / width);
     });
   }
@@ -744,6 +765,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           sitting behind the now-transparent header bars. */}
       <div className="zt-hero-bleed" aria-hidden="true">
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
+        {/* Class-of/name is pinned here, not inside the per-slide visual
+            stack, specifically so it's always there regardless of which
+            slide is dissolved in -- per direct feedback it should never
+            disappear, and it never sits under the headline since the
+            headline lives in the copy track's own right-hand column. */}
+        {player?.playerName && (
+          <div className="zt-persist-id" aria-hidden="true">
+            <span className="zt-persist-classof">Class of {model.hsYear}</span>
+            <span className="zt-persist-name">{player.playerName}</span>
+          </div>
+        )}
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
       {/* Hero visuals live in their own non-scrolling stack, one per slide
@@ -791,9 +823,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               )}
               {slide.kind === 'anchor' && (
                 <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
-              )}
-              {(slide.kind === 'anchor' || slide.kind === 'season') && player?.playerName && (
-                <span className="zt-player-name">{player.playerName}</span>
               )}
               {slide.kind === 'season' && (
                 <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
@@ -950,11 +979,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
-        /* Player's name -- bottom-left, to the left of the (now
-           right-shifted) cutout, sitting low in the frame where the
-           swoosh starts its curve, separate from the marketing
-           kicker/headline column on the right. Anchor slide only. */
-        .zt-player-name { position:absolute; z-index:4; left:4%; bottom:6%; display:block; margin:0; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        /* Class-of/name block -- bottom-left, to the left of the cutout,
+           sitting low in the frame where the swoosh starts its curve,
+           separate from the marketing kicker/headline column on the
+           right (which never runs into it -- the headline sits in its own
+           right-hand column, not stacked above this). Lives on
+           .zt-hero-bleed (see the JSX above), not inside the per-slide
+           visual, so it's :global() for the same reason the rest of that
+           layer is: it's a sibling of <section>, not its descendant, so
+           styled-jsx's scope hash never attaches to it. */
+        :global(.zt-persist-id) { position:absolute; z-index:2; left:4%; bottom:12px; display:flex; flex-direction:column; gap:2px; pointer-events:none; }
+        :global(.zt-persist-classof) { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
+        :global(.zt-persist-name) { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -1074,18 +1110,55 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
-          .zt-player-name { left:3.5%; bottom:5%; }
+          :global(.zt-persist-id) { left:3.5%; bottom:9px; }
           .zt-dots { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
         }
         @media (max-width:620px) {
+          /* Shorter box: 200px was leaving real dead space above the hero
+             image/headline once type scaled down this far, per direct
+             feedback. The row3-shell/row4-shell/profile-strip trio and the
+             hero-bleed height calc all have to shrink together or the
+             bleed photo would run past row3's now-shorter bottom edge. */
+          :global(.yat-row3-shell:has(.yat-profile-career-strip)) { min-height:${ROW_H_MOBILE}px !important; height:${ROW_H_MOBILE}px !important; }
+          :global(.yat-profile-career-strip) { height:${ROW_H_MOBILE}px !important; min-height:${ROW_H_MOBILE}px !important; }
+          :global(.zt-hero-bleed) { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H_MOBILE}px) !important; }
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          .zt-visual :global(.zt-person) { left:6%; bottom:-3%; width:clamp(78px,27vw,112px); height:104%; }
+          /* Shifted right from the very edge (was left:6%) to leave the
+             class-of/name block below room to sit without the two
+             colliding -- the shorter box above also means less vertical
+             room to stack them instead. */
+          .zt-visual :global(.zt-person) { left:24%; bottom:-3%; width:clamp(70px,24vw,100px); height:104%; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
-          .zt-copy { left:32%; right:4%; bottom:18px; }
-          .zt-player-name { left:3%; bottom:4%; }
+          :global(.zt-persist-id) { left:2.5%; bottom:7px; }
+          :global(.zt-persist-classof) { font-size:9px; }
+          :global(.zt-persist-name) { font-size:clamp(12px,3.6vw,15px); }
+          /* Each slide is 200% of the viewport here, not 100% -- doubling
+             the physical scroll distance between moments so a phone-width
+             screen still gives each one real room, matching how much
+             "throw" there is between hero images on desktop, per direct
+             feedback. .zt-copy's left/right (percentages of the SLIDE's
+             own box) are halved from their 100%-slide values below to
+             land in the exact same on-screen position they would in a
+             100%-wide slide -- e.g. 16%/32%-width of a 200%-wide box is
+             the same absolute spot as 32%/64%-width of a 100%-wide one --
+             just expressed as a "right" edge doesn't work any more once
+             the box is wider than the viewport (the box's actual right
+             edge is now off-screen), so it's left+width instead of
+             left+right. .zt-dots/.zt-nav are unaffected: they're
+             positioned relative to the outer (un-doubled) frame, not to
+             any one .zt-slide. */
+          .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
+          .zt-copy { left:16%; right:auto; width:32%; bottom:14px; }
+          /* Life-year screens have no cutout reserving space, so they get
+             the same "use nearly the full frame" treatment on mobile as
+             they already get on desktop via this same higher-specificity
+             override -- expressed as left+width like the rule above,
+             for the same reason (this slide is 200% wide, so "right"
+             would measure from an edge that's off-screen). */
+          .zt-lifeyear .zt-copy { left:4%; width:44%; }
           .zt-dots { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
