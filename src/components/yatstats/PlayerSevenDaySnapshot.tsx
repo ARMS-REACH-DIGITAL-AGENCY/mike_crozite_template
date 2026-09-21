@@ -254,6 +254,7 @@ export default async function PlayerSevenDaySnapshot({
 
       <div className="yat-snap-rows">
         {items.map((item, idx) => {
+          const isToday = item.iso === todayIso;
           const d = new Date(`${item.iso}T00:00:00Z`);
           const mon = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
           const dayNum = d.getUTCDate();
@@ -261,15 +262,19 @@ export default async function PlayerSevenDaySnapshot({
 
           return (
             <a
-              className={`yat-snap-row${item.iso === todayIso ? ' yat-snap-row-today' : ''}`}
+              className={`yat-snap-row${isToday ? ' yat-snap-row-today' : ''}`}
               href={profileHref}
               key={`${item.iso}-${idx}`}
             >
-              <div className="yat-snap-date">
-                <span className="yat-snap-date-mon">{mon}</span>
-                <span className="yat-snap-date-day">{dayNum}</span>
-                <span className="yat-snap-date-dow">{dow}</span>
-              </div>
+              {isToday ? (
+                <div className="yat-snap-date yat-snap-date-today">TODAY</div>
+              ) : (
+                <div className="yat-snap-date">
+                  <span className="yat-snap-date-mon">{mon}</span>
+                  <span className="yat-snap-date-day">{dayNum}</span>
+                  <span className="yat-snap-date-dow">{dow}</span>
+                </div>
+              )}
 
               {item.kind === 'game' ? (
                 <>
@@ -285,10 +290,6 @@ export default async function PlayerSevenDaySnapshot({
                   <div className="yat-snap-result">
                     <div className={`yat-snap-score yat-snap-score-${item.resultClass}`}>{item.resultLine}</div>
                     {item.subLine && <div className="yat-snap-sub">{item.subLine}</div>}
-                  </div>
-
-                  <div className="yat-snap-homeaway">
-                    <i className={item.isHome ? 'ri-home-4-line' : 'ri-flight-takeoff-line'} aria-hidden="true" />
                   </div>
                 </>
               ) : item.kind === 'offday' ? (
@@ -316,7 +317,7 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-title{
           flex:0 0 auto;
           text-align:center;
-          font:700 clamp(7px,2.4cqi,12px)/1 "Bebas Neue",sans-serif;
+          font:700 clamp(8px,2.8cqi,14px)/1 "Bebas Neue",sans-serif;
           letter-spacing:.1em;
           text-transform:uppercase;
           color:#3a2f24;
@@ -335,15 +336,15 @@ export default async function PlayerSevenDaySnapshot({
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:auto auto 1fr auto auto;
+          grid-template-columns:auto auto 1fr auto;
           align-items:center;
-          gap:clamp(3px,1cqi,7px);
+          gap:clamp(4px,1.2cqi,8px);
           text-decoration:none;
           color:inherit;
           background:rgba(255,255,255,0.72);
           border:1px solid rgba(30,22,14,0.10);
           border-radius:clamp(3px,1cqi,6px);
-          padding:clamp(1px,.6cqi,4px) clamp(4px,1.2cqi,7px);
+          padding:clamp(1px,.7cqi,5px) clamp(5px,1.4cqi,9px);
           box-shadow:0 1px 2px rgba(0,0,0,0.06);
           min-width:0;
           overflow:hidden;
@@ -357,20 +358,25 @@ export default async function PlayerSevenDaySnapshot({
           flex-direction:column;
           align-items:center;
           line-height:1;
-          min-width:2.1em;
+          min-width:2.4em;
         }
         .yat-snap-date-mon, .yat-snap-date-dow{
-          font:700 clamp(4.5px,1.5cqi,7px)/1 Oswald,sans-serif;
+          font:700 clamp(5.5px,1.8cqi,8.5px)/1 Oswald,sans-serif;
           letter-spacing:.05em;
           color:#8a7c68;
         }
         .yat-snap-date-day{
-          font:700 clamp(8px,3cqi,15px)/1.05 "Bebas Neue",sans-serif;
+          font:700 clamp(10px,3.8cqi,19px)/1.05 "Bebas Neue",sans-serif;
           color:#17120c;
         }
+        .yat-snap-date-today{
+          font:700 clamp(8px,3cqi,14px)/1.05 "Bebas Neue",sans-serif;
+          letter-spacing:.04em;
+          color:#8a4a2c;
+        }
         .yat-snap-logo{
-          width:clamp(13px,4.5cqi,22px);
-          height:clamp(13px,4.5cqi,22px);
+          width:clamp(16px,5.2cqi,26px);
+          height:clamp(16px,5.2cqi,26px);
           flex:0 0 auto;
           display:flex;
           align-items:center;
@@ -387,7 +393,7 @@ export default async function PlayerSevenDaySnapshot({
           flex-direction:column;
         }
         .yat-snap-matchup{
-          font:700 clamp(6px,2cqi,9.5px)/1.1 Oswald,sans-serif;
+          font:700 clamp(7.5px,2.6cqi,12.5px)/1.15 Oswald,sans-serif;
           letter-spacing:.02em;
           text-transform:uppercase;
           color:#221a12;
@@ -396,7 +402,7 @@ export default async function PlayerSevenDaySnapshot({
           text-overflow:ellipsis;
         }
         .yat-snap-venue{
-          font:400 clamp(5px,1.5cqi,7.5px)/1.1 Oswald,sans-serif;
+          font:400 clamp(6px,2cqi,9.5px)/1.15 Oswald,sans-serif;
           color:#8a7c68;
           white-space:nowrap;
           overflow:hidden;
@@ -409,7 +415,7 @@ export default async function PlayerSevenDaySnapshot({
           flex-direction:column;
         }
         .yat-snap-score{
-          font:700 clamp(6.5px,2.2cqi,10px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          font:700 clamp(8px,2.8cqi,13px)/1.1 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           white-space:nowrap;
         }
@@ -420,25 +426,16 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-score-time{ color:#221a12; }
         .yat-snap-score-ppd{ color:#8a7c68; }
         .yat-snap-sub{
-          font:400 clamp(5px,1.5cqi,7.5px)/1.1 Oswald,sans-serif;
+          font:400 clamp(6px,2cqi,9.5px)/1.15 Oswald,sans-serif;
           color:#6b5d4d;
           white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
         }
-        .yat-snap-homeaway{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          width:clamp(9px,3cqi,13px);
-          flex:0 0 auto;
-          color:#8a7c68;
-          font-size:clamp(8px,2.6cqi,11px);
-        }
         .yat-snap-offday{
           grid-column:2 / -1;
           text-align:center;
-          font:700 clamp(6px,2cqi,9px)/1 Oswald,sans-serif;
+          font:700 clamp(7px,2.4cqi,11px)/1 Oswald,sans-serif;
           letter-spacing:.08em;
           text-transform:uppercase;
           color:#a89a86;
