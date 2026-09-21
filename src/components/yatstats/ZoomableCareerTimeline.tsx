@@ -765,19 +765,26 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           sitting behind the now-transparent header bars. */}
       <div className="zt-hero-bleed" aria-hidden="true">
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
-        {/* Class-of/name is pinned here, not inside the per-slide visual
-            stack, specifically so it's always there regardless of which
-            slide is dissolved in -- per direct feedback it should never
-            disappear, and it never sits under the headline since the
-            headline lives in the copy track's own right-hand column. */}
-        {player?.playerName && (
-          <div className="zt-persist-id" aria-hidden="true">
-            <span className="zt-persist-classof">Class of {model.hsYear}</span>
-            <span className="zt-persist-name">{player.playerName}</span>
-          </div>
-        )}
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+      {/* Class-of/name is its own layer here, not inside .zt-hero-bleed
+          (that div sits at z-index:-1, deliberately painted BEHIND this
+          entire section's own content -- see the z-index note further
+          down -- so anything placed inside it is hidden behind the
+          carousel too, confirmed by direct feedback that it wasn't
+          showing up at all in production) and not inside the per-slide
+          visual stack either (so it's always there regardless of which
+          slide is dissolved in, per direct feedback it should never
+          disappear -- and it never sits under the headline, since the
+          headline lives in the copy track's own right-hand column). A
+          plain child of this <section>, so it needs no :global() -- it's
+          a normal descendant, not a Fragment-level sibling. */}
+      {player?.playerName && (
+        <div className="zt-persist-id" aria-hidden="true">
+          <span className="zt-persist-classof">Class of {model.hsYear}</span>
+          <span className="zt-persist-name">{player.playerName}</span>
+        </div>
+      )}
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
           does -- each opacity-driven by how close the continuous scroll
@@ -988,9 +995,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            visual, so it's :global() for the same reason the rest of that
            layer is: it's a sibling of <section>, not its descendant, so
            styled-jsx's scope hash never attaches to it. */
-        :global(.zt-persist-id) { position:absolute; z-index:2; left:4%; bottom:12px; display:flex; flex-direction:column; gap:2px; pointer-events:none; }
-        :global(.zt-persist-classof) { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
-        :global(.zt-persist-name) { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-id { position:absolute; z-index:8; left:4%; bottom:12px; display:flex; flex-direction:column; gap:2px; pointer-events:none; }
+        .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
+        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -1110,7 +1117,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
-          :global(.zt-persist-id) { left:3.5%; bottom:9px; }
+          .zt-persist-id { left:3.5%; bottom:9px; }
           .zt-dots { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
@@ -1132,9 +1139,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              room to stack them instead. */
           .zt-visual :global(.zt-person) { left:24%; bottom:-3%; width:clamp(70px,24vw,100px); height:104%; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
-          :global(.zt-persist-id) { left:2.5%; bottom:7px; }
-          :global(.zt-persist-classof) { font-size:9px; }
-          :global(.zt-persist-name) { font-size:clamp(12px,3.6vw,15px); }
+          .zt-persist-id { left:2.5%; bottom:7px; }
+          .zt-persist-classof { font-size:9px; }
+          .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much
