@@ -55,9 +55,24 @@ export default function YatStyles() {
         border-bottom:1px solid var(--line);
       }
 
+      /* z-index raised from 1: this shell establishes its own stacking
+         context (position:relative + an explicit z-index), which traps
+         everything painted inside it -- including any descendant's own
+         z-index, no matter how high -- at THIS rank when compared
+         against unrelated siblings elsewhere on the page. .yat-footer
+         (the fixed sponsor-ad banner pinned to the bottom of the
+         viewport) sits at z-index:40; at the old z-index:1, the entire
+         contents of this row -- e.g. the player profile page's own
+         FunZone tab strip, which has a z-index of its own but one that
+         only ever gets compared against OTHER elements inside this same
+         row -- painted underneath that fixed ad banner regardless, which
+         is why its bottom tab labels were showing up hidden behind it.
+         45 keeps this row below rows 1-3's sticky headers (60/65/70, so
+         scrolling content still tucks correctly under them) while
+         landing above the footer ad (40). */
       .yat-row5-shell{
         position:relative;
-        z-index:1;
+        z-index:45;
         padding-top:8px;
       }
 
