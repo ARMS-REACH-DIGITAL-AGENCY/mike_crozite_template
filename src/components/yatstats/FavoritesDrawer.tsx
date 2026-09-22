@@ -363,6 +363,36 @@ function attachFunZoneTabListener(card: HTMLElement) {
   });
 }
 
+// The Social tab's Copy/Instagram buttons carry the exact post text in a
+// data-copy-text attribute (populated server-side, so it's present in this
+// injected markup same as it is on a native card) specifically so this
+// listener can copy it without any React state - their React onClick
+// handlers never run here for the same reason attachFunZoneTabListener
+// exists: this card is injected via innerHTML, so React never hydrates it.
+// Instagram is a real <a href> to instagram.com (works via plain
+// navigation regardless of hydration) that also happens to carry
+// data-copy-text, so the same listener covers both buttons.
+function attachFunZoneShareListener(card: HTMLElement) {
+  if (card.dataset.funZoneShareListenerAttached === 'true') return;
+  card.dataset.funZoneShareListenerAttached = 'true';
+
+  card.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const btn = target.closest<HTMLElement>('[data-copy-text]');
+    if (!btn) return;
+
+    const text = btn.dataset.copyText;
+    if (!text || !navigator.clipboard) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      window.setTimeout(() => btn.classList.remove('copied'), 2000);
+    });
+  });
+}
+
 function renderCardErrorFallback(name: string, schoolId: string, playerId: string): string {
   const slug = playerSlug(name);
   return `
@@ -777,6 +807,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             if (injectedCard) {
               attachFlipListener(injectedCard);
               attachFunZoneTabListener(injectedCard);
+              attachFunZoneShareListener(injectedCard);
             }
             nudgeFavoritesFilter();
           } else {

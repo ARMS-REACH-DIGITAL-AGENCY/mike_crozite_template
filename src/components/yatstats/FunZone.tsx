@@ -482,18 +482,15 @@ function SocialPanel({
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const fullPostText = `${shareText}\n${shareUrl}`;
+
   function handleCopyPost() {
     if (!navigator.clipboard) return;
-    navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
+    navigator.clipboard.writeText(fullPostText).then(() => {
       setCopied(true);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     });
-  }
-
-  function handleInstagramShare() {
-    handleCopyPost();
-    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -555,15 +552,30 @@ function SocialPanel({
         <button
           type="button"
           className={`yat-stat fz-social-cell${copied ? " copied" : ""}`}
+          data-copy-text={fullPostText}
           onClick={handleCopyPost}
         >
           {copied ? <i className="ri-check-line" aria-hidden="true" /> : <CopyIcon />}
           <span>{copied ? "Copied!" : "Copy"}</span>
         </button>
-        <button type="button" className="yat-stat fz-social-cell" onClick={handleInstagramShare}>
+        {/* A real <a href>, not a button+window.open - Instagram has no web
+            share/compose intent, so this just opens the app/site the same
+            way Facebook/X/Text/Email's plain links do (works via plain
+            navigation with zero JS, including on a cross-school card that
+            never hydrates). The onClick copy-to-clipboard is a bonus that
+            only fires where React did mount; data-copy-text covers the
+            non-hydrated case via attachFunZoneShareListener. */}
+        <a
+          href="https://www.instagram.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="yat-stat fz-social-cell"
+          data-copy-text={fullPostText}
+          onClick={handleCopyPost}
+        >
           <InstagramIcon />
           <span>Instagram</span>
-        </button>
+        </a>
       </div>
     </div>
   );
