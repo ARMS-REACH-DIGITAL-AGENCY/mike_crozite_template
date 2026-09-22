@@ -278,19 +278,17 @@ export default async function PlayerSevenDaySnapshot({
 
               {item.kind === 'game' ? (
                 <>
-                  <div className="yat-snap-logo">
+                  <div className="yat-snap-team">
                     {item.game.logoUrl && <img src={item.game.logoUrl} alt="" loading="lazy" />}
+                    <div className="yat-snap-team-text">
+                      <div className="yat-snap-matchup">{item.game.matchup}</div>
+                      {item.game.venue && <div className="yat-snap-venue">{item.game.venue}</div>}
+                    </div>
                   </div>
 
-                  <div className="yat-snap-mid">
-                    <div className="yat-snap-matchup">{item.game.matchup}</div>
-                    {item.game.venue && <div className="yat-snap-venue">{item.game.venue}</div>}
-                  </div>
+                  <div className={`yat-snap-score yat-snap-score-${item.game.resultClass}`}>{item.game.resultLine}</div>
 
-                  <div className="yat-snap-result">
-                    <div className={`yat-snap-score yat-snap-score-${item.game.resultClass}`}>{item.game.resultLine}</div>
-                    {item.game.subLine && <div className="yat-snap-sub">{item.game.subLine}</div>}
-                  </div>
+                  <div className="yat-snap-statline">{item.game.subLine || '-'}</div>
 
                   <div className="yat-snap-homeaway">
                     <i className={item.game.isHome ? 'ri-home-4-line' : 'ri-flight-takeoff-line'} aria-hidden="true" />
@@ -304,11 +302,9 @@ export default async function PlayerSevenDaySnapshot({
                         <div className="yat-snap-dh-logo">
                           {g.logoUrl && <img src={g.logoUrl} alt="" loading="lazy" />}
                         </div>
-                        <div className="yat-snap-dh-mid">
-                          <div className="yat-snap-dh-team">{g.matchup}</div>
-                          <div className={`yat-snap-dh-score yat-snap-score-${g.resultClass}`}>{g.resultLine}</div>
-                          {g.subLine && <div className="yat-snap-dh-sub">{g.subLine}</div>}
-                        </div>
+                        <div className="yat-snap-dh-team">{g.matchup}</div>
+                        <div className={`yat-snap-dh-score yat-snap-score-${g.resultClass}`}>{g.resultLine}</div>
+                        <div className="yat-snap-dh-stat">{g.subLine || '-'}</div>
                       </div>
                     ))}
                   </div>
@@ -360,7 +356,7 @@ export default async function PlayerSevenDaySnapshot({
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:auto auto 1fr auto auto;
+          grid-template-columns:auto auto auto 1fr auto;
           align-items:center;
           gap:clamp(5px,1.5cqi,9px);
           text-decoration:none;
@@ -399,20 +395,19 @@ export default async function PlayerSevenDaySnapshot({
           letter-spacing:.04em;
           color:#8a4a2c;
         }
-        .yat-snap-logo{
-          width:clamp(17px,5.5cqi,27px);
-          height:clamp(17px,5.5cqi,27px);
-          flex:0 0 auto;
+        .yat-snap-team{
           display:flex;
           align-items:center;
-          justify-content:center;
+          gap:clamp(4px,1.3cqi,8px);
+          min-width:0;
         }
-        .yat-snap-logo img{
-          width:100%;
-          height:100%;
+        .yat-snap-team img{
+          width:clamp(17px,5.5cqi,27px);
+          height:clamp(17px,5.5cqi,27px);
           object-fit:contain;
+          flex:0 0 auto;
         }
-        .yat-snap-mid{
+        .yat-snap-team-text{
           min-width:0;
           display:flex;
           flex-direction:column;
@@ -433,16 +428,11 @@ export default async function PlayerSevenDaySnapshot({
           overflow:hidden;
           text-overflow:ellipsis;
         }
-        .yat-snap-result{
-          text-align:right;
-          min-width:0;
-          display:flex;
-          flex-direction:column;
-        }
         .yat-snap-score{
-          font:700 clamp(8.5px,2.9cqi,14px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          font:700 clamp(8px,2.6cqi,13px)/1.1 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           white-space:nowrap;
+          text-align:center;
         }
         .yat-snap-score-win{ color:#1c7a3e; }
         .yat-snap-score-loss{ color:#b4232c; }
@@ -450,9 +440,12 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-score-live{ color:#b4232c; }
         .yat-snap-score-time{ color:#221a12; }
         .yat-snap-score-ppd{ color:#8a7c68; }
-        .yat-snap-sub{
-          font:400 clamp(6.5px,2.1cqi,9.5px)/1.15 Oswald,sans-serif;
-          color:#6b5d4d;
+        .yat-snap-statline{
+          font:700 clamp(11px,4cqi,18px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.01em;
+          color:#17120c;
+          text-align:right;
+          min-width:0;
           white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
@@ -511,12 +504,9 @@ export default async function PlayerSevenDaySnapshot({
           height:100%;
           object-fit:contain;
         }
-        .yat-snap-dh-mid{
-          min-width:0;
-          display:flex;
-          flex-direction:column;
-        }
         .yat-snap-dh-team{
+          flex:0 1 auto;
+          min-width:0;
           font:700 clamp(6.5px,2.1cqi,9.5px)/1.15 Oswald,sans-serif;
           text-transform:uppercase;
           letter-spacing:.02em;
@@ -526,12 +516,16 @@ export default async function PlayerSevenDaySnapshot({
           text-overflow:ellipsis;
         }
         .yat-snap-dh-score{
+          flex:0 0 auto;
           font:700 clamp(7px,2.3cqi,10.5px)/1.1 "Bebas Neue",Oswald,sans-serif;
           white-space:nowrap;
         }
-        .yat-snap-dh-sub{
-          font:400 clamp(5.5px,1.8cqi,8px)/1.1 Oswald,sans-serif;
-          color:#6b5d4d;
+        .yat-snap-dh-stat{
+          flex:1;
+          min-width:0;
+          text-align:right;
+          font:700 clamp(7.5px,2.6cqi,12px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          color:#17120c;
           white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
