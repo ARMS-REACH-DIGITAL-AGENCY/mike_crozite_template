@@ -1266,6 +1266,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         :global(.yat-row1-shell.pp-hero-row .yat-topbar) { background:transparent !important; }
         :global(.yat-row2-shell.pp-hero-row) { background:transparent !important; border-color:transparent !important; }
         :global(.yat-row2-shell.pp-hero-row .yat-schoolrow) { background:transparent !important; }
+        /* .yat-icon-btn's color and .yat-wordmark-img's filter both read
+           --fg/--logo-filter, which body.light-theme flips (near-white ->
+           near-black, invert(1) -> none) so they stay legible against
+           every OTHER page template's --header-bg, which flips in sync
+           right alongside them. This is the only template with a
+           permanently-dark photo behind rows 1-2 instead of a
+           theme-matched solid background, so that flip works against it
+           instead of for it -- in light-theme, the icons/logo go dark
+           against a background that's still dark. Re-pinning both
+           variables here, on the row shells themselves, overrides what
+           body.light-theme set for every descendant inside them without
+           touching the variables anywhere else on the site. */
+        :global(.yat-row1-shell.pp-hero-row) { --fg: #f2f2f2; --logo-filter: invert(1); }
+        :global(.yat-row2-shell.pp-hero-row) { --fg: #f2f2f2; }
 
         /* -- responsive: proportions only, same single layered frame at
            every width (never restructures into a grid or stacks into two
