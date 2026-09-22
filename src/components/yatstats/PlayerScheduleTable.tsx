@@ -1,16 +1,22 @@
 "use client";
 // Full season schedule / game log table on the player profile page.
 //
-// - One row per game, chronological ascending (game 1 -> last game) by
-//   default - this is the server-computed order in `rows` and also the
-//   initial sort state, so "sort by date" just toggles back to it.
+// - One row per game. Default sort is DATE DESCENDING (most recent first) -
+//   a fan opening this tab wants to see how the player has been doing
+//   lately, not game 1 of the season. `rows` itself (the server-computed
+//   prop) stays chronological ascending; only the initial sort STATE is
+//   descending, so this is a display-order choice, not a data change.
 // - Sticky column headers inside their own scroll container (this is a
 //   full profile page, not the space-constrained flip-card FunZone panel,
 //   so an internal scroll region is appropriate here).
-// - Every column is clickable to sort ascending/descending; rows stay
-//   intact (the whole row object moves together, never individual cells).
+// - Every column is clickable to sort ascending/descending, with a ▲/▼
+//   arrow on whichever column is currently sorted so it's visible that
+//   every column here is sortable; rows stay intact (the whole row object
+//   moves together, never individual cells).
 // - On mount, scrolls to today's date (or the nearest upcoming game if
-//   today is an off day) so a fan isn't stuck scrolling from game 1.
+//   today is an off day) so a fan lands on "now," not buried in the
+//   season - future games are still there, just a scroll up away, rather
+//   than dumped above today's game by default.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -71,7 +77,7 @@ function compareRows(a: ScheduleTableRow, b: ScheduleTableRow, sortKey: SortKey,
 
 export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const theadRef = useRef<HTMLTableSectionElement | null>(null);
