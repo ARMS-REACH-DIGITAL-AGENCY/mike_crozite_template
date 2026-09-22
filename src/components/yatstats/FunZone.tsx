@@ -569,40 +569,20 @@ function SocialPanel({
   );
 }
 
-const CONNECT_FEATURES: { icon: string; title: string }[] = [
-  { icon: "ri-vidicon-line", title: "Request a Personalized Message" },
-  { icon: "ri-hand-heart-line", title: "Support the Player or School" },
-  { icon: "ri-graduation-cap-line", title: "Learn How the Program Works" },
-];
-
+// Not a dynamic layout - the whole panel is the approved Mentorship
+// Marketplace graphic (the exact "Coming Soon" design that was signed off
+// on), used as-is as one big graphic button linking to the marketplace
+// section on the profile page. No per-player text, no responsive
+// typography to fit into the fixed card height - just the image.
 function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
-    <div className="fz-connect">
+    <a className="fz-connect" href={profileHref} aria-label="Learn more about the Mentorship Marketplace">
       <img
-        src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-        alt="YAT?STATS"
-        className="fz-connect-wordmark"
+        src="/img/mentorship-marketplace-coming-soon.jpg"
+        alt="Mentorship Marketplace - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
+        className="fz-connect-graphic"
       />
-
-      <div className="fz-connect-heading">Coming Soon</div>
-      <div className="fz-connect-tagline">Real Players. Real Conversations. A Brighter Tomorrow.</div>
-
-      <div className="fz-connect-features">
-        {CONNECT_FEATURES.map((f) => (
-          <div className="fz-connect-feature" key={f.title}>
-            <div className="fz-connect-feature-icon">
-              <i className={f.icon} aria-hidden="true" />
-            </div>
-            <div className="fz-connect-feature-title">{f.title}</div>
-          </div>
-        ))}
-      </div>
-
-      <a className="fz-connect-cta" href={profileHref}>
-        <span>Explore the Mentorship Marketplace</span>
-        <i className="ri-arrow-right-s-line" aria-hidden="true" />
-      </a>
-    </div>
+    </a>
   );
 }
 
@@ -985,8 +965,7 @@ export default function FunZone({
           display:grid;
           grid-template-columns:repeat(3,minmax(0,1fr));
           gap:clamp(5px,1.7cqi,10px);
-          flex:1;
-          min-height:0;
+          flex:0 0 auto;
         }
 
         .yat-stat{
@@ -1178,12 +1157,11 @@ export default function FunZone({
         }
         .fz-social-accent{ color:#2451c9; font-weight:700; }
 
-        /* Same cells as the Stats tab (.yat-stat), just 2 rows of 3 instead
-           of 4 - filling the same grid position the bottom two rows of
-           stats would occupy. */
-        .fz-social-grid{ flex:1; }
+        /* Same cells as the Stats tab (.yat-stat, including the global
+           icon-over-label column layout GlobalTopbar applies to it) - just
+           2 rows of 3 instead of 4, same row height via .yat-stats-grid's
+           grid-auto-rows (not tied to a hardcoded row count). */
         .fz-social-cell{
-          flex-direction:row;
           text-decoration:none;
           cursor:pointer;
           font:700 clamp(7.5px,2.4cqi,11px) Oswald,sans-serif;
@@ -1214,79 +1192,18 @@ export default function FunZone({
         .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
 
         /* -- Connect / Mentorship Marketplace panel ---------------------- */
+        /* One big graphic button - no dynamic text, no responsive type. */
         .fz-connect{
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          text-align:center;
-          justify-content:center;
+          display:block;
+          width:100%;
           height:100%;
-          gap:clamp(4px,1.4cqi,9px);
         }
-        .fz-connect-wordmark{
-          width:min(78%,240px);
-          height:auto;
-          flex:0 0 auto;
-        }
-        .fz-connect-heading{
-          font:700 clamp(16px,7cqi,28px) "Bebas Neue",sans-serif;
-          letter-spacing:.02em;
-          color:rgba(30,22,14,0.94);
-          line-height:.95;
-        }
-        .fz-connect-tagline{
-          font:600 clamp(6px,1.9cqi,8.5px) Oswald,sans-serif;
-          letter-spacing:.08em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.55);
-          line-height:1.3;
-        }
-        .fz-connect-features{
-          display:flex;
-          flex-direction:column;
-          gap:clamp(3px,1cqi,6px);
+        .fz-connect-graphic{
+          display:block;
           width:100%;
-          text-align:left;
-          margin-top:clamp(1px,.6cqi,3px);
+          height:100%;
+          object-fit:contain;
         }
-        .fz-connect-feature{ display:flex; align-items:center; gap:clamp(6px,1.8cqi,10px); }
-        .fz-connect-feature-icon{
-          flex:0 0 auto;
-          width:clamp(16px,5.4cqi,24px);
-          height:clamp(16px,5.4cqi,24px);
-          border-radius:50%;
-          background:rgba(30,22,14,0.1);
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          color:rgba(30,22,14,0.75);
-          font-size:clamp(8px,2.6cqi,12px);
-        }
-        .fz-connect-feature-title{
-          min-width:0;
-          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
-          letter-spacing:.02em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.88);
-        }
-        .fz-connect-cta{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:6px;
-          width:100%;
-          margin-top:clamp(3px,1cqi,6px);
-          padding:clamp(6px,1.8cqi,10px) clamp(8px,2.2cqi,12px);
-          border:1px solid rgba(30,22,14,0.3);
-          border-radius:clamp(6px,1.8cqi,10px);
-          background:rgba(255,255,255,0.3);
-          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
-          letter-spacing:.03em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.9);
-          text-decoration:none;
-        }
-        .fz-connect-cta:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
       `}</style>
     </div>
   );

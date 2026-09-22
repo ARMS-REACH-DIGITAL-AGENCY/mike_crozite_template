@@ -196,7 +196,13 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         .fz-stat-bucket-tabs + .fz-stats .yat-stats-bar { display: none !important; }
 
         .yat-stats-bar { min-height: 18px !important; padding: 2px 5px !important; margin: 0 !important; font-size: clamp(7px, 3.6cqw, 11px) !important; line-height: 1 !important; border-radius: 5px !important; }
-        .yat-stats-grid { gap: clamp(3px, 1.7cqw, 6px) !important; grid-template-rows: repeat(4, minmax(0, 1fr)) !important; }
+        /* grid-auto-rows (not a hardcoded repeat(4,...) template) sizes
+           every row the same way regardless of how many exist, so a grid
+           reusing these cells with a different row count (e.g. the Social
+           tab's 2-row share-button grid) gets identically-sized cells to
+           the Stats tab's 4-row grid instead of a hardcoded 4-row
+           assumption baked in for one specific consumer. */
+        .yat-stats-grid { gap: clamp(3px, 1.7cqw, 6px) !important; grid-auto-rows: clamp(38px, 11cqi, 62px) !important; }
         .yat-stat { min-height: 0 !important; gap: 3px !important; padding: 2px 3px !important; border-radius: 6px !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important; }
         .yat-stat-label { font-size: clamp(6px, 3cqw, 9px) !important; line-height: 1 !important; margin: 0 !important; opacity: .62 !important; white-space: nowrap !important; }
         .yat-stat-val { font-size: clamp(14px, 8.7cqw, 20px) !important; line-height: .92 !important; margin: 0 !important; letter-spacing: -.02em !important; white-space: nowrap !important; max-width: 100% !important; }
