@@ -231,14 +231,14 @@ def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
         set_clauses.append(
             """
             next_game_date = case
-              when (rng.game_time_utc at time zone 'America/Phoenix')::date =
-                   (now() at time zone 'America/Phoenix')::date
+              when (rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'))::date =
+                   (now() at time zone coalesce(f.school_timezone, 'America/Phoenix'))::date
               then 'TODAY | ' || to_char(
-                rng.game_time_utc at time zone 'America/Phoenix',
+                rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'),
                 'FMMonth DD, YYYY'
               )
               else to_char(
-                rng.game_time_utc at time zone 'America/Phoenix',
+                rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'),
                 'FMDay | FMMonth DD, YYYY'
               )
             end
@@ -249,7 +249,7 @@ def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
         set_clauses.append(
             """
             next_game_time_local = to_char(
-              rng.game_time_utc at time zone 'America/Phoenix',
+              rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'),
               'FMHH12:MI AM'
             )
             """
@@ -285,7 +285,12 @@ def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
         )
 
     if "next_game_time_zone" in stage_cols:
-        set_clauses.append("next_game_time_zone = 'MST'")
+        # Store the real IANA zone name (school_timezone), not a hardcoded
+        # Arizona literal - PlayerCardFront's formatTimeZoneLabel() already
+        # maps IANA names to display abbreviations (America/Phoenix -> MST,
+        # America/New_York -> EST, etc), so this needs to carry the actual
+        # per-school zone rather than always claiming Arizona.
+        set_clauses.append("next_game_time_zone = coalesce(f.school_timezone, 'America/Phoenix')")
 
     if "stage_updated_at" in stage_cols:
         set_clauses.append("stage_updated_at = now()")
