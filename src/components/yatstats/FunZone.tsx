@@ -977,6 +977,10 @@ export default function FunZone({
           display:grid;
           grid-template-columns:repeat(3,minmax(0,1fr));
           gap:clamp(5px,1.7cqi,10px);
+          flex:1;
+          min-height:0;
+        }
+        .yat-stats-grid.fz-social-grid{
           flex:0 0 auto;
         }
 
@@ -1171,8 +1175,9 @@ export default function FunZone({
 
         /* Same cells as the Stats tab (.yat-stat, including the global
            icon-over-label column layout GlobalTopbar applies to it) - just
-           2 rows of 3 instead of 4, same row height via .yat-stats-grid's
-           grid-auto-rows (not tied to a hardcoded row count). */
+           2 rows of 3 instead of 4. Row height comes from the
+           .yat-stats-grid.fz-social-grid override in GlobalTopbar.tsx,
+           scoped so it never touches the Stats tab's own 4-row grid. */
         .fz-social-cell{
           text-decoration:none;
           cursor:pointer;
