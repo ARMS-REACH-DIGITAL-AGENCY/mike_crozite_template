@@ -1951,7 +1951,8 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
          last_transaction_type,
          previous_team_name,
          previous_org_or_conference_name,
-         school_timezone
+         school_timezone,
+         status_label
        FROM public.flip_card_front_stage
        WHERE playerid::text = $1
        LIMIT 1`,

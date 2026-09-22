@@ -143,6 +143,13 @@ function buildGameSummary(
     resultLine = formatGameTime(game.game_time_utc, timeZone);
   }
 
+  // A completed game (win/loss/tie) with no joined box-score line means the
+  // player was on the roster but didn't appear in it - a bench day, not a
+  // missing-data gap - so it's worth a label rather than reading as blank.
+  if ((resultClass === 'win' || resultClass === 'loss' || resultClass === 'tie') && !subLine) {
+    subLine = 'DNP';
+  }
+
   return { isHome, logoUrl, opponentLabel, venue: game.venue_name || '', resultLine, resultClass, subLine };
 }
 
@@ -155,6 +162,15 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
 
   const schoolTimeZone = String((transactionStatus as any)?.school_timezone || '').trim() || 'America/Phoenix';
   const today = isoDateInZone(new Date(), schoolTimeZone);
+
+  // Empty/unset status_label (most college/HS players, who aren't on this
+  // MLB-specific pipeline) is treated as active - only a real, explicit
+  // non-ACTIVE status (INJURED 7-DAY, RETIRED, FREE AGENT, etc) should
+  // override the stat line, and it replaces it on every row, not just past
+  // ones: a player on the 7-day IL isn't going to play Thursday's game
+  // either, so a blank "-" there would just look like missing data.
+  const statusLabel = String((transactionStatus as any)?.status_label || '').trim().toUpperCase();
+  const isActive = !statusLabel || statusLabel === 'ACTIVE';
 
   // current_team_source_team_id is only a raw MLB Stats API id needing
   // translation through teamIdMap when current_team_source is 'mlb_api'
@@ -203,13 +219,13 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
     if (gamesForDate.length === 0) {
       items.push({ kind: hasSchedule ? 'offday' : 'unknown', iso });
     } else if (gamesForDate.length === 1) {
-      items.push({ kind: 'game', iso, game: buildGameSummary(gamesForDate[0], logsByGamePk, teamIdMap, schoolTimeZone) });
+      const game = buildGameSummary(gamesForDate[0], logsByGamePk, teamIdMap, schoolTimeZone);
+      if (!isActive) game.subLine = statusLabel;
+      items.push({ kind: 'game', iso, game });
     } else {
-      items.push({
-        kind: 'doubleheader',
-        iso,
-        games: gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap, schoolTimeZone)),
-      });
+      const games = gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap, schoolTimeZone));
+      if (!isActive) games.forEach((g) => { g.subLine = statusLabel; });
+      items.push({ kind: 'doubleheader', iso, games });
     }
   }
 
