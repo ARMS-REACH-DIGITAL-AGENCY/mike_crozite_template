@@ -75,66 +75,120 @@ function normalizeHostOrUrl(input: string) {
 // SINGLE PLAYER - full player identity for profile page
 // Falls back to flip_card_front_stage for YAT-only players not in TBC.
 // ---------------------------------------------------------------------------
+// A player can legitimately exist in both tbc_players_raw AND
+// flip_card_front_stage, and the two tables own DIFFERENT fields:
+// tbc_players_raw has height/weight/bats/throws (flip_card_front_stage
+// doesn't carry these at all), while flip_card_front_stage has
+// hsid/class_of/status_label/level_label/current_team_name/current_org_
+// or_conference_name (tbc_players_raw doesn't carry these). An earlier
+// version of this function picked exactly ONE whole row between the two
+// sources (via UNION ALL + ORDER BY, to fix a different bug -- a blank
+// name winning over a populated one). That fixed the name bug but
+// introduced this one: whichever single row won, the OTHER source's
+// exclusive fields were permanently lost for that call -- e.g. the
+// flip-card-back metadata block's bats/throws/height/weight came back
+// empty for any player whose winning row happened to be the
+// flip_card_front_stage one, even when tbc_players_raw had perfectly
+// good data. Fetching both sources and merging field-by-field (instead
+// of choosing one winning row) fixes this without reintroducing the
+// original blank-name bug: each field is read from whichever source
+// actually has it.
 export async function getPlayerById(playerId: string): Promise<any | null> {
-  const sql = `
-    with tbc_player as (
-      select
-        tp.playerid::text as playerid,
-        tp.firstname as firstname,
-        tp.lastname as lastname,
-        trim(coalesce(tp.firstname, '') || ' ' || coalesce(tp.lastname, '')) as display_name,
-        tp.highlevel as career_highlevel,
-        tp.ht as height,
-        tp.wt as weight,
-        tp.bats,
-        tp.throws,
-        tp.posit as position,
-        null::text as hsid,
-        null::text as class_of,
-        null::text[] as roster_years,
-        null::text as status_label,
-        null::text as level_label,
-        null::text as current_team_name,
-        null::text as current_org_or_conference_name,
-        'tbc_players_raw'::text as identity_source
-      from tbc_players_raw tp
-      where tp.playerid::text = $1
-      limit 1
+  const [tbcResult, stageResult] = await Promise.all([
+    query<{
+      playerid: string;
+      firstname: string | null;
+      lastname: string | null;
+      career_highlevel: string | null;
+      height: string | null;
+      weight: string | null;
+      bats: string | null;
+      throws: string | null;
+      position: string | null;
+    }>(
+      `select
+         playerid::text as playerid,
+         firstname,
+         lastname,
+         highlevel as career_highlevel,
+         ht as height,
+         wt as weight,
+         bats,
+         throws,
+         posit as position
+       from tbc_players_raw
+       where playerid::text = $1
+       limit 1`,
+      [playerId]
     ),
-    stage_player as (
-      select
-        f.playerid::text as playerid,
-        f.first_name as firstname,
-        f.last_name as lastname,
-        coalesce(
-          nullif(f.display_name, ''),
-          trim(coalesce(f.first_name, '') || ' ' || coalesce(f.last_name, ''))
-        ) as display_name,
-        null::text as career_highlevel,
-        null::text as height,
-        null::text as weight,
-        null::text as bats,
-        null::text as throws,
-        f.position,
-        f.hsid::text as hsid,
-        f.class_of::text as class_of,
-        f.roster_years,
-        f.status_label,
-        f.level_label,
-        f.current_team_name,
-        f.current_org_or_conference_name,
-        'flip_card_front_stage'::text as identity_source
-      from flip_card_front_stage f
-      where f.playerid::text = $1
-      limit 1
-    )
-    select * from tbc_player
-    union all
-    select * from stage_player
-    limit 1
-  `;
-  const { rows } = await query(sql, [playerId]);
-  return rows[0] || null;
+    query<{
+      playerid: string;
+      first_name: string | null;
+      last_name: string | null;
+      display_name: string | null;
+      position: string | null;
+      hsid: string | null;
+      class_of: string | null;
+      roster_years: string[] | null;
+      status_label: string | null;
+      level_label: string | null;
+      current_team_name: string | null;
+      current_org_or_conference_name: string | null;
+    }>(
+      `select
+         playerid::text as playerid,
+         first_name,
+         last_name,
+         display_name,
+         position,
+         hsid::text as hsid,
+         class_of::text as class_of,
+         roster_years,
+         status_label,
+         level_label,
+         current_team_name,
+         current_org_or_conference_name
+       from flip_card_front_stage
+       where playerid::text = $1
+       limit 1`,
+      [playerId]
+    ),
+  ]);
+
+  const tp = tbcResult.rows[0] || null;
+  const fs = stageResult.rows[0] || null;
+  if (!tp && !fs) return null;
+
+  const firstname = tp?.firstname || fs?.first_name || null;
+  const lastname = tp?.lastname || fs?.last_name || null;
+  const display_name =
+    fs?.display_name ||
+    trim2(`${firstname || ''} ${lastname || ''}`) ||
+    null;
+
+  return {
+    playerid: tp?.playerid || fs?.playerid || playerId,
+    firstname,
+    lastname,
+    display_name,
+    career_highlevel: tp?.career_highlevel ?? null,
+    height: tp?.height ?? null,
+    weight: tp?.weight ?? null,
+    bats: tp?.bats ?? null,
+    throws: tp?.throws ?? null,
+    position: fs?.position || tp?.position || null,
+    hsid: fs?.hsid ?? null,
+    class_of: fs?.class_of ?? null,
+    roster_years: fs?.roster_years ?? null,
+    status_label: fs?.status_label ?? null,
+    level_label: fs?.level_label ?? null,
+    current_team_name: fs?.current_team_name ?? null,
+    current_org_or_conference_name: fs?.current_org_or_conference_name ?? null,
+  };
+}
+
+function trim2(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
 }
 
 // ---------------------------------------------------------------------------

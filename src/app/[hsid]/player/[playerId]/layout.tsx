@@ -75,6 +75,12 @@ export default async function PlayerLayout({
     orgConferenceName: '',
     levelLabel: '',
     statusLabel: '',
+    position: '',
+    bats: '',
+    throws: '',
+    height: '',
+    weight: '',
+    classOf: '',
   };
 
   try {
@@ -161,6 +167,12 @@ export default async function PlayerLayout({
       orgConferenceName,
       levelLabel,
       statusLabel,
+      position: String(player?.position || '').trim(),
+      bats: String(player?.bats || '').trim(),
+      throws: String(player?.throws || '').trim(),
+      height: String(player?.height || '').trim(),
+      weight: String(player?.weight || '').trim(),
+      classOf: String(player?.class_of || '').trim(),
     };
   } catch {}
 
@@ -182,7 +194,22 @@ export default async function PlayerLayout({
   };
 
   return (
-    <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
+    <PlayerProfileContextProvider
+      playerId={playerId}
+      playerName={playerName}
+      playerHsid={canonicalPlayerHsid}
+      playerSchoolUrl={playerSchoolUrl}
+      currentTeamName={meta.currentTeamName}
+      orgConferenceName={meta.orgConferenceName}
+      levelLabel={meta.levelLabel}
+      statusLabel={meta.statusLabel}
+      position={meta.position}
+      bats={meta.bats}
+      throws={meta.throws}
+      height={meta.height}
+      weight={meta.weight}
+      classOf={meta.classOf}
+    >
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <FeaturedTeamNewsInjector player={featuredTeamPlayer} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
