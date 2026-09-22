@@ -1034,22 +1034,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-persist-bthw">{batsThrowsHw}</span>
             )}
           </div>
-          {/* Straight diagonal arrow, per the mockup -- a normal flex
+          {/* A real graphic, not a hand-coded path -- two built-from-
+              scratch SVG attempts both looked bad in production (a
+              stretched, distorted squiggle, then a plain line that read
+              as low-effort). /img/moment-arrow.png is the provided
+              reference icon, recolored white-on-transparent and rotated
+              so it points down-left, toward the Polaroid. A normal flex
               child right after .zt-persist-id (not position:absolute
-              with a guessed pixel offset), so it always sits right below
-              wherever the identity block actually ends, whether that's a
-              1-line block (name only) or a 5-line one (name + team + org
-              + status + B-T-H-W). An earlier version anchored the arrow
-              at a fixed pixel offset tuned for the tall case, which left
-              it floating in empty space -- reading as an unrecognizable
-              stretched squiggle -- on any player whose block was
-              shorter. Flowing it in normal layout instead of computing
-              its position removes the guess entirely. */}
+              with a guessed pixel offset) so it always sits right below
+              wherever the identity block actually ends, whatever its
+              real height turns out to be. */}
           <div className="zt-moment-arrow" aria-hidden="true">
-            <svg viewBox="0 0 60 60">
-              <path d="M50,6 L14,50" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-              <path d="M6,38 L14,50 L27,42" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <img src="/img/moment-arrow.png" alt="" />
           </div>
         </div>
       )}
@@ -1384,8 +1380,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            guessed offset). No preserveAspectRatio override, so the
            browser's default (uniform scale) is used -- the glyph can
            never distort, only ever scale down cleanly. */
-        .zt-moment-arrow { width:clamp(30px,4vw,40px); aspect-ratio:1/1; margin:2px 0 0 6px; pointer-events:none; }
-        .zt-moment-arrow svg { width:100%; height:100%; display:block; }
+        .zt-moment-arrow { width:clamp(46px,6vw,64px); aspect-ratio:738/203; margin:2px 0 0 6px; pointer-events:none; }
+        .zt-moment-arrow img { width:100%; height:100%; display:block; object-fit:contain; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
@@ -1451,7 +1447,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            year strip, not a continuation of the name/metadata block up
            top, per direct feedback that those two need to read as
            separate things. */
-        .zt-classof-credit { position:absolute; z-index:6; left:40%; transform:translateX(calc(-100% - 10px)); bottom:9px; text-align:right; color:rgba(255,255,255,.5); font-family:Oswald,sans-serif; font-weight:500; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; pointer-events:none; }
+        .zt-classof-credit { position:absolute; z-index:6; left:40%; transform:translateX(calc(-100% - 10px)); bottom:9px; text-align:right; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; pointer-events:none; text-shadow:0 1px 3px rgba(0,0,0,.7); }
         .zt-rail { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
@@ -1581,7 +1577,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-classof-credit { left:32%; font-size:7px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
-          .zt-moment-arrow { width:clamp(24px,7vw,32px); margin:1px 0 0 4px; }
+          .zt-moment-arrow { width:clamp(36px,11vw,48px); margin:1px 0 0 4px; }
           /* 1-2pt smaller than the base clamp's floor, per direct
              feedback that this line reads too big on mobile. */
           .zt-moment-cta-line { font-size:clamp(6.5px,1vw,8px); }
