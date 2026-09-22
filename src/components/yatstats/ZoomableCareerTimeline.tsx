@@ -1201,7 +1201,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            below were nudged instead (see left offsets) to keep them off
            the true edge without touching the photo itself. */
         :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
-        :global(.zt-hero-bleed-overlay) { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.74) 0%,rgba(0,0,0,.56) 30%,rgba(0,0,0,.30) 60%,rgba(0,0,0,.12) 100%); }
+        /* Hard-stops at the bottom of row 2 (held at full darkness for
+           icon/logo contrast through exactly var(--row1-h)+var(--row2-h),
+           then fades out over the next 40px) instead of a slow taper
+           that used to keep darkening well into row 3. Row 3's photo --
+           including the swoosh baked into it -- is meant to be governed
+           by exactly one thing, its own filter:brightness(.78) on
+           .zt-hero-bleed-bg below, not a second overlay stacked on top
+           of it too; a taper reaching into that area was a second,
+           redundant brightness control on the same pixels. */
+        :global(.zt-hero-bleed-overlay) { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.74) 0%,rgba(0,0,0,.74) calc(var(--row1-h, 36px) + var(--row2-h, 54px)),rgba(0,0,0,0) calc(var(--row1-h, 36px) + var(--row2-h, 54px) + 40px)); }
         /* .yat-topbar and .yat-schoolrow (rendered inside these shells by
            GlobalTopbar/SchoolContextBar) carry their own separate
            background:var(--header-bg) in YatStyles.tsx -- making just the
