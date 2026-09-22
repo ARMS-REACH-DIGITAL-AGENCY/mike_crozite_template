@@ -424,15 +424,82 @@ function SocialPanel({
         ].join("\n")
       : `Check out ${fullName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS! #${hashtag}`;
 
+  // Same copy as shareText above, just as JSX with the @handle/#YAT/#STATS
+  // tokens pulled into their own spans for the accent color - kept as a
+  // second, parallel construction (rather than parsing shareText with a
+  // regex) so the plain-text version used for the actual share links can
+  // never drift from what's visually shown here as "the message that's
+  // going to be posted."
+  const messageLines: ReactNode[] =
+    schoolName && formattedLocation
+      ? [
+          <span key="l1">Hey Alumni of {schoolName} High School in {formattedLocation}...</span>,
+          <span key="l2">
+            Do you ever wonder what became of one of your school&apos;s best baseball players like{" "}
+            {fullName}?
+          </span>,
+          <span key="l3">
+            Visit <b className="fz-social-accent">@{YAT_STATS_X_HANDLE}</b> to find out Where They{" "}
+            <b className="fz-social-accent">#YAT</b> and What&apos;s Their{" "}
+            <b className="fz-social-accent">#STATS</b>!
+          </span>,
+          <b className="fz-social-accent" key="l4">
+            #{hashtag}
+          </b>,
+        ]
+      : [
+          <span key="l1">Check out {fullName}&apos;s YAT?STATS player card!</span>,
+          <span key="l2">
+            Where They <b className="fz-social-accent">#YAT</b> and What&apos;s Their{" "}
+            <b className="fz-social-accent">#STATS</b>! <b className="fz-social-accent">#{hashtag}</b>
+          </span>,
+        ];
+
   const encodedUrl = encodeURIComponent(shareUrl);
   const encodedText = encodeURIComponent(shareText);
   const encodedSmsBody = encodeURIComponent(`${shareText}\n${shareUrl}`);
   const encodedEmailSubject = encodeURIComponent(`Check out ${fullName} on YAT?STATS`);
 
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleCopyPost() {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div className="fz-social">
-      <div className="fz-social-tag">#{hashtag}</div>
-      <div className="fz-social-sub">Share {fullName}&apos;s YAT?STATS card with your friends and family.</div>
+      <div className="fz-social-deco" aria-hidden="true">
+        <img src={YATI_MASCOT_URL} alt="" />
+        <span className="fz-social-deco-yat">YAT!</span>
+      </div>
+
+      <div className="fz-social-headline">
+        <span className="fz-social-tag">#{hashtag}</span>
+        <span className="fz-social-headline-underline" aria-hidden="true" />
+      </div>
+
+      <div className="fz-social-message">
+        {messageLines.map((line, i) => (
+          <p key={i}>{line}</p>
+        ))}
+        <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
+      </div>
+
+      <button
+        type="button"
+        className={`fz-social-copy${copied ? " copied" : ""}`}
+        onClick={handleCopyPost}
+      >
+        <i className={copied ? "ri-check-line" : "ri-file-copy-2-line"} aria-hidden="true" />
+        <span>{copied ? "Copied!" : "Copy Post"}</span>
+      </button>
+
       <div className="fz-social-links">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
@@ -465,15 +532,43 @@ function SocialPanel({
   );
 }
 
-function ConnectPanel({ player }: { player: Record<string, unknown> }) {
-  const firstName = String(player.firstname || player.first_name || "").split(" ")[0] || "this player";
+const CONNECT_FEATURES: { icon: string; title: string }[] = [
+  { icon: "ri-vidicon-line", title: "Request a Personalized Message" },
+  { icon: "ri-hand-heart-line", title: "Support the Player or School" },
+  { icon: "ri-graduation-cap-line", title: "Learn How the Program Works" },
+];
+
+function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
-    <div className="fz-placeholder">
-      <i className="ri-group-line fz-ph-icon" />
-      <div className="fz-ph-text">
-        Connect with {firstName} through the{" "}
-        <strong>Mentorship Marketplace</strong> on the player profile page.
+    <div className="fz-connect">
+      <div className="fz-connect-wordmark-row">
+        <span className="fz-connect-rule" aria-hidden="true" />
+        <img
+          src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+          alt="YAT?STATS"
+          className="fz-connect-wordmark"
+        />
+        <span className="fz-connect-rule" aria-hidden="true" />
       </div>
+
+      <div className="fz-connect-heading">Coming Soon</div>
+      <div className="fz-connect-tagline">Real Players. Real Conversations. A Brighter Tomorrow.</div>
+
+      <div className="fz-connect-features">
+        {CONNECT_FEATURES.map((f) => (
+          <div className="fz-connect-feature" key={f.title}>
+            <div className="fz-connect-feature-icon">
+              <i className={f.icon} aria-hidden="true" />
+            </div>
+            <div className="fz-connect-feature-title">{f.title}</div>
+          </div>
+        ))}
+      </div>
+
+      <a className="fz-connect-cta" href={profileHref}>
+        <span>Explore the Mentorship Marketplace</span>
+        <i className="ri-arrow-right-s-line" aria-hidden="true" />
+      </a>
     </div>
   );
 }
@@ -618,7 +713,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "connect" ? " fz-panel-active" : ""}`}
         data-fz-tab="connect"
       >
-        <ConnectPanel player={player} />
+        <ConnectPanel profileHref={profileHref} />
       </div>
       <div
         className={`fz-panel${activeTab === "upload" ? " fz-panel-active" : ""}`}
@@ -960,27 +1055,96 @@ export default function FunZone({
 
 
         /* -- Social panel ----------------------------------------------- */
-        .fz-social{display:flex;flex-direction:column;gap:clamp(6px,2.2cqi,12px);height:100%;justify-content:center}
+        .fz-social{
+          position:relative;
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
+          height:100%;
+          gap:clamp(3px,1.1cqi,7px);
+        }
+        .fz-social-deco{
+          position:absolute;
+          top:0;
+          right:0;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:2px;
+          opacity:.14;
+          pointer-events:none;
+        }
+        .fz-social-deco img{ width:clamp(18px,6.5cqi,32px); height:auto; display:block; }
+        .fz-social-deco-yat{
+          font:900 clamp(7px,2.6cqi,11px) "Bebas Neue",sans-serif;
+          letter-spacing:.05em;
+          color:rgba(30,22,14,0.95);
+          transform:rotate(-6deg);
+        }
+        .fz-social-headline{
+          display:flex;
+          flex-direction:column;
+          gap:2px;
+        }
         .fz-social-tag{
-          font:700 clamp(16px,6cqi,26px) "Bebas Neue",sans-serif;
-          letter-spacing:.06em;
-          color:rgba(30,22,14,0.9);
+          font:700 clamp(14px,5.4cqi,22px) "Bebas Neue",sans-serif;
+          letter-spacing:.04em;
+          color:rgba(30,22,14,0.94);
+          line-height:1;
         }
-        .fz-social-sub{
-          font:300 clamp(9px,2.8cqi,13px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.65);
+        .fz-social-headline-underline{
+          display:block;
+          height:clamp(2px,.8cqi,3.5px);
+          width:min(140px,55%);
+          background:linear-gradient(90deg,#2451c9,#4c7eea);
+          border-radius:3px;
+          transform:skewX(-14deg);
         }
-        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(6px,2cqi,10px);margin-top:clamp(2px,1cqi,6px)}
+        .fz-social-message{
+          display:flex;
+          flex-direction:column;
+          gap:1px;
+          padding-right:clamp(22px,7cqi,40px);
+        }
+        .fz-social-message p{
+          margin:0;
+          font:400 clamp(7px,2.1cqi,9.5px)/1.32 Oswald,sans-serif;
+          color:rgba(30,22,14,0.82);
+        }
+        .fz-social-message-url{
+          color:rgba(30,22,14,0.5) !important;
+          word-break:break-all;
+        }
+        .fz-social-accent{ color:#2451c9; font-weight:700; }
+        .fz-social-copy{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:clamp(4px,1.3cqi,7px);
+          align-self:flex-start;
+          font:700 clamp(7px,2.1cqi,9.5px) Oswald,sans-serif;
+          letter-spacing:.03em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.85);
+          padding:clamp(4px,1.3cqi,7px) clamp(9px,2.6cqi,14px);
+          border-radius:clamp(5px,1.5cqi,8px);
+          border:1px solid rgba(30,22,14,0.3);
+          background:rgba(255,255,255,0.3);
+          cursor:pointer;
+        }
+        .fz-social-copy:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
+        .fz-social-copy.copied{ border-color:#1c7a3e; color:#1c7a3e; }
+        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(4px,1.4cqi,7px);margin-top:1px}
         .fz-social-link{
           display:flex;
           align-items:center;
           justify-content:center;
-          gap:clamp(6px,2cqi,10px);
-          font:600 clamp(11px,3.4cqi,15px) Oswald,sans-serif;
+          gap:clamp(5px,1.6cqi,8px);
+          font:600 clamp(9px,2.8cqi,12px) Oswald,sans-serif;
           color:rgba(30,22,14,0.75);
           text-decoration:none;
-          min-height:clamp(34px,11cqi,48px);
-          padding:clamp(6px,1.8cqi,10px) clamp(8px,2.5cqi,12px);
+          min-height:clamp(24px,8cqi,34px);
+          padding:clamp(4px,1.3cqi,7px) clamp(6px,1.8cqi,9px);
           border-radius:clamp(6px,1.8cqi,10px);
           border:1px solid rgba(30,22,14,0.24);
           background:rgba(255,255,255,0.22);
@@ -1005,6 +1169,84 @@ export default function FunZone({
           max-width:180px;
         }
         .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
+
+        /* -- Connect / Mentorship Marketplace panel ---------------------- */
+        .fz-connect{
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          text-align:center;
+          justify-content:center;
+          height:100%;
+          gap:clamp(4px,1.4cqi,9px);
+        }
+        .fz-connect-wordmark-row{
+          display:flex;
+          align-items:center;
+          gap:clamp(6px,2cqi,10px);
+          width:100%;
+        }
+        .fz-connect-rule{ flex:1; height:1px; background:rgba(30,22,14,0.25); }
+        .fz-connect-wordmark{ height:clamp(8px,2.6cqi,13px); width:auto; flex:0 0 auto; }
+        .fz-connect-heading{
+          font:700 clamp(16px,7cqi,28px) "Bebas Neue",sans-serif;
+          letter-spacing:.02em;
+          color:rgba(30,22,14,0.94);
+          line-height:.95;
+        }
+        .fz-connect-tagline{
+          font:600 clamp(6px,1.9cqi,8.5px) Oswald,sans-serif;
+          letter-spacing:.08em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.55);
+          line-height:1.3;
+        }
+        .fz-connect-features{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(3px,1cqi,6px);
+          width:100%;
+          text-align:left;
+          margin-top:clamp(1px,.6cqi,3px);
+        }
+        .fz-connect-feature{ display:flex; align-items:center; gap:clamp(6px,1.8cqi,10px); }
+        .fz-connect-feature-icon{
+          flex:0 0 auto;
+          width:clamp(16px,5.4cqi,24px);
+          height:clamp(16px,5.4cqi,24px);
+          border-radius:50%;
+          background:rgba(30,22,14,0.1);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color:rgba(30,22,14,0.75);
+          font-size:clamp(8px,2.6cqi,12px);
+        }
+        .fz-connect-feature-title{
+          min-width:0;
+          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
+          letter-spacing:.02em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.88);
+        }
+        .fz-connect-cta{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:6px;
+          width:100%;
+          margin-top:clamp(3px,1cqi,6px);
+          padding:clamp(6px,1.8cqi,10px) clamp(8px,2.2cqi,12px);
+          border:1px solid rgba(30,22,14,0.3);
+          border-radius:clamp(6px,1.8cqi,10px);
+          background:rgba(255,255,255,0.3);
+          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
+          letter-spacing:.03em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.9);
+          text-decoration:none;
+        }
+        .fz-connect-cta:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
       `}</style>
     </div>
   );
