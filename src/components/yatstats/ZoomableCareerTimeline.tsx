@@ -1247,7 +1247,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            above the frame). 104% height with -4% bottom lands the top
            exactly at 100% (box top = -4% + 104% = 100%): a little bigger
            than a plain 100%/0 box, zero risk of cropping the head. */
-        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:8%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1259,7 +1259,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            the same reason the rest of that layer is: it's a sibling of
            <section>, not its descendant, so styled-jsx's scope hash
            never attaches to it. */
-        .zt-moment-cta { position:absolute; z-index:8; left:4%; top:10px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
+        /* top is nearly 0 on purpose: row 2's own 3-line text block (school
+           location/name/breadcrumb) ends right where row 3 begins, no gap
+           between them by page layout, so pinning this flush to row 3's
+           own top edge is what makes the CTA line read as a 4th line of
+           that same grouping instead of a separate block floating lower
+           in the frame. */
+        .zt-moment-cta { position:absolute; z-index:8; left:4%; top:2px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
         .zt-persist-id { display:flex; flex-direction:column; gap:2px; max-width:160px; }
         .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(9px,1.3vw,11.5px); line-height:1.2; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1271,7 +1277,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            uppercase like .zt-title) since this line's actual text isn't
            written in all caps. */
         .zt-moment-cta-line { display:block; max-width:220px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(8px,1.05vw,10px); line-height:1.3; letter-spacing:.005em; }
-        .zt-moment-thumb { margin-top:8px; width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
+        .zt-moment-thumb { margin-top:16px; width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
@@ -1284,7 +1290,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            combined with clamp()'s internal commas was silently dropping
            the whole declaration in production, which is why this text
            was invisible there. */
-        .zt-copy { position:absolute; z-index:6; left:40%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
+        .zt-copy { position:absolute; z-index:6; left:34%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
         .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1434,10 +1440,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-visual :global(.zt-person) { left:10%; width:clamp(130px,26vw,200px); }
+          .zt-visual :global(.zt-person) { left:6%; width:clamp(130px,26vw,200px); }
           .zt-logo-layer { width:50%; right:-12%; }
-          .zt-copy { left:38%; right:5%; bottom:20px; }
-          .zt-moment-cta { left:3.5%; top:9px; }
+          .zt-copy { left:32%; right:5%; bottom:20px; }
+          .zt-moment-cta { left:3.5%; top:2px; }
           .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
@@ -1456,7 +1462,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* Shifted right from the very edge (was left:6%). */
           .zt-visual :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
-          .zt-moment-cta { left:2.5%; top:7px; }
+          .zt-moment-cta { left:2.5%; top:2px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
           /* 1-2pt smaller than the base clamp's floor, per direct
              feedback that this line reads too big on mobile. */
