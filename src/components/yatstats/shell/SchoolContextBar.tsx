@@ -152,11 +152,13 @@ export default function SchoolContextBar({
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
-      // The player's name now shows large inside the Career Path Timeline
-      // slides themselves, so this breadcrumb line no longer needs to
-      // repeat it -- matches the ACTIVE ALUMNI NEWS / ALL-TIME LIST pattern
-      // used by every other section label below.
-      return 'CAREER PATH TIMELINE';
+      // Restored per direct feedback: this breadcrumb line used to show
+      // the player's name (like a page title), matching the ACTIVE
+      // ALUMNI NEWS / ALL-TIME LIST pattern used by every other section
+      // label below -- it had been replaced with a generic hardcoded
+      // "CAREER PATH TIMELINE" label, which is why the name appeared to
+      // stop showing up anywhere on the page.
+      return resolvedPlayerName ? resolvedPlayerName.toUpperCase() : 'CAREER PATH TIMELINE';
     }
 
     return SECTION_LABELS[activeSection] || activeSection.toUpperCase();
