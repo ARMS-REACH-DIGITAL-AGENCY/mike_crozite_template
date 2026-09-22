@@ -710,6 +710,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         year,
         age: year - lifeYearStart + 1,
         title: `Age ${year - lifeYearStart + 1}`,
+        // Same rotating YaTi placeholder mechanism season slides already
+        // fall back to when there's no real photo yet -- these 17 screens
+        // never have one (pre-HS), so they always show it, not just on
+        // error.
+        yatiFallback: yatiPlaceholderFor(year - lifeYearStart + 1),
       }));
 
     const anchor: Slide = {
@@ -1141,6 +1146,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
             );
           }
+          if (slide.kind === 'lifeyear') {
+            return (
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
+            );
+          }
           return null;
         })}
       </div>
@@ -1403,11 +1413,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-bigstat-label { color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
         .zt-bigstat-value { color:#f7f7f5; font-family:"Bebas Neue",Oswald,sans-serif; font-weight:700; font-size:clamp(17px,3.2vw,25px); line-height:1; }
         .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
-        /* No cutout/logo on a life-year slide (there's no photo yet) -- the
-           copy block gets the room that would otherwise be reserved for
-           one, so the invite reads as a real screen instead of empty
-           space with a caption stuck to the right. */
-        .zt-lifeyear .zt-copy { left:6%; }
+        /* Life-year slides now always carry a YaTi placeholder image (see
+           .zt-person-stack's 'lifeyear' case), same as a season slide with
+           no real cutout yet -- so the copy column no longer needs the
+           extra width a true photo-less slide used to get; it uses the
+           same left/right column as every other slide kind. */
 
         .zt-upload-actions { display:flex; gap:6px; margin-top:6px; }
         .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.35); color:${TIMELINE_YELLOW}; font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
