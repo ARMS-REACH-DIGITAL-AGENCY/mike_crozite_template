@@ -80,6 +80,7 @@ export default async function PlayerLayout({
     throws: '',
     height: '',
     weight: '',
+    classOf: '',
   };
 
   try {
@@ -171,6 +172,7 @@ export default async function PlayerLayout({
       throws: String(player?.throws || '').trim(),
       height: String(player?.height || '').trim(),
       weight: String(player?.weight || '').trim(),
+      classOf: String(player?.class_of || '').trim(),
     };
   } catch {}
 
@@ -206,6 +208,7 @@ export default async function PlayerLayout({
       throws={meta.throws}
       height={meta.height}
       weight={meta.weight}
+      classOf={meta.classOf}
     >
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <FeaturedTeamNewsInjector player={featuredTeamPlayer} />

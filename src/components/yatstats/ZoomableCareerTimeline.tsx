@@ -765,6 +765,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const railProgress = model.slides.length > 1
     ? clamp(scrollProgress, 0, model.slides.length - 1) / (model.slides.length - 1)
     : 0;
+  // "Class of" starts unknown for most players -- we don't ask a coach to
+  // verify it until they engage with the microsite. Prefer the verified
+  // year (flip_card_front_stage.class_of, set by a school/coach) and only
+  // fall back to an estimate -- the same heuristic gradClassInfo() in
+  // playerUtils.ts uses elsewhere: earliest recorded season minus one --
+  // when nothing's been verified yet. The estimate is marked with an
+  // asterisk so it reads as a best guess, not a confirmed fact.
+  const verifiedClassOf = String(player?.classOf || '').trim();
+  const earliestSeasonYear = model.slides.reduce<number | null>((min, slide) => {
+    if (slide.kind !== 'season' || !slide.year) return min;
+    return min === null ? slide.year : Math.min(min, slide.year);
+  }, null);
+  const displayClassOf = verifiedClassOf || (earliestSeasonYear ? String(earliestSeasonYear - 1) : '');
+  const classOfIsEstimated = !verifiedClassOf && !!displayClassOf;
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
     setLocalOverrides((prev) => ({
@@ -1155,6 +1169,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
             <i className="ri-arrow-right-s-line" />
           </button>
+          {displayClassOf && (
+            <span
+              className="zt-classof-credit"
+              title={classOfIsEstimated ? 'Estimated from earliest recorded season -- not yet confirmed' : undefined}
+            >
+              CLASS OF {displayClassOf}{classOfIsEstimated ? '*' : ''}
+            </span>
+          )}
           <div className="zt-rail" ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
             <span className="zt-rail-fill" style={{ width: `${railProgress * 100}%` }} aria-hidden="true" />
@@ -1336,6 +1358,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
+        .zt-classof-credit { position:absolute; z-index:6; left:4%; bottom:9px; color:rgba(255,255,255,.5); font-family:Oswald,sans-serif; font-weight:500; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; pointer-events:none; }
         .zt-rail { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
@@ -1444,6 +1467,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-moment-cta { left:3.5%; top:2px; }
+          .zt-classof-credit { left:3.5%; }
           .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
@@ -1463,6 +1487,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           .zt-moment-cta { left:2.5%; top:2px; }
+          .zt-classof-credit { left:2.5%; font-size:7px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
           /* 1-2pt smaller than the base clamp's floor, per direct
              feedback that this line reads too big on mobile. */

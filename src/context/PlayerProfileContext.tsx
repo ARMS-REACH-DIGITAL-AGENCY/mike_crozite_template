@@ -30,6 +30,8 @@ interface PlayerProfileData {
   throws?: string;
   height?: string;
   weight?: string;
+  /** Verified HS class year (flip_card_front_stage.class_of, set by a school/coach). Empty until confirmed -- never guessed here. */
+  classOf?: string;
 }
 
 export const PlayerProfileContext = createContext<PlayerProfileData | null>(null);
@@ -53,6 +55,7 @@ export default function PlayerProfileContextProvider({
   throws,
   height,
   weight,
+  classOf,
 }: {
   children: ReactNode;
   playerId: string;
@@ -68,9 +71,10 @@ export default function PlayerProfileContextProvider({
   throws?: string;
   height?: string;
   weight?: string;
+  classOf?: string;
 }) {
   return (
-    <PlayerProfileContext.Provider value={{ playerId, playerName, playerHsid, playerSchoolUrl, currentTeamName, orgConferenceName, levelLabel, statusLabel, position, bats, throws, height, weight }}>
+    <PlayerProfileContext.Provider value={{ playerId, playerName, playerHsid, playerSchoolUrl, currentTeamName, orgConferenceName, levelLabel, statusLabel, position, bats, throws, height, weight, classOf }}>
       {children}
     </PlayerProfileContext.Provider>
   );
