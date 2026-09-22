@@ -54,26 +54,42 @@ function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+// "Today" has to be today in the PLAYER'S school's calendar, not the
+// server's UTC calendar - Arizona (UTC-7, no DST) rolls its calendar day
+// over hours before UTC does, so a plain isoDate(new Date()) call would
+// flip this widget's "TODAY" row to the next day while it's still last
+// night for the fan actually looking at the site.
+function isoDateInZone(d: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const year = parts.find((p) => p.type === 'year')?.value || '0000';
+  const month = parts.find((p) => p.type === 'month')?.value || '00';
+  const day = parts.find((p) => p.type === 'day')?.value || '00';
+  return `${year}-${month}-${day}`;
+}
+
 function addDays(iso: string, delta: number) {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + delta);
   return isoDate(d);
 }
 
-// Hardcoded to Arizona, matching the flip card front's own convention
-// (scripts/refresh_live_schedule_status.py writes next_game_time_zone as
-// 'MST' and formats next_game_time_local in America/Phoenix) - this
-// microsite is a local-community site for an Arizona high school, not a
-// generic multi-timezone product, so every displayed game time is Arizona
-// time regardless of which time zone the opposing team's park is in.
-function formatGameTime(gameTimeUtc: unknown): string {
+// Uses the player's own school_timezone (flip_card_front_stage), the same
+// real per-school column the flip card front reads - falls back to Arizona
+// only when a player has no school_timezone on file, not as the default
+// for everyone regardless of school.
+function formatGameTime(gameTimeUtc: unknown, timeZone: string): string {
   if (!gameTimeUtc) return 'TBD';
   const d = new Date(String(gameTimeUtc));
   if (Number.isNaN(d.getTime())) return 'TBD';
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    timeZone: 'America/Phoenix',
+    timeZone,
     timeZoneName: 'short',
   }).format(d);
 }
@@ -81,7 +97,8 @@ function formatGameTime(gameTimeUtc: unknown): string {
 function buildGameSummary(
   game: ScheduleRow,
   logsByGamePk: Map<string, GameLogRow[]>,
-  teamIdMap: Map<string, string>
+  teamIdMap: Map<string, string>,
+  timeZone: string
 ): GameSummary {
   const isHome = game.is_home === true || game.home_away === 'Home';
   const opponentRawId = isHome ? game.away_team_id : game.home_team_id;
@@ -123,20 +140,21 @@ function buildGameSummary(
     }
   } else {
     resultClass = 'time';
-    resultLine = formatGameTime(game.game_time_utc);
+    resultLine = formatGameTime(game.game_time_utc, timeZone);
   }
 
   return { isHome, logoUrl, opponentLabel, venue: game.venue_name || '', resultLine, resultClass, subLine };
 }
 
-async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
-  const today = isoDate(new Date());
-
+async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotItem[]; todayIso: string }> {
   const [transactionStatus, gameLogs, teamIdMap] = await Promise.all([
     getFlipCardTransactionStatus(playerId),
     getPlayerGameLogs(playerId),
     getTeamIdMap(),
   ]);
+
+  const schoolTimeZone = String((transactionStatus as any)?.school_timezone || '').trim() || 'America/Phoenix';
+  const today = isoDateInZone(new Date(), schoolTimeZone);
 
   // current_team_source_team_id is only a raw MLB Stats API id needing
   // translation through teamIdMap when current_team_source is 'mlb_api'
@@ -185,17 +203,17 @@ async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
     if (gamesForDate.length === 0) {
       items.push({ kind: hasSchedule ? 'offday' : 'unknown', iso });
     } else if (gamesForDate.length === 1) {
-      items.push({ kind: 'game', iso, game: buildGameSummary(gamesForDate[0], logsByGamePk, teamIdMap) });
+      items.push({ kind: 'game', iso, game: buildGameSummary(gamesForDate[0], logsByGamePk, teamIdMap, schoolTimeZone) });
     } else {
       items.push({
         kind: 'doubleheader',
         iso,
-        games: gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap)),
+        games: gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap, schoolTimeZone)),
       });
     }
   }
 
-  return items;
+  return { items, todayIso: today };
 }
 
 /**
@@ -216,10 +234,8 @@ export default async function PlayerSevenDaySnapshot({
 }) {
   if (!playerId) return null;
 
-  const items = await getSevenDayWindow(playerId);
+  const { items, todayIso } = await getSevenDayWindow(playerId);
   const hasAnyRealData = items.some((it) => it.kind !== 'unknown');
-
-  const todayIso = isoDate(new Date());
 
   if (!hasAnyRealData) {
     return (
