@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
@@ -1135,7 +1135,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (opacity <= 0) return null;
           if (slide.kind === 'anchor') {
             return (
-              <SmartImage key={slide.id} className="zt-person" style={{ opacity }} src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+              <Fragment key={slide.id}>
+                <SmartImage className="zt-person" style={{ opacity }} src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+                {/* "Then vs now" -- a cutout from the current/most-recent
+                    action photo (players/back/, run through the same
+                    background-removal pipeline into players/now-cutouts/)
+                    filling the dead space between the HS silhouette and
+                    the headline column. SmartImage renders nothing if a
+                    given player has no "back" photo yet (no srcs/src
+                    fallback given, so a 404 just returns null), so this
+                    never shows a broken image while that folder is still
+                    being backfilled for older players. */}
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} src={`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
+              </Fragment>
             );
           }
           if (slide.kind === 'season') {
@@ -1168,7 +1180,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <>
                   <span className="zt-kick">The hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
-                  <span className="zt-bodycopy">Follow &amp; Connect with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'} on his journey at the next level.</span>
+                  <span className="zt-bodycopy">Stay connected to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'} on his baseball journey...</span>
                 </>
               )}
               {slide.kind === 'season' && (
@@ -1345,6 +1357,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            exactly at 100% (box top = -4% + 104% = 100%): a little bigger
            than a plain 100%/0 box, zero risk of cropping the head. */
         .zt-person-stack :global(.zt-person) { position:absolute; left:8%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* "Then vs now" -- slots into the dead space between the HS
+           cutout (ends well before .zt-copy's left:34%) and the headline
+           column. Renders nothing (see SmartImage) when a player has no
+           players/back/ photo yet, so it never leaves a visible gap or
+           broken-image icon for anyone still waiting on that folder. */
+        .zt-person-stack :global(.zt-person-now) { left:21%; width:clamp(110px,13vw,190px); object-position:right bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1410,7 +1428,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-bigstat { display:flex; flex-direction:column; gap:1px; }
         .zt-bigstat-label { color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
         .zt-bigstat-value { color:#f7f7f5; font-family:"Bebas Neue",Oswald,sans-serif; font-weight:700; font-size:clamp(17px,3.2vw,25px); line-height:1; }
-        .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
+        /* Anchor's own line is short enough by design to stay on the base
+           rule's single line (white-space:nowrap + ellipsis) at every
+           breakpoint, including mobile -- per direct feedback. Life-year
+           quotes are genuinely long/multi-line, so those still need to
+           wrap. */
+        .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* Life-year slides now always carry a YaTi placeholder image (see
            .zt-person-stack's 'lifeyear' case), same as a season slide with
            no real cutout yet -- so the copy column no longer needs the
@@ -1553,6 +1576,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
           .zt-person-stack :global(.zt-person) { left:6%; width:clamp(130px,26vw,200px); }
+          .zt-person-stack :global(.zt-person-now) { left:19%; width:clamp(80px,10vw,140px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-classof-credit { left:38%; }
@@ -1573,6 +1597,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           /* Shifted right from the very edge (was left:6%). */
           .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
+          /* No room for a second full image alongside the HS cutout at
+             this width without crowding the already-tight text column --
+             the original idea here was a crossfade with the HS image in
+             the same spot, which is its own animation feature, not built
+             yet. Hidden on mobile for now rather than guess at a cramped
+             side-by-side placement with no way to see it render. */
+          .zt-person-stack :global(.zt-person-now) { display:none; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-classof-credit { left:32%; font-size:7px; }
@@ -1609,6 +1640,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              left+width for the same reason (this slide is 200% wide, so
              "right" would measure from an edge that's off-screen). */
           .zt-lifeyear .zt-copy { left:22%; width:28%; justify-content:flex-start; padding-top:10px; }
+          /* A touch smaller than the general .zt-bodycopy floor so the
+             now-shorter anchor line ("Stay connected to X on his
+             baseball journey...") has the best chance of actually
+             fitting on one line in this narrow column, not just
+             getting cut off by the single-line ellipsis. */
+          .zt-anchor .zt-bodycopy { font-size:clamp(8px,2vw,10px); }
           .zt-rail { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
