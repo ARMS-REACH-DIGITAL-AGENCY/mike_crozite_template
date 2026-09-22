@@ -1161,7 +1161,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <>
                   <span className="zt-kick">The hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
-                  <span className="zt-bodycopy">Follow {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'} journey through college and professional baseball.</span>
+                  <span className="zt-bodycopy">Follow &amp; Connect with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'} on his journey at the next level.</span>
                 </>
               )}
               {slide.kind === 'season' && (
