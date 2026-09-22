@@ -1136,16 +1136,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (slide.kind === 'anchor') {
             return (
               <Fragment key={slide.id}>
-                <SmartImage className="zt-person" style={{ opacity }} src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
                 {/* "Then vs now" -- a cutout from the current/most-recent
                     action photo (players/back/, run through the same
-                    background-removal pipeline into players/now-cutouts/)
-                    filling the dead space between the HS silhouette and
-                    the headline column. SmartImage renders nothing if a
-                    given player has no "back" photo yet (no srcs/src
-                    fallback given, so a 404 just returns null), so this
-                    never shows a broken image while that folder is still
-                    being backfilled for older players. */}
+                    background-removal pipeline into players/now-cutouts/).
+                    Desktop: fills the dead space between the HS
+                    silhouette and the headline column, side by side with
+                    it. Mobile: same spot as the HS cutout instead (no
+                    room to spare there), the two alternating via an 8s
+                    CSS crossfade (.zt-person-then/.zt-person-now,
+                    4s-visible each with a brief cross-dissolve at the
+                    swap) -- see the animation rule in the 620px media
+                    query. SmartImage renders nothing if a given player
+                    has no "back" photo yet (no srcs/src fallback given,
+                    so a 404 just returns null), so this never shows a
+                    broken image or an empty "now" half of the loop while
+                    that folder is still being backfilled for older
+                    players. */}
                 <SmartImage className="zt-person zt-person-now" style={{ opacity }} src={`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
               </Fragment>
             );
@@ -1598,12 +1605,32 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* Shifted right from the very edge (was left:6%). */
           .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
           /* No room for a second full image alongside the HS cutout at
-             this width without crowding the already-tight text column --
-             the original idea here was a crossfade with the HS image in
-             the same spot, which is its own animation feature, not built
-             yet. Hidden on mobile for now rather than guess at a cramped
-             side-by-side placement with no way to see it render. */
-          .zt-person-stack :global(.zt-person-now) { display:none; }
+             this width without crowding the already-tight text column,
+             so "now" occupies the exact same box as "then" instead of a
+             spot of its own -- same left/width as the rule above, same
+             object-position (overriding the desktop-only "right bottom"
+             that let it lean toward the gap it fills there) -- and the
+             two alternate via the crossfade animation below rather than
+             both showing at once. */
+          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
+          /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
+             over the next .8s, "now" visible 4-7.2s, cross-dissolves
+             back over the last .8s. .zt-person-now runs the identical
+             keyframes 4s out of phase (half the cycle) via animation-
+             delay, so whichever one is fading in, the other is fading
+             out at the same rate -- never both fully opaque or both
+             fully transparent at once. Multiplies with the inline
+             opacity from the slide's own scroll-based crossfade (a
+             nested opacity is applied on top of the parent's, not
+             instead of it), so this only ever matters while the anchor
+             slide itself is the one in view. */
+          .zt-person-then, .zt-person-now { animation:zt-then-now-fade 8s ease-in-out infinite; }
+          .zt-person-now { animation-delay:-4s; }
+          @keyframes zt-then-now-fade {
+            0%, 40% { opacity:1; }
+            50%, 90% { opacity:0; }
+            100% { opacity:1; }
+          }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-classof-credit { left:32%; font-size:7px; }
