@@ -27,18 +27,26 @@ type ScheduleRow = {
 
 type ResultClass = 'win' | 'loss' | 'tie' | 'live' | 'time' | 'ppd';
 
+type GameSummary = {
+  isHome: boolean;
+  logoUrl: string | null;
+  matchup: string;
+  venue: string;
+  resultLine: string;
+  resultClass: ResultClass;
+  subLine: string;
+};
+
+// A calendar day with 2 scheduled games (a doubleheader) renders as ONE row
+// with both games side by side, not two separate rows - this is a 7-DAY
+// snapshot (one row per calendar day), not a "however many games fall in
+// the window" snapshot. Letting a doubleheader add an 8th/9th row forced
+// every row's font down to keep everything fitting the fixed FunZone
+// frame, which is the wrong trade - a fan would rather see one busier row
+// than seven cramped ones.
 type SnapshotItem =
-  | {
-      kind: 'game';
-      iso: string;
-      isHome: boolean;
-      logoUrl: string | null;
-      matchup: string;
-      venue: string;
-      resultLine: string;
-      resultClass: ResultClass;
-      subLine: string;
-    }
+  | { kind: 'game'; iso: string; game: GameSummary }
+  | { kind: 'doubleheader'; iso: string; games: GameSummary[] }
   | { kind: 'offday'; iso: string }
   | { kind: 'unknown'; iso: string };
 
@@ -64,12 +72,11 @@ function formatGameTime(gameTimeUtc: unknown): string {
   }).format(d);
 }
 
-function buildGameItem(
-  iso: string,
+function buildGameSummary(
   game: ScheduleRow,
   logsByGamePk: Map<string, GameLogRow[]>,
   teamIdMap: Map<string, string>
-): SnapshotItem {
+): GameSummary {
   const isHome = game.is_home === true || game.home_away === 'Home';
   const opponentRawId = isHome ? game.away_team_id : game.home_team_id;
   const logoUrl = opponentRawId ? mlbTeamLogoUrl(teamIdMap, opponentRawId) : null;
@@ -114,17 +121,7 @@ function buildGameItem(
     resultLine = formatGameTime(game.game_time_utc);
   }
 
-  return {
-    kind: 'game',
-    iso,
-    isHome,
-    logoUrl,
-    matchup,
-    venue: game.venue_name || '',
-    resultLine,
-    resultClass,
-    subLine,
-  };
+  return { isHome, logoUrl, matchup, venue: game.venue_name || '', resultLine, resultClass, subLine };
 }
 
 async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
@@ -182,11 +179,14 @@ async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
 
     if (gamesForDate.length === 0) {
       items.push({ kind: hasSchedule ? 'offday' : 'unknown', iso });
-      continue;
-    }
-
-    for (const game of gamesForDate) {
-      items.push(buildGameItem(iso, game, logsByGamePk, teamIdMap));
+    } else if (gamesForDate.length === 1) {
+      items.push({ kind: 'game', iso, game: buildGameSummary(gamesForDate[0], logsByGamePk, teamIdMap) });
+    } else {
+      items.push({
+        kind: 'doubleheader',
+        iso,
+        games: gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap)),
+      });
     }
   }
 
@@ -258,7 +258,7 @@ export default async function PlayerSevenDaySnapshot({
           const d = new Date(`${item.iso}T00:00:00Z`);
           const mon = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
           const dayNum = d.getUTCDate();
-          const dateLabel = isToday ? 'TODAY' : `${mon} ${dayNum}`;
+          const dow = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }).toUpperCase();
 
           return (
             <a
@@ -266,18 +266,55 @@ export default async function PlayerSevenDaySnapshot({
               href={profileHref}
               key={`${item.iso}-${idx}`}
             >
-              <div className={`yat-snap-date${isToday ? ' yat-snap-date-today' : ''}`}>{dateLabel}</div>
+              {isToday ? (
+                <div className="yat-snap-date yat-snap-date-today">TODAY</div>
+              ) : (
+                <div className="yat-snap-date">
+                  <span className="yat-snap-date-mon">{mon}</span>
+                  <span className="yat-snap-date-day">{dayNum}</span>
+                  <span className="yat-snap-date-dow">{dow}</span>
+                </div>
+              )}
 
               {item.kind === 'game' ? (
                 <>
-                  <div className="yat-snap-team">
-                    {item.logoUrl && <img src={item.logoUrl} alt="" loading="lazy" />}
-                    <span>{item.matchup}</span>
+                  <div className="yat-snap-logo">
+                    {item.game.logoUrl && <img src={item.game.logoUrl} alt="" loading="lazy" />}
                   </div>
 
-                  <div className={`yat-snap-score yat-snap-score-${item.resultClass}`}>{item.resultLine}</div>
+                  <div className="yat-snap-mid">
+                    <div className="yat-snap-matchup">{item.game.matchup}</div>
+                    {item.game.venue && <div className="yat-snap-venue">{item.game.venue}</div>}
+                  </div>
 
-                  <div className="yat-snap-statline">{item.subLine || '-'}</div>
+                  <div className="yat-snap-result">
+                    <div className={`yat-snap-score yat-snap-score-${item.game.resultClass}`}>{item.game.resultLine}</div>
+                    {item.game.subLine && <div className="yat-snap-sub">{item.game.subLine}</div>}
+                  </div>
+
+                  <div className="yat-snap-homeaway">
+                    <i className={item.game.isHome ? 'ri-home-4-line' : 'ri-flight-takeoff-line'} aria-hidden="true" />
+                  </div>
+                </>
+              ) : item.kind === 'doubleheader' ? (
+                <>
+                  <div className="yat-snap-dh">
+                    {item.games.map((g, gi) => (
+                      <div className="yat-snap-dh-game" key={gi}>
+                        <div className="yat-snap-dh-logo">
+                          {g.logoUrl && <img src={g.logoUrl} alt="" loading="lazy" />}
+                        </div>
+                        <div className="yat-snap-dh-mid">
+                          <div className="yat-snap-dh-team">{g.matchup}</div>
+                          <div className={`yat-snap-dh-score yat-snap-score-${g.resultClass}`}>{g.resultLine}</div>
+                          {g.subLine && <div className="yat-snap-dh-sub">{g.subLine}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="yat-snap-homeaway">
+                    <i className={item.games[0]?.isHome ? 'ri-home-4-line' : 'ri-flight-takeoff-line'} aria-hidden="true" />
+                  </div>
                 </>
               ) : item.kind === 'offday' ? (
                 <div className="yat-snap-offday">Off Day</div>
@@ -317,21 +354,21 @@ export default async function PlayerSevenDaySnapshot({
           min-height:0;
           display:flex;
           flex-direction:column;
-          gap:clamp(1px,.5cqi,3px);
+          gap:clamp(2px,.8cqi,5px);
         }
         .yat-snap-row{
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:auto auto auto 1fr;
+          grid-template-columns:auto auto 1fr auto auto;
           align-items:center;
-          gap:clamp(5px,1.6cqi,10px);
+          gap:clamp(5px,1.5cqi,9px);
           text-decoration:none;
           color:inherit;
           background:rgba(255,255,255,0.72);
           border:1px solid rgba(30,22,14,0.10);
-          border-radius:clamp(3px,1cqi,6px);
-          padding:clamp(2px,.9cqi,6px) clamp(6px,1.6cqi,10px);
+          border-radius:clamp(4px,1.2cqi,7px);
+          padding:clamp(2px,1cqi,6px) clamp(6px,1.6cqi,10px);
           box-shadow:0 1px 2px rgba(0,0,0,0.06);
           min-width:0;
           overflow:hidden;
@@ -341,38 +378,69 @@ export default async function PlayerSevenDaySnapshot({
           border-color:rgba(30,22,14,0.24);
         }
         .yat-snap-date{
-          font:700 clamp(8px,2.8cqi,13px)/1 "Bebas Neue",sans-serif;
-          letter-spacing:.04em;
-          color:#17120c;
-          white-space:nowrap;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          line-height:1;
+          min-width:2.6em;
         }
-        .yat-snap-date-today{
+        .yat-snap-date-mon, .yat-snap-date-dow{
+          font:700 clamp(6px,1.9cqi,9px)/1 Oswald,sans-serif;
+          letter-spacing:.05em;
+          color:#8a7c68;
+        }
+        .yat-snap-date-day{
+          font:700 clamp(11px,4cqi,20px)/1.05 "Bebas Neue",sans-serif;
+          color:#17120c;
+        }
+        .yat-snap-date.yat-snap-date-today{
+          display:block;
+          font:700 clamp(9px,3.2cqi,15px)/1.05 "Bebas Neue",sans-serif;
+          letter-spacing:.04em;
           color:#8a4a2c;
         }
-        .yat-snap-team{
+        .yat-snap-logo{
+          width:clamp(17px,5.5cqi,27px);
+          height:clamp(17px,5.5cqi,27px);
+          flex:0 0 auto;
           display:flex;
           align-items:center;
-          gap:clamp(4px,1.2cqi,7px);
+          justify-content:center;
+        }
+        .yat-snap-logo img{
+          width:100%;
+          height:100%;
+          object-fit:contain;
+        }
+        .yat-snap-mid{
           min-width:0;
-          font:700 clamp(8px,2.8cqi,13px)/1.1 Oswald,sans-serif;
+          display:flex;
+          flex-direction:column;
+        }
+        .yat-snap-matchup{
+          font:700 clamp(8px,2.7cqi,13px)/1.15 Oswald,sans-serif;
           letter-spacing:.02em;
           text-transform:uppercase;
           color:#221a12;
           white-space:nowrap;
           overflow:hidden;
+          text-overflow:ellipsis;
         }
-        .yat-snap-team span{
+        .yat-snap-venue{
+          font:400 clamp(6.5px,2.1cqi,9.5px)/1.15 Oswald,sans-serif;
+          color:#8a7c68;
+          white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
         }
-        .yat-snap-team img{
-          width:clamp(14px,4.5cqi,20px);
-          height:clamp(14px,4.5cqi,20px);
-          object-fit:contain;
-          flex:0 0 auto;
+        .yat-snap-result{
+          text-align:right;
+          min-width:0;
+          display:flex;
+          flex-direction:column;
         }
         .yat-snap-score{
-          font:700 clamp(8.5px,2.9cqi,13.5px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          font:700 clamp(8.5px,2.9cqi,14px)/1.1 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           white-space:nowrap;
         }
@@ -382,14 +450,21 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-score-live{ color:#b4232c; }
         .yat-snap-score-time{ color:#221a12; }
         .yat-snap-score-ppd{ color:#8a7c68; }
-        .yat-snap-statline{
-          text-align:right;
-          min-width:0;
-          font:400 clamp(7px,2.3cqi,11px)/1.1 Oswald,sans-serif;
+        .yat-snap-sub{
+          font:400 clamp(6.5px,2.1cqi,9.5px)/1.15 Oswald,sans-serif;
           color:#6b5d4d;
           white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
+        }
+        .yat-snap-homeaway{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          width:clamp(11px,3.4cqi,15px);
+          flex:0 0 auto;
+          color:#8a7c68;
+          font-size:clamp(9px,2.8cqi,12px);
         }
         .yat-snap-offday{
           grid-column:2 / -1;
@@ -400,6 +475,67 @@ export default async function PlayerSevenDaySnapshot({
           color:#a89a86;
         }
         .yat-snap-unknown{ color:#c2b9ae; }
+
+        /* Doubleheader: one calendar day, two games - side by side in the
+           same row instead of a second row, so the window always stays at
+           exactly 7 rows regardless of how many games fall in it. */
+        .yat-snap-dh{
+          grid-column:2 / span 3;
+          display:flex;
+          align-items:center;
+          min-width:0;
+        }
+        .yat-snap-dh-game{
+          flex:1;
+          min-width:0;
+          display:flex;
+          align-items:center;
+          gap:clamp(3px,1cqi,6px);
+          overflow:hidden;
+        }
+        .yat-snap-dh-game + .yat-snap-dh-game{
+          margin-left:clamp(5px,1.5cqi,9px);
+          padding-left:clamp(5px,1.5cqi,9px);
+          border-left:1px solid rgba(30,22,14,0.14);
+        }
+        .yat-snap-dh-logo{
+          width:clamp(13px,4.2cqi,19px);
+          height:clamp(13px,4.2cqi,19px);
+          flex:0 0 auto;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+        }
+        .yat-snap-dh-logo img{
+          width:100%;
+          height:100%;
+          object-fit:contain;
+        }
+        .yat-snap-dh-mid{
+          min-width:0;
+          display:flex;
+          flex-direction:column;
+        }
+        .yat-snap-dh-team{
+          font:700 clamp(6.5px,2.1cqi,9.5px)/1.15 Oswald,sans-serif;
+          text-transform:uppercase;
+          letter-spacing:.02em;
+          color:#221a12;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        .yat-snap-dh-score{
+          font:700 clamp(7px,2.3cqi,10.5px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          white-space:nowrap;
+        }
+        .yat-snap-dh-sub{
+          font:400 clamp(5.5px,1.8cqi,8px)/1.1 Oswald,sans-serif;
+          color:#6b5d4d;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
       `}</style>
     </div>
   );
