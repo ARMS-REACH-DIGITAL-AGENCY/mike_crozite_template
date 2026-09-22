@@ -1031,6 +1031,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           </div>
         </div>
       )}
+      {/* Hand-drawn-style connector from the name/metadata block down to
+          the Polaroid, per the mockup -- a curved arrow, not a straight
+          line, starting just right of the text column and ending
+          pointing down-left at the Polaroid's top corner. preserveAspectRatio
+          "none" lets the same path stretch to fit however tall the gap
+          between the two ends up being (metadata block length varies by
+          player), at some cost to the curve's exact proportions -- an
+          acceptable trade for a decorative flourish. */}
+      {(resolvedPlayerName || player?.currentTeamName || player?.orgConferenceName || posLevelStatus || batsThrowsHw) && (
+        <div className="zt-moment-arrow" aria-hidden="true">
+          <svg viewBox="0 0 100 300" preserveAspectRatio="none">
+            <path d="M18,4 C72,55 88,150 42,225 C28,248 20,262 26,280" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+            <path d="M12,264 L26,280 L36,266" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      )}
       {/* Polaroid upload affordance -- moved down to the bottom-left
           corner (its own row, not stacked under the name/metadata) per
           direct feedback. Same left edge as .zt-moment-cta above it
@@ -1352,6 +1368,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            written in all caps. */
         .zt-moment-cta-line { display:block; max-width:220px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(8px,1.05vw,10px); line-height:1.3; letter-spacing:.005em; }
         .zt-moment-thumb-anchor { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; pointer-events:none; }
+        /* Indented past the text column (max-width:160px on .zt-persist-id)
+           so the curve reads as its own connector, not a strikethrough on
+           the metadata -- spans from just under the CTA block's typical
+           height down to just above the Polaroid. */
+        .zt-moment-arrow { position:absolute; z-index:8; left:calc(var(--x-logo-left) + 130px); top:100px; bottom:78px; width:clamp(28px,4vw,44px); pointer-events:none; }
+        .zt-moment-arrow svg { width:100%; height:100%; display:block; overflow:visible; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
@@ -1527,6 +1549,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-classof-credit { left:38%; }
           .zt-rail { left:38%; }
+          .zt-moment-arrow { top:90px; left:calc(var(--x-logo-left) + 110px); }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
         }
@@ -1547,6 +1570,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-classof-credit { left:32%; font-size:7px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
+          .zt-moment-arrow { top:80px; bottom:65px; left:calc(var(--x-logo-left) + 90px); width:clamp(22px,5vw,32px); }
           /* 1-2pt smaller than the base clamp's floor, per direct
              feedback that this line reads too big on mobile. */
           .zt-moment-cta-line { font-size:clamp(6.5px,1vw,8px); }
