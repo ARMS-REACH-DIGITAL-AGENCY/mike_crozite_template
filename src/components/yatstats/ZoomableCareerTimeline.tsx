@@ -1,6 +1,6 @@
 'use client';
 
-import { MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
@@ -342,7 +342,7 @@ function useFanSession() {
   return session;
 }
 
-function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string[]; alt: string; className?: string }) {
+function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties }) {
   const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
   const sourcesKey = sources.join('|');
   const [index, setIndex] = useState(0);
@@ -356,7 +356,7 @@ function SmartImage({ src, srcs, alt, className }: { src?: string; srcs?: string
   }
   const active = sources[index];
   if (!active) return null;
-  return <img className={className} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
+  return <img className={className} style={style} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
 }
 
 function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
@@ -998,7 +998,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           the headline on every anchor/season/lifeyear slide -- there's
           one persistent entry point here instead of one repeated on
           every slide. */}
-      {resolvedPlayerName && (
+      {/* Gated on ANY identity field being available, not resolvedPlayerName
+          alone -- if the name resolver ever comes back empty for a given
+          player (route slug mismatch, context not yet hydrated) but team/
+          org/status/B-T-H-W are still known, this block should still show
+          them instead of disappearing entirely, which is what a
+          name-only gate was doing. */}
+      {(resolvedPlayerName || player?.currentTeamName || player?.orgConferenceName || posLevelStatus || batsThrowsHw) && (
         <div className="zt-moment-cta" aria-hidden="true">
           <span className="zt-moment-cta-line">Post a Moment on the Career Path Timeline of</span>
           {/* Same fields, same order, as the flip card's BACK (position -
@@ -1023,13 +1029,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-persist-bthw">{batsThrowsHw}</span>
             )}
           </div>
-          <div className="zt-moment-thumb">
-            <span className="zt-moment-thumb-frame">
-              <i className="ri-image-add-line" />
-            </span>
-          </div>
         </div>
       )}
+      {/* Polaroid upload affordance -- moved down to the bottom-left
+          corner (its own row, not stacked under the name/metadata) per
+          direct feedback. Same left edge as .zt-moment-cta above it
+          (both align with the school crest in row 2), just pinned to
+          the bottom instead of the top. */}
+      <div className="zt-moment-thumb-anchor" aria-hidden="true">
+        <div className="zt-moment-thumb">
+          <span className="zt-moment-thumb-frame">
+            <i className="ri-image-add-line" />
+          </span>
+        </div>
+      </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
           does -- each opacity-driven by how close the continuous scroll
@@ -1073,12 +1086,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <SmartImage src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
-              {slide.kind === 'anchor' && (
-                <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
-              )}
-              {slide.kind === 'season' && (
-                <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
-              )}
               {slide.kind === 'today' && (
                 <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
               )}
@@ -1088,6 +1095,37 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-visual-baseline" aria-hidden="true" />
             </span>
           );
+        })}
+      </div>
+
+      {/* The player cutout only (transparent-background PNG, anchor's HS
+          silhouette or a season's YaTi placeholder), painted in its own
+          layer ABOVE the headline text instead of inside .zt-visual-stack
+          underneath it -- per direct feedback that the photo should read
+          like a magazine cover with type running behind it (Sports
+          Illustrated-style), not text laid over the image. Everything
+          else that used to share .zt-visual-stack with it (the darkening
+          gradient, the ghosted team logo) stays back there, still behind
+          the text, since those exist to give the text contrast, not to
+          compete with it. .zt-person-cover (the flat "today"/upload cover
+          photos, not a cutout) also stays behind -- there's no transparent
+          silhouette to read text through, so raising it would just hide
+          the copy outright instead of overlaying it. */}
+      <div className="zt-person-stack" aria-hidden="true">
+        {ready && model.slides.map((slide, i) => {
+          const opacity = clamp(1 - 4 * Math.abs(scrollProgress - i), 0, 1);
+          if (opacity <= 0) return null;
+          if (slide.kind === 'anchor') {
+            return (
+              <SmartImage key={slide.id} className="zt-person" style={{ opacity }} src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+            );
+          }
+          if (slide.kind === 'season') {
+            return (
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
+            );
+          }
+          return null;
         })}
       </div>
 
@@ -1222,7 +1260,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       )}
 
       <style jsx>{`
-        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; }
+        /* Same left edge the school crest sits at in row 2 (.yat-schoolrow:
+           max-width:1400px, centered, 12px padding) -- a flat percentage
+           drifts apart from the crest's actual pixel position once the
+           viewport passes 1400px wide, since .yat-schoolrow stops growing
+           there but this section keeps spanning the full width. Declared
+           once here so every left-column element below (CTA/identity
+           block, Polaroid) reads off the same value instead of drifting
+           independently. */
+        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; --x-logo-left:max(12px,calc((100% - 1400px) / 2 + 12px)); }
 
         /* The hero visuals and the scrolling copy track are two entirely
            separate layers: the visual stack never moves horizontally, it
@@ -1237,6 +1283,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-visual-stack { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; }
         .zt-visual { position:absolute; inset:0; overflow:hidden; background:transparent; }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
+
+        /* Sits above .zt-carousel (z-index:2, the headline text) but below
+           the rail/CTA/nav chrome (z-index 6-8) -- see the JSX comment
+           above .zt-person-stack for why this is a separate layer from
+           .zt-visual-stack instead of just raising that whole stack. */
+        .zt-person-stack { position:absolute; z-index:4; inset:0; overflow:hidden; pointer-events:none; }
 
         .zt-carousel { position:relative; z-index:2; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
         .zt-carousel:active { cursor:grabbing; }
@@ -1269,8 +1321,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            above the frame). 104% height with -4% bottom lands the top
            exactly at 100% (box top = -4% + 104% = 100%): a little bigger
            than a plain 100%/0 box, zero risk of cropping the head. */
-        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:8%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
+        .zt-person-stack :global(.zt-person) { position:absolute; left:8%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
         /* Top-left CTA/identity block, separate from the marketing
@@ -1287,7 +1339,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            own top edge is what makes the CTA line read as a 4th line of
            that same grouping instead of a separate block floating lower
            in the frame. */
-        .zt-moment-cta { position:absolute; z-index:8; left:4%; top:2px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
+        .zt-moment-cta { position:absolute; z-index:8; left:var(--x-logo-left); top:2px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
         .zt-persist-id { display:flex; flex-direction:column; gap:2px; max-width:160px; }
         .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(9px,1.3vw,11.5px); line-height:1.2; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1299,7 +1351,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            uppercase like .zt-title) since this line's actual text isn't
            written in all caps. */
         .zt-moment-cta-line { display:block; max-width:220px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(8px,1.05vw,10px); line-height:1.3; letter-spacing:.005em; }
-        .zt-moment-thumb { margin-top:16px; width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
+        .zt-moment-thumb-anchor { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; pointer-events:none; }
+        .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
@@ -1358,7 +1411,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        .zt-classof-credit { position:absolute; z-index:6; left:4%; bottom:9px; color:rgba(255,255,255,.5); font-family:Oswald,sans-serif; font-weight:500; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; pointer-events:none; }
+        /* Right-aligned, butted up against the rail's own left edge (same
+           left value as .zt-rail, pulled fully back over via translateX
+           plus a small gap) -- reads as a caption/credit for the rail's
+           year strip, not a continuation of the name/metadata block up
+           top, per direct feedback that those two need to read as
+           separate things. */
+        .zt-classof-credit { position:absolute; z-index:6; left:40%; transform:translateX(calc(-100% - 10px)); bottom:9px; text-align:right; color:rgba(255,255,255,.5); font-family:Oswald,sans-serif; font-weight:500; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; pointer-events:none; }
         .zt-rail { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
@@ -1463,11 +1522,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-visual :global(.zt-person) { left:6%; width:clamp(130px,26vw,200px); }
+          .zt-person-stack :global(.zt-person) { left:6%; width:clamp(130px,26vw,200px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
-          .zt-moment-cta { left:3.5%; top:2px; }
-          .zt-classof-credit { left:3.5%; }
+          .zt-classof-credit { left:38%; }
           .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
@@ -1484,10 +1542,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           /* Shifted right from the very edge (was left:6%). */
-          .zt-visual :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
+          .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
-          .zt-moment-cta { left:2.5%; top:2px; }
-          .zt-classof-credit { left:2.5%; font-size:7px; }
+          .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
+          .zt-classof-credit { left:32%; font-size:7px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
           /* 1-2pt smaller than the base clamp's floor, per direct
              feedback that this line reads too big on mobile. */
