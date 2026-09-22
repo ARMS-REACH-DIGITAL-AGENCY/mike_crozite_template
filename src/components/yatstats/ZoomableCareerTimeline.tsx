@@ -740,22 +740,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     });
   }
 
-  function openUpload(year?: number) {
-    try {
-      if (year) {
-        sessionStorage.setItem('yat:goldenLinePrefillYear', String(year));
-        sessionStorage.setItem('yat:goldenLinePrefillDate', `${year}-07-01`);
-        sessionStorage.setItem('yat:goldenLinePrefillPlayerName', String(resolvedPlayerName || ''));
-      }
-    } catch {}
-    // openUpload only ever runs from handleMomentClick's onClick handler,
-    // never during render, so navigating via location.hash here is a
-    // normal, safe side effect -- not a Rules-of-React violation.
-    // eslint-disable-next-line react-hooks/immutability
-    window.location.hash = 'ppTab-upload';
-    window.dispatchEvent(new CustomEvent('yat:golden-line-prefill', { detail: { year } }));
-  }
-
   // Free scroll, matching the corporate site's real timeline mechanism
   // (layered-story-strip.js): the track is a plain native horizontally
   // scrollable element with scroll-snap turned OFF, not a click-only
@@ -934,22 +918,36 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <span className="zt-hero-bleed-overlay" />
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
-      {/* Class-of/name is its own layer here, not inside .zt-hero-bleed
-          (that div sits at z-index:-1, deliberately painted BEHIND this
-          entire section's own content -- see the z-index note further
-          down -- so anything placed inside it is hidden behind the
-          carousel too, confirmed by direct feedback that it wasn't
-          showing up at all in production) and not inside the per-slide
-          visual stack either (so it's always there regardless of which
-          slide is dissolved in, per direct feedback it should never
-          disappear -- and it never sits under the headline, since the
-          headline lives in the copy track's own right-hand column). A
-          plain child of this <section>, so it needs no :global() -- it's
-          a normal descendant, not a Fragment-level sibling. */}
+      {/* Top-left, persistent CTA + identity block -- not inside
+          .zt-hero-bleed (that div sits at z-index:-1, deliberately
+          painted BEHIND this entire section's own content -- see the
+          z-index note further down -- so anything placed inside it is
+          hidden behind the carousel too, confirmed by direct feedback
+          that it wasn't showing up at all in production) and not inside
+          the per-slide visual stack either (so it's always there
+          regardless of which slide is dissolved in). A plain child of
+          this <section>, so it needs no :global() -- it's a normal
+          descendant, not a Fragment-level sibling.
+          Layout-only for now, per direct feedback -- not wired to the
+          upload flow yet (that's pending a decision on the tagged-
+          moment/gallery-tab architecture), so the thumbnail has no
+          onClick and this block stays aria-hidden. Replaces the old
+          inline "Share an image of him" pill CTA that used to sit under
+          the headline on every anchor/season/lifeyear slide -- there's
+          one persistent entry point here instead of one repeated on
+          every slide. */}
       {resolvedPlayerName && (
-        <div className="zt-persist-id" aria-hidden="true">
-          <span className="zt-persist-classof">Class of {model.hsYear}</span>
-          <span className="zt-persist-name">{resolvedPlayerName}</span>
+        <div className="zt-moment-cta" aria-hidden="true">
+          <div className="zt-persist-id">
+            <span className="zt-persist-classof">Class of {model.hsYear}</span>
+            <span className="zt-persist-name">{resolvedPlayerName}</span>
+          </div>
+          <span className="zt-moment-cta-line">Share a moment to {firstName(resolvedPlayerName)}&apos;s timeline</span>
+          <div className="zt-moment-thumb">
+            <span className="zt-moment-thumb-frame">
+              <i className="ri-image-add-line" />
+            </span>
+          </div>
         </div>
       )}
       {/* Hero visuals live in their own non-scrolling stack, one per slide
@@ -1037,9 +1035,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-kick">{slide.year} · {slide.caption}</span>
                   <span className="zt-title">{slide.title}</span>
                   <span className="zt-bodycopy">{slide.headline}</span>
-                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
-                    <i className="ri-upload-cloud-line" /> Share an image of {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}
-                  </button>
                 </>
               )}
               {slide.kind === 'today' && (
@@ -1052,9 +1047,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <>
                   <span className="zt-kick">Age {slide.age}</span>
                   <span className="zt-title">&ldquo;{LIFE_YEAR_QUOTES[slide.age ?? 0]}&rdquo;</span>
-                  <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
-                    <i className="ri-upload-cloud-line" /> Share a photo from this year
-                  </button>
                 </>
               )}
               {slide.kind === 'upload' && (
@@ -1172,18 +1164,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
-        /* Class-of/name block -- bottom-left, to the left of the cutout,
-           sitting low in the frame where the swoosh starts its curve,
-           separate from the marketing kicker/headline column on the
-           right (which never runs into it -- the headline sits in its own
-           right-hand column, not stacked above this). Lives on
-           .zt-hero-bleed (see the JSX above), not inside the per-slide
-           visual, so it's :global() for the same reason the rest of that
-           layer is: it's a sibling of <section>, not its descendant, so
-           styled-jsx's scope hash never attaches to it. */
-        .zt-persist-id { position:absolute; z-index:8; left:4%; bottom:12px; display:flex; flex-direction:column; gap:2px; pointer-events:none; }
+        /* Top-left CTA/identity block, separate from the marketing
+           kicker/headline column on the right (which never runs into it
+           -- the headline sits in its own right-hand column, not
+           stacked above this). Lives on .zt-hero-bleed (see the JSX
+           above), not inside the per-slide visual, so it's :global() for
+           the same reason the rest of that layer is: it's a sibling of
+           <section>, not its descendant, so styled-jsx's scope hash
+           never attaches to it. */
+        .zt-moment-cta { position:absolute; z-index:8; left:4%; top:10px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
+        .zt-persist-id { display:flex; flex-direction:column; gap:2px; }
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
         .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-moment-cta-line { display:block; max-width:150px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7.5px,1vw,9px); line-height:1.25; letter-spacing:.04em; text-transform:uppercase; }
+        .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
+        .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -1208,8 +1203,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            one, so the invite reads as a real screen instead of empty
            space with a caption stuck to the right. */
         .zt-lifeyear .zt-copy { left:6%; }
-
-        .zt-upload-inline-cta { margin-top:4px; display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(255,178,28,.1); color:${TIMELINE_YELLOW}; font:700 8.5px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; cursor:pointer; }
 
         .zt-upload-actions { display:flex; gap:6px; margin-top:6px; }
         .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:24px; padding:0 9px; border:1px solid rgba(255,178,28,.5); border-radius:999px; background:rgba(0,0,0,.35); color:${TIMELINE_YELLOW}; font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
@@ -1342,7 +1335,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual :global(.zt-person) { left:10%; width:clamp(130px,26vw,200px); height:116%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
-          .zt-persist-id { left:3.5%; bottom:9px; }
+          .zt-moment-cta { left:3.5%; top:9px; }
           .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
@@ -1358,15 +1351,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed) { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H_MOBILE}px) !important; }
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          /* Shifted right from the very edge (was left:6%) to leave the
-             class-of/name block below room to sit without the two
-             colliding -- the shorter box above also means less vertical
-             room to stack them instead. */
+          /* Shifted right from the very edge (was left:6%). */
           .zt-visual :global(.zt-person) { left:24%; bottom:-4%; width:clamp(84px,28vw,120px); height:112%; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
-          .zt-persist-id { left:2.5%; bottom:7px; }
+          .zt-moment-cta { left:2.5%; top:7px; }
           .zt-persist-classof { font-size:9px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
+          .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much
