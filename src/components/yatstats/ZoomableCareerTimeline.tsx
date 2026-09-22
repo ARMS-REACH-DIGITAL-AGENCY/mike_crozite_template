@@ -101,6 +101,10 @@ type Slide = {
   teamLogoSrcs?: string[];
   seasonCutoutSrc?: string;
   yatiFallback?: string;
+  // season-kind only -- normalizeLevel()'s output, kept alongside caption
+  // so same-year stints can be ordered by level (see seasonOrderRank)
+  // without re-parsing it back out of the caption string.
+  level?: string;
   // lifeyear-kind only (the empty, no-photo-yet placeholder for a
   // pre-high-school year of the player's life)
   age?: number;
@@ -143,6 +147,12 @@ function clamp(n: number, min: number, max: number) {
 function normalizeLevel(value: unknown) {
   const raw = String(value || '').trim().toUpperCase();
   if (!raw) return '';
+  // Checked before the generic "HIGH" -> High-A branch below: "HIGH
+  // SCHOOL" contains that same substring, and was silently being
+  // normalized to the pro level High-A -- which also broke same-year
+  // season ordering downstream (an amateur row needs to be recognizable
+  // as amateur, not accidentally sorted in among Double-A/Triple-A rows).
+  if (raw.includes('HIGH SCHOOL') || raw === 'HS') return 'HS';
   if (raw.includes('MLB')) return 'MLB';
   if (raw.includes('TRIPLE') || raw === 'AAA') return 'Triple-A';
   if (raw.includes('DOUBLE') || raw === 'AA') return 'Double-A';
@@ -150,11 +160,33 @@ function normalizeLevel(value: unknown) {
   if (raw.includes('LOW') || raw === 'A') return 'A Ball';
   if (raw.includes('ROOKIE') || raw === 'RK') return 'Rookie';
   if (raw.includes('INDY') || raw.includes('INDEPENDENT')) return 'INDY';
+  if (raw.includes('NAIA')) return 'NAIA';
   if (raw.includes('NCAA-D1')) return 'NCAA-D1';
   if (raw.includes('NCAA-D2')) return 'NCAA-D2';
   if (raw.includes('NCAA-D3')) return 'NCAA-D3';
   if (raw.includes('NJCAA') || raw.includes('JUCO')) return 'JUCO';
   return raw;
+}
+
+// Best-effort chronological ordering for two stints tagged to the SAME
+// year (a college season plus the pro debut after being drafted, a
+// mid-season promotion, a demotion, etc.) -- this data has no per-stint
+// date, only a level, so there's no way to know the real order for
+// certain. Amateur ball (HS/JUCO/NAIA/NCAA) is a safe bet to always sort
+// before affiliated pro ball in the same year, since the draft always
+// follows the amateur season. Ordering WITHIN pro ball lowest-level-first
+// is NOT a safe bet -- a call-up moves up, a demotion moves down, and
+// nothing here says which happened -- but it's right far more often than
+// not (a draftee's first pro assignment is normally their lowest level
+// that year), so it's kept as the best available default until real
+// stint dates exist. An unrecognized level sits in the middle rather
+// than at either end, so one bad guess doesn't get sorted to a hard edge.
+const SEASON_LEVEL_ORDER: Record<string, number> = {
+  HS: 0, JUCO: 0, NAIA: 0, 'NCAA-D3': 0, 'NCAA-D2': 0, 'NCAA-D1': 0,
+  Rookie: 1, 'A Ball': 2, 'High-A': 3, 'Double-A': 4, 'Triple-A': 5, INDY: 5, MLB: 6,
+};
+function seasonOrderRank(level: string): number {
+  return level in SEASON_LEVEL_ORDER ? SEASON_LEVEL_ORDER[level] : 3;
 }
 
 function teamLogoCandidates(row: StatRow) {
@@ -560,9 +592,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         teamLogoSrcs,
         seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
         yatiFallback: yatiPlaceholderFor(seasonIndex++),
+        level,
       });
     });
-    seasons.sort((a, b) => a.year - b.year || a.title.localeCompare(b.title));
+    seasons.sort((a, b) => a.year - b.year
+      || seasonOrderRank(a.level || '') - seasonOrderRank(b.level || '')
+      || a.title.localeCompare(b.title));
 
     // hsYear - 17 .. hsYear - 1 are the 17 standardized life-year slots,
     // whether or not a real birth year could be derived (see above) -- a
