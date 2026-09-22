@@ -631,12 +631,24 @@ export default function FunZone({
   // URL 404s in production, the flip card only ever lives on the school's
   // own subdomain. Only fall back to that (still-incorrect but non-empty)
   // form if a school record genuinely couldn't be resolved.
-  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/player/${imageId}/${slug}`;
+  //
+  // The link lands on the school's roster page (not the profile page) and
+  // scrolls to this player's own card there, matching the same
+  // ?view=<section>&player=<id>#player-<id> pattern already used to deep-
+  // link into a card from FavoritesDrawer/ProfilePageEnhancer/SearchDrawerTabs.
+  // ?player= is required (not just the #hash) because YatInteractivity's
+  // getRequestedPlayerId() reads it as the primary signal and only falls
+  // back to the hash if it's missing - and a #hash alone never reaches the
+  // server, so it can't drive a future personalized share-preview image.
+  // view must match the section this card actually lives in, or
+  // retryRevealRequestedPlayerCard() switches to the wrong section and the
+  // card is never found - an all-time/career card shared from here would
+  // silently fail to reveal if this always said view=active.
+  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}?view=${isAllTime ? "alltime" : "active"}&player=${imageId}#player-${imageId}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
   void isPitcher;
-  void isAllTime;
 
   return (
     <div className="fz-root">
