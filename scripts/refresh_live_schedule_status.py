@@ -377,20 +377,20 @@ def refresh_flip_card_next_games(conn: psycopg.Connection) -> int:
             update public.flip_card_front_stage f
             set
               next_game_date = case
-                when (rng.game_time_utc at time zone 'America/Phoenix')::date =
-                     (now() at time zone 'America/Phoenix')::date
+                when (rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'))::date =
+                     (now() at time zone coalesce(f.school_timezone, 'America/Phoenix'))::date
                 then 'TODAY | ' || to_char(
-                  rng.game_time_utc at time zone 'America/Phoenix',
+                  rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'),
                   'FMMonth DD, YYYY'
                 )
                 else to_char(
-                  rng.game_time_utc at time zone 'America/Phoenix',
+                  rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'),
                   'FMDay | FMMonth DD, YYYY'
                 )
               end,
 
               next_game_time_local = to_char(
-                rng.game_time_utc at time zone 'America/Phoenix',
+                rng.game_time_utc at time zone coalesce(f.school_timezone, 'America/Phoenix'),
                 'FMHH12:MI AM'
               ),
 
