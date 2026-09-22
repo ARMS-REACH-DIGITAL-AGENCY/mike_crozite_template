@@ -13,6 +13,7 @@ import {
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
+  getPlayerById,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
@@ -189,8 +190,15 @@ async function resolveSchool(hsid: string, host: string): Promise<Row | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ hsid: string }>;
+  searchParams: Promise<{ player?: string }>;
+}): Promise<Metadata> {
   const { hsid } = await params;
+  const qp = await searchParams;
   const headersList = await headers();
   const host = headersList.get("host") || "";
   const school = await resolveSchool(hsid, host);
@@ -204,10 +212,66 @@ export async function generateMetadata({ params }: { params: Promise<{ hsid: str
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
 
+  // A share link from the Social tab lands here with "?player={id}" so the
+  // page can scroll to and highlight that one card (see
+  // YatInteractivity.tsx's revealRequestedPlayerCard) - link-preview
+  // crawlers (Facebook, iMessage, Slack, etc.) hit this same URL server-side
+  // and never run that client-side script, so without a player-specific
+  // og:image/title here every shared card would preview identically as
+  // just "the school page" instead of the player being shared.
+  const playerId = String(qp?.player || "").trim();
+  if (playerId) {
+    try {
+      const player = await getPlayerById(playerId);
+      const playerName = player
+        ? `${player.firstname || player.first_name || ""} ${player.lastname || player.last_name || ""}`.trim()
+        : "";
+
+      if (playerName) {
+        const shareUrl = `${canonicalUrl}/?player=${encodeURIComponent(playerId)}`;
+        const ogImageUrl = `${canonicalUrl}/api/og/player-card?playerId=${encodeURIComponent(playerId)}`;
+        const description = `Check out ${playerName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS!`;
+
+        return {
+          title: `${playerName.toUpperCase()} | ${name.toUpperCase()} Alumni | YAT?STATS`,
+          description,
+          alternates: { canonical: shareUrl },
+          openGraph: {
+            title: `${playerName} | YAT?STATS`,
+            description,
+            url: shareUrl,
+            images: [{ url: ogImageUrl, width: 1200, height: 630 }],
+          },
+          twitter: {
+            card: "summary_large_image",
+            title: `${playerName} | YAT?STATS`,
+            description,
+            images: [ogImageUrl],
+          },
+          icons: {
+            icon: [
+              { url: crestUrl, type: "image/png" },
+              { url: "/favicon.ico", type: "image/x-icon" },
+            ],
+            apple: crestUrl,
+          },
+        };
+      }
+    } catch {
+      // fall through to the school-level metadata below
+    }
+  }
+
   return {
     title: titleParts.join(" | "),
     description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
     alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title: titleParts.join(" | "),
+      description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
+      url: canonicalUrl,
+      images: [{ url: crestUrl, width: 512, height: 512 }],
+    },
     icons: {
       icon: [
         { url: crestUrl, type: "image/png" },

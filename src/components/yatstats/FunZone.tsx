@@ -656,7 +656,19 @@ export default function FunZone({
   // URL 404s in production, the flip card only ever lives on the school's
   // own subdomain. Only fall back to that (still-incorrect but non-empty)
   // form if a school record genuinely couldn't be resolved.
-  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/player/${imageId}/${slug}`;
+  //
+  // A share should land back on THIS card (the school roster page,
+  // scrolled/highlighted to this player), not the separate full profile
+  // page - YatInteractivity.tsx's revealRequestedPlayerCard() already
+  // does exactly that for a "?player={id}" link. A "#player-{id}" hash
+  // would scroll identically for a human clicking it, but link-preview
+  // crawlers (Facebook, iMessage, SMS) never see anything after a "#" -
+  // only the query string reaches the server, which is what lets the
+  // preview image below be this specific player's card instead of a
+  // generic school one. "name" is along for the human-readable URL only
+  // (revealRequestedPlayerCard ignores it) - the numeric id is what's
+  // actually looked up.
+  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/?player=${encodeURIComponent(imageId)}${slug ? `&name=${encodeURIComponent(slug)}` : ""}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
