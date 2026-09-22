@@ -74,12 +74,20 @@ type StatRow = {
   bavg?: string | number;
   hr?: string | number;
   rbi?: string | number;
+  obp?: string | number;
+  slg?: string | number;
+  ops?: string | number;
   // pitching
   w?: string | number;
   l?: string | number;
   era?: string | number;
   ip?: string | number;
+  whip?: string | number;
+  so_bb?: string | number;
+  g?: string | number;
 };
+
+type BigStat = { label: string; value: string };
 
 type SlideKind = 'anchor' | 'season' | 'upload' | 'today' | 'lifeyear';
 
@@ -106,6 +114,11 @@ type Slide = {
   // so same-year stints can be ordered by level (see seasonOrderRank)
   // without re-parsing it back out of the caption string.
   level?: string;
+  // season-kind only -- the 4 headline numbers for that stint (ERA/WHIP/
+  // K-BB/GP for a pitching season, AVG/OBP/SLG/OPS for a batting one --
+  // see buildBigStats()), shown as plain enlarged label+number pairs
+  // under the season heading, not as card graphics.
+  bigStats?: BigStat[];
   // lifeyear-kind only (the empty, no-photo-yet placeholder for a
   // pre-high-school year of the player's life)
   age?: number;
@@ -260,6 +273,32 @@ function statLineHeadline(row: StatRow, teamName: string): string {
 
   if (!parts.length) return teamName ? `Played for ${teamName}.` : 'A season on the roster.';
   return `${parts.join(' · ')}${teamName ? ` — ${teamName}` : ''}`;
+}
+
+// The 4 headline numbers for a season, shown big under the heading --
+// same isPitching detection as statLineHeadline, different (larger, more
+// scannable) set of stats than that one-line summary: ERA/WHIP/K-BB/GP
+// for a pitching season, AVG/OBP/SLG/OPS for a batting one. Only include
+// a stat the row actually has a value for, so a partial row still shows
+// whatever it has instead of a blank/zero.
+function buildBigStats(row: StatRow): BigStat[] {
+  const isPitching = row.w !== undefined || row.l !== undefined || row.era !== undefined || row.ip !== undefined;
+  const stats: BigStat[] = [];
+
+  if (isPitching) {
+    if (row.era !== undefined && row.era !== '') stats.push({ label: 'ERA', value: String(row.era) });
+    if (row.whip !== undefined && row.whip !== '') stats.push({ label: 'WHIP', value: String(row.whip) });
+    if (row.so_bb !== undefined && row.so_bb !== '') stats.push({ label: 'K/BB', value: String(row.so_bb) });
+    if (row.g !== undefined && row.g !== '') stats.push({ label: 'GP', value: String(row.g) });
+  } else {
+    const avg = row.avg ?? row.bavg;
+    if (avg !== undefined && avg !== '') stats.push({ label: 'AVG', value: String(avg) });
+    if (row.obp !== undefined && row.obp !== '') stats.push({ label: 'OBP', value: String(row.obp) });
+    if (row.slg !== undefined && row.slg !== '') stats.push({ label: 'SLG', value: String(row.slg) });
+    if (row.ops !== undefined && row.ops !== '') stats.push({ label: 'OPS', value: String(row.ops) });
+  }
+
+  return stats;
 }
 
 function openAccountDrawer(tab: 'signin' | 'register') {
@@ -610,6 +649,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
         yatiFallback: yatiPlaceholderFor(seasonIndex++),
         level,
+        bigStats: buildBigStats(row),
       });
     });
     seasons.sort((a, b) => a.year - b.year
@@ -1034,7 +1074,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <>
                   <span className="zt-kick">{slide.year} · {slide.caption}</span>
                   <span className="zt-title">{slide.title}</span>
-                  <span className="zt-bodycopy">{slide.headline}</span>
+                  {slide.bigStats && slide.bigStats.length > 0 ? (
+                    <div className="zt-bigstats">
+                      {slide.bigStats.map((stat) => (
+                        <div className="zt-bigstat" key={stat.label}>
+                          <span className="zt-bigstat-label">{stat.label}</span>
+                          <span className="zt-bigstat-value">{stat.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="zt-bodycopy">{slide.headline}</span>
+                  )}
                 </>
               )}
               {slide.kind === 'today' && (
@@ -1197,6 +1248,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
         .zt-lifeyear .zt-title { white-space:pre-line; font-style:italic; }
         .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        /* The season's 4 headline numbers, big and plain -- no card/tile
+           background, border or shadow, per direct feedback ("it doesn't
+           need to be a graphic"). Just enlarged label+number pairs in a
+           row under the heading. */
+        .zt-bigstats { display:flex; flex-wrap:wrap; column-gap:clamp(10px,2.2vw,20px); row-gap:4px; margin-top:2px; }
+        .zt-bigstat { display:flex; flex-direction:column; gap:1px; }
+        .zt-bigstat-label { color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
+        .zt-bigstat-value { color:#f7f7f5; font-family:"Bebas Neue",Oswald,sans-serif; font-weight:700; font-size:clamp(17px,3.2vw,25px); line-height:1; }
         .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* No cutout/logo on a life-year slide (there's no photo yet) -- the
            copy block gets the room that would otherwise be reserved for
