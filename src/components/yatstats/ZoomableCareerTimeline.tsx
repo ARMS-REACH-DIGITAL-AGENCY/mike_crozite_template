@@ -547,6 +547,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       : '';
   })();
   const resolvedPlayerName = player?.playerName || slugDerivedName;
+  // Same join logic as PlayerCardBack.tsx's posLevelStatus/btHw, applied to
+  // the same context fields, so this reads identically to the flip card's
+  // back rather than approximating it.
+  const posLevelStatus = [player?.position, player?.levelLabel, player?.statusLabel].filter(Boolean).join(' - ');
+  const batsThrowsHw = [
+    player?.bats && player?.throws ? `B/T ${player.bats}/${player.throws}` : '',
+    player?.height && player?.weight ? `${player.height} / ${player.weight}` : (player?.height || player?.weight || ''),
+  ].filter(Boolean).join(' - ');
   const session = useFanSession();
   const [stats, setStats] = useState<StatRow[]>([]);
   const [uploads, setUploads] = useState<SubmittedMoment[]>([]);
@@ -979,12 +987,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       {resolvedPlayerName && (
         <div className="zt-moment-cta" aria-hidden="true">
           <span className="zt-moment-cta-line">Post a Moment on the Career Path Timeline of</span>
-          {/* Same core facts the flip card's front always shows (name,
-              team, organization, level/status), sourced from the same
-              PlayerProfileContext fields layout.tsx already computes for
-              it -- not re-derived here -- so a fan sees the same "what
-              team, what level, what status" whichever of the front/back/
-              profile page they're looking at, per direct feedback. */}
+          {/* Same fields, same order, as the flip card's BACK (position -
+              level - status, then B/T + height/weight) -- sourced from
+              the same PlayerProfileContext fields layout.tsx already
+              computes for it, not re-derived here -- per direct
+              feedback that a fan should see the same facts whichever
+              of the flip card's front, its back, or this profile page
+              they're looking at. */}
           <div className="zt-persist-id">
             <span className="zt-persist-name">{resolvedPlayerName}</span>
             {player?.currentTeamName && (
@@ -993,10 +1002,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             {player?.orgConferenceName && (
               <span className="zt-persist-org">{player.orgConferenceName}</span>
             )}
-            {(player?.levelLabel || player?.statusLabel) && (
-              <span className="zt-persist-status">{[player?.levelLabel, player?.statusLabel].filter(Boolean).join(' · ')}</span>
+            {posLevelStatus && (
+              <span className="zt-persist-status">{posLevelStatus}</span>
             )}
-            <span className="zt-persist-classof">Class of {model.hsYear}</span>
+            {batsThrowsHw && (
+              <span className="zt-persist-bthw">{batsThrowsHw}</span>
+            )}
           </div>
           <div className="zt-moment-thumb">
             <span className="zt-moment-thumb-frame">
@@ -1215,7 +1226,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            the edge of the frame -- matching the real corporate hero, where
            the ghosted crest is only partly visible, clipped by the frame's
            right edge, not fully contained inside it. */
-        .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.4; pointer-events:none; }
+        .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.15; pointer-events:none; }
         .zt-logo-layer :global(img) { width:100%; height:100%; object-fit:contain; }
 
         /* Moved in from the very edge, closer to the headline, so it sits
@@ -1250,13 +1261,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            never attaches to it. */
         .zt-moment-cta { position:absolute; z-index:8; left:4%; top:10px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
         .zt-persist-id { display:flex; flex-direction:column; gap:2px; max-width:160px; }
-        .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
         .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(9px,1.3vw,11.5px); line-height:1.2; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7.5px,1vw,9px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-moment-cta-line { display:block; max-width:160px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-style:italic; font-size:clamp(8px,1.05vw,9.5px); line-height:1.3; letter-spacing:.01em; text-transform:none; }
-        .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
+        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(9px,1.3vw,11.5px); line-height:1.2; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.2; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7.5px,1vw,9px); letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* Same font as .zt-title (the marketing headline), not a separate
+           italic style -- per direct feedback -- kept mixed-case (not
+           uppercase like .zt-title) since this line's actual text isn't
+           written in all caps. */
+        .zt-moment-cta-line { display:block; max-width:220px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(8px,1.05vw,10px); line-height:1.3; letter-spacing:.005em; }
+        .zt-moment-thumb { margin-top:8px; width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
@@ -1440,10 +1455,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           /* Shifted right from the very edge (was left:6%). */
           .zt-visual :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
-          .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
+          .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           .zt-moment-cta { left:2.5%; top:7px; }
-          .zt-persist-classof { font-size:9px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
+          /* 1-2pt smaller than the base clamp's floor, per direct
+             feedback that this line reads too big on mobile. */
+          .zt-moment-cta-line { font-size:clamp(6.5px,1vw,8px); }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
