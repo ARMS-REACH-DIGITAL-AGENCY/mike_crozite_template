@@ -30,7 +30,7 @@ type ResultClass = 'win' | 'loss' | 'tie' | 'live' | 'time' | 'ppd';
 type GameSummary = {
   isHome: boolean;
   logoUrl: string | null;
-  matchup: string;
+  opponentLabel: string;
   venue: string;
   resultLine: string;
   resultClass: ResultClass;
@@ -82,7 +82,6 @@ function buildGameSummary(
   const logoUrl = opponentRawId ? mlbTeamLogoUrl(teamIdMap, opponentRawId) : null;
   const abbr = mlbTeamAbbreviation(opponentRawId);
   const opponentLabel = abbr || String(game.opponent || 'TBD').trim();
-  const matchup = `${isHome ? 'vs' : 'at'} ${opponentLabel}`;
 
   const status = String(game.status || '').trim();
   const gamePk = String(game.game_pk || '').trim();
@@ -121,7 +120,7 @@ function buildGameSummary(
     resultLine = formatGameTime(game.game_time_utc);
   }
 
-  return { isHome, logoUrl, matchup, venue: game.venue_name || '', resultLine, resultClass, subLine };
+  return { isHome, logoUrl, opponentLabel, venue: game.venue_name || '', resultLine, resultClass, subLine };
 }
 
 async function getSevenDayWindow(playerId: string): Promise<SnapshotItem[]> {
@@ -266,22 +265,23 @@ export default async function PlayerSevenDaySnapshot({
               href={profileHref}
               key={`${item.iso}-${idx}`}
             >
-              {isToday ? (
-                <div className="yat-snap-date yat-snap-date-today">TODAY</div>
-              ) : (
-                <div className="yat-snap-date">
-                  <span className="yat-snap-date-mon">{mon}</span>
-                  <span className="yat-snap-date-day">{dayNum}</span>
+              <div className={`yat-snap-date${isToday ? ' yat-snap-date-today' : ''}`}>
+                {!isToday && <span className="yat-snap-date-mon">{mon}</span>}
+                <div className="yat-snap-date-stack">
+                  <span className="yat-snap-date-day">{isToday ? 'TODAY' : dayNum}</span>
                   <span className="yat-snap-date-dow">{dow}</span>
                 </div>
-              )}
+              </div>
 
               {item.kind === 'game' ? (
                 <>
                   <div className="yat-snap-team">
                     {item.game.logoUrl && <img src={item.game.logoUrl} alt="" loading="lazy" />}
                     <div className="yat-snap-team-text">
-                      <div className="yat-snap-matchup">{item.game.matchup}</div>
+                      <div className="yat-snap-matchup">
+                        <span className="yat-snap-matchup-prefix">{item.game.isHome ? 'vs' : '@'}</span>
+                        <span className="yat-snap-matchup-team">{item.game.opponentLabel}</span>
+                      </div>
                       {item.game.venue && <div className="yat-snap-venue">{item.game.venue}</div>}
                     </div>
                   </div>
@@ -289,29 +289,22 @@ export default async function PlayerSevenDaySnapshot({
                   <div className={`yat-snap-score yat-snap-score-${item.game.resultClass}`}>{item.game.resultLine}</div>
 
                   <div className="yat-snap-statline">{item.game.subLine || '-'}</div>
-
-                  <div className="yat-snap-homeaway">
-                    <i className={item.game.isHome ? 'ri-home-4-line' : 'ri-flight-takeoff-line'} aria-hidden="true" />
-                  </div>
                 </>
               ) : item.kind === 'doubleheader' ? (
-                <>
-                  <div className="yat-snap-dh">
-                    {item.games.map((g, gi) => (
-                      <div className="yat-snap-dh-game" key={gi}>
-                        <div className="yat-snap-dh-logo">
-                          {g.logoUrl && <img src={g.logoUrl} alt="" loading="lazy" />}
-                        </div>
-                        <div className="yat-snap-dh-team">{g.matchup}</div>
-                        <div className={`yat-snap-dh-score yat-snap-score-${g.resultClass}`}>{g.resultLine}</div>
-                        <div className="yat-snap-dh-stat">{g.subLine || '-'}</div>
+                <div className="yat-snap-dh">
+                  {item.games.map((g, gi) => (
+                    <div className="yat-snap-dh-game" key={gi}>
+                      <div className="yat-snap-dh-logo">
+                        {g.logoUrl && <img src={g.logoUrl} alt="" loading="lazy" />}
                       </div>
-                    ))}
-                  </div>
-                  <div className="yat-snap-homeaway">
-                    <i className={item.games[0]?.isHome ? 'ri-home-4-line' : 'ri-flight-takeoff-line'} aria-hidden="true" />
-                  </div>
-                </>
+                      <div className="yat-snap-dh-team">
+                        <span className="yat-snap-dh-team-prefix">{g.isHome ? 'vs' : '@'}</span> {g.opponentLabel}
+                      </div>
+                      <div className={`yat-snap-dh-score yat-snap-score-${g.resultClass}`}>{g.resultLine}</div>
+                      <div className="yat-snap-dh-stat">{g.subLine || '-'}</div>
+                    </div>
+                  ))}
+                </div>
               ) : item.kind === 'offday' ? (
                 <div className="yat-snap-offday">Off Day</div>
               ) : (
@@ -356,7 +349,7 @@ export default async function PlayerSevenDaySnapshot({
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:auto auto auto 1fr auto;
+          grid-template-columns:auto auto auto 1fr;
           align-items:center;
           gap:clamp(5px,1.5cqi,9px);
           text-decoration:none;
@@ -375,23 +368,34 @@ export default async function PlayerSevenDaySnapshot({
         }
         .yat-snap-date{
           display:flex;
-          flex-direction:column;
           align-items:center;
+          gap:clamp(3px,1cqi,6px);
           line-height:1;
-          min-width:2.6em;
+          min-width:3.2em;
         }
-        .yat-snap-date-mon, .yat-snap-date-dow{
+        .yat-snap-date-mon{
           font:700 clamp(6px,1.9cqi,9px)/1 Oswald,sans-serif;
           letter-spacing:.05em;
           color:#8a7c68;
         }
-        .yat-snap-date-day{
-          font:700 clamp(11px,4cqi,20px)/1.05 "Bebas Neue",sans-serif;
-          color:#17120c;
+        .yat-snap-date-stack{
+          display:flex;
+          flex-direction:column;
+          align-items:flex-start;
+          line-height:1;
         }
-        .yat-snap-date.yat-snap-date-today{
-          display:block;
-          font:700 clamp(9px,3.2cqi,15px)/1.05 "Bebas Neue",sans-serif;
+        .yat-snap-date-day{
+          font:700 clamp(10px,3.6cqi,18px)/1.05 "Bebas Neue",sans-serif;
+          color:#17120c;
+          white-space:nowrap;
+        }
+        .yat-snap-date-dow{
+          font:700 clamp(6px,1.9cqi,9px)/1 Oswald,sans-serif;
+          letter-spacing:.05em;
+          color:#8a7c68;
+        }
+        .yat-snap-date-today .yat-snap-date-day{
+          font-size:clamp(9px,3.2cqi,15px);
           letter-spacing:.04em;
           color:#8a4a2c;
         }
@@ -413,11 +417,25 @@ export default async function PlayerSevenDaySnapshot({
           flex-direction:column;
         }
         .yat-snap-matchup{
+          display:flex;
+          align-items:baseline;
+          gap:.3em;
+          min-width:0;
+          white-space:nowrap;
+          overflow:hidden;
+        }
+        .yat-snap-matchup-prefix{
+          font:400 clamp(6.5px,2.1cqi,10px)/1 Oswald,sans-serif;
+          text-transform:lowercase;
+          color:#8a7c68;
+          flex:0 0 auto;
+        }
+        .yat-snap-matchup-team{
           font:700 clamp(8px,2.7cqi,13px)/1.15 Oswald,sans-serif;
           letter-spacing:.02em;
           text-transform:uppercase;
           color:#221a12;
-          white-space:nowrap;
+          min-width:0;
           overflow:hidden;
           text-overflow:ellipsis;
         }
@@ -450,18 +468,10 @@ export default async function PlayerSevenDaySnapshot({
           overflow:hidden;
           text-overflow:ellipsis;
         }
-        .yat-snap-homeaway{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          width:clamp(11px,3.4cqi,15px);
-          flex:0 0 auto;
-          color:#8a7c68;
-          font-size:clamp(9px,2.8cqi,12px);
-        }
         .yat-snap-offday{
-          grid-column:2 / -1;
-          text-align:center;
+          grid-column:2;
+          min-width:0;
+          text-align:left;
           font:700 clamp(7px,2.4cqi,11px)/1 Oswald,sans-serif;
           letter-spacing:.08em;
           text-transform:uppercase;
@@ -473,7 +483,7 @@ export default async function PlayerSevenDaySnapshot({
            same row instead of a second row, so the window always stays at
            exactly 7 rows regardless of how many games fall in it. */
         .yat-snap-dh{
-          grid-column:2 / span 3;
+          grid-column:2 / -1;
           display:flex;
           align-items:center;
           min-width:0;
@@ -514,6 +524,11 @@ export default async function PlayerSevenDaySnapshot({
           white-space:nowrap;
           overflow:hidden;
           text-overflow:ellipsis;
+        }
+        .yat-snap-dh-team-prefix{
+          text-transform:lowercase;
+          font-weight:400;
+          color:#8a7c68;
         }
         .yat-snap-dh-score{
           flex:0 0 auto;
