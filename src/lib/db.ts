@@ -1591,7 +1591,14 @@ export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[
          COALESCE(venue_name, upper(home_away)) AS location,
          (home_away = 'Home') AS is_home,
          CASE
-           WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN
+           -- A live boxscore populates home_score/away_score as soon as the
+           -- game starts, long before it's final - checking scores alone
+           -- would call a "W"/"L" on a game still in progress. Require a
+           -- terminal status too, so an in-progress game falls through to
+           -- NULL here and the app layer's live-status branch (checking
+           -- status text for "in progress"/etc) is the one that renders it.
+           WHEN home_score IS NOT NULL AND away_score IS NOT NULL
+             AND lower(trim(coalesce(status, ''))) IN ('final', 'game over', 'completed early') THEN
              CASE
                WHEN home_away = 'Home' AND home_score > away_score THEN 'W ' || home_score || '-' || away_score
                WHEN home_away = 'Home' AND home_score < away_score THEN 'L ' || home_score || '-' || away_score

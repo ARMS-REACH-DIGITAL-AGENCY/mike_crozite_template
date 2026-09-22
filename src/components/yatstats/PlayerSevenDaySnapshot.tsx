@@ -60,6 +60,12 @@ function addDays(iso: string, delta: number) {
   return isoDate(d);
 }
 
+// Hardcoded to Arizona, matching the flip card front's own convention
+// (scripts/refresh_live_schedule_status.py writes next_game_time_zone as
+// 'MST' and formats next_game_time_local in America/Phoenix) - this
+// microsite is a local-community site for an Arizona high school, not a
+// generic multi-timezone product, so every displayed game time is Arizona
+// time regardless of which time zone the opposing team's park is in.
 function formatGameTime(gameTimeUtc: unknown): string {
   if (!gameTimeUtc) return 'TBD';
   const d = new Date(String(gameTimeUtc));
@@ -67,7 +73,7 @@ function formatGameTime(gameTimeUtc: unknown): string {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    timeZone: 'America/New_York',
+    timeZone: 'America/Phoenix',
     timeZoneName: 'short',
   }).format(d);
 }
@@ -349,7 +355,7 @@ export default async function PlayerSevenDaySnapshot({
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:auto auto auto 1fr;
+          grid-template-columns:clamp(42px,15cqi,60px) clamp(70px,24cqi,110px) clamp(52px,19cqi,82px) 1fr;
           align-items:center;
           gap:clamp(5px,1.5cqi,9px);
           text-decoration:none;
@@ -371,7 +377,7 @@ export default async function PlayerSevenDaySnapshot({
           align-items:center;
           gap:clamp(3px,1cqi,6px);
           line-height:1;
-          min-width:3.2em;
+          min-width:0;
         }
         .yat-snap-date-mon{
           font:700 clamp(6px,1.9cqi,9px)/1 Oswald,sans-serif;
@@ -451,6 +457,9 @@ export default async function PlayerSevenDaySnapshot({
           letter-spacing:.02em;
           white-space:nowrap;
           text-align:center;
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
         }
         .yat-snap-score-win{ color:#1c7a3e; }
         .yat-snap-score-loss{ color:#b4232c; }
