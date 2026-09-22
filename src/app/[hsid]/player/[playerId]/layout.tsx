@@ -3,7 +3,6 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
-import FeaturedTeamNewsInjector from '@/components/yatstats/FeaturedTeamNewsInjector';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
@@ -173,18 +172,9 @@ export default async function PlayerLayout({
     redirect(canonicalPlayerUrl);
   }
 
-  const featuredTeamPlayer = {
-    playerid: playerId,
-    display_name: playerName,
-    current_team_name: meta.currentTeamName,
-    current_org_or_conference_name: meta.orgConferenceName,
-    level_label: meta.levelLabel,
-  };
-
   return (
     <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
-      <FeaturedTeamNewsInjector player={featuredTeamPlayer} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
       <ProfileFunZoneCleanupStyles />

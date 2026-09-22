@@ -95,9 +95,12 @@ function abbreviateTeam(value: unknown) {
     'SCRANTON/WILES-BARRE RAILRAIDERS': 'SCRANTON/WB',
     'FCL METS': 'FCL METS',
     'ST. LUCIE METS': 'ST. LUCIE',
+    'WEST MICHIGAN WHITECAPS': 'West Michigan',
   };
   if (exact[key]) return exact[key];
   return team
+    .replace(/\bCommunity College\b/gi, 'CC')
+    .replace(/\bState University\b/gi, 'State')
     .replace(/\bUniversity\b/gi, 'Univ.')
     .replace(/\bCollege\b/gi, 'Coll.')
     .replace(/\bRumble Ponies\b/gi, '')
@@ -105,9 +108,59 @@ function abbreviateTeam(value: unknown) {
     .trim();
 }
 
+// Common NCAA conference full names -> the abbreviation fans actually use.
+// Anything not in this list still gets shortened by initializeOrg() below
+// rather than showing the full spelled-out name, so a conference this list
+// doesn't yet know about doesn't blow out the column width either.
+const ORG_ABBREVIATIONS: Record<string, string> = {
+  'ROCKY MOUNTAIN ATHLETIC CONFERENCE': 'RMAC',
+  'MOUNTAIN WEST CONFERENCE': 'Mountain West',
+  'BIG SOUTH CONFERENCE': 'Big South',
+  'SOUTHERN CONFERENCE': 'SoCon',
+  'ATLANTIC COAST CONFERENCE': 'ACC',
+  'SOUTHEASTERN CONFERENCE': 'SEC',
+  'BIG TEN CONFERENCE': 'Big Ten',
+  'PACIFIC-12 CONFERENCE': 'Pac-12',
+  'PAC-12 CONFERENCE': 'Pac-12',
+  'BIG 12 CONFERENCE': 'Big 12',
+  'MISSOURI VALLEY CONFERENCE': 'MVC',
+  'CONFERENCE USA': 'C-USA',
+  'MID-AMERICAN CONFERENCE': 'MAC',
+  'WEST COAST CONFERENCE': 'WCC',
+  'AMERICAN ATHLETIC CONFERENCE': 'AAC',
+  'OHIO VALLEY CONFERENCE': 'OVC',
+  'SUN BELT CONFERENCE': 'Sun Belt',
+  'SOUTHLAND CONFERENCE': 'Southland',
+  'BIG SKY CONFERENCE': 'Big Sky',
+  'BIG WEST CONFERENCE': 'Big West',
+  'IVY LEAGUE': 'Ivy',
+  'PATRIOT LEAGUE': 'Patriot',
+  'COLONIAL ATHLETIC ASSOCIATION': 'CAA',
+  'HORIZON LEAGUE': 'Horizon',
+  'METRO ATLANTIC ATHLETIC CONFERENCE': 'MAAC',
+  'NORTHEAST CONFERENCE': 'NEC',
+  'AMERICA EAST CONFERENCE': 'America East',
+};
+
+const ORG_INITIALISM_SKIP_WORDS = new Set(['of', 'the', 'and', 'for']);
+
+// Fallback for any long org/conference name not in ORG_ABBREVIATIONS above -
+// initials of the significant words (Rocky Mountain Athletic Conference ->
+// RMAC), same convention fans already use for the ones in the dictionary,
+// so a conference this code doesn't know by name yet still renders short.
+function initializeOrg(value: string) {
+  const words = value.split(/\s+/).filter((w) => w && !ORG_INITIALISM_SKIP_WORDS.has(w.toLowerCase()));
+  if (words.length < 3) return value;
+  const initials = words.map((w) => w[0]?.toUpperCase() || '').join('');
+  return initials.length >= 3 ? initials : value;
+}
+
 function normalizeOrg(value: unknown) {
   const org = cleanText(value);
   if (/NJCAA Region 1/i.test(org)) return 'Region 1';
+  const abbr = ORG_ABBREVIATIONS[org.toUpperCase()];
+  if (abbr) return abbr;
+  if (org.length > 22) return initializeOrg(org);
   return org;
 }
 

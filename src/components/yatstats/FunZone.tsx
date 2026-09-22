@@ -384,6 +384,25 @@ function EmailIcon() {
   );
 }
 
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </svg>
+  );
+}
+
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
 // own feed with a personalized #YATABOY hashtag. Every link here is a plain
@@ -472,40 +491,46 @@ function SocialPanel({
     });
   }
 
+  function handleInstagramShare() {
+    handleCopyPost();
+    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="fz-social">
-      <div className="fz-social-deco" aria-hidden="true">
-        <img src={YATI_MASCOT_URL} alt="" />
-        <span className="fz-social-deco-yat">YAT!</span>
+      <div className="fz-social-top">
+        <div className="fz-social-headline">
+          <span className="fz-social-tag">#{hashtag}</span>
+          <span className="fz-social-headline-underline" aria-hidden="true" />
+        </div>
+
+        {/* Styled like a post composed for X - a fan should recognize
+            immediately that this is what will actually go out, not just
+            marketing copy about sharing. */}
+        <div className="fz-social-post">
+          <div className="fz-social-post-head">
+            <img src={YATI_MASCOT_URL} alt="" className="fz-social-post-avatar" />
+            <span className="fz-social-post-handle">@{YAT_STATS_X_HANDLE}</span>
+            <XIcon />
+          </div>
+          <div className="fz-social-post-body">
+            {messageLines.map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+            <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="fz-social-headline">
-        <span className="fz-social-tag">#{hashtag}</span>
-        <span className="fz-social-headline-underline" aria-hidden="true" />
-      </div>
-
-      <div className="fz-social-message">
-        {messageLines.map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
-        <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
-      </div>
-
-      <button
-        type="button"
-        className={`fz-social-copy${copied ? " copied" : ""}`}
-        onClick={handleCopyPost}
-      >
-        <i className={copied ? "ri-check-line" : "ri-file-copy-2-line"} aria-hidden="true" />
-        <span>{copied ? "Copied!" : "Copy Post"}</span>
-      </button>
-
-      <div className="fz-social-links">
+      {/* Same cell size/shape as the Stats tab's yat-stats-grid (3 columns,
+          same min-height/padding/radius on each cell) - just 2 rows here
+          instead of 4, holding share actions instead of stat values. */}
+      <div className="yat-stats-grid fz-social-grid">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="fz-social-link"
+          className="yat-stat fz-social-cell"
         >
           <FacebookIcon />
           <span>Facebook</span>
@@ -514,19 +539,31 @@ function SocialPanel({
           href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="fz-social-link"
+          className="yat-stat fz-social-cell"
         >
           <XIcon />
           <span>X</span>
         </a>
-        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
+        <a href={`sms:?&body=${encodedSmsBody}`} className="yat-stat fz-social-cell">
           <TextIcon />
           <span>Text</span>
         </a>
-        <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-link">
+        <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="yat-stat fz-social-cell">
           <EmailIcon />
           <span>Email</span>
         </a>
+        <button
+          type="button"
+          className={`yat-stat fz-social-cell${copied ? " copied" : ""}`}
+          onClick={handleCopyPost}
+        >
+          {copied ? <i className="ri-check-line" aria-hidden="true" /> : <CopyIcon />}
+          <span>{copied ? "Copied!" : "Copy"}</span>
+        </button>
+        <button type="button" className="yat-stat fz-social-cell" onClick={handleInstagramShare}>
+          <InstagramIcon />
+          <span>Instagram</span>
+        </button>
       </div>
     </div>
   );
@@ -541,15 +578,11 @@ const CONNECT_FEATURES: { icon: string; title: string }[] = [
 function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
     <div className="fz-connect">
-      <div className="fz-connect-wordmark-row">
-        <span className="fz-connect-rule" aria-hidden="true" />
-        <img
-          src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-          alt="YAT?STATS"
-          className="fz-connect-wordmark"
-        />
-        <span className="fz-connect-rule" aria-hidden="true" />
-      </div>
+      <img
+        src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
+        alt="YAT?STATS"
+        className="fz-connect-wordmark"
+      />
 
       <div className="fz-connect-heading">Coming Soon</div>
       <div className="fz-connect-tagline">Real Players. Real Conversations. A Brighter Tomorrow.</div>
@@ -1056,38 +1089,29 @@ export default function FunZone({
 
         /* -- Social panel ----------------------------------------------- */
         .fz-social{
-          position:relative;
+          display:flex;
+          flex-direction:column;
+          height:100%;
+          min-height:0;
+          gap:clamp(4px,1.4cqi,8px);
+        }
+        .fz-social-top{
+          flex:1;
+          min-height:0;
           display:flex;
           flex-direction:column;
           justify-content:center;
-          height:100%;
-          gap:clamp(3px,1.1cqi,7px);
-        }
-        .fz-social-deco{
-          position:absolute;
-          top:0;
-          right:0;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:2px;
-          opacity:.14;
-          pointer-events:none;
-        }
-        .fz-social-deco img{ width:clamp(18px,6.5cqi,32px); height:auto; display:block; }
-        .fz-social-deco-yat{
-          font:900 clamp(7px,2.6cqi,11px) "Bebas Neue",sans-serif;
-          letter-spacing:.05em;
-          color:rgba(30,22,14,0.95);
-          transform:rotate(-6deg);
+          gap:clamp(2px,.8cqi,5px);
+          overflow:hidden;
         }
         .fz-social-headline{
           display:flex;
           flex-direction:column;
           gap:2px;
+          flex-shrink:0;
         }
         .fz-social-tag{
-          font:700 clamp(14px,5.4cqi,22px) "Bebas Neue",sans-serif;
+          font:700 clamp(13px,5cqi,20px) "Bebas Neue",sans-serif;
           letter-spacing:.04em;
           color:rgba(30,22,14,0.94);
           line-height:1;
@@ -1095,20 +1119,57 @@ export default function FunZone({
         .fz-social-headline-underline{
           display:block;
           height:clamp(2px,.8cqi,3.5px);
-          width:min(140px,55%);
+          width:min(130px,55%);
           background:linear-gradient(90deg,#2451c9,#4c7eea);
           border-radius:3px;
           transform:skewX(-14deg);
         }
-        .fz-social-message{
+        /* Styled like a post composed for X (avatar + handle header, body
+           text below) so it reads as "this is what will actually post,"
+           not as marketing copy about sharing. */
+        .fz-social-post{
+          min-height:0;
+          display:flex;
+          flex-direction:column;
+          border:1px solid rgba(30,22,14,0.22);
+          border-radius:clamp(6px,1.8cqi,10px);
+          background:rgba(255,255,255,0.32);
+          overflow:hidden;
+        }
+        .fz-social-post-head{
+          flex-shrink:0;
+          display:flex;
+          align-items:center;
+          gap:clamp(4px,1.3cqi,7px);
+          padding:clamp(3px,1cqi,6px) clamp(5px,1.6cqi,8px);
+          border-bottom:1px solid rgba(30,22,14,0.14);
+          background:rgba(255,255,255,0.25);
+        }
+        .fz-social-post-avatar{
+          width:clamp(12px,4cqi,18px);
+          height:clamp(12px,4cqi,18px);
+          border-radius:50%;
+          object-fit:cover;
+          flex:0 0 auto;
+        }
+        .fz-social-post-handle{
+          flex:1;
+          min-width:0;
+          font:700 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
+          color:rgba(30,22,14,0.75);
+        }
+        .fz-social-post-head svg{ flex:0 0 auto; color:rgba(30,22,14,0.55); font-size:clamp(8px,2.6cqi,12px); }
+        .fz-social-post-body{
+          min-height:0;
+          overflow:hidden;
+          padding:clamp(3px,1cqi,6px) clamp(5px,1.6cqi,8px);
           display:flex;
           flex-direction:column;
           gap:1px;
-          padding-right:clamp(22px,7cqi,40px);
         }
-        .fz-social-message p{
+        .fz-social-post-body p{
           margin:0;
-          font:400 clamp(7px,2.1cqi,9.5px)/1.32 Oswald,sans-serif;
+          font:400 clamp(6.5px,2cqi,9px)/1.3 Oswald,sans-serif;
           color:rgba(30,22,14,0.82);
         }
         .fz-social-message-url{
@@ -1116,41 +1177,23 @@ export default function FunZone({
           word-break:break-all;
         }
         .fz-social-accent{ color:#2451c9; font-weight:700; }
-        .fz-social-copy{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:clamp(4px,1.3cqi,7px);
-          align-self:flex-start;
-          font:700 clamp(7px,2.1cqi,9.5px) Oswald,sans-serif;
-          letter-spacing:.03em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.85);
-          padding:clamp(4px,1.3cqi,7px) clamp(9px,2.6cqi,14px);
-          border-radius:clamp(5px,1.5cqi,8px);
-          border:1px solid rgba(30,22,14,0.3);
-          background:rgba(255,255,255,0.3);
-          cursor:pointer;
-        }
-        .fz-social-copy:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
-        .fz-social-copy.copied{ border-color:#1c7a3e; color:#1c7a3e; }
-        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(4px,1.4cqi,7px);margin-top:1px}
-        .fz-social-link{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:clamp(5px,1.6cqi,8px);
-          font:600 clamp(9px,2.8cqi,12px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.75);
+
+        /* Same cells as the Stats tab (.yat-stat), just 2 rows of 3 instead
+           of 4 - filling the same grid position the bottom two rows of
+           stats would occupy. */
+        .fz-social-grid{ flex:1; }
+        .fz-social-cell{
+          flex-direction:row;
           text-decoration:none;
-          min-height:clamp(24px,8cqi,34px);
-          padding:clamp(4px,1.3cqi,7px) clamp(6px,1.8cqi,9px);
-          border-radius:clamp(6px,1.8cqi,10px);
-          border:1px solid rgba(30,22,14,0.24);
-          background:rgba(255,255,255,0.22);
+          cursor:pointer;
+          font:700 clamp(7.5px,2.4cqi,11px) Oswald,sans-serif;
+          letter-spacing:.02em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.8);
         }
-        .fz-social-link:hover{color:rgba(30,22,14,0.95);border-color:rgba(30,22,14,0.45);background:rgba(255,255,255,0.4)}
-        .fz-social-link svg{flex-shrink:0}
+        .fz-social-cell svg{ flex-shrink:0; font-size:clamp(10px,3.2cqi,15px); }
+        .fz-social-cell:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.28); color:rgba(30,22,14,0.95); }
+        .fz-social-cell.copied{ border-color:#1c7a3e; color:#1c7a3e; }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
@@ -1180,14 +1223,11 @@ export default function FunZone({
           height:100%;
           gap:clamp(4px,1.4cqi,9px);
         }
-        .fz-connect-wordmark-row{
-          display:flex;
-          align-items:center;
-          gap:clamp(6px,2cqi,10px);
-          width:100%;
+        .fz-connect-wordmark{
+          width:min(78%,240px);
+          height:auto;
+          flex:0 0 auto;
         }
-        .fz-connect-rule{ flex:1; height:1px; background:rgba(30,22,14,0.25); }
-        .fz-connect-wordmark{ height:clamp(8px,2.6cqi,13px); width:auto; flex:0 0 auto; }
         .fz-connect-heading{
           font:700 clamp(16px,7cqi,28px) "Bebas Neue",sans-serif;
           letter-spacing:.02em;
