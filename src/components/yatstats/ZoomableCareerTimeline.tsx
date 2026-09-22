@@ -1,6 +1,7 @@
 'use client';
 
 import { MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -494,6 +495,19 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
   const player = usePlayerProfile();
+  // Same resolution SchoolContextBar.tsx uses for its own breadcrumb:
+  // PlayerProfileContext's playerName can come back empty (a data-quality
+  // gap in the identity lookup it's fed from), so this falls back to the
+  // name embedded in the route's own /player/[playerId]/[slug] segment
+  // rather than ever showing "him"/"his" in its place.
+  const pathname = usePathname();
+  const slugDerivedName = (() => {
+    const match = pathname?.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
+    return match?.[2]
+      ? match[2].split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : '';
+  })();
+  const resolvedPlayerName = player?.playerName || slugDerivedName;
   const session = useFanSession();
   const [stats, setStats] = useState<StatRow[]>([]);
   const [uploads, setUploads] = useState<SubmittedMoment[]>([]);
@@ -509,6 +523,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dragging: boolean; moved: boolean; startX: number; startScroll: number; pointerId: number | null }>({ dragging: false, moved: false, startX: 0, startScroll: 0, pointerId: null });
   const scrollRafRef = useRef<number | null>(null);
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -651,7 +666,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       id: 'career-path-anchor',
       kind: 'anchor',
       year: hsYear,
-      title: player?.playerName || 'High School',
+      title: resolvedPlayerName || 'High School',
     };
 
     const today: Slide = {
@@ -672,7 +687,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: birthYear ?? hsYear, endYear, hsYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, player?.playerName]);
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName]);
 
   const ready = statsLoaded && uploadsLoaded;
 
@@ -728,7 +743,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       if (year) {
         sessionStorage.setItem('yat:goldenLinePrefillYear', String(year));
         sessionStorage.setItem('yat:goldenLinePrefillDate', `${year}-07-01`);
-        sessionStorage.setItem('yat:goldenLinePrefillPlayerName', String(player?.playerName || ''));
+        sessionStorage.setItem('yat:goldenLinePrefillPlayerName', String(resolvedPlayerName || ''));
       }
     } catch {}
     // openUpload only ever runs from handleMomentClick's onClick handler,
@@ -774,6 +789,33 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   function goPrev() { scrollToIndex(Math.round(scrollProgress) - 1); }
   function goNext() { scrollToIndex(Math.round(scrollProgress) + 1); }
 
+  // Scroll-snap is deliberately off on the track itself (free drag,
+  // matching the real site's mechanism), which means letting go mid-drag
+  // -- or a touch scroll's momentum simply running out -- can leave the
+  // carousel resting anywhere between two slides, including deep in the
+  // hero-visual dissolve's dead zone (both slides' cutouts faded to 0
+  // opacity by design, so only the always-on background photo/swoosh
+  // shows through unobstructed) while the copy track sits at some
+  // unrelated fractional position of its own linear scroll. That
+  // mismatch -- not a brightness bug -- is what reads as the photo and
+  // its swoosh "not syncing" with the text: the two were never
+  // guaranteed to reach a settled, fully-resolved state together. This
+  // schedules a snap to the nearest whole slide once scrolling has been
+  // idle for a beat, so the carousel never rests in that in-between
+  // state; handlePointerUp below does the same immediately on drag
+  // release rather than waiting out the idle delay.
+  function scheduleSnap() {
+    if (snapTimerRef.current != null) clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = setTimeout(() => {
+      snapTimerRef.current = null;
+      if (dragRef.current.dragging) return;
+      const el = trackRef.current;
+      if (!el) return;
+      const width = getSlideWidth();
+      scrollToIndex(Math.round(el.scrollLeft / width));
+    }, 140);
+  }
+
   function handleScroll() {
     if (scrollRafRef.current != null) return;
     scrollRafRef.current = requestAnimationFrame(() => {
@@ -783,6 +825,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       const width = getSlideWidth();
       setScrollProgress(el.scrollLeft / width);
     });
+    scheduleSnap();
   }
 
   function handlePointerDown(event: ReactPointerEvent) {
@@ -805,6 +848,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     if (!drag.dragging) return;
     try { if (drag.pointerId != null) trackRef.current?.releasePointerCapture(drag.pointerId); } catch {}
     dragRef.current = { ...drag, dragging: false };
+    if (snapTimerRef.current != null) { clearTimeout(snapTimerRef.current); snapTimerRef.current = null; }
+    scrollToIndex(Math.round(scrollProgress));
   }
 
   function handleSlideClick(slide: Slide) {
@@ -863,10 +908,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           headline lives in the copy track's own right-hand column). A
           plain child of this <section>, so it needs no :global() -- it's
           a normal descendant, not a Fragment-level sibling. */}
-      {player?.playerName && (
+      {resolvedPlayerName && (
         <div className="zt-persist-id" aria-hidden="true">
           <span className="zt-persist-classof">Class of {model.hsYear}</span>
-          <span className="zt-persist-name">{player.playerName}</span>
+          <span className="zt-persist-name">{resolvedPlayerName}</span>
         </div>
       )}
       {/* Hero visuals live in their own non-scrolling stack, one per slide
@@ -916,7 +961,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <SmartImage className="zt-person" src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
               )}
               {slide.kind === 'season' && (
-                <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${player?.playerName || 'Player'} — ${slide.year}`} />
+                <SmartImage className="zt-person zt-person-yati" srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
               )}
               {slide.kind === 'today' && (
                 <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
@@ -946,7 +991,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <>
                   <span className="zt-kick">The hometown never stopped caring</span>
                   <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
-                  <span className="zt-bodycopy">Follow {player?.playerName ? firstName(player.playerName) : 'his'} journey through college and professional baseball.</span>
+                  <span className="zt-bodycopy">Follow {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'} journey through college and professional baseball.</span>
                 </>
               )}
               {slide.kind === 'season' && (
@@ -955,14 +1000,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-title">{slide.title}</span>
                   <span className="zt-bodycopy">{slide.headline}</span>
                   <button type="button" className="zt-upload-inline-cta" onClick={(e) => { e.stopPropagation(); openUpload(slide.year); }}>
-                    <i className="ri-upload-cloud-line" /> Share an image of {player?.playerName ? firstName(player.playerName) : 'him'}
+                    <i className="ri-upload-cloud-line" /> Share an image of {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}
                   </button>
                 </>
               )}
               {slide.kind === 'today' && (
                 <>
                   <span className="zt-kick">{slide.year}</span>
-                  <span className="zt-title">{player?.playerName || ''}</span>
+                  <span className="zt-title">{resolvedPlayerName || ''}</span>
                 </>
               )}
               {slide.kind === 'lifeyear' && (
