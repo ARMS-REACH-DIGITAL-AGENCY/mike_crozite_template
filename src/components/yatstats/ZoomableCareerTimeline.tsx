@@ -522,6 +522,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [scrollProgress, setScrollProgress] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dragging: boolean; moved: boolean; startX: number; startScroll: number; pointerId: number | null }>({ dragging: false, moved: false, startX: 0, startScroll: 0, pointerId: null });
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const railDragRef = useRef<{ dragging: boolean; pointerId: number | null }>({ dragging: false, pointerId: null });
   const scrollRafRef = useRef<number | null>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
@@ -789,6 +791,42 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   function goPrev() { scrollToIndex(Math.round(scrollProgress) - 1); }
   function goNext() { scrollToIndex(Math.round(scrollProgress) + 1); }
 
+  // The year chip on the rail doubles as a scrubber: its position along
+  // the rail IS the fraction of the whole timeline, so dragging it
+  // (rather than dragging the much wider carousel itself) jumps straight
+  // to wherever along the timeline it's released, the same way a video
+  // scrubber works -- not a 1:1 finger-distance drag, which would need
+  // an awkward, exaggerated multiplier given how much narrower the rail
+  // is than the carousel it's driving.
+  function updateScrollFromClientX(clientX: number) {
+    const rail = railRef.current;
+    const el = trackRef.current;
+    if (!rail || !el) return;
+    const rect = rail.getBoundingClientRect();
+    const fraction = clamp(rect.width > 0 ? (clientX - rect.left) / rect.width : 0, 0, 1);
+    const maxIndex = Math.max(0, model.slides.length - 1);
+    const width = getSlideWidth();
+    const targetProgress = fraction * maxIndex;
+    el.scrollLeft = targetProgress * width;
+    setScrollProgress(targetProgress);
+  }
+  function handleRailYearPointerDown(event: ReactPointerEvent) {
+    event.stopPropagation();
+    railDragRef.current = { dragging: true, pointerId: event.pointerId };
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch {}
+    updateScrollFromClientX(event.clientX);
+  }
+  function handleRailYearPointerMove(event: ReactPointerEvent) {
+    if (!railDragRef.current.dragging || event.pointerId !== railDragRef.current.pointerId) return;
+    updateScrollFromClientX(event.clientX);
+  }
+  function handleRailYearPointerUp(event: ReactPointerEvent) {
+    if (!railDragRef.current.dragging) return;
+    try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch {}
+    railDragRef.current = { dragging: false, pointerId: null };
+    scrollToIndex(Math.round(scrollProgress));
+  }
+
   // Scroll-snap is deliberately off on the track itself (free drag,
   // matching the real site's mechanism), which means letting go mid-drag
   // -- or a touch scroll's momentum simply running out -- can leave the
@@ -808,7 +846,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     if (snapTimerRef.current != null) clearTimeout(snapTimerRef.current);
     snapTimerRef.current = setTimeout(() => {
       snapTimerRef.current = null;
-      if (dragRef.current.dragging) return;
+      if (dragRef.current.dragging || railDragRef.current.dragging) return;
       const el = trackRef.current;
       if (!el) return;
       const width = getSlideWidth();
@@ -1048,7 +1086,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
             <i className="ri-arrow-right-s-line" />
           </button>
-          <div className="zt-rail">
+          <div className="zt-rail" ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
             <span className="zt-rail-fill" style={{ width: `${railProgress * 100}%` }} aria-hidden="true" />
             {model.slides.map((slide, i) => (
@@ -1061,7 +1099,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 aria-label={`Slide ${i + 1}`}
               />
             ))}
-            <span className="zt-rail-year" style={{ left: `${railProgress * 100}%` }} aria-hidden="true">
+            <span
+              className="zt-rail-year"
+              style={{ left: `${railProgress * 100}%` }}
+              role="slider"
+              aria-label="Scrub the timeline"
+              aria-valuemin={0}
+              aria-valuemax={Math.max(0, model.slides.length - 1)}
+              aria-valuenow={activeIndex}
+              aria-valuetext={String(model.slides[activeIndex]?.year ?? '')}
+              tabIndex={0}
+              onPointerDown={handleRailYearPointerDown}
+              onPointerMove={handleRailYearPointerMove}
+              onPointerUp={handleRailYearPointerUp}
+              onPointerCancel={handleRailYearPointerUp}
+            >
               {model.slides[activeIndex]?.year ?? ''}
             </span>
           </div>
@@ -1188,7 +1240,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
         .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:rgba(4,5,6,.55); cursor:pointer; }
         .zt-rail-tick.active { background:transparent; cursor:default; }
-        .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; }
+        .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
+        .zt-rail-year:active { cursor:grabbing; }
 
         /* Height stays entirely local to this component's own row3/row4 --
            the same two rules this file already had before this redesign,
