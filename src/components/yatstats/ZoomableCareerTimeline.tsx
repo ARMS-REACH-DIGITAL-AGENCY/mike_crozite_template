@@ -938,11 +938,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           every slide. */}
       {resolvedPlayerName && (
         <div className="zt-moment-cta" aria-hidden="true">
+          <span className="zt-moment-cta-line">Post a Moment on the Career Path Timeline of</span>
           <div className="zt-persist-id">
-            <span className="zt-persist-classof">Class of {model.hsYear}</span>
             <span className="zt-persist-name">{resolvedPlayerName}</span>
+            <span className="zt-persist-classof">Class of {model.hsYear}</span>
           </div>
-          <span className="zt-moment-cta-line">Share a moment to {firstName(resolvedPlayerName)}&apos;s timeline</span>
           <div className="zt-moment-thumb">
             <span className="zt-moment-thumb-frame">
               <i className="ri-image-add-line" />
@@ -1026,7 +1026,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               {slide.kind === 'anchor' && (
                 <>
                   <span className="zt-kick">The hometown never stopped caring</span>
-                  <span className="zt-title">A baseball player&apos;s journey does not end at graduation. Neither should his story.</span>
+                  <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
                   <span className="zt-bodycopy">Follow {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'} journey through college and professional baseball.</span>
                 </>
               )}
@@ -1176,7 +1176,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-persist-id { display:flex; flex-direction:column; gap:2px; }
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
         .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
-        .zt-moment-cta-line { display:block; max-width:150px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7.5px,1vw,9px); line-height:1.25; letter-spacing:.04em; text-transform:uppercase; }
+        .zt-moment-cta-line { display:block; max-width:160px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-style:italic; font-size:clamp(8px,1.05vw,9.5px); line-height:1.3; letter-spacing:.01em; text-transform:none; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
 
@@ -1190,13 +1190,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            combined with clamp()'s internal commas was silently dropping
            the whole declaration in production, which is why this text
            was invisible there. */
-        .zt-copy { position:absolute; z-index:6; left:40%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:center; background:transparent; }
+        .zt-copy { position:absolute; z-index:6; left:40%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
         .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
         .zt-lifeyear .zt-title { white-space:pre-line; font-style:italic; }
-        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:10.5px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-bodycopy, .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* No cutout/logo on a life-year slide (there's no photo yet) -- the
            copy block gets the room that would otherwise be reserved for
@@ -1338,7 +1338,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-moment-cta { left:3.5%; top:9px; }
           .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
-          .zt-bodycopy { font-size:clamp(8.5px,1.6vw,10.5px); }
+          .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
         }
         @media (max-width:620px) {
           /* Shorter box: 200px was leaving real dead space above the hero
@@ -1388,7 +1388,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-rail { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
-          .zt-bodycopy { font-size:clamp(7.5px,1.8vw,9px); }
+          .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
         }
       `}</style>
     </section>
