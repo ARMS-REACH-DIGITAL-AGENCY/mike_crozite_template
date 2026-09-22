@@ -979,8 +979,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       {resolvedPlayerName && (
         <div className="zt-moment-cta" aria-hidden="true">
           <span className="zt-moment-cta-line">Post a Moment on the Career Path Timeline of</span>
+          {/* Same core facts the flip card's front always shows (name,
+              team, organization, level/status), sourced from the same
+              PlayerProfileContext fields layout.tsx already computes for
+              it -- not re-derived here -- so a fan sees the same "what
+              team, what level, what status" whichever of the front/back/
+              profile page they're looking at, per direct feedback. */}
           <div className="zt-persist-id">
             <span className="zt-persist-name">{resolvedPlayerName}</span>
+            {player?.currentTeamName && (
+              <span className="zt-persist-team">{player.currentTeamName}</span>
+            )}
+            {player?.orgConferenceName && (
+              <span className="zt-persist-org">{player.orgConferenceName}</span>
+            )}
+            {(player?.levelLabel || player?.statusLabel) && (
+              <span className="zt-persist-status">{[player?.levelLabel, player?.statusLabel].filter(Boolean).join(' · ')}</span>
+            )}
             <span className="zt-persist-classof">Class of {model.hsYear}</span>
           </div>
           <div className="zt-moment-thumb">
@@ -1211,7 +1226,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            player/YaTi image must land in the same spot on every slide,
            not just the anchor. .zt-person-yati carries no positional
            overrides of its own anymore; it's the same box as .zt-person. */
-        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-6%; width:clamp(150px,18vw,260px); height:118%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* height/bottom are deliberately balanced so ALL of the box's
+           excess-over-100%-height bleeds off the BOTTOM (feet), never the
+           top: box top = bottom-offset + height, and that must not exceed
+           100% or the top of the image is pushed above this container's
+           edge -- clipped by .zt-shell-images' overflow:hidden, which is
+           exactly how "make the cutout bigger" previously turned into a
+           cropped-off head (118% height with -6% bottom put the top 12%
+           above the frame). 104% height with -4% bottom lands the top
+           exactly at 100% (box top = -4% + 104% = 100%): a little bigger
+           than a plain 100%/0 box, zero risk of cropping the head. */
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1224,9 +1249,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            <section>, not its descendant, so styled-jsx's scope hash
            never attaches to it. */
         .zt-moment-cta { position:absolute; z-index:8; left:4%; top:10px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
-        .zt-persist-id { display:flex; flex-direction:column; gap:2px; }
+        .zt-persist-id { display:flex; flex-direction:column; gap:2px; max-width:160px; }
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(9px,1.2vw,12px); letter-spacing:.12em; text-transform:uppercase; }
-        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(9px,1.3vw,11.5px); line-height:1.2; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7.5px,1vw,9px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .zt-moment-cta-line { display:block; max-width:160px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-style:italic; font-size:clamp(8px,1.05vw,9.5px); line-height:1.3; letter-spacing:.01em; text-transform:none; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
@@ -1391,7 +1419,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-visual :global(.zt-person) { left:10%; width:clamp(130px,26vw,200px); height:116%; }
+          .zt-visual :global(.zt-person) { left:10%; width:clamp(130px,26vw,200px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
           .zt-moment-cta { left:3.5%; top:9px; }
@@ -1411,7 +1439,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
           /* Shifted right from the very edge (was left:6%). */
-          .zt-visual :global(.zt-person) { left:24%; bottom:-4%; width:clamp(84px,28vw,120px); height:112%; }
+          .zt-visual :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-moment-cta { left:2.5%; top:7px; }
           .zt-persist-classof { font-size:9px; }

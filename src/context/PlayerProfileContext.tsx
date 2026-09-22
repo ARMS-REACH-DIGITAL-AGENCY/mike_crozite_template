@@ -13,6 +13,18 @@ interface PlayerProfileData {
   playerHsid: string;
   /** Canonical school microsite URL, e.g. https://mount-lebanon.pa.yatstats.com/2705 */
   playerSchoolUrl?: string;
+  /**
+   * Same current-team/org/level/status metadata the flip-card front already
+   * shows (layout.tsx computes this once, from getPlayerById +
+   * getResolvedCurrentTeam + flip_card_front_stage — the same source, not a
+   * re-derivation), so any client component on the profile page can show
+   * the identical "what team, what level, what status" facts the flip card
+   * does, without querying for it a second time.
+   */
+  currentTeamName?: string;
+  orgConferenceName?: string;
+  levelLabel?: string;
+  statusLabel?: string;
 }
 
 export const PlayerProfileContext = createContext<PlayerProfileData | null>(null);
@@ -27,15 +39,23 @@ export default function PlayerProfileContextProvider({
   playerName,
   playerHsid,
   playerSchoolUrl,
+  currentTeamName,
+  orgConferenceName,
+  levelLabel,
+  statusLabel,
 }: {
   children: ReactNode;
   playerId: string;
   playerName: string;
   playerHsid: string;
   playerSchoolUrl?: string;
+  currentTeamName?: string;
+  orgConferenceName?: string;
+  levelLabel?: string;
+  statusLabel?: string;
 }) {
   return (
-    <PlayerProfileContext.Provider value={{ playerId, playerName, playerHsid, playerSchoolUrl }}>
+    <PlayerProfileContext.Provider value={{ playerId, playerName, playerHsid, playerSchoolUrl, currentTeamName, orgConferenceName, levelLabel, statusLabel }}>
       {children}
     </PlayerProfileContext.Provider>
   );

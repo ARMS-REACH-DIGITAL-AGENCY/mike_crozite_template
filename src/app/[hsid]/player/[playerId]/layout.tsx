@@ -182,7 +182,16 @@ export default async function PlayerLayout({
   };
 
   return (
-    <PlayerProfileContextProvider playerId={playerId} playerName={playerName} playerHsid={canonicalPlayerHsid} playerSchoolUrl={playerSchoolUrl}>
+    <PlayerProfileContextProvider
+      playerId={playerId}
+      playerName={playerName}
+      playerHsid={canonicalPlayerHsid}
+      playerSchoolUrl={playerSchoolUrl}
+      currentTeamName={meta.currentTeamName}
+      orgConferenceName={meta.orgConferenceName}
+      levelLabel={meta.levelLabel}
+      statusLabel={meta.statusLabel}
+    >
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
       <FeaturedTeamNewsInjector player={featuredTeamPlayer} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
