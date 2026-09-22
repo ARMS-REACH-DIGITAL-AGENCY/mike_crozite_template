@@ -807,6 +807,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           sitting behind the now-transparent header bars. */}
       <div className="zt-hero-bleed" aria-hidden="true">
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
+        {/* One continuous top-to-bottom darkening over the full bleed
+            (rows 1+2+3 together, not per-row), darkest at the very top
+            where the topbar icons and YAT?STATS logo sit against the
+            photo, tapering down into row 3's own left-right gradient
+            (.zt-visual-gradient) so there's no visible seam where the
+            two overlays meet. */}
+        <span className="zt-hero-bleed-overlay" />
       </div>
       <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
       {/* Class-of/name is its own layer here, not inside .zt-hero-bleed
@@ -1029,7 +1036,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            player/YaTi image must land in the same spot on every slide,
            not just the anchor. .zt-person-yati carries no positional
            overrides of its own anymore; it's the same box as .zt-person. */
-        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-4%; width:clamp(126px,15vw,224px); height:108%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-visual :global(.zt-person) { position:absolute; z-index:4; left:14%; bottom:-6%; width:clamp(150px,18vw,260px); height:118%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
         .zt-visual :global(.zt-person-cover) { left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1159,6 +1166,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            below were nudged instead (see left offsets) to keep them off
            the true edge without touching the photo itself. */
         :global(.zt-hero-bleed .zt-hero-bleed-bg) { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:0% 48%; filter:brightness(.78) saturate(.94); }
+        :global(.zt-hero-bleed-overlay) { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.74) 0%,rgba(0,0,0,.56) 30%,rgba(0,0,0,.30) 60%,rgba(0,0,0,.12) 100%); }
         /* .yat-topbar and .yat-schoolrow (rendered inside these shells by
            GlobalTopbar/SchoolContextBar) carry their own separate
            background:var(--header-bg) in YatStyles.tsx -- making just the
@@ -1175,7 +1183,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-visual :global(.zt-person) { left:10%; width:clamp(108px,23vw,172px); height:107%; }
+          .zt-visual :global(.zt-person) { left:10%; width:clamp(130px,26vw,200px); height:116%; }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:38%; right:5%; bottom:20px; }
           .zt-persist-id { left:3.5%; bottom:9px; }
@@ -1198,7 +1206,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              class-of/name block below room to sit without the two
              colliding -- the shorter box above also means less vertical
              room to stack them instead. */
-          .zt-visual :global(.zt-person) { left:24%; bottom:-3%; width:clamp(70px,24vw,100px); height:104%; }
+          .zt-visual :global(.zt-person) { left:24%; bottom:-4%; width:clamp(84px,28vw,120px); height:112%; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.35; }
           .zt-persist-id { left:2.5%; bottom:7px; }
           .zt-persist-classof { font-size:9px; }
@@ -1207,26 +1215,29 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much
              "throw" there is between hero images on desktop, per direct
-             feedback. .zt-copy's left/right (percentages of the SLIDE's
-             own box) are halved from their 100%-slide values below to
-             land in the exact same on-screen position they would in a
-             100%-wide slide -- e.g. 16%/32%-width of a 200%-wide box is
-             the same absolute spot as 32%/64%-width of a 100%-wide one --
-             just expressed as a "right" edge doesn't work any more once
-             the box is wider than the viewport (the box's actual right
-             edge is now off-screen), so it's left+width instead of
-             left+right. .zt-rail/.zt-nav are unaffected: they're
-             positioned relative to the outer (un-doubled) frame, not to
-             any one .zt-slide. */
+             feedback. .zt-copy's left/width (percentages of the SLIDE's
+             own box) read as HALF their real on-screen percentage --
+             e.g. left:26%/width:22% of a 200%-wide box lands at the real
+             52%-96% of the actual viewport -- just expressed as a "right"
+             edge doesn't work any more once the box is wider than the
+             viewport (the box's actual right edge is now off-screen), so
+             it's left+width instead of left+right. Contained to the
+             right half of the real screen (not the ~32%-96% span this
+             used to compute to) so the text card never sits on top of
+             the person cutout in the left half of the frame, and anchored
+             to the top of the box instead of vertically centered, per
+             direct feedback that the resting text was covering the hero
+             image. .zt-rail/.zt-nav are unaffected: they're positioned
+             relative to the outer (un-doubled) frame, not to any one
+             .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
-          .zt-copy { left:16%; right:auto; width:32%; bottom:14px; }
-          /* Life-year screens have no cutout reserving space, so they get
-             the same "use nearly the full frame" treatment on mobile as
-             they already get on desktop via this same higher-specificity
-             override -- expressed as left+width like the rule above,
-             for the same reason (this slide is 200% wide, so "right"
-             would measure from an edge that's off-screen). */
-          .zt-lifeyear .zt-copy { left:4%; width:44%; }
+          .zt-copy { left:26%; right:auto; width:22%; bottom:14px; justify-content:flex-start; padding-top:10px; }
+          /* Life-year screens have no cutout reserving space, so they can
+             afford a bit more width than the rule above -- still
+             contained to the real screen's right half, expressed as
+             left+width for the same reason (this slide is 200% wide, so
+             "right" would measure from an edge that's off-screen). */
+          .zt-lifeyear .zt-copy { left:22%; width:28%; justify-content:flex-start; padding-top:10px; }
           .zt-rail { left:32%; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }

@@ -128,9 +128,24 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
       where f.playerid::text = $1
       limit 1
     )
-    select * from tbc_player
-    union all
-    select * from stage_player
+    select * from (
+      select * from tbc_player
+      union all
+      select * from stage_player
+    ) combined
+    -- A player can legitimately exist in both tbc_players_raw and
+    -- flip_card_front_stage. UNION ALL with no ORDER BY leaves it up to
+    -- Postgres which branch's row comes back first, so whichever source
+    -- happens to have this player's name blank (a placeholder/ID-only
+    -- row) could silently win over the other source's populated name --
+    -- the actual cause of some players' name never appearing anywhere
+    -- that reads it from this function (falls back to "him"/"his"
+    -- everywhere, and the persistent Class-of/name block never renders
+    -- at all since it's conditioned on player.playerName being truthy).
+    -- Preferring the row with a non-empty display_name fixes that
+    -- without changing anything for the (normal) case where only one
+    -- source has this player at all.
+    order by (display_name is not null and display_name <> '') desc
     limit 1
   `;
   const { rows } = await query(sql, [playerId]);
