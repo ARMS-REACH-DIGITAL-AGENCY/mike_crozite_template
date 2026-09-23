@@ -474,10 +474,7 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
-      <div className="fz-social-deco" aria-hidden="true">
-        <img src={YATI_MASCOT_URL} alt="" />
-        <span className="fz-social-deco-yat">YAT!</span>
-      </div>
+      <img className="fz-social-deco" src="/img/social-yat-badge.png" alt="" aria-hidden="true" />
 
       <div className="fz-social-headline">
         <span className="fz-social-tag">#{hashtag}</span>
@@ -1055,23 +1052,22 @@ export default function FunZone({
           height:100%;
           gap:clamp(3px,1.1cqi,7px);
         }
+        /* Cropped from the approved "#YATABOY" mockup graphic (just the
+           hand-scribbled "YAT!" mark, not the "#YATABOY" heading itself -
+           that stays live text in .fz-social-tag below so it can carry any
+           player's name/length instead of a fixed baked-in word).
+           mix-blend-mode:multiply drops the graphic's own flat background
+           out against the card's cardboard texture, so it reads as an inked
+           watermark rather than a pasted rectangle. */
         .fz-social-deco{
           position:absolute;
-          top:0;
-          right:0;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:2px;
-          opacity:.14;
+          top:clamp(2px,1cqi,6px);
+          right:clamp(2px,1cqi,6px);
+          width:clamp(46px,19cqi,86px);
+          height:auto;
+          opacity:.5;
+          mix-blend-mode:multiply;
           pointer-events:none;
-        }
-        .fz-social-deco img{ width:clamp(18px,6.5cqi,32px); height:auto; display:block; }
-        .fz-social-deco-yat{
-          font:900 clamp(7px,2.6cqi,11px) "Bebas Neue",sans-serif;
-          letter-spacing:.05em;
-          color:rgba(30,22,14,0.95);
-          transform:rotate(-6deg);
         }
         .fz-social-headline{
           display:flex;
