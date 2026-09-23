@@ -1402,7 +1402,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            above the frame). 104% height with -4% bottom lands the top
            exactly at 100% (box top = -4% + 104% = 100%): a little bigger
            than a plain 100%/0 box, zero risk of cropping the head. */
-        .zt-person-stack :global(.zt-person) { position:absolute; left:8%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* left:14%, not the original 8% -- per direct feedback the paired
+           cutouts (this one + .zt-person-now right after it) were crowding
+           too close to the CTA/upload column on the left; shifted right as
+           a unit (both this and .zt-person-now moved by the same 6 points)
+           to open up breathing room there without separating the pair or
+           touching the CTA's own position at all. */
+        .zt-person-stack :global(.zt-person) { position:absolute; left:14%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
         /* "Then vs now" -- slots into the dead space between the HS
            cutout (ends well before .zt-copy's left:34%) and the headline
            column. Renders nothing (see SmartImage) when a player has no
@@ -1414,7 +1420,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            above it, per direct feedback. Height is pulled in so the
            raised bottom anchor doesn't push the top of the box past
            the container's own top edge (ROW_H is 200px here). */
-        .zt-person-stack :global(.zt-person-now) { left:21%; width:clamp(110px,13vw,190px); bottom:20px; height:88%; object-position:right bottom; }
+        .zt-person-stack :global(.zt-person-now) { left:27%; width:clamp(110px,13vw,190px); bottom:20px; height:88%; object-position:right bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1662,8 +1668,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          .zt-person-stack :global(.zt-person) { left:6%; width:clamp(130px,26vw,200px); }
-          .zt-person-stack :global(.zt-person-now) { left:19%; width:clamp(80px,10vw,140px); }
+          /* Same rightward shift as the desktop base rule, same reason:
+             the paired cutouts moved as a unit to clear the CTA column,
+             not resized or separated. */
+          .zt-person-stack :global(.zt-person) { left:12%; width:clamp(130px,26vw,200px); }
+          .zt-person-stack :global(.zt-person-now) { left:25%; width:clamp(80px,10vw,140px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-rail { left:38%; }
