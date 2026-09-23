@@ -1647,7 +1647,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              that let it lean toward the gap it fills there) -- and the
              two alternate via the crossfade animation below rather than
              both showing at once. */
-          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
+          /* bottom/height override the shared .zt-person rule's
+             bottom:-4%/height:104% -- those numbers put the cutout's
+             feet at the container's own raw bottom edge, which reads
+             fine for "then" against the full-bleed background photo,
+             but for "now" (crossfading in the exact same spot) it
+             looked disconnected from the rail sitting well above that
+             edge -- per direct feedback, it should rest on the
+             timeline, not the bottom of the container. Height is
+             pulled in from 104% so raising the bottom anchor doesn't
+             push the top of the box past the container's own top edge. */
+          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(84px,28vw,120px); bottom:16px; height:86%; object-position:left bottom; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
