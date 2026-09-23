@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, getResolvedCurrentTeam, query } from '@/lib/db';
+import { getPlayerById, getPlayerIdentityMeta, type PlayerIdentityMeta } from '@/lib/db';
 import FeaturedTeamNewsInjector from '@/components/yatstats/FeaturedTeamNewsInjector';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
@@ -31,20 +31,6 @@ function buildMicrositeUrl(hsid: string, hsname?: string, hslocation?: string) {
   return hsid ? `/${hsid}` : '';
 }
 
-function normalizeTeamAffiliationStatus(value: unknown, statusLabel: string, teamName: string) {
-  const raw = String(value || '').trim().toUpperCase();
-  if (raw) return raw;
-
-  const status = String(statusLabel || '').trim().toUpperCase();
-  if (status === 'ACTIVE' && teamName) return 'CURRENT';
-  if (status === 'RETIRED' && teamName) return 'RETIRED_LAST_KNOWN';
-  // No explicit status on record but he has a team on file: the honest
-  // real-world bucket for "not active, not confirmed retired" is free
-  // agency, not a made-up generic label.
-  if (teamName) return 'FREE AGENT';
-  return 'UNKNOWN';
-}
-
 function isCanonicalHostMismatch(currentHost: string, canonicalUrl: string) {
   const host = String(currentHost || '').toLowerCase().split(':')[0];
   if (!host || !host.endsWith('.yatstats.com')) return false;
@@ -70,110 +56,25 @@ export default async function PlayerLayout({
   let playerName = '';
   let canonicalPlayerHsid = hsid;
   let playerSchoolUrl = hsid ? `/${hsid}` : '';
-  let meta = {
-    currentTeamName: '',
-    orgConferenceName: '',
-    levelLabel: '',
-    statusLabel: '',
-    position: '',
-    bats: '',
-    throws: '',
-    height: '',
-    weight: '',
-    classOf: '',
+  let meta: PlayerIdentityMeta = {
+    currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: '',
+    position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
+    hsid: '', hsname: '', hslocation: '',
   };
 
   try {
-    const [player, resolvedCurrentTeam, stageResult] = await Promise.all([
+    const [player, identityMeta] = await Promise.all([
       getPlayerById(playerId),
-      getResolvedCurrentTeam(playerId),
-      query<{
-        hsid: string;
-        hsname: string | null;
-        hslocation: string | null;
-        current_team_name: string | null;
-        current_org_or_conference_name: string | null;
-        level_label: string | null;
-        status_label: string | null;
-        display_status_label: string | null;
-        display_level_label: string | null;
-        team_affiliation_status: string | null;
-        last_transaction_type: string | null;
-        previous_team_name: string | null;
-        previous_org_or_conference_name: string | null;
-      }>(
-        `select
-           f.hsid::text as hsid,
-           ss.hsname,
-           ss.hslocation,
-           f.current_team_name,
-           f.current_org_or_conference_name,
-           f.level_label,
-           f.status_label,
-           f.display_status_label,
-           f.display_level_label,
-           f.team_affiliation_status,
-           f.last_transaction_type,
-           f.previous_team_name,
-           f.previous_org_or_conference_name
-         from flip_card_front_stage f
-         left join school_success ss on ss.hsid::text = f.hsid::text
-         where f.playerid::text = $1
-         order by f.updated_at desc nulls last
-         limit 1`,
-        [playerId]
-      ).catch(() => ({ rows: [] as any[] })),
+      getPlayerIdentityMeta(playerId),
     ]);
 
-    const stage = stageResult.rows[0];
-    const stageHsid = String(stage?.hsid || '').trim();
-    const playerHsid = String(player?.hsid || '').trim();
-    canonicalPlayerHsid = stageHsid || playerHsid || hsid;
-    playerSchoolUrl = buildMicrositeUrl(canonicalPlayerHsid, stage?.hsname || undefined, stage?.hslocation || undefined);
+    meta = identityMeta;
+    canonicalPlayerHsid = meta.hsid || String(player?.hsid || '').trim() || hsid;
+    playerSchoolUrl = buildMicrositeUrl(canonicalPlayerHsid, meta.hsname || undefined, meta.hslocation || undefined);
 
     const firstName = String(player?.firstname || player?.first_name || '').trim();
     const lastName = String(player?.lastname || player?.last_name || '').trim();
     playerName = `${firstName} ${lastName}`.trim();
-
-    const latestYear = Number(player?.stat_year || player?.pitch_year || player?.year || 0);
-    const rawStatusLabel = String(stage?.display_status_label || stage?.status_label || player?.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')).trim().toUpperCase();
-    const rawTeamName = String(resolvedCurrentTeam?.team_name || stage?.current_team_name || player?.current_team_name || player?.team_name || '').trim();
-    const rawOrgConferenceName = String(stage?.current_org_or_conference_name || resolvedCurrentTeam?.org_conf || player?.current_org_or_conference_name || player?.org_conf || player?.league || '').trim();
-    const levelLabel = String(resolvedCurrentTeam?.level || stage?.display_level_label || stage?.level_label || player?.level_label || player?.level || '').trim().toUpperCase();
-    const affiliationStatus = normalizeTeamAffiliationStatus(stage?.team_affiliation_status, rawStatusLabel, rawTeamName);
-
-    // A sourced MLB transaction record outranks both resolvers above
-    // (flip_card_front_stage.current_team_name and
-    // v_player_current_team_resolved) — neither notices when a player
-    // leaves affiliated baseball entirely, but the transactions feed does.
-    // See scripts/apply-mlb-transaction-status.ts.
-    const lastTransactionType = String(stage?.last_transaction_type || '').trim();
-    const isSourcedDeparture =
-      (affiliationStatus === 'FREE AGENT' || affiliationStatus === 'RETIRED') &&
-      !!lastTransactionType;
-    const previousTeamName = String(stage?.previous_team_name || '').trim();
-    const previousOrgOrConferenceName = String(stage?.previous_org_or_conference_name || '').trim();
-
-    const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
-    const teamName = isSourcedDeparture
-      ? previousTeamName || rawTeamName
-      : rawTeamName;
-    const orgConferenceName = isSourcedDeparture
-      ? previousOrgOrConferenceName
-      : rawOrgConferenceName;
-
-    meta = {
-      currentTeamName: teamName,
-      orgConferenceName,
-      levelLabel,
-      statusLabel,
-      position: String(player?.position || '').trim(),
-      bats: String(player?.bats || '').trim(),
-      throws: String(player?.throws || '').trim(),
-      height: String(player?.height || '').trim(),
-      weight: String(player?.weight || '').trim(),
-      classOf: String(player?.class_of || '').trim(),
-    };
   } catch {}
 
   const playerSlug = slugifySchoolName(playerName || playerId);
