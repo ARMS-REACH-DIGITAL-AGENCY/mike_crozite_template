@@ -1009,9 +1009,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           org/status/B-T-H-W are still known, this block should still show
           them instead of disappearing entirely, which is what a
           name-only gate was doing. */}
+      {/* Name/metadata block only now -- no CTA line here. Its top offset
+          is set (see CSS) to land .zt-persist-name on the same plane as
+          .zt-kick over in the headline column, per direct feedback --
+          both are the first line of their respective columns, so they
+          should read as one shared top edge across the slide. */}
       {(resolvedPlayerName || player?.currentTeamName || player?.orgConferenceName || posLevelStatus || batsThrowsHw) && (
         <div className="zt-moment-cta" aria-hidden="true">
-          <span className="zt-moment-cta-line">Post a Moment on the Career Path Timeline of</span>
           {/* Same fields, same order, as the flip card's BACK (position -
               level - status, then B/T + height/weight) -- sourced from
               the same PlayerProfileContext fields layout.tsx already
@@ -1034,31 +1038,40 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-persist-bthw">{batsThrowsHw}</span>
             )}
           </div>
-          {/* A real graphic, not a hand-coded path -- two built-from-
-              scratch SVG attempts both looked bad in production (a
-              stretched, distorted squiggle, then a plain line that read
-              as low-effort). /img/moment-arrow.png is the provided
-              reference icon, recolored white-on-transparent and rotated
-              so it points down-left, toward the Polaroid. A normal flex
-              child right after .zt-persist-id (not position:absolute
-              with a guessed pixel offset) so it always sits right below
-              wherever the identity block actually ends, whatever its
-              real height turns out to be. */}
-          <div className="zt-moment-arrow" aria-hidden="true">
-            <img src="/img/moment-arrow.png" alt="" />
-          </div>
         </div>
       )}
-      {/* Polaroid upload affordance -- moved down to the bottom-left
-          corner (its own row, not stacked under the name/metadata) per
-          direct feedback. Same left edge as .zt-moment-cta above it
-          (both align with the school crest in row 2), just pinned to
-          the bottom instead of the top. */}
-      <div className="zt-moment-thumb-anchor" aria-hidden="true">
+      {/* CTA line + arrow + Polaroid, as one bottom-anchored group instead
+          of three independently-positioned pieces -- per direct feedback,
+          the CTA line reads as "snuggled up right above the Polaroid",
+          not as trailing off the bottom of the name/metadata block above
+          it. A flex column with a tight gap computes the spacing itself
+          (critical where there's this little room), rather than guessed
+          pixel offsets between three separately-anchored elements. */}
+      <div className="zt-polaroid-stack" aria-hidden="true">
+        <span className="zt-polaroid-caption">Post a shared moment you had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
+        {/* /img/moment-arrow.png -- see its own history in git blame for
+            why this is a real graphic asset, not a hand-coded SVG path. */}
+        <div className="zt-moment-arrow" aria-hidden="true">
+          <img src="/img/moment-arrow.png" alt="" />
+        </div>
         <div className="zt-moment-thumb">
           <span className="zt-moment-thumb-frame">
             <i className="ri-image-add-line" />
           </span>
+          {/* Class Of now lives on the Polaroid's own bottom border, like
+              a caption written on a real photo, instead of hugging the
+              rail -- per direct feedback. Verified year (school/coach-
+              confirmed) shows plain; an estimate (earliest recorded
+              season minus one) gets a trailing asterisk so it still
+              reads as a best guess, not a confirmed fact. */}
+          {displayClassOf && (
+            <span
+              className="zt-moment-thumb-classof"
+              title={classOfIsEstimated ? 'Estimated from earliest recorded season -- not yet confirmed' : undefined}
+            >
+              Class of {displayClassOf}{classOfIsEstimated ? '*' : ''}
+            </span>
+          )}
         </div>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
@@ -1185,7 +1198,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             <span className="zt-copy">
               {slide.kind === 'anchor' && (
                 <>
-                  <span className="zt-kick">The hometown never stopped caring</span>
+                  <span className="zt-kick">His hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
                   <span className="zt-bodycopy">Stay connected to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'} on his baseball journey...</span>
                 </>
@@ -1249,14 +1262,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
             <i className="ri-arrow-right-s-line" />
           </button>
-          {displayClassOf && (
-            <span
-              className="zt-classof-credit"
-              title={classOfIsEstimated ? 'Estimated from earliest recorded season -- not yet confirmed' : undefined}
-            >
-              CLASS OF {displayClassOf}{classOfIsEstimated ? '*' : ''}
-            </span>
-          )}
           <div className="zt-rail" ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
             <span className="zt-rail-fill" style={{ width: `${railProgress * 100}%` }} aria-hidden="true" />
@@ -1387,31 +1392,54 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            own top edge is what makes the CTA line read as a 4th line of
            that same grouping instead of a separate block floating lower
            in the frame. */
-        .zt-moment-cta { position:absolute; z-index:8; left:var(--x-logo-left); top:2px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; pointer-events:none; }
-        .zt-persist-id { display:flex; flex-direction:column; gap:2px; max-width:160px; }
+        /* top:14px, not 2px -- matches .zt-copy's own top:0 + padding-
+           top:14px exactly (both are 100%-width/height children of
+           .zt-shell-images with no offset of their own, so their "top"
+           values are the same coordinate), landing .zt-persist-name on
+           the same plane as .zt-kick over in the headline column. */
+        .zt-moment-cta { position:absolute; z-index:8; left:var(--x-logo-left); top:14px; pointer-events:none; }
+        /* gap:1px, not 2px -- these lines read as one dense block cut
+           straight from the flip card's back, not loosely spaced. */
+        .zt-persist-id { display:flex; flex-direction:column; gap:1px; max-width:160px; }
         .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(9px,1.3vw,11.5px); line-height:1.2; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.2; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7.5px,1vw,9px); letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        /* Same font as .zt-title (the marketing headline), not a separate
-           italic style -- per direct feedback -- kept mixed-case (not
-           uppercase like .zt-title) since this line's actual text isn't
-           written in all caps. */
-        .zt-moment-cta-line { display:block; max-width:220px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(8px,1.05vw,10px); line-height:1.3; letter-spacing:.005em; }
-        .zt-moment-thumb-anchor { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; pointer-events:none; }
-        /* Flowed in normal layout right after .zt-persist-id (see the
-           JSX comment for why, not position:absolute with a guessed
-           offset). Width AND height are both set here (not a fixed
-           aspect-ratio tied to one specific asset's shape) with
-           object-fit:contain on the image, so swapping /img/moment-
-           arrow.png for a differently-shaped graphic -- wide or tall --
-           never squishes it or shrinks it down to nothing; it always
-           scales to fit this box at its own real proportions. */
-        .zt-moment-arrow { width:clamp(30px,4vw,42px); height:clamp(44px,6vw,62px); margin:2px 0 0 6px; pointer-events:none; }
+        /* All four metadata lines at the same (lighter) weight -- team
+           and status were 600 while org and B-T-H-W were already 400,
+           reading as inconsistently bold; leveled to 400 throughout per
+           direct feedback that the block shouldn't be this heavy. */
+        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(9px,1.3vw,11.5px); line-height:1.15; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.15; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7.5px,1vw,9px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); line-height:1.15; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* CTA line + arrow + Polaroid, one bottom-anchored flex column so
+           the (tight) spacing between them is computed, not guessed --
+           per direct feedback that this whole group reads as "snuggled
+           up right above the Polaroid", not as trailing off the name/
+           metadata block above it. */
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; pointer-events:none; }
+        /* Handwritten-caption feel via Caveat (loaded in layout.tsx),
+           not Oswald -- reads as a personal note, not another line of
+           the same UI chrome type everywhere else on this slide. */
+        .zt-polaroid-caption { display:block; max-width:180px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(15px,2vw,19px); line-height:1.15; }
+        /* Width AND height are both set here (not a fixed aspect-ratio
+           tied to one specific asset's shape) with object-fit:contain on
+           the image, so swapping /img/moment-arrow.png for a
+           differently-shaped graphic -- wide or tall -- never squishes
+           it or shrinks it down to nothing; it always scales to fit this
+           box at its own real proportions. */
+        .zt-moment-arrow { width:clamp(22px,3vw,30px); height:clamp(32px,4.5vw,44px); margin-left:8px; pointer-events:none; }
         .zt-moment-arrow img { width:100%; height:100%; display:block; object-fit:contain; }
-        .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
+        /* position:relative so .zt-moment-thumb-classof can anchor to
+           this box's own bottom border (the extra bottom padding below,
+           14px vs 5px on the other three sides, is what makes this read
+           as a Polaroid frame in the first place) instead of the
+           slide's whole coordinate space. */
+        .zt-moment-thumb { position:relative; width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
+        /* Sits in that bottom border strip, like a caption written by
+           hand along the edge of a real photo -- dark ink on the cream
+           card stock, not the gold/white used for UI text elsewhere on
+           this slide. */
+        .zt-moment-thumb-classof { position:absolute; left:0; right:0; bottom:1px; text-align:center; color:#2a2420; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(5.5px,.85vw,7px); letter-spacing:.03em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -1425,7 +1453,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            was invisible there. */
         .zt-copy { position:absolute; z-index:6; left:34%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
         .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
-        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
+        /* font-weight:400, matching the (now-leveled) metadata block --
+           was 600, reading as too blocky/heavy next to it, per direct
+           feedback. */
+        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
         .zt-lifeyear .zt-title { white-space:pre-line; font-style:italic; }
@@ -1474,13 +1505,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        /* Right-aligned, butted up against the rail's own left edge (same
-           left value as .zt-rail, pulled fully back over via translateX
-           plus a small gap) -- reads as a caption/credit for the rail's
-           year strip, not a continuation of the name/metadata block up
-           top, per direct feedback that those two need to read as
-           separate things. */
-        .zt-classof-credit { position:absolute; z-index:6; left:40%; transform:translateX(calc(-100% - 10px)); bottom:9px; text-align:right; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9vw,8.5px); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; pointer-events:none; text-shadow:0 1px 3px rgba(0,0,0,.7); }
         .zt-rail { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
@@ -1589,7 +1613,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-person-stack :global(.zt-person-now) { left:19%; width:clamp(80px,10vw,140px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
-          .zt-classof-credit { left:38%; }
           .zt-rail { left:38%; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
@@ -1636,13 +1659,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
-          .zt-classof-credit { left:32%; font-size:7px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
-          .zt-moment-arrow { width:clamp(26px,8vw,36px); height:clamp(38px,11vw,52px); margin:1px 0 0 4px; }
-          /* 1-2pt smaller than the base clamp's floor, per direct
-             feedback that this line reads too big on mobile. */
-          .zt-moment-cta-line { font-size:clamp(6.5px,1vw,8px); }
+          .zt-polaroid-caption { font-size:clamp(13px,4vw,16px); max-width:150px; }
+          .zt-moment-arrow { width:clamp(18px,6vw,24px); height:clamp(26px,9vw,36px); }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
+          .zt-moment-thumb-classof { font-size:clamp(5px,1.6vw,6px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much
