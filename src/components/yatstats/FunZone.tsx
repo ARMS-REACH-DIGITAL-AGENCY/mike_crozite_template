@@ -351,62 +351,91 @@ return (
 // X, where it's a plain mention inside the tweet text.
 const YAT_STATS_X_HANDLE = "yat_stats";
 
+// Each icon below is a complete, self-contained app-icon badge (rounded-
+// square background baked in, not a thin outline meant to inherit a
+// surrounding button's color) - a fan recognizes "the blue Facebook square"
+// and "the black X square" as icons in their own right, so the badge IS
+// the icon rather than a generic glyph sitting inside one.
 function FacebookIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-      <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1877F2" />
+      <path
+        d="M25.5 20.5H22v11h-4.5v-11H14.8v-3.8H17.5v-2.4c0-3.1 1.5-5.6 5.4-5.6 1.6 0 2.8.2 2.8.2v3.7h-1.6c-1.5 0-2.1.9-2.1 2v2.1h3.6l-.5 3.8Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
 function XIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231ZM17.083 19.77h1.833L7.084 4.126H5.117Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#000" />
+      <path
+        d="M11 11h4.9l4.4 6 4.9-6H29l-7.4 8.9L29.4 29h-4.9l-5-6.6-5.5 6.6H10l7.9-9.4L11 11Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
 function TextIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.35 0-2.63-.31-3.77-.86L3 21l1.86-5.73A8.5 8.5 0 1 1 21 11.5Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
+      <path
+        d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
+        fill="#2E7DF7"
+      />
     </svg>
   );
 }
 
 function EmailIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1266C4" />
+      <rect x="9" y="12" width="22" height="16" rx="2.5" fill="#fff" />
+      <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function InstagramIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="2.5" y="2.5" width="19" height="19" rx="5" />
-      <circle cx="12" cy="12" r="4.2" />
-      <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <defs>
+        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
+          <stop offset="0%" stopColor="#fdf497" />
+          <stop offset="30%" stopColor="#fd5949" />
+          <stop offset="60%" stopColor="#d6249f" />
+          <stop offset="100%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <rect width="40" height="40" rx="9" fill="url(#igGrad)" />
+      <rect x="10" y="10" width="20" height="20" rx="6" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="20" cy="20" r="5" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="26" cy="14" r="1.4" fill="#fff" />
     </svg>
   );
 }
 
 function CopyIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="9" y="9" width="12" height="12" rx="2" />
-      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
+      <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
+      <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
     </svg>
   );
 }
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="m4 12 6 6L20 6" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1c7a3e" />
+      <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -520,7 +549,9 @@ function SocialPanel({
 
       <div className="fz-social-headline">
         <span className="fz-social-tag">#{hashtag}</span>
-        <span className="fz-social-headline-underline" aria-hidden="true" />
+        <svg className="fz-social-headline-underline" viewBox="0 0 160 16" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M3 11 C 20 6, 45 13, 70 8 S 120 4, 155 9" fill="none" stroke="#2451c9" strokeWidth="7" strokeLinecap="round" />
+        </svg>
       </div>
 
       <div className="fz-social-message">
@@ -1120,18 +1151,18 @@ export default function FunZone({
           gap:2px;
         }
         .fz-social-tag{
-          font:700 clamp(14px,5.4cqi,22px) "Bebas Neue",sans-serif;
+          font:700 clamp(16px,6.5cqi,26px) "Bebas Neue",sans-serif;
           letter-spacing:.04em;
           color:rgba(30,22,14,0.94);
           line-height:1;
         }
+        /* A wavy stroked path, not a flat skewed bar - reads as a brush
+           swash instead of a straight-ruled underline. */
         .fz-social-headline-underline{
           display:block;
-          height:clamp(2px,.8cqi,3.5px);
-          width:min(140px,55%);
-          background:linear-gradient(90deg,#2451c9,#4c7eea);
-          border-radius:3px;
-          transform:skewX(-14deg);
+          width:min(150px,58%);
+          height:clamp(6px,2.2cqi,11px);
+          overflow:visible;
         }
         .fz-social-message{
           display:flex;
@@ -1141,8 +1172,8 @@ export default function FunZone({
         }
         .fz-social-message p{
           margin:0;
-          font:400 clamp(7px,2.1cqi,9.5px)/1.32 Oswald,sans-serif;
-          color:rgba(30,22,14,0.82);
+          font:600 clamp(7.5px,2.3cqi,10.5px)/1.35 Oswald,sans-serif;
+          color:rgba(30,22,14,0.85);
         }
         .fz-social-message-url{
           color:rgba(30,22,14,0.5) !important;
@@ -1152,27 +1183,33 @@ export default function FunZone({
         /* 3x2 grid: Facebook / X / Instagram, Email / Text / Copy - Copy
            used to be its own full-width button above this grid; folded in
            here as a 6th tile so it reads as one consistent set of share
-           actions instead of one button styled differently from the rest. */
-        .fz-social-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(3px,1.1cqi,6px);margin-top:1px}
+           actions instead of one button styled differently from the rest.
+           Each icon is its own complete app-icon badge (see the icon
+           components above) - no extra button chrome (border/background)
+           around it, same as how real app icons sit on a home screen. */
+        .fz-social-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(4px,1.4cqi,8px);margin-top:2px}
         .fz-social-link{
           display:flex;
           flex-direction:column;
           align-items:center;
-          justify-content:center;
-          gap:clamp(2px,.7cqi,4px);
-          font:600 clamp(6.5px,2cqi,9px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.75);
+          gap:clamp(2px,.8cqi,4px);
+          font:700 clamp(6.5px,2cqi,9px) Oswald,sans-serif;
+          letter-spacing:.02em;
+          color:rgba(30,22,14,0.8);
           text-decoration:none;
-          min-height:clamp(30px,9.5cqi,42px);
-          padding:clamp(3px,1cqi,6px) clamp(2px,1cqi,5px);
-          border-radius:clamp(6px,1.8cqi,10px);
-          border:1px solid rgba(30,22,14,0.24);
-          background:rgba(255,255,255,0.22);
+          background:none;
+          border:none;
+          padding:0;
           cursor:pointer;
         }
-        .fz-social-link i,.fz-social-link svg{font-size:clamp(12px,4cqi,17px);flex-shrink:0}
-        .fz-social-link:hover{color:rgba(30,22,14,0.95);border-color:rgba(30,22,14,0.45);background:rgba(255,255,255,0.4)}
-        .fz-social-link.copied{border-color:#1c7a3e;color:#1c7a3e}
+        .fz-social-link svg{
+          width:clamp(26px,9cqi,40px);
+          height:clamp(26px,9cqi,40px);
+          flex-shrink:0;
+          filter:drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+        }
+        .fz-social-link:hover svg{ filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3)) brightness(1.05); }
+        .fz-social-link.copied{ color:#1c7a3e; }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
