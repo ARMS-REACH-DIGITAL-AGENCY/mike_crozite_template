@@ -351,54 +351,91 @@ return (
 // X, where it's a plain mention inside the tweet text.
 const YAT_STATS_X_HANDLE = "yat_stats";
 
+// Each icon below is a complete, self-contained app-icon badge (rounded-
+// square background baked in, not a thin outline meant to inherit a
+// surrounding button's color) - a fan recognizes "the blue Facebook square"
+// and "the black X square" as icons in their own right, so the badge IS
+// the icon rather than a generic glyph sitting inside one.
 function FacebookIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-      <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1877F2" />
+      <path
+        d="M25.5 20.5H22v11h-4.5v-11H14.8v-3.8H17.5v-2.4c0-3.1 1.5-5.6 5.4-5.6 1.6 0 2.8.2 2.8.2v3.7h-1.6c-1.5 0-2.1.9-2.1 2v2.1h3.6l-.5 3.8Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
 function XIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231ZM17.083 19.77h1.833L7.084 4.126H5.117Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#000" />
+      <path
+        d="M11 11h4.9l4.4 6 4.9-6H29l-7.4 8.9L29.4 29h-4.9l-5-6.6-5.5 6.6H10l7.9-9.4L11 11Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
 function TextIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.35 0-2.63-.31-3.77-.86L3 21l1.86-5.73A8.5 8.5 0 1 1 21 11.5Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
+      <path
+        d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
+        fill="#2E7DF7"
+      />
     </svg>
   );
 }
 
 function EmailIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1266C4" />
+      <rect x="9" y="12" width="22" height="16" rx="2.5" fill="#fff" />
+      <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function InstagramIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <defs>
+        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
+          <stop offset="0%" stopColor="#fdf497" />
+          <stop offset="30%" stopColor="#fd5949" />
+          <stop offset="60%" stopColor="#d6249f" />
+          <stop offset="100%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <rect width="40" height="40" rx="9" fill="url(#igGrad)" />
+      <rect x="10" y="10" width="20" height="20" rx="6" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="20" cy="20" r="5" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="26" cy="14" r="1.4" fill="#fff" />
     </svg>
   );
 }
 
 function CopyIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="9" y="9" width="12" height="12" rx="2" />
-      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
+      <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
+      <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1c7a3e" />
+      <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -495,39 +532,50 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
-      <div className="fz-social-top">
-        <div className="fz-social-headline">
-          <span className="fz-social-tag">#{hashtag}</span>
-          <span className="fz-social-headline-underline" aria-hidden="true" />
-        </div>
+      {/* Big, bold, slightly tilted like the Connect tab's "COMING SOON"
+          wordmark - not a small centered label, it's meant to fill the top
+          of the panel the way that headline fills its own. */}
+      <div className="fz-social-headline">
+        <span className="fz-social-tag">#{hashtag}</span>
+      </div>
 
-        {/* Styled like a post composed for X - a fan should recognize
-            immediately that this is what will actually go out, not just
-            marketing copy about sharing. */}
-        <div className="fz-social-post">
-          <div className="fz-social-post-head">
-            <img src={YATI_MASCOT_URL} alt="" className="fz-social-post-avatar" />
-            <span className="fz-social-post-handle">@{YAT_STATS_X_HANDLE}</span>
-            <XIcon />
-          </div>
-          <div className="fz-social-post-body">
-            {messageLines.map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-            <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
-          </div>
+      {/* Styled like a post composed for X - a fan should recognize
+          immediately that this is what will actually go out, not just
+          marketing copy about sharing. Left exactly as-is - this is the
+          part that already reads right. */}
+      <div className="fz-social-post">
+        <div className="fz-social-post-head">
+          <img src={YATI_MASCOT_URL} alt="" className="fz-social-post-avatar" />
+          <span className="fz-social-post-handle">@{YAT_STATS_X_HANDLE}</span>
+          {/* A small plain mark matching the header text color, not the
+              branded black-square X badge used below - this preview box is
+              untouched from before, so its own X mark stays untouched too. */}
+          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231ZM17.083 19.77h1.833L7.084 4.126H5.117Z" />
+          </svg>
+        </div>
+        <div className="fz-social-post-body">
+          {messageLines.map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+          <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
         </div>
       </div>
 
-      {/* Same cell size/shape as the Stats tab's yat-stats-grid (3 columns,
-          same min-height/padding/radius on each cell) - just 2 rows here
-          instead of 4, holding share actions instead of stat values. */}
-      <div className="yat-stats-grid fz-social-grid">
+      {/* Real branded icons (same marks/colors as before), each dropped into
+          its own big cell instead of floating bare on the background - the
+          grid gets flex:1 so these six cells actually fill whatever space
+          is left below the post preview, rather than sitting undersized in
+          the middle of it. A dedicated class, not a reuse of the Stats
+          tab's .yat-stats-grid/.yat-stat - the Social and Stats tabs need
+          different cell proportions, and sharing that class is what caused
+          a Social-tab-only fix to previously alter the Stats tab's own grid. */}
+      <div className="fz-social-links">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="yat-stat fz-social-cell"
+          className="fz-social-cell"
         >
           <FacebookIcon />
           <span>Facebook</span>
@@ -536,26 +584,26 @@ function SocialPanel({
           href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="yat-stat fz-social-cell"
+          className="fz-social-cell"
         >
           <XIcon />
           <span>X</span>
         </a>
-        <a href={`sms:?&body=${encodedSmsBody}`} className="yat-stat fz-social-cell">
+        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-cell">
           <TextIcon />
           <span>Text</span>
         </a>
-        <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="yat-stat fz-social-cell">
+        <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-cell">
           <EmailIcon />
           <span>Email</span>
         </a>
         <button
           type="button"
-          className={`yat-stat fz-social-cell${copied ? " copied" : ""}`}
+          className={`fz-social-cell${copied ? " copied" : ""}`}
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
         >
-          {copied ? <i className="ri-check-line" aria-hidden="true" /> : <CopyIcon />}
+          {copied ? <CheckIcon /> : <CopyIcon />}
           <span>{copied ? "Copied!" : "Copy"}</span>
         </button>
         {/* A real <a href>, not a button+window.open - Instagram has no web
@@ -569,7 +617,7 @@ function SocialPanel({
           href="https://www.instagram.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="yat-stat fz-social-cell"
+          className="fz-social-cell"
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
         >
@@ -659,16 +707,22 @@ export default function FunZone({
   //
   // A share should land back on THIS card (the school roster page,
   // scrolled/highlighted to this player), not the separate full profile
-  // page - YatInteractivity.tsx's revealRequestedPlayerCard() already
-  // does exactly that for a "?player={id}" link. A "#player-{id}" hash
-  // would scroll identically for a human clicking it, but link-preview
-  // crawlers (Facebook, iMessage, SMS) never see anything after a "#" -
-  // only the query string reaches the server, which is what lets the
-  // preview image below be this specific player's card instead of a
-  // generic school one. "name" is along for the human-readable URL only
-  // (revealRequestedPlayerCard ignores it) - the numeric id is what's
-  // actually looked up.
-  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/?player=${encodeURIComponent(imageId)}${slug ? `&name=${encodeURIComponent(slug)}` : ""}`;
+  // page - YatInteractivity.tsx's revealRequestedPlayerCard() already does
+  // exactly that, matching the same ?view=<section>&player=<id>#player-<id>
+  // pattern already used elsewhere (FavoritesDrawer/ProfilePageEnhancer/
+  // SearchDrawerTabs) to deep-link into a card. ?player= (not just the
+  // #hash) is required because getRequestedPlayerId() reads it as the
+  // primary signal and only falls back to the hash if it's missing - and a
+  // #hash alone never reaches the server, so link-preview crawlers
+  // (Facebook, iMessage, SMS) could never see it to build the player-
+  // specific preview image below. view= must match the section this card
+  // actually lives in (active vs. all-time), or retryRevealRequestedPlayerCard()
+  // switches to the wrong section and the card is never found. "name" is
+  // along for the human-readable URL only (ignored by the lookup, which is
+  // by id) - the trailing #player-<id> hash is redundant with ?player= for
+  // the script's own logic, but lets the browser jump straight to the card
+  // via native same-page anchor behavior even before any JS has run.
+  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/?view=${isAllTime ? "alltime" : "active"}&player=${encodeURIComponent(imageId)}${slug ? `&name=${encodeURIComponent(slug)}` : ""}#player-${encodeURIComponent(imageId)}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
@@ -992,10 +1046,6 @@ export default function FunZone({
           flex:1;
           min-height:0;
         }
-        .yat-stats-grid.fz-social-grid{
-          flex:0 0 auto;
-        }
-
         .yat-stat{
           min-width:0;
           min-height:clamp(34px,10cqi,58px);
@@ -1100,41 +1150,37 @@ export default function FunZone({
           flex-direction:column;
           height:100%;
           min-height:0;
-          gap:clamp(4px,1.4cqi,8px);
+          gap:clamp(4px,1.6cqi,9px);
         }
-        .fz-social-top{
-          flex:1;
-          min-height:0;
-          display:flex;
-          flex-direction:column;
-          justify-content:center;
-          gap:clamp(2px,.8cqi,5px);
-          overflow:hidden;
-        }
+        /* Big, bold, and a little off-square - like the Connect tab's
+           "COMING SOON" wordmark, not a small centered caption. Stacks at
+           the top of the panel (no more centering the whole top block in
+           its own leftover space) so the extra room made by shrinking
+           nothing else goes straight into this headline being genuinely
+           bigger, per feedback that this looked too small/too centered. */
         .fz-social-headline{
+          flex:0 0 auto;
           display:flex;
-          flex-direction:column;
-          gap:2px;
-          flex-shrink:0;
+          align-items:baseline;
+          gap:clamp(4px,1.5cqi,8px);
+          padding:clamp(2px,1cqi,6px) 0 clamp(4px,1.5cqi,8px);
+          transform:rotate(-3deg);
+          transform-origin:left center;
         }
         .fz-social-tag{
-          font:700 clamp(13px,5cqi,20px) "Bebas Neue",sans-serif;
-          letter-spacing:.04em;
-          color:rgba(30,22,14,0.94);
-          line-height:1;
-        }
-        .fz-social-headline-underline{
-          display:block;
-          height:clamp(2px,.8cqi,3.5px);
-          width:min(130px,55%);
-          background:linear-gradient(90deg,#2451c9,#4c7eea);
-          border-radius:3px;
-          transform:skewX(-14deg);
+          font:800 clamp(18px,9cqi,28px)/0.9 "Bebas Neue",sans-serif;
+          letter-spacing:.02em;
+          color:rgba(30,22,14,0.96);
+          text-shadow:0 2px 0 rgba(255,255,255,0.35);
+          max-width:100%;
+          overflow-wrap:break-word;
         }
         /* Styled like a post composed for X (avatar + handle header, body
            text below) so it reads as "this is what will actually post,"
-           not as marketing copy about sharing. */
+           not as marketing copy about sharing. Left exactly as approved -
+           this part of the panel already reads right. */
         .fz-social-post{
+          flex:0 0 auto;
           min-height:0;
           display:flex;
           flex-direction:column;
@@ -1185,21 +1231,46 @@ export default function FunZone({
         }
         .fz-social-accent{ color:#2451c9; font-weight:700; }
 
-        /* Same cells as the Stats tab (.yat-stat, including the global
-           icon-over-label column layout GlobalTopbar applies to it) - just
-           2 rows of 3 instead of 4. Row height comes from the
-           .yat-stats-grid.fz-social-grid override in GlobalTopbar.tsx,
-           scoped so it never touches the Stats tab's own 4-row grid. */
+        /* A dedicated grid/cell pair, not a reuse of the Stats tab's
+           .yat-stats-grid/.yat-stat - the two tabs need different cell
+           proportions (these need to be much bigger, per feedback), and
+           sharing that class is exactly what let an earlier Social-only fix
+           bleed into and resize the Stats tab's own grid. flex:1 here means
+           these six cells actually claim all the room left after the
+           headline and post preview above, instead of sitting undersized
+           with dead space below them. */
+        .fz-social-links{
+          display:grid;
+          grid-template-columns:repeat(3,minmax(0,1fr));
+          grid-template-rows:repeat(2,minmax(0,1fr));
+          gap:clamp(6px,2cqi,12px);
+          flex:1;
+          min-height:0;
+        }
         .fz-social-cell{
+          min-width:0;
+          min-height:0;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          gap:clamp(4px,1.6cqi,9px);
+          padding:clamp(4px,1.6cqi,9px);
+          border:1px solid rgba(30,22,14,0.10);
+          border-radius:clamp(8px,2.2cqi,16px);
+          background:rgba(255,255,255,0.36);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.34),
+            0 1px 2px rgba(30,22,14,0.08);
           text-decoration:none;
           cursor:pointer;
-          font:700 clamp(7.5px,2.4cqi,11px) Oswald,sans-serif;
+          font:700 clamp(8px,2.6cqi,12px) Oswald,sans-serif;
           letter-spacing:.02em;
           text-transform:uppercase;
           color:rgba(30,22,14,0.8);
         }
-        .fz-social-cell svg{ flex-shrink:0; font-size:clamp(10px,3.2cqi,15px); }
-        .fz-social-cell:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.28); color:rgba(30,22,14,0.95); }
+        .fz-social-cell svg{ width:clamp(28px,13cqi,60px); height:clamp(28px,13cqi,60px); flex-shrink:0; }
+        .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
         .fz-social-cell.copied{ border-color:#1c7a3e; color:#1c7a3e; }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
