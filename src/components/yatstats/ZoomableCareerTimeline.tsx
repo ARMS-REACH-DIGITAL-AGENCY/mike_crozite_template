@@ -1353,15 +1353,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       )}
 
       <style jsx>{`
-        /* Same left edge the school crest sits at in row 2 (.yat-schoolrow:
-           max-width:1400px, centered, 12px padding) -- a flat percentage
-           drifts apart from the crest's actual pixel position once the
-           viewport passes 1400px wide, since .yat-schoolrow stops growing
-           there but this section keeps spanning the full width. Declared
+        /* Same left edge row 1's hamburger/logo sit at (.yat-topbar:
+           padding:1px 10px 0, flat, never capped at any width). A prior
+           version of this matched row 2's crest instead (.yat-schoolrow:
+           max-width:1400px, centered) -- that drifted noticeably rightward
+           of row 1 on any screen wider than ~1400px, per direct feedback
+           on a genuinely wide desktop. Row 1's own inset never grows past
+           10px regardless of viewport, so this doesn't either. Declared
            once here so every left-column element below (CTA/identity
            block, Polaroid) reads off the same value instead of drifting
            independently. */
-        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; --x-logo-left:max(12px,calc((100% - 1400px) / 2 + 12px)); }
+        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; --x-logo-left:10px; }
 
         /* The hero visuals and the scrolling copy track are two entirely
            separate layers: the visual stack never moves horizontally, it
@@ -1756,8 +1758,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             100% { opacity:1; }
           }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
-          .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
+          /* .zt-persist-id's 160px max-width (shared with desktop) is wider
+             than the actual gap to the cutout at this breakpoint -- .zt-
+             person starts at left:24%, which on a typical phone width is
+             only ~85-100px in, well inside that 160px box. A short team
+             name never reaches the ellipsis so this never showed; a long
+             one filled the full 160px and landed on top of the photo, per
+             direct feedback. 80px keeps the ellipsis truncation kicking in
+             before that point on the narrowest common phone widths. */
+          .zt-persist-id { max-width:80px; }
           /* ROW_H_MOBILE is 150px total. The name/metadata block (top-
              anchored) and the caption+arrow+Polaroid group (bottom-
              anchored) collided here -- confirmed on a real phone,
