@@ -534,11 +534,34 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
   const player = usePlayerProfile();
-  // Same resolution SchoolContextBar.tsx uses for its own breadcrumb:
-  // PlayerProfileContext's playerName can come back empty (a data-quality
-  // gap in the identity lookup it's fed from), so this falls back to the
-  // name embedded in the route's own /player/[playerId]/[slug] segment
-  // rather than ever showing "him"/"his" in its place.
+  // usePlayerProfile() reads PlayerProfileContext, which is only provided
+  // around {children} in [hsid]/player/[playerId]/layout.tsx. This
+  // component is rendered by SharedShell's row3 - a SIBLING of {children},
+  // not a descendant of it (SharedShell renders {children} separately, in
+  // row5) - so that context is never actually in scope here, and player
+  // above is always null in production. Confirmed directly: the same
+  // team/org/status data that renders correctly on this player's flip
+  // card is present and correct in the database, so the previous "data-
+  // quality gap in the identity lookup" theory was wrong - this fetches
+  // its own copy instead of depending on a context that can't reach it.
+  const [identityMeta, setIdentityMeta] = useState<{
+    currentTeamName: string; orgConferenceName: string; levelLabel: string; statusLabel: string;
+    position: string; bats: string; throws: string; height: string; weight: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!playerId) return;
+    let cancelled = false;
+    fetch(`/api/player-identity?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setIdentityMeta(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [playerId]);
+  // Same resolution SchoolContextBar.tsx uses for its own breadcrumb: the
+  // name can come back empty before the fetch above resolves (or if it
+  // fails), so this falls back to the name embedded in the route's own
+  // /player/[playerId]/[slug] segment rather than ever showing "him"/"his"
+  // in its place.
   const pathname = usePathname();
   const slugDerivedName = (() => {
     const match = pathname?.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
@@ -548,12 +571,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   })();
   const resolvedPlayerName = player?.playerName || slugDerivedName;
   // Same join logic as PlayerCardBack.tsx's posLevelStatus/btHw, applied to
-  // the same context fields, so this reads identically to the flip card's
-  // back rather than approximating it.
-  const posLevelStatus = [player?.position, player?.levelLabel, player?.statusLabel].filter(Boolean).join(' - ');
+  // the fetched identity fields, so this reads identically to the flip
+  // card's back rather than approximating it.
+  const currentTeamName = identityMeta?.currentTeamName || player?.currentTeamName || '';
+  const orgConferenceName = identityMeta?.orgConferenceName || player?.orgConferenceName || '';
+  const posLevelStatus = [
+    identityMeta?.position || player?.position,
+    identityMeta?.levelLabel || player?.levelLabel,
+    identityMeta?.statusLabel || player?.statusLabel,
+  ].filter(Boolean).join(' - ');
   const batsThrowsHw = [
-    player?.bats && player?.throws ? `B/T ${player.bats}/${player.throws}` : '',
-    player?.height && player?.weight ? `${player.height} / ${player.weight}` : (player?.height || player?.weight || ''),
+    (identityMeta?.bats || player?.bats) && (identityMeta?.throws || player?.throws)
+      ? `B/T ${identityMeta?.bats || player?.bats}/${identityMeta?.throws || player?.throws}`
+      : '',
+    (identityMeta?.height || player?.height) && (identityMeta?.weight || player?.weight)
+      ? `${identityMeta?.height || player?.height} / ${identityMeta?.weight || player?.weight}`
+      : (identityMeta?.height || player?.height || identityMeta?.weight || player?.weight || ''),
   ].filter(Boolean).join(' - ');
   const session = useFanSession();
   const [stats, setStats] = useState<StatRow[]>([]);
@@ -1014,22 +1047,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-kick over in the headline column, per direct feedback --
           both are the first line of their respective columns, so they
           should read as one shared top edge across the slide. */}
-      {(resolvedPlayerName || player?.currentTeamName || player?.orgConferenceName || posLevelStatus || batsThrowsHw) && (
+      {(resolvedPlayerName || currentTeamName || orgConferenceName || posLevelStatus || batsThrowsHw) && (
         <div className="zt-moment-cta" aria-hidden="true">
           {/* Same fields, same order, as the flip card's BACK (position -
-              level - status, then B/T + height/weight) -- sourced from
-              the same PlayerProfileContext fields layout.tsx already
-              computes for it, not re-derived here -- per direct
-              feedback that a fan should see the same facts whichever
-              of the flip card's front, its back, or this profile page
-              they're looking at. */}
+              level - status, then B/T + height/weight) -- fetched via
+              /api/player-identity (see the comment above identityMeta),
+              not read off PlayerProfileContext, so a fan sees the same
+              facts whichever of the flip card's front, its back, or this
+              profile page they're looking at. */}
           <div className="zt-persist-id">
             <span className="zt-persist-name">{resolvedPlayerName}</span>
-            {player?.currentTeamName && (
-              <span className="zt-persist-team">{player.currentTeamName}</span>
+            {currentTeamName && (
+              <span className="zt-persist-team">{currentTeamName}</span>
             )}
-            {player?.orgConferenceName && (
-              <span className="zt-persist-org">{player.orgConferenceName}</span>
+            {orgConferenceName && (
+              <span className="zt-persist-org">{orgConferenceName}</span>
             )}
             {posLevelStatus && (
               <span className="zt-persist-status">{posLevelStatus}</span>

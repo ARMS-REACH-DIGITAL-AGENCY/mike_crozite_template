@@ -351,35 +351,91 @@ return (
 // X, where it's a plain mention inside the tweet text.
 const YAT_STATS_X_HANDLE = "yat_stats";
 
+// Each icon below is a complete, self-contained app-icon badge (rounded-
+// square background baked in, not a thin outline meant to inherit a
+// surrounding button's color) - a fan recognizes "the blue Facebook square"
+// and "the black X square" as icons in their own right, so the badge IS
+// the icon rather than a generic glyph sitting inside one.
 function FacebookIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-      <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1877F2" />
+      <path
+        d="M25.5 20.5H22v11h-4.5v-11H14.8v-3.8H17.5v-2.4c0-3.1 1.5-5.6 5.4-5.6 1.6 0 2.8.2 2.8.2v3.7h-1.6c-1.5 0-2.1.9-2.1 2v2.1h3.6l-.5 3.8Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
 function XIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231ZM17.083 19.77h1.833L7.084 4.126H5.117Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#000" />
+      <path
+        d="M11 11h4.9l4.4 6 4.9-6H29l-7.4 8.9L29.4 29h-4.9l-5-6.6-5.5 6.6H10l7.9-9.4L11 11Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
 function TextIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.35 0-2.63-.31-3.77-.86L3 21l1.86-5.73A8.5 8.5 0 1 1 21 11.5Z" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
+      <path
+        d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
+        fill="#2E7DF7"
+      />
     </svg>
   );
 }
 
 function EmailIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1266C4" />
+      <rect x="9" y="12" width="22" height="16" rx="2.5" fill="#fff" />
+      <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <defs>
+        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
+          <stop offset="0%" stopColor="#fdf497" />
+          <stop offset="30%" stopColor="#fd5949" />
+          <stop offset="60%" stopColor="#d6249f" />
+          <stop offset="100%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <rect width="40" height="40" rx="9" fill="url(#igGrad)" />
+      <rect x="10" y="10" width="20" height="20" rx="6" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="20" cy="20" r="5" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="26" cy="14" r="1.4" fill="#fff" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
+      <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
+      <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
+      <rect width="40" height="40" rx="9" fill="#1c7a3e" />
+      <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -463,7 +519,7 @@ function SocialPanel({
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleCopyPost() {
+  function copyPostToClipboard() {
     if (!navigator.clipboard) return;
     navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
       setCopied(true);
@@ -472,16 +528,30 @@ function SocialPanel({
     });
   }
 
+  // Instagram has no web share-intent URL (unlike Facebook's sharer.php or
+  // X's intent/tweet) - it deliberately blocks pre-filled sharing via link
+  // for spam reasons. navigator.share hands off to the OS share sheet
+  // (Instagram included, on a phone that has it installed); where that
+  // isn't available (most desktop browsers), fall back to the same
+  // copy-to-clipboard so the fan can paste the post into Instagram
+  // themselves.
+  function handleInstagramShare() {
+    if (navigator.share) {
+      navigator.share({ text: shareText, url: shareUrl }).catch(() => {});
+      return;
+    }
+    copyPostToClipboard();
+  }
+
   return (
     <div className="fz-social">
-      <div className="fz-social-deco" aria-hidden="true">
-        <img src={YATI_MASCOT_URL} alt="" />
-        <span className="fz-social-deco-yat">YAT!</span>
-      </div>
+      <img className="fz-social-deco" src="/img/social-yat-badge.png" alt="" aria-hidden="true" />
 
       <div className="fz-social-headline">
         <span className="fz-social-tag">#{hashtag}</span>
-        <span className="fz-social-headline-underline" aria-hidden="true" />
+        <svg className="fz-social-headline-underline" viewBox="0 0 160 16" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M3 11 C 20 6, 45 13, 70 8 S 120 4, 155 9" fill="none" stroke="#2451c9" strokeWidth="7" strokeLinecap="round" />
+        </svg>
       </div>
 
       <div className="fz-social-message">
@@ -490,15 +560,6 @@ function SocialPanel({
         ))}
         <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
       </div>
-
-      <button
-        type="button"
-        className={`fz-social-copy${copied ? " copied" : ""}`}
-        onClick={handleCopyPost}
-      >
-        <i className={copied ? "ri-check-line" : "ri-file-copy-2-line"} aria-hidden="true" />
-        <span>{copied ? "Copied!" : "Copy Post"}</span>
-      </button>
 
       <div className="fz-social-links">
         <a
@@ -519,57 +580,49 @@ function SocialPanel({
           <XIcon />
           <span>X</span>
         </a>
-        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
-          <TextIcon />
-          <span>Text</span>
-        </a>
+        <button type="button" className="fz-social-link" onClick={handleInstagramShare}>
+          <InstagramIcon />
+          <span>Instagram</span>
+        </button>
         <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-link">
           <EmailIcon />
           <span>Email</span>
         </a>
+        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
+          <TextIcon />
+          <span>Text</span>
+        </a>
+        <button
+          type="button"
+          className={`fz-social-link${copied ? " copied" : ""}`}
+          onClick={copyPostToClipboard}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          <span>{copied ? "Copied!" : "Copy"}</span>
+        </button>
       </div>
     </div>
   );
 }
 
-const CONNECT_FEATURES: { icon: string; title: string }[] = [
-  { icon: "ri-vidicon-line", title: "Request a Personalized Message" },
-  { icon: "ri-hand-heart-line", title: "Support the Player or School" },
-  { icon: "ri-graduation-cap-line", title: "Learn How the Program Works" },
-];
-
+// The Connect tab's whole "Coming Soon" pitch (headline, tagline, body copy,
+// three feature rows, CTA, footer line) is a single designed graphic, not
+// separately-coded text - a prior attempt to rebuild it as live HTML had to
+// silently trim the body paragraph and footer tagline because they didn't
+// fit the card's fixed aspect-ratio face. Rendering it as one image with
+// object-fit:contain sidesteps that entirely: the graphic scales to
+// whatever space is actually available instead of overflowing or getting
+// clipped, and the whole thing is one big tappable button to the profile
+// page's Connect tab.
 function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
-    <div className="fz-connect">
-      <div className="fz-connect-wordmark-row">
-        <span className="fz-connect-rule" aria-hidden="true" />
-        <img
-          src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-          alt="YAT?STATS"
-          className="fz-connect-wordmark"
-        />
-        <span className="fz-connect-rule" aria-hidden="true" />
-      </div>
-
-      <div className="fz-connect-heading">Coming Soon</div>
-      <div className="fz-connect-tagline">Real Players. Real Conversations. A Brighter Tomorrow.</div>
-
-      <div className="fz-connect-features">
-        {CONNECT_FEATURES.map((f) => (
-          <div className="fz-connect-feature" key={f.title}>
-            <div className="fz-connect-feature-icon">
-              <i className={f.icon} aria-hidden="true" />
-            </div>
-            <div className="fz-connect-feature-title">{f.title}</div>
-          </div>
-        ))}
-      </div>
-
-      <a className="fz-connect-cta" href={profileHref}>
-        <span>Explore the Mentorship Marketplace</span>
-        <i className="ri-arrow-right-s-line" aria-hidden="true" />
-      </a>
-    </div>
+    <a className="fz-connect" href={profileHref}>
+      <img
+        src="/img/connect-mentorship-marketplace.png"
+        alt="Mentorship Marketplace - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
+        className="fz-connect-graphic"
+      />
+    </a>
   );
 }
 
@@ -631,12 +684,24 @@ export default function FunZone({
   // URL 404s in production, the flip card only ever lives on the school's
   // own subdomain. Only fall back to that (still-incorrect but non-empty)
   // form if a school record genuinely couldn't be resolved.
-  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/player/${imageId}/${slug}`;
+  //
+  // The link lands on the school's roster page (not the profile page) and
+  // scrolls to this player's own card there, matching the same
+  // ?view=<section>&player=<id>#player-<id> pattern already used to deep-
+  // link into a card from FavoritesDrawer/ProfilePageEnhancer/SearchDrawerTabs.
+  // ?player= is required (not just the #hash) because YatInteractivity's
+  // getRequestedPlayerId() reads it as the primary signal and only falls
+  // back to the hash if it's missing - and a #hash alone never reaches the
+  // server, so it can't drive a future personalized share-preview image.
+  // view must match the section this card actually lives in, or
+  // retryRevealRequestedPlayerCard() switches to the wrong section and the
+  // card is never found - an all-time/career card shared from here would
+  // silently fail to reveal if this always said view=active.
+  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}?view=${isAllTime ? "alltime" : "active"}&player=${imageId}#player-${imageId}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
   void isPitcher;
-  void isAllTime;
 
   return (
     <div className="fz-root">
@@ -1063,23 +1128,22 @@ export default function FunZone({
           height:100%;
           gap:clamp(3px,1.1cqi,7px);
         }
+        /* Cropped from the approved "#YATABOY" mockup graphic (just the
+           hand-scribbled "YAT!" mark, not the "#YATABOY" heading itself -
+           that stays live text in .fz-social-tag below so it can carry any
+           player's name/length instead of a fixed baked-in word).
+           mix-blend-mode:multiply drops the graphic's own flat background
+           out against the card's cardboard texture, so it reads as an inked
+           watermark rather than a pasted rectangle. */
         .fz-social-deco{
           position:absolute;
-          top:0;
-          right:0;
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:2px;
-          opacity:.14;
+          top:clamp(2px,1cqi,6px);
+          right:clamp(2px,1cqi,6px);
+          width:clamp(46px,19cqi,86px);
+          height:auto;
+          opacity:.5;
+          mix-blend-mode:multiply;
           pointer-events:none;
-        }
-        .fz-social-deco img{ width:clamp(18px,6.5cqi,32px); height:auto; display:block; }
-        .fz-social-deco-yat{
-          font:900 clamp(7px,2.6cqi,11px) "Bebas Neue",sans-serif;
-          letter-spacing:.05em;
-          color:rgba(30,22,14,0.95);
-          transform:rotate(-6deg);
         }
         .fz-social-headline{
           display:flex;
@@ -1087,18 +1151,18 @@ export default function FunZone({
           gap:2px;
         }
         .fz-social-tag{
-          font:700 clamp(14px,5.4cqi,22px) "Bebas Neue",sans-serif;
+          font:700 clamp(16px,6.5cqi,26px) "Bebas Neue",sans-serif;
           letter-spacing:.04em;
           color:rgba(30,22,14,0.94);
           line-height:1;
         }
+        /* A wavy stroked path, not a flat skewed bar - reads as a brush
+           swash instead of a straight-ruled underline. */
         .fz-social-headline-underline{
           display:block;
-          height:clamp(2px,.8cqi,3.5px);
-          width:min(140px,55%);
-          background:linear-gradient(90deg,#2451c9,#4c7eea);
-          border-radius:3px;
-          transform:skewX(-14deg);
+          width:min(150px,58%);
+          height:clamp(6px,2.2cqi,11px);
+          overflow:visible;
         }
         .fz-social-message{
           display:flex;
@@ -1108,49 +1172,44 @@ export default function FunZone({
         }
         .fz-social-message p{
           margin:0;
-          font:400 clamp(7px,2.1cqi,9.5px)/1.32 Oswald,sans-serif;
-          color:rgba(30,22,14,0.82);
+          font:600 clamp(7.5px,2.3cqi,10.5px)/1.35 Oswald,sans-serif;
+          color:rgba(30,22,14,0.85);
         }
         .fz-social-message-url{
           color:rgba(30,22,14,0.5) !important;
           word-break:break-all;
         }
         .fz-social-accent{ color:#2451c9; font-weight:700; }
-        .fz-social-copy{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:clamp(4px,1.3cqi,7px);
-          align-self:flex-start;
-          font:700 clamp(7px,2.1cqi,9.5px) Oswald,sans-serif;
-          letter-spacing:.03em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.85);
-          padding:clamp(4px,1.3cqi,7px) clamp(9px,2.6cqi,14px);
-          border-radius:clamp(5px,1.5cqi,8px);
-          border:1px solid rgba(30,22,14,0.3);
-          background:rgba(255,255,255,0.3);
-          cursor:pointer;
-        }
-        .fz-social-copy:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
-        .fz-social-copy.copied{ border-color:#1c7a3e; color:#1c7a3e; }
-        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(4px,1.4cqi,7px);margin-top:1px}
+        /* 3x2 grid: Facebook / X / Instagram, Email / Text / Copy - Copy
+           used to be its own full-width button above this grid; folded in
+           here as a 6th tile so it reads as one consistent set of share
+           actions instead of one button styled differently from the rest.
+           Each icon is its own complete app-icon badge (see the icon
+           components above) - no extra button chrome (border/background)
+           around it, same as how real app icons sit on a home screen. */
+        .fz-social-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(4px,1.4cqi,8px);margin-top:2px}
         .fz-social-link{
           display:flex;
+          flex-direction:column;
           align-items:center;
-          justify-content:center;
-          gap:clamp(5px,1.6cqi,8px);
-          font:600 clamp(9px,2.8cqi,12px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.75);
+          gap:clamp(2px,.8cqi,4px);
+          font:700 clamp(6.5px,2cqi,9px) Oswald,sans-serif;
+          letter-spacing:.02em;
+          color:rgba(30,22,14,0.8);
           text-decoration:none;
-          min-height:clamp(24px,8cqi,34px);
-          padding:clamp(4px,1.3cqi,7px) clamp(6px,1.8cqi,9px);
-          border-radius:clamp(6px,1.8cqi,10px);
-          border:1px solid rgba(30,22,14,0.24);
-          background:rgba(255,255,255,0.22);
+          background:none;
+          border:none;
+          padding:0;
+          cursor:pointer;
         }
-        .fz-social-link:hover{color:rgba(30,22,14,0.95);border-color:rgba(30,22,14,0.45);background:rgba(255,255,255,0.4)}
-        .fz-social-link svg{flex-shrink:0}
+        .fz-social-link svg{
+          width:clamp(26px,9cqi,40px);
+          height:clamp(26px,9cqi,40px);
+          flex-shrink:0;
+          filter:drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+        }
+        .fz-social-link:hover svg{ filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3)) brightness(1.05); }
+        .fz-social-link.copied{ color:#1c7a3e; }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
@@ -1171,82 +1230,26 @@ export default function FunZone({
         .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
 
         /* -- Connect / Mentorship Marketplace panel ---------------------- */
+        /* One designed graphic, not coded text - see the comment on
+           ConnectPanel. object-fit:contain scales it to whatever space is
+           actually available instead of overflowing the fixed card face. */
         .fz-connect{
           display:flex;
-          flex-direction:column;
           align-items:center;
-          text-align:center;
           justify-content:center;
           height:100%;
-          gap:clamp(4px,1.4cqi,9px);
-        }
-        .fz-connect-wordmark-row{
-          display:flex;
-          align-items:center;
-          gap:clamp(6px,2cqi,10px);
           width:100%;
-        }
-        .fz-connect-rule{ flex:1; height:1px; background:rgba(30,22,14,0.25); }
-        .fz-connect-wordmark{ height:clamp(8px,2.6cqi,13px); width:auto; flex:0 0 auto; }
-        .fz-connect-heading{
-          font:700 clamp(16px,7cqi,28px) "Bebas Neue",sans-serif;
-          letter-spacing:.02em;
-          color:rgba(30,22,14,0.94);
-          line-height:.95;
-        }
-        .fz-connect-tagline{
-          font:600 clamp(6px,1.9cqi,8.5px) Oswald,sans-serif;
-          letter-spacing:.08em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.55);
-          line-height:1.3;
-        }
-        .fz-connect-features{
-          display:flex;
-          flex-direction:column;
-          gap:clamp(3px,1cqi,6px);
-          width:100%;
-          text-align:left;
-          margin-top:clamp(1px,.6cqi,3px);
-        }
-        .fz-connect-feature{ display:flex; align-items:center; gap:clamp(6px,1.8cqi,10px); }
-        .fz-connect-feature-icon{
-          flex:0 0 auto;
-          width:clamp(16px,5.4cqi,24px);
-          height:clamp(16px,5.4cqi,24px);
-          border-radius:50%;
-          background:rgba(30,22,14,0.1);
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          color:rgba(30,22,14,0.75);
-          font-size:clamp(8px,2.6cqi,12px);
-        }
-        .fz-connect-feature-title{
-          min-width:0;
-          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
-          letter-spacing:.02em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.88);
-        }
-        .fz-connect-cta{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:6px;
-          width:100%;
-          margin-top:clamp(3px,1cqi,6px);
-          padding:clamp(6px,1.8cqi,10px) clamp(8px,2.2cqi,12px);
-          border:1px solid rgba(30,22,14,0.3);
-          border-radius:clamp(6px,1.8cqi,10px);
-          background:rgba(255,255,255,0.3);
-          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
-          letter-spacing:.03em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.9);
           text-decoration:none;
         }
-        .fz-connect-cta:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
+        .fz-connect-graphic{
+          max-width:100%;
+          max-height:100%;
+          width:auto;
+          height:auto;
+          object-fit:contain;
+          border-radius:clamp(4px,1.2cqi,8px);
+        }
+        .fz-connect:hover .fz-connect-graphic{ filter:brightness(1.03); }
       `}</style>
     </div>
   );
