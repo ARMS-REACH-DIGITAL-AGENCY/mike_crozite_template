@@ -1081,10 +1081,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           pixel offsets between three separately-anchored elements. */}
       <div className="zt-polaroid-stack" aria-hidden="true">
         <span className="zt-polaroid-caption">Post a shared moment you had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
-        {/* /img/moment-arrow.png -- see its own history in git blame for
-            why this is a real graphic asset, not a hand-coded SVG path. */}
+        {/* moment-arrow-v2.png, not moment-arrow.png -- see its own history
+            in git blame for why this is a real graphic asset, not a
+            hand-coded SVG path. The "-v2" isn't decorative: this exact
+            file path was overwritten in place twice while fixing its
+            orientation, and with no query string or content hash on a
+            plain /public asset, browsers/CDN edges have no signal that
+            the bytes at this URL changed -- different visitors (or the
+            same one across a session) could keep serving an old cached
+            copy indefinitely, which is exactly why some players appeared
+            to show the arrow pointing a different way than others despite
+            every player rendering the same single image. Renaming forces
+            every client to fetch fresh. If this asset ever needs to
+            change again, bump the suffix again rather than overwriting
+            these bytes in place. */}
         <div className="zt-moment-arrow" aria-hidden="true">
-          <img src="/img/moment-arrow.png" alt="" />
+          <img src="/img/moment-arrow-v2.png" alt="" />
         </div>
         <div className="zt-moment-thumb">
           <span className="zt-moment-thumb-frame">
@@ -1402,25 +1414,35 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            above the frame). 104% height with -4% bottom lands the top
            exactly at 100% (box top = -4% + 104% = 100%): a little bigger
            than a plain 100%/0 box, zero risk of cropping the head. */
-        /* left:14%, not the original 8% -- per direct feedback the paired
-           cutouts (this one + .zt-person-now right after it) were crowding
-           too close to the CTA/upload column on the left; shifted right as
-           a unit (both this and .zt-person-now moved by the same 6 points)
-           to open up breathing room there without separating the pair or
-           touching the CTA's own position at all. */
-        .zt-person-stack :global(.zt-person) { position:absolute; left:14%; bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        /* "Then vs now" -- slots into the dead space between the HS
-           cutout (ends well before .zt-copy's left:34%) and the headline
-           column. Renders nothing (see SmartImage) when a player has no
-           players/back/ photo yet, so it never leaves a visible gap or
-           broken-image icon for anyone still waiting on that folder.
-           bottom/height override .zt-person's bottom:-4%/height:104% --
-           those numbers put the cutout's feet at the container's own
-           raw bottom edge, disconnected from the rail sitting well
-           above it, per direct feedback. Height is pulled in so the
-           raised bottom anchor doesn't push the top of the box past
-           the container's own top edge (ROW_H is 200px here). */
-        .zt-person-stack :global(.zt-person-now) { left:27%; width:clamp(110px,13vw,190px); bottom:20px; height:88%; object-position:right bottom; }
+        /* left is computed, not a flat percentage: box-left = (.zt-copy's
+           own left, 34%) minus an 8px gap minus this box's own width, so
+           the box's RIGHT edge always lands exactly 8px short of the
+           headline regardless of viewport width. Flat left:8%/14% values
+           (tried first) only controlled the box's LEFT edge -- since this
+           photo is much narrower than its box and object-fit:contain
+           scales it by height, most of each box's right portion was
+           actually empty transparent margin invisible to the eye, which
+           is why nudging left a few points barely moved the VISIBLE photo
+           at all. object-position is right-bottom (not left-bottom) so
+           the visible pixels hug this exact computed right edge directly,
+           however wide or narrow any given player's cutout happens to be,
+           per direct feedback that it still wasn't close enough to the
+           headline. */
+        .zt-person-stack :global(.zt-person) { position:absolute; left:calc(34% - 8px - clamp(150px,18vw,260px)); bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* "Then vs now" -- left-justified to .zt-copy's own left:34%, not
+           paired next to the big cutout anymore, so it reads as sitting
+           directly under the headline, on the rail. Shrunk to an actual
+           small thumbnail (was 88% of the container's height -- as tall
+           as the hero cutout itself) so it lives entirely in the open
+           band between the headline text and the rail below it, clear of
+           both the headline and the now right-anchored big cutout, per
+           direct feedback. object-position:left bottom matches the big
+           cutout's edge exactly to this same 34% line; bottom:24px clears
+           the rail's own 11-23px band sitting just under it. Renders
+           nothing (see SmartImage) if a player has neither a back-flip-
+           card cutout nor a headshot cutout yet, so it never leaves a
+           broken-image icon. */
+        .zt-person-stack :global(.zt-person-now) { left:34%; width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1668,11 +1690,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          /* Same rightward shift as the desktop base rule, same reason:
-             the paired cutouts moved as a unit to clear the CTA column,
-             not resized or separated. */
-          .zt-person-stack :global(.zt-person) { left:12%; width:clamp(130px,26vw,200px); }
-          .zt-person-stack :global(.zt-person-now) { left:25%; width:clamp(80px,10vw,140px); }
+          /* Same computed-right-edge/left-justified-to-headline treatment
+             as the desktop base rule, same reasons -- just recomputed
+             against .zt-copy's left:32% at this breakpoint instead of 34%. */
+          .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(130px,26vw,200px)); width:clamp(130px,26vw,200px); }
+          .zt-person-stack :global(.zt-person-now) { left:32%; width:clamp(48px,7vw,72px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-rail { left:38%; }
@@ -1690,8 +1712,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed) { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H_MOBILE}px) !important; }
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          /* Shifted right from the very edge (was left:6%). */
-          .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); }
+          /* Shifted right from the very edge (was left:6%). object-position
+             is pinned back to left-bottom here, overriding the desktop-
+             only "right bottom" (see the base rule) that anchors the
+             photo's opposite edge there instead -- this breakpoint's
+             layout was already correct and isn't part of that change. */
+          .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
           /* No room for a second full image alongside the HS cutout at
              this width without crowding the already-tight text column,
              so "now" occupies the exact same box as "then" instead of a
