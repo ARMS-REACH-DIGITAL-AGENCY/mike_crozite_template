@@ -1400,12 +1400,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            written in all caps. */
         .zt-moment-cta-line { display:block; max-width:220px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(8px,1.05vw,10px); line-height:1.3; letter-spacing:.005em; }
         .zt-moment-thumb-anchor { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; pointer-events:none; }
-        /* Fixed size, flowed in normal layout right after .zt-persist-id
-           (see the JSX comment for why, not position:absolute with a
-           guessed offset). No preserveAspectRatio override, so the
-           browser's default (uniform scale) is used -- the glyph can
-           never distort, only ever scale down cleanly. */
-        .zt-moment-arrow { width:clamp(46px,6vw,64px); aspect-ratio:738/203; margin:2px 0 0 6px; pointer-events:none; }
+        /* Flowed in normal layout right after .zt-persist-id (see the
+           JSX comment for why, not position:absolute with a guessed
+           offset). Width AND height are both set here (not a fixed
+           aspect-ratio tied to one specific asset's shape) with
+           object-fit:contain on the image, so swapping /img/moment-
+           arrow.png for a differently-shaped graphic -- wide or tall --
+           never squishes it or shrinks it down to nothing; it always
+           scales to fit this box at its own real proportions. */
+        .zt-moment-arrow { width:clamp(30px,4vw,42px); height:clamp(44px,6vw,62px); margin:2px 0 0 6px; pointer-events:none; }
         .zt-moment-arrow img { width:100%; height:100%; display:block; object-fit:contain; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
@@ -1635,7 +1638,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-classof-credit { left:32%; font-size:7px; }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
-          .zt-moment-arrow { width:clamp(36px,11vw,48px); margin:1px 0 0 4px; }
+          .zt-moment-arrow { width:clamp(26px,8vw,36px); height:clamp(38px,11vw,52px); margin:1px 0 0 4px; }
           /* 1-2pt smaller than the base clamp's floor, per direct
              feedback that this line reads too big on mobile. */
           .zt-moment-cta-line { font-size:clamp(6.5px,1vw,8px); }
