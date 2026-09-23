@@ -1346,7 +1346,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
       b.draft_info
     FROM public.v_tbc_batting_all_seasons_resolved b
     LEFT JOIN public.teams t
-      ON t.team_id::text = b.teamid::text
+      ON t.teamid::text = b.teamid::text
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC, b.teamid ASC
   `;
@@ -1378,7 +1378,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.draft_info
     FROM public.v_tbc_pitching_all_seasons_resolved p
     LEFT JOIN public.teams t
-      ON t.team_id::text = p.teamid::text
+      ON t.teamid::text = p.teamid::text
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC, p.teamid ASC
   `;
