@@ -1418,8 +1418,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx),
            not Oswald -- reads as a personal note, not another line of
-           the same UI chrome type everywhere else on this slide. */
-        .zt-polaroid-caption { display:block; max-width:180px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(15px,2vw,19px); line-height:1.15; }
+           the same UI chrome type everywhere else on this slide.
+           Hard-capped to 2 lines (-webkit-line-clamp, not a plain
+           max-width + wrap): at 180px wide this sentence plus a
+           variable-length first name wraps to 3+ lines depending on
+           the name, and the extra line(s) pushed this whole
+           bottom-anchored stack tall enough to collide with the name/
+           metadata block above it -- confirmed from a live screenshot,
+           not a guess. A capped, predictable height regardless of name
+           length is the actual fix, not a wider box (which just moves
+           the same failure to a longer name). */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(14px,1.8vw,17px); line-height:1.2; }
         /* Width AND height are both set here (not a fixed aspect-ratio
            tied to one specific asset's shape) with object-fit:contain on
            the image, so swapping /img/moment-arrow.png for a
