@@ -1160,13 +1160,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     CSS crossfade (.zt-person-then/.zt-person-now,
                     4s-visible each with a brief cross-dissolve at the
                     swap) -- see the animation rule in the 620px media
-                    query. SmartImage renders nothing if a given player
-                    has no "back" photo yet (no srcs/src fallback given,
-                    so a 404 just returns null), so this never shows a
-                    broken image or an empty "now" half of the loop while
-                    that folder is still being backfilled for older
-                    players. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} src={`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
+                    query. Falls back to the headshot cutout
+                    (players/now/, background removed into
+                    players/headshot-cutouts/) when a player has no
+                    "back" photo -- e.g. a pro whose flip card back is
+                    still blank -- via SmartImage's own srcs-then-src
+                    fallback chain (the same mechanism season slides use
+                    for their YaTi placeholder), not a second image
+                    element. Only renders nothing if NEITHER exists. */}
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`]} src={`${S3_BASE}/players/headshot-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
               </Fragment>
             );
           }
@@ -1615,9 +1617,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            against a background that's still dark. Re-pinning both
            variables here, on the row shells themselves, overrides what
            body.light-theme set for every descendant inside them without
-           touching the variables anywhere else on the site. */
+           touching the variables anywhere else on the site. --muted gets
+           the same treatment on row 2: .yat-schooltext .small (the
+           "LAKESIDE, CA" location line) reads var(--muted), which
+           light-theme also flips dark (#555) -- without this it went
+           dark-on-dark against the same permanently-dark photo. */
         :global(.yat-row1-shell.pp-hero-row) { --fg: #f2f2f2; --logo-filter: invert(1); }
-        :global(.yat-row2-shell.pp-hero-row) { --fg: #f2f2f2; }
+        :global(.yat-row2-shell.pp-hero-row) { --fg: #f2f2f2; --muted: #c4c4c4; }
 
         /* -- responsive: proportions only, same single layered frame at
            every width (never restructures into a grid or stacks into two
