@@ -1669,8 +1669,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           .zt-shell-images { --x-logo-left:max(10px,calc((100% - 1400px) / 2 + 10px)); }
           .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
-          .zt-polaroid-caption { font-size:clamp(13px,4vw,16px); max-width:150px; }
-          .zt-moment-arrow { width:clamp(18px,6vw,24px); height:clamp(26px,9vw,36px); }
+          /* ROW_H_MOBILE is 150px total. The name/metadata block (top-
+             anchored) and the caption+arrow+Polaroid group (bottom-
+             anchored) collided here -- confirmed on a real phone,
+             overlapping directly -- because there simply isn't 150px of
+             room for both a multi-line identity block from the top and
+             a 2-line caption + arrow + Polaroid from the bottom, no
+             matter how far each individual piece gets shrunk. Same call
+             already made for .zt-person-now on this same breakpoint:
+             drop the caption/arrow here and keep just the Polaroid
+             (with Class Of still on its own border), rather than keep
+             shaving pixels off text that has no legible floor left. */
+          .zt-polaroid-caption, .zt-moment-arrow { display:none; }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           .zt-moment-thumb-classof { font-size:clamp(5px,1.6vw,6px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
