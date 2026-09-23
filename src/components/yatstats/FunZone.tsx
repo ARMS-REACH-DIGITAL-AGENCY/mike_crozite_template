@@ -532,44 +532,24 @@ function SocialPanel({
   );
 }
 
-const CONNECT_FEATURES: { icon: string; title: string }[] = [
-  { icon: "ri-vidicon-line", title: "Request a Personalized Message" },
-  { icon: "ri-hand-heart-line", title: "Support the Player or School" },
-  { icon: "ri-graduation-cap-line", title: "Learn How the Program Works" },
-];
-
+// The Connect tab's whole "Coming Soon" pitch (headline, tagline, body copy,
+// three feature rows, CTA, footer line) is a single designed graphic, not
+// separately-coded text - a prior attempt to rebuild it as live HTML had to
+// silently trim the body paragraph and footer tagline because they didn't
+// fit the card's fixed aspect-ratio face. Rendering it as one image with
+// object-fit:contain sidesteps that entirely: the graphic scales to
+// whatever space is actually available instead of overflowing or getting
+// clipped, and the whole thing is one big tappable button to the profile
+// page's Connect tab.
 function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
-    <div className="fz-connect">
-      <div className="fz-connect-wordmark-row">
-        <span className="fz-connect-rule" aria-hidden="true" />
-        <img
-          src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png"
-          alt="YAT?STATS"
-          className="fz-connect-wordmark"
-        />
-        <span className="fz-connect-rule" aria-hidden="true" />
-      </div>
-
-      <div className="fz-connect-heading">Coming Soon</div>
-      <div className="fz-connect-tagline">Real Players. Real Conversations. A Brighter Tomorrow.</div>
-
-      <div className="fz-connect-features">
-        {CONNECT_FEATURES.map((f) => (
-          <div className="fz-connect-feature" key={f.title}>
-            <div className="fz-connect-feature-icon">
-              <i className={f.icon} aria-hidden="true" />
-            </div>
-            <div className="fz-connect-feature-title">{f.title}</div>
-          </div>
-        ))}
-      </div>
-
-      <a className="fz-connect-cta" href={profileHref}>
-        <span>Explore the Mentorship Marketplace</span>
-        <i className="ri-arrow-right-s-line" aria-hidden="true" />
-      </a>
-    </div>
+    <a className="fz-connect" href={profileHref}>
+      <img
+        src="/img/connect-mentorship-marketplace.png"
+        alt="Mentorship Marketplace - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
+        className="fz-connect-graphic"
+      />
+    </a>
   );
 }
 
@@ -1183,82 +1163,26 @@ export default function FunZone({
         .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
 
         /* -- Connect / Mentorship Marketplace panel ---------------------- */
+        /* One designed graphic, not coded text - see the comment on
+           ConnectPanel. object-fit:contain scales it to whatever space is
+           actually available instead of overflowing the fixed card face. */
         .fz-connect{
           display:flex;
-          flex-direction:column;
           align-items:center;
-          text-align:center;
           justify-content:center;
           height:100%;
-          gap:clamp(4px,1.4cqi,9px);
-        }
-        .fz-connect-wordmark-row{
-          display:flex;
-          align-items:center;
-          gap:clamp(6px,2cqi,10px);
           width:100%;
-        }
-        .fz-connect-rule{ flex:1; height:1px; background:rgba(30,22,14,0.25); }
-        .fz-connect-wordmark{ height:clamp(8px,2.6cqi,13px); width:auto; flex:0 0 auto; }
-        .fz-connect-heading{
-          font:700 clamp(16px,7cqi,28px) "Bebas Neue",sans-serif;
-          letter-spacing:.02em;
-          color:rgba(30,22,14,0.94);
-          line-height:.95;
-        }
-        .fz-connect-tagline{
-          font:600 clamp(6px,1.9cqi,8.5px) Oswald,sans-serif;
-          letter-spacing:.08em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.55);
-          line-height:1.3;
-        }
-        .fz-connect-features{
-          display:flex;
-          flex-direction:column;
-          gap:clamp(3px,1cqi,6px);
-          width:100%;
-          text-align:left;
-          margin-top:clamp(1px,.6cqi,3px);
-        }
-        .fz-connect-feature{ display:flex; align-items:center; gap:clamp(6px,1.8cqi,10px); }
-        .fz-connect-feature-icon{
-          flex:0 0 auto;
-          width:clamp(16px,5.4cqi,24px);
-          height:clamp(16px,5.4cqi,24px);
-          border-radius:50%;
-          background:rgba(30,22,14,0.1);
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          color:rgba(30,22,14,0.75);
-          font-size:clamp(8px,2.6cqi,12px);
-        }
-        .fz-connect-feature-title{
-          min-width:0;
-          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
-          letter-spacing:.02em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.88);
-        }
-        .fz-connect-cta{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:6px;
-          width:100%;
-          margin-top:clamp(3px,1cqi,6px);
-          padding:clamp(6px,1.8cqi,10px) clamp(8px,2.2cqi,12px);
-          border:1px solid rgba(30,22,14,0.3);
-          border-radius:clamp(6px,1.8cqi,10px);
-          background:rgba(255,255,255,0.3);
-          font:700 clamp(7.5px,2.3cqi,10.5px) Oswald,sans-serif;
-          letter-spacing:.03em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.9);
           text-decoration:none;
         }
-        .fz-connect-cta:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
+        .fz-connect-graphic{
+          max-width:100%;
+          max-height:100%;
+          width:auto;
+          height:auto;
+          object-fit:contain;
+          border-radius:clamp(4px,1.2cqi,8px);
+        }
+        .fz-connect:hover .fz-connect-graphic{ filter:brightness(1.03); }
       `}</style>
     </div>
   );
