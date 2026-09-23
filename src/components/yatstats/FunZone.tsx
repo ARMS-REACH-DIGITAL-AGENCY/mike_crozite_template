@@ -384,6 +384,33 @@ function EmailIcon() {
   );
 }
 
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="m4 12 6 6L20 6" />
+    </svg>
+  );
+}
+
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
 // own feed with a personalized #YATABOY hashtag. Every link here is a plain
@@ -463,13 +490,28 @@ function SocialPanel({
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleCopyPost() {
+  function copyPostToClipboard() {
     if (!navigator.clipboard) return;
     navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
       setCopied(true);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  // Instagram has no web share-intent URL (unlike Facebook's sharer.php or
+  // X's intent/tweet) - it deliberately blocks pre-filled sharing via link
+  // for spam reasons. navigator.share hands off to the OS share sheet
+  // (Instagram included, on a phone that has it installed); where that
+  // isn't available (most desktop browsers), fall back to the same
+  // copy-to-clipboard so the fan can paste the post into Instagram
+  // themselves.
+  function handleInstagramShare() {
+    if (navigator.share) {
+      navigator.share({ text: shareText, url: shareUrl }).catch(() => {});
+      return;
+    }
+    copyPostToClipboard();
   }
 
   return (
@@ -487,15 +529,6 @@ function SocialPanel({
         ))}
         <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
       </div>
-
-      <button
-        type="button"
-        className={`fz-social-copy${copied ? " copied" : ""}`}
-        onClick={handleCopyPost}
-      >
-        <i className={copied ? "ri-check-line" : "ri-file-copy-2-line"} aria-hidden="true" />
-        <span>{copied ? "Copied!" : "Copy Post"}</span>
-      </button>
 
       <div className="fz-social-links">
         <a
@@ -516,14 +549,26 @@ function SocialPanel({
           <XIcon />
           <span>X</span>
         </a>
-        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
-          <TextIcon />
-          <span>Text</span>
-        </a>
+        <button type="button" className="fz-social-link" onClick={handleInstagramShare}>
+          <InstagramIcon />
+          <span>Instagram</span>
+        </button>
         <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-link">
           <EmailIcon />
           <span>Email</span>
         </a>
+        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-link">
+          <TextIcon />
+          <span>Text</span>
+        </a>
+        <button
+          type="button"
+          className={`fz-social-link${copied ? " copied" : ""}`}
+          onClick={copyPostToClipboard}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          <span>{copied ? "Copied!" : "Copy"}</span>
+        </button>
       </div>
     </div>
   );
@@ -1104,41 +1149,30 @@ export default function FunZone({
           word-break:break-all;
         }
         .fz-social-accent{ color:#2451c9; font-weight:700; }
-        .fz-social-copy{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:clamp(4px,1.3cqi,7px);
-          align-self:flex-start;
-          font:700 clamp(7px,2.1cqi,9.5px) Oswald,sans-serif;
-          letter-spacing:.03em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.85);
-          padding:clamp(4px,1.3cqi,7px) clamp(9px,2.6cqi,14px);
-          border-radius:clamp(5px,1.5cqi,8px);
-          border:1px solid rgba(30,22,14,0.3);
-          background:rgba(255,255,255,0.3);
-          cursor:pointer;
-        }
-        .fz-social-copy:hover{ background:rgba(255,255,255,0.5); border-color:rgba(30,22,14,0.5); }
-        .fz-social-copy.copied{ border-color:#1c7a3e; color:#1c7a3e; }
-        .fz-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(4px,1.4cqi,7px);margin-top:1px}
+        /* 3x2 grid: Facebook / X / Instagram, Email / Text / Copy - Copy
+           used to be its own full-width button above this grid; folded in
+           here as a 6th tile so it reads as one consistent set of share
+           actions instead of one button styled differently from the rest. */
+        .fz-social-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(3px,1.1cqi,6px);margin-top:1px}
         .fz-social-link{
           display:flex;
+          flex-direction:column;
           align-items:center;
           justify-content:center;
-          gap:clamp(5px,1.6cqi,8px);
-          font:600 clamp(9px,2.8cqi,12px) Oswald,sans-serif;
+          gap:clamp(2px,.7cqi,4px);
+          font:600 clamp(6.5px,2cqi,9px) Oswald,sans-serif;
           color:rgba(30,22,14,0.75);
           text-decoration:none;
-          min-height:clamp(24px,8cqi,34px);
-          padding:clamp(4px,1.3cqi,7px) clamp(6px,1.8cqi,9px);
+          min-height:clamp(30px,9.5cqi,42px);
+          padding:clamp(3px,1cqi,6px) clamp(2px,1cqi,5px);
           border-radius:clamp(6px,1.8cqi,10px);
           border:1px solid rgba(30,22,14,0.24);
           background:rgba(255,255,255,0.22);
+          cursor:pointer;
         }
+        .fz-social-link i,.fz-social-link svg{font-size:clamp(12px,4cqi,17px);flex-shrink:0}
         .fz-social-link:hover{color:rgba(30,22,14,0.95);border-color:rgba(30,22,14,0.45);background:rgba(255,255,255,0.4)}
-        .fz-social-link svg{flex-shrink:0}
+        .fz-social-link.copied{border-color:#1c7a3e;color:#1c7a3e}
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
