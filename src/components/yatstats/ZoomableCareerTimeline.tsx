@@ -1373,8 +1373,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            cutout (ends well before .zt-copy's left:34%) and the headline
            column. Renders nothing (see SmartImage) when a player has no
            players/back/ photo yet, so it never leaves a visible gap or
-           broken-image icon for anyone still waiting on that folder. */
-        .zt-person-stack :global(.zt-person-now) { left:21%; width:clamp(110px,13vw,190px); object-position:right bottom; }
+           broken-image icon for anyone still waiting on that folder.
+           bottom/height override .zt-person's bottom:-4%/height:104% --
+           those numbers put the cutout's feet at the container's own
+           raw bottom edge, disconnected from the rail sitting well
+           above it, per direct feedback. Height is pulled in so the
+           raised bottom anchor doesn't push the top of the box past
+           the container's own top edge (ROW_H is 200px here). */
+        .zt-person-stack :global(.zt-person-now) { left:21%; width:clamp(110px,13vw,190px); bottom:20px; height:88%; object-position:right bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
