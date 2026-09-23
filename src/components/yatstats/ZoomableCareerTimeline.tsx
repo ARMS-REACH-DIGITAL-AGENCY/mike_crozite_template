@@ -1368,8 +1368,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            cutout (ends well before .zt-copy's left:34%) and the headline
            column. Renders nothing (see SmartImage) when a player has no
            players/back/ photo yet, so it never leaves a visible gap or
-           broken-image icon for anyone still waiting on that folder. */
-        .zt-person-stack :global(.zt-person-now) { left:21%; width:clamp(110px,13vw,190px); object-position:right bottom; }
+           broken-image icon for anyone still waiting on that folder.
+           bottom/height override .zt-person's bottom:-4%/height:104% --
+           those numbers put the cutout's feet at the container's own raw
+           bottom edge, which reads fine for "then" against the full-bleed
+           photo, but "now" looked disconnected from the rail sitting that
+           low. This was fixed on the mobile breakpoint only; applying it
+           here too so desktop isn't still showing the version the mobile
+           fix was written to get away from. */
+        .zt-person-stack :global(.zt-person-now) { left:21%; width:clamp(110px,13vw,190px); bottom:16px; height:86%; object-position:right bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1402,10 +1409,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-moment-thumb-anchor { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; pointer-events:none; }
         /* Fixed size, flowed in normal layout right after .zt-persist-id
            (see the JSX comment for why, not position:absolute with a
-           guessed offset). No preserveAspectRatio override, so the
-           browser's default (uniform scale) is used -- the glyph can
-           never distort, only ever scale down cleanly. */
-        .zt-moment-arrow { width:clamp(46px,6vw,64px); aspect-ratio:738/203; margin:2px 0 0 6px; pointer-events:none; }
+           guessed offset). aspect-ratio was 738/203 (landscape) - backwards
+           from moment-arrow.png's actual 203x738 (tall) pixel dimensions,
+           verified directly against the file. That inverted box, combined
+           with object-fit:contain below, squashed the tall arrow down to
+           a barely-visible sliver instead of distorting it, which read as
+           "wrong" without looking like an obvious stretch/skew - the box
+           shape itself was the bug, not the source graphic or a rotation.
+           This is inherited as-is by the mobile breakpoint below (which
+           only overrides width/margin), so the same fix applies there too. */
+        .zt-moment-arrow { width:clamp(46px,6vw,64px); aspect-ratio:203/738; margin:2px 0 0 6px; pointer-events:none; }
         .zt-moment-arrow img { width:100%; height:100%; display:block; object-fit:contain; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 11px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; color:rgba(255,255,255,.4); font-size:clamp(14px,2vw,20px); }
