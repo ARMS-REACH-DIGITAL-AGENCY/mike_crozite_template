@@ -231,14 +231,23 @@ export default function YatStyles() {
         
       .yat-hr{border-top:1px solid var(--line)}
 
+      /* margin:0 (not 0 auto) -- centering this row inside its own
+         max-width:1400px cap was pushing the crest away from row 1's
+         hamburger (flush left, never capped) on any screen wider than
+         1400px, per direct feedback. Left padding matched to 10px, the
+         same left inset .yat-topbar uses, so the crest lines up with the
+         hamburger exactly instead of drifting a couple px apart. The
+         1400px cap itself stays -- this row's right-side content (the
+         favorite/filter buttons) still shouldn't spread to the true far
+         edge on an ultra-wide screen -- only the centering is gone. */
       .yat-schoolrow{
         display:flex;
         align-items:center;
         gap:8px;
         min-height:var(--row2-h);
-        padding:4px 12px;
+        padding:4px 12px 4px 10px;
         max-width:1400px;
-        margin:0 auto;
+        margin:0;
         background:var(--header-bg);
       }
 
