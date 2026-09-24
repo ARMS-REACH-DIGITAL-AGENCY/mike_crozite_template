@@ -1195,11 +1195,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         </div>
         {/* Explicit breaks, not natural wrap -- per direct feedback with a
             reference mockup showing exactly these line breaks, not
-            wherever the text happens to wrap at this box's width. One
-            wording/size at every breakpoint now (used to be a separate,
-            differently-worded mobile-only variant here) -- per direct
-            feedback, the same CTA belongs everywhere, not just mobile. */}
-        <span className="zt-polaroid-caption">Post a shared<br />moment you had<br />with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}<br />on his timeline!</span>
+            wherever the text happens to wrap at this box's width.
+            Shortened to 3 lines (was 4, "Post a shared moment you had
+            with X on his timeline!") -- per direct feedback, "we have to
+            get this CTA right." One wording/size at every breakpoint,
+            same as before. */}
+        <span className="zt-polaroid-caption">Add a memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career Timeline!</span>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
@@ -1662,8 +1663,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            the caption should start level with the Polaroid's own top
            edge, not bottom-align with it (the caption is the shorter of
            the two, so bottom-aligning left its first line sitting well
-           below the Polaroid's top). */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:110px; display:flex; flex-direction:row; align-items:flex-start; gap:10px; pointer-events:none; }
+           below the Polaroid's top). gap:4px, not 10px -- per direct
+           feedback, "push the text block closer to the Polaroid." */
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:110px; display:flex; flex-direction:row; align-items:flex-start; gap:4px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
            same UI chrome type everywhere else on this slide. One wording
@@ -1674,18 +1676,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            .zt-moment-thumb, a sibling, not an ancestor, so this needs its
            own transform rather than inheriting one) -- per direct
            feedback, "rotate that text block just like Click to Upload." */
-        /* text-shadow added -- at narrow widths this caption's own column
-           runs into the anchor slide's "then/now" cutout column beside it
-           (there isn't room for both to sit side by side without any
-           overlap at all at phone widths), and the caption was reading as
-           illegible mid-photo without something to keep the text itself
-           legible regardless of what's behind it at any given point. */
         /* line-height tightened to 1.0 (was 1.1) -- per direct feedback,
            the lines were sitting too far apart. transform-origin is left
            top now, not left bottom -- matches .zt-polaroid-stack's own
            align-items:flex-start above (this text's top edge is the fixed
            point now, not its bottom). */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6); transform:rotate(-4deg); transform-origin:left top; }
+        /* text-shadow strengthened into a full outline (8 directions) plus
+           its own drop shadow, not just a soft blur -- per direct
+           feedback, "add a shadow or outline... to make it pop." A soft
+           blur alone was already there for plain legibility (this caption
+           can land mid-photo, see .zt-polaroid-stack's own comment on
+           mobile overlap), but wasn't enough to make light cursive text
+           actually stand out against a busy background the way a solid
+           outline does. */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
