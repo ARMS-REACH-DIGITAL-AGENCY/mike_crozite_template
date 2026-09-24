@@ -1363,7 +1363,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            once here so every left-column element below (CTA/identity
            block, Polaroid) reads off the same value instead of drifting
            independently. */
-        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; --x-logo-left:10px; }
+        /* --hero-copy-left/--hero-rail-left freeze the headline column and
+           the rail's own left edge at their exact 1400px-wide pixel value
+           (the site's general "designed width" cap used everywhere else,
+           e.g. .yat-schoolrow) once the viewport grows past that point,
+           instead of letting them keep drifting right as a flat percentage
+           forever. Below 1400px, min() just picks the percentage -- today's
+           existing behavior, unchanged. Above it, the whole hero cluster
+           (cutout, headline, "now" thumbnail -- everything that reads left
+           off these two variables) stays a fixed, correlated group instead
+           of stretching or resizing on a wide screen; only .zt-rail, which
+           reads its LEFT from --hero-rail-left but keeps its own
+           already-fixed right:60px unchanged, actually grows -- its right
+           edge is still tied to the true edge of the screen. Per direct
+           feedback: elements shouldn't distort or drift apart on a wide
+           screen, only the rail should visibly expand. */
+        .zt-shell-images { position:relative; height:100%; min-height:100%; overflow:hidden; color:#fff; background:transparent; --x-logo-left:10px; --hero-copy-left:min(34%, 476px); --hero-rail-left:min(40%, 560px); }
 
         /* The hero visuals and the scrolling copy track are two entirely
            separate layers: the visual stack never moves horizontally, it
@@ -1430,7 +1445,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            however wide or narrow any given player's cutout happens to be,
            per direct feedback that it still wasn't close enough to the
            headline. */
-        .zt-person-stack :global(.zt-person) { position:absolute; left:calc(34% - 8px - clamp(150px,18vw,260px)); bottom:-4%; width:clamp(150px,18vw,260px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        .zt-person-stack :global(.zt-person) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(150px,18vw,252px)); bottom:-4%; width:clamp(150px,18vw,252px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
         /* "Then vs now" -- left-justified to .zt-copy's own left:34%, not
            paired next to the big cutout anymore, so it reads as sitting
            directly under the headline, on the rail. Shrunk to an actual
@@ -1444,7 +1459,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            nothing (see SmartImage) if a player has neither a back-flip-
            card cutout nor a headshot cutout yet, so it never leaves a
            broken-image icon. */
-        .zt-person-stack :global(.zt-person-now) { left:34%; width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
+        .zt-person-stack :global(.zt-person-now) { left:var(--hero-copy-left); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
         .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
@@ -1530,7 +1545,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            combined with clamp()'s internal commas was silently dropping
            the whole declaration in production, which is why this text
            was invisible there. */
-        .zt-copy { position:absolute; z-index:6; left:34%; right:5%; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
+        /* max-width:854px (100% - 34% - 5% at the 1400px freeze point)
+           caps this column's own width alongside --hero-copy-left freezing
+           its left edge -- together they keep the headline column a fixed
+           block past 1400px instead of stretching wider on an ultra-wide
+           screen. Below 1400px this has no effect; the existing left%/
+           right% math already produces a narrower box there. */
+        .zt-copy { position:absolute; z-index:6; left:var(--hero-copy-left); right:5%; max-width:854px; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
         .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
         /* font-weight:400, matching the (now-leveled) metadata block --
            was 600, reading as too blocky/heavy next to it, per direct
@@ -1584,7 +1605,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        .zt-rail { position:absolute; z-index:6; left:40%; right:60px; bottom:11px; height:12px; }
+        /* left freezes with the rest of the hero cluster past 1400px (see
+           --hero-rail-left); right:60px stays exactly as it was, still
+           tied to the screen's true right edge -- this is the one element
+           in the cluster meant to keep growing on a wide screen, per
+           direct feedback, rather than freezing in lockstep with
+           everything to its left. */
+        .zt-rail { position:absolute; z-index:6; left:var(--hero-rail-left); right:60px; bottom:11px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
         .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:rgba(4,5,6,.55); cursor:pointer; }
