@@ -378,11 +378,18 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers.drawer-open { overflow: auto; }
           body.yat-desktop-docked-drawers #drawerLeft { width: var(--yat-left-drawer-w); }
           body.yat-desktop-docked-drawers #drawerFavorites { width: var(--yat-right-drawer-w) !important; }
-          body.yat-desktop-docked-drawers .yat-row2-shell,
-          body.yat-desktop-docked-drawers .yat-row3-shell,
-          body.yat-desktop-docked-drawers .yat-row4-shell,
-          body.yat-desktop-docked-drawers .yat-row5-shell,
-          body.yat-desktop-docked-drawers .yat-row6-shell { margin-left: var(--yat-left-drawer-w); margin-right: var(--yat-right-drawer-w); }
+          /* No blanket margin-left+margin-right rule here anymore. It used
+             to apply BOTH margins to rows 2-6 the instant ANY drawer was
+             docked, even with only the left (or only the right) drawer
+             actually open -- reserving space for a drawer that wasn't
+             open at all, and shrinking the gallery grid by both drawer
+             widths instead of just one. The per-side rules right above
+             (body.drawer-open.drawer-left-open / .drawer-favorites-open)
+             already apply the correct single-side margin at this same
+             >=1240px range regardless of docked state, so this was purely
+             redundant on top of being wrong whenever only one side was
+             open. Per direct feedback: one drawer open should cost one
+             column's worth of width, not two. */
           body.yat-desktop-docked-drawers .yat-footer { left: 0 !important; right: 0 !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
           body.yat-desktop-docked-drawers .yat-schoolrow,
           body.yat-desktop-docked-drawers .gallery-strip,
