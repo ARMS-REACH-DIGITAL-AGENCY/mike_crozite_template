@@ -1072,42 +1072,28 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           </div>
         </div>
       )}
-      {/* CTA line + arrow + Polaroid, as one bottom-anchored group instead
-          of three independently-positioned pieces -- per direct feedback,
-          the CTA line reads as "snuggled up right above the Polaroid",
-          not as trailing off the bottom of the name/metadata block above
-          it. A flex column with a tight gap computes the spacing itself
-          (critical where there's this little room), rather than guessed
-          pixel offsets between three separately-anchored elements. */}
+      {/* Polaroid + CTA text, side by side (Polaroid left, text right) at
+          the very bottom of the frame, on the same plane as the rail --
+          per direct feedback, this Polaroid IS effectively the timeline's
+          own "upload here" marker (once a fan actually uploads a photo,
+          it becomes a small frameless thumbnail on the rail instead, in
+          this same spot), so the CTA reads as pointing at the rail itself
+          rather than needing its own arrow calling attention to the
+          Polaroid above it. The old vertical arrangement (caption above,
+          arrow pointing down, Polaroid below) and the arrow graphic it
+          needed are both gone -- with the two elements sitting directly
+          next to each other, a directional cue isn't doing anything a
+          plain flex row doesn't already say on its own. */}
       <div className="zt-polaroid-stack" aria-hidden="true">
-        <span className="zt-polaroid-caption">Post a shared moment you had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
-        {/* moment-arrow-v2.png, not moment-arrow.png -- see its own history
-            in git blame for why this is a real graphic asset, not a
-            hand-coded SVG path. The "-v2" isn't decorative: this exact
-            file path was overwritten in place twice while fixing its
-            orientation, and with no query string or content hash on a
-            plain /public asset, browsers/CDN edges have no signal that
-            the bytes at this URL changed -- different visitors (or the
-            same one across a session) could keep serving an old cached
-            copy indefinitely, which is exactly why some players appeared
-            to show the arrow pointing a different way than others despite
-            every player rendering the same single image. Renaming forces
-            every client to fetch fresh. If this asset ever needs to
-            change again, bump the suffix again rather than overwriting
-            these bytes in place. */}
-        <div className="zt-moment-arrow" aria-hidden="true">
-          <img src="/img/moment-arrow-v2.png" alt="" />
-        </div>
         <div className="zt-moment-thumb">
           <span className="zt-moment-thumb-frame">
             <i className="ri-image-add-line" />
           </span>
-          {/* Class Of now lives on the Polaroid's own bottom border, like
-              a caption written on a real photo, instead of hugging the
-              rail -- per direct feedback. Verified year (school/coach-
-              confirmed) shows plain; an estimate (earliest recorded
-              season minus one) gets a trailing asterisk so it still
-              reads as a best guess, not a confirmed fact. */}
+          {/* Class Of lives on the Polaroid's own bottom border, like a
+              caption written on a real photo. Verified year (school/coach-
+              confirmed) shows plain; an estimate (earliest recorded season
+              minus one) gets a trailing asterisk so it still reads as a
+              best guess, not a confirmed fact. */}
           {displayClassOf && (
             <span
               className="zt-moment-thumb-classof"
@@ -1117,6 +1103,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             </span>
           )}
         </div>
+        <span className="zt-polaroid-caption">Post a shared moment you had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
@@ -1318,8 +1305,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
                 style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
                 onClick={() => scrollToIndex(i)}
-                aria-label={`Slide ${i + 1}`}
-              />
+                aria-label={`Slide ${i + 1}: ${slide.year}`}
+              >
+                <span className="zt-rail-tick-year" aria-hidden="true">{String(slide.year).slice(-2)}</span>
+              </button>
             ))}
             <span
               className="zt-rail-year"
@@ -1514,33 +1503,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.15; text-transform:uppercase; white-space:nowrap; }
         .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7.5px,1vw,9px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
         .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); line-height:1.15; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
-        /* CTA line + arrow + Polaroid, one bottom-anchored flex column so
-           the (tight) spacing between them is computed, not guessed --
-           per direct feedback that this whole group reads as "snuggled
-           up right above the Polaroid", not as trailing off the name/
-           metadata block above it. */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; pointer-events:none; }
-        /* Handwritten-caption feel via Caveat (loaded in layout.tsx),
-           not Oswald -- reads as a personal note, not another line of
-           the same UI chrome type everywhere else on this slide.
-           Hard-capped to 2 lines (-webkit-line-clamp, not a plain
-           max-width + wrap): at 180px wide this sentence plus a
-           variable-length first name wraps to 3+ lines depending on
-           the name, and the extra line(s) pushed this whole
-           bottom-anchored stack tall enough to collide with the name/
-           metadata block above it -- confirmed from a live screenshot,
-           not a guess. A capped, predictable height regardless of name
-           length is the actual fix, not a wider box (which just moves
-           the same failure to a longer name). */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(14px,1.8vw,17px); line-height:1.2; }
-        /* Width AND height are both set here (not a fixed aspect-ratio
-           tied to one specific asset's shape) with object-fit:contain on
-           the image, so swapping /img/moment-arrow.png for a
-           differently-shaped graphic -- wide or tall -- never squishes
-           it or shrinks it down to nothing; it always scales to fit this
-           box at its own real proportions. */
-        .zt-moment-arrow { width:clamp(22px,3vw,30px); height:clamp(32px,4.5vw,44px); margin-left:8px; pointer-events:none; }
-        .zt-moment-arrow img { width:100%; height:100%; display:block; object-fit:contain; }
+        /* Polaroid + CTA text, side by side (row, not the old column of
+           caption-above-arrow-above-Polaroid) and bottom-aligned so they
+           read as one unit sitting flush on the timeline. left is a fixed
+           pixel value, not var(--x-logo-left) alone: it needs to clear
+           this whole row's own width (Polaroid + gap + caption column),
+           not just match the name/metadata block's inset above it, since
+           .zt-rail's own left edge (see below) is computed to start right
+           after this row ends. */
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
+        /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
+           Oswald -- reads as a personal note, not another line of the
+           same UI chrome type everywhere else on this slide. Up to 4
+           lines now (was 2, back when this sat in a column above the
+           Polaroid and had to stay short to avoid colliding with the
+           name/metadata block above it) -- sitting beside the Polaroid
+           instead of above it removes that constraint, and per direct
+           feedback there's room for 3-4 lines here now, sized to roughly
+           match the Polaroid's own height. max-width kept narrow ("cozy",
+           not spilling into the rail) since this is a beside-not-above
+           layout now. */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(12px,1.6vw,14px); line-height:1.2; }
         /* position:relative so .zt-moment-thumb-classof can anchor to
            this box's own bottom border (the extra bottom padding below,
            14px vs 5px on the other three sides, is what makes this read
@@ -1620,21 +1603,38 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            year directly into that gap -- an opaque year chip painted over
            both the fill and the track -- rather than lighting a mark up
            gold. */
-        .zt-nav { position:absolute; z-index:7; bottom:5px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
+        .zt-nav { position:absolute; z-index:7; bottom:2px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
         .zt-nav:disabled { opacity:.3; cursor:default; }
         .zt-nav-prev { right:30px; left:auto; }
         .zt-nav-next { right:6px; }
-        /* left freezes with the rest of the hero cluster past 1400px (see
-           --hero-rail-left); right:60px stays exactly as it was, still
-           tied to the screen's true right edge -- this is the one element
-           in the cluster meant to keep growing on a wide screen, per
-           direct feedback, rather than freezing in lockstep with
-           everything to its left. */
-        .zt-rail { position:absolute; z-index:6; left:var(--hero-rail-left); right:60px; bottom:11px; height:12px; }
+        /* Dropped to bottom:4px (was 11px) -- right on top of the gold
+           .zt-visual-baseline rule, per direct feedback: "just put the
+           timeline down there." left is now a fixed pixel value clearing
+           the Polaroid+CTA row (10px inset + 64px Polaroid + 10px gap +
+           150px caption + margin), not var(--hero-rail-left) -- that
+           variable ties the rail to the headline column, which is a
+           completely different, unrelated reason to move than "leave room
+           for the Polaroid." right:60px is unchanged, still tied to the
+           screen's true right edge so this keeps growing on a wide screen
+           the same as before. .zt-nav's bottom dropped to 2px to match,
+           keeping the prev/next buttons roughly centered against the
+           rail's new position instead of sitting above it. */
+        .zt-rail { position:absolute; z-index:6; left:260px; right:60px; bottom:4px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
         .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:rgba(4,5,6,.55); cursor:pointer; }
         .zt-rail-tick.active { background:transparent; cursor:default; }
+        /* Small year label sitting just above each tick's own dot -- per
+           direct feedback, every stop on the rail should read as a year,
+           not just the active one (which already gets its own bigger,
+           bold, draggable label below). Hidden on the active tick itself
+           so it doesn't double up with that label. Deliberately tiny and
+           abbreviated to the last two digits -- a full "2021" at every
+           tick, on a rail with a full career's worth of seasons, would
+           run into its neighbors; "21" reads fine at this size and this
+           density. */
+        .zt-rail-tick-year { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
+        .zt-rail-tick.active .zt-rail-tick-year { display:none; }
         .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
         .zt-rail-year:active { cursor:grabbing; }
 
@@ -1745,7 +1745,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-person-stack :global(.zt-person-now) { left:32%; width:clamp(48px,7vw,72px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
-          .zt-rail { left:38%; }
+          /* Same fixed-pixel-clearing-the-Polaroid-row logic as the
+             desktop base rule, recomputed for this breakpoint's smaller
+             Polaroid (clamp(46px,6vw,64px) -> ~54px at 6vw around 900px,
+             vs 64px capped above ~1067px). */
+          .zt-rail { left:240px; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
         }
@@ -1826,13 +1830,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              anchored) collided here -- confirmed on a real phone,
              overlapping directly -- because there simply isn't 150px of
              room for both a multi-line identity block from the top and
-             a 2-line caption + arrow + Polaroid from the bottom, no
-             matter how far each individual piece gets shrunk. Same call
-             already made for .zt-person-now on this same breakpoint:
-             drop the caption/arrow here and keep just the Polaroid
-             (with Class Of still on its own border), rather than keep
-             shaving pixels off text that has no legible floor left. */
-          .zt-polaroid-caption, .zt-moment-arrow { display:none; }
+             a caption + Polaroid row from the bottom, no matter how far
+             each individual piece gets shrunk. Same call already made
+             for .zt-person-now on this same breakpoint: drop the caption
+             here and keep just the Polaroid (with Class Of still on its
+             own border), rather than keep shaving pixels off text that
+             has no legible floor left. The arrow this used to also hide
+             is gone entirely now (see .zt-polaroid-stack's own comment),
+             not just hidden here. */
+          .zt-polaroid-caption { display:none; }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           .zt-moment-thumb-classof { font-size:clamp(5px,1.6vw,6px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
