@@ -8,14 +8,29 @@ import { useEffect } from 'react';
 const DOCKED_DRAWER_AUTO_WIDTH = 1600;
 const DOCKED_DRAWER_MIN_WIDTH = 1240;
 
+/* Each of the four drawer-open functions below calls updateDesktopDocking()
+   directly after toggling its own classes, rather than watching
+   document.body's class attribute with a MutationObserver. An observer
+   was tried first and caused the page to hang (Chrome's "Page
+   Unresponsive" dialog) -- document.body's classList is also mutated
+   directly by several OTHER files (FavoritesDrawer, SortFilterDrawer
+   Controls, DrawerRailController, YatInteractivity), and something in
+   that combination created a feedback loop an observer here couldn't
+   distinguish from a legitimate, converging update. A direct function
+   call after a known, local state change carries no such risk. The
+   tradeoff: drawers opened/closed from those OTHER files won't trigger
+   an instant docking recalculation the way these four do -- it'll catch
+   up on the next resize instead. */
 function showLeftNavigationDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open');
   document.body.classList.remove('yat-left-search-mode', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  updateDesktopDocking();
 }
 
 function showLeftSearchDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open', 'yat-left-search-mode');
   document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  updateDesktopDocking();
 
   setTimeout(() => {
     const input = document.getElementById('gsInput') as HTMLInputElement | null;
@@ -27,11 +42,13 @@ function showLeftSearchDrawer() {
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  updateDesktopDocking();
 }
 
 function requestFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  updateDesktopDocking();
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
 
@@ -90,16 +107,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
       resizeTimer = setTimeout(updateDesktopDocking, 120);
     };
 
-    /* Drawers open/close from many different files (FavoritesDrawer,
-       SortFilterDrawerControls, DrawerRailController, YatInteractivity,
-       etc.), each toggling body classes directly rather than through one
-       shared function. Watching the class attribute here, instead of
-       hooking every one of those call sites, is what lets
-       .yat-desktop-docked-drawers react correctly to a manually-opened
-       drawer no matter which of them triggered it. */
-    const classObserver = new MutationObserver(() => updateDesktopDocking());
-    classObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
     const interceptSearchClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest('#openSearch')) return;
@@ -133,7 +140,6 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
 
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
-      classObserver.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', updateDesktopDocking);
       document.removeEventListener('click', interceptSearchClick, true);
