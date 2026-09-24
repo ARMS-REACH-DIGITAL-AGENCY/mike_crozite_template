@@ -372,11 +372,16 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers .yat-table-wrap,
           body.yat-desktop-docked-drawers .yat-sec-header,
           body.yat-desktop-docked-drawers .yat-placeholder { max-width: none; }
-          body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+          /* .yat-grid's own three hardcoded column-count overrides for
+             this docked state (5 cols base, 4 between 1600-1849px, 3
+             between 1240-1599px) were removed -- .yat-grid's base rule in
+             YatStyles.tsx is now repeat(auto-fill,264px), which already
+             fits as many fixed-size columns as whatever width is actually
+             available, docked or not, with no separate breakpoints
+             needed. The old hardcoded values here were more specific than
+             that base rule and would have silently overridden it whenever
+             drawers were docked. */
         }
-
-        @media (min-width: 1600px) and (max-width: 1849px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        @media (min-width: 1240px) and (max-width: 1599px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 1239px) {
           body.yat-desktop-docked-drawers .yat-row2-shell,
           body.yat-desktop-docked-drawers .yat-row3-shell,
