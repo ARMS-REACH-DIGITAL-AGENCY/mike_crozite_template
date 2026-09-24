@@ -56,7 +56,7 @@ const LIFE_YEAR_QUOTES: Record<number, string> = {
   12: 'Great plays are made\nbefore the pitch is even thrown.',
   13: 'The stage may be bigger,\nbut the game is still the same.',
   14: 'Trust in those beside you transforms individual talent\ninto collective strength.',
-  15: 'Check your ego at the door.\nYou will either win as a team\nor lose as a team.\nThere’s no "I" in the word team.',
+  15: 'Check your ego at the door.\nYou’ll either win as a team\nor lose as a team.\nThere’s no "I" team.',
   16: 'True accountability is doing the unseen work when nobody is watching.',
   17: 'Relentlessly pursue your dreams; greatness is earned through the courage to never stop chasing them.',
 };
@@ -1575,20 +1575,35 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            per direct feedback that it still wasn't close enough to the
            headline. */
         .zt-person-stack :global(.zt-person) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(150px,18vw,252px)); bottom:-4%; width:clamp(150px,18vw,252px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        /* "Then vs now" -- left-justified to .zt-copy's own left:34%, not
-           paired next to the big cutout anymore, so it reads as sitting
-           directly under the headline, on the rail. Shrunk to an actual
-           small thumbnail (was 88% of the container's height -- as tall
-           as the hero cutout itself) so it lives entirely in the open
-           band between the headline text and the rail below it, clear of
-           both the headline and the now right-anchored big cutout, per
-           direct feedback. object-position:left bottom matches the big
-           cutout's edge exactly to this same 34% line; bottom:24px clears
-           the rail's own 11-23px band sitting just under it. Renders
+        /* Per direct feedback, the primary source (a real back-cutout
+           action photo) and the fallback (a headshot cutout, shown only
+           when there's no flip-card-back photo yet) get very different
+           desktop treatment now, matching the split already made for
+           mobile -- previously BOTH shared this one small thumbnail box,
+           which is why the primary source never got the "2x, same spot
+           as then" treatment mobile did: there was no way to target it
+           separately.
+           Primary: left justified to the exact same position as
+           .zt-person(then) above -- same left calc(), width doubled
+           (clamp(300px,36vw,504px), was clamp(150px,18vw,252px)), height
+           doubled to match (208%, was 104%) so the taller box doesn't
+           become the new limiting dimension for object-fit:contain once
+           the image itself is that much bigger, and object-position
+           switched to right bottom (was left bottom) to match "then"'s
+           own alignment now that they share the same box -- overflow
+           past the row's own edges is clipped by .zt-shell-images'
+           overflow:hidden, same as a zoomed-in hero photo. Renders
            nothing (see SmartImage) if a player has neither a back-flip-
            card cutout nor a headshot cutout yet, so it never leaves a
            broken-image icon. */
-        .zt-person-stack :global(.zt-person-now) { left:var(--hero-copy-left); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
+        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(150px,18vw,252px)); bottom:-4%; width:clamp(300px,36vw,504px); height:208%; object-position:right bottom; }
+        /* Fallback only: right-justified to just left of .zt-copy's own
+           left edge (var(--hero-copy-left) minus this box's own width) --
+           per direct feedback, "right justified to the left of the
+           vertical line that the heading is left justified to." Small
+           thumbnail size unchanged from before the split above (this was
+           never the case that read too big). */
+        .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - clamp(56px,7vw,84px)); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
 
         /* Top-left CTA/identity block, separate from the marketing
@@ -1968,7 +1983,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              as the desktop base rule, same reasons -- just recomputed
              against .zt-copy's left:32% at this breakpoint instead of 34%. */
           .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(130px,26vw,200px)); width:clamp(130px,26vw,200px); }
-          .zt-person-stack :global(.zt-person-now) { left:32%; width:clamp(48px,7vw,72px); }
+          /* Primary source: same left/width relationship as .zt-person
+             (then) above, doubled -- see the desktop base rule's own
+             comment for why. bottom/height/object-position inherit from
+             that same base rule (-4%/208%/right bottom), unchanged here. */
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 8px - clamp(130px,26vw,200px)); width:clamp(260px,52vw,400px); }
+          /* Fallback: recomputed against .zt-copy's real left:32% at this
+             breakpoint -- var(--hero-copy-left) (used at the desktop base
+             rule) is a fixed ~34%/476px and no longer matches .zt-copy's
+             own position once this breakpoint's 32% override takes over. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - clamp(48px,7vw,72px)); width:clamp(48px,7vw,72px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
@@ -2030,16 +2054,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* SmartImage marks its <img> data-fallback="true" once it's had
              to move past the first source in its list -- see SmartImage's
              own comment. Only this case (the headshot fallback) gets
-             shrunk, and left-justified with the slide's own headline/
-             kicker/bodycopy column (.zt-copy's own left:26% at this
-             breakpoint, not .zt-moment-cta's name/metadata block) -- a
-             different anchor point than the primary source above, not
-             just a smaller version of the same box. Was var(--x-logo-left)
-             (the metadata block's own left edge, far off at the frame's
-             true left edge) -- corrected per direct feedback: "you
-             justified the now-cutout to the far left of the screen, not
-             the headline of the year slide." */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:26%; width:clamp(40px,14vw,60px); height:30%; }
+             shrunk. left is now right-justified to just before the
+             slide's own headline/kicker/bodycopy column starts (.zt-copy's
+             own left:26% at this breakpoint, minus this box's own width) --
+             per direct feedback, "right justified to the left of the
+             vertical line that the heading is left justified to," matching
+             the same relationship now used at the other two breakpoints,
+             rather than sharing that 26% line and overlapping into the
+             headline's own column. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(26% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
