@@ -21,6 +21,8 @@ type FavoritePlayer = {
   status_label?: string | null;
   class_of?: string | null;
   roster_years?: string[] | null;
+  /** school_success.microsite_url for the favorite's school, e.g. "https://hamilton.az.yatstats.com" - absent for a school with no live microsite. */
+  microsite_url?: string | null;
 };
 
 const FAVORITES_S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -29,8 +31,14 @@ function schoolCrestUrl(hsid: unknown) {
   return `${FAVORITES_S3_BASE}/schools/${encodeURIComponent(String(hsid || ''))}.png`;
 }
 
-function playerFlipCardUrl(playerId: string, schoolId: string) {
-  return `/${encodeURIComponent(schoolId)}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
+// Same "prefer the absolute microsite URL, fall back to a relative path"
+// pattern SearchDrawerTabs.tsx's playerFlipCardUrl uses - a bare `/{schoolId}`
+// link only resolves correctly when you're already on that school's own
+// subdomain, which isn't true for a cross-school (Super Fan) favorite.
+function playerFlipCardUrl(playerId: string, schoolId: string, micrositeUrl?: string | null) {
+  const microsite = String(micrositeUrl || '').trim().replace(/\/$/, '');
+  const base = microsite || `/${encodeURIComponent(schoolId)}`;
+  return `${base}?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
 }
 
 function readYatUser(): YatUser | null {
@@ -572,7 +580,7 @@ function FavoriteLinks({
               <strong>{name}</strong>
               {subtitle && <small>{subtitle}</small>}
             </a>
-            <a href={playerFlipCardUrl(playerId, schoolId)} className="yat-favorite-flip-link" title="Open flip card">
+            <a href={playerFlipCardUrl(playerId, schoolId, player.microsite_url)} className="yat-favorite-flip-link" title="Open flip card">
               <img
                 src={schoolCrestUrl(schoolId)}
                 alt=""

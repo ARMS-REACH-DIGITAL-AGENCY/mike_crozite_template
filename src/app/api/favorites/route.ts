@@ -124,21 +124,28 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
         nullif(trim(p.lastname), '') as tbc_last_name
       from public.tbc_players_raw p
       where p.playerid::text = any($2::text[])
+    ),
+    resolved as (
+      select
+        fr.player_id,
+        coalesce(fr.favorite_school_id, s.stage_hsid) as school_id,
+        coalesce(s.display_name, t.tbc_display_name, fr.player_id) as display_name,
+        coalesce(s.last_name, t.tbc_last_name) as last_name,
+        s.current_team_name,
+        s.current_org_or_conference_name,
+        s.level_label,
+        s.status_label,
+        fr.created_at
+      from favorite_rows fr
+      left join stage_one s on s.player_id = fr.player_id
+      left join tbc_one t on t.player_id = fr.player_id
     )
     select
-      fr.player_id,
-      coalesce(fr.favorite_school_id, s.stage_hsid) as school_id,
-      coalesce(s.display_name, t.tbc_display_name, fr.player_id) as display_name,
-      coalesce(s.last_name, t.tbc_last_name) as last_name,
-      s.current_team_name,
-      s.current_org_or_conference_name,
-      s.level_label,
-      s.status_label,
-      fr.created_at
-    from favorite_rows fr
-    left join stage_one s on s.player_id = fr.player_id
-    left join tbc_one t on t.player_id = fr.player_id
-    order by coalesce(s.display_name, t.tbc_display_name, fr.player_id)
+      r.*,
+      ss.microsite_url
+    from resolved r
+    left join public.school_success ss on ss.hsid::text = r.school_id
+    order by coalesce(r.display_name, r.player_id)
     `,
     [firebaseUid, playerIds]
   );

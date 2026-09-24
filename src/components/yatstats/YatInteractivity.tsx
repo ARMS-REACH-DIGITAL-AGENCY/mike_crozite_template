@@ -665,6 +665,7 @@ function syncStripToVisibleCards() {
   }
 
   var yatPlayerAnchorScrolled=false;
+  var yatPlayerAnchorFoundAt=0;
 
   function getRequestedPlayerId(){
     var params=new URLSearchParams(window.location.search);
@@ -712,25 +713,38 @@ function syncStripToVisibleCards() {
     target.removeAttribute('hidden');
     target.classList.remove('is-hidden');
 
-    if(shouldScroll&&!yatPlayerAnchorScrolled){
+    if(shouldScroll){
+      // Re-issue the scroll on every check for a short settle window after
+      // the card is first found, not just once - the grid reflows as
+      // headshot/crest images finish loading in, so a single scroll fired
+      // the instant the element merely exists (often <150ms in, well before
+      // images settle) lands on whatever card ends up at that pixel
+      // position once the page finishes loading, not the requested one.
+      if(!yatPlayerAnchorFoundAt) yatPlayerAnchorFoundAt=Date.now();
       target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
-      target.classList.add('yat-card-anchor-highlight');
 
-      setTimeout(function(){
-        target.classList.remove('yat-card-anchor-highlight');
-      },1800);
+      if(!yatPlayerAnchorScrolled){
+        target.classList.add('yat-card-anchor-highlight');
 
-      yatPlayerAnchorScrolled=true;
+        setTimeout(function(){
+          target.classList.remove('yat-card-anchor-highlight');
+        },1800);
+
+        yatPlayerAnchorScrolled=true;
+      }
     }
 
     return true;
   }
+
+  var YAT_PLAYER_ANCHOR_SETTLE_MS=1200;
 
   function retryRevealRequestedPlayerCard(){
     var playerId=getRequestedPlayerId();
     if(!playerId)return;
 
     yatPlayerAnchorScrolled=false;
+    yatPlayerAnchorFoundAt=0;
 
     var requestedView=getRequestedView();
     if(typeof showSection==='function'){
@@ -745,7 +759,10 @@ function syncStripToVisibleCards() {
         if(typeof applyFilters==='function')applyFilters();
       }catch(e){}
 
-      if(revealRequestedPlayerCard(true)||attempts>=30){
+      var found=revealRequestedPlayerCard(true);
+      var settled=found&&yatPlayerAnchorFoundAt&&(Date.now()-yatPlayerAnchorFoundAt>=YAT_PLAYER_ANCHOR_SETTLE_MS);
+
+      if((found&&settled)||attempts>=30){
         window.clearInterval(timer);
       }
     },150);
