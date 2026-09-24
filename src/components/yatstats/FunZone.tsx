@@ -465,30 +465,48 @@ function FitWidthHeadline({ text }: { text: string }) {
       const containerWidth = container!.clientWidth;
       if (containerWidth <= 0) return;
 
-      const REF_SIZE = 100;
-      const prevInlineSize = textEl!.style.fontSize;
-      textEl!.style.fontSize = `${REF_SIZE}px`;
-      const naturalWidth = textEl!.scrollWidth;
-      textEl!.style.fontSize = prevInlineSize;
-      if (naturalWidth <= 0) return;
+      const el = textEl!;
+      const prevInlineSize = el.style.fontSize;
 
-      const nextSize = (containerWidth / naturalWidth) * REF_SIZE;
+      // Converge on the exact fit by re-measuring at each successive guess,
+      // rather than one linear extrapolation from a single distant
+      // reference size. Font hinting/subpixel rounding isn't perfectly
+      // linear across a large size ratio (e.g. guessing from 100px down to
+      // a final ~20px), and for a long hashtag (many characters) that
+      // per-character rounding error can add up to several visible pixels
+      // of overflow - confirmed by testing, not theoretical.
+      let size = 100;
+      el.style.fontSize = `${size}px`;
+      let width = el.scrollWidth;
+
+      if (width > 0) {
+        for (let i = 0; i < 4; i++) {
+          size = Math.min(120, Math.max(10, (containerWidth / width) * size));
+          el.style.fontSize = `${size}px`;
+          width = el.scrollWidth;
+          if (width <= 0 || Math.abs(width - containerWidth) <= 1) break;
+        }
+      }
+
+      el.style.fontSize = prevInlineSize;
       // Sane bounds so a not-yet-laid-out container (0/near-0 width) or a
       // pathologically short/long tag can never produce an unusable size.
-      setFontSize(Math.min(120, Math.max(10, nextSize)));
+      setFontSize(Math.min(120, Math.max(10, size)));
     }
 
     measure();
 
-    // Anton loads asynchronously via the global Google Fonts <link> in
+    // Oswald loads asynchronously via the global Google Fonts <link> in
     // layout.tsx - the very first measure() above can run before it has
-    // actually swapped in, sizing against a fallback font's (narrower)
-    // metrics. That fixed pixel size then overflows once Anton itself
-    // paints, since its glyphs are wider. Re-measure once the real font is
-    // confirmed loaded, not just once on mount.
+    // actually swapped in, sizing against a fallback font's metrics. That
+    // fixed pixel size can then over/underflow once Oswald itself paints.
+    // Re-measure once the real font is confirmed loaded, not just once on
+    // mount. (700 is the heaviest weight actually linked - font-weight:800
+    // in the CSS below matches .zt-persist-name's own declaration, which
+    // the browser satisfies from that same 700 file.)
     let cancelled = false;
     if (typeof document !== "undefined" && "fonts" in document) {
-      document.fonts.load('800 16px Anton').catch(() => {});
+      document.fonts.load('700 16px Oswald').catch(() => {});
       document.fonts.ready.then(() => {
         if (!cancelled) measure();
       });
@@ -603,11 +621,11 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
-      {/* Big, bold, in the "COMING SOON" graphic's own Anton typeface -
-          sized to always span the full width edge to edge, whether the
-          hashtag is short (#YATABOYCody) or long (#YATABOYChristopher),
-          instead of a fixed size that's oversized for one and undersized
-          for the other. */}
+      {/* Same font as the player profile page's own name headline (Oswald
+          800, uppercase) - sized to always span the full width edge to
+          edge, whether the hashtag is short (#YATABOYCODY) or long
+          (#YATABOYCHRISTOPHER), instead of a fixed size that's oversized
+          for one and undersized for the other. */}
       <div className="fz-social-headline">
         <FitWidthHeadline text={`#${hashtag}`} />
         <span className="fz-social-headline-underline" aria-hidden="true" />
@@ -644,41 +662,47 @@ function SocialPanel({
           tab's .yat-stats-grid/.yat-stat - the Social and Stats tabs need
           different cell proportions, and sharing that class is what caused
           a Social-tab-only fix to previously alter the Stats tab's own grid. */}
+      {/* Icon-only cells - the branded marks (blue Facebook square, black X
+          square, etc.) already say what each one is, so a text label under
+          each is redundant. aria-label keeps these announced correctly for
+          screen readers even with no visible text. */}
       <div className="fz-social-links">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
           target="_blank"
           rel="noopener noreferrer"
           className="fz-social-cell"
+          aria-label="Share on Facebook"
         >
           <FacebookIcon />
-          <span>Facebook</span>
         </a>
         <a
           href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
           target="_blank"
           rel="noopener noreferrer"
           className="fz-social-cell"
+          aria-label="Share on X"
         >
           <XIcon />
-          <span>X</span>
         </a>
-        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-cell">
+        <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-cell" aria-label="Share by text">
           <TextIcon />
-          <span>Text</span>
         </a>
-        <a href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`} className="fz-social-cell">
+        <a
+          href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`}
+          className="fz-social-cell"
+          aria-label="Share by email"
+        >
           <EmailIcon />
-          <span>Email</span>
         </a>
         <button
           type="button"
           className={`fz-social-cell${copied ? " copied" : ""}`}
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
+          aria-label={copied ? "Copied" : "Copy post text"}
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
-          <span>{copied ? "Copied!" : "Copy"}</span>
         </button>
         {/* A real <a href>, not a button+window.open - Instagram has no web
             share/compose intent, so this just opens the app/site the same
@@ -694,9 +718,9 @@ function SocialPanel({
           className="fz-social-cell"
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
+          aria-label="Share on Instagram"
         >
           <InstagramIcon />
-          <span>Instagram</span>
         </a>
       </div>
     </div>
@@ -1226,10 +1250,8 @@ export default function FunZone({
           min-height:0;
           gap:clamp(4px,1.6cqi,9px);
         }
-        /* Big and bold in the "COMING SOON" graphic's own Anton typeface
-           (that graphic is a flattened image, not live text - Anton is the
-           closest real, loadable match to its ultra-bold condensed letterforms,
-           not literally the same font file). Stacks at the top of the panel,
+        /* Big, bold, uppercase, centered - same Oswald 800 as the player
+           profile page's own name headline. Stacks at the top of the panel,
            straight (not tilted - tried that, it read as a mistake, not a
            design choice) with the blue accent bar restored below it. */
         .fz-social-headline{
@@ -1239,17 +1261,23 @@ export default function FunZone({
           gap:clamp(3px,1cqi,6px);
           padding:clamp(2px,1cqi,6px) 0 clamp(4px,1.5cqi,8px);
         }
-        /* Outer element: block-level, full width, carries the font-family/
-           weight/color (inherited by the inner span) and a clamp()-based
-           fallback size for the SSR/non-hydrated case. Inner span: sized by
-           FitWidthHeadline's own JS to exactly span this element's width,
-           whatever the hashtag's length. */
+        /* Same font as the player profile page's own name headline
+           (.zt-persist-name in ZoomableCareerTimeline.tsx - Oswald 800,
+           uppercase), not a separate poster face - "the same font we use
+           all over the place." Outer element: block-level, full width,
+           centered, carries the font-family/weight/color (inherited by the
+           inner span) and a clamp()-based fallback size for the SSR/
+           non-hydrated case. Inner span: sized by FitWidthHeadline's own JS
+           to exactly span this element's width, whatever the hashtag's
+           length. */
         .fz-social-tag{
           display:block;
           width:100%;
           overflow:hidden;
-          font:800 clamp(18px,9cqi,28px)/0.9 "Anton",sans-serif;
-          letter-spacing:.01em;
+          text-align:center;
+          text-transform:uppercase;
+          font:800 clamp(18px,9cqi,28px)/0.95 Oswald,sans-serif;
+          letter-spacing:.04em;
           color:rgba(30,22,14,0.96);
           text-shadow:0 2px 0 rgba(255,255,255,0.35);
         }
@@ -1338,31 +1366,24 @@ export default function FunZone({
           flex:1;
           min-height:0;
         }
+        /* Icon-only - the branded mark says what it is, so no text label. */
         .fz-social-cell{
           min-width:0;
           min-height:0;
           display:flex;
-          flex-direction:column;
           align-items:center;
           justify-content:center;
-          gap:clamp(4px,1.6cqi,9px);
-          padding:clamp(4px,1.6cqi,9px);
           border:1px solid rgba(30,22,14,0.10);
           border-radius:clamp(8px,2.2cqi,16px);
           background:rgba(255,255,255,0.36);
           box-shadow:
             inset 0 1px 0 rgba(255,255,255,0.34),
             0 1px 2px rgba(30,22,14,0.08);
-          text-decoration:none;
           cursor:pointer;
-          font:700 clamp(8px,2.6cqi,12px) Oswald,sans-serif;
-          letter-spacing:.02em;
-          text-transform:uppercase;
-          color:rgba(30,22,14,0.8);
         }
         .fz-social-cell svg{ width:clamp(28px,13cqi,60px); height:clamp(28px,13cqi,60px); flex-shrink:0; }
         .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
-        .fz-social-cell.copied{ border-color:#1c7a3e; color:#1c7a3e; }
+        .fz-social-cell.copied{ border-color:#1c7a3e; }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
