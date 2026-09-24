@@ -107,21 +107,13 @@ interface Tab {
   icon: string; // remixicon class
 }
 
-// The "upload" id is kept as-is (not renamed to "stories") -- it's an
-// internal key only (data-fz-tab, the #ppTab-${activeTab} deep-link hash,
-// this switch below), never shown to a fan, and renaming it would touch
-// every one of those call sites for no visible difference. Per direct
-// feedback, only the label/icon/content changed: this tab no longer
-// asks a fan to upload here (that now happens in the Career Path
-// Timeline's own Polaroid-triggered modal -- see ZoomableCareerTimeline.
-// tsx), it shows what's already been shared.
 const TABS: Tab[] = [
   { id: "schedule", label: "Game Log", icon: "ri-calendar-line" },
   { id: "stats",    label: "Stats",    icon: "ri-bar-chart-2-line" },
   { id: "news",     label: "News",     icon: "ri-newspaper-line" },
   { id: "social",   label: "Social",   icon: "ri-share-line" },
   { id: "connect",  label: "Connect",  icon: "ri-group-line" },
-  { id: "upload",   label: "Stories",  icon: "ri-gallery-line" },
+  { id: "upload",   label: "Upload",   icon: "ri-upload-cloud-line" },
 ];
 
 // CTA copy per tab
@@ -139,7 +131,7 @@ function getCta(tab: TabId, firstName: string): string {
     case "connect":
       return `Connect with ${firstName} through our Mentorship Marketplace.`;
     case "upload":
-      return `See the memories fans have shared on ${firstName}'s Career Path timeline.`;
+      return `Upload your favorite memories to ${firstName}'s Career Path timeline.`;
   }
 }
 
@@ -662,110 +654,15 @@ function ConnectPanel({ profileHref }: { profileHref: string }) {
   );
 }
 
-type StoryMoment = {
-  id: string;
-  title?: string;
-  image_url?: string;
-  image_data_url?: string;
-};
-
-type StoriesApiMoment = {
-  id?: string | number;
-  title?: string | null;
-  image_url?: string | null;
-  image_data_url?: string | null;
-};
-
-// Crude first pass, per direct instruction ("get rid of all that crap
-// inside of that tab... land in the fun zone box, just to see it land --
-// we can build around all that later"): a plain scrolling grid of
-// whatever's been uploaded, no like/comment/tag/share UI yet (that
-// already exists per-moment via ZoomableCareerTimeline's own
-// ReactionButton/MomentDetailModal, just not surfaced here as a feed).
-// Same lazy-fetch-once-tab-becomes-active pattern as NewsPanel just above
-// -- this card can be one of dozens rendered on a roster grid at once,
-// so this shouldn't fetch for every one of them whether or not a fan
-// ever opens this tab.
-function StoriesPanel({ player, isActive }: { player: Record<string, unknown>; isActive: boolean }) {
-  const playerId = String(player.playerid || "");
-  const [loading, setLoading] = useState(true);
-  const [moments, setMoments] = useState<StoryMoment[]>([]);
-  const hasFetchedRef = useRef(false);
-
-  useEffect(() => {
-    if (!isActive || hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    let cancelled = false;
-
-    async function loadMoments() {
-      if (!playerId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/player-moments?playerId=${encodeURIComponent(playerId)}`, {
-          cache: "no-store",
-        });
-
-        if (!res.ok) {
-          throw new Error(`Moments fetch failed: ${res.status}`);
-        }
-
-        const data = await res.json();
-        const rows: StoriesApiMoment[] = Array.isArray(data?.moments) ? data.moments : [];
-        const normalized: StoryMoment[] = rows
-          .map((row) => ({
-            id: String(row.id ?? ""),
-            title: row.title ?? undefined,
-            image_url: row.image_url ?? undefined,
-            image_data_url: row.image_data_url ?? undefined,
-          }))
-          .filter((moment) => moment.id && (moment.image_url || moment.image_data_url));
-
-        if (!cancelled) setMoments(normalized);
-      } catch (error) {
-        console.error("FunZone stories fetch error:", error);
-        if (!cancelled) setMoments([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadMoments();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isActive, playerId]);
-
-  if (loading) {
-    return (
-      <div className="fz-placeholder">
-        <i className="ri-gallery-line fz-ph-icon" />
-        <div className="fz-ph-text">Loading memories...</div>
-      </div>
-    );
-  }
-
-  if (!moments.length) {
-    return (
-      <div className="fz-placeholder">
-        <i className="ri-gallery-line fz-ph-icon" />
-        <div className="fz-ph-text">
-          No memories shared yet. Look for the Polaroid on the <strong>Career Path Timeline</strong> to add the first one.
-        </div>
-      </div>
-    );
-  }
-
+function UploadPanel({ player }: { player: Record<string, unknown> }) {
+  const firstName = String(player.firstname || player.first_name || "").split(" ")[0] || "this player";
   return (
-    <div className="fz-stories-grid">
-      {moments.map((moment) => (
-        <div className="fz-story-tile" key={moment.id}>
-          <img src={moment.image_url || moment.image_data_url} alt={moment.title || "Fan memory"} />
-        </div>
-      ))}
+    <div className="fz-placeholder">
+      <i className="ri-upload-cloud-line fz-ph-icon" />
+      <div className="fz-ph-text">
+        Upload your favorite memories to {firstName}&apos;s{" "}
+        <strong>Career Path timeline</strong> on the player profile page.
+      </div>
     </div>
   );
 }
@@ -921,7 +818,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "upload" ? " fz-panel-active" : ""}`}
         data-fz-tab="upload"
       >
-        <StoriesPanel player={player} isActive={activeTab === "upload"} />
+        <UploadPanel player={player} />
       </div>
 
       {/*
@@ -1082,17 +979,6 @@ export default function FunZone({
           overflow:hidden;
           padding:clamp(4px,1.8cqi,10px) clamp(5px,2.5cqi,12px) clamp(5px,2.5cqi,14px);
           background:transparent;
-        }
-        /* Deliberate exception to overflow:hidden above -- per direct
-           instruction, the Stories tab "obviously has to scroll
-           indefinitely as long as there's content there," unlike every
-           other panel here (see this file's own SCROLL RULE at the top:
-           "No overflow-y:auto or internal scrollbars anywhere in this
-           component"). Scoped to just this one panel via its own
-           data-fz-tab, not a change to the shared rule above. */
-        .fz-panel.fz-panel-active[data-fz-tab="upload"]{
-          overflow-y:auto;
-          overflow-x:hidden;
         }
 
         .fz-stats-shell{
@@ -1360,33 +1246,6 @@ export default function FunZone({
         .fz-social-cell svg{ width:clamp(20px,8.5cqi,40px); height:clamp(20px,8.5cqi,40px); flex-shrink:0; }
         .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
         .fz-social-cell.copied{ border-color:#1c7a3e; }
-
-        /* -- Stories panel ------------------------------------------------ */
-        /* Crude first pass (see StoriesPanel's own comment) -- a plain
-           square-tile grid, no per-tile interaction yet. The panel itself
-           scrolls (see .fz-panel-active[data-fz-tab="upload"] above), so
-           this grid just grows naturally with however many tiles exist
-           rather than needing its own separate scroll container. Square
-           tiles per direct feedback ("the Stories tab inside the fun zone
-           is square"). */
-        .fz-stories-grid{
-          display:grid;
-          grid-template-columns:repeat(3,minmax(0,1fr));
-          gap:clamp(4px,1.5cqi,8px);
-        }
-        .fz-story-tile{
-          aspect-ratio:1;
-          border-radius:clamp(4px,1.2cqi,7px);
-          overflow:hidden;
-          border:1px solid rgba(30,22,14,0.15);
-          background:rgba(255,255,255,0.08);
-        }
-        .fz-story-tile img{
-          width:100%;
-          height:100%;
-          object-fit:cover;
-          display:block;
-        }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
