@@ -29,7 +29,7 @@
 // - CTA strip and tab strip tighten first.
 // - fz-panel gets whatever space remains after CTA and tabs.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 // Constants
@@ -440,95 +440,6 @@ function CheckIcon() {
   );
 }
 
-// Scales the headline's font-size so the text always spans the full width
-// of its container edge to edge - "Cody" gets a much bigger font than
-// "Christopher" so both fill the same physical line, the way a poster
-// headline is sized, rather than stretching/squashing individual glyphs
-// (which would distort the letterforms). Font metrics scale linearly with
-// font-size, so measuring the natural width at one reference size is
-// enough to solve for the exact size that fills the container.
-// SSR/non-hydrated fallback (a cross-school favorite card injected via
-// innerHTML, which never runs this effect): the inner span simply has no
-// inline font-size yet, so it inherits .fz-social-tag's own clamp()-based
-// size - smaller and not edge-to-edge, but never broken or oversized.
-function FitWidthHeadline({ text }: { text: string }) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [fontSize, setFontSize] = useState<number | undefined>(undefined);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const textEl = textRef.current;
-    if (!container || !textEl) return;
-
-    function measure() {
-      const containerWidth = container!.clientWidth;
-      if (containerWidth <= 0) return;
-
-      const el = textEl!;
-      const prevInlineSize = el.style.fontSize;
-
-      // Converge on the exact fit by re-measuring at each successive guess,
-      // rather than one linear extrapolation from a single distant
-      // reference size. Font hinting/subpixel rounding isn't perfectly
-      // linear across a large size ratio (e.g. guessing from 100px down to
-      // a final ~20px), and for a long hashtag (many characters) that
-      // per-character rounding error can add up to several visible pixels
-      // of overflow - confirmed by testing, not theoretical.
-      let size = 100;
-      el.style.fontSize = `${size}px`;
-      let width = el.scrollWidth;
-
-      if (width > 0) {
-        for (let i = 0; i < 4; i++) {
-          size = Math.min(120, Math.max(10, (containerWidth / width) * size));
-          el.style.fontSize = `${size}px`;
-          width = el.scrollWidth;
-          if (width <= 0 || Math.abs(width - containerWidth) <= 1) break;
-        }
-      }
-
-      el.style.fontSize = prevInlineSize;
-      // Sane bounds so a not-yet-laid-out container (0/near-0 width) or a
-      // pathologically short/long tag can never produce an unusable size.
-      setFontSize(Math.min(120, Math.max(10, size)));
-    }
-
-    measure();
-
-    // Oswald loads asynchronously via the global Google Fonts <link> in
-    // layout.tsx - the very first measure() above can run before it has
-    // actually swapped in, sizing against a fallback font's metrics. That
-    // fixed pixel size can then over/underflow once Oswald itself paints.
-    // Re-measure once the real font is confirmed loaded, not just once on
-    // mount. (700 is the heaviest weight actually linked - font-weight:800
-    // in the CSS below matches .zt-persist-name's own declaration, which
-    // the browser satisfies from that same 700 file.)
-    let cancelled = false;
-    if (typeof document !== "undefined" && "fonts" in document) {
-      document.fonts.load('700 16px Oswald').catch(() => {});
-      document.fonts.ready.then(() => {
-        if (!cancelled) measure();
-      });
-    }
-
-    const ro = new ResizeObserver(measure);
-    ro.observe(container);
-    return () => {
-      cancelled = true;
-      ro.disconnect();
-    };
-  }, [text]);
-
-  return (
-    <span ref={containerRef} className="fz-social-tag">
-      <span ref={textRef} style={fontSize ? { fontSize: `${fontSize}px` } : undefined}>
-        {text}
-      </span>
-    </span>
-  );
-}
-
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
 // own feed with a personalized #YATABOY hashtag. Every link here is a plain
@@ -621,13 +532,13 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
-      {/* Same font as the player profile page's own name headline (Oswald
-          800, uppercase) - sized to always span the full width edge to
-          edge, whether the hashtag is short (#YATABOYCODY) or long
-          (#YATABOYCHRISTOPHER), instead of a fixed size that's oversized
-          for one and undersized for the other. */}
+      {/* Exact same font as the player profile page's own name headline -
+          .zt-title in ZoomableCareerTimeline.tsx (Oswald 700, uppercase,
+          letter-spacing:.005em - tight, not the looser spacing tried
+          earlier). Centered, fixed clamp()-based size - no longer
+          stretched edge-to-edge per feedback. */}
       <div className="fz-social-headline">
-        <FitWidthHeadline text={`#${hashtag}`} />
+        <span className="fz-social-tag">#{hashtag}</span>
         <span className="fz-social-headline-underline" aria-hidden="true" />
       </div>
 
@@ -1250,40 +1161,32 @@ export default function FunZone({
           min-height:0;
           gap:clamp(4px,1.6cqi,9px);
         }
-        /* Big, bold, uppercase, centered - same Oswald 800 as the player
-           profile page's own name headline. Stacks at the top of the panel,
-           straight (not tilted - tried that, it read as a mistake, not a
-           design choice) with the blue accent bar restored below it. */
+        /* Centered, uppercase, tight letter-spacing - the exact same font
+           declaration as .zt-title in ZoomableCareerTimeline.tsx (the
+           player profile page's own headline: Oswald 700, letter-
+           spacing:.005em). A fixed clamp()-based size, not stretched to
+           fill the width - straight, not tilted, with the blue accent bar
+           below it. */
         .fz-social-headline{
           flex:0 0 auto;
           display:flex;
           flex-direction:column;
+          align-items:center;
           gap:clamp(3px,1cqi,6px);
           padding:clamp(2px,1cqi,6px) 0 clamp(4px,1.5cqi,8px);
         }
-        /* Same font as the player profile page's own name headline
-           (.zt-persist-name in ZoomableCareerTimeline.tsx - Oswald 800,
-           uppercase), not a separate poster face - "the same font we use
-           all over the place." Outer element: block-level, full width,
-           centered, carries the font-family/weight/color (inherited by the
-           inner span) and a clamp()-based fallback size for the SSR/
-           non-hydrated case. Inner span: sized by FitWidthHeadline's own JS
-           to exactly span this element's width, whatever the hashtag's
-           length. */
         .fz-social-tag{
           display:block;
           width:100%;
           overflow:hidden;
+          white-space:nowrap;
+          text-overflow:ellipsis;
           text-align:center;
           text-transform:uppercase;
-          font:800 clamp(18px,9cqi,28px)/0.95 Oswald,sans-serif;
-          letter-spacing:.04em;
+          font:700 clamp(18px,9cqi,30px)/0.95 Oswald,sans-serif;
+          letter-spacing:.005em;
           color:rgba(30,22,14,0.96);
           text-shadow:0 2px 0 rgba(255,255,255,0.35);
-        }
-        .fz-social-tag span{
-          display:inline-block;
-          white-space:nowrap;
         }
         .fz-social-headline-underline{
           display:block;
