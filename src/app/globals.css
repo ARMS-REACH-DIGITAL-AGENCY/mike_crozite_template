@@ -86,10 +86,13 @@ video {
   padding-inline: 16px;
 }
 
+/* max-width/margin:0 auto dropped -- same fix as .yat-schoolrow and
+   .gallery-strip in YatStyles.tsx: this stopped row 4 short of the true
+   right edge on a wide screen, unlike row 1, which has never had a cap.
+   Renders on every page type except player profile (that row is folded
+   into row 3's own career-timeline strip there instead). */
 .yat-shell-meta-wrap {
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
   overflow: hidden;
   background: #111;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
