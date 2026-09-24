@@ -1199,7 +1199,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             Rewrapped to 5 lines (was 3, same words: "Add a memory to X's
             Career Timeline!") -- per direct feedback. One wording/size at
             every breakpoint, same as before. */}
-        <span className="zt-polaroid-caption">Add a<br />memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career<br />Timeline!</span>
+        {/* "Timeline!" is its own span, not a plain 5th <br />-separated
+            line -- per direct feedback, desktop only should read "Career
+            Timeline!" on one line, while mobile keeps the 5-line wrap. The
+            span is display:inline (falls in right after "Career " on the
+            same line) at every width down through the 900px breakpoint,
+            then switched to display:block under the 620px override below,
+            which forces it back onto its own line there. */}
+        <span className="zt-polaroid-caption">Add a<br />memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career <span className="zt-polaroid-caption-timeline">Timeline!</span></span>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
@@ -1705,7 +1712,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            outline does. */
         {/* line-clamp raised to 5 (was 4) to match the 5-line wrap above --
            otherwise the last line ("Timeline!") gets clipped. */}
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
+        {/* max-width raised from 150px so "Career Timeline!" has room to
+            sit on one line -- see the span itself, below. */}
+        .zt-polaroid-caption-timeline { display:inline; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
@@ -2009,12 +2019,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed) { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H_MOBILE}px) !important; }
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          /* Shifted right from the very edge (was left:6%). object-position
-             is pinned back to left-bottom here, overriding the desktop-
-             only "right bottom" (see the base rule) that anchors the
-             photo's opposite edge there instead -- this breakpoint's
-             layout was already correct and isn't part of that change. */
-          .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
+          /* Right-justified to just left of .zt-copy's own left edge, same
+             calc()-from-headline pattern the desktop base rule and the
+             900px breakpoint both already use (object-position:right
+             bottom is inherited from the base rule, not overridden here
+             anymore) -- per direct feedback that desktop's grouping is
+             "perfect" and mobile should replicate it, rather than the
+             flat left:24%/object-position:left-bottom this used to be
+             pinned to. */
+          .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(84px,28vw,120px)); width:clamp(84px,28vw,120px); }
           /* No room for a second full image alongside the HS cutout at
              this width without crowding the already-tight text column,
              so "now" occupies the exact same box as "then" instead of a
@@ -2033,13 +2046,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                limiting dimension for object-fit:contain once the image
                itself is that much bigger -- any overflow past the row's
                own edges is clipped by .zt-shell-images' overflow:hidden,
-               same as a zoomed-in hero photo). left:24%, the SAME left
-               .zt-person(then) itself uses -- both cutouts share one spot
-               again, back-cutout layered on top as the crossfade's own
-               "now" layer -- not offset to then's own center, which is
-               where an earlier pass had landed it. Per direct feedback:
-               "put both images in the same spot, with the high school/
-               then-cutout layer behind the top layer, the back-cutout."
+               same as a zoomed-in hero photo). left reuses .zt-person
+               (then)'s own left calc() (same anchor, same subtracted
+               width, THEN's width not this box's own wider one) -- the
+               exact same pattern the desktop base rule uses for its own
+               primary/then pair (see line ~1599), so the two boxes start
+               at the same point and only this one extends further right
+               since it's wider, rather than both sharing one flat 24%.
              - fallback (a squarer headshot cutout, shown only when
                there's no flip-card-back photo yet) is the one that
                actually renders too big at the ORIGINAL size, let alone
@@ -2049,20 +2062,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                column, not sharing this shared spot).
              bottom:2px, not 16px -- matches .zt-rail's own mobile bottom
              (see its rule) so both cases visibly rest on the timeline
-             instead of floating above it. */
-          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(168px,56vw,240px); bottom:2px; height:172%; object-position:left bottom; }
+             instead of floating above it. object-position:right bottom is
+             inherited from the base rule, not overridden here anymore --
+             see .zt-person's own comment just above for why. */
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 8px - clamp(84px,28vw,120px)); width:clamp(168px,56vw,240px); bottom:2px; height:172%; }
           /* SmartImage marks its <img> data-fallback="true" once it's had
              to move past the first source in its list -- see SmartImage's
              own comment. Only this case (the headshot fallback) gets
-             shrunk. left is now right-justified to just before the
-             slide's own headline/kicker/bodycopy column starts (.zt-copy's
-             own left:26% at this breakpoint, minus this box's own width) --
+             shrunk. left is right-justified to just before the slide's
+             own headline/kicker/bodycopy column starts (.zt-copy's own
+             left:32% at this breakpoint, minus this box's own width) --
              per direct feedback, "right justified to the left of the
              vertical line that the heading is left justified to," matching
-             the same relationship now used at the other two breakpoints,
-             rather than sharing that 26% line and overlapping into the
-             headline's own column. */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(26% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; }
+             the same relationship used at the other two breakpoints,
+             rather than sharing that line and overlapping into the
+             headline's own column. Recomputed from 26% to 32% to track
+             .zt-copy's own left below, which moved further right. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
@@ -2110,6 +2126,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              column stays, the less of it actually sits over that photo
              instead of the plain background. */
           .zt-polaroid-caption { font-size:11px; line-height:.92; max-width:80px; }
+          /* Desktop-only merge (see the base rule above) undone here --
+             mobile keeps "Timeline!" on its own line, the 5-line wrap. */
+          .zt-polaroid-caption-timeline { display:block; }
           /* Recomputed for this breakpoint's smaller metadata block (see
              the font-size overrides just above), plus the same added
              breathing room as the desktop base rule. */
@@ -2147,16 +2166,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
           /* One shared position for every slide kind, still -- left/width
-             moved back to the anchor's own original 26%/22% (real
-             52%-96% of the viewport, per the comment above), not
+             moved back to the anchor's own original 26%/22%, not
              lifeyear/season's old 22%/28% (real 44%-100%) that this got
              unified onto -- per direct feedback, that landed the headline
              too far left on every slide, anchor included, once it became
-             the shared value. Contained to the real screen's right half,
-             expressed as left+width rather than right, because this slide
-             is 200% wide, so "right" would measure from an edge that's
+             the shared value. Recomputed again from 26%/22% to 32%/17%
+             (real 64%-98%) -- per direct feedback the header/text block
+             still needed to move further right; the person-stack rules
+             above were changed to track this same 32% anchor so the hero
+             cutouts stay right-justified to this column's new position.
+             Contained to the real screen's right half, expressed as
+             left+width rather than right, because this slide is 200%
+             wide, so "right" would measure from an edge that's
              off-screen. */
-          .zt-copy { left:26%; right:auto; width:22%; bottom:14px; justify-content:flex-start; padding-top:10px; }
+          .zt-copy { left:32%; right:auto; width:17%; bottom:14px; justify-content:flex-start; padding-top:10px; }
           /* A touch smaller than the general .zt-bodycopy floor so the
              now-shorter anchor line ("Stay connected to X on his
              baseball journey...") has the best chance of actually
