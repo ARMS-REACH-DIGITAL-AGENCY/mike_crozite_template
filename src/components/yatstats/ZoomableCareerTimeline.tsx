@@ -2008,13 +2008,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            .zt-copy's own right:5% margin so it doesn't run under the
            headline text. Desktop (this base rule) only -- hidden at both
            narrower breakpoints below in favor of .zt-upload-flag. */
-        {/* aspect-ratio:1 (was 6/7) + border-radius:50% -- per direct
-            feedback, this thumbnail should read as a circle, never a
-            rectangle regardless of the source photo's own shape.
-            object-fit:cover already center-crops whatever aspect ratio
-            the actual photo is (landscape, portrait, square) to fill this
-            square box before the circular mask is applied, the same way
-            Instagram's own grid crops without distorting. */}
+        /* aspect-ratio:1 (was 6/7) + border-radius:50% -- per direct
+           feedback, this thumbnail should read as a circle, never a
+           rectangle regardless of the source photo's own shape.
+           object-fit:cover already center-crops whatever aspect ratio
+           the actual photo is (landscape, portrait, square) to fill this
+           square box before the circular mask is applied, the same way
+           Instagram's own grid crops without distorting. */
         .zt-visual :global(.zt-person-upload-thumb) { position:absolute; z-index:5; top:16px; right:5%; left:auto; bottom:auto; width:clamp(46px,6vw,64px); aspect-ratio:1; height:auto; max-width:none; object-fit:cover; border-radius:50%; border:2px solid ${TIMELINE_YELLOW}; box-shadow:0 6px 14px rgba(0,0,0,.5); }
         /* Mobile/tablet stand-in for the thumbnail above -- a plain icon
            badge, not the photo itself (see the JSX comment on this
@@ -2120,19 +2120,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            mobile overlap), but wasn't enough to make light cursive text
            actually stand out against a busy background the way a solid
            outline does. */
-        {/* line-clamp raised to 5 (was 4) to match the 5-line wrap above --
-           otherwise the last line ("Timeline!") gets clipped. */}
+        /* line-clamp raised to 5 (was 4) to match the 5-line wrap above --
+           otherwise the last line ("Timeline!") gets clipped. */
         .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
-        {/* max-width raised from 150px so "Career Timeline!" has room to
-            sit on one line -- see the span itself, below. */}
+        /* max-width raised from 150px so "Career Timeline!" has room to
+           sit on one line -- see the span itself, below. */
         .zt-polaroid-caption-timeline { display:inline; }
-        {/* Now a <button> (see its own JSX comment) sitting inside a
-            pointer-events:none parent -- pointer-events:auto here puts
-            just this element back in the hit-testing tree. border:0/
-            font:inherit/cursor:pointer undo the browser's own default
-            button chrome so it still reads as the same plain Polaroid
-            card it was as a <div>; background/padding/box-shadow etc. are
-            unchanged from before. */}
+        /* Now a <button> (see its own JSX comment) sitting inside a
+           pointer-events:none parent -- pointer-events:auto here puts
+           just this element back in the hit-testing tree. border:0/
+           font:inherit/cursor:pointer undo the browser's own default
+           button chrome so it still reads as the same plain Polaroid
+           card it was as a <div>; background/padding/box-shadow etc. are
+           unchanged from before. */
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); border:0; font:inherit; cursor:pointer; pointer-events:auto; }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
@@ -2165,14 +2165,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            was 600, reading as too blocky/heavy next to it, per direct
            feedback. */
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
-        {/* Thin black outline (4-directional text-shadow, not
-            -webkit-text-stroke -- a stroke draws centered on the glyph
-            and eats into thin letterforms at this weight, while stacked
-            shadows sit outside it) plus a soft drop shadow underneath --
-            per direct feedback, so the headline/quote text (this class
-            covers both, see the quote slide's own JSX) stays readable
-            over whatever part of the hero photo happens to land behind
-            it, not just on the plain background. */}
+        /* Thin black outline (4-directional text-shadow, not
+           -webkit-text-stroke -- a stroke draws centered on the glyph
+           and eats into thin letterforms at this weight, while stacked
+           shadows sit outside it) plus a soft drop shadow underneath --
+           per direct feedback, so the headline/quote text (this class
+           covers both, see the quote slide's own JSX) stays readable
+           over whatever part of the hero photo happens to land behind
+           it, not just on the plain background. */
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000, 0 2px 5px rgba(0,0,0,.65); }
         /* .zt-season added alongside anchor/lifeyear here -- same class of
            gap as the .zt-copy positioning fix a pass ago: left out of a
