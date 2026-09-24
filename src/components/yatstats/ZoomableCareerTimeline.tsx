@@ -1748,7 +1748,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            was 600, reading as too blocky/heavy next to it, per direct
            feedback. */
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
-        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        {/* Thin black outline (4-directional text-shadow, not
+            -webkit-text-stroke -- a stroke draws centered on the glyph
+            and eats into thin letterforms at this weight, while stacked
+            shadows sit outside it) plus a soft drop shadow underneath --
+            per direct feedback, so the headline/quote text (this class
+            covers both, see the quote slide's own JSX) stays readable
+            over whatever part of the hero photo happens to land behind
+            it, not just on the plain background. */}
+        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000, 0 2px 5px rgba(0,0,0,.65); }
         /* .zt-season added alongside anchor/lifeyear here -- same class of
            gap as the .zt-copy positioning fix a pass ago: left out of a
            shared rule, fell back to the base .zt-title's nowrap+ellipsis
