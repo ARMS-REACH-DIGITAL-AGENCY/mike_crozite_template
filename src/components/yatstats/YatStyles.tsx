@@ -496,11 +496,23 @@ export default function YatStyles() {
       .front-chip--estimated{background:rgba(0,0,0,.25);color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.1);font-weight:400}
       .yat-section{display:none}
       .yat-section.visible{display:block}
-      .yat-grid{max-width:1400px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-      @media(max-width:1400px){.yat-grid{grid-template-columns:repeat(4,1fr)}}
-      @media(max-width:1100px){.yat-grid{grid-template-columns:repeat(3,1fr)}}
-      @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
-      @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
+      /* repeat(auto-fill, 264px) replaces the old max-width:1400px cap +
+         five hand-tuned column-count breakpoints (5/4/3/2/1 at
+         1400/1100/768/520px). 264px is exactly what a card rendered at
+         under the old base rule (5 columns, 12px gap, 16px padding,
+         1400px cap): (1400-32-4*12)/5=264. A fixed track size (not
+         minmax(264px,1fr)) keeps every card exactly that width always --
+         it never grows to soak up leftover space -- so the grid just fits
+         as many whole 264px columns as the available width allows, at
+         ANY width: 1 on a narrow phone, 5 around 1400px (matching the old
+         design almost exactly), and as many as an ultra-wide monitor can
+         fit past that, continuously, with no further breakpoints needed.
+         justify-content is left at its grid default (start), not center,
+         so leftover space past the last full column sits on the right,
+         matching the left-anchored convention every other row now uses.
+         Per direct feedback: same card size, more columns on a wider
+         screen, not bigger cards. */
+      .yat-grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,264px);gap:12px}
       .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
       .yat-card::before{content:"";display:block;padding-top:140%}
       .yat-card-inner{position:absolute;inset:0;perspective:1200px}
