@@ -2008,7 +2008,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            .zt-copy's own right:5% margin so it doesn't run under the
            headline text. Desktop (this base rule) only -- hidden at both
            narrower breakpoints below in favor of .zt-upload-flag. */
-        .zt-visual :global(.zt-person-upload-thumb) { position:absolute; z-index:5; top:16px; right:5%; left:auto; bottom:auto; width:clamp(46px,6vw,64px); aspect-ratio:6/7; height:auto; max-width:none; object-fit:cover; border-radius:3px; border:2px solid ${TIMELINE_YELLOW}; box-shadow:0 6px 14px rgba(0,0,0,.5); }
+        {/* aspect-ratio:1 (was 6/7) + border-radius:50% -- per direct
+            feedback, this thumbnail should read as a circle, never a
+            rectangle regardless of the source photo's own shape.
+            object-fit:cover already center-crops whatever aspect ratio
+            the actual photo is (landscape, portrait, square) to fill this
+            square box before the circular mask is applied, the same way
+            Instagram's own grid crops without distorting. */}
+        .zt-visual :global(.zt-person-upload-thumb) { position:absolute; z-index:5; top:16px; right:5%; left:auto; bottom:auto; width:clamp(46px,6vw,64px); aspect-ratio:1; height:auto; max-width:none; object-fit:cover; border-radius:50%; border:2px solid ${TIMELINE_YELLOW}; box-shadow:0 6px 14px rgba(0,0,0,.5); }
         /* Mobile/tablet stand-in for the thumbnail above -- a plain icon
            badge, not the photo itself (see the JSX comment on this
            element for why: "these images... can only appear on desktop,

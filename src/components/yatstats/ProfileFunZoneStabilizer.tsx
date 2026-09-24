@@ -178,7 +178,13 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     .stories-placeholder i { font-size:28px; opacity:.4; }
     .stories-placeholder div { font:400 13px/1.5 system-ui,sans-serif; max-width:320px; }
     .stories-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; }
-    .stories-tile { aspect-ratio:1; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05); transition:box-shadow .3s, border-color .3s; }
+    /* border-radius:50% (was 6px) -- per direct feedback, thumbnails
+       should read as circles, never rectangles, regardless of the
+       source photo's own shape. Already aspect-ratio:1 with object-fit:
+       cover on the <img> below, which center-crops any landscape/
+       portrait/square photo to fill this square box before the circular
+       mask is applied -- same as Instagram's own grid. */
+    .stories-tile { aspect-ratio:1; border-radius:50%; overflow:hidden; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05); transition:box-shadow .3s, border-color .3s; }
     .stories-tile img { width:100%; height:100%; object-fit:cover; display:block; }
     .stories-tile-highlight { border-color:#d2b45c; box-shadow:0 0 0 3px rgba(210,180,92,.55); }
     @media (max-width:760px) {
