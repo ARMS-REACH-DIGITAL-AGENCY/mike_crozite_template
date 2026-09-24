@@ -2025,11 +2025,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* SmartImage marks its <img> data-fallback="true" once it's had
              to move past the first source in its list -- see SmartImage's
              own comment. Only this case (the headshot fallback) gets
-             shrunk, and left-justified with the header/metadata block
-             instead of .zt-person(then)'s position -- a different anchor
-             point than the primary source above, not just a smaller
-             version of the same box. */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:var(--x-logo-left); width:clamp(40px,14vw,60px); height:30%; }
+             shrunk, and left-justified with the slide's own headline/
+             kicker/bodycopy column (.zt-copy's own left:26% at this
+             breakpoint, not .zt-moment-cta's name/metadata block) -- a
+             different anchor point than the primary source above, not
+             just a smaller version of the same box. Was var(--x-logo-left)
+             (the metadata block's own left edge, far off at the frame's
+             true left edge) -- corrected per direct feedback: "you
+             justified the now-cutout to the far left of the screen, not
+             the headline of the year slide." */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:26%; width:clamp(40px,14vw,60px); height:30%; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
