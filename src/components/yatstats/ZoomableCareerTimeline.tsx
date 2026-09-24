@@ -1634,8 +1634,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            is a fixed pixel estimate of that block's own height (name +
            4 metadata lines + Class Of, top:4px start) plus a bit of
            breathing room below it -- per direct feedback, this row was
-           sitting too close under the Class Of line above it. */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:110px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
+           sitting too close under the Class Of line above it.
+           align-items:flex-start, not flex-end -- per direct feedback,
+           the caption should start level with the Polaroid's own top
+           edge, not bottom-align with it (the caption is the shorter of
+           the two, so bottom-aligning left its first line sitting well
+           below the Polaroid's top). */
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:110px; display:flex; flex-direction:row; align-items:flex-start; gap:10px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
            same UI chrome type everywhere else on this slide. One wording
@@ -1652,7 +1657,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            overlap at all at phone widths), and the caption was reading as
            illegible mid-photo without something to keep the text itself
            legible regardless of what's behind it at any given point. */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1.1; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6); transform:rotate(-4deg); transform-origin:left bottom; }
+        /* line-height tightened to 1.0 (was 1.1) -- per direct feedback,
+           the lines were sitting too far apart. transform-origin is left
+           top now, not left bottom -- matches .zt-polaroid-stack's own
+           align-items:flex-start above (this text's top edge is the fixed
+           point now, not its bottom). */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6); transform:rotate(-4deg); transform-origin:left top; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
@@ -2018,7 +2028,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              positions, not aware of each other), so the narrower this
              column stays, the less of it actually sits over that photo
              instead of the plain background. */
-          .zt-polaroid-caption { font-size:11px; line-height:1.05; max-width:80px; }
+          .zt-polaroid-caption { font-size:11px; line-height:.92; max-width:80px; }
           /* Recomputed for this breakpoint's smaller metadata block (see
              the font-size overrides just above), plus the same added
              breathing room as the desktop base rule. */
