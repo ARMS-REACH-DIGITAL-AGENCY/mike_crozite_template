@@ -90,7 +90,7 @@ type StatRow = {
 
 type BigStat = { label: string; value: string };
 
-type SlideKind = 'anchor' | 'season' | 'upload' | 'today' | 'lifeyear';
+type SlideKind = 'anchor' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future';
 
 type MomentComment = {
   id: string;
@@ -727,6 +727,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     // fan photo dated into that range fills its year's placeholder instead
     // of clamping up to hsYear.
     const lifeYearStart = hsYear - LIFE_YEAR_COUNT;
+    // One standardized screen sitting right after Today, at January 1st of
+    // next year -- per direct feedback, each point on this timeline marks
+    // a January 1st, and fans keep uploading moments all through the
+    // current year that need somewhere to land once that next January 1st
+    // has actually passed. Not tied to LIFE_YEAR_QUOTES or any real data,
+    // same as the birth-year screen at the other end.
+    const futureYear = endYear + 1;
     const preHsUploaded: Slide[] = [];
     const postHsUploaded: Slide[] = [];
     uploads
@@ -734,7 +741,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       .forEach((item) => {
         const rawYear = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
         const isPreHs = rawYear >= lifeYearStart && rawYear < hsYear;
-        const year = isPreHs ? rawYear : clamp(rawYear, hsYear, endYear);
+        // Upper bound raised to futureYear (was endYear) -- a moment
+        // actually dated into that next year (uploaded throughout it, per
+        // direct feedback) should land on the future screen itself instead
+        // of getting clamped back onto Today's.
+        const year = isPreHs ? rawYear : clamp(rawYear, hsYear, futureYear);
         const override = localOverrides[`upload-${item.id}`];
         const slide: Slide = {
           id: `upload-${item.id}`,
@@ -808,16 +819,30 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
     };
 
+    // Only add the standing invite if a real moment hasn't already been
+    // dated into futureYear -- once one has (see the raised upload clamp
+    // above), that upload's own slide already serves this same spot, same
+    // as how a dated pre-HS upload skips its matching lifeyear placeholder.
+    const futureSlide: Slide | null = postHsUploaded.some((s) => s.year === futureYear)
+      ? null
+      : {
+          id: 'career-path-future',
+          kind: 'future',
+          year: futureYear,
+          title: `His story keeps going. Check back throughout ${futureYear} for new moments.`,
+          yatiFallback: YATI_PLACEHOLDERS[0],
+        };
+
     // No more force-pinning the anchor to index 0: preHsUploaded + lifeYears
     // + earlyYears always total exactly 18 screens between them, so sorted
     // by year the anchor always lands at index 18 -- the 19th screen --
     // instead of always being first. A fan can still swipe further back
     // through those 18 life years, all the way to birth.
-    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, today]
+    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, today, ...(futureSlide ? [futureSlide] : [])]
       .sort((a, b) => a.year - b.year);
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
-    return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
+    return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
   }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, player?.classOf]);
 
   const ready = statsLoaded && uploadsLoaded;
@@ -1265,6 +1290,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
             );
           }
+          if (slide.kind === 'future') {
+            return (
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${slide.year} — story continues`} />
+            );
+          }
           return null;
         })}
       </div>
@@ -1324,6 +1354,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   )}
                 </>
               )}
+              {slide.kind === 'future' && (
+                <>
+                  <span className="zt-kick">{slide.year}</span>
+                  <span className="zt-title">{slide.title}</span>
+                </>
+              )}
               {slide.kind === 'upload' && (
                 <>
                   {(slide.relationship || slide.contributorName) && (
@@ -1353,6 +1389,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
             <i className="ri-arrow-right-s-line" />
           </button>
+          {/* Closing boundary for the future screen above -- per direct
+              feedback, adding that one screen really means two points on
+              the timeline (each point marks a January 1st: the screen
+              opens on futureYear's, and the timeline should visibly run
+              through the following January 1st too), but the second point
+              doesn't open a screen of its own -- plain span, not a button,
+              and outside .zt-rail entirely so it doesn't need to fit into
+              that div's own index-based tick spacing. */}
+          <span className="zt-rail-tick zt-rail-tick-boundary" aria-hidden="true">
+            <span className="zt-rail-tick-year">{String(model.futureYear + 1).slice(-2)}</span>
+          </span>
           <div className="zt-rail" ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
             <span className="zt-rail-fill" style={{ width: `${railProgress * 100}%` }} aria-hidden="true" />
@@ -1644,7 +1691,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            headline, not their own italic style, and pre-line was forcing
            a source-text line break to render literally instead of letting
            the sentence just flow and wrap naturally. */
-        .zt-anchor .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title { white-space:normal; overflow-wrap:anywhere; }
         .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         /* The season's 4 headline numbers, big and plain -- no card/tile
            background, border or shadow, per direct feedback ("it doesn't
@@ -1706,13 +1753,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            now clear the prev/next arrows individually (6px inset + 20px
            width + 8px gap = 34px each side) now that they sit at opposite
            ends instead of both being clustered on the right. */
-        .zt-rail { position:absolute; z-index:6; left:34px; right:34px; bottom:20px; height:12px; }
+        /* right:44px, not the mirrored 34px -- the extra 10px makes room
+           for .zt-rail-tick-boundary (see below) to sit clearly separated
+           from both the last real tick and .zt-nav-next beside it, rather
+           than crowding either. */
+        .zt-rail { position:absolute; z-index:6; left:34px; right:44px; bottom:20px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
         /* Every tick red now, not just the birth-year one -- per direct
            feedback. */
         .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:#e5342a; cursor:pointer; }
         .zt-rail-tick.active { background:transparent; cursor:default; }
+        /* Sits outside .zt-rail (see its own JSX comment), so top:50%/
+           margin-left from the base rule above -- both relative to
+           .zt-rail's own box -- are overridden here against the outer
+           frame instead: bottom matches .zt-rail's own bottom+half its
+           height, right sits in the gap between the rail's own right
+           edge and .zt-nav-next beside it. Not a button, so no hover/
+           active state to style. */
+        .zt-rail-tick-boundary { top:auto; bottom:20px; left:auto; right:36px; margin-left:0; transform:none; cursor:default; }
         /* Sits just below each tick's own dot now (was above it), per
            direct feedback. Hidden on the active tick itself so it doesn't
            double up with .zt-rail-year's own bigger, bold, draggable
