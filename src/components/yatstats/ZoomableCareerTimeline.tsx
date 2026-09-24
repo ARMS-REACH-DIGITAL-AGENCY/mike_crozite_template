@@ -1686,28 +1686,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            year directly into that gap -- an opaque year chip painted over
            both the fill and the track -- rather than lighting a mark up
            gold. */
-        .zt-nav { position:absolute; z-index:7; bottom:2px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
+        /* bottom raised to 16px (was 2px) to stay level with .zt-rail's
+           own new position (see below) -- both moved up together so the
+           per-tick year labels underneath the rail have room to clear the
+           frame's bottom edge instead of getting clipped by it. */
+        .zt-nav { position:absolute; z-index:7; bottom:16px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
         .zt-nav:disabled { opacity:.3; cursor:default; }
-        .zt-nav-prev { right:30px; left:auto; }
+        /* Moved from stacked next to zt-nav-next (right:30px) over to the
+           far left edge -- per direct feedback, the rail should sit
+           between the two arrows, not have both of them clustered at one
+           end of it. Mirrors zt-nav-next's own right:6px inset. */
+        .zt-nav-prev { left:6px; right:auto; }
         .zt-nav-next { right:6px; }
-        /* Dropped to bottom:4px (was 11px) -- right on top of the gold
-           .zt-visual-baseline rule, per direct feedback: "just put the
-           timeline down there." left is now a fixed pixel value clearing
-           the Polaroid+CTA row (10px inset + 64px Polaroid + 10px gap +
-           150px caption + margin), not var(--hero-rail-left) -- that
-           variable ties the rail to the headline column, which is a
-           completely different, unrelated reason to move than "leave room
-           for the Polaroid." right:60px is unchanged, still tied to the
-           screen's true right edge so this keeps growing on a wide screen
-           the same as before. .zt-nav's bottom dropped to 2px to match,
-           keeping the prev/next buttons roughly centered against the
-           rail's new position instead of sitting above it. */
-        /* left now clears just the fixed nav-arrow gutter, not the old
-           Polaroid+caption row -- that row lives under the metadata block
-           now (see .zt-polaroid-stack below), so the rail can run all the
-           way out to the frame's own left edge instead of starting well
-           into it. */
-        .zt-rail { position:absolute; z-index:6; left:var(--x-logo-left); right:60px; bottom:4px; height:12px; }
+        /* bottom raised to 20px (was 4px) -- per direct feedback, moving
+           the per-tick year labels to sit below each dot (see
+           .zt-rail-tick-year below) meant they were landing right at, and
+           getting clipped by, this frame's own bottom edge; raising the
+           whole rail (ticks, labels, and all) clears that. left/right
+           now clear the prev/next arrows individually (6px inset + 20px
+           width + 8px gap = 34px each side) now that they sit at opposite
+           ends instead of both being clustered on the right. */
+        .zt-rail { position:absolute; z-index:6; left:34px; right:34px; bottom:20px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
         /* Every tick red now, not just the birth-year one -- per direct
