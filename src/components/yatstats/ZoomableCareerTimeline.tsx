@@ -1196,11 +1196,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         {/* Explicit breaks, not natural wrap -- per direct feedback with a
             reference mockup showing exactly these line breaks, not
             wherever the text happens to wrap at this box's width.
-            Shortened to 3 lines (was 4, "Post a shared moment you had
-            with X on his timeline!") -- per direct feedback, "we have to
-            get this CTA right." One wording/size at every breakpoint,
-            same as before. */}
-        <span className="zt-polaroid-caption">Add a memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career Timeline!</span>
+            Rewrapped to 5 lines (was 3, same words: "Add a memory to X's
+            Career Timeline!") -- per direct feedback. One wording/size at
+            every breakpoint, same as before. */}
+        <span className="zt-polaroid-caption">Add a<br />memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career<br />Timeline!</span>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
@@ -1689,7 +1688,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            mobile overlap), but wasn't enough to make light cursive text
            actually stand out against a busy background the way a solid
            outline does. */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
+        {/* line-clamp raised to 5 (was 4) to match the 5-line wrap above --
+           otherwise the last line ("Timeline!") gets clipped. */}
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
