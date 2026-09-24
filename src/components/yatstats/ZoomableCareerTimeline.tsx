@@ -701,6 +701,11 @@ function MomentUploadModal({
       setDone(true);
       setStatus('Uploaded! It will appear on the timeline after review.');
       onUploaded();
+      // Same event name/shape the (unused) GoldenLineUploadPanel.tsx
+      // already established for this -- lets ProfileFunZoneStabilizer.tsx's
+      // Stories panel refresh itself live, without a full page reload,
+      // the moment a fan submits through this modal.
+      window.dispatchEvent(new CustomEvent('yat:golden-line-uploaded', { detail: data.moment }));
       window.setTimeout(onClose, 1600);
     } catch (error: any) {
       setStatus(error?.message || 'Upload failed');
@@ -1379,19 +1384,26 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   function handleSlideClick(slide: Slide) {
     if (dragRef.current.moved) return;
-    if (slide.kind === 'upload') { setOpenMomentId(slide.id); return; }
-    // Anchor excluded -- it already has its own explicit "Click to
-    // Upload" Polaroid button (see its own onClick below); making the
-    // WHOLE anchor slide open the modal too would double up with that.
-    // Every other kind (an empty "Age 4" life-year screen, a season, the
-    // Today/future placeholders) has no upload affordance of its own yet,
-    // so clicking it now opens the same modal pre-filled to its own year
-    // -- per direct feedback: a fan browsing the timeline who spots an
-    // age they have a photo for shouldn't have to separately go find and
-    // pick that year themselves.
-    if (slide.kind === 'anchor') return;
-    setUploadPrefillYear(slide.year);
-    setUploadModalOpen(true);
+    // Reverted: a prior pass made every other slide kind (life-year,
+    // season, today, future) also open the upload modal on click,
+    // pre-filled to that slide's year. Per direct correction, that's
+    // wrong -- ONLY the anchor's own explicit "Click to Upload" Polaroid
+    // button opens the upload modal; no other slide does anything on
+    // click except this 'upload' case below.
+    if (slide.kind !== 'upload') return;
+    // A fan-submitted moment's own small thumbnail on the timeline (see
+    // .zt-person-upload-thumb's own JSX). Per direct correction, clicking
+    // it should NOT open a modal here at all -- it should jump to the
+    // Fun Zone's Stories tab (ProfileFunZoneStabilizer.tsx, on this same
+    // profile page) and scroll that specific photo into view there.
+    // Communicated via a plain custom event, the same cross-component
+    // pattern this codebase already uses elsewhere (yat:golden-line-
+    // stage, yat:golden-line-prefill, yat:acct-tab). The comment-count
+    // pill still opens MomentDetailModal directly (see its own onClick,
+    // which stops propagation before this handler ever runs) -- this
+    // only changes what clicking the photo/thumbnail itself does.
+    window.dispatchEvent(new CustomEvent('yat:view-story', { detail: { momentId: slide.momentDbId } }));
+    window.location.hash = '#ppTab-upload';
   }
 
   // Desktop mice only scroll vertically by default; redirect vertical
