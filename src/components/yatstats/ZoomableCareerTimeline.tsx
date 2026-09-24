@@ -561,13 +561,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     currentTeamName: string; orgConferenceName: string; levelLabel: string; statusLabel: string;
     position: string; bats: string; throws: string; height: string; weight: string;
   } | null>(null);
+  // SharedShell doesn't remount between two players' profiles, so this
+  // effect re-fires on client-side navigation with the previous player's
+  // identity still in state. Cleared first so a slow or failed fetch
+  // leaves the team/org/status lines blank rather than showing the last
+  // player's team as if it were this one's.
   useEffect(() => {
+    setIdentityMeta(null);
     if (!playerId) return;
     let cancelled = false;
     fetch(`/api/player-identity?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) throw new Error(`player-identity ${res.status} for playerId=${playerId}`);
+        return res.json();
+      })
       .then((data) => { if (!cancelled && data) setIdentityMeta(data); })
-      .catch(() => {});
+      .catch((error) => { if (!cancelled) console.error('[ZoomableCareerTimeline] identity fetch failed:', error); });
     return () => { cancelled = true; };
   }, [playerId]);
   // Same resolution SchoolContextBar.tsx uses for its own breadcrumb: the
@@ -627,9 +636,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   useEffect(() => {
     let cancelled = false;
+    setStats([]);
     setStatsLoaded(false);
     fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) throw new Error(`player-season-stats ${res.status} for playerId=${playerId}`);
+        return res.json();
+      })
       .then((data) => {
         if (cancelled) return;
         const primary = data?.primaryType === 'batting' ? data?.batting : data?.pitching;
@@ -639,20 +652,33 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         ];
         setStats(Array.isArray(primary) && primary.length ? primary : fallback);
       })
-      .catch(() => { if (!cancelled) setStats([]); })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('[ZoomableCareerTimeline] season stats fetch failed:', error);
+        setStats([]);
+      })
       .finally(() => { if (!cancelled) setStatsLoaded(true); });
     return () => { cancelled = true; };
   }, [playerId]);
 
   useEffect(() => {
     let cancelled = false;
+    setUploads([]);
     setUploadsLoaded(false);
     setLocalOverrides({});
+    setOpenMomentId(null);
     initializedRef.current = false;
     fetch(`/api/player-moments?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) throw new Error(`player-moments ${res.status} for playerId=${playerId}`);
+        return res.json();
+      })
       .then((data) => { if (!cancelled) setUploads(Array.isArray(data?.moments) ? data.moments : []); })
-      .catch(() => { if (!cancelled) setUploads([]); })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('[ZoomableCareerTimeline] moments fetch failed:', error);
+        setUploads([]);
+      })
       .finally(() => { if (!cancelled) setUploadsLoaded(true); });
     return () => { cancelled = true; };
   }, [playerId]);
