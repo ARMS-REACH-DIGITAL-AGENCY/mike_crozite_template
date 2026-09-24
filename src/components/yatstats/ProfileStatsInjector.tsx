@@ -79,7 +79,12 @@ function cleanText(value: unknown) {
   return String(value ?? '').replace(/[\u0091\u0092\u0093\u0094]/g, '').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
 }
 
-function abbreviateTeam(value: unknown) {
+// Names this code needs to NOT auto-shorten via the generic mascot-drop
+// fallback below, because the short form would be wrong or ambiguous
+// (dropping "Mets" from "New York Mets" collides with the Yankees' city).
+const TEAM_NO_GENERIC_SHORTEN = new Set(['NEW YORK METS', 'NEW YORK YANKEES', 'LOS ANGELES ANGELS']);
+
+function abbreviateTeam(value: unknown, level?: string) {
   const team = cleanText(value);
   const key = team.toUpperCase();
   const exact: Record<string, string> = {
@@ -95,19 +100,99 @@ function abbreviateTeam(value: unknown) {
     'SCRANTON/WILES-BARRE RAILRAIDERS': 'SCRANTON/WB',
     'FCL METS': 'FCL METS',
     'ST. LUCIE METS': 'ST. LUCIE',
+    'WEST MICHIGAN WHITECAPS': 'West Michigan',
   };
   if (exact[key]) return exact[key];
-  return team
+
+  const specific = team
+    .replace(/\bCommunity College\b/gi, 'CC')
+    .replace(/\bState University\b/gi, 'State')
     .replace(/\bUniversity\b/gi, 'Univ.')
     .replace(/\bCollege\b/gi, 'Coll.')
     .replace(/\bRumble Ponies\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  // A specific rule above already shortened it - don't also run the
+  // generic fallback below on top of that (e.g. "Colorado State
+  // University-Pueblo" -> "Colorado State-Pueblo" would otherwise get its
+  // "-Pueblo" dropped too by the word-count check, losing the campus).
+  if (specific !== team) return specific;
+
+  // MLB's 30 franchise names are already short and exactly what fans
+  // expect to see (Los Angeles Dodgers, Detroit Tigers) - never guess-
+  // truncate those. Everything else here is a MiLB affiliate or a college
+  // team not caught by a specific rule above, and those overwhelmingly
+  // follow a "<location> <mascot>" pattern (Rancho Cucamonga Quakes,
+  // Oklahoma City Dodgers) - past a length where it'd blow out the
+  // column, drop the last word (the mascot), the same shortening
+  // broadcasts and the exact-match list above already use by hand
+  // (Brooklyn Cyclones -> Brooklyn, West Michigan Whitecaps -> West
+  // Michigan) - just generalized instead of needing every team hardcoded.
+  if (level !== 'MLB' && specific.length > 18 && !TEAM_NO_GENERIC_SHORTEN.has(key)) {
+    const words = specific.split(' ');
+    if (words.length >= 2) {
+      const dropped = words.slice(0, -1).join(' ').trim();
+      if (dropped.length >= 4) return dropped;
+    }
+  }
+
+  return specific;
+}
+
+// Common NCAA conference full names -> the abbreviation fans actually use.
+// Anything not in this list still gets shortened by initializeOrg() below
+// rather than showing the full spelled-out name, so a conference this list
+// doesn't yet know about doesn't blow out the column width either.
+const ORG_ABBREVIATIONS: Record<string, string> = {
+  'ROCKY MOUNTAIN ATHLETIC CONFERENCE': 'RMAC',
+  'MOUNTAIN WEST CONFERENCE': 'Mountain West',
+  'BIG SOUTH CONFERENCE': 'Big South',
+  'SOUTHERN CONFERENCE': 'SoCon',
+  'ATLANTIC COAST CONFERENCE': 'ACC',
+  'SOUTHEASTERN CONFERENCE': 'SEC',
+  'BIG TEN CONFERENCE': 'Big Ten',
+  'PACIFIC-12 CONFERENCE': 'Pac-12',
+  'PAC-12 CONFERENCE': 'Pac-12',
+  'BIG 12 CONFERENCE': 'Big 12',
+  'MISSOURI VALLEY CONFERENCE': 'MVC',
+  'CONFERENCE USA': 'C-USA',
+  'MID-AMERICAN CONFERENCE': 'MAC',
+  'WEST COAST CONFERENCE': 'WCC',
+  'AMERICAN ATHLETIC CONFERENCE': 'AAC',
+  'OHIO VALLEY CONFERENCE': 'OVC',
+  'SUN BELT CONFERENCE': 'Sun Belt',
+  'SOUTHLAND CONFERENCE': 'Southland',
+  'BIG SKY CONFERENCE': 'Big Sky',
+  'BIG WEST CONFERENCE': 'Big West',
+  'IVY LEAGUE': 'Ivy',
+  'PATRIOT LEAGUE': 'Patriot',
+  'COLONIAL ATHLETIC ASSOCIATION': 'CAA',
+  'HORIZON LEAGUE': 'Horizon',
+  'METRO ATLANTIC ATHLETIC CONFERENCE': 'MAAC',
+  'NORTHEAST CONFERENCE': 'NEC',
+  'AMERICA EAST CONFERENCE': 'America East',
+};
+
+const ORG_INITIALISM_SKIP_WORDS = new Set(['of', 'the', 'and', 'for']);
+
+// Fallback for any long org/conference name not in ORG_ABBREVIATIONS above -
+// initials of the significant words (Rocky Mountain Athletic Conference ->
+// RMAC), same convention fans already use for the ones in the dictionary,
+// so a conference this code doesn't know by name yet still renders short.
+function initializeOrg(value: string) {
+  const words = value.split(/\s+/).filter((w) => w && !ORG_INITIALISM_SKIP_WORDS.has(w.toLowerCase()));
+  if (words.length < 3) return value;
+  const initials = words.map((w) => w[0]?.toUpperCase() || '').join('');
+  return initials.length >= 3 ? initials : value;
 }
 
 function normalizeOrg(value: unknown) {
   const org = cleanText(value);
   if (/NJCAA Region 1/i.test(org)) return 'Region 1';
+  const abbr = ORG_ABBREVIATIONS[org.toUpperCase()];
+  if (abbr) return abbr;
+  if (org.length > 22) return initializeOrg(org);
   return org;
 }
 
@@ -133,11 +218,16 @@ function normalizeLevel(value: unknown, row?: Row) {
 }
 
 function prepRow(row: Row): Row {
+  // normalizeLevel needs the ORIGINAL (pre-abbreviation) team/org text to
+  // recognize patterns like "team includes YAVAPAI" - compute it first,
+  // from the untouched `row`, then feed the result into abbreviateTeam so
+  // it can skip the generic mascot-drop fallback for MLB rows.
+  const level = normalizeLevel(row.level, row);
   return {
     ...row,
-    team: abbreviateTeam(row.team),
+    team: abbreviateTeam(row.team, level),
     org_conf: normalizeOrg(row.org_conf),
-    level: normalizeLevel(row.level, row),
+    level,
   };
 }
 
