@@ -2092,14 +2092,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              below) -- so anchoring against .zt-copy's real on-screen
              position means doubling its box-relative left (29% here ->
              real 58%), not reusing that 29% directly the way a previous
-             pass wrongly did. bottom:2px, not the base rule's 24px --
-             .zt-rail-tick-year (the year numbers) is display:none and
-             .zt-rail itself drops to bottom:2px at this breakpoint (see
-             those rules below), same as .zt-person-now's own primary case
-             already does above; without this override the fallback still
-             inherited the desktop-height 24px and floated well above the
-             now-lower rail instead of resting on it. */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; bottom:2px; }
+             pass wrongly did. bottom:12px, not the base rule's 24px, to
+             track .zt-rail's own bottom:2px at this breakpoint (see that
+             rule below) -- but NOT flush to the same 2px .zt-person-now's
+             much taller primary case uses just above: this box is a
+             short, small headshot thumbnail (height:30%, not 172%), so
+             matching the rail's own bottom offset 1:1 sat its bottom
+             edge below the rail's dot line instead of right on it, per
+             direct feedback. bottom:12px instead keeps the same +10px
+             gap over the rail's own bottom that the desktop base rule
+             uses (rail bottom:14px, this box's own bottom:24px there --
+             confirmed by direct feedback that desktop "sits right on the
+             line"), just recomputed against this breakpoint's rail
+             bottom:2px instead of desktop's 14px. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; bottom:12px; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
