@@ -146,6 +146,36 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
   return rows;
 }
 
+async function resolveFavoriteSchoolId(playerId: string): Promise<string | null> {
+  const { rows } = await query<{ school_id: string | null }>(
+    `
+    with stage_school as (
+      select f.hsid::text as school_id
+      from public.flip_card_front_stage f
+      where f.playerid::text = $1
+        and f.hsid is not null
+      order by f.updated_at desc nulls last, f.hsid::text
+      limit 1
+    ),
+    roster_school as (
+      select ph.hsid::text as school_id
+      from public.player_hsids ph
+      where ph.playerid::text = $1
+        and ph.hsid is not null
+      order by ph.hsid::text
+      limit 1
+    )
+    select school_id from stage_school
+    union all
+    select school_id from roster_school
+    limit 1
+    `,
+    [playerId]
+  );
+
+  return rows[0]?.school_id ? String(rows[0].school_id) : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -166,6 +196,11 @@ export async function POST(req: NextRequest) {
       );
     }
     const isSuperfan = isSuperfanProfile(profile);
+    const requestedSchoolId = schoolId ? String(schoolId) : null;
+    const resolvedSchoolId = await resolveFavoriteSchoolId(String(playerId));
+    const enforcementSchoolId = resolvedSchoolId ?? requestedSchoolId;
+    const favoriteSchoolId = requestedSchoolId ?? resolvedSchoolId;
+
     if (!isSuperfan) {
       if (!profile.home_hsid) {
         return NextResponse.json(
@@ -173,7 +208,8 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      if (schoolId && schoolId !== profile.home_hsid) {
+
+      if (enforcementSchoolId && enforcementSchoolId !== String(profile.home_hsid)) {
         return NextResponse.json(
           {
             error: `Fan accounts can only favorite players from their home school (${profile.home_hsid}). Upgrade to Super Fan for global access.`,
@@ -189,7 +225,7 @@ export async function POST(req: NextRequest) {
     try {
       favoriteResult = await saveFavorite(firebaseUid, playerId, {
         armsContactId: contactId ?? null,
-        schoolId: schoolId ?? null,
+        schoolId: favoriteSchoolId,
       });
     } catch (error) {
       if (!isUserFavoritesSequencePermissionError(error)) throw error;
@@ -201,7 +237,7 @@ export async function POST(req: NextRequest) {
         firebaseUid,
         playerId,
         contactId ?? null,
-        schoolId ?? null
+        favoriteSchoolId
       );
     }
 

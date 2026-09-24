@@ -55,9 +55,24 @@ export default function YatStyles() {
         border-bottom:1px solid var(--line);
       }
 
+      /* z-index raised from 1: this shell establishes its own stacking
+         context (position:relative + an explicit z-index), which traps
+         everything painted inside it -- including any descendant's own
+         z-index, no matter how high -- at THIS rank when compared
+         against unrelated siblings elsewhere on the page. .yat-footer
+         (the fixed sponsor-ad banner pinned to the bottom of the
+         viewport) sits at z-index:40; at the old z-index:1, the entire
+         contents of this row -- e.g. the player profile page's own
+         FunZone tab strip, which has a z-index of its own but one that
+         only ever gets compared against OTHER elements inside this same
+         row -- painted underneath that fixed ad banner regardless, which
+         is why its bottom tab labels were showing up hidden behind it.
+         45 keeps this row below rows 1-3's sticky headers (60/65/70, so
+         scrolling content still tucks correctly under them) while
+         landing above the footer ad (40). */
       .yat-row5-shell{
         position:relative;
-        z-index:1;
+        z-index:45;
         padding-top:8px;
       }
 
@@ -216,14 +231,20 @@ export default function YatStyles() {
         
       .yat-hr{border-top:1px solid var(--line)}
 
+      /* No max-width/margin at all now -- a first pass just dropped the
+         centering (margin:0 auto -> margin:0) but kept the 1400px cap,
+         which still stopped this row short of the true right edge on a
+         wide screen, unlike row 1 (.yat-topbar), which has never had a
+         cap of any kind. Per direct feedback, every row should match
+         row 1's genuinely full-width model, not a left-anchored-but-
+         still-capped one. Left padding stays 10px, matching .yat-topbar's
+         own inset exactly. */
       .yat-schoolrow{
         display:flex;
         align-items:center;
         gap:8px;
         min-height:var(--row2-h);
-        padding:4px 12px;
-        max-width:1400px;
-        margin:0 auto;
+        padding:4px 12px 4px 10px;
         background:var(--header-bg);
       }
 
@@ -336,10 +357,16 @@ export default function YatStyles() {
       .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
       @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
+      /* Row 3's content for every page type except player profile (which
+         renders ZoomableCareerTimeline here instead, already genuinely
+         full-width). max-width/margin:0 auto dropped so this matches row
+         1's uncapped model instead of stopping short of the true right
+         edge on a wide screen -- same fix as .yat-schoolrow above, same
+         reason. Left padding kept at 16px (this row's own convention, not
+         the 10px hamburger/crest inset -- gallery cards live in this row,
+         not the hamburger/crest identity block). */
      .gallery-strip{
         position:relative;
-        max-width:1400px;
-        margin:0 auto;
         padding:0 16px;
         min-height:100px;
         display:flex;
@@ -469,11 +496,26 @@ export default function YatStyles() {
       .front-chip--estimated{background:rgba(0,0,0,.25);color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.1);font-weight:400}
       .yat-section{display:none}
       .yat-section.visible{display:block}
-      .yat-grid{max-width:1400px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-      @media(max-width:1400px){.yat-grid{grid-template-columns:repeat(4,1fr)}}
-      @media(max-width:1100px){.yat-grid{grid-template-columns:repeat(3,1fr)}}
-      @media(max-width:768px){.yat-grid{grid-template-columns:repeat(2,1fr)}}
-      @media(max-width:520px){.yat-grid{grid-template-columns:1fr}}
+      /* repeat(auto-fill, 264px) replaces the old max-width:1400px cap +
+         five hand-tuned column-count breakpoints (5/4/3/2/1 at
+         1400/1100/768/520px). 264px is exactly what a card rendered at
+         under the old base rule (5 columns, 12px gap, 16px padding,
+         1400px cap): (1400-32-4*12)/5=264. A fixed track size (not
+         minmax(264px,1fr)) keeps every card exactly that width always --
+         it never grows to soak up leftover space -- so the grid just fits
+         as many whole 264px columns as the available width allows, at
+         ANY width: 1 on a narrow phone, 5 around 1400px (matching the old
+         design almost exactly), and as many as an ultra-wide monitor can
+         fit past that, continuously, with no further breakpoints needed.
+         justify-content:center (not the grid default, start), per direct
+         feedback -- whatever whole number of fixed-size columns fits at a
+         given width, that block of cards is centered with equal leftover
+         space on both sides, at every column count from 1 up, rather than
+         all the leftover space bunching up on one side. This is scoped to
+         this one grid; it doesn't affect the left-anchored convention used
+         by rows 1-4's chrome. Per direct feedback: same card size, more
+         columns on a wider screen, not bigger cards. */
+      .yat-grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,264px);justify-content:center;gap:12px}
       .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
       .yat-card::before{content:"";display:block;padding-top:140%}
       .yat-card-inner{position:absolute;inset:0;perspective:1200px}

@@ -152,11 +152,17 @@ export default function SchoolContextBar({
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
-      // The player's name now shows large inside the Career Path Timeline
-      // slides themselves, so this breadcrumb line no longer needs to
-      // repeat it -- matches the ACTIVE ALUMNI NEWS / ALL-TIME LIST pattern
-      // used by every other section label below.
-      return 'CAREER PATH TIMELINE';
+      // Deliberately generic, not the player's name: this row-2 breadcrumb
+      // is the page's actual identity -- the "Career Path Timeline" is
+      // just one element ON this page, not what the page itself is --
+      // matching the ACTIVE ALUMNI NEWS / ALL-TIME LIST pattern used by
+      // every other section label below. The player's name belongs in
+      // row 3, inside the Career Path Timeline carousel itself (see
+      // .zt-persist-id in ZoomableCareerTimeline.tsx), not duplicated
+      // here too -- per direct feedback, resolvedPlayerName (computed
+      // above) is the right way to resolve it, just not the right place
+      // to show it.
+      return 'ALUMNI PROFILE PAGE';
     }
 
     return SECTION_LABELS[activeSection] || activeSection.toUpperCase();

@@ -11,10 +11,27 @@ import { useEffect, useRef } from "react";
  */
 export default function PlayerCardFlipBehavior() {
   const markerRef = useRef<HTMLSpanElement>(null);
+  const flipTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const card = markerRef.current?.closest<HTMLElement>(".yat-card[data-playerid]");
     if (!card) return;
+
+    const finishFlipLift = () => {
+      card.classList.remove("is-flipping");
+      flipTimerRef.current = null;
+    };
+
+    const startFlipLift = () => {
+      if (flipTimerRef.current !== null) {
+        window.clearTimeout(flipTimerRef.current);
+      }
+
+      card.classList.remove("is-flipping");
+      void card.offsetWidth;
+      card.classList.add("is-flipping");
+      flipTimerRef.current = window.setTimeout(finishFlipLift, 620);
+    };
 
     const handleCardClick = (event: MouseEvent) => {
       const target = event.target;
@@ -29,11 +46,17 @@ export default function PlayerCardFlipBehavior() {
       }
 
       event.stopPropagation();
+      startFlipLift();
       card.classList.toggle("is-flipped");
     };
 
     card.addEventListener("click", handleCardClick);
-    return () => card.removeEventListener("click", handleCardClick);
+    return () => {
+      card.removeEventListener("click", handleCardClick);
+      if (flipTimerRef.current !== null) {
+        window.clearTimeout(flipTimerRef.current);
+      }
+    };
   }, []);
 
   return <span ref={markerRef} hidden aria-hidden="true" />;

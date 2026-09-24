@@ -8,14 +8,29 @@ import { useEffect } from 'react';
 const DOCKED_DRAWER_AUTO_WIDTH = 1600;
 const DOCKED_DRAWER_MIN_WIDTH = 1240;
 
+/* Each of the four drawer-open functions below calls updateDesktopDocking()
+   directly after toggling its own classes, rather than watching
+   document.body's class attribute with a MutationObserver. An observer
+   was tried first and caused the page to hang (Chrome's "Page
+   Unresponsive" dialog) -- document.body's classList is also mutated
+   directly by several OTHER files (FavoritesDrawer, SortFilterDrawer
+   Controls, DrawerRailController, YatInteractivity), and something in
+   that combination created a feedback loop an observer here couldn't
+   distinguish from a legitimate, converging update. A direct function
+   call after a known, local state change carries no such risk. The
+   tradeoff: drawers opened/closed from those OTHER files won't trigger
+   an instant docking recalculation the way these four do -- it'll catch
+   up on the next resize instead. */
 function showLeftNavigationDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open');
   document.body.classList.remove('yat-left-search-mode', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  updateDesktopDocking();
 }
 
 function showLeftSearchDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open', 'yat-left-search-mode');
   document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  updateDesktopDocking();
 
   setTimeout(() => {
     const input = document.getElementById('gsInput') as HTMLInputElement | null;
@@ -27,46 +42,55 @@ function showLeftSearchDrawer() {
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  updateDesktopDocking();
 }
 
 function requestFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  updateDesktopDocking();
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
 
-function dockDesktopDrawers() {
+function anyDrawerOpen() {
+  const b = document.body.classList;
+  return b.contains('drawer-left-open') || b.contains('drawer-right-open')
+    || b.contains('drawer-account-open') || b.contains('drawer-favorites-open')
+    || b.contains('drawer-sort-open');
+}
+
+/* Renamed from dockDesktopDrawers: that version forced BOTH drawers open
+   the instant the window hit 1600px, purely from a width check -- which
+   is exactly what was pushing the whole page's content in (via the
+   docked-margin CSS below, keyed off .yat-desktop-docked-drawers) on the
+   WIDEST screens, while a screen just under 1600px got full width with
+   nothing forced open. That's the "wider screen shows fewer gallery
+   columns than a narrower one" bug, and the "loads correctly for a
+   split second, then snaps to the capped layout" flash was this running
+   on mount, right after first paint. Per direct feedback all session:
+   drawers should be something a user opens, not something forced open
+   by screen width -- .yat-desktop-docked-drawers should only be true
+   when a drawer is ACTUALLY open (by user action) AND the screen is
+   wide enough to push instead of overlay it, never from width alone. */
+function updateDesktopDocking() {
   if (typeof window === 'undefined') return;
 
-  const canAutoDockBothDrawers = window.innerWidth >= DOCKED_DRAWER_AUTO_WIDTH;
+  const wideEnoughToDock = window.innerWidth >= DOCKED_DRAWER_AUTO_WIDTH;
   const mustCollapseDrawers = window.innerWidth < DOCKED_DRAWER_MIN_WIDTH;
-
-  document.body.classList.toggle('yat-desktop-docked-drawers', canAutoDockBothDrawers);
-
-  if (canAutoDockBothDrawers) {
-    document.body.classList.add('drawer-left-open', 'drawer-favorites-open', 'drawer-open');
-    document.body.classList.remove('drawer-sort-open', 'drawer-account-open', 'drawer-right-open');
-    window.dispatchEvent(new CustomEvent('yat:open-favorites'));
-    return;
-  }
 
   if (mustCollapseDrawers) {
     if (document.body.classList.contains('yat-left-search-mode')) {
       document.body.classList.add('drawer-left-open', 'drawer-open');
-      document.body.classList.remove('drawer-favorites-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+      document.body.classList.remove('drawer-favorites-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'yat-desktop-docked-drawers');
       return;
     }
 
     document.body.classList.remove('yat-desktop-docked-drawers');
-    document.body.classList.toggle(
-      'drawer-open',
-      document.body.classList.contains('drawer-left-open') ||
-        document.body.classList.contains('drawer-sort-open') ||
-        document.body.classList.contains('drawer-right-open') ||
-        document.body.classList.contains('drawer-account-open') ||
-        document.body.classList.contains('drawer-favorites-open'),
-    );
+    document.body.classList.toggle('drawer-open', anyDrawerOpen());
+    return;
   }
+
+  document.body.classList.toggle('yat-desktop-docked-drawers', wideEnoughToDock && anyDrawerOpen());
 }
 
 function schoolSectionHref(hsid: string, section: string) {
@@ -75,12 +99,12 @@ function schoolSectionHref(hsid: string, section: string) {
 
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   useEffect(() => {
-    dockDesktopDrawers();
+    updateDesktopDocking();
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const onResize = () => {
       if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(dockDesktopDrawers, 120);
+      resizeTimer = setTimeout(updateDesktopDocking, 120);
     };
 
     const interceptSearchClick = (event: MouseEvent) => {
@@ -110,14 +134,14 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
     };
 
     window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', dockDesktopDrawers);
+    window.addEventListener('orientationchange', updateDesktopDocking);
     document.addEventListener('click', interceptSearchClick, true);
     document.addEventListener('click', interceptPlayerProfileSectionNav, true);
 
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', dockDesktopDrawers);
+      window.removeEventListener('orientationchange', updateDesktopDocking);
       document.removeEventListener('click', interceptSearchClick, true);
       document.body.classList.remove('yat-desktop-docked-drawers');
     };
@@ -360,11 +384,18 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers.drawer-open { overflow: auto; }
           body.yat-desktop-docked-drawers #drawerLeft { width: var(--yat-left-drawer-w); }
           body.yat-desktop-docked-drawers #drawerFavorites { width: var(--yat-right-drawer-w) !important; }
-          body.yat-desktop-docked-drawers .yat-row2-shell,
-          body.yat-desktop-docked-drawers .yat-row3-shell,
-          body.yat-desktop-docked-drawers .yat-row4-shell,
-          body.yat-desktop-docked-drawers .yat-row5-shell,
-          body.yat-desktop-docked-drawers .yat-row6-shell { margin-left: var(--yat-left-drawer-w); margin-right: var(--yat-right-drawer-w); }
+          /* No blanket margin-left+margin-right rule here anymore. It used
+             to apply BOTH margins to rows 2-6 the instant ANY drawer was
+             docked, even with only the left (or only the right) drawer
+             actually open -- reserving space for a drawer that wasn't
+             open at all, and shrinking the gallery grid by both drawer
+             widths instead of just one. The per-side rules right above
+             (body.drawer-open.drawer-left-open / .drawer-favorites-open)
+             already apply the correct single-side margin at this same
+             >=1240px range regardless of docked state, so this was purely
+             redundant on top of being wrong whenever only one side was
+             open. Per direct feedback: one drawer open should cost one
+             column's worth of width, not two. */
           body.yat-desktop-docked-drawers .yat-footer { left: 0 !important; right: 0 !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
           body.yat-desktop-docked-drawers .yat-schoolrow,
           body.yat-desktop-docked-drawers .gallery-strip,
@@ -372,11 +403,16 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           body.yat-desktop-docked-drawers .yat-table-wrap,
           body.yat-desktop-docked-drawers .yat-sec-header,
           body.yat-desktop-docked-drawers .yat-placeholder { max-width: none; }
-          body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+          /* .yat-grid's own three hardcoded column-count overrides for
+             this docked state (5 cols base, 4 between 1600-1849px, 3
+             between 1240-1599px) were removed -- .yat-grid's base rule in
+             YatStyles.tsx is now repeat(auto-fill,264px), which already
+             fits as many fixed-size columns as whatever width is actually
+             available, docked or not, with no separate breakpoints
+             needed. The old hardcoded values here were more specific than
+             that base rule and would have silently overridden it whenever
+             drawers were docked. */
         }
-
-        @media (min-width: 1600px) and (max-width: 1849px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        @media (min-width: 1240px) and (max-width: 1599px) { body.yat-desktop-docked-drawers .yat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 1239px) {
           body.yat-desktop-docked-drawers .yat-row2-shell,
           body.yat-desktop-docked-drawers .yat-row3-shell,
