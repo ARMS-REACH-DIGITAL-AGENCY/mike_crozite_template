@@ -393,15 +393,19 @@ function XIcon() {
 // Copy/mail/text share no colored badge - the cell itself already supplies
 // the border/background (matching the Stats tab's cells), so a second
 // background here would just double up on it.
+// Drawn at their own natural size (no GLYPH_INSET_TRANSFORM) - unlike
+// Facebook/X, these paths were never drawn edge-to-edge in the first place
+// (their envelope/bubble/clipboard shapes already sit in roughly the same
+// ~20-22-unit-wide area InstagramIcon's own camera mark occupies), so the
+// extra shrink used for full-bleed badge glyphs would just make them look
+// smaller than every other icon now that they have no badge of their own.
 function TextIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <path
-          d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
-          fill="#2E7DF7"
-        />
-      </g>
+      <path
+        d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
+        fill="#2E7DF7"
+      />
     </svg>
   );
 }
@@ -409,10 +413,8 @@ function TextIcon() {
 function EmailIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <rect x="9" y="12" width="22" height="16" rx="2.5" fill="none" stroke="#1266C4" strokeWidth="2" />
-        <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
+      <rect x="9" y="12" width="22" height="16" rx="2.5" fill="none" stroke="#1266C4" strokeWidth="2" />
+      <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -439,10 +441,8 @@ function InstagramIcon() {
 function CopyIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
-        <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
-      </g>
+      <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
+      <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
     </svg>
   );
 }
@@ -585,6 +585,26 @@ function SocialPanel({
         >
           <XIcon />
         </a>
+        {/* A real <a href>, not a button+window.open - Instagram has no web
+            share/compose intent, so this just opens the app/site the same
+            way Facebook/X's plain links do (works via plain navigation with
+            zero JS, including on a cross-school card that never hydrates).
+            The onClick copy-to-clipboard is a bonus that only fires where
+            React did mount; data-copy-text covers the non-hydrated case via
+            attachFunZoneShareListener. Grouped with Facebook/X (the actual
+            social platforms) on the top row, ahead of the plain-utility
+            actions below. */}
+        <a
+          href="https://www.instagram.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fz-social-cell"
+          data-copy-text={fullPostText}
+          onClick={handleCopyPost}
+          aria-label="Share on Instagram"
+        >
+          <InstagramIcon />
+        </a>
         <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-cell" aria-label="Share by text">
           <TextIcon />
         </a>
@@ -604,24 +624,6 @@ function SocialPanel({
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
         </button>
-        {/* A real <a href>, not a button+window.open - Instagram has no web
-            share/compose intent, so this just opens the app/site the same
-            way Facebook/X/Text/Email's plain links do (works via plain
-            navigation with zero JS, including on a cross-school card that
-            never hydrates). The onClick copy-to-clipboard is a bonus that
-            only fires where React did mount; data-copy-text covers the
-            non-hydrated case via attachFunZoneShareListener. */}
-        <a
-          href="https://www.instagram.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fz-social-cell"
-          data-copy-text={fullPostText}
-          onClick={handleCopyPost}
-          aria-label="Share on Instagram"
-        >
-          <InstagramIcon />
-        </a>
       </div>
     </div>
   );
