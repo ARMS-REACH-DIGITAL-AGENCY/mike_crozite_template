@@ -351,30 +351,28 @@ return (
 // X, where it's a plain mention inside the tweet text.
 const YAT_STATS_X_HANDLE = "yat_stats";
 
-// Each icon below is a complete, self-contained app-icon badge (rounded-
-// square background baked in, not a thin outline meant to inherit a
-// surrounding button's color) - a fan recognizes "the blue Facebook square"
-// and "the black X square" as icons in their own right, so the badge IS
-// the icon rather than a generic glyph sitting inside one.
-// Each glyph (everything but the full-bleed colored badge rect) is scaled
-// down and recentered to roughly the same ~50%-of-canvas footprint as
-// InstagramIcon's own camera mark - the real brand marks for Facebook/X/
-// etc. are drawn edge-to-edge in their official artwork, which reads as
-// "blown up" once every icon sits in the same cell size; Instagram's own
-// convention (generous padding around the mark) is the one that actually
-// looked right, so the others are brought in line with it instead.
+// Facebook, X, and Instagram are complete, self-contained app-icon badges
+// (rounded-square background baked in) - a fan recognizes "the blue
+// Facebook square" and "the black X square" as icons in their own right.
+// Copy/mail/text have no badge of their own - the .fz-social-cell they sit
+// in already supplies a border/background matching the Stats tab's cells,
+// so a second background here would just double up on it.
+// Each non-badge glyph is scaled down and recentered to roughly the same
+// ~50%-of-canvas footprint as InstagramIcon's own camera mark, and the
+// Facebook/X marks are similarly inset within their badges - the real
+// brand marks are drawn edge-to-edge in their official artwork, which
+// reads as "blown up" once every icon sits in the same cell size.
 const GLYPH_INSET_TRANSFORM = "translate(20 20) scale(0.55) translate(-20 -20)";
 
 function FacebookIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#1877F2" />
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <path
-          d="M25.5 20.5H22v11h-4.5v-11H14.8v-3.8H17.5v-2.4c0-3.1 1.5-5.6 5.4-5.6 1.6 0 2.8.2 2.8.2v3.7h-1.6c-1.5 0-2.1.9-2.1 2v2.1h3.6l-.5 3.8Z"
-          fill="#fff"
-        />
-      </g>
+      <path
+        transform="translate(13.2 9) scale(0.043)"
+        d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z"
+        fill="#fff"
+      />
     </svg>
   );
 }
@@ -383,20 +381,21 @@ function XIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#000" />
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <path
-          d="M11 11h4.9l4.4 6 4.9-6H29l-7.4 8.9L29.4 29h-4.9l-5-6.6-5.5 6.6H10l7.9-9.4L11 11Z"
-          fill="#fff"
-        />
-      </g>
+      <path
+        transform="translate(9.23 9) scale(0.01793)"
+        d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z"
+        fill="#fff"
+      />
     </svg>
   );
 }
 
+// Copy/mail/text share no colored badge - the cell itself already supplies
+// the border/background (matching the Stats tab's cells), so a second
+// background here would just double up on it.
 function TextIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
       <g transform={GLYPH_INSET_TRANSFORM}>
         <path
           d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
@@ -410,9 +409,8 @@ function TextIcon() {
 function EmailIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#1266C4" />
       <g transform={GLYPH_INSET_TRANSFORM}>
-        <rect x="9" y="12" width="22" height="16" rx="2.5" fill="#fff" />
+        <rect x="9" y="12" width="22" height="16" rx="2.5" fill="none" stroke="#1266C4" strokeWidth="2" />
         <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
     </svg>
@@ -441,7 +439,6 @@ function InstagramIcon() {
 function CopyIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
       <g transform={GLYPH_INSET_TRANSFORM}>
         <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
         <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
@@ -1234,7 +1231,10 @@ export default function FunZone({
             0 1px 2px rgba(30,22,14,0.08);
           cursor:pointer;
         }
-        .fz-social-cell svg{ width:clamp(28px,13cqi,60px); height:clamp(28px,13cqi,60px); flex-shrink:0; }
+        /* Sized well under the cell itself, so the Facebook/X/Instagram
+           badges show a visible margin of the cell's own background around
+           them instead of touching its top/bottom edges. */
+        .fz-social-cell svg{ width:clamp(20px,8.5cqi,40px); height:clamp(20px,8.5cqi,40px); flex-shrink:0; }
         .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
         .fz-social-cell.copied{ border-color:#1c7a3e; }
 
