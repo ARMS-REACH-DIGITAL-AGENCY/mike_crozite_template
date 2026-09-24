@@ -606,11 +606,24 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // fetch to run again (onUploaded bumps a refresh counter) for the new
 // moment to appear on the timeline in its own dated slot, no separate
 // "add it to the model" step required.
+// Absolute ceiling checked BEFORE prepareMomentUploadFile even tries to
+// decode the file into a canvas -- per direct feedback, "they can't
+// upload a giant file, but they also don't get timed out if it's a...
+// regular size file." A real phone photo (even an uncompressed 48MP
+// shot) lands nowhere near this; something that does is more likely a
+// wrong-file-picked mistake than a photo worth spending a slow decode
+// on. Deliberately generous, not the API's own tighter 4MB post-
+// compression cap -- that one still applies after prepareMomentUploadFile
+// does its job, this one exists only to fail fast on the rare genuinely
+// oversized pick rather than let the browser hang trying to canvas it.
+const MOMENT_UPLOAD_HARD_CEILING_BYTES = 30 * 1024 * 1024;
+
 function MomentUploadModal({
   playerId,
   hsid,
   playerName,
   session,
+  prefillYear,
   onClose,
   onUploaded,
 }: {
@@ -618,11 +631,20 @@ function MomentUploadModal({
   hsid: string;
   playerName: string;
   session: FanSession | null;
+  // Set when a fan clicks a specific slide (an empty "Age 4" life-year
+  // screen, a season, etc.) rather than the anchor's own Polaroid -- per
+  // direct feedback, "we're not asking them to select a year... let them
+  // [see] please check that these date details are all right." Pre-fills
+  // the date field to July of that slide's year (our own best-guess
+  // default, not a real date) rather than opening on a blank required
+  // field; still fully editable before submit, never locked.
+  prefillYear?: number | null;
   onClose: () => void;
   onUploaded: () => void;
 }) {
   const firstNameOnly = firstName(playerName) || 'this player';
   const [stage, setStage] = useState('Fan Memory');
+  const [photoTakenMonth, setPhotoTakenMonth] = useState(prefillYear ? `${prefillYear}-07` : '');
   const [previewUrl, setPreviewUrl] = useState('');
   const [status, setStatus] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -653,6 +675,11 @@ function MomentUploadModal({
 
     if (!(selectedPhoto instanceof File) || selectedPhoto.size === 0) {
       setStatus('Please choose a photo before submitting.');
+      return;
+    }
+
+    if (selectedPhoto.size > MOMENT_UPLOAD_HARD_CEILING_BYTES) {
+      setStatus('That file is too large. Please choose a smaller photo.');
       return;
     }
 
@@ -713,8 +740,25 @@ function MomentUploadModal({
               </label>
 
               <label>
-                Date photo was taken
-                <input name="photoTakenDate" type="date" required />
+                {/* Month + year only -- per direct feedback, "all we need
+                    is a month and a year, and it could be their best
+                    guess." A day is never asked for; /api/player-moments'
+                    own parsePhotoDate already accepts a bare YYYY-MM value
+                    (defaults the day to the 1st), which is exactly what a
+                    type="month" input submits, so no backend change was
+                    needed for this. Pre-filled from prefillYear when the
+                    fan clicked a specific slide rather than the anchor's
+                    own Polaroid -- still just a starting guess, not
+                    locked, hence the reminder text below it. */}
+                When was this taken? (month/year)
+                <input
+                  name="photoTakenDate"
+                  type="month"
+                  required
+                  value={photoTakenMonth}
+                  onChange={(event) => setPhotoTakenMonth(event.target.value)}
+                />
+                {prefillYear ? <small className="zt-upload-hint">Pre-filled from where you clicked -- check it&apos;s right.</small> : null}
               </label>
 
               <label>
@@ -753,13 +797,17 @@ function MomentUploadModal({
       </div>
 
       <style jsx>{`
-        {/* styled-jsx scopes each component's own <style jsx> block
-            independently, so MomentDetailModal's .zt-modal-mask/.zt-modal-
-            close/.zt-modal-kicker/.zt-modal-title rules above don't reach
-            this component even though this JSX reuses those same class
-            names for a consistent look -- duplicated here rather than
-            hoisted into a shared file, same as .fz-social-bar not reusing
-            .yat-stats-bar elsewhere in this codebase. */}
+        /* styled-jsx scopes each component's own <style jsx> block
+           independently, so MomentDetailModal's .zt-modal-mask/.zt-modal-
+           close/.zt-modal-kicker/.zt-modal-title rules above don't reach
+           this component even though this JSX reuses those same class
+           names for a consistent look -- duplicated here rather than
+           hoisted into a shared file, same as .fz-social-bar not reusing
+           .yat-stats-bar elsewhere in this codebase. (Fixed here from a
+           stray {/* JSX-style */} comment that had been sitting in this
+           plain CSS template literal since this modal was first added --
+           harmless in practice since browsers just skip the invalid
+           token, but wrong.) */
         .zt-modal-mask { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.72); display:flex; align-items:center; justify-content:center; padding:16px; }
         .zt-modal-close { position:absolute; top:8px; right:8px; z-index:2; width:30px; height:30px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; display:grid; place-items:center; cursor:pointer; }
         .zt-modal-kicker { color:${TIMELINE_YELLOW}; font:700 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px; }
@@ -771,6 +819,7 @@ function MomentUploadModal({
         .zt-upload-gate-actions button { min-height:38px; padding:0 16px; border:1px solid ${TIMELINE_YELLOW}; border-radius:6px; background:rgba(255,178,28,.14); color:${TIMELINE_YELLOW}; font:800 11px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
         .zt-upload-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; padding:14px; border:1px solid rgba(255,178,28,.2); background:rgba(255,255,255,.04); border-radius:8px; }
         .zt-upload-form label { display:grid; gap:4px; color:rgba(255,255,255,.72); font:800 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+        .zt-upload-hint { color:${TIMELINE_YELLOW}; font:600 10px/1.3 system-ui,sans-serif; letter-spacing:normal; text-transform:none; }
         .zt-upload-form input, .zt-upload-form textarea, .zt-upload-form select { width:100%; border:1px solid rgba(255,255,255,.18); border-radius:4px; background:rgba(0,0,0,.45); color:#fff; padding:8px; font:400 13px/1.25 system-ui,sans-serif; }
         .zt-upload-wide, .zt-upload-actions { grid-column:1 / -1; }
         .zt-upload-preview { grid-column:1 / -1; width:100%; aspect-ratio:7/5; border:1px solid rgba(255,178,28,.4); border-radius:4px; overflow:hidden; background:#000; }
@@ -864,6 +913,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [localOverrides, setLocalOverrides] = useState<Record<string, { reactionCount: number; viewerReacted: boolean; extraComments: MomentComment[] }>>({});
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  // Set alongside uploadModalOpen whenever the modal is opened from a
+  // specific slide (see handleSlideClick below) rather than the anchor's
+  // own Polaroid, so MomentUploadModal can pre-fill its date field to
+  // that slide's year instead of opening blank.
+  const [uploadPrefillYear, setUploadPrefillYear] = useState<number | null>(null);
   // Continuous scroll position, in slide-widths (1.35 == 35% of the way from
   // slide 1 into slide 2) -- the source of truth for both which slide reads
   // as "active" (dots/arrows) and how far each slide's hero visual has
@@ -1325,7 +1379,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   function handleSlideClick(slide: Slide) {
     if (dragRef.current.moved) return;
-    if (slide.kind === 'upload') setOpenMomentId(slide.id);
+    if (slide.kind === 'upload') { setOpenMomentId(slide.id); return; }
+    // Anchor excluded -- it already has its own explicit "Click to
+    // Upload" Polaroid button (see its own onClick below); making the
+    // WHOLE anchor slide open the modal too would double up with that.
+    // Every other kind (an empty "Age 4" life-year screen, a season, the
+    // Today/future placeholders) has no upload affordance of its own yet,
+    // so clicking it now opens the same modal pre-filled to its own year
+    // -- per direct feedback: a fan browsing the timeline who spots an
+    // age they have a photo for shouldn't have to separately go find and
+    // pick that year themselves.
+    if (slide.kind === 'anchor') return;
+    setUploadPrefillYear(slide.year);
+    setUploadModalOpen(true);
   }
 
   // Desktop mice only scroll vertically by default; redirect vertical
@@ -1463,7 +1529,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         <button
           type="button"
           className="zt-moment-thumb"
-          onClick={() => setUploadModalOpen(true)}
+          onClick={() => { setUploadPrefillYear(model.hsYear); setUploadModalOpen(true); }}
           aria-label={`Upload a memory to ${resolvedPlayerName || 'this player'}'s Career Path Timeline`}
         >
           <span className="zt-moment-thumb-frame">
@@ -1781,6 +1847,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           hsid={hsidFromPath}
           playerName={resolvedPlayerName}
           session={session}
+          prefillYear={uploadPrefillYear}
           onClose={() => setUploadModalOpen(false)}
           onUploaded={refreshUploadsQuietly}
         />
