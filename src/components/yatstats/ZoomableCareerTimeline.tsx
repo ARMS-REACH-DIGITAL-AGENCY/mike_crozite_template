@@ -1978,10 +1978,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              but for "now" (crossfading in the exact same spot) it
              looked disconnected from the rail sitting well above that
              edge -- per direct feedback, it should rest on the
-             timeline, not the bottom of the container. Height is
-             pulled in from 104% so raising the bottom anchor doesn't
-             push the top of the box past the container's own top edge. */
-          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(84px,28vw,120px); bottom:16px; height:86%; object-position:left bottom; }
+             timeline, not the bottom of the container.
+             height:50%, not 86% -- 86% was sized around a tall, narrow
+             action-cutout silhouette (matching "then"'s own proportions).
+             SmartImage's fallback here (players/headshot-cutouts/, for a
+             player with no flip-card-back photo yet) is a much squarer
+             headshot crop -- inside an 86%-tall box, object-fit:contain
+             scales it up until its WIDTH fills the box, which for a
+             near-square image makes the face render far larger than a
+             properly-cropped action cutout ever would in that same spot.
+             50% keeps both cases reasonably thumbnail-sized instead of
+             sizing the box around only one of the two shapes it has to
+             hold -- confirmed too big specifically on the headshot
+             fallback via direct feedback ("crazy too big in mobile"). */
+          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(84px,28vw,120px); bottom:16px; height:50%; object-position:left bottom; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
