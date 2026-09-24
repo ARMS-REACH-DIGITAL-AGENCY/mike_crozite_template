@@ -42,7 +42,7 @@ const YATI_PLACEHOLDERS = [
 // that has no fan photo dated to it yet. The two even-earlier screens
 // (EARLY_YEAR_COUNT) aren't part of this map -- see their own comment.
 const LIFE_YEAR_QUOTES: Record<number, string> = {
-  1: "You Win Some. You Lose Some.\nThere's No Crying in Baseball.",
+  1: "There's No Crying in Baseball.\nYou Win Some. You Lose Some.",
   2: 'The wonder years are when the seeds are planted for the love of the game.',
   3: "You can't win if you don't play. Take your hacks or always wonder.",
   4: "A hero can shape the greatness in a child that's waiting to be discovered.",
@@ -56,7 +56,7 @@ const LIFE_YEAR_QUOTES: Record<number, string> = {
   12: 'Great plays are made\nbefore the pitch is even thrown.',
   13: 'The stage may be bigger,\nbut the game is still the same.',
   14: 'Trust in those beside you transforms individual talent\ninto collective strength.',
-  15: "You're always going to win as\na team and lose as a team.\nCheck your ego at the door.",
+  15: 'Check your ego at the door.\nYou will either win as a team\nor lose as a team.\nThere’s no "I" in the word team.',
   16: 'True accountability is doing the unseen work when nobody is watching.',
   17: 'Relentlessly pursue your dreams; greatness is earned through the courage to never stop chasing them.',
 };
@@ -123,10 +123,10 @@ type Slide = {
   // lifeyear-kind only (the empty, no-photo-yet placeholder for a
   // pre-high-school year of the player's life)
   age?: number;
-  // lifeyear-kind only -- true for the two standardized screens further
-  // back than age 1 (see EARLY_YEAR_COUNT below), so the rail can render
-  // their ticks red instead of the usual gold/dark and their kicker/quote
-  // can skip the age-keyed LIFE_YEAR_QUOTES lookup those two ages aren't in.
+  // lifeyear-kind only -- true for the standardized birth-year screen
+  // further back than age 1 (see EARLY_YEAR_COUNT below), so its
+  // kicker/title can skip the age-keyed LIFE_YEAR_QUOTES lookup that age
+  // isn't in and render as a plain headline instead of a quote.
   isEarly?: boolean;
   // upload-kind only
   momentDbId?: string;
@@ -657,39 +657,39 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const endYear = Math.max(currentYear, ...statYears, firstStatYear);
 
     // We can't count on knowing a player's real DOB, so the life-year
-    // screens before high school are standardized: always exactly 19 of
-    // them (17 quote-driven ones at ages 1-17, plus 2 more further back --
-    // see LIFE_YEAR_COUNT/EARLY_YEAR_COUNT below), with HS always the 20th
+    // screens before high school are standardized: always exactly 18 of
+    // them (17 quote-driven ones at ages 1-17, plus 1 more further back --
+    // see LIFE_YEAR_COUNT/EARLY_YEAR_COUNT below), with HS always the 19th
     // screen -- rather than however many actually happened to fall before
     // a per-player derived birth year (which would make some players' HS
-    // screen land at a different index depending on data quality). When a
-    // stat row's age field lets us derive a real birth year we still use
-    // it, purely to pick a more accurate hsYear (and thus real calendar
-    // years for those screens, so an already-dated fan photo can land in
-    // the right one); when it can't be derived, hsYear falls back to the
-    // old firstStatYear-1 heuristic and the screens just count back from
-    // that -- either way there are always 19 of them.
-    // Was 18 -- per direct feedback, the anchor should assume the player
-    // was 17, not 18, the year he graduated.
-    const HS_GRAD_AGE = 17;
+    // screen land at a different index depending on data quality).
+    // Back to 18 -- per direct feedback, most players (including this
+    // component's own sample) really are 18 the year they graduate; 17
+    // was a mistake.
+    const HS_GRAD_AGE = 18;
     // The 17 standardized quote-driven screens (ages 1-17, LIFE_YEAR_QUOTES'
     // own key range) stay a fixed count, independent of HS_GRAD_AGE above --
     // changing that constant only shifts hsYear itself, it doesn't shrink or
     // grow this set or touch its quotes.
     const LIFE_YEAR_COUNT = 17;
-    // Two more standardized screens further back than age 1, per direct
-    // feedback ("add two more points on the timeline to the left ... so it
-    // really starts at the day he was born") -- not tied to LIFE_YEAR_QUOTES
-    // (no quote exists before age 1), and rendered with red rail ticks
-    // instead of the usual gold/dark ones to read as a distinct pair rather
-    // than two more ordinary life-year screens.
-    const EARLY_YEAR_COUNT = 2;
-    const rowWithAge = stats
-      .map((row) => ({ year: yearOf(row.year), age: Number(row.age) }))
-      .filter((r): r is { year: number; age: number } => typeof r.year === 'number' && Number.isFinite(r.age) && r.age > 0)
-      .sort((a, b) => a.year - b.year)[0];
-    const birthYear = rowWithAge ? rowWithAge.year - rowWithAge.age : null;
-    const hsYear = birthYear ? birthYear + HS_GRAD_AGE : Math.max(1900, firstStatYear - 1);
+    // One more standardized screen further back than age 1, extending the
+    // timeline to birth -- per direct feedback, the second one added
+    // alongside it (a "before he was born" screen) wasn't wanted.
+    const EARLY_YEAR_COUNT = 1;
+    // hsYear used to be derived from a birth year read off real stat-row
+    // age data, independent of Class Of -- which could (and, on the live
+    // sample, did) land on a different year than the Class Of line right
+    // above the Polaroid, making the anchor look like it was missing a
+    // whole year of the timeline. Per direct feedback, the anchor's own
+    // year should always be THE SAME grad year the metadata block's Class
+    // Of line shows: verified (flip_card_front_stage.class_of, surfaced as
+    // player.classOf by PlayerProfileContext) when a school/coach has set
+    // one, otherwise the same earliest-recorded-season-minus-one estimate
+    // classOf falls back to elsewhere on this page (see displayClassOf
+    // below, which now just mirrors this value instead of computing its
+    // own separately).
+    const verifiedGradYear = Number(String(player?.classOf || '').trim()) || null;
+    const hsYear = verifiedGradYear || Math.max(1900, firstStatYear - 1);
 
     const seen = new Set<string>();
     const seasons: Slide[] = [];
@@ -775,20 +775,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         yatiFallback: yatiPlaceholderFor(year - lifeYearStart + 1),
       }));
 
-    // Two more standardized screens still further back, extending the
-    // timeline all the way to birth (age 0) and one year before that --
-    // see EARLY_YEAR_COUNT above. Not keyed into LIFE_YEAR_QUOTES (ages
-    // 1-17 only); .zt-title's own JSX falls back to this slide's title
-    // text directly for isEarly slides instead of that lookup.
+    // One more standardized screen still further back, extending the
+    // timeline all the way to birth (age 0) -- see EARLY_YEAR_COUNT above.
+    // Not keyed into LIFE_YEAR_QUOTES (ages 1-17 only); .zt-title's own
+    // JSX falls back to this slide's title text directly for isEarly
+    // slides instead of that lookup.
     const earlyYears: Slide[] = Array.from({ length: EARLY_YEAR_COUNT }, (_, i) => {
-      const age = i - EARLY_YEAR_COUNT + 1; // -1, 0
       const year = lifeYearStart - EARLY_YEAR_COUNT + i;
       return {
         id: `lifeyear-early-${year}`,
         kind: 'lifeyear' as const,
         year,
-        age,
-        title: age === 0 ? 'The day it all began.' : 'Every legacy starts with a single heartbeat.',
+        age: 0,
+        title: 'The year it all began.',
         isEarly: true,
         yatiFallback: YATI_PLACEHOLDERS[0],
       };
@@ -810,16 +809,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     };
 
     // No more force-pinning the anchor to index 0: preHsUploaded + lifeYears
-    // + earlyYears always total exactly 19 screens between them, so sorted
-    // by year the anchor always lands at index 19 -- the 20th screen --
+    // + earlyYears always total exactly 18 screens between them, so sorted
+    // by year the anchor always lands at index 18 -- the 19th screen --
     // instead of always being first. A fan can still swipe further back
-    // through those 19 life years, all the way to the year before birth.
+    // through those 18 life years, all the way to birth.
     const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, today]
       .sort((a, b) => a.year - b.year);
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
-    return { startYear: birthYear ?? hsYear, endYear, hsYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName]);
+    return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, player?.classOf]);
 
   const ready = statsLoaded && uploadsLoaded;
 
@@ -853,14 +852,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // fall back to an estimate -- the same heuristic gradClassInfo() in
   // playerUtils.ts uses elsewhere: earliest recorded season minus one --
   // when nothing's been verified yet. The estimate is marked with an
-  // asterisk so it reads as a best guess, not a confirmed fact.
+  // asterisk so it reads as a best guess, not a confirmed fact. Mirrors
+  // model.hsYear exactly rather than computing its own estimate
+  // separately -- the two used to drift apart (this line said one grad
+  // year, the anchor slide landed on a different one), which is what made
+  // the timeline look like it was missing a year.
   const verifiedClassOf = String(player?.classOf || '').trim();
-  const earliestSeasonYear = model.slides.reduce<number | null>((min, slide) => {
-    if (slide.kind !== 'season' || !slide.year) return min;
-    return min === null ? slide.year : Math.min(min, slide.year);
-  }, null);
-  const displayClassOf = verifiedClassOf || (earliestSeasonYear ? String(earliestSeasonYear - 1) : '');
-  const classOfIsEstimated = !verifiedClassOf && !!displayClassOf;
+  const displayClassOf = verifiedClassOf || String(model.hsYear);
+  const classOfIsEstimated = !verifiedClassOf;
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
     setLocalOverrides((prev) => ({
@@ -1127,18 +1126,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           </div>
         </div>
       )}
-      {/* Polaroid + CTA text, side by side (Polaroid left, text right) at
-          the very bottom of the frame, on the same plane as the rail --
-          per direct feedback, this Polaroid IS effectively the timeline's
-          own "upload here" marker (once a fan actually uploads a photo,
-          it becomes a small frameless thumbnail on the rail instead, in
-          this same spot), so the CTA reads as pointing at the rail itself
-          rather than needing its own arrow calling attention to the
-          Polaroid above it. The old vertical arrangement (caption above,
-          arrow pointing down, Polaroid below) and the arrow graphic it
-          needed are both gone -- with the two elements sitting directly
-          next to each other, a directional cue isn't doing anything a
-          plain flex row doesn't already say on its own. */}
+      {/* Polaroid + CTA text, side by side (Polaroid left, text right) --
+          per direct feedback, moved to sit directly under the metadata
+          block's own Class Of line (a fixed top offset approximating that
+          block's natural height, same approach .zt-moment-cta's own top
+          already uses elsewhere in this file), freeing up the rail below
+          to run all the way to the frame's own left edge instead of
+          stopping short to clear this row. Kept as its own sibling here,
+          not nested inside .zt-moment-cta, so its z-index:8 keeps
+          comparing directly against .zt-person-stack's 4 instead of being
+          capped by .zt-moment-cta's own stacking context (that div is
+          position:absolute + z-index:3, which forms one). */}
       <div className="zt-polaroid-stack" aria-hidden="true">
         {/* Class Of used to live written on this Polaroid's own bottom
             border -- moved up into .zt-persist-id as its own gold line
@@ -1150,7 +1148,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             than needing a second rotation of its own. */}
         <div className="zt-moment-thumb">
           <span className="zt-moment-thumb-frame">
-            <span className="zt-moment-thumb-upload">UPLOAD</span>
+            <span className="zt-moment-thumb-upload">Click To<br />Upload</span>
           </span>
         </div>
         {/* Explicit breaks, not natural wrap -- per direct feedback with a
@@ -1316,8 +1314,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               )}
               {slide.kind === 'lifeyear' && (
                 <>
-                  <span className="zt-kick">{slide.isEarly ? (slide.age === 0 ? 'Born' : 'Before It All Began') : `Age ${slide.age}`}</span>
-                  <span className="zt-title">&ldquo;{slide.isEarly ? slide.title : LIFE_YEAR_QUOTES[slide.age ?? 0]}&rdquo;</span>
+                  <span className="zt-kick">{slide.isEarly ? 'Born' : `Age ${slide.age}`}</span>
+                  {/* The birth-year screen is a plain headline statement,
+                      not a life-lesson quote -- no curly quotes around it. */}
+                  {slide.isEarly ? (
+                    <span className="zt-title">{slide.title}</span>
+                  ) : (
+                    <span className="zt-title">&ldquo;{LIFE_YEAR_QUOTES[slide.age ?? 0]}&rdquo;</span>
+                  )}
                 </>
               )}
               {slide.kind === 'upload' && (
@@ -1356,7 +1360,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <button
                 type="button"
                 key={slide.id}
-                className={`zt-rail-tick${i === activeIndex ? ' active' : ''}${slide.isEarly ? ' early' : ''}`}
+                className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
                 style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
                 onClick={() => scrollToIndex(i)}
                 aria-label={`Slide ${i + 1}: ${slide.year}`}
@@ -1577,14 +1581,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            this identity block rather than a caption written on a photo. */
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
         /* Polaroid + CTA text, side by side (row, not the old column of
-           caption-above-arrow-above-Polaroid) and bottom-aligned so they
-           read as one unit sitting flush on the timeline. left is a fixed
-           pixel value, not var(--x-logo-left) alone: it needs to clear
-           this whole row's own width (Polaroid + gap + caption column),
-           not just match the name/metadata block's inset above it, since
-           .zt-rail's own left edge (see below) is computed to start right
-           after this row ends. */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
+           caption-above-arrow-above-Polaroid), sitting directly under the
+           metadata block above it -- same left inset as that block. top
+           is a fixed pixel estimate of that block's own height (name +
+           4 metadata lines + Class Of, top:4px start), the same
+           fixed-offset approach used throughout this file wherever a
+           precise flex-based measurement isn't practical across clamp()'s
+           range of sizes. */
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:92px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
            same UI chrome type everywhere else on this slide. Sized up
@@ -1605,7 +1609,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            as this slide's own UI chrome, not a generic icon. Tilts along
            with the rest of the card via .zt-moment-thumb's own
            rotate(-4deg): no separate transform needed here. */
-        .zt-moment-thumb-upload { color:rgba(255,255,255,.6); font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(6px,1vw,8px); letter-spacing:.05em; text-align:center; }
+        .zt-moment-thumb-upload { color:rgba(255,255,255,.6); font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(5.5px,.9vw,7px); line-height:1.3; letter-spacing:.05em; text-align:center; text-transform:uppercase; }
 
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -1698,26 +1702,29 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            the same as before. .zt-nav's bottom dropped to 2px to match,
            keeping the prev/next buttons roughly centered against the
            rail's new position instead of sitting above it. */
-        .zt-rail { position:absolute; z-index:6; left:260px; right:60px; bottom:4px; height:12px; }
+        /* left now clears just the fixed nav-arrow gutter, not the old
+           Polaroid+caption row -- that row lives under the metadata block
+           now (see .zt-polaroid-stack below), so the rail can run all the
+           way out to the frame's own left edge instead of starting well
+           into it. */
+        .zt-rail { position:absolute; z-index:6; left:var(--x-logo-left); right:60px; bottom:4px; height:12px; }
         .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
         .zt-rail-fill { position:absolute; left:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
-        .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:rgba(4,5,6,.55); cursor:pointer; }
+        /* Every tick red now, not just the birth-year one -- per direct
+           feedback. */
+        .zt-rail-tick { position:absolute; top:50%; width:6px; height:6px; margin-left:-3px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:#e5342a; cursor:pointer; }
         .zt-rail-tick.active { background:transparent; cursor:default; }
-        /* The two standardized pre-birth-year screens (EARLY_YEAR_COUNT
-           above) get red ticks, not the usual dark/gold, so they read as a
-           distinct pair rather than two more ordinary life-year screens. */
-        .zt-rail-tick.early { background:#e5342a; }
-        .zt-rail-tick.early.active { background:transparent; }
-        /* Small year label sitting just above each tick's own dot -- per
-           direct feedback, every stop on the rail should read as a year,
-           not just the active one (which already gets its own bigger,
-           bold, draggable label below). Hidden on the active tick itself
-           so it doesn't double up with that label. Deliberately tiny and
-           abbreviated to the last two digits -- a full "2021" at every
-           tick, on a rail with a full career's worth of seasons, would
-           run into its neighbors; "21" reads fine at this size and this
-           density. */
-        .zt-rail-tick-year { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
+        /* Sits just below each tick's own dot now (was above it), per
+           direct feedback. Hidden on the active tick itself so it doesn't
+           double up with .zt-rail-year's own bigger, bold, draggable
+           label. Deliberately tiny and abbreviated to the last two
+           digits -- a full "2021" at every tick, on a rail with a full
+           career's worth of seasons, would run into its neighbors; "21"
+           reads fine at this size and this density. Hidden altogether on
+           narrow phone widths (see the 620px media query) -- no room for
+           a label at every tick once the rail itself is that
+           compressed. */
+        .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
         .zt-rail-tick.active .zt-rail-tick-year { display:none; }
         .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
         .zt-rail-year:active { cursor:grabbing; }
@@ -1841,11 +1848,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-person-stack :global(.zt-person-now) { left:32%; width:clamp(48px,7vw,72px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
-          /* Same fixed-pixel-clearing-the-Polaroid-row logic as the
-             desktop base rule, recomputed for this breakpoint's smaller
-             Polaroid (clamp(46px,6vw,64px) -> ~54px at 6vw around 900px,
-             vs 64px capped above ~1067px). */
-          .zt-rail { left:240px; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
           .zt-bodycopy { font-size:clamp(10px,2vw,13px); }
         }
@@ -1926,24 +1928,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              anchored) and the caption+arrow+Polaroid group (bottom-
              anchored) collided here -- confirmed on a real phone,
              overlapping directly -- because there simply isn't 150px of
-             room for both a multi-line identity block from the top and
-             a caption + Polaroid row from the bottom, no matter how far
-             each individual piece gets shrunk. Same call already made
-             for .zt-person-now on this same breakpoint: drop the caption
-             here and keep just the Polaroid, rather than keep shaving
-             pixels off text that has no legible floor left. The arrow
-             this used to also hide is gone entirely now (see
+             room for a caption line on top of the now-stacked identity
+             block + Polaroid column, no matter how far it gets shrunk.
+             The arrow this used to also hide is gone entirely now (see
              .zt-polaroid-stack's own comment), not just hidden here. */
           .zt-polaroid-caption { display:none; }
-          /* Lifted from the shared bottom:9px -- the rail right below it
-             is now full-width at this breakpoint too (see .zt-rail's own
-             comment), and 9px put the Polaroid's box low enough to
-             vertically overlap the rail's own 4-16px band once the rail's
-             left edge moved in close enough to actually reach under it.
-             Per direct feedback: "move the Polaroid up a tad." */
-          .zt-polaroid-stack { bottom:22px; }
+          /* Recomputed for this breakpoint's smaller metadata block (see
+             the font-size overrides just above) -- same fixed-offset
+             approach as the desktop base rule. */
+          .zt-polaroid-stack { top:64px; }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
-          .zt-moment-thumb-upload { font-size:clamp(5px,1.6vw,6px); }
+          .zt-moment-thumb-upload { font-size:clamp(4.5px,1.3vw,5.5px); }
+          /* No room for a year label at every tick once the rail itself is
+             this compressed -- per direct feedback. */
+          .zt-rail-tick-year { display:none; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much
@@ -1979,14 +1977,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              fitting on one line in this narrow column, not just
              getting cut off by the single-line ellipsis. */
           .zt-anchor .zt-bodycopy { font-size:clamp(8px,2vw,10px); }
-          /* Same fixed-pixel-clearing-the-Polaroid logic as desktop, but
-             mobile's caption is hidden (see .zt-polaroid-caption above),
-             so this only needs to clear the Polaroid itself: 10px inset +
-             up to 50px Polaroid width + a small margin. Was left:32%,
-             which read as "stops two-thirds of the way over" and never
-             reached anywhere near the left edge -- per direct feedback,
-             this should go all the way across like the desktop version. */
-          .zt-rail { left:70px; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
