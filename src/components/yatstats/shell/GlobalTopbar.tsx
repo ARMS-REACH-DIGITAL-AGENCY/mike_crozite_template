@@ -35,38 +35,45 @@ function requestFavoritesDrawer() {
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
 
-function dockDesktopDrawers() {
+function anyDrawerOpen() {
+  const b = document.body.classList;
+  return b.contains('drawer-left-open') || b.contains('drawer-right-open')
+    || b.contains('drawer-account-open') || b.contains('drawer-favorites-open')
+    || b.contains('drawer-sort-open');
+}
+
+/* Renamed from dockDesktopDrawers: that version forced BOTH drawers open
+   the instant the window hit 1600px, purely from a width check -- which
+   is exactly what was pushing the whole page's content in (via the
+   docked-margin CSS below, keyed off .yat-desktop-docked-drawers) on the
+   WIDEST screens, while a screen just under 1600px got full width with
+   nothing forced open. That's the "wider screen shows fewer gallery
+   columns than a narrower one" bug, and the "loads correctly for a
+   split second, then snaps to the capped layout" flash was this running
+   on mount, right after first paint. Per direct feedback all session:
+   drawers should be something a user opens, not something forced open
+   by screen width -- .yat-desktop-docked-drawers should only be true
+   when a drawer is ACTUALLY open (by user action) AND the screen is
+   wide enough to push instead of overlay it, never from width alone. */
+function updateDesktopDocking() {
   if (typeof window === 'undefined') return;
 
-  const canAutoDockBothDrawers = window.innerWidth >= DOCKED_DRAWER_AUTO_WIDTH;
+  const wideEnoughToDock = window.innerWidth >= DOCKED_DRAWER_AUTO_WIDTH;
   const mustCollapseDrawers = window.innerWidth < DOCKED_DRAWER_MIN_WIDTH;
-
-  document.body.classList.toggle('yat-desktop-docked-drawers', canAutoDockBothDrawers);
-
-  if (canAutoDockBothDrawers) {
-    document.body.classList.add('drawer-left-open', 'drawer-favorites-open', 'drawer-open');
-    document.body.classList.remove('drawer-sort-open', 'drawer-account-open', 'drawer-right-open');
-    window.dispatchEvent(new CustomEvent('yat:open-favorites'));
-    return;
-  }
 
   if (mustCollapseDrawers) {
     if (document.body.classList.contains('yat-left-search-mode')) {
       document.body.classList.add('drawer-left-open', 'drawer-open');
-      document.body.classList.remove('drawer-favorites-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+      document.body.classList.remove('drawer-favorites-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'yat-desktop-docked-drawers');
       return;
     }
 
     document.body.classList.remove('yat-desktop-docked-drawers');
-    document.body.classList.toggle(
-      'drawer-open',
-      document.body.classList.contains('drawer-left-open') ||
-        document.body.classList.contains('drawer-sort-open') ||
-        document.body.classList.contains('drawer-right-open') ||
-        document.body.classList.contains('drawer-account-open') ||
-        document.body.classList.contains('drawer-favorites-open'),
-    );
+    document.body.classList.toggle('drawer-open', anyDrawerOpen());
+    return;
   }
+
+  document.body.classList.toggle('yat-desktop-docked-drawers', wideEnoughToDock && anyDrawerOpen());
 }
 
 function schoolSectionHref(hsid: string, section: string) {
@@ -75,13 +82,23 @@ function schoolSectionHref(hsid: string, section: string) {
 
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   useEffect(() => {
-    dockDesktopDrawers();
+    updateDesktopDocking();
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const onResize = () => {
       if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(dockDesktopDrawers, 120);
+      resizeTimer = setTimeout(updateDesktopDocking, 120);
     };
+
+    /* Drawers open/close from many different files (FavoritesDrawer,
+       SortFilterDrawerControls, DrawerRailController, YatInteractivity,
+       etc.), each toggling body classes directly rather than through one
+       shared function. Watching the class attribute here, instead of
+       hooking every one of those call sites, is what lets
+       .yat-desktop-docked-drawers react correctly to a manually-opened
+       drawer no matter which of them triggered it. */
+    const classObserver = new MutationObserver(() => updateDesktopDocking());
+    classObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
     const interceptSearchClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -110,14 +127,15 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
     };
 
     window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', dockDesktopDrawers);
+    window.addEventListener('orientationchange', updateDesktopDocking);
     document.addEventListener('click', interceptSearchClick, true);
     document.addEventListener('click', interceptPlayerProfileSectionNav, true);
 
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
+      classObserver.disconnect();
       window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', dockDesktopDrawers);
+      window.removeEventListener('orientationchange', updateDesktopDocking);
       document.removeEventListener('click', interceptSearchClick, true);
       document.body.classList.remove('yat-desktop-docked-drawers');
     };
