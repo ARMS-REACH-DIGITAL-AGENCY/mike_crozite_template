@@ -362,7 +362,14 @@ function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?:
   }
   const active = sources[index];
   if (!active) return null;
-  return <img className={className} style={style} src={active} alt={alt} loading="eager" onError={() => setIndex((next) => next + 1)} />;
+  // data-fallback lets CSS style the "gave up on the preferred source and
+  // is showing a later one instead" case differently -- e.g. .zt-person-now
+  // sizes/positions its primary source (a real back-cutout action photo,
+  // matching .zt-person-then's own proportions) very differently from its
+  // fallback (a squarer headshot cutout, shown only when there's no
+  // flip-card-back photo yet), and CSS has no other way to tell which URL
+  // actually loaded.
+  return <img className={className} style={style} src={active} alt={alt} loading="eager" data-fallback={index > 0 ? 'true' : undefined} onError={() => setIndex((next) => next + 1)} />;
 }
 
 function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
@@ -1987,19 +1994,33 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              that let it lean toward the gap it fills there) -- and the
              two alternate via the crossfade animation below rather than
              both showing at once. */
-          /* width/height brought down close to the desktop rule's own
-             small thumbnail size (clamp(56px,7vw,84px) / 34%) instead of
-             matching "then"'s full-size box -- per direct feedback, this
-             was still rendering "crazy big" on mobile even after the
-             previous pass shrank it from 86% to 50% height: 84-120px wide
-             is roughly a third of a phone screen on its own, regardless
-             of height, so the width itself needed to come down too, not
-             just the height. bottom:2px, not 16px -- matches .zt-rail's
-             own mobile bottom (see its rule) so this now visibly rests on
-             the timeline instead of floating above it -- per direct
-             feedback, "lower these now-cutout images so they sit on the
-             Career timeline." */
-          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(40px,14vw,60px); bottom:2px; height:30%; object-position:left bottom; }
+          /* Per direct feedback, the two sources SmartImage can land on
+             here need very different treatment, not one shared box:
+             - primary (a real back-cutout action photo, matching
+               .zt-person-then's own proportions) doesn't need shrinking
+               at all -- it was already the right size. left moves to
+               .zt-person(then)'s own horizontal CENTER (same clamp()
+               width/2, so it's exact at any width in this breakpoint,
+               not a fixed guess) -- "just to the right" of the HS
+               cutout, per direct feedback, instead of sharing its exact
+               box.
+             - fallback (a squarer headshot cutout, shown only when
+               there's no flip-card-back photo yet) is the one that
+               actually renders too big at that size -- see the
+               [data-fallback] override below, which is the only case
+               that still needs shrinking.
+             bottom:2px, not 16px -- matches .zt-rail's own mobile bottom
+             (see its rule) so both cases visibly rest on the timeline
+             instead of floating above it. */
+          .zt-person-stack :global(.zt-person-now) { left:calc(24% + (clamp(84px,28vw,120px) / 2)); width:clamp(84px,28vw,120px); bottom:2px; height:86%; object-position:left bottom; }
+          /* SmartImage marks its <img> data-fallback="true" once it's had
+             to move past the first source in its list -- see SmartImage's
+             own comment. Only this case (the headshot fallback) gets
+             shrunk, and left-justified with the header/metadata block
+             instead of .zt-person(then)'s position -- a different anchor
+             point than the primary source above, not just a smaller
+             version of the same box. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:var(--x-logo-left); width:clamp(40px,14vw,60px); height:30%; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
