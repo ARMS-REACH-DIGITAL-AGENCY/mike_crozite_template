@@ -1533,8 +1533,26 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               {slide.kind === 'today' && (
                 <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
               )}
+              {/* A fan-submitted moment, NOT the curated then/back/now hero
+                  cutouts elsewhere on this slide -- per direct feedback,
+                  those two are different things ("I want it bigger as a
+                  design. I don't want the fan upload that big.") and were
+                  never meant to share a sizing rule just because they'd
+                  both previously landed on .zt-person-cover. Its own class
+                  now (.zt-person-upload-thumb, not .zt-person-cover) so a
+                  small-thumbnail treatment here can never affect the
+                  "today" full-bleed photo that class still covers.
+                  Desktop only, per direct feedback ("these images... can
+                  only appear on desktop, there's no room for mobile") --
+                  .zt-upload-flag below is this same information's mobile/
+                  tablet stand-in, a plain icon badge instead of the photo
+                  itself, toggled by CSS display, not JS, same as every
+                  other breakpoint swap in this file. */}
               {slide.kind === 'upload' && (
-                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
+                <>
+                  <SmartImage className="zt-person zt-person-upload-thumb" src={slide.src} alt={slide.title} />
+                  <span className="zt-upload-flag" aria-hidden="true"><i className="ri-image-2-line" /></span>
+                </>
               )}
             </span>
           );
@@ -1902,6 +1920,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            never the case that read too big). */
         .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - clamp(56px,7vw,84px)); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
+        /* A fan-submitted moment's own photo -- deliberately NOT sized off
+           .zt-person-cover above (see the JSX comment on this element).
+           Same small clamp(46px,6vw,64px)/6:7 thumbnail size as the
+           "Click to Upload" Polaroid (.zt-moment-thumb) elsewhere on this
+           slide, for a consistent "this is a small photo pin, not the
+           hero image" read. Tucked into the top-right corner, inside
+           .zt-copy's own right:5% margin so it doesn't run under the
+           headline text. Desktop (this base rule) only -- hidden at both
+           narrower breakpoints below in favor of .zt-upload-flag. */
+        .zt-visual :global(.zt-person-upload-thumb) { position:absolute; z-index:5; top:16px; right:5%; left:auto; bottom:auto; width:clamp(46px,6vw,64px); aspect-ratio:6/7; height:auto; max-width:none; object-fit:cover; border-radius:3px; border:2px solid ${TIMELINE_YELLOW}; box-shadow:0 6px 14px rgba(0,0,0,.5); }
+        /* Mobile/tablet stand-in for the thumbnail above -- a plain icon
+           badge, not the photo itself (see the JSX comment on this
+           element for why: "these images... can only appear on desktop,
+           there's no room for mobile"). Hidden here at desktop; shown
+           under the 900px/620px breakpoints below. */
+        .zt-visual :global(.zt-upload-flag) { display:none; }
 
         /* Top-left CTA/identity block, separate from the marketing
            kicker/headline column on the right (which never runs into it
@@ -2294,6 +2328,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
+          /* Fan-upload thumbnail swaps for a plain icon badge below this
+             breakpoint -- per direct feedback, "these images... can only
+             appear on desktop, there's no room for mobile." Not repeated
+             in the 620px block below: nothing there overrides either
+             selector, so both keep cascading down from here unchanged. */
+          .zt-visual :global(.zt-person-upload-thumb) { display:none; }
+          .zt-visual :global(.zt-upload-flag) { display:flex; position:absolute; z-index:5; top:10px; right:5%; width:clamp(22px,5vw,30px); height:clamp(22px,5vw,30px); align-items:center; justify-content:center; border-radius:50%; background:rgba(0,0,0,.55); border:1.5px solid ${TIMELINE_YELLOW}; color:${TIMELINE_YELLOW}; font-size:clamp(11px,2.6vw,15px); }
           /* Same computed-right-edge/left-justified-to-headline treatment
              as the desktop base rule, same reasons -- just recomputed
              against .zt-copy's left:32% at this breakpoint instead of 34%. */
