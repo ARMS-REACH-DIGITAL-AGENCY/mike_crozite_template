@@ -231,23 +231,20 @@ export default function YatStyles() {
         
       .yat-hr{border-top:1px solid var(--line)}
 
-      /* margin:0 (not 0 auto) -- centering this row inside its own
-         max-width:1400px cap was pushing the crest away from row 1's
-         hamburger (flush left, never capped) on any screen wider than
-         1400px, per direct feedback. Left padding matched to 10px, the
-         same left inset .yat-topbar uses, so the crest lines up with the
-         hamburger exactly instead of drifting a couple px apart. The
-         1400px cap itself stays -- this row's right-side content (the
-         favorite/filter buttons) still shouldn't spread to the true far
-         edge on an ultra-wide screen -- only the centering is gone. */
+      /* No max-width/margin at all now -- a first pass just dropped the
+         centering (margin:0 auto -> margin:0) but kept the 1400px cap,
+         which still stopped this row short of the true right edge on a
+         wide screen, unlike row 1 (.yat-topbar), which has never had a
+         cap of any kind. Per direct feedback, every row should match
+         row 1's genuinely full-width model, not a left-anchored-but-
+         still-capped one. Left padding stays 10px, matching .yat-topbar's
+         own inset exactly. */
       .yat-schoolrow{
         display:flex;
         align-items:center;
         gap:8px;
         min-height:var(--row2-h);
         padding:4px 12px 4px 10px;
-        max-width:1400px;
-        margin:0;
         background:var(--header-bg);
       }
 
@@ -360,10 +357,16 @@ export default function YatStyles() {
       .yat-tag-bold{font:400 1em "Bebas Neue",sans-serif}
       @keyframes yatswap{0%{opacity:0}5%{opacity:1}45%{opacity:1}50%{opacity:0}100%{opacity:0}}
 
+      /* Row 3's content for every page type except player profile (which
+         renders ZoomableCareerTimeline here instead, already genuinely
+         full-width). max-width/margin:0 auto dropped so this matches row
+         1's uncapped model instead of stopping short of the true right
+         edge on a wide screen -- same fix as .yat-schoolrow above, same
+         reason. Left padding kept at 16px (this row's own convention, not
+         the 10px hamburger/crest inset -- gallery cards live in this row,
+         not the hamburger/crest identity block). */
      .gallery-strip{
         position:relative;
-        max-width:1400px;
-        margin:0 auto;
         padding:0 16px;
         min-height:100px;
         display:flex;
