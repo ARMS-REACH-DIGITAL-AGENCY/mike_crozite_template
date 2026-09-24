@@ -1103,7 +1103,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             </span>
           )}
         </div>
-        <span className="zt-polaroid-caption">Post a shared moment you had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
+        {/* Explicit breaks, not natural wrap -- per direct feedback with a
+            reference mockup showing exactly these three line breaks
+            ("Post a shared" / "moment you" / "had with X!"), not wherever
+            the text happens to wrap at this box's width. */}
+        <span className="zt-polaroid-caption">Post a shared<br />moment you<br />had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
@@ -1383,13 +1387,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-visual { position:absolute; inset:0; overflow:hidden; background:transparent; }
         .zt-visual-gradient { position:absolute; z-index:2; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.12) 20%,rgba(4,5,6,.82) 43%,rgba(4,5,6,.97) 72%,#040506 100%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 55%,rgba(0,0,0,.48)); }
 
-        /* Sits above .zt-carousel (z-index:2, the headline text) but below
-           the rail/CTA/nav chrome (z-index 6-8) -- see the JSX comment
-           above .zt-person-stack for why this is a separate layer from
+        /* Sits below .zt-carousel (z-index:5, the headline text) but above
+           .zt-visual-stack (z-index:1) -- see the JSX comment above
+           .zt-person-stack for why this is a separate layer from
            .zt-visual-stack instead of just raising that whole stack. */
         .zt-person-stack { position:absolute; z-index:4; inset:0; overflow:hidden; pointer-events:none; }
 
-        .zt-carousel { position:relative; z-index:2; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
+        /* z-index:5, not 2 -- .zt-copy's own z-index:6 (further down) is
+           scoped INSIDE this stacking context (position:relative + z-index
+           both set here create one), so it was never actually being
+           compared against .zt-person-stack's z-index:4 at the outer
+           level; what mattered there was this element's own z-index vs
+           4, and 2 lost. That's why the mascot/cutout painted over the
+           headline text despite .zt-copy's higher number -- per direct
+           feedback, with a live example (the mascot's cap cutting into
+           the quote text). Raised above .zt-person-stack so the headline
+           wins the comparison that actually happens, at every slide kind. */
+        .zt-carousel { position:relative; z-index:5; height:100%; width:100%; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:none; scrollbar-width:none; cursor:grab; overscroll-behavior-x:contain; touch-action:pan-x; }
         .zt-carousel:active { cursor:grabbing; }
         .zt-carousel::-webkit-scrollbar { display:none; }
         .zt-slide { position:relative; flex:0 0 100%; width:100%; min-width:100%; height:100%; overflow:hidden; cursor:default; background:transparent; }
@@ -1514,16 +1528,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); bottom:9px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
-           same UI chrome type everywhere else on this slide. Up to 4
-           lines now (was 2, back when this sat in a column above the
-           Polaroid and had to stay short to avoid colliding with the
-           name/metadata block above it) -- sitting beside the Polaroid
-           instead of above it removes that constraint, and per direct
-           feedback there's room for 3-4 lines here now, sized to roughly
-           match the Polaroid's own height. max-width kept narrow ("cozy",
-           not spilling into the rail) since this is a beside-not-above
-           layout now. */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(12px,1.6vw,14px); line-height:1.2; }
+           same UI chrome type everywhere else on this slide. Sized up
+           (was clamp(12px,1.6vw,14px)) and the 3 line breaks are now
+           explicit in the JSX ("Post a shared" / "moment you" / "had
+           with X!"), not left to wrap wherever this box's width happens
+           to break it -- per direct feedback with a reference mockup
+           showing exactly this size and these breaks. -webkit-line-clamp
+           dropped from 4 to 3 as a defensive cap (an unusually long first
+           name could still push "had with X!" itself past one line;
+           ellipsis there is better than a 4th line breaking the intended
+           3-line shape). max-width widened from 150 to 190px to fit
+           "Post a shared" on one line at this larger size. */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(16px,2vw,22px); line-height:1.15; }
         /* position:relative so .zt-moment-thumb-classof can anchor to
            this box's own bottom border (the extra bottom padding below,
            14px vs 5px on the other three sides, is what makes this read
@@ -1560,8 +1576,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            feedback. */
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
         .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .zt-anchor .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
-        .zt-lifeyear .zt-title { white-space:pre-line; font-style:italic; }
+        /* .zt-season added alongside anchor/lifeyear here -- same class of
+           gap as the .zt-copy positioning fix a pass ago: left out of a
+           shared rule, fell back to the base .zt-title's nowrap+ellipsis
+           instead. The italic + white-space:pre-line life-year used to
+           carry on top of this (a separate, more specific rule) is
+           removed entirely, not just moved -- per direct feedback, quotes
+           should use the exact same font/treatment as the anchor's
+           headline, not their own italic style, and pre-line was forcing
+           a source-text line break to render literally instead of letting
+           the sentence just flow and wrap naturally. */
+        .zt-anchor .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
         .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         /* The season's 4 headline numbers, big and plain -- no card/tile
            background, border or shadow, per direct feedback ("it doesn't
@@ -1839,6 +1864,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              is gone entirely now (see .zt-polaroid-stack's own comment),
              not just hidden here. */
           .zt-polaroid-caption { display:none; }
+          /* Lifted from the shared bottom:9px -- the rail right below it
+             is now full-width at this breakpoint too (see .zt-rail's own
+             comment), and 9px put the Polaroid's box low enough to
+             vertically overlap the rail's own 4-16px band once the rail's
+             left edge moved in close enough to actually reach under it.
+             Per direct feedback: "move the Polaroid up a tad." */
+          .zt-polaroid-stack { bottom:22px; }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           .zt-moment-thumb-classof { font-size:clamp(5px,1.6vw,6px); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
@@ -1861,32 +1893,29 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              relative to the outer (un-doubled) frame, not to any one
              .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
-          .zt-copy { left:26%; right:auto; width:22%; bottom:14px; justify-content:flex-start; padding-top:10px; }
-          /* Life-year AND season slides both render the same mascot image
-             at the same position (zt-person-yati, identical class, no
-             kind-specific CSS of its own) -- this was originally scoped
-             to .zt-lifeyear alone on the assumption that season slides
-             have "a real cutout reserving space" the way the mascot
-             kinds don't, but season uses the exact same mascot, not a
-             cutout, so that assumption didn't hold. Season fell back to
-             the rule above instead (left:26%, narrower/further right),
-             leaving its headline sitting a visibly bigger, inconsistent
-             gap from the identical mascot image than life-year's, per
-             direct feedback comparing them side by side. Widened to
-             cover both kinds so any slide using this mascot art gets the
-             same tight, consistent spacing regardless of which kind it
-             is. Still contained to the real screen's right half,
-             expressed as left+width for the same reason (this slide is
-             200% wide, so "right" would measure from an edge that's
-             off-screen). */
-          .zt-lifeyear .zt-copy, .zt-season .zt-copy { left:22%; width:28%; justify-content:flex-start; padding-top:10px; }
+          /* One shared position for every slide kind (was left:26%/
+             width:22% here, with a separate left:22%/width:28% override
+             for just .zt-lifeyear/.zt-season) -- per direct feedback, all
+             the quotes/headlines should sit in exactly the same spot as
+             the anchor's, not a kind-specific variant of it. Contained to
+             the real screen's right half, expressed as left+width rather
+             than right, because this slide is 200% wide, so "right" would
+             measure from an edge that's off-screen. */
+          .zt-copy { left:22%; right:auto; width:28%; bottom:14px; justify-content:flex-start; padding-top:10px; }
           /* A touch smaller than the general .zt-bodycopy floor so the
              now-shorter anchor line ("Stay connected to X on his
              baseball journey...") has the best chance of actually
              fitting on one line in this narrow column, not just
              getting cut off by the single-line ellipsis. */
           .zt-anchor .zt-bodycopy { font-size:clamp(8px,2vw,10px); }
-          .zt-rail { left:32%; }
+          /* Same fixed-pixel-clearing-the-Polaroid logic as desktop, but
+             mobile's caption is hidden (see .zt-polaroid-caption above),
+             so this only needs to clear the Polaroid itself: 10px inset +
+             up to 50px Polaroid width + a small margin. Was left:32%,
+             which read as "stops two-thirds of the way over" and never
+             reached anywhere near the left edge -- per direct feedback,
+             this should go all the way across like the desktop version. */
+          .zt-rail { left:70px; }
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
