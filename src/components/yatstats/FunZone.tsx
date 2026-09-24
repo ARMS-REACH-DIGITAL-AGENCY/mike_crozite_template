@@ -29,7 +29,7 @@
 // - CTA strip and tab strip tighten first.
 // - fz-panel gets whatever space remains after CTA and tabs.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 // Constants
@@ -440,6 +440,77 @@ function CheckIcon() {
   );
 }
 
+// Scales the headline's font-size so the text always spans the full width
+// of its container edge to edge - "Cody" gets a much bigger font than
+// "Christopher" so both fill the same physical line, the way a poster
+// headline is sized, rather than stretching/squashing individual glyphs
+// (which would distort the letterforms). Font metrics scale linearly with
+// font-size, so measuring the natural width at one reference size is
+// enough to solve for the exact size that fills the container.
+// SSR/non-hydrated fallback (a cross-school favorite card injected via
+// innerHTML, which never runs this effect): the inner span simply has no
+// inline font-size yet, so it inherits .fz-social-tag's own clamp()-based
+// size - smaller and not edge-to-edge, but never broken or oversized.
+function FitWidthHeadline({ text }: { text: string }) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [fontSize, setFontSize] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const textEl = textRef.current;
+    if (!container || !textEl) return;
+
+    function measure() {
+      const containerWidth = container!.clientWidth;
+      if (containerWidth <= 0) return;
+
+      const REF_SIZE = 100;
+      const prevInlineSize = textEl!.style.fontSize;
+      textEl!.style.fontSize = `${REF_SIZE}px`;
+      const naturalWidth = textEl!.scrollWidth;
+      textEl!.style.fontSize = prevInlineSize;
+      if (naturalWidth <= 0) return;
+
+      const nextSize = (containerWidth / naturalWidth) * REF_SIZE;
+      // Sane bounds so a not-yet-laid-out container (0/near-0 width) or a
+      // pathologically short/long tag can never produce an unusable size.
+      setFontSize(Math.min(120, Math.max(10, nextSize)));
+    }
+
+    measure();
+
+    // Anton loads asynchronously via the global Google Fonts <link> in
+    // layout.tsx - the very first measure() above can run before it has
+    // actually swapped in, sizing against a fallback font's (narrower)
+    // metrics. That fixed pixel size then overflows once Anton itself
+    // paints, since its glyphs are wider. Re-measure once the real font is
+    // confirmed loaded, not just once on mount.
+    let cancelled = false;
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts.load('800 16px Anton').catch(() => {});
+      document.fonts.ready.then(() => {
+        if (!cancelled) measure();
+      });
+    }
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    return () => {
+      cancelled = true;
+      ro.disconnect();
+    };
+  }, [text]);
+
+  return (
+    <span ref={containerRef} className="fz-social-tag">
+      <span ref={textRef} style={fontSize ? { fontSize: `${fontSize}px` } : undefined}>
+        {text}
+      </span>
+    </span>
+  );
+}
+
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
 // own feed with a personalized #YATABOY hashtag. Every link here is a plain
@@ -532,11 +603,14 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
-      {/* Big, bold, slightly tilted like the Connect tab's "COMING SOON"
-          wordmark - not a small centered label, it's meant to fill the top
-          of the panel the way that headline fills its own. */}
+      {/* Big, bold, in the "COMING SOON" graphic's own Anton typeface -
+          sized to always span the full width edge to edge, whether the
+          hashtag is short (#YATABOYCody) or long (#YATABOYChristopher),
+          instead of a fixed size that's oversized for one and undersized
+          for the other. */}
       <div className="fz-social-headline">
-        <span className="fz-social-tag">#{hashtag}</span>
+        <FitWidthHeadline text={`#${hashtag}`} />
+        <span className="fz-social-headline-underline" aria-hidden="true" />
       </div>
 
       {/* Styled like a post composed for X - a fan should recognize
@@ -1152,28 +1226,45 @@ export default function FunZone({
           min-height:0;
           gap:clamp(4px,1.6cqi,9px);
         }
-        /* Big, bold, and a little off-square - like the Connect tab's
-           "COMING SOON" wordmark, not a small centered caption. Stacks at
-           the top of the panel (no more centering the whole top block in
-           its own leftover space) so the extra room made by shrinking
-           nothing else goes straight into this headline being genuinely
-           bigger, per feedback that this looked too small/too centered. */
+        /* Big and bold in the "COMING SOON" graphic's own Anton typeface
+           (that graphic is a flattened image, not live text - Anton is the
+           closest real, loadable match to its ultra-bold condensed letterforms,
+           not literally the same font file). Stacks at the top of the panel,
+           straight (not tilted - tried that, it read as a mistake, not a
+           design choice) with the blue accent bar restored below it. */
         .fz-social-headline{
           flex:0 0 auto;
           display:flex;
-          align-items:baseline;
-          gap:clamp(4px,1.5cqi,8px);
+          flex-direction:column;
+          gap:clamp(3px,1cqi,6px);
           padding:clamp(2px,1cqi,6px) 0 clamp(4px,1.5cqi,8px);
-          transform:rotate(-3deg);
-          transform-origin:left center;
         }
+        /* Outer element: block-level, full width, carries the font-family/
+           weight/color (inherited by the inner span) and a clamp()-based
+           fallback size for the SSR/non-hydrated case. Inner span: sized by
+           FitWidthHeadline's own JS to exactly span this element's width,
+           whatever the hashtag's length. */
         .fz-social-tag{
-          font:800 clamp(18px,9cqi,28px)/0.9 "Bebas Neue",sans-serif;
-          letter-spacing:.02em;
+          display:block;
+          width:100%;
+          overflow:hidden;
+          font:800 clamp(18px,9cqi,28px)/0.9 "Anton",sans-serif;
+          letter-spacing:.01em;
           color:rgba(30,22,14,0.96);
           text-shadow:0 2px 0 rgba(255,255,255,0.35);
-          max-width:100%;
-          overflow-wrap:break-word;
+        }
+        .fz-social-tag span{
+          display:inline-block;
+          white-space:nowrap;
+        }
+        .fz-social-headline-underline{
+          display:block;
+          height:clamp(2px,.8cqi,3.5px);
+          width:min(130px,55%);
+          background:linear-gradient(90deg,#2451c9,#4c7eea);
+          border-radius:3px;
+          transform:skewX(-14deg);
+          transform-origin:left center;
         }
         /* Styled like a post composed for X (avatar + handle header, body
            text below) so it reads as "this is what will actually post,"
