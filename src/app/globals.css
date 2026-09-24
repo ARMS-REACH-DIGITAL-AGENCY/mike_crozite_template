@@ -211,3 +211,52 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
   margin-top: 0px !important;
   padding-top: 0 !important;
 }
+
+/* =========================================================
+   FLIP CARD DEPTH
+   Lightweight CSS-only lift/shadow for gallery cards.
+   ========================================================= */
+
+.yat-card {
+  transform: translateY(0) scale(1);
+  transform-origin: center center;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 8px 18px rgba(0, 0, 0, 0.32),
+    0 2px 6px rgba(0, 0, 0, 0.22);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, filter 0.24s ease;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .yat-card:hover {
+    transform: translateY(-2px) scale(1.005);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.14) inset,
+      0 14px 28px rgba(0, 0, 0, 0.38),
+      0 3px 10px rgba(0, 0, 0, 0.28);
+  }
+}
+
+.yat-card.is-flipped {
+  transform: translateY(-5px) scale(1.015);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 24px 52px rgba(0, 0, 0, 0.52),
+    0 8px 22px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  filter: saturate(1.03);
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yat-card {
+    transition: none;
+  }
+
+  .yat-card,
+  .yat-card:hover,
+  .yat-card.is-flipped {
+    transform: none;
+  }
+}
