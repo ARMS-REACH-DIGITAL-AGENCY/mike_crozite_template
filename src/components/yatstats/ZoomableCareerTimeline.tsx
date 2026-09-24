@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, CSSProperties, Fragment, FormEvent, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
@@ -348,54 +348,6 @@ function useFanSession() {
   return session;
 }
 
-// Same 7 stages GoldenLineUploadPanel.tsx (unused elsewhere) and the live
-// legacy #ppTab-upload flow (ProfilePageEnhancer.tsx) both offer.
-const MOMENT_STAGE_OPTIONS = ['Youth Baseball', 'Middle School', 'High School', 'College', 'Minor Leagues', 'Major Leagues', 'Fan Memory'];
-// A phone photo can land well past what /api/player-moments accepts
-// (MAX_UPLOAD_BYTES = 4MB, a hard rejection, no client-side compression on
-// the sender's end) -- same compress-before-send pipeline already proven
-// out in ProfilePageEnhancer.tsx's own upload flow (the live #ppTab-upload
-// tab), copied here rather than shared from that file since it's tied to
-// vanilla DOM there, not exported.
-const MOMENT_UPLOAD_TARGET_BYTES = 1_250_000;
-const MOMENT_UPLOAD_MAX_SIDE = 1600;
-
-function loadImageFile(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Unable to read selected image.')); };
-    img.src = url;
-  });
-}
-
-function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Unable to compress selected image.'))), 'image/jpeg', quality);
-  });
-}
-
-async function prepareMomentUploadFile(file: File): Promise<File> {
-  if (!file.type.startsWith('image/')) throw new Error('Only image uploads are supported.');
-  if (file.size <= MOMENT_UPLOAD_TARGET_BYTES && file.type === 'image/jpeg') return file;
-  const img = await loadImageFile(file);
-  const scale = Math.min(1, MOMENT_UPLOAD_MAX_SIDE / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
-  const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
-  const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Unable to prepare selected image.');
-  ctx.drawImage(img, 0, 0, width, height);
-  let blob = await canvasToJpegBlob(canvas, 0.82);
-  if (blob.size > MOMENT_UPLOAD_TARGET_BYTES) blob = await canvasToJpegBlob(canvas, 0.68);
-  if (blob.size > MOMENT_UPLOAD_TARGET_BYTES) blob = await canvasToJpegBlob(canvas, 0.52);
-  const cleanName = file.name.replace(/\.[^.]+$/, '') || 'career-path-memory';
-  return new File([blob], `${cleanName}.jpg`, { type: 'image/jpeg' });
-}
-
 function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties }) {
   const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
   const sourcesKey = sources.join('|');
@@ -593,252 +545,6 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
   );
 }
 
-// Opens when a fan clicks the "Click to Upload" Polaroid on the anchor
-// slide (see its own JSX/onClick below) -- same modal shell/typography as
-// MomentDetailModal just above (.zt-modal-mask/.zt-modal, Oswald/Bebas
-// Neue, TIMELINE_YELLOW), reused as a class-name-prefixed sibling
-// (.zt-upload-modal-*) rather than the same classes, for the same reason
-// .fz-social-bar/.fz-social-grid in FunZone.tsx don't reuse .yat-stats-bar/
-// .yat-stats-grid: a form-only tweak here should never bleed into the
-// detail modal's own layout. Posts straight to /api/player-moments -- the
-// same endpoint ZoomableCareerTimeline already fetches FROM (see the
-// uploads effect below), so a successful submit just needs that same
-// fetch to run again (onUploaded bumps a refresh counter) for the new
-// moment to appear on the timeline in its own dated slot, no separate
-// "add it to the model" step required.
-// Absolute ceiling checked BEFORE prepareMomentUploadFile even tries to
-// decode the file into a canvas -- per direct feedback, "they can't
-// upload a giant file, but they also don't get timed out if it's a...
-// regular size file." A real phone photo (even an uncompressed 48MP
-// shot) lands nowhere near this; something that does is more likely a
-// wrong-file-picked mistake than a photo worth spending a slow decode
-// on. Deliberately generous, not the API's own tighter 4MB post-
-// compression cap -- that one still applies after prepareMomentUploadFile
-// does its job, this one exists only to fail fast on the rare genuinely
-// oversized pick rather than let the browser hang trying to canvas it.
-const MOMENT_UPLOAD_HARD_CEILING_BYTES = 30 * 1024 * 1024;
-
-function MomentUploadModal({
-  playerId,
-  hsid,
-  playerName,
-  session,
-  prefillYear,
-  onClose,
-  onUploaded,
-}: {
-  playerId: string;
-  hsid: string;
-  playerName: string;
-  session: FanSession | null;
-  // Set when a fan clicks a specific slide (an empty "Age 4" life-year
-  // screen, a season, etc.) rather than the anchor's own Polaroid -- per
-  // direct feedback, "we're not asking them to select a year... let them
-  // [see] please check that these date details are all right." Pre-fills
-  // the date field to July of that slide's year (our own best-guess
-  // default, not a real date) rather than opening on a blank required
-  // field; still fully editable before submit, never locked.
-  prefillYear?: number | null;
-  onClose: () => void;
-  onUploaded: () => void;
-}) {
-  const firstNameOnly = firstName(playerName) || 'this player';
-  const [stage, setStage] = useState('Fan Memory');
-  const [photoTakenMonth, setPhotoTakenMonth] = useState(prefillYear ? `${prefillYear}-07` : '');
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [status, setStatus] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
-  }, [previewUrl]);
-
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return file ? URL.createObjectURL(file) : '';
-    });
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!session) {
-      openAccountDrawer('signin');
-      return;
-    }
-
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const selectedPhoto = formData.get('photo');
-
-    if (!(selectedPhoto instanceof File) || selectedPhoto.size === 0) {
-      setStatus('Please choose a photo before submitting.');
-      return;
-    }
-
-    if (selectedPhoto.size > MOMENT_UPLOAD_HARD_CEILING_BYTES) {
-      setStatus('That file is too large. Please choose a smaller photo.');
-      return;
-    }
-
-    setUploading(true);
-    setStatus(selectedPhoto.size > MOMENT_UPLOAD_TARGET_BYTES ? 'Optimizing photo for upload...' : 'Uploading memory...');
-
-    try {
-      const preparedPhoto = await prepareMomentUploadFile(selectedPhoto);
-      formData.set('photo', preparedPhoto);
-      formData.set('playerId', playerId);
-      formData.set('hsid', hsid);
-      formData.set('playerName', playerName);
-      formData.set('pageUrl', window.location.href);
-
-      const res = await fetch('/api/player-moments', { method: 'POST', body: formData, credentials: 'include' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Upload failed');
-
-      setDone(true);
-      setStatus('Uploaded! It will appear on the timeline after review.');
-      onUploaded();
-      // Same event name/shape the (unused) GoldenLineUploadPanel.tsx
-      // already established for this -- lets ProfileFunZoneStabilizer.tsx's
-      // Stories panel refresh itself live, without a full page reload,
-      // the moment a fan submits through this modal.
-      window.dispatchEvent(new CustomEvent('yat:golden-line-uploaded', { detail: data.moment }));
-      window.setTimeout(onClose, 1600);
-    } catch (error: any) {
-      setStatus(error?.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div className="zt-modal-mask" onClick={onClose}>
-      <div className="zt-upload-modal" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="zt-modal-close" onClick={onClose} aria-label="Close">
-          <i className="ri-close-line" />
-        </button>
-
-        {!session ? (
-          <div className="zt-upload-gate">
-            <div className="zt-modal-kicker">Career Path Timeline</div>
-            <h3 className="zt-modal-title">Sign in to add a memory for {firstNameOnly}.</h3>
-            <p className="zt-upload-gate-copy">Memories are tied to your YAT?STATS fan account so we know who to credit.</p>
-            <div className="zt-upload-gate-actions">
-              <button type="button" onClick={() => openAccountDrawer('signin')}>Log In</button>
-              <button type="button" onClick={() => openAccountDrawer('register')}>Join Free</button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="zt-modal-kicker">Career Path Timeline</div>
-            <h3 className="zt-modal-title">Add a memory from {firstNameOnly}&apos;s baseball journey.</h3>
-
-            <form className="zt-upload-form" onSubmit={handleSubmit}>
-              <label>
-                Photo stage
-                <select name="stage" value={stage} onChange={(event) => setStage(event.target.value)}>
-                  {MOMENT_STAGE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
-              </label>
-
-              <label>
-                {/* Month + year only -- per direct feedback, "all we need
-                    is a month and a year, and it could be their best
-                    guess." A day is never asked for; /api/player-moments'
-                    own parsePhotoDate already accepts a bare YYYY-MM value
-                    (defaults the day to the 1st), which is exactly what a
-                    type="month" input submits, so no backend change was
-                    needed for this. Pre-filled from prefillYear when the
-                    fan clicked a specific slide rather than the anchor's
-                    own Polaroid -- still just a starting guess, not
-                    locked, hence the reminder text below it. */}
-                When was this taken? (month/year)
-                <input
-                  name="photoTakenDate"
-                  type="month"
-                  required
-                  value={photoTakenMonth}
-                  onChange={(event) => setPhotoTakenMonth(event.target.value)}
-                />
-                {prefillYear ? <small className="zt-upload-hint">Pre-filled from where you clicked -- check it&apos;s right.</small> : null}
-              </label>
-
-              <label>
-                Relationship / role
-                <input name="relationship" placeholder="Parent, coach, teammate, alumni, fan..." />
-              </label>
-
-              <label className="zt-upload-wide">
-                Memory title
-                <input name="title" placeholder="Example: First travel ball tournament" />
-              </label>
-
-              <label className="zt-upload-wide">
-                Caption / memory
-                <textarea name="caption" rows={3} placeholder="I remember this because..." />
-              </label>
-
-              <label className="zt-upload-wide">
-                Upload photo
-                <input name="photo" type="file" accept="image/*" required onChange={handlePhotoChange} />
-              </label>
-
-              {previewUrl && (
-                <div className="zt-upload-preview">
-                  <img src={previewUrl} alt="Selected upload preview" />
-                </div>
-              )}
-
-              <div className="zt-upload-actions">
-                <button type="submit" disabled={uploading || done || !playerId}>{uploading ? 'Uploading...' : done ? 'Uploaded' : 'Submit Memory'}</button>
-                <span>{status || 'Submitted photos are saved as pending memories.'}</span>
-              </div>
-            </form>
-          </>
-        )}
-      </div>
-
-      <style jsx>{`
-        /* styled-jsx scopes each component's own <style jsx> block
-           independently, so MomentDetailModal's .zt-modal-mask/.zt-modal-
-           close/.zt-modal-kicker/.zt-modal-title rules above don't reach
-           this component even though this JSX reuses those same class
-           names for a consistent look -- duplicated here rather than
-           hoisted into a shared file, same as .fz-social-bar not reusing
-           .yat-stats-bar elsewhere in this codebase. (Fixed here from a
-           stray {/* JSX-style */} comment that had been sitting in this
-           plain CSS template literal since this modal was first added --
-           harmless in practice since browsers just skip the invalid
-           token, but wrong.) */
-        .zt-modal-mask { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.72); display:flex; align-items:center; justify-content:center; padding:16px; }
-        .zt-modal-close { position:absolute; top:8px; right:8px; z-index:2; width:30px; height:30px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; display:grid; place-items:center; cursor:pointer; }
-        .zt-modal-kicker { color:${TIMELINE_YELLOW}; font:700 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px; }
-        .zt-modal-title { margin:0 0 6px; font:800 22px/1.05 'Bebas Neue',Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
-        .zt-upload-modal { position:relative; width:min(560px,100%); max-height:88vh; overflow-y:auto; background:#111; border:1px solid rgba(255,178,28,.28); border-radius:10px; padding:20px 20px 18px; color:#fff; }
-        .zt-upload-gate { padding-top:6px; }
-        .zt-upload-gate-copy { margin:8px 0 0; color:rgba(255,255,255,.72); font:400 13px/1.45 system-ui,sans-serif; }
-        .zt-upload-gate-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
-        .zt-upload-gate-actions button { min-height:38px; padding:0 16px; border:1px solid ${TIMELINE_YELLOW}; border-radius:6px; background:rgba(255,178,28,.14); color:${TIMELINE_YELLOW}; font:800 11px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
-        .zt-upload-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; padding:14px; border:1px solid rgba(255,178,28,.2); background:rgba(255,255,255,.04); border-radius:8px; }
-        .zt-upload-form label { display:grid; gap:4px; color:rgba(255,255,255,.72); font:800 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
-        .zt-upload-hint { color:${TIMELINE_YELLOW}; font:600 10px/1.3 system-ui,sans-serif; letter-spacing:normal; text-transform:none; }
-        .zt-upload-form input, .zt-upload-form textarea, .zt-upload-form select { width:100%; border:1px solid rgba(255,255,255,.18); border-radius:4px; background:rgba(0,0,0,.45); color:#fff; padding:8px; font:400 13px/1.25 system-ui,sans-serif; }
-        .zt-upload-wide, .zt-upload-actions { grid-column:1 / -1; }
-        .zt-upload-preview { grid-column:1 / -1; width:100%; aspect-ratio:7/5; border:1px solid rgba(255,178,28,.4); border-radius:4px; overflow:hidden; background:#000; }
-        .zt-upload-preview img { width:100%; height:100%; object-fit:cover; display:block; }
-        .zt-upload-actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-        .zt-upload-actions button { min-height:38px; padding:0 16px; border:1px solid ${TIMELINE_YELLOW}; border-radius:6px; background:rgba(255,178,28,.14); color:${TIMELINE_YELLOW}; font:800 12px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; }
-        .zt-upload-actions button:disabled { opacity:.55; cursor:wait; }
-        .zt-upload-actions span { color:rgba(255,255,255,.7); font:700 12px/1.35 system-ui,sans-serif; }
-        @media (max-width:620px) { .zt-upload-form { grid-template-columns:1fr; } }
-      `}</style>
-    </div>
-  );
-}
-
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
   const player = usePlayerProfile();
   // usePlayerProfile() reads PlayerProfileContext, which is only provided
@@ -877,17 +583,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       : '';
   })();
   const resolvedPlayerName = player?.playerName || slugDerivedName;
-  // player?.playerHsid is unreachable for the same reason player itself is
-  // (see the comment on usePlayerProfile() above) -- read directly off the
-  // URL's own leading segment instead, same "derive it locally rather than
-  // depend on out-of-scope context" approach slugDerivedName above already
-  // takes for the player's name. Only used for S3 path organization and
-  // ARMS tagging on a moment upload (see MomentUploadModal below); the
-  // upload API itself treats hsid as optional.
-  const hsidFromPath = (() => {
-    const match = pathname?.match(/^\/([^/]+)\/player\//);
-    return match?.[1] ? decodeURIComponent(match[1]) : '';
-  })();
   // Same join logic as PlayerCardBack.tsx's posLevelStatus/btHw, applied to
   // the fetched identity fields, so this reads identically to the flip
   // card's back rather than approximating it.
@@ -917,12 +612,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [localOverrides, setLocalOverrides] = useState<Record<string, { reactionCount: number; viewerReacted: boolean; extraComments: MomentComment[] }>>({});
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  // Set alongside uploadModalOpen whenever the modal is opened from a
-  // specific slide (see handleSlideClick below) rather than the anchor's
-  // own Polaroid, so MomentUploadModal can pre-fill its date field to
-  // that slide's year instead of opening blank.
-  const [uploadPrefillYear, setUploadPrefillYear] = useState<number | null>(null);
   // Continuous scroll position, in slide-widths (1.35 == 35% of the way from
   // slide 1 into slide 2) -- the source of truth for both which slide reads
   // as "active" (dots/arrows) and how far each slide's hero visual has
@@ -967,20 +656,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       .finally(() => { if (!cancelled) setUploadsLoaded(true); });
     return () => { cancelled = true; };
   }, [playerId]);
-
-  // Called after a successful MomentUploadModal submit. Deliberately NOT
-  // the same effect as the initial load above -- that one resets
-  // initializedRef/localOverrides and re-jumps the scroll position to the
-  // anchor slide, which is right for a fresh playerId but would yank a fan
-  // who's mid-browse back to the anchor the moment their own upload lands.
-  // This just re-pulls the moments list and lets model's own useMemo below
-  // (already keyed on uploads) slot the new one into its dated position.
-  function refreshUploadsQuietly() {
-    fetch(`/api/player-moments?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (Array.isArray(data?.moments)) setUploads(data.moments); })
-      .catch(() => {});
-  }
 
   const model = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -1384,26 +1059,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   function handleSlideClick(slide: Slide) {
     if (dragRef.current.moved) return;
-    // Reverted: a prior pass made every other slide kind (life-year,
-    // season, today, future) also open the upload modal on click,
-    // pre-filled to that slide's year. Per direct correction, that's
-    // wrong -- ONLY the anchor's own explicit "Click to Upload" Polaroid
-    // button opens the upload modal; no other slide does anything on
-    // click except this 'upload' case below.
-    if (slide.kind !== 'upload') return;
-    // A fan-submitted moment's own small thumbnail on the timeline (see
-    // .zt-person-upload-thumb's own JSX). Per direct correction, clicking
-    // it should NOT open a modal here at all -- it should jump to the
-    // Fun Zone's Stories tab (ProfileFunZoneStabilizer.tsx, on this same
-    // profile page) and scroll that specific photo into view there.
-    // Communicated via a plain custom event, the same cross-component
-    // pattern this codebase already uses elsewhere (yat:golden-line-
-    // stage, yat:golden-line-prefill, yat:acct-tab). The comment-count
-    // pill still opens MomentDetailModal directly (see its own onClick,
-    // which stops propagation before this handler ever runs) -- this
-    // only changes what clicking the photo/thumbnail itself does.
-    window.dispatchEvent(new CustomEvent('yat:view-story', { detail: { momentId: slide.momentDbId } }));
-    window.location.hash = '#ppTab-upload';
+    if (slide.kind === 'upload') setOpenMomentId(slide.id);
   }
 
   // Desktop mice only scroll vertically by default; redirect vertical
@@ -1521,7 +1177,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           comparing directly against .zt-person-stack's 4 instead of being
           capped by .zt-moment-cta's own stacking context (that div is
           position:absolute + z-index:3, which forms one). */}
-      <div className="zt-polaroid-stack">
+      <div className="zt-polaroid-stack" aria-hidden="true">
         {/* Class Of used to live written on this Polaroid's own bottom
             border -- moved up into .zt-persist-id as its own gold line
             instead (see above), so the Polaroid card itself now just says
@@ -1529,27 +1185,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             itself, set in the same headline font (.zt-title's Oswald 700)
             as everywhere else on this slide, and it inherits this whole
             card's own -4deg rotation for free by sitting inside it, rather
-            than needing a second rotation of its own.
-            A real <button> now, not a plain <div> -- per direct feedback,
-            "click on the icon of the Polaroid and it opens a modal." The
-            parent .zt-polaroid-stack keeps pointer-events:none (the CTA
-            caption text beside this is still decorative), so this button
-            overrides back to pointer-events:auto on its own -- only the
-            Polaroid itself is clickable, not the whole row. aria-hidden
-            removed from the wrapper above since it now contains a real
-            interactive control. */}
-        <button
-          type="button"
-          className="zt-moment-thumb"
-          onClick={() => { setUploadPrefillYear(model.hsYear); setUploadModalOpen(true); }}
-          aria-label={`Upload a memory to ${resolvedPlayerName || 'this player'}'s Career Path Timeline`}
-        >
+            than needing a second rotation of its own. */}
+        <div className="zt-moment-thumb">
           <span className="zt-moment-thumb-frame">
             {/* 3 lines now (was 2: "Click To" / "Upload"), per direct
                 feedback, one word per line. */}
             <span className="zt-moment-thumb-upload">Click<br />to<br />Upload</span>
           </span>
-        </button>
+        </div>
         {/* Explicit breaks, not natural wrap -- per direct feedback with a
             reference mockup showing exactly these line breaks, not
             wherever the text happens to wrap at this box's width.
@@ -1611,26 +1254,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               {slide.kind === 'today' && (
                 <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
               )}
-              {/* A fan-submitted moment, NOT the curated then/back/now hero
-                  cutouts elsewhere on this slide -- per direct feedback,
-                  those two are different things ("I want it bigger as a
-                  design. I don't want the fan upload that big.") and were
-                  never meant to share a sizing rule just because they'd
-                  both previously landed on .zt-person-cover. Its own class
-                  now (.zt-person-upload-thumb, not .zt-person-cover) so a
-                  small-thumbnail treatment here can never affect the
-                  "today" full-bleed photo that class still covers.
-                  Desktop only, per direct feedback ("these images... can
-                  only appear on desktop, there's no room for mobile") --
-                  .zt-upload-flag below is this same information's mobile/
-                  tablet stand-in, a plain icon badge instead of the photo
-                  itself, toggled by CSS display, not JS, same as every
-                  other breakpoint swap in this file. */}
               {slide.kind === 'upload' && (
-                <>
-                  <SmartImage className="zt-person zt-person-upload-thumb" src={slide.src} alt={slide.title} />
-                  <span className="zt-upload-flag" aria-hidden="true"><i className="ri-image-2-line" /></span>
-                </>
+                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
               )}
             </span>
           );
@@ -1853,18 +1478,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         />
       )}
 
-      {uploadModalOpen && (
-        <MomentUploadModal
-          playerId={playerId}
-          hsid={hsidFromPath}
-          playerName={resolvedPlayerName}
-          session={session}
-          prefillYear={uploadPrefillYear}
-          onClose={() => setUploadModalOpen(false)}
-          onUploaded={refreshUploadsQuietly}
-        />
-      )}
-
       <style jsx>{`
         /* Same left edge row 1's hamburger/logo sit at (.yat-topbar:
            padding:1px 10px 0, flat, never capped at any width). A prior
@@ -1999,29 +1612,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            never the case that read too big). */
         .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - clamp(56px,7vw,84px)); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
-        /* A fan-submitted moment's own photo -- deliberately NOT sized off
-           .zt-person-cover above (see the JSX comment on this element).
-           Same small clamp(46px,6vw,64px)/6:7 thumbnail size as the
-           "Click to Upload" Polaroid (.zt-moment-thumb) elsewhere on this
-           slide, for a consistent "this is a small photo pin, not the
-           hero image" read. Tucked into the top-right corner, inside
-           .zt-copy's own right:5% margin so it doesn't run under the
-           headline text. Desktop (this base rule) only -- hidden at both
-           narrower breakpoints below in favor of .zt-upload-flag. */
-        /* aspect-ratio:1 (was 6/7) + border-radius:50% -- per direct
-           feedback, this thumbnail should read as a circle, never a
-           rectangle regardless of the source photo's own shape.
-           object-fit:cover already center-crops whatever aspect ratio
-           the actual photo is (landscape, portrait, square) to fill this
-           square box before the circular mask is applied, the same way
-           Instagram's own grid crops without distorting. */
-        .zt-visual :global(.zt-person-upload-thumb) { position:absolute; z-index:5; top:16px; right:5%; left:auto; bottom:auto; width:clamp(46px,6vw,64px); aspect-ratio:1; height:auto; max-width:none; object-fit:cover; border-radius:50%; border:2px solid ${TIMELINE_YELLOW}; box-shadow:0 6px 14px rgba(0,0,0,.5); }
-        /* Mobile/tablet stand-in for the thumbnail above -- a plain icon
-           badge, not the photo itself (see the JSX comment on this
-           element for why: "these images... can only appear on desktop,
-           there's no room for mobile"). Hidden here at desktop; shown
-           under the 900px/620px breakpoints below. */
-        .zt-visual :global(.zt-upload-flag) { display:none; }
 
         /* Top-left CTA/identity block, separate from the marketing
            kicker/headline column on the right (which never runs into it
@@ -2126,14 +1716,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         /* max-width raised from 150px so "Career Timeline!" has room to
            sit on one line -- see the span itself, below. */
         .zt-polaroid-caption-timeline { display:inline; }
-        /* Now a <button> (see its own JSX comment) sitting inside a
-           pointer-events:none parent -- pointer-events:auto here puts
-           just this element back in the hit-testing tree. border:0/
-           font:inherit/cursor:pointer undo the browser's own default
-           button chrome so it still reads as the same plain Polaroid
-           card it was as a <div>; background/padding/box-shadow etc. are
-           unchanged from before. */
-        .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); border:0; font:inherit; cursor:pointer; pointer-events:auto; }
+        .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
            as this slide's own UI chrome, not a generic icon. Tilts along
@@ -2165,15 +1748,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            was 600, reading as too blocky/heavy next to it, per direct
            feedback. */
         .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
-        /* Thin black outline (4-directional text-shadow, not
-           -webkit-text-stroke -- a stroke draws centered on the glyph
-           and eats into thin letterforms at this weight, while stacked
-           shadows sit outside it) plus a soft drop shadow underneath --
-           per direct feedback, so the headline/quote text (this class
-           covers both, see the quote slide's own JSX) stays readable
-           over whatever part of the hero photo happens to land behind
-           it, not just on the plain background. */
-        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000, 0 2px 5px rgba(0,0,0,.65); }
+        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         /* .zt-season added alongside anchor/lifeyear here -- same class of
            gap as the .zt-copy positioning fix a pass ago: left out of a
            shared rule, fell back to the base .zt-title's nowrap+ellipsis
@@ -2414,13 +1989,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            boxes) -- exact scaling from layered-story-strip.js's own
            @media max-width:900px / 620px. */
         @media (max-width:900px) {
-          /* Fan-upload thumbnail swaps for a plain icon badge below this
-             breakpoint -- per direct feedback, "these images... can only
-             appear on desktop, there's no room for mobile." Not repeated
-             in the 620px block below: nothing there overrides either
-             selector, so both keep cascading down from here unchanged. */
-          .zt-visual :global(.zt-person-upload-thumb) { display:none; }
-          .zt-visual :global(.zt-upload-flag) { display:flex; position:absolute; z-index:5; top:10px; right:5%; width:clamp(22px,5vw,30px); height:clamp(22px,5vw,30px); align-items:center; justify-content:center; border-radius:50%; background:rgba(0,0,0,.55); border:1.5px solid ${TIMELINE_YELLOW}; color:${TIMELINE_YELLOW}; font-size:clamp(11px,2.6vw,15px); }
           /* Same computed-right-edge/left-justified-to-headline treatment
              as the desktop base rule, same reasons -- just recomputed
              against .zt-copy's left:32% at this breakpoint instead of 34%. */
@@ -2516,20 +2084,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              below) -- so anchoring against .zt-copy's real on-screen
              position means doubling its box-relative left (29% here ->
              real 58%), not reusing that 29% directly the way a previous
-             pass wrongly did. bottom:12px, not the base rule's 24px, to
-             track .zt-rail's own bottom:2px at this breakpoint (see that
-             rule below) -- but NOT flush to the same 2px .zt-person-now's
-             much taller primary case uses just above: this box is a
-             short, small headshot thumbnail (height:30%, not 172%), so
-             matching the rail's own bottom offset 1:1 sat its bottom
-             edge below the rail's dot line instead of right on it, per
-             direct feedback. bottom:12px instead keeps the same +10px
-             gap over the rail's own bottom that the desktop base rule
-             uses (rail bottom:14px, this box's own bottom:24px there --
-             confirmed by direct feedback that desktop "sits right on the
-             line"), just recomputed against this breakpoint's rail
-             bottom:2px instead of desktop's 14px. */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; bottom:12px; }
+             pass wrongly did. bottom:2px, not the base rule's 24px --
+             .zt-rail-tick-year (the year numbers) is display:none and
+             .zt-rail itself drops to bottom:2px at this breakpoint (see
+             those rules below), same as .zt-person-now's own primary case
+             already does above; without this override the fallback still
+             inherited the desktop-height 24px and floated well above the
+             now-lower rail instead of resting on it. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; bottom:2px; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
