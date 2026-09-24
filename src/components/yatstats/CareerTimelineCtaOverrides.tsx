@@ -66,7 +66,10 @@ function ensureJourneyAnchor(canvas: HTMLElement) {
     if (playerId) {
       const cutout = document.createElement("img");
       cutout.className = "zt-career-anchor-cutout";
-      cutout.src = `${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`;
+      // S3 folder renamed from players/cutouts/ to players/then-cutouts/
+      // (see ZoomableCareerTimeline.tsx's own comment on this for the
+      // full back-cutouts/now-cutouts/then-cutouts naming).
+      cutout.src = `${S3_BASE}/players/then-cutouts/${encodeURIComponent(playerId)}.png`;
       cutout.alt = "";
       cutout.setAttribute("aria-hidden", "true");
       cutout.loading = "eager";
