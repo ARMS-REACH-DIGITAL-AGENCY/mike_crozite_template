@@ -2055,15 +2055,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              relative to the outer (un-doubled) frame, not to any one
              .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
-          /* One shared position for every slide kind (was left:26%/
-             width:22% here, with a separate left:22%/width:28% override
-             for just .zt-lifeyear/.zt-season) -- per direct feedback, all
-             the quotes/headlines should sit in exactly the same spot as
-             the anchor's, not a kind-specific variant of it. Contained to
-             the real screen's right half, expressed as left+width rather
-             than right, because this slide is 200% wide, so "right" would
-             measure from an edge that's off-screen. */
-          .zt-copy { left:22%; right:auto; width:28%; bottom:14px; justify-content:flex-start; padding-top:10px; }
+          /* One shared position for every slide kind, still -- left/width
+             moved back to the anchor's own original 26%/22% (real
+             52%-96% of the viewport, per the comment above), not
+             lifeyear/season's old 22%/28% (real 44%-100%) that this got
+             unified onto -- per direct feedback, that landed the headline
+             too far left on every slide, anchor included, once it became
+             the shared value. Contained to the real screen's right half,
+             expressed as left+width rather than right, because this slide
+             is 200% wide, so "right" would measure from an edge that's
+             off-screen. */
+          .zt-copy { left:26%; right:auto; width:22%; bottom:14px; justify-content:flex-start; padding-top:10px; }
           /* A touch smaller than the general .zt-bodycopy floor so the
              now-shorter anchor line ("Stay connected to X on his
              baseball journey...") has the best chance of actually
