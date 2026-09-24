@@ -2019,15 +2019,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           :global(.zt-hero-bleed) { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + ${ROW_H_MOBILE}px) !important; }
           :global(.zt-hero-bleed .zt-hero-bleed-bg) { object-position:0% 50%; }
           .zt-visual-gradient { background:linear-gradient(90deg,rgba(0,0,0,.04) 0%,rgba(3,4,5,.32) 22%,rgba(3,4,5,.90) 47%,#030405 100%),linear-gradient(180deg,rgba(0,0,0,.10),transparent 55%,rgba(0,0,0,.50)); }
-          /* Right-justified to just left of .zt-copy's own left edge, same
-             calc()-from-headline pattern the desktop base rule and the
-             900px breakpoint both already use (object-position:right
-             bottom is inherited from the base rule, not overridden here
-             anymore) -- per direct feedback that desktop's grouping is
-             "perfect" and mobile should replicate it, rather than the
-             flat left:24%/object-position:left-bottom this used to be
-             pinned to. */
-          .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(84px,28vw,120px)); width:clamp(84px,28vw,120px); }
+          /* Reverted back to a flat left/object-position:left-bottom --
+             a prior pass here tried reusing .zt-copy's own box-relative
+             left (the calc()-from-headline pattern desktop and the 900px
+             breakpoint use) but got it wrong: .zt-copy lives inside this
+             breakpoint's doubled, 200%-wide scrolling slide box (see its
+             own rule below), so its "32%" is a box-relative value that's
+             real-64% on screen -- but .zt-person-stack does NOT scroll
+             and was never part of that doubled box, so its own
+             percentages are plain, direct percentages of the real
+             viewport. Subtracting the headline's doubled 32% from this
+             box's real coordinate system landed the cutout far off to the
+             left, not lined up with anything. Back to the plain flat
+             left:24%/object-position:left-bottom this had before that. */
+          .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
           /* No room for a second full image alongside the HS cutout at
              this width without crowding the already-tight text column,
              so "now" occupies the exact same box as "then" instead of a
@@ -2062,23 +2067,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                column, not sharing this shared spot).
              bottom:2px, not 16px -- matches .zt-rail's own mobile bottom
              (see its rule) so both cases visibly rest on the timeline
-             instead of floating above it. object-position:right bottom is
-             inherited from the base rule, not overridden here anymore --
-             see .zt-person's own comment just above for why. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 8px - clamp(84px,28vw,120px)); width:clamp(168px,56vw,240px); bottom:2px; height:172%; }
+             instead of floating above it. left/object-position reverted
+             to the same flat left:24%/left-bottom as .zt-person just
+             above, for the same reason -- see that rule's own comment. */
+          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(168px,56vw,240px); bottom:2px; height:172%; object-position:left bottom; }
           /* SmartImage marks its <img> data-fallback="true" once it's had
              to move past the first source in its list -- see SmartImage's
              own comment. Only this case (the headshot fallback) gets
              shrunk. left is right-justified to just before the slide's
-             own headline/kicker/bodycopy column starts (.zt-copy's own
-             left:32% at this breakpoint, minus this box's own width) --
-             per direct feedback, "right justified to the left of the
-             vertical line that the heading is left justified to," matching
-             the same relationship used at the other two breakpoints,
-             rather than sharing that line and overlapping into the
-             headline's own column. Recomputed from 26% to 32% to track
-             .zt-copy's own left below, which moved further right. */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; }
+             own headline/kicker/bodycopy column starts -- per direct
+             feedback, "right justified to the left of the vertical line
+             that the heading is left justified to." This box lives in
+             .zt-person-stack, which is NOT part of this breakpoint's
+             doubled 200%-wide scrolling slide box that .zt-copy lives in
+             (see .zt-person's own comment above, and .zt-copy's own rule
+             below) -- so anchoring against .zt-copy's real on-screen
+             position means doubling its box-relative left (29% here ->
+             real 58%), not reusing that 29% directly the way a previous
+             pass wrongly did. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
@@ -2170,16 +2177,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              lifeyear/season's old 22%/28% (real 44%-100%) that this got
              unified onto -- per direct feedback, that landed the headline
              too far left on every slide, anchor included, once it became
-             the shared value. Recomputed again from 26%/22% to 32%/17%
-             (real 64%-98%) -- per direct feedback the header/text block
-             still needed to move further right; the person-stack rules
-             above were changed to track this same 32% anchor so the hero
-             cutouts stay right-justified to this column's new position.
-             Contained to the real screen's right half, expressed as
-             left+width rather than right, because this slide is 200%
-             wide, so "right" would measure from an edge that's
+             the shared value. Nudged right from 26%/22% to 29%/19% (real
+             58%-96%) per direct feedback the header/text block still
+             needed to move a little further right -- a prior pass pushed
+             this too far to 32%/17% and also (wrongly) reused this box's
+             own doubled percentage directly in the person-stack rules
+             above, which don't live in this doubled scrolling box; those
+             are back to their own flat, correct values now (see their own
+             comments). Contained to the real screen's right half,
+             expressed as left+width rather than right, because this slide
+             is 200% wide, so "right" would measure from an edge that's
              off-screen. */
-          .zt-copy { left:32%; right:auto; width:17%; bottom:14px; justify-content:flex-start; padding-top:10px; }
+          .zt-copy { left:29%; right:auto; width:19%; bottom:14px; justify-content:flex-start; padding-top:10px; }
           /* A touch smaller than the general .zt-bodycopy floor so the
              now-shorter anchor line ("Stay connected to X on his
              baseball journey...") has the best chance of actually
