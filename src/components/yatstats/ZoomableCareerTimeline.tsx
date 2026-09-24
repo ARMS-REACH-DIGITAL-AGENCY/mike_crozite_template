@@ -2084,8 +2084,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              below) -- so anchoring against .zt-copy's real on-screen
              position means doubling its box-relative left (29% here ->
              real 58%), not reusing that 29% directly the way a previous
-             pass wrongly did. */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; }
+             pass wrongly did. bottom:2px, not the base rule's 24px --
+             .zt-rail-tick-year (the year numbers) is display:none and
+             .zt-rail itself drops to bottom:2px at this breakpoint (see
+             those rules below), same as .zt-person-now's own primary case
+             already does above; without this override the fallback still
+             inherited the desktop-height 24px and floated well above the
+             now-lower rail instead of resting on it. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; bottom:2px; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
