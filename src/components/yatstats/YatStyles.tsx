@@ -507,12 +507,15 @@ export default function YatStyles() {
          ANY width: 1 on a narrow phone, 5 around 1400px (matching the old
          design almost exactly), and as many as an ultra-wide monitor can
          fit past that, continuously, with no further breakpoints needed.
-         justify-content is left at its grid default (start), not center,
-         so leftover space past the last full column sits on the right,
-         matching the left-anchored convention every other row now uses.
-         Per direct feedback: same card size, more columns on a wider
-         screen, not bigger cards. */
-      .yat-grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,264px);gap:12px}
+         justify-content:center (not the grid default, start), per direct
+         feedback -- whatever whole number of fixed-size columns fits at a
+         given width, that block of cards is centered with equal leftover
+         space on both sides, at every column count from 1 up, rather than
+         all the leftover space bunching up on one side. This is scoped to
+         this one grid; it doesn't affect the left-anchored convention used
+         by rows 1-4's chrome. Per direct feedback: same card size, more
+         columns on a wider screen, not bigger cards. */
+      .yat-grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,264px);justify-content:center;gap:12px}
       .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
       .yat-card::before{content:"";display:block;padding-top:140%}
       .yat-card-inner{position:absolute;inset:0;perspective:1200px}

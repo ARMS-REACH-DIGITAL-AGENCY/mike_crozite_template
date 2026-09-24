@@ -92,8 +92,21 @@ function showSectionWithoutClosing(tabId: string) {
 
 export default function DrawerNavigationPersistence() {
   useEffect(() => {
+    /* restoreDrawerState() used to run unconditionally right here, on
+       every mount -- meaning once ANY drawer had ever been opened once in
+       this browser tab, sessionStorage kept restoring that drawer's class
+       on every subsequent page load, including a plain refresh or a
+       completely unrelated navigation. The docked-margin CSS reacts to
+       that class whether or not the drawer panel is actually visibly
+       open, so a page could load already shrunk down from a drawer
+       that's nowhere on screen -- reported as "6 columns on load, 7 once
+       I mess with drawers" (closing/reopening drawers for real eventually
+       clears the stale class). Removed here; restoreDrawerState() is
+       still used below, but only right after saveDrawerState() captures
+       an ACTUAL click originating from inside an open drawer -- a
+       narrower, correctly-scoped case (don't lose the drawer just because
+       you clicked a link inside it), not a blanket restore-on-every-load. */
     applySavedTheme();
-    restoreDrawerState();
 
     const onClickCapture = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -133,7 +146,6 @@ export default function DrawerNavigationPersistence() {
 
     const onPageShow = () => {
       applySavedTheme();
-      restoreDrawerState();
     };
 
     document.addEventListener('click', onClickCapture, true);
