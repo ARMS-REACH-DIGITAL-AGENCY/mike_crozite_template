@@ -551,6 +551,15 @@ function FavoriteLinks({
 
         return (
           <div key={`${playerId}-${schoolId}`} className="yat-favorite-row">
+            <button
+              type="button"
+              className="yat-favorite-star-btn"
+              aria-label={`Remove ${name} from favorites`}
+              aria-disabled={removingId === playerId}
+              onClick={() => onUnfavorite(player)}
+            >
+              <i className="ri-star-fill" aria-hidden="true" />
+            </button>
             <a href={profileHref} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
               <img
                 src={playerHeadshotUrl(playerId)}
@@ -571,15 +580,6 @@ function FavoriteLinks({
                 onError={(event) => { event.currentTarget.src = '/img/yatstats-logo-circle.png'; }}
               />
             </a>
-            <button
-              type="button"
-              className="yat-favorite-star-btn"
-              aria-label={`Remove ${name} from favorites`}
-              aria-disabled={removingId === playerId}
-              onClick={() => onUnfavorite(player)}
-            >
-              <i className="ri-star-fill" aria-hidden="true" />
-            </button>
           </div>
         );
       })}
@@ -1012,7 +1012,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
         #drawerFavorites .yat-favorite-row {
           display: grid;
-          grid-template-columns: 46px minmax(0, 1fr) 40px 34px;
+          grid-template-columns: 34px 46px minmax(0, 1fr) 40px;
           align-items: center;
           column-gap: 10px;
           min-height: 56px;
