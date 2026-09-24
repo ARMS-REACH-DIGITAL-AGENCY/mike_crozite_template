@@ -1997,22 +1997,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* Per direct feedback, the two sources SmartImage can land on
              here need very different treatment, not one shared box:
              - primary (a real back-cutout action photo, matching
-               .zt-person-then's own proportions) doesn't need shrinking
-               at all -- it was already the right size. left moves to
-               .zt-person(then)'s own horizontal CENTER (same clamp()
-               width/2, so it's exact at any width in this breakpoint,
-               not a fixed guess) -- "just to the right" of the HS
-               cutout, per direct feedback, instead of sharing its exact
-               box.
+               .zt-person-then's own proportions) doesn't just keep its
+               original size -- it's 2x that now (width doubled to
+               clamp(168px,56vw,240px); height raised to 172%, double the
+               original 86%, so the taller box doesn't become the new
+               limiting dimension for object-fit:contain once the image
+               itself is that much bigger -- any overflow past the row's
+               own edges is clipped by .zt-shell-images' overflow:hidden,
+               same as a zoomed-in hero photo). left still anchors to
+               .zt-person(then)'s own horizontal CENTER -- that calc()
+               uses THEN's own width, unaffected by NOW's own size here --
+               landing "just to the right" of the HS cutout, per direct
+               feedback, instead of sharing its exact box.
              - fallback (a squarer headshot cutout, shown only when
                there's no flip-card-back photo yet) is the one that
-               actually renders too big at that size -- see the
-               [data-fallback] override below, which is the only case
-               that still needs shrinking.
+               actually renders too big at the ORIGINAL size, let alone
+               2x it -- see the [data-fallback] override below, which is
+               the only case that still needs shrinking.
              bottom:2px, not 16px -- matches .zt-rail's own mobile bottom
              (see its rule) so both cases visibly rest on the timeline
              instead of floating above it. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(24% + (clamp(84px,28vw,120px) / 2)); width:clamp(84px,28vw,120px); bottom:2px; height:86%; object-position:left bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(24% + (clamp(84px,28vw,120px) / 2)); width:clamp(168px,56vw,240px); bottom:2px; height:172%; object-position:left bottom; }
           /* SmartImage marks its <img> data-fallback="true" once it's had
              to move past the first source in its list -- see SmartImage's
              own comment. Only this case (the headshot fallback) gets
