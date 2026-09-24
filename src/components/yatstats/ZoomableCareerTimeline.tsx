@@ -811,13 +811,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       title: resolvedPlayerName || 'High School',
     };
 
-    const today: Slide = {
-      id: 'current-headshot',
-      kind: 'today',
-      year: endYear,
-      title: 'Today',
-      src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
-    };
+    // Skipped when a real season already lands on endYear -- when a
+    // player's latest recorded season IS the current calendar year (he's
+    // still actively playing this year), that season slide already shows
+    // "today" with real stats attached; a second, generic full-photo
+    // "Today" slide for the exact same year just duplicates it. Per direct
+    // feedback: "make sure the second 2026 screen gets deleted."
+    const today: Slide | null = seasons.some((s) => s.year === endYear)
+      ? null
+      : {
+          id: 'current-headshot',
+          kind: 'today',
+          year: endYear,
+          title: 'Today',
+          src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
+        };
 
     // Only add the standing invite if a real moment hasn't already been
     // dated into futureYear -- once one has (see the raised upload clamp
@@ -838,7 +846,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     // by year the anchor always lands at index 18 -- the 19th screen --
     // instead of always being first. A fan can still swipe further back
     // through those 18 life years, all the way to birth.
-    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, today, ...(futureSlide ? [futureSlide] : [])]
+    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
       .sort((a, b) => a.year - b.year);
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
@@ -1979,27 +1987,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              that let it lean toward the gap it fills there) -- and the
              two alternate via the crossfade animation below rather than
              both showing at once. */
-          /* bottom/height override the shared .zt-person rule's
-             bottom:-4%/height:104% -- those numbers put the cutout's
-             feet at the container's own raw bottom edge, which reads
-             fine for "then" against the full-bleed background photo,
-             but for "now" (crossfading in the exact same spot) it
-             looked disconnected from the rail sitting well above that
-             edge -- per direct feedback, it should rest on the
-             timeline, not the bottom of the container.
-             height:50%, not 86% -- 86% was sized around a tall, narrow
-             action-cutout silhouette (matching "then"'s own proportions).
-             SmartImage's fallback here (players/now-cutouts/, for a
-             player with no flip-card-back photo yet) is a much squarer
-             headshot crop -- inside an 86%-tall box, object-fit:contain
-             scales it up until its WIDTH fills the box, which for a
-             near-square image makes the face render far larger than a
-             properly-cropped action cutout ever would in that same spot.
-             50% keeps both cases reasonably thumbnail-sized instead of
-             sizing the box around only one of the two shapes it has to
-             hold -- confirmed too big specifically on the headshot
-             fallback via direct feedback ("crazy too big in mobile"). */
-          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(84px,28vw,120px); bottom:16px; height:50%; object-position:left bottom; }
+          /* width/height brought down close to the desktop rule's own
+             small thumbnail size (clamp(56px,7vw,84px) / 34%) instead of
+             matching "then"'s full-size box -- per direct feedback, this
+             was still rendering "crazy big" on mobile even after the
+             previous pass shrank it from 86% to 50% height: 84-120px wide
+             is roughly a third of a phone screen on its own, regardless
+             of height, so the width itself needed to come down too, not
+             just the height. bottom:2px, not 16px -- matches .zt-rail's
+             own mobile bottom (see its rule) so this now visibly rests on
+             the timeline instead of floating above it -- per direct
+             feedback, "lower these now-cutout images so they sit on the
+             Career timeline." */
+          .zt-person-stack :global(.zt-person-now) { left:24%; width:clamp(40px,14vw,60px); bottom:2px; height:30%; object-position:left bottom; }
           /* 8s loop, ~4s each: "then" visible 0-3.2s, cross-dissolves
              over the next .8s, "now" visible 4-7.2s, cross-dissolves
              back over the last .8s. .zt-person-now runs the identical
