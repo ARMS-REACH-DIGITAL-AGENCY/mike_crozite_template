@@ -871,17 +871,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const railProgress = model.slides.length > 1
     ? clamp(scrollProgress, 0, model.slides.length - 1) / (model.slides.length - 1)
     : 0;
-  // Where the anchor (grad year) sits along the rail, as a percentage --
-  // .zt-rail-fill is keyed off this now, not railProgress, so the rail
-  // reads "gold = his actual career, gray = the childhood years before
-  // it" as a fixed fact about the timeline, not something that fades
-  // in/out as a fan scrolls. Per direct feedback: "make the line yellow
-  // after the player's grad year -- for some reason they're not all
-  // yellow" (the old scroll-coupled fill only looked gold up to whatever
-  // slide happened to be in view).
-  const careerStartPercent = model.slides.length > 1
-    ? (model.anchorIndex / (model.slides.length - 1)) * 100
-    : 0;
   // "Class of" starts unknown for most players -- we don't ask a coach to
   // verify it until they engage with the microsite. Prefer the verified
   // year (flip_card_front_stage.class_of, set by a school/coach) and only
@@ -1190,16 +1179,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           </span>
         </div>
         {/* Explicit breaks, not natural wrap -- per direct feedback with a
-            reference mockup showing exactly these three line breaks
-            ("Post a shared" / "moment you" / "had with X!"), not wherever
-            the text happens to wrap at this box's width. */}
-        <span className="zt-polaroid-caption">Post a shared<br />moment you<br />had with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}!</span>
-        {/* Separate mobile-only copy (hidden by default, shown only at the
-            620px breakpoint -- see that media query) with its own 4-line
-            wording and breaks, per direct feedback: this isn't just the
-            desktop caption re-enabled at a smaller size, it reads
-            differently ("...on his timeline!" instead of "had with X!"). */}
-        <span className="zt-polaroid-caption-mobile">Post a shared<br />moment you had<br />with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}<br />on his timeline!</span>
+            reference mockup showing exactly these line breaks, not
+            wherever the text happens to wrap at this box's width. One
+            wording/size at every breakpoint now (used to be a separate,
+            differently-worded mobile-only variant here) -- per direct
+            feedback, the same CTA belongs everywhere, not just mobile. */}
+        <span className="zt-polaroid-caption">Post a shared<br />moment you had<br />with {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'}<br />on his timeline!</span>
       </div>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
@@ -1250,7 +1235,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               {slide.kind === 'upload' && (
                 <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
               )}
-              <span className="zt-visual-baseline" aria-hidden="true" />
             </span>
           );
         })}
@@ -1421,7 +1405,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           </span>
           <div className="zt-rail" ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
-            <span className="zt-rail-fill" style={{ left: `${careerStartPercent}%`, width: `${100 - careerStartPercent}%` }} aria-hidden="true" />
             {model.slides.map((slide, i) => (
               <button
                 type="button"
@@ -1584,7 +1567,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            broken-image icon. */
         .zt-person-stack :global(.zt-person-now) { left:var(--hero-copy-left); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
-        .zt-visual-baseline { position:absolute; z-index:5; left:0; right:0; bottom:0; height:2px; background:linear-gradient(90deg,rgba(200,169,110,.25),#d3aa48 28%,#efd070 55%,rgba(200,169,110,.24)); box-shadow:0 0 16px rgba(211,170,72,.28); pointer-events:none; }
 
         /* Top-left CTA/identity block, separate from the marketing
            kicker/headline column on the right (which never runs into it
@@ -1650,29 +1632,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            caption-above-arrow-above-Polaroid), sitting directly under the
            metadata block above it -- same left inset as that block. top
            is a fixed pixel estimate of that block's own height (name +
-           4 metadata lines + Class Of, top:4px start), the same
-           fixed-offset approach used throughout this file wherever a
-           precise flex-based measurement isn't practical across clamp()'s
-           range of sizes. */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:92px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
+           4 metadata lines + Class Of, top:4px start) plus a bit of
+           breathing room below it -- per direct feedback, this row was
+           sitting too close under the Class Of line above it. */
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:110px; display:flex; flex-direction:row; align-items:flex-end; gap:10px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
-           same UI chrome type everywhere else on this slide. Sized up
-           (was clamp(12px,1.6vw,14px)) and the 3 line breaks are now
-           explicit in the JSX ("Post a shared" / "moment you" / "had
-           with X!"), not left to wrap wherever this box's width happens
-           to break it -- per direct feedback with a reference mockup
-           showing exactly this size and these breaks. -webkit-line-clamp
-           dropped from 4 to 3 as a defensive cap (an unusually long first
-           name could still push "had with X!" itself past one line;
-           ellipsis there is better than a 4th line breaking the intended
-           3-line shape). max-width widened from 150 to 190px to fit
-           "Post a shared" on one line at this larger size. */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(16px,2vw,22px); line-height:1.15; }
-        /* Hidden by default (desktop uses .zt-polaroid-caption above);
-           shown only at the 620px breakpoint instead, with its own text
-           and tighter sizing -- see that media query. */
-        .zt-polaroid-caption-mobile { display:none; }
+           same UI chrome type everywhere else on this slide. One wording
+           at every breakpoint now (was a separate, larger desktop-only
+           variant plus a smaller, differently-worded mobile-only one) --
+           per direct feedback, the mobile CTA belongs everywhere. Tilted
+           to match the Polaroid beside it (its own -4deg rotation lives on
+           .zt-moment-thumb, a sibling, not an ancestor, so this needs its
+           own transform rather than inheriting one) -- per direct
+           feedback, "rotate that text block just like Click to Upload." */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1.1; transform:rotate(-4deg); transform-origin:left bottom; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
@@ -1746,21 +1720,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
         /* -- bottom chrome: a continuous progress rail plus a pair of
            square prev/next buttons at the bottom-right, matching the real
-           corporate hero's bottom bar (sitting just above its baseline
-           gold line), not round dots and mid-edge circular arrows.
-           The rail reads as ONE continuous line (picking up visually from
-           .zt-visual-baseline's full-bleed gold glow below it, which is
-           this same frame's one "burned into the background" swoosh/line)
-           rather than a row of separate hash marks: a single gold "fill"
-           covers the traveled distance, per-slide stops are thin ticks
-           embedded in that same line instead of standalone bars, and the
-           current stop is called out by breaking the line and setting the
-           year directly into that gap -- an opaque year chip painted over
-           both the fill and the track -- rather than lighting a mark up
+           corporate hero's bottom bar, not round dots and mid-edge
+           circular arrows. .zt-visual-baseline -- a separate full-bleed
+           gold glow line that used to sit right under this rail -- is
+           gone entirely now, not just restyled: once the rail itself
+           moved down close to the frame's own bottom edge, the two gold
+           lines sat close enough together to visually compete, per direct
+           feedback ("my eye wants to look at it... it needs to go").
+           The rail reads as ONE continuous line rather than a row of
+           separate hash marks: the whole track is gold (his career, dot
+           to dot, not just a stretch of it -- see .zt-rail-track below),
+           per-slide stops are thin ticks embedded in that same line
+           instead of standalone bars, and the current stop is called out
+           by breaking the line and setting the year directly into that
+           gap -- an opaque year chip painted over both the fill and the
+           track -- rather than lighting a mark up
            gold. */
-        /* bottom dropped back to 4px (was 16px), staying level with
-           .zt-rail's own lowered position below. */
-        .zt-nav { position:absolute; z-index:7; bottom:4px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
+        /* bottom:10px, staying level with .zt-rail's own bottom:14px. */
+        .zt-nav { position:absolute; z-index:7; bottom:10px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
         .zt-nav:disabled { opacity:.3; cursor:default; }
         /* Moved from stacked next to zt-nav-next (right:30px) over to the
            far left edge -- per direct feedback, the rail should sit
@@ -1779,20 +1756,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         /* right:44px, not the mirrored 34px -- the extra 10px makes room
            for .zt-rail-tick-boundary (see below) to sit clearly separated
            from both the last real tick and .zt-nav-next beside it, rather
-           than crowding either. bottom dropped back to 8px (was 20px) --
-           per direct feedback there's still room below the tick-year
-           labels at that lower position; 20px was more clearance than
-           those labels actually need (see .zt-rail-tick-year's own
-           comment for the exact minimum). */
-        .zt-rail { position:absolute; z-index:6; left:34px; right:44px; bottom:8px; height:12px; }
-        .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:rgba(255,255,255,.28); }
-        /* left/width now mark the fixed "his career" stretch of the rail
-           (anchor index through the end), not how far a fan has scrolled
-           -- see careerStartPercent above. transition still applies so a
-           freshly-loaded player's fill still eases in once model.slides
-           resolves, rather than only mattering for a drag that no longer
-           drives this element at all. */
-        .zt-rail-fill { position:absolute; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); transition:width .18s linear; }
+           than crowding either. bottom:14px, not flush against the frame's
+           own bottom edge -- per direct feedback, a little padding below
+           the tick-year labels reads better than none at all. */
+        .zt-rail { position:absolute; z-index:6; left:34px; right:44px; bottom:14px; height:12px; }
+        /* Solid gold the whole way now, not gray-before/gold-after-grad-
+           year (that two-tone .zt-rail-fill overlay is gone) -- per direct
+           feedback: "I want it all yellow except for the little red
+           dots." Keeps the glow the old scroll-driven fill used to carry,
+           just applied to the full-width track instead of a partial one. */
+        .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); }
         /* Every tick red now, not just the birth-year one -- per direct
            feedback. */
         /* 4px, not 6px -- per direct feedback, smaller dots. */
@@ -1805,7 +1778,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            height, right sits in the gap between the rail's own right
            edge and .zt-nav-next beside it. Not a button, so no hover/
            active state to style. */
-        .zt-rail-tick-boundary { top:auto; bottom:12px; left:auto; right:36px; margin-left:0; transform:none; cursor:default; }
+        .zt-rail-tick-boundary { top:auto; bottom:18px; left:auto; right:36px; margin-left:0; transform:none; cursor:default; }
         /* Sits just below each tick's own dot now (was above it), per
            direct feedback. Hidden on the active tick itself so it doesn't
            double up with .zt-rail-year's own bigger, bold, draggable
@@ -2025,16 +1998,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-persist-status { font-size:7px; }
           .zt-persist-bthw { font-size:6.5px; }
           .zt-persist-classof { font-size:6.5px; }
-          /* Desktop's caption (own text, own larger Caveat size) stays
-             hidden here -- .zt-polaroid-caption-mobile (own shorter lines,
-             tightly spaced) takes its place below instead, per direct
-             feedback asking for the CTA back on mobile. */
-          .zt-polaroid-caption { display:none; }
-          .zt-polaroid-caption-mobile { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:120px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:11px; line-height:1.05; }
+          /* Same element/text as desktop now (see its own comment) --
+             just resized to fit this narrower column: smaller, tighter
+             line-height, per direct feedback ("tightly spaced lines, it
+             will fit on mobile"). */
+          .zt-polaroid-caption { font-size:11px; line-height:1.05; max-width:120px; }
           /* Recomputed for this breakpoint's smaller metadata block (see
-             the font-size overrides just above) -- same fixed-offset
-             approach as the desktop base rule. */
-          .zt-polaroid-stack { top:64px; }
+             the font-size overrides just above), plus the same added
+             breathing room as the desktop base rule. */
+          .zt-polaroid-stack { top:80px; }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           .zt-moment-thumb-upload { font-size:clamp(6px,1.6vw,7.5px); }
           /* No room for a year label at every tick once the rail itself is
