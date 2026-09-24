@@ -137,6 +137,7 @@ function renderPlayerRows(players: any[], emptyText: string) {
         const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
         return `
           <div class="yat-search-card yat-search-player-card yat-search-player-result">
+            ${favoriteButtonHtml(p, name)}
             <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
               <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
             </a>
@@ -147,7 +148,6 @@ function renderPlayerRows(players: any[], emptyText: string) {
             <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
               <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
             </a>
-            ${favoriteButtonHtml(p, name)}
           </div>
         `;
       }).join('')}
@@ -254,6 +254,7 @@ function renderTeamRows(players: any[], emptyText: string) {
             const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
             return `
               <div class="yat-search-card yat-search-team-player-card yat-search-player-result">
+                ${favoriteButtonHtml(p, name)}
                 <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
                   <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
                 </a>
@@ -264,7 +265,6 @@ function renderTeamRows(players: any[], emptyText: string) {
                 <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
                   <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
                 </a>
-                ${favoriteButtonHtml(p, name)}
               </div>
             `;
           }).join('')}
@@ -618,7 +618,7 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
       #drawerLeft .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
       #drawerLeft .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
-      #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 52px minmax(0, 1fr) 46px 34px; align-items: center; column-gap: 10px; padding: 8px 10px; }
+      #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 34px 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
       #drawerLeft .yat-search-player-result a { color: inherit; text-decoration: none; }
       #drawerLeft .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
       #drawerLeft .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
