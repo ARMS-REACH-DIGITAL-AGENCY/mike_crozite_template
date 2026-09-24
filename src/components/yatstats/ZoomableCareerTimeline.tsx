@@ -1482,19 +1482,38 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            .zt-shell-images with no offset of their own, so their "top"
            values are the same coordinate), landing .zt-persist-name on
            the same plane as .zt-kick over in the headline column. */
-        .zt-moment-cta { position:absolute; z-index:8; left:var(--x-logo-left); top:14px; pointer-events:none; }
+        /* z-index:3, not 8 -- below .zt-person-stack's 4 (the hero cutout),
+           on purpose. This block's own position no longer overlaps the
+           cutout in the normal case (fixed in earlier passes), so this
+           has no visible effect there; it only matters for the rare long
+           name/team/org that now runs past its box instead of getting
+           ellipsis-truncated (see .zt-persist-id below) -- in that one
+           case, the hero image should win and paint over the overflow
+           tail, per direct feedback, rather than the text sitting on top
+           of the photo. Still above .zt-carousel (z-index:2) and
+           .zt-visual-stack (z-index:1), so it stays above the background
+           layers exactly as before. */
+        .zt-moment-cta { position:absolute; z-index:3; left:var(--x-logo-left); top:14px; pointer-events:none; }
         /* gap:1px, not 2px -- these lines read as one dense block cut
            straight from the flip card's back, not loosely spaced. */
-        .zt-persist-id { display:flex; flex-direction:column; gap:1px; max-width:160px; }
-        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* No max-width here anymore -- per direct feedback, this block
+           shouldn't clip/ellipsis a long name/team/org at all. Each line
+           below keeps white-space:nowrap (never wraps to a second line)
+           but drops overflow:hidden/text-overflow:ellipsis, so a line
+           that's too long to fit just renders past this box's natural
+           width instead of getting truncated. .zt-moment-cta's lowered
+           z-index (see above) is what makes that overflow land behind the
+           hero cutout instead of on top of it. */
+        .zt-persist-id { display:flex; flex-direction:column; gap:1px; }
+        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4vw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
         /* All four metadata lines at the same (lighter) weight -- team
            and status were 600 while org and B-T-H-W were already 400,
            reading as inconsistently bold; leveled to 400 throughout per
            direct feedback that the block shouldn't be this heavy. */
-        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(9px,1.3vw,11.5px); line-height:1.15; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.15; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7.5px,1vw,9px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); line-height:1.15; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(9px,1.3vw,11.5px); line-height:1.15; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05vw,9.5px); line-height:1.15; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-status { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7.5px,1vw,9px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95vw,8.5px); line-height:1.15; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
         /* CTA line + arrow + Polaroid, one bottom-anchored flex column so
            the (tight) spacing between them is computed, not guessed --
            per direct feedback that this whole group reads as "snuggled
@@ -1785,16 +1804,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             100% { opacity:1; }
           }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
-          .zt-persist-name { font-size:clamp(12px,3.6vw,15px); }
-          /* .zt-persist-id's 160px max-width (shared with desktop) is wider
-             than the actual gap to the cutout at this breakpoint -- .zt-
-             person starts at left:24%, which on a typical phone width is
-             only ~85-100px in, well inside that 160px box. A short team
-             name never reaches the ellipsis so this never showed; a long
-             one filled the full 160px and landed on top of the photo, per
-             direct feedback. 80px keeps the ellipsis truncation kicking in
-             before that point on the narrowest common phone widths. */
-          .zt-persist-id { max-width:80px; }
+          /* This whole block (name + the four metadata lines) is sized
+             down a notch at this breakpoint -- smaller than the desktop
+             clamp floors, not just following the same vw scaling -- so a
+             typical name/team/org/status fits without needing to overflow
+             at all on most phones. An unusually long one (see a live
+             example: "HUDSON VALLEY RENEGADES") will still run past this
+             column's natural width even at this size; that's expected and
+             fine now, not a bug -- .zt-persist-id has no max-width to
+             clip it, and .zt-moment-cta's z-index (see its own comment
+             above) puts the hero cutout on top of that overflow instead
+             of ellipsis-truncating it. Per direct feedback, no line here
+             should ever show "...". */
+          .zt-persist-name { font-size:clamp(11px,3.2vw,14px); }
+          .zt-persist-team { font-size:8px; }
+          .zt-persist-org { font-size:7.5px; }
+          .zt-persist-status { font-size:7px; }
+          .zt-persist-bthw { font-size:6.5px; }
           /* ROW_H_MOBILE is 150px total. The name/metadata block (top-
              anchored) and the caption+arrow+Polaroid group (bottom-
              anchored) collided here -- confirmed on a real phone,
