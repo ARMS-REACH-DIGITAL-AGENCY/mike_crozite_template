@@ -502,34 +502,33 @@ function SocialPanel({
       : `Check out ${fullName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS! #${hashtag}`;
 
   // Same copy as shareText above, just as JSX with the @handle/#YAT/#STATS
-  // tokens pulled into their own spans for the accent color - kept as a
+  // tokens pulled into their own elements for the accent color - kept as a
   // second, parallel construction (rather than parsing shareText with a
   // regex) so the plain-text version used for the actual share links can
   // never drift from what's visually shown here as "the message that's
-  // going to be posted."
-  const messageLines: ReactNode[] =
+  // going to be posted." A flat array of inline nodes, not one <span> per
+  // logical line - rendered as a single flowing paragraph so it wraps
+  // naturally instead of stacking fixed line breaks (which wasted vertical
+  // space and forced a smaller font).
+  const messageNodes: ReactNode[] =
     schoolName && formattedLocation
       ? [
-          <span key="l1">Hey Alumni of {schoolName} High School in {formattedLocation}...</span>,
-          <span key="l2">
-            Do you ever wonder what became of one of your school&apos;s best baseball players like{" "}
-            {fullName}?
-          </span>,
-          <span key="l3">
-            Visit <b className="fz-social-accent">@{YAT_STATS_X_HANDLE}</b> to find out Where They{" "}
-            <b className="fz-social-accent">#YAT</b> and What&apos;s Their{" "}
-            <b className="fz-social-accent">#STATS</b>!
-          </span>,
-          <b className="fz-social-accent" key="l4">
-            #{hashtag}
-          </b>,
+          `Hey Alumni of ${schoolName} High School in ${formattedLocation}... Do you ever wonder what became of one of your school's best baseball players like ${fullName}? Visit `,
+          <b className="fz-social-accent" key="handle">@{YAT_STATS_X_HANDLE}</b>,
+          " to find out Where They ",
+          <b className="fz-social-accent" key="yat">#YAT</b>,
+          " and What's Their ",
+          <b className="fz-social-accent" key="stats">#STATS</b>,
+          "! ",
+          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
         ]
       : [
-          <span key="l1">Check out {fullName}&apos;s YAT?STATS player card!</span>,
-          <span key="l2">
-            Where They <b className="fz-social-accent">#YAT</b> and What&apos;s Their{" "}
-            <b className="fz-social-accent">#STATS</b>! <b className="fz-social-accent">#{hashtag}</b>
-          </span>,
+          `Check out ${fullName}'s YAT?STATS player card! Where They `,
+          <b className="fz-social-accent" key="yat">#YAT</b>,
+          " and What's Their ",
+          <b className="fz-social-accent" key="stats">#STATS</b>,
+          "! ",
+          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
         ];
 
   const encodedUrl = encodeURIComponent(shareUrl);
@@ -553,52 +552,24 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
-      {/* Exact same font as the player profile page's own name headline -
-          .zt-title in ZoomableCareerTimeline.tsx (Oswald 700, uppercase,
-          letter-spacing:.005em - tight, not the looser spacing tried
-          earlier). Centered, fixed clamp()-based size - no longer
-          stretched edge-to-edge per feedback. */}
-      <div className="fz-social-headline">
-        <span className="fz-social-tag">#{hashtag}</span>
-        <span className="fz-social-headline-underline" aria-hidden="true" />
-      </div>
+      {/* Same bar treatment as the Stats tab's "2026 SEASON" header
+          (.yat-stats-bar) - a dedicated, identically-styled class rather
+          than that literal class, so a Social-only tweak here can never
+          bleed into the Stats tab's own bar (the same reason the action
+          grid below has its own class instead of reusing .yat-stats-grid). */}
+      <div className="fz-social-bar">#{hashtag}</div>
 
-      {/* Styled like a post composed for X - a fan should recognize
-          immediately that this is what will actually go out, not just
-          marketing copy about sharing. Left exactly as-is - this is the
-          part that already reads right. */}
-      <div className="fz-social-post">
-        <div className="fz-social-post-head">
-          <img src={YATI_MASCOT_URL} alt="" className="fz-social-post-avatar" />
-          <span className="fz-social-post-handle">@{YAT_STATS_X_HANDLE}</span>
-          {/* A small plain mark matching the header text color, not the
-              branded black-square X badge used below - this preview box is
-              untouched from before, so its own X mark stays untouched too. */}
-          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231ZM17.083 19.77h1.833L7.084 4.126H5.117Z" />
-          </svg>
+      {/* Same 3-column/4-row grid as the Stats tab, so these cells are
+          exactly as tall as .yat-stat's - the message cell spans the first
+          two rows (where Stats would show its first 6 stat cells), and the
+          six share icons auto-flow into the remaining two rows. */}
+      <div className="fz-social-grid">
+        <div className="fz-social-message-cell">
+          <p className="fz-social-message-text">
+            {messageNodes}
+            <span className="fz-social-message-url"> {shareUrl.replace(/^https?:\/\//, "")}</span>
+          </p>
         </div>
-        <div className="fz-social-post-body">
-          {messageLines.map((line, i) => (
-            <p key={i}>{line}</p>
-          ))}
-          <p className="fz-social-message-url">{shareUrl.replace(/^https?:\/\//, "")}</p>
-        </div>
-      </div>
-
-      {/* Real branded icons (same marks/colors as before), each dropped into
-          its own big cell instead of floating bare on the background - the
-          grid gets flex:1 so these six cells actually fill whatever space
-          is left below the post preview, rather than sitting undersized in
-          the middle of it. A dedicated class, not a reuse of the Stats
-          tab's .yat-stats-grid/.yat-stat - the Social and Stats tabs need
-          different cell proportions, and sharing that class is what caused
-          a Social-tab-only fix to previously alter the Stats tab's own grid. */}
-      {/* Icon-only cells - the branded marks (blue Facebook square, black X
-          square, etc.) already say what each one is, so a text label under
-          each is redundant. aria-label keeps these announced correctly for
-          screen readers even with no visible text. */}
-      <div className="fz-social-links">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
           target="_blank"
@@ -1175,121 +1146,79 @@ export default function FunZone({
 
 
         /* -- Social panel ----------------------------------------------- */
+        /* Follows the Stats tab's own layout exactly: a header bar, then a
+           3-column/4-row grid - here the message takes the space that
+           would be Stats' first two rows, and the six share icons fill the
+           remaining two rows at the exact same cell height as .yat-stat.
+           .fz-social-bar/.fz-social-grid are visual copies of
+           .yat-stats-bar/.yat-stats-grid, not the same classes - sharing
+           those literal classes is what let an earlier Social-only fix
+           bleed into and resize the Stats tab's own grid. */
         .fz-social{
           display:flex;
           flex-direction:column;
+          gap:clamp(5px,1.8cqi,10px);
           height:100%;
           min-height:0;
-          gap:clamp(4px,1.6cqi,9px);
         }
-        /* Centered, uppercase, tight letter-spacing - the exact same font
-           declaration as .zt-title in ZoomableCareerTimeline.tsx (the
-           player profile page's own headline: Oswald 700, letter-
-           spacing:.005em). A fixed clamp()-based size, not stretched to
-           fill the width - straight, not tilted, with the blue accent bar
-           below it. */
-        .fz-social-headline{
-          flex:0 0 auto;
+        .fz-social-bar{
           display:flex;
-          flex-direction:column;
           align-items:center;
-          gap:clamp(3px,1cqi,6px);
-          padding:clamp(2px,1cqi,6px) 0 clamp(4px,1.5cqi,8px);
-        }
-        .fz-social-tag{
-          display:block;
-          width:100%;
+          justify-content:center;
+          min-height:clamp(20px,6.5cqi,34px);
+          padding:clamp(3px,1cqi,6px) clamp(6px,2cqi,12px);
+          border:1px solid rgba(30,22,14,0.22);
+          border-radius:clamp(4px,1.2cqi,7px);
+          background:rgba(255,255,255,0.16);
+          color:rgba(0,0,0,0.88);
+          font:700 clamp(9px,3cqi,15px)/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.055em;
+          text-transform:uppercase;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);
           overflow:hidden;
           white-space:nowrap;
           text-overflow:ellipsis;
-          text-align:center;
-          text-transform:uppercase;
-          font:700 clamp(18px,9cqi,30px)/0.95 Oswald,sans-serif;
-          letter-spacing:.005em;
-          color:rgba(30,22,14,0.96);
-          text-shadow:0 2px 0 rgba(255,255,255,0.35);
         }
-        .fz-social-headline-underline{
-          display:block;
-          height:clamp(2px,.8cqi,3.5px);
-          width:min(130px,55%);
-          background:linear-gradient(90deg,#2451c9,#4c7eea);
-          border-radius:3px;
-          transform:skewX(-14deg);
-          transform-origin:left center;
-        }
-        /* Styled like a post composed for X (avatar + handle header, body
-           text below) so it reads as "this is what will actually post,"
-           not as marketing copy about sharing. Left exactly as approved -
-           this part of the panel already reads right. */
-        .fz-social-post{
-          flex:0 0 auto;
-          min-height:0;
-          display:flex;
-          flex-direction:column;
-          border:1px solid rgba(30,22,14,0.22);
-          border-radius:clamp(6px,1.8cqi,10px);
-          background:rgba(255,255,255,0.32);
-          overflow:hidden;
-        }
-        .fz-social-post-head{
-          flex-shrink:0;
-          display:flex;
-          align-items:center;
-          gap:clamp(4px,1.3cqi,7px);
-          padding:clamp(3px,1cqi,6px) clamp(5px,1.6cqi,8px);
-          border-bottom:1px solid rgba(30,22,14,0.14);
-          background:rgba(255,255,255,0.25);
-        }
-        .fz-social-post-avatar{
-          width:clamp(12px,4cqi,18px);
-          height:clamp(12px,4cqi,18px);
-          border-radius:50%;
-          object-fit:cover;
-          flex:0 0 auto;
-        }
-        .fz-social-post-handle{
-          flex:1;
-          min-width:0;
-          font:700 clamp(7px,2.2cqi,10px) Oswald,sans-serif;
-          color:rgba(30,22,14,0.75);
-        }
-        .fz-social-post-head svg{ flex:0 0 auto; color:rgba(30,22,14,0.55); font-size:clamp(8px,2.6cqi,12px); }
-        .fz-social-post-body{
-          min-height:0;
-          overflow:hidden;
-          padding:clamp(3px,1cqi,6px) clamp(5px,1.6cqi,8px);
-          display:flex;
-          flex-direction:column;
-          gap:1px;
-        }
-        .fz-social-post-body p{
-          margin:0;
-          font:400 clamp(6.5px,2cqi,9px)/1.3 Oswald,sans-serif;
-          color:rgba(30,22,14,0.82);
-        }
-        .fz-social-message-url{
-          color:rgba(30,22,14,0.5) !important;
-          word-break:break-all;
-        }
-        .fz-social-accent{ color:#2451c9; font-weight:700; }
-
-        /* A dedicated grid/cell pair, not a reuse of the Stats tab's
-           .yat-stats-grid/.yat-stat - the two tabs need different cell
-           proportions (these need to be much bigger, per feedback), and
-           sharing that class is exactly what let an earlier Social-only fix
-           bleed into and resize the Stats tab's own grid. flex:1 here means
-           these six cells actually claim all the room left after the
-           headline and post preview above, instead of sitting undersized
-           with dead space below them. */
-        .fz-social-links{
+        .fz-social-grid{
           display:grid;
           grid-template-columns:repeat(3,minmax(0,1fr));
-          grid-template-rows:repeat(2,minmax(0,1fr));
-          gap:clamp(6px,2cqi,12px);
+          grid-template-rows:repeat(4,minmax(0,1fr));
+          gap:clamp(5px,1.7cqi,10px);
           flex:1;
           min-height:0;
         }
+        /* Spans the first two rows across all three columns - the same
+           space Stats' first 6 cells would occupy. One flowing paragraph,
+           not stacked lines, so wrapped text uses the space efficiently and
+           can run at a bigger point size. */
+        .fz-social-message-cell{
+          grid-column:1 / -1;
+          grid-row:1 / 3;
+          display:flex;
+          align-items:center;
+          min-width:0;
+          min-height:0;
+          overflow:hidden;
+          padding:clamp(6px,2cqi,12px);
+          border:1px solid rgba(30,22,14,0.10);
+          border-radius:clamp(8px,2.2cqi,16px);
+          background:rgba(255,255,255,0.36);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.34),
+            0 1px 2px rgba(30,22,14,0.08);
+        }
+        /* Plain block so mixed text + inline elements wrap as one flowing
+           paragraph - display:flex directly on the text container turns each
+           text run/inline element into its own flex item instead of letting
+           them wrap together. */
+        .fz-social-message-text{
+          margin:0;
+          width:100%;
+          font:500 clamp(9px,3.4cqi,14px)/1.32 Oswald,sans-serif;
+          color:rgba(30,22,14,0.85);
+        }
+        .fz-social-message-url{ color:rgba(30,22,14,0.5); word-break:break-all; }
+        .fz-social-accent{ color:#2451c9; font-weight:700; }
         /* Icon-only - the branded mark says what it is, so no text label. */
         .fz-social-cell{
           min-width:0;
