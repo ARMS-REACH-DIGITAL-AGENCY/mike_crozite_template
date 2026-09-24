@@ -1260,10 +1260,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (slide.kind === 'anchor') {
             return (
               <Fragment key={slide.id}>
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`${S3_BASE}/players/cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+                {/* S3 folder renamed from players/cutouts/ to
+                    players/then-cutouts/ -- the bucket's three raw-photo
+                    folders are back/ (flip-card action pic), now/
+                    (current headshot) and then/ (HS photo); their cutout
+                    counterparts are now named to match: then-cutouts/,
+                    back-cutouts/, now-cutouts/ (below) -- this one used to
+                    just be "cutouts/", ambiguous once the other two cutout
+                    folders existed alongside it. */}
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`${S3_BASE}/players/then-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
                 {/* "Then vs now" -- a cutout from the current/most-recent
                     action photo (players/back/, run through the same
-                    background-removal pipeline into players/now-cutouts/).
+                    background-removal pipeline into players/back-cutouts/).
                     Desktop: fills the dead space between the HS
                     silhouette and the headline column, side by side with
                     it. Mobile: same spot as the HS cutout instead (no
@@ -1273,13 +1281,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     swap) -- see the animation rule in the 620px media
                     query. Falls back to the headshot cutout
                     (players/now/, background removed into
-                    players/headshot-cutouts/) when a player has no
-                    "back" photo -- e.g. a pro whose flip card back is
-                    still blank -- via SmartImage's own srcs-then-src
-                    fallback chain (the same mechanism season slides use
-                    for their YaTi placeholder), not a second image
-                    element. Only renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`]} src={`${S3_BASE}/players/headshot-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
+                    players/now-cutouts/) when a player has no "back"
+                    photo -- e.g. a pro whose flip card back is still
+                    blank -- via SmartImage's own srcs-then-src fallback
+                    chain (the same mechanism season slides use for their
+                    YaTi placeholder), not a second image element. Only
+                    renders nothing if NEITHER exists. */}
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`${S3_BASE}/players/back-cutouts/${encodeURIComponent(playerId)}.png`]} src={`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
               </Fragment>
             );
           }
@@ -1981,7 +1989,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              timeline, not the bottom of the container.
              height:50%, not 86% -- 86% was sized around a tall, narrow
              action-cutout silhouette (matching "then"'s own proportions).
-             SmartImage's fallback here (players/headshot-cutouts/, for a
+             SmartImage's fallback here (players/now-cutouts/, for a
              player with no flip-card-back photo yet) is a much squarer
              headshot crop -- inside an 86%-tall box, object-fit:contain
              scales it up until its WIDTH fills the box, which for a
