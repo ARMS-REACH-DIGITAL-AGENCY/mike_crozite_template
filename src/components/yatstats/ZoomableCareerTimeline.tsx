@@ -1646,7 +1646,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            .zt-moment-thumb, a sibling, not an ancestor, so this needs its
            own transform rather than inheriting one) -- per direct
            feedback, "rotate that text block just like Click to Upload." */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1.1; transform:rotate(-4deg); transform-origin:left bottom; }
+        /* text-shadow added -- at narrow widths this caption's own column
+           runs into the anchor slide's "then/now" cutout column beside it
+           (there isn't room for both to sit side by side without any
+           overlap at all at phone widths), and the caption was reading as
+           illegible mid-photo without something to keep the text itself
+           legible regardless of what's behind it at any given point. */
+        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; max-width:150px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7vw,18px); line-height:1.1; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6); transform:rotate(-4deg); transform-origin:left bottom; }
         .zt-moment-thumb { width:clamp(46px,6vw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
         .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
         /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
@@ -1691,7 +1697,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            a source-text line break to render literally instead of letting
            the sentence just flow and wrap naturally. */
         .zt-anchor .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title { white-space:normal; overflow-wrap:anywhere; }
-        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        /* text-shadow added -- the anchor's own mobile column (see its
+           620px rule below) can run this line right into the "then/now"
+           cutout image beside it; a dark shadow keeps it legible against
+           the photo instead of just the plain background it was designed
+           against. */
+        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.6); }
         /* The season's 4 headline numbers, big and plain -- no card/tile
            background, border or shadow, per direct feedback ("it doesn't
            need to be a graphic"). Just enlarged label+number pairs in a
@@ -2001,8 +2012,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* Same element/text as desktop now (see its own comment) --
              just resized to fit this narrower column: smaller, tighter
              line-height, per direct feedback ("tightly spaced lines, it
-             will fit on mobile"). */
-          .zt-polaroid-caption { font-size:11px; line-height:1.05; max-width:120px; }
+             will fit on mobile"). max-width narrowed further from 120px --
+             this row starts right where the anchor's own "then/now" cutout
+             column starts too (both are pinned to fixed/percentage
+             positions, not aware of each other), so the narrower this
+             column stays, the less of it actually sits over that photo
+             instead of the plain background. */
+          .zt-polaroid-caption { font-size:11px; line-height:1.05; max-width:80px; }
           /* Recomputed for this breakpoint's smaller metadata block (see
              the font-size overrides just above), plus the same added
              breathing room as the desktop base rule. */
