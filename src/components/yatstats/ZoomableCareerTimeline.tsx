@@ -1856,12 +1856,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
           .zt-copy { left:26%; right:auto; width:22%; bottom:14px; justify-content:flex-start; padding-top:10px; }
-          /* Life-year screens have no cutout reserving space, so they can
-             afford a bit more width than the rule above -- still
-             contained to the real screen's right half, expressed as
-             left+width for the same reason (this slide is 200% wide, so
-             "right" would measure from an edge that's off-screen). */
-          .zt-lifeyear .zt-copy { left:22%; width:28%; justify-content:flex-start; padding-top:10px; }
+          /* Life-year AND season slides both render the same mascot image
+             at the same position (zt-person-yati, identical class, no
+             kind-specific CSS of its own) -- this was originally scoped
+             to .zt-lifeyear alone on the assumption that season slides
+             have "a real cutout reserving space" the way the mascot
+             kinds don't, but season uses the exact same mascot, not a
+             cutout, so that assumption didn't hold. Season fell back to
+             the rule above instead (left:26%, narrower/further right),
+             leaving its headline sitting a visibly bigger, inconsistent
+             gap from the identical mascot image than life-year's, per
+             direct feedback comparing them side by side. Widened to
+             cover both kinds so any slide using this mascot art gets the
+             same tight, consistent spacing regardless of which kind it
+             is. Still contained to the real screen's right half,
+             expressed as left+width for the same reason (this slide is
+             200% wide, so "right" would measure from an edge that's
+             off-screen). */
+          .zt-lifeyear .zt-copy, .zt-season .zt-copy { left:22%; width:28%; justify-content:flex-start; padding-top:10px; }
           /* A touch smaller than the general .zt-bodycopy floor so the
              now-shorter anchor line ("Stay connected to X on his
              baseball journey...") has the best chance of actually
