@@ -356,14 +356,25 @@ const YAT_STATS_X_HANDLE = "yat_stats";
 // surrounding button's color) - a fan recognizes "the blue Facebook square"
 // and "the black X square" as icons in their own right, so the badge IS
 // the icon rather than a generic glyph sitting inside one.
+// Each glyph (everything but the full-bleed colored badge rect) is scaled
+// down and recentered to roughly the same ~50%-of-canvas footprint as
+// InstagramIcon's own camera mark - the real brand marks for Facebook/X/
+// etc. are drawn edge-to-edge in their official artwork, which reads as
+// "blown up" once every icon sits in the same cell size; Instagram's own
+// convention (generous padding around the mark) is the one that actually
+// looked right, so the others are brought in line with it instead.
+const GLYPH_INSET_TRANSFORM = "translate(20 20) scale(0.55) translate(-20 -20)";
+
 function FacebookIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#1877F2" />
-      <path
-        d="M25.5 20.5H22v11h-4.5v-11H14.8v-3.8H17.5v-2.4c0-3.1 1.5-5.6 5.4-5.6 1.6 0 2.8.2 2.8.2v3.7h-1.6c-1.5 0-2.1.9-2.1 2v2.1h3.6l-.5 3.8Z"
-        fill="#fff"
-      />
+      <g transform={GLYPH_INSET_TRANSFORM}>
+        <path
+          d="M25.5 20.5H22v11h-4.5v-11H14.8v-3.8H17.5v-2.4c0-3.1 1.5-5.6 5.4-5.6 1.6 0 2.8.2 2.8.2v3.7h-1.6c-1.5 0-2.1.9-2.1 2v2.1h3.6l-.5 3.8Z"
+          fill="#fff"
+        />
+      </g>
     </svg>
   );
 }
@@ -372,10 +383,12 @@ function XIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#000" />
-      <path
-        d="M11 11h4.9l4.4 6 4.9-6H29l-7.4 8.9L29.4 29h-4.9l-5-6.6-5.5 6.6H10l7.9-9.4L11 11Z"
-        fill="#fff"
-      />
+      <g transform={GLYPH_INSET_TRANSFORM}>
+        <path
+          d="M11 11h4.9l4.4 6 4.9-6H29l-7.4 8.9L29.4 29h-4.9l-5-6.6-5.5 6.6H10l7.9-9.4L11 11Z"
+          fill="#fff"
+        />
+      </g>
     </svg>
   );
 }
@@ -384,10 +397,12 @@ function TextIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
-      <path
-        d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
-        fill="#2E7DF7"
-      />
+      <g transform={GLYPH_INSET_TRANSFORM}>
+        <path
+          d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
+          fill="#2E7DF7"
+        />
+      </g>
     </svg>
   );
 }
@@ -396,8 +411,10 @@ function EmailIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#1266C4" />
-      <rect x="9" y="12" width="22" height="16" rx="2.5" fill="#fff" />
-      <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <g transform={GLYPH_INSET_TRANSFORM}>
+        <rect x="9" y="12" width="22" height="16" rx="2.5" fill="#fff" />
+        <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
     </svg>
   );
 }
@@ -425,8 +442,10 @@ function CopyIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#fff" stroke="rgba(30,22,14,0.18)" />
-      <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
-      <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
+      <g transform={GLYPH_INSET_TRANSFORM}>
+        <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
+        <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
+      </g>
     </svg>
   );
 }
@@ -435,7 +454,9 @@ function CheckIcon() {
   return (
     <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
       <rect width="40" height="40" rx="9" fill="#1c7a3e" />
-      <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <g transform={GLYPH_INSET_TRANSFORM}>
+        <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
     </svg>
   );
 }
