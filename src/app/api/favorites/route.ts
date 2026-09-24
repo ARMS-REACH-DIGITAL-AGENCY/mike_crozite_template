@@ -7,8 +7,8 @@
 //
 // GET    /api/favorites?uid=<firebaseUid>&hsid=<currentHsid>&scope=home|all|button
 //   Returns favorite player IDs plus one-row-per-player drawer items.
-//   scope=home returns only the user's home school favorites.
-//   scope=all returns only cross-school Super Fan favorites, excluding home school favorites.
+//   scope=home returns only the user's home school favorites for Fan accounts.
+//   scope=all returns the full Super Fan favorites list.
 //   scope=button returns all favorites for exact player-button state checks.
 //
 // DELETE /api/favorites
@@ -270,10 +270,12 @@ export async function GET(req: NextRequest) {
         favoritePlayers = [];
         lockedReason = "SUPERFAN_REQUIRED";
       } else {
-        favoritePlayers = allFavoritePlayers.filter((p) => String(p.school_id || "") !== homeHsid);
+        favoritePlayers = allFavoritePlayers;
       }
     } else {
-      favoritePlayers = allFavoritePlayers.filter((p) => String(p.school_id || "") === homeHsid);
+      favoritePlayers = isSuperfan
+        ? []
+        : allFavoritePlayers.filter((p) => String(p.school_id || "") === homeHsid);
     }
 
     const playerIds = favoritePlayers.map((p) => String(p.player_id));
