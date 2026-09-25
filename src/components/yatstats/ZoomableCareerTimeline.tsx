@@ -2044,7 +2044,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              recomputed against .zt-copy's real left:32% at this
              breakpoint -- var(--hero-copy-left) is a fixed ~34%/476px and
              no longer matches .zt-copy once this 32% override takes over. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% + 20px - 800px); }
+          /* width/object-position restated here (not just left): this
+             breakpoint's .zt-person rule above sets its own width and comes
+             later in the stylesheet than the desktop .zt-person-now rule,
+             so without these the pro image inherited that ~130-200px width
+             and its box ended up entirely off the left edge of the row. */
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% + 20px - 800px); width:800px; object-position:right bottom; }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px); }
           .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30vw,240px)); width:clamp(170px,30vw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
@@ -2091,7 +2096,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              oversized box, see the desktop rule. bottom:8px puts its feet
              on the rail's line (.zt-rail drops to bottom:2px here, 12px
              tall). */
-          .zt-person-stack :global(.zt-person-now) { left:calc(58% + 16px - 800px); height:48%; bottom:8px; }
+          /* width/object-position restated for the same reason as the
+             900px rule: this breakpoint's .zt-person rule (left:24%, a
+             ~100px width, object-position:left bottom) would otherwise win
+             and put the pro image's box ~575px off the left edge. */
+          .zt-person-stack :global(.zt-person-now) { left:calc(58% + 16px - 800px); width:800px; height:48%; bottom:8px; object-position:right bottom; }
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
