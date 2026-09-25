@@ -365,8 +365,7 @@ function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?:
   // data-fallback lets CSS style the "gave up on the preferred source and
   // is showing a later one instead" case differently if ever needed, since
   // CSS has no other way to tell which URL actually loaded. (.zt-person-now
-  // no longer uses it: its back-cutout and headshot fallback now share the
-  // same small thumbnail box.)
+  // no longer uses it: its back-cutout and headshot fallback share one box.)
   return <img className={className} style={style} src={active} alt={alt} loading="eager" data-fallback={index > 0 ? 'true' : undefined} onError={() => setIndex((next) => next + 1)} />;
 }
 
@@ -1325,15 +1324,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     back-cutouts/, now-cutouts/ (below) -- this one used to
                     just be "cutouts/", ambiguous once the other two cutout
                     folders existed alongside it. */}
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`${S3_BASE}/players/then-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} cutout`} />
+                {/* Served through /api/cutout, which trims the transparent
+                    border off the S3 cutout so the figure (not empty
+                    canvas) fills its box -- see that route's comment. */}
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`/api/cutout?kind=then&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} cutout`} />
                 {/* "Then vs now" -- a cutout from the current/most-recent
                     action photo (players/back/, run through the same
                     background-removal pipeline into players/back-cutouts/).
-                    Per direct feedback it's the SMALL image on this
-                    slide at every width -- a thumbnail right-justified to
-                    the headline column's left edge -- shown alongside the
-                    big HS cutout above, never instead of it (see the
-                    .zt-person-now CSS rules). Falls back to the headshot cutout
+                    Per direct feedback: about half the HS cutout's
+                    height, a little to the right of it and in front of
+                    it, at every width -- shown alongside the big HS
+                    cutout above, never instead of it (see the
+                    .zt-person-now CSS rules). Also trimmed via
+                    /api/cutout. Falls back to the headshot cutout
                     (players/now/, background removed into
                     players/now-cutouts/) when a player has no "back"
                     photo -- e.g. a pro whose flip card back is still
@@ -1341,7 +1344,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     chain (the same mechanism season slides use for their
                     YaTi placeholder), not a second image element. Only
                     renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`${S3_BASE}/players/back-cutouts/${encodeURIComponent(playerId)}.png`]} src={`${S3_BASE}/players/now-cutouts/${encodeURIComponent(playerId)}.png`} alt={`${firstName(slide.title)} today`} />
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`/api/cutout?kind=back&id=${encodeURIComponent(playerId)}`]} src={`/api/cutout?kind=now&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} today`} />
               </Fragment>
             );
           }
@@ -1614,18 +1617,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            per direct feedback that it still wasn't close enough to the
            headline. */
         .zt-person-stack :global(.zt-person) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(150px,18vw,252px)); bottom:-4%; width:clamp(150px,18vw,252px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
-        /* Anchor slide, per direct feedback: the HS cutout (then, the
-           .zt-person box above) is the big image and the pro image is the
-           small one, both visible. The pro image -- a back-cutout action
-           photo, or the headshot cutout when there's no back photo (via
-           SmartImage's srcs-then-src fallback) -- always takes the small
-           thumbnail spot the headshot fallback used before: right-
-           justified to just left of .zt-copy's own left edge ("right
-           justified to the left of the vertical line that the heading is
-           left justified to"). Renders nothing (see SmartImage) if a
-           player has neither cutout yet, so it never leaves a broken-
-           image icon. */
-        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - clamp(56px,7vw,84px)); width:clamp(56px,7vw,84px); bottom:24px; height:34%; object-position:left bottom; }
+        /* Anchor slide, per direct feedback: the HS cutout (.zt-person-
+           then, below) is the big image; the pro image -- a back-cutout
+           action photo, or the headshot cutout when there's no back photo
+           (via SmartImage's srcs-then-src fallback) -- comes about halfway
+           up it (55% of the row), a little to the right and in front of
+           it (rendered after it, same z-index). Same baseline as the HS
+           cutout (bottom:-4%); its right edge sits 24px past the HS box's
+           right edge. The width cap keeps a very wide action photo from
+           blanketing the HS figure (contain shrinks it instead). NOT the
+           fan-upload thumbnail size -- that's a separate thing. Renders
+           nothing (see SmartImage) if a player has neither cutout yet. */
+        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) + 24px - clamp(120px,14vw,200px)); width:clamp(120px,14vw,200px); bottom:-4%; height:55%; object-position:right bottom; }
+        /* The HS cutout's own box: wider than the shared .zt-person box
+           (season slides keep that one) so a wide pitching/throwing pose
+           isn't width-limited, same right edge (8px left of the headline
+           column). Its image comes through /api/cutout, which trims the
+           transparent border, so the figure itself -- not empty canvas --
+           fills the full row height. */
+        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) - 8px - clamp(200px,22vw,300px)); width:clamp(200px,22vw,300px); }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
 
         /* Top-left CTA/identity block, separate from the marketing
@@ -2008,11 +2018,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              as the desktop base rule, same reasons -- just recomputed
              against .zt-copy's left:32% at this breakpoint instead of 34%. */
           .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(130px,26vw,200px)); width:clamp(130px,26vw,200px); }
-          /* Small pro-image thumbnail (see the desktop base rule),
+          /* Pro image and HS cutout (see the desktop base rules),
              recomputed against .zt-copy's real left:32% at this
              breakpoint -- var(--hero-copy-left) is a fixed ~34%/476px and
              no longer matches .zt-copy once this 32% override takes over. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% - clamp(48px,7vw,72px)); width:clamp(48px,7vw,72px); }
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% + 24px - clamp(100px,16vw,160px)); width:clamp(100px,16vw,160px); }
+          .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30vw,240px)); width:clamp(170px,30vw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
           .zt-title { font-size:clamp(15px,3.4vw,22px); }
@@ -2043,20 +2054,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              left, not lined up with anything. Back to the plain flat
              left:24%/object-position:left-bottom this had before that. */
           .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
-          /* Anchor slide, per direct feedback: the HS cutout (then) is the
-             big one, and the pro image -- back-cutout action photo, or the
-             headshot cutout when there's no back photo -- is the small
-             one, both visible at once (no more then/now crossfade here;
-             it never actually ran anyway, since its selector wasn't
-             :global() and SmartImage's <img> carries no styled-jsx scope
-             class). The pro image takes the small thumbnail spot the
-             headshot fallback already used: right-justified to just
-             before the headline column starts. That column lives in this
-             breakpoint's doubled 200%-wide slide box and .zt-person-stack
-             doesn't, so its box-relative 29% is a real 58% here.
-             bottom:2px rests it on the rail, which drops to bottom:2px at
-             this breakpoint. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(58% - clamp(40px,14vw,60px)); width:clamp(40px,14vw,60px); height:30%; bottom:2px; object-position:left bottom; }
+          /* Anchor slide, per direct feedback: HS cutout big, pro image
+             about half its height (55% of the row), a little to the right
+             and in front of it -- both visible at once (no more then/now
+             crossfade here; it never actually ran anyway, since its
+             selector wasn't :global() and SmartImage's <img> carries no
+             styled-jsx scope class). The pro image starts 45% of the way
+             across the HS box (both left-aligned from 24%), so it
+             overlaps the HS figure's right side and extends past it. */
+          .zt-person-stack :global(.zt-person-now) { left:calc(24% + clamp(130px,40vw,170px) * 0.45); width:clamp(80px,26vw,110px); height:55%; bottom:-4%; object-position:left bottom; }
+          /* HS cutout: same left:24% as .zt-person, wider box (was
+             clamp(84px,28vw,120px)) -- at that width a wide pose was
+             width-limited to well under the row's height. */
+          .zt-person-stack :global(.zt-person-then) { left:24%; width:clamp(130px,40vw,170px); }
           .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
           /* This whole block (name + the four metadata lines) is sized
              down a notch at this breakpoint -- smaller than the desktop
