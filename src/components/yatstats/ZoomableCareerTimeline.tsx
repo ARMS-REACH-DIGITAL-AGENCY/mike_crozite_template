@@ -1622,8 +1622,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            action photo, or the headshot cutout when there's no back photo
            (via SmartImage's srcs-then-src fallback) -- comes about halfway
            up it (55% of the row), a little to the right and in front of
-           it (rendered after it, same z-index), starting 78px left of the
-           headline column and extending right. Standardized by HEIGHT:
+           it (rendered after it, same z-index). Its RIGHT edge is pinned
+           24px past the headline column's left edge and it grows LEFTWARD
+           over the HS cutout (object-position:right bottom in a box that
+           ends there), so however wide a given action photo is, it can
+           never slide under the headline text. Standardized by HEIGHT:
            the box is deliberately much wider than any image needs, so
            object-fit:contain is always height-limited and every player's
            pro image (trimmed by /api/cutout) renders the same height
@@ -1633,7 +1636,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            line (bottom:14px + half its 12px height). NOT the fan-upload
            thumbnail size -- that's a separate thing. Renders nothing (see
            SmartImage) if a player has neither cutout yet. */
-        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 78px); width:40vw; bottom:20px; height:55%; object-position:left bottom; }
+        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) + 24px - 40vw); width:40vw; bottom:20px; height:55%; object-position:right bottom; }
         /* The HS cutout's own box: wider than the shared .zt-person box
            (season slides keep that one) so a wide pitching/throwing pose
            isn't width-limited, same right edge (8px left of the headline
@@ -2031,7 +2034,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              recomputed against .zt-copy's real left:32% at this
              breakpoint -- var(--hero-copy-left) is a fixed ~34%/476px and
              no longer matches .zt-copy once this 32% override takes over. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 70px); width:50vw; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% + 20px - 50vw); width:50vw; }
           .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30vw,240px)); width:clamp(170px,30vw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
@@ -2068,15 +2071,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              and in front of it -- both visible at once (no more then/now
              crossfade here; it never actually ran anyway, since its
              selector wasn't :global() and SmartImage's <img> carries no
-             styled-jsx scope class). The pro image starts 45% of the way
-             across the HS box (both left-aligned from 24%), so it
-             overlaps the HS figure's right side and extends past it.
+             styled-jsx scope class). The pro image's right edge is pinned
+             16px past the headline column's real left edge (58% here --
+             see the doubled-box note on .zt-person above) and it grows
+             leftward over the HS figure, so it never slides under the
+             headline text.
              Same height for every player (48% of the row -- the size
              Casey Legumina's read right at, per direct feedback) via the
              oversized box, see the desktop rule. bottom:8px puts its feet
              on the rail's line (.zt-rail drops to bottom:2px here, 12px
              tall). */
-          .zt-person-stack :global(.zt-person-now) { left:calc(24% + clamp(130px,40vw,170px) * 0.45); width:70vw; height:48%; bottom:8px; object-position:left bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(58% + 16px - 70vw); width:70vw; height:48%; bottom:8px; object-position:right bottom; }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28vw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */

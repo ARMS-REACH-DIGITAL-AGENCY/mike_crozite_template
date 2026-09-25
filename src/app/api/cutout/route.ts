@@ -32,7 +32,23 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const input = Buffer.from(await upstream.arrayBuffer());
+    let input: Buffer = Buffer.from(await upstream.arrayBuffer());
+    // Flip-card-back action photos are wide rectangles (~2.3-3.2:1) laid
+    // out for the card back, where the name/stats sit over the LEFT third
+    // and the photo fades behind them -- so the player is almost always in
+    // the right two-thirds, and whatever the left third holds (an
+    // outstretched glove arm, an interviewer, a bat) is noise here. Drop
+    // it for any back cutout still in that card-back shape. A back cutout
+    // that's been hand-cropped to something squarer (w:h under 2, e.g.
+    // Cody Bellinger's, Casey Legumina's) is left alone: cutting a third
+    // off it would cut into the player.
+    if (kind === 'back') {
+      const { width = 0, height = 0 } = await sharp(input).metadata();
+      if (width && height && width / height >= 2) {
+        const cut = Math.floor(width / 3);
+        input = await sharp(input).extract({ left: cut, top: 0, width: width - cut, height }).png().toBuffer();
+      }
+    }
     // With a transparent top-left pixel, sharp's trim removes the
     // transparent border on all four sides.
     const output = await sharp(input).trim({ threshold: 10 }).png().toBuffer();
