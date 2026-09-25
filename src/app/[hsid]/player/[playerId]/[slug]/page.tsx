@@ -97,7 +97,10 @@ export default async function ProfilePage({ params }: Props) {
   // starts arriving, rather than after the timeline's own data fetches
   // finish -- which made the photos land well after the rest of the page.
   const cutoutId = encodeURIComponent(String(playerId));
-  preload(`/api/cutout?kind=then&id=${cutoutId}`, { as: "image", fetchPriority: "high" });
+  // No fetchPriority: React routes a high-priority image preload through a
+  // separate queue that never reached this page's HTML (checked on the
+  // preview: only the back preload was emitted), so both use the default.
+  preload(`/api/cutout?kind=then&id=${cutoutId}`, { as: "image" });
   preload(`/api/cutout?kind=back&id=${cutoutId}`, { as: "image" });
 
    let player: any = null;
