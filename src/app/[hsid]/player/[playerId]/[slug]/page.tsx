@@ -96,12 +96,15 @@ export default async function ProfilePage({ params }: Props) {
   // photos (HS cutout + pro action cutout) as soon as this page's HTML
   // starts arriving, rather than after the timeline's own data fetches
   // finish -- which made the photos land well after the rest of the page.
+  // These are the ready-made WebP files the Build Web Cutouts job keeps on
+  // S3 (see ZoomableCareerTimeline's webCutoutUrl).
   const cutoutId = encodeURIComponent(String(playerId));
+  const cutoutBase = "https://yatstats-assets.s3.us-west-2.amazonaws.com/players";
   // No fetchPriority: React routes a high-priority image preload through a
   // separate queue that never reached this page's HTML (checked on the
   // preview: only the back preload was emitted), so both use the default.
-  preload(`/api/cutout?kind=then&id=${cutoutId}`, { as: "image" });
-  preload(`/api/cutout?kind=back&id=${cutoutId}`, { as: "image" });
+  preload(`${cutoutBase}/then-web/${cutoutId}.webp`, { as: "image" });
+  preload(`${cutoutBase}/back-web/${cutoutId}.webp`, { as: "image" });
 
    let player: any = null;
   let _diagSlugRows: number | null = null;

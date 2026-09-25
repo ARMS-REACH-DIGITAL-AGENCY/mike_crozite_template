@@ -5,6 +5,16 @@ import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+// Display-ready cutouts built ahead of time by the Build Web Cutouts job
+// (scripts/build-web-cutouts-s3.py): trimmed, faded and shrunk to ~30-100KB,
+// loaded straight from S3. /api/cutout does the same work on the fly and
+// stays as the fallback for a cutout the job hasn't reached yet.
+function webCutoutUrl(kind: 'then' | 'back' | 'now', playerId: string) {
+  return `${S3_BASE}/players/${kind}-web/${encodeURIComponent(playerId)}.webp`;
+}
+function apiCutoutUrl(kind: 'then' | 'back' | 'now', playerId: string) {
+  return `/api/cutout?kind=${kind}&id=${encodeURIComponent(playerId)}`;
+}
 // One-slide-per-season carousel. ONE continuous frame -- no grid split, no
 // second box, no border -- at every breakpoint. The cutout is confined to
 // roughly the left third of the frame; copy sits in the right two-thirds,
@@ -360,8 +370,12 @@ const REVEAL_KEYFRAMES: Record<Reveal, Keyframe[]> = {
   right: [{ offset: 0, opacity: 0, transform: 'translateX(56px)' }],
 };
 
-function SmartImage({ src, srcs, alt, className, style, reveal, hold = false, revealDelay = 0, onSettled }: {
+function SmartImage({ src, srcs, alt, className, style, reveal, hold = false, revealDelay = 0, onSettled, fallbackAt = 1 }: {
   src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties;
+  // Index of the first source that counts as a fallback for data-fallback
+  // (default: anything after the first). The pro image lists the action
+  // shot twice (S3 web file, then /api/cutout) before the headshot.
+  fallbackAt?: number;
   // Set only for the anchor slide's first appearance (always rendered
   // client-side, after the timeline's data fetches, so onLoad reliably
   // fires even for a cached image): the image stays
@@ -416,7 +430,7 @@ function SmartImage({ src, srcs, alt, className, style, reveal, hold = false, re
   // CSS has no other way to tell which URL actually loaded. .zt-person-now
   // uses it: an action shot's right edge sits just past the headline
   // column's left edge, the headshot fallback flush on it.
-  return <img ref={imgRef} key={active} className={className} style={visible ? style : { ...style, visibility: 'hidden' }} src={active} alt={alt} loading="eager" decoding="async" data-fallback={index > 0 ? 'true' : undefined} onLoad={handleLoad} onError={() => setIndex((next) => next + 1)} />;
+  return <img ref={imgRef} key={active} className={className} style={visible ? style : { ...style, visibility: 'hidden' }} src={active} alt={alt} loading="eager" decoding="async" data-fallback={index >= fallbackAt ? 'true' : undefined} onLoad={handleLoad} onError={() => setIndex((next) => next + 1)} />;
 }
 
 function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
@@ -954,9 +968,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // already in the browser cache.
   useEffect(() => {
     if (!playerId) return;
-    for (const kind of ['then', 'back']) {
+    for (const kind of ['then', 'back'] as const) {
       const img = new Image();
-      img.src = `/api/cutout?kind=${kind}&id=${encodeURIComponent(playerId)}`;
+      img.src = webCutoutUrl(kind, playerId);
     }
   }, [playerId]);
 
@@ -1420,10 +1434,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     back-cutouts/, now-cutouts/ (below) -- this one used to
                     just be "cutouts/", ambiguous once the other two cutout
                     folders existed alongside it. */}
-                {/* Served through /api/cutout, which trims the transparent
-                    border off the S3 cutout so the figure (not empty
-                    canvas) fills its box -- see that route's comment. */}
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`/api/cutout?kind=then&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} cutout`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
+                {/* The trimmed WebP the Build Web Cutouts job keeps on S3
+                    (then-web/), falling back to /api/cutout, which does
+                    the same trim on the fly -- the figure (not empty
+                    canvas) fills its box either way. */}
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${firstName(slide.title)} cutout`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
                 {/* "Then vs now" -- a cutout from the current/most-recent
                     action photo (players/back/, run through the same
                     background-removal pipeline into players/back-cutouts/).
@@ -1440,7 +1455,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     chain (the same mechanism season slides use for their
                     YaTi placeholder), not a second image element. Only
                     renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`/api/cutout?kind=back&id=${encodeURIComponent(playerId)}`]} src={`/api/cutout?kind=now&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('back', playerId), apiCutoutUrl('back', playerId), webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={2} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
               </Fragment>
             );
           }
