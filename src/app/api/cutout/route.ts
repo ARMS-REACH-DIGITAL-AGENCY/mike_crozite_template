@@ -1,0 +1,117 @@
+// src/app/api/cutout/route.ts
+// Serves a player's background-removed cutout (players/{kind}-cutouts/{id}.png
+// on S3) with its transparent border trimmed off. The cutout pipeline keeps
+// each source photo's full canvas, so how much empty space surrounds the
+// figure varies photo to photo (Casey Legumina's HS cutout is ~27% empty
+// top+bottom, Cooper Brass's is 0%) - which made the same CSS box render one
+// player's figure far smaller than another's. The browser can't trim it
+// itself: the S3 bucket sends no CORS headers, so page code can't read the
+// image's pixels. Trimming here makes every figure fill its box the same way.
+
+import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
+import sharp from 'sharp';
+
+export const runtime = 'nodejs';
+
+const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+const KINDS = new Set(['then', 'back', 'now']);
+const PLAYER_ID = /^[A-Za-z0-9_-]{1,40}$/;
+
+// Largest size any hero box draws a cutout at, in device pixels (a
+// ~450px-tall row on a 2x screen). The S3 originals run up to 2000x2800
+// and 2-6MB as PNG; resized and sent as WebP they're 30-100KB.
+const MAX_W = 1400;
+const MAX_H = 1000;
+
+async function buildCutout(kind: string, id: string): Promise<string | null> {
+  const upstream = await fetch(`${S3_BASE}/players/${kind}-cutouts/${encodeURIComponent(id)}.png`, { cache: 'no-store' });
+  // 403/404 both mean "no cutout for this player" on this bucket.
+  if (!upstream.ok) return null;
+  const input: Buffer = Buffer.from(await upstream.arrayBuffer());
+  // Decoded once and scaled down to a working size first: the originals run
+  // up to ~2000x2800, and fading/trimming at full size roughly doubled the
+  // time a player's first view waits on this route.
+  const { data, info } = await sharp(input)
+    .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  let image = sharp(data, { raw: info });
+  // Flip-card-back action photos are wide rectangles (~2.3-3.2:1) laid
+  // out for the card back, where the name/stats sit over the LEFT third
+  // and the photo fades behind them -- so the player is almost always in
+  // the right two-thirds, and whatever the left third holds (an
+  // outstretched glove arm, an interviewer, a bat) is secondary. Per
+  // direct feedback, that left side DISSOLVES out rather than being cut
+  // off: an alpha fade from fully transparent at 12% of the width to
+  // fully opaque at 42% (smoothstep, then ^1.5 so it stays faint longer).
+  // Then trimmed on all four sides like everything else, so the image's
+  // right edge is the player's own right edge -- the timeline pins that
+  // edge just past the headline column. A back cutout that's been
+  // hand-cropped to something squarer (w:h under 2, e.g. Cody
+  // Bellinger's, Casey Legumina's) is left unfaded.
+  if (kind === 'back' && width / height >= 2) {
+    const row = Buffer.alloc(width * 4);
+    for (let x = 0; x < width; x++) {
+      const t = Math.min(1, Math.max(0, (x / width - 0.12) / 0.3));
+      const a = Math.pow(t * t * (3 - 2 * t), 1.5);
+      row[x * 4] = 255;
+      row[x * 4 + 1] = 255;
+      row[x * 4 + 2] = 255;
+      row[x * 4 + 3] = Math.round(a * 255);
+    }
+    const mask = await sharp(row, { raw: { width, height: 1, channels: 4 } })
+      .resize(width, height, { fit: 'fill', kernel: 'nearest' })
+      .png()
+      .toBuffer();
+    const faded = await image.composite([{ input: mask, blend: 'dest-in' }]).raw().toBuffer();
+    image = sharp(faded, { raw: info });
+  }
+  // With a transparent top-left pixel, sharp's trim removes the
+  // transparent border on all four sides. Trimmed first, then resized, so
+  // the resize budget goes to the figure rather than empty canvas.
+  const trimmed = await image.trim({ threshold: 10 }).raw().toBuffer({ resolveWithObject: true });
+  const output = await sharp(trimmed.data, { raw: trimmed.info })
+    .resize({ width: MAX_W, height: MAX_H, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82, alphaQuality: 90, effort: 3 })
+    .toBuffer();
+  return output.toString('base64');
+}
+
+// Kept in Next's data cache, which (unlike the CDN's response cache)
+// survives new deployments -- so a fresh deploy doesn't send every
+// visitor through a cold S3 download + trim (1-2s per image) again. An
+// hour's revalidate lets a replaced cutout, or a newly added one for a
+// player who had none, show up the same day; a stale entry is served
+// instantly while it refreshes in the background.
+const getCutout = unstable_cache(buildCutout, ['api-cutout-webp-v2'], { revalidate: 3600 });
+
+export async function GET(req: NextRequest) {
+  const kind = req.nextUrl.searchParams.get('kind') || '';
+  const id = req.nextUrl.searchParams.get('id') || '';
+  if (!KINDS.has(kind) || !PLAYER_ID.test(id)) {
+    return NextResponse.json({ error: 'kind (then|back|now) and a valid id are required' }, { status: 400 });
+  }
+
+  try {
+    const encoded = await getCutout(kind, id);
+    // Passed through as a 404 so SmartImage's onError moves on to its next
+    // source.
+    if (!encoded) {
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300, s-maxage=3600' } });
+    }
+    return new NextResponse(new Uint8Array(Buffer.from(encoded, 'base64')), {
+      headers: {
+        'Content-Type': 'image/webp',
+        // Not immutable like the S3 originals: cutouts get replaced in
+        // place at the same key, so the CDN re-checks daily.
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
+      },
+    });
+  } catch (error) {
+    console.error(`[api/cutout] build failed for ${kind}/${id}:`, error);
+    return new NextResponse(null, { status: 502 });
+  }
+}
