@@ -369,8 +369,9 @@ function SmartImage({ src, srcs, alt, className, style, imgRef }: { src?: string
   if (!active) return null;
   // data-fallback lets CSS style the "gave up on the preferred source and
   // is showing a later one instead" case differently if ever needed, since
-  // CSS has no other way to tell which URL actually loaded. (.zt-person-now
-  // no longer uses it: its back-cutout and headshot fallback share one box.)
+  // CSS has no other way to tell which URL actually loaded. .zt-person-now
+  // uses it: an action shot is centered on the HS figure, but the headshot
+  // fallback sits flush against the headline column's left edge.
   return <img ref={imgRef} className={className} style={style} src={active} alt={alt} loading="eager" data-fallback={index > 0 ? 'true' : undefined} onError={() => setIndex((next) => next + 1)} />;
 }
 
@@ -1678,6 +1679,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            thumbnail size -- that's a separate thing. Renders nothing (see
            SmartImage) if a player has neither cutout yet. */
         .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(100px,11vw,150px) - 400px); width:800px; bottom:20px; height:55%; object-position:center bottom; }
+        /* Headshot fallback (no flip-card-back photo, so SmartImage fell
+           back to the headshot cutout -- data-fallback="true"): per direct
+           feedback, NOT centered on the HS figure like an action shot, but
+           flush against the vertical line the headline column is left-
+           justified to: its right edge sits exactly on that line, never
+           past it into the text. !important because the component sets
+           left/width inline for the centered action-shot case. */
+        .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - 800px) !important; width:800px !important; object-position:right bottom; }
         /* The HS cutout's own box: wider than the shared .zt-person box
            (season slides keep that one) so a wide pitching/throwing pose
            isn't width-limited, same right edge (8px left of the headline
@@ -2076,6 +2085,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              breakpoint -- var(--hero-copy-left) is a fixed ~34%/476px and
              no longer matches .zt-copy once this 32% override takes over. */
           .zt-person-stack :global(.zt-person-now) { left:calc(32% - 8px - clamp(85px,15vw,120px) - 400px); width:800px; }
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px) !important; }
           .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30vw,240px)); width:clamp(170px,30vw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
@@ -2122,6 +2132,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              on the rail's line (.zt-rail drops to bottom:2px here, 12px
              tall). */
           .zt-person-stack :global(.zt-person-now) { left:calc(24% + clamp(65px,20vw,85px) - 400px); width:800px; height:48%; bottom:8px; object-position:center bottom; }
+          /* Headshot fallback flush against the headline column's real
+             left edge (58% here -- see the doubled-box note above). */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px) !important; }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28vw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */
