@@ -6,8 +6,7 @@ type Key = 'active' | 'alltime' | 'current' | 'news';
 const galleries = new Set<Key>(['active', 'alltime', 'current']);
 const groups = ['filterStatus','filterLevels','filterOrgs','filterGradClass','filterRosterYears'];
 const rank: Record<string,number> = {'MLB':1,'TRIPLE-A':2,'DOUBLE-A':3,'HIGH-A':4,'LOW-A':5,'ROOKIE':6,'INDY':7,"INT'L":8,'NCAA-D1':9,'NCAA-D2':10,'NCAA-D3':11,'NAIA':12,'JUCO':13,'HIGH SCHOOL':14};
-const HEADSHOT_FALLBACK = '/img/headshot-silhouette.png';
-const UNCOMMITTED_BADGE = '/img/uncommitted.png';
+const NOW_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now';
 
 function currentKey(): Key {
   const visible = document.querySelector<HTMLElement>('.yat-section.visible');
@@ -84,17 +83,6 @@ function preset(k:Key){
   syncSelectAll(); filterUniverse();
 }
 function sortVisible(k:Key){const g=grid(k);if(!g)return;cards(k).sort((a,b)=>compare(k,a,b)).forEach(card=>g.appendChild(wrapper(card)));}
-// Each tab's own thumbnail, as the cards publish it (PlayerCard's
-// data-thumbnail-*): All-Time shows the HS-era photo, Current the team
-// logo, Active the headshot. This used to use the full-size Active
-// headshot (players/now/{id}.jpg) for every tab, so switching to All-Time
-// first flashed the Active headshots before Row3MirrorGuard swapped in
-// the right images -- and downloaded the full-size originals to do it.
-function row3Thumb(k:Key,card:HTMLElement){
-  if(k==='current')return{src:card.dataset.thumbnailCurrent||UNCOMMITTED_BADGE,fallback:card.dataset.thumbnailCurrentFallback||UNCOMMITTED_BADGE};
-  if(k==='alltime')return{src:card.dataset.thumbnailThen||HEADSHOT_FALLBACK,fallback:card.dataset.thumbnailThenFallback||HEADSHOT_FALLBACK};
-  return{src:card.dataset.thumbnailNow||HEADSHOT_FALLBACK,fallback:card.dataset.thumbnailNowFallback||HEADSHOT_FALLBACK};
-}
 function mirrorRow3(k:Key){
   if(!galleries.has(k))return;
   const inner=document.querySelector<HTMLElement>('.gallery-strip-inner');if(!inner)return;
@@ -103,18 +91,8 @@ function mirrorRow3(k:Key){
     const id=card.dataset.playerid||'';
     const a=document.createElement('a');
     a.href='#'; a.className='gallery-slot gallery-slot-link'; a.dataset.playerid=id; a.title=card.dataset.name||'';
-    const media=document.createElement('div');media.className='gallery-slot-media';
-    const {src,fallback}=row3Thumb(k,card);
-    const img=document.createElement('img');
-    img.className='gallery-slot-img';img.alt='';img.loading='lazy';img.decoding='async';
-    // Row3MirrorGuard re-points this slot and owns the full fallback chain
-    // (card-size copy -> original -> silhouette); this only covers the
-    // moment before it runs.
-    img.onerror=()=>{img.onerror=null;img.src=fallback;};
-    img.src=src;
-    const gradient=document.createElement('div');gradient.className='gallery-slot-gradient';
-    const label=document.createElement('div');label.className='gallery-slot-name-overlay';label.textContent=last(card).toUpperCase();
-    media.append(img,gradient,label);a.append(media);
+    const safeId=encodeURIComponent(id);
+    a.innerHTML=`<div class="gallery-slot-media"><img class="gallery-slot-img" src="${NOW_BASE}/${safeId}.jpg" onerror="this.onerror=null;this.src='/img/headshot-silhouette.png'" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay">${last(card).toUpperCase()}</div></div>`;
     inner.appendChild(a);
   });
 }
@@ -126,55 +104,10 @@ function showSection(k:Key,hash=true){
   window.dispatchEvent(new Event('hashchange'));
 }
 
-// "Take me to his flip card" links (favorites, search, the profile's school
-// bar) arrive as ?view=active&player={id}#player-{id}. Nothing handled that
-// anymore: YatInteractivity's handler never runs (that inline script has
-// failed to parse since Sept 20), so the browser just jumped to the first
-// element with that id -- the player's hidden copy in Active, for a retired
-// player. This opens the requested tab, and if that tab's filters hide the
-// player (retired on Active, a current high-schooler), the tab that shows
-// them; then scrolls to the card and highlights it.
-function requestedPlayer(){
-  const params=new URLSearchParams(location.search);
-  const fromHash=location.hash.startsWith('#player-')?decodeURIComponent(location.hash.slice('#player-'.length)):'';
-  const id=(params.get('player')||fromHash||'').trim();
-  let view=(params.get('view')||'').toLowerCase().replace(/[-_]/g,'');
-  if(view==='team')view='current';
-  return{id,view:(galleries.has(view as Key)?view:'active') as Key};
-}
-function revealPlayer(id:string,requested:Key){
-  // Current (the high school team) before All-Time: every card is cloned
-  // into every tab (cloneUniverse) and All-Time shows everyone, so a
-  // high-schooler would otherwise land there instead of on his own team.
-  const order=[requested,...(['current','alltime','active'] as Key[]).filter(k=>k!==requested)];
-  for(const k of order){
-    showSection(k,false);
-    const card=cards(k).find(c=>c.dataset.playerid===id);
-    if(card&&wrapper(card).style.display!=='none')return card;
-  }
-  showSection(requested,false);
-  return null;
-}
-function scrollToCard(card:HTMLElement){
-  // Re-aim for a moment while images above it finish laying out, unless
-  // the fan starts scrolling on their own.
-  let stopped=false;
-  const stop=()=>{stopped=true;};
-  window.addEventListener('touchstart',stop,{once:true,passive:true});
-  window.addEventListener('wheel',stop,{once:true,passive:true});
-  const aim=()=>{if(!stopped)card.scrollIntoView({behavior:'auto',block:'center'});};
-  aim();
-  [150,400,800,1300].forEach(ms=>window.setTimeout(aim,ms));
-  window.setTimeout(()=>{window.removeEventListener('touchstart',stop);window.removeEventListener('wheel',stop);},1400);
-  card.animate?.([{boxShadow:'0 0 0 4px #f5c542'},{boxShadow:'0 0 0 4px #f5c542'},{boxShadow:'0 0 0 0 rgba(245,197,66,0)'}],{duration:1800,easing:'ease-out'});
-}
-
 export default function GalleryUniverseController(){
   useEffect(()=>{
     cloneUniverse();
     const initial=currentKey(); if(galleries.has(initial))preset(initial);
-    const {id:linkedPlayer,view:linkedView}=requestedPlayer();
-    if(linkedPlayer){const card=revealPlayer(linkedPlayer,linkedView);if(card)scrollToCard(card);}
     const click=(e:MouseEvent)=>{
       const target=e.target instanceof Element?e.target:null;if(!target)return;
       const nav=target.closest<HTMLElement>('[data-tab]');
