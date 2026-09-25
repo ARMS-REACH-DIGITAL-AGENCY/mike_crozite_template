@@ -761,6 +761,15 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // ---------------------------------------------------------------------------
 // ALL-TIME ROSTER - every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
+// Every stats step below is limited to this school's players
+// (school_players). They used to roll up batting/pitching history for every
+// player in the database (~250k rows, ~15 text-to-number conversions each)
+// and only then join to the school -- about 2.7s+ per call, called by both
+// the [hsid] layout and page, which ran past the database's statement
+// timeout on busy schools (Perry, 13562: "canceling statement due to
+// statement timeout", a blank All-Time list and an ~18s page). Same rows
+// either way: Hamilton's 107 rows fingerprint identically before and after;
+// a trimmed version for Perry went from 2.74s to 0.44s.
 export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
@@ -791,6 +800,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
         draft_info,
         playyears
       FROM public.v_tbc_batting_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
@@ -802,6 +812,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
         draft_info     AS pit_draft_info,
         playyears      AS pit_playyears
       FROM public.v_tbc_pitching_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
@@ -858,6 +869,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
           ELSE NULL
         END AS ops
       FROM public.v_tbc_batting_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       GROUP BY playerid::text, bucket
     ),
 
@@ -1102,6 +1114,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
           ELSE NULL
         END AS so_bb
       FROM public.v_tbc_pitching_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       GROUP BY playerid::text, bucket
     ),
 
