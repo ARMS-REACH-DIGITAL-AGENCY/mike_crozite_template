@@ -35,29 +35,51 @@ export async function GET(req: NextRequest) {
     const input: Buffer = Buffer.from(await upstream.arrayBuffer());
     // Flip-card-back action photos are wide rectangles (~2.3-3.2:1) laid
     // out for the card back, where the name/stats sit over the LEFT third
-    // and the photo fades behind them -- so the player is almost always in
-    // the right two-thirds, and whatever the left third holds (an
-    // outstretched glove arm, an interviewer, a bat) is noise here. Drop
-    // it for any back cutout still in that card-back shape. A back cutout
-    // that's been hand-cropped to something squarer (w:h under 2, e.g.
-    // Cody Bellinger's, Casey Legumina's) is left alone: cutting a third
-    // off it would cut into the player.
-    //
-    // The remaining right two-thirds is then trimmed top and bottom ONLY,
-    // never left/right: its exact horizontal middle is the original
-    // photo's two-thirds line (where the player stands), and the timeline
-    // centers the image on the HS cutout by that middle.
+    // and the photo fades behind them -- so the player is almost always on
+    // the photo's two-thirds line, and whatever the left third holds (an
+    // outstretched glove arm, an interviewer, a bat) is secondary. Per
+    // direct feedback, that left side DISSOLVES out rather than being cut
+    // off: an alpha fade from fully transparent at 12% of the width to
+    // fully opaque at 42% (smoothstep, then ^1.5 so it stays faint longer).
+    // Then transparent padding one-third of the width wide is added on the
+    // right, which puts the two-thirds line exactly in the image's
+    // horizontal middle -- the timeline centers the image on the HS cutout
+    // by that middle. Trimmed top and bottom only, never the sides, so that
+    // middle doesn't move. A back cutout that's been hand-cropped to
+    // something squarer (w:h under 2, e.g. Cody Bellinger's, Casey
+    // Legumina's) is left alone and just trimmed like everything else.
     let output: Buffer | null = null;
     if (kind === 'back') {
       const { width = 0, height = 0 } = await sharp(input).metadata();
       if (width && height && width / height >= 2) {
-        const cut = Math.floor(width / 3);
-        const rightTwoThirds = await sharp(input).extract({ left: cut, top: 0, width: width - cut, height }).png().toBuffer();
+        const row = Buffer.alloc(width * 4);
+        for (let x = 0; x < width; x++) {
+          const t = Math.min(1, Math.max(0, (x / width - 0.12) / 0.3));
+          const a = Math.pow(t * t * (3 - 2 * t), 1.5);
+          row[x * 4] = 255;
+          row[x * 4 + 1] = 255;
+          row[x * 4 + 2] = 255;
+          row[x * 4 + 3] = Math.round(a * 255);
+        }
+        const mask = await sharp(row, { raw: { width, height: 1, channels: 4 } })
+          .resize(width, height, { fit: 'fill', kernel: 'nearest' })
+          .png()
+          .toBuffer();
+        const pad = Math.round(width / 3);
+        const faded = await sharp(input)
+          .ensureAlpha()
+          .composite([{ input: mask, blend: 'dest-in' }])
+          .png()
+          .toBuffer();
+        const padded = await sharp(faded)
+          .extend({ right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer();
         // trimOffsetTop is negative: the number of rows trim removed from the top.
-        const { info } = await sharp(rightTwoThirds).trim({ threshold: 10 }).toBuffer({ resolveWithObject: true });
+        const { info } = await sharp(padded).trim({ threshold: 10 }).toBuffer({ resolveWithObject: true });
         const top = Math.max(0, -(info.trimOffsetTop ?? 0));
-        output = await sharp(rightTwoThirds)
-          .extract({ left: 0, top, width: width - cut, height: Math.min(info.height, height - top) })
+        output = await sharp(padded)
+          .extract({ left: 0, top, width: width + pad, height: Math.min(info.height, height - top) })
           .png()
           .toBuffer();
       }
