@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    let input: Buffer = Buffer.from(await upstream.arrayBuffer());
+    const input: Buffer = Buffer.from(await upstream.arrayBuffer());
     // Flip-card-back action photos are wide rectangles (~2.3-3.2:1) laid
     // out for the card back, where the name/stats sit over the LEFT third
     // and the photo fades behind them -- so the player is almost always in
@@ -42,16 +42,30 @@ export async function GET(req: NextRequest) {
     // that's been hand-cropped to something squarer (w:h under 2, e.g.
     // Cody Bellinger's, Casey Legumina's) is left alone: cutting a third
     // off it would cut into the player.
+    //
+    // The remaining right two-thirds is then trimmed top and bottom ONLY,
+    // never left/right: its exact horizontal middle is the original
+    // photo's two-thirds line (where the player stands), and the timeline
+    // centers the image on the HS cutout by that middle.
+    let output: Buffer | null = null;
     if (kind === 'back') {
       const { width = 0, height = 0 } = await sharp(input).metadata();
       if (width && height && width / height >= 2) {
         const cut = Math.floor(width / 3);
-        input = await sharp(input).extract({ left: cut, top: 0, width: width - cut, height }).png().toBuffer();
+        const rightTwoThirds = await sharp(input).extract({ left: cut, top: 0, width: width - cut, height }).png().toBuffer();
+        // trimOffsetTop is negative: the number of rows trim removed from the top.
+        const { info } = await sharp(rightTwoThirds).trim({ threshold: 10 }).toBuffer({ resolveWithObject: true });
+        const top = Math.max(0, -(info.trimOffsetTop ?? 0));
+        output = await sharp(rightTwoThirds)
+          .extract({ left: 0, top, width: width - cut, height: Math.min(info.height, height - top) })
+          .png()
+          .toBuffer();
       }
     }
-    // With a transparent top-left pixel, sharp's trim removes the
-    // transparent border on all four sides.
-    const output = await sharp(input).trim({ threshold: 10 }).png().toBuffer();
+    // Everything else (HS "then" cutouts, headshot "now" cutouts,
+    // hand-cropped back cutouts): with a transparent top-left pixel,
+    // sharp's trim removes the transparent border on all four sides.
+    if (!output) output = await sharp(input).trim({ threshold: 10 }).png().toBuffer();
     return new NextResponse(new Uint8Array(output), {
       headers: {
         'Content-Type': 'image/png',
