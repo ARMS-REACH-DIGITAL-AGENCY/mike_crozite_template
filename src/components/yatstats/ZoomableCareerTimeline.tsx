@@ -23,11 +23,6 @@ const ROW_H = 200;
 // narrow screens, per direct feedback ("very tall with a lot of dead
 // space").
 const ROW_H_MOBILE = 150;
-// Anchor slide pro image: its box is centered on the HS figure and far
-// wider than any image needs, so object-fit:contain is always
-// height-limited (standard height for every player) and the image itself
-// sits centered in it (object-position:center bottom).
-const PRO_BOX_W = 800;
 const TIMELINE_YELLOW = '#ffb21c';
 // Same asset the corporate hero and this component's own HS anchor slide
 // have always pointed at (audience-site.js's BG) -- one canonical
@@ -353,7 +348,7 @@ function useFanSession() {
   return session;
 }
 
-function SmartImage({ src, srcs, alt, className, style, imgRef }: { src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties; imgRef?: (el: HTMLImageElement | null) => void }) {
+function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties }) {
   const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
   const sourcesKey = sources.join('|');
   const [index, setIndex] = useState(0);
@@ -370,9 +365,9 @@ function SmartImage({ src, srcs, alt, className, style, imgRef }: { src?: string
   // data-fallback lets CSS style the "gave up on the preferred source and
   // is showing a later one instead" case differently if ever needed, since
   // CSS has no other way to tell which URL actually loaded. .zt-person-now
-  // uses it: an action shot is centered on the HS figure, but the headshot
-  // fallback sits flush against the headline column's left edge.
-  return <img ref={imgRef} className={className} style={style} src={active} alt={alt} loading="eager" data-fallback={index > 0 ? 'true' : undefined} onError={() => setIndex((next) => next + 1)} />;
+  // uses it: an action shot's right edge sits just past the headline
+  // column's left edge, the headshot fallback flush on it.
+  return <img className={className} style={style} src={active} alt={alt} loading="eager" data-fallback={index > 0 ? 'true' : undefined} onError={() => setIndex((next) => next + 1)} />;
 }
 
 function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
@@ -589,37 +584,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       .finally(() => { if (!cancelled) setIdentityLoaded(true); });
     return () => { cancelled = true; };
   }, [playerId]);
-  // Anchor slide, per direct feedback: the pro image is centered on the
-  // HS cutout's figure. CSS alone can't do that -- the HS figure's drawn
-  // width varies photo to photo (object-fit:contain, left- or right-
-  // aligned in its box by breakpoint) -- so this measures where the HS
-  // image actually drew its content, relative to .zt-person-stack, and
-  // the pro image's box is centered on that x. Re-measured when the image
-  // loads and whenever it resizes. null (no HS cutout, or not measured
-  // yet) leaves the pro image at its CSS fallback position.
-  const [hsImgEl, setHsImgEl] = useState<HTMLImageElement | null>(null);
-  const [hsCenterX, setHsCenterX] = useState<number | null>(null);
-  useEffect(() => {
-    if (!hsImgEl) { setHsCenterX(null); return; }
-    const img = hsImgEl;
-    const measure = () => {
-      const stack = img.parentElement;
-      if (!stack || !img.naturalWidth || !img.naturalHeight) return;
-      const r = img.getBoundingClientRect();
-      const sr = stack.getBoundingClientRect();
-      const contentW = Math.min(r.width, (r.height * img.naturalWidth) / img.naturalHeight);
-      // Computed object-position is always percentages ("0% 100%" for
-      // left bottom, "100% 100%" for right bottom).
-      const fx = parseFloat(getComputedStyle(img).objectPosition) / 100;
-      const x = Number.isFinite(fx) ? fx : 0.5;
-      setHsCenterX(r.left - sr.left + (r.width - contentW) * x + contentW / 2);
-    };
-    measure();
-    img.addEventListener('load', measure);
-    const ro = new ResizeObserver(measure);
-    ro.observe(img);
-    return () => { img.removeEventListener('load', measure); ro.disconnect(); };
-  }, [hsImgEl]);
   // Same resolution SchoolContextBar.tsx uses for its own breadcrumb: the
   // name can come back empty before the fetch above resolves (or if it
   // fails), so this falls back to the name embedded in the route's own
@@ -1364,7 +1328,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 {/* Served through /api/cutout, which trims the transparent
                     border off the S3 cutout so the figure (not empty
                     canvas) fills its box -- see that route's comment. */}
-                <SmartImage className="zt-person zt-person-then" imgRef={setHsImgEl} style={{ opacity }} src={`/api/cutout?kind=then&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} cutout`} />
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`/api/cutout?kind=then&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} cutout`} />
                 {/* "Then vs now" -- a cutout from the current/most-recent
                     action photo (players/back/, run through the same
                     background-removal pipeline into players/back-cutouts/).
@@ -1381,7 +1345,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     chain (the same mechanism season slides use for their
                     YaTi placeholder), not a second image element. Only
                     renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity, ...(hsCenterX != null ? { left: hsCenterX - PRO_BOX_W / 2, width: PRO_BOX_W } : {}) }} srcs={[`/api/cutout?kind=back&id=${encodeURIComponent(playerId)}`]} src={`/api/cutout?kind=now&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} today`} />
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`/api/cutout?kind=back&id=${encodeURIComponent(playerId)}`]} src={`/api/cutout?kind=now&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} today`} />
               </Fragment>
             );
           }
@@ -1659,16 +1623,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            action photo, or the headshot cutout when there's no back photo
            (via SmartImage's srcs-then-src fallback) -- comes about halfway
            up it (55% of the row), a little to the right and in front of
-           it (rendered after it, same z-index), CENTERED on the HS
-           figure: the component measures where the HS image drew its
-           content and sets this box's left/width inline (PRO_BOX_W wide,
-           centered on that x), and the image sits centered in the box
-           (object-position:center bottom). /api/cutout keeps a card-back
-           action photo's middle on its original two-thirds line, where
-           the player stands, so that centers the player himself. The
-           left/width here are only the fallback until that measurement
-           lands (or when there's no HS cutout): the same 800px box,
-           centered on the HS box. Standardized by HEIGHT:
+           it (rendered after it, same z-index). Chosen by direct
+           comparison of the previews: an action shot's RIGHT edge (the
+           player's own right edge -- /api/cutout trims it, after fading
+           out a card-back photo's left third) is pinned 24px past the
+           headline column's left edge, and it grows leftward over the HS
+           cutout (object-position:right bottom in a box that ends
+           there). The headshot fallback's own rule below puts it flush on
+           that line instead. Standardized by HEIGHT:
            the box is deliberately much wider than any image needs, so
            object-fit:contain is always height-limited and every player's
            pro image (trimmed by /api/cutout) renders the same height
@@ -1678,15 +1640,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            line (bottom:14px + half its 12px height). NOT the fan-upload
            thumbnail size -- that's a separate thing. Renders nothing (see
            SmartImage) if a player has neither cutout yet. */
-        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(100px,11vw,150px) - 400px); width:800px; bottom:20px; height:55%; object-position:center bottom; }
+        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) + 24px - 800px); width:800px; bottom:20px; height:55%; object-position:right bottom; }
         /* Headshot fallback (no flip-card-back photo, so SmartImage fell
            back to the headshot cutout -- data-fallback="true"): per direct
-           feedback, NOT centered on the HS figure like an action shot, but
-           flush against the vertical line the headline column is left-
-           justified to: its right edge sits exactly on that line, never
-           past it into the text. !important because the component sets
-           left/width inline for the centered action-shot case. */
-        .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - 800px) !important; width:800px !important; object-position:right bottom; }
+           feedback, flush against the vertical line the headline column
+           is left-justified to -- its right edge sits exactly on that
+           line, never past it into the text. */
+        .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - 800px); }
         /* The HS cutout's own box: wider than the shared .zt-person box
            (season slides keep that one) so a wide pitching/throwing pose
            isn't width-limited, same right edge (8px left of the headline
@@ -2084,8 +2044,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              recomputed against .zt-copy's real left:32% at this
              breakpoint -- var(--hero-copy-left) is a fixed ~34%/476px and
              no longer matches .zt-copy once this 32% override takes over. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 8px - clamp(85px,15vw,120px) - 400px); width:800px; }
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px) !important; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% + 20px - 800px); }
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px); }
           .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30vw,240px)); width:clamp(170px,30vw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; }
@@ -2122,19 +2082,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              and in front of it -- both visible at once (no more then/now
              crossfade here; it never actually ran anyway, since its
              selector wasn't :global() and SmartImage's <img> carries no
-             styled-jsx scope class). The pro image is centered on the HS
-             figure (measured -- see the desktop rule); this left/width is
-             only the fallback, the same 800px box centered on the HS box
-             (24% + half its width).
+             styled-jsx scope class). An action shot's right edge is
+             pinned 16px past the headline column's real left edge (58%
+             here -- see the doubled-box note on .zt-person above) and it
+             grows leftward; the headshot fallback sits flush on that line.
              Same height for every player (48% of the row -- the size
              Casey Legumina's read right at, per direct feedback) via the
              oversized box, see the desktop rule. bottom:8px puts its feet
              on the rail's line (.zt-rail drops to bottom:2px here, 12px
              tall). */
-          .zt-person-stack :global(.zt-person-now) { left:calc(24% + clamp(65px,20vw,85px) - 400px); width:800px; height:48%; bottom:8px; object-position:center bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(58% + 16px - 800px); height:48%; bottom:8px; }
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px) !important; }
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28vw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */
