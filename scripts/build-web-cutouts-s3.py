@@ -12,13 +12,25 @@ next to the cutouts, so the page loads a finished ~30-100KB file:
 - players/back-cutouts/{id}.png -> players/back-web/{id}.webp
 - players/now-cutouts/{id}.png  -> players/now-web/{id}.webp
 
-Processing mirrors api/cutout/route.ts (keep the two in step):
+It also makes card-size copies of the original photos for the school
+gallery's flip cards (drawn 264px wide; the originals average 1.4MB):
+
+- players/then/{id}.jpg -> players/then-card/{id}.webp  (flip-card front, 800px wide)
+- players/back/{id}.jpg -> players/back-card/{id}.webp  (flip-card back, 800px wide)
+- players/now/{id}.jpg  -> players/now-thumb/{id}.webp  (gallery strip headshot, 400px wide)
+
+Cutout processing mirrors api/cutout/route.ts (keep the two in step):
 1. Downscale to fit 2000x2000.
 2. back only, when the image is at least twice as wide as tall: fade
    the left side out (alpha 0 at 12% of the width to 1 at 42%,
    smoothstep then ^1.5).
 3. Trim the transparent border (alpha <= 10) on all four sides.
 4. Fit within 1400x1000, save WebP (quality 82, alpha quality 90).
+
+Photo processing: apply the EXIF rotation (browsers honor it on the
+original JPG; a re-encoded copy has to bake it in), shrink to the target
+width (never enlarge), save WebP quality 80. Aspect ratio is kept, so
+the card's centered "cover" crop is unchanged.
 
 A web file is rebuilt whenever its cutout is newer than it, so a
 replaced cutout (same key) gets a fresh web version on the next run.
@@ -28,7 +40,8 @@ rebuilt one reaches browsers.
 Environment variables:
 - YATSTATS_S3_BUCKET: default yatstats-assets
 - AWS_REGION / AWS_DEFAULT_REGION: default us-west-2
-- KINDS: comma-separated subset of then,back,now (default all three)
+- KINDS: comma-separated subset of then,back,now,then-card,back-card,now-thumb
+  (default all six)
 - DRY_RUN: true/false, default true
 - OVERWRITE: true/false, default false (rebuild even when up to date)
 - MAX_FILES: optional integer limit per kind, for testing
@@ -41,11 +54,12 @@ import io
 import os
 import sys
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageOps
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-west-2"
-KINDS = [k.strip() for k in os.getenv("KINDS", "then,back,now").split(",") if k.strip()]
+ALL_KINDS = "then,back,now,then-card,back-card,now-thumb"
+KINDS = [k.strip() for k in os.getenv("KINDS", ALL_KINDS).split(",") if k.strip()]
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
 MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
@@ -90,6 +104,29 @@ def build_web_image(kind: str, png_bytes: bytes) -> bytes:
     return out.getvalue()
 
 
+def build_card_photo(photo_bytes: bytes, width: int) -> bytes:
+    image = ImageOps.exif_transpose(Image.open(io.BytesIO(photo_bytes)))
+    image = image.convert("RGBA" if image.mode in ("RGBA", "LA", "P") else "RGB")
+    if image.width > width:
+        image = image.resize((width, round(image.height * width / image.width)), Image.LANCZOS)
+    out = io.BytesIO()
+    image.save(out, format="WEBP", quality=80, method=4)
+    return out.getvalue()
+
+
+PHOTO_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
+
+# kind -> (source folder, source extensions, output folder, builder)
+JOBS = {
+    "then": ("players/then-cutouts/", (".png",), "players/then-web/", lambda b: build_web_image("then", b)),
+    "back": ("players/back-cutouts/", (".png",), "players/back-web/", lambda b: build_web_image("back", b)),
+    "now": ("players/now-cutouts/", (".png",), "players/now-web/", lambda b: build_web_image("now", b)),
+    "then-card": ("players/then/", PHOTO_EXTENSIONS, "players/then-card/", lambda b: build_card_photo(b, 800)),
+    "back-card": ("players/back/", PHOTO_EXTENSIONS, "players/back-card/", lambda b: build_card_photo(b, 800)),
+    "now-thumb": ("players/now/", PHOTO_EXTENSIONS, "players/now-thumb/", lambda b: build_card_photo(b, 400)),
+}
+
+
 def main() -> int:
     import boto3
 
@@ -100,9 +137,13 @@ def main() -> int:
         print(f"Only ids: {sorted(ONLY_IDS)}")
 
     built = skipped = failed = would_build = 0
+    unknown = [k for k in KINDS if k not in JOBS]
+    if unknown:
+        print(f"Unknown KINDS: {unknown} (expected some of {ALL_KINDS})")
+        return 1
+
     for kind in KINDS:
-        src_prefix = f"players/{kind}-cutouts/"
-        out_prefix = f"players/{kind}-web/"
+        src_prefix, src_exts, out_prefix, build = JOBS[kind]
 
         sources: dict[str, dict] = {}
         outputs: dict[str, dict] = {}
@@ -110,8 +151,15 @@ def main() -> int:
         for page in paginator.paginate(Bucket=BUCKET, Prefix=src_prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
-                if key.lower().endswith(".png"):
-                    sources[key[len(src_prefix):-4]] = obj
+                name = key[len(src_prefix):]
+                # Direct children only (players/then/ must not pick up
+                # anything nested under it).
+                if "/" in name or not name.lower().endswith(src_exts):
+                    continue
+                pid = name.rsplit(".", 1)[0]
+                # If a player has both a .jpg and a .png, prefer the newest.
+                if pid not in sources or obj["LastModified"] > sources[pid]["LastModified"]:
+                    sources[pid] = obj
         for page in paginator.paginate(Bucket=BUCKET, Prefix=out_prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
@@ -121,7 +169,7 @@ def main() -> int:
         ids = sorted(i for i in sources if not ONLY_IDS or i in ONLY_IDS)
         if MAX_FILES is not None:
             ids = ids[:MAX_FILES]
-        print(f"\n== {kind}: {len(sources)} cutouts, {len(outputs)} web files already, {len(ids)} to check")
+        print(f"\n== {kind}: {len(sources)} sources in {src_prefix}, {len(outputs)} built already, {len(ids)} to check")
 
         for n, pid in enumerate(ids, start=1):
             src = sources[pid]
@@ -129,14 +177,14 @@ def main() -> int:
             if out and not OVERWRITE and out["LastModified"] >= src["LastModified"]:
                 skipped += 1
                 continue
-            label = f"[{kind} {n}/{len(ids)}] {src_prefix}{pid}.png -> {out_prefix}{pid}.webp"
+            label = f"[{kind} {n}/{len(ids)}] {src['Key']} -> {out_prefix}{pid}.webp"
             if DRY_RUN:
                 print(f"{label}  DRY RUN would build ({'stale' if out else 'missing'})")
                 would_build += 1
                 continue
             try:
                 png = s3.get_object(Bucket=BUCKET, Key=src["Key"])["Body"].read()
-                webp = build_web_image(kind, png)
+                webp = build(png)
                 s3.put_object(
                     Bucket=BUCKET,
                     Key=f"{out_prefix}{pid}.webp",

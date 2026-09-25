@@ -5,6 +5,9 @@ name: Build Web Cutouts
 #   players/then-cutouts/ -> players/then-web/
 #   players/back-cutouts/ -> players/back-web/
 #   players/now-cutouts/  -> players/now-web/
+# plus card-size copies of the original photos for the gallery flip cards:
+#   players/then/ -> players/then-card/   players/back/ -> players/back-card/
+#   players/now/  -> players/now-thumb/
 # Runs at :30 each hour, after the :00 Hourly Player Image Cutouts job has
 # had time to add new cutouts. Only missing or out-of-date web files are
 # built, so a quiet hour costs just two S3 listings per folder.
@@ -34,9 +37,9 @@ on:
           - "false"
           - "true"
       kinds:
-        description: "Which cutout folders to process (comma-separated: then,back,now)"
+        description: "Which outputs to build (comma-separated: then,back,now,then-card,back-card,now-thumb)"
         required: false
-        default: "then,back,now"
+        default: "then,back,now,then-card,back-card,now-thumb"
       max_files:
         description: "Optional max files per folder. Leave blank for all."
         required: false
@@ -67,7 +70,7 @@ jobs:
       # Scheduled runs write; manual runs follow the dry_run input.
       DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || github.event.inputs.dry_run }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
-      KINDS: ${{ github.event.inputs.kinds || 'then,back,now' }}
+      KINDS: ${{ github.event.inputs.kinds || 'then,back,now,then-card,back-card,now-thumb' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}
       ONLY_IDS: ${{ github.event.inputs.only_ids || '' }}
 
