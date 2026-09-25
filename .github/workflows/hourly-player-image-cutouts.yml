@@ -59,23 +59,29 @@ jobs:
           path: ~/.u2net
           key: rembg-u2net-models
 
-      - name: HS flip-card front (players/then -> players/cutouts)
+      # Output folders match what's actually on S3 and what the site reads
+      # (ZoomableCareerTimeline / api/cutout): then-cutouts/, back-cutouts/,
+      # now-cutouts/. The steps below used to still write to the pre-rename
+      # names (cutouts/, now-cutouts/ for back photos, headshot-cutouts/),
+      # so new uploads never reached the site and a back photo could land
+      # in the headshot folder.
+      - name: HS flip-card front (players/then -> players/then-cutouts)
         continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/then/
-          YATSTATS_S3_OUTPUT_PREFIX: players/cutouts/
+          YATSTATS_S3_OUTPUT_PREFIX: players/then-cutouts/
         run: python scripts/process-player-cutouts-s3.py
 
-      - name: Career-timeline bridge photo (players/back -> players/now-cutouts)
+      - name: Flip-card back action photo (players/back -> players/back-cutouts)
         continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/back/
-          YATSTATS_S3_OUTPUT_PREFIX: players/now-cutouts/
+          YATSTATS_S3_OUTPUT_PREFIX: players/back-cutouts/
         run: python scripts/process-player-cutouts-s3.py
 
-      - name: Headshot fallback (players/now -> players/headshot-cutouts)
+      - name: Headshot (players/now -> players/now-cutouts)
         continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/now/
-          YATSTATS_S3_OUTPUT_PREFIX: players/headshot-cutouts/
+          YATSTATS_S3_OUTPUT_PREFIX: players/now-cutouts/
         run: python scripts/process-player-cutouts-s3.py

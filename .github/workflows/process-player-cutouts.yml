@@ -24,13 +24,13 @@ on:
         required: false
         default: ""
       source_prefix:
-        description: "S3 source prefix containing original JPG/JPEG/WEBP files"
+        description: "S3 source prefix containing original JPG/JPEG/WEBP files (players/then/, players/back/ or players/now/)"
         required: false
-        default: "players/cutouts/"
+        default: "players/then/"
       output_prefix:
-        description: "S3 output prefix for generated transparent PNG cutouts"
+        description: "S3 output prefix for generated transparent PNG cutouts (players/then-cutouts/, players/back-cutouts/ or players/now-cutouts/)"
         required: false
-        default: "players/cutouts/"
+        default: "players/then-cutouts/"
 
 jobs:
   process-cutouts:
@@ -48,8 +48,8 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       YATSTATS_S3_BUCKET: yatstats-assets
-      YATSTATS_S3_SOURCE_PREFIX: ${{ github.event.inputs.source_prefix || 'players/cutouts/' }}
-      YATSTATS_S3_OUTPUT_PREFIX: ${{ github.event.inputs.output_prefix || 'players/cutouts/' }}
+      YATSTATS_S3_SOURCE_PREFIX: ${{ github.event.inputs.source_prefix || 'players/then/' }}
+      YATSTATS_S3_OUTPUT_PREFIX: ${{ github.event.inputs.output_prefix || 'players/then-cutouts/' }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}

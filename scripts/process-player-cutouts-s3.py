@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """Batch process player images in S3 into transparent PNG cutouts.
 
-Current batch default:
-- Reads source images from s3://yatstats-assets/players/cutouts/
-- Writes matching transparent PNG files to s3://yatstats-assets/players/cutouts/
+S3 folders (what's on the bucket and what the site reads):
+- players/then/ -> players/then-cutouts/  (HS flip-card front photo)
+- players/back/ -> players/back-cutouts/  (flip-card back action photo)
+- players/now/  -> players/now-cutouts/   (current headshot)
+
+Behavior:
+- Reads source images from YATSTATS_S3_SOURCE_PREFIX (default players/then/)
+- Writes matching transparent PNG files to YATSTATS_S3_OUTPUT_PREFIX
+  (default players/then-cutouts/)
 - Keeps original JPG/JPEG/WEBP files intact
 - Skips PNG source files so generated outputs do not recursively process
 - Skips output PNGs that already exist unless OVERWRITE=true
 
-Future automation can use:
-- YATSTATS_S3_SOURCE_PREFIX=players/then/
-- YATSTATS_S3_OUTPUT_PREFIX=players/cutouts/
-
 Environment variables:
 - YATSTATS_S3_BUCKET: default yatstats-assets
-- YATSTATS_S3_SOURCE_PREFIX: default from YATSTATS_S3_PREFIX or players/cutouts/
-- YATSTATS_S3_OUTPUT_PREFIX: default from YATSTATS_S3_SOURCE_PREFIX
+- YATSTATS_S3_SOURCE_PREFIX: default from YATSTATS_S3_PREFIX or players/then/
+- YATSTATS_S3_OUTPUT_PREFIX: default players/then-cutouts/
 - AWS_REGION / AWS_DEFAULT_REGION: default us-west-2
 - DRY_RUN: true/false, default true
 - OVERWRITE: true/false, default false; only controls replacing generated PNG outputs
@@ -35,9 +37,9 @@ from PIL import Image
 from rembg import remove
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
-LEGACY_PREFIX = os.getenv("YATSTATS_S3_PREFIX", "players/cutouts/")
+LEGACY_PREFIX = os.getenv("YATSTATS_S3_PREFIX", "players/then/")
 SOURCE_PREFIX = os.getenv("YATSTATS_S3_SOURCE_PREFIX", LEGACY_PREFIX)
-OUTPUT_PREFIX = os.getenv("YATSTATS_S3_OUTPUT_PREFIX", SOURCE_PREFIX)
+OUTPUT_PREFIX = os.getenv("YATSTATS_S3_OUTPUT_PREFIX", "players/then-cutouts/")
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-west-2"
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
