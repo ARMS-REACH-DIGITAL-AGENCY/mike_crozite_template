@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
@@ -27,13 +27,13 @@ const TIMELINE_YELLOW = '#ffb21c';
 // Same asset the corporate hero and this component's own HS anchor slide
 // have always pointed at (audience-site.js's BG) -- one canonical
 // background image, not a separate copy.
-const HERO_BG = '/img/career-path-default.png';
+const HERO_BG = '/img/career-path-default.webp';
 const YS_CREST_FALLBACK = '/img/ys-crest.png';
 const YATI_PLACEHOLDERS = [
-  '/img/yati-placeholders/yati-standing-hips.png',
-  '/img/yati-placeholders/yati-running-field.png',
-  '/img/yati-placeholders/yati-catcher-back.png',
-  '/img/yati-placeholders/yati-thinking.png',
+  '/img/yati-placeholders/yati-standing-hips.webp',
+  '/img/yati-placeholders/yati-running-field.webp',
+  '/img/yati-placeholders/yati-catcher-back.webp',
+  '/img/yati-placeholders/yati-thinking.webp',
 ];
 
 // One life-lesson quote per pre-HS life-year screen (age 1 through
@@ -361,13 +361,29 @@ function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?:
     setIndex(0);
   }
   const active = sources[index];
+  // Hidden until fully decoded, then faded in, so a big photo never paints
+  // top-down in stripes or pops in mid-screen. mountedAt tells a cold
+  // download (fade) apart from a cached image (loads within a frame or
+  // two, e.g. when a slide remounts during a swipe: shown as-is).
+  const [loadedSrc, setLoadedSrc] = useState('');
+  const mountedAt = useRef(0);
+  useEffect(() => { mountedAt.current = performance.now(); }, [active]);
   if (!active) return null;
+  function handleLoad(event: SyntheticEvent<HTMLImageElement>) {
+    const img = event.currentTarget;
+    setLoadedSrc(active);
+    // A single keyframe animates from opacity 0 to whatever the element's
+    // own opacity is (the slide's scroll-driven inline opacity), so the
+    // fade never overshoots a slide that's only partly faded in.
+    if (performance.now() - mountedAt.current > 80) img.animate?.([{ opacity: 0 }], { duration: 320, easing: 'ease-out' });
+  }
+  const shown = loadedSrc === active;
   // data-fallback lets CSS style the "gave up on the preferred source and
   // is showing a later one instead" case differently if ever needed, since
   // CSS has no other way to tell which URL actually loaded. .zt-person-now
   // uses it: an action shot's right edge sits just past the headline
   // column's left edge, the headshot fallback flush on it.
-  return <img className={className} style={style} src={active} alt={alt} loading="eager" data-fallback={index > 0 ? 'true' : undefined} onError={() => setIndex((next) => next + 1)} />;
+  return <img key={active} className={className} style={shown ? style : { ...style, visibility: 'hidden' }} src={active} alt={alt} loading="eager" decoding="async" data-fallback={index > 0 ? 'true' : undefined} onLoad={handleLoad} onError={() => setIndex((next) => next + 1)} />;
 }
 
 function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
@@ -898,7 +914,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
-  useEffect(() => {
+  // Layout effect, not a plain effect: the jump to the anchor slide has to
+  // land before the browser paints the first ready frame. As a plain
+  // effect, that first frame painted slide 0 (the earliest life year and
+  // its YaTi placeholder) for an instant before snapping to the grad year.
+  useLayoutEffect(() => {
     if (!ready || initializedRef.current) return;
     initializedRef.current = true;
     // Opens on the HS anchor slide (now the 18th screen, not the first --

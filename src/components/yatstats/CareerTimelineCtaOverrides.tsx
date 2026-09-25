@@ -57,7 +57,7 @@ function ensureJourneyAnchor(canvas: HTMLElement) {
 
     const bg = document.createElement("img");
     bg.className = "zt-career-anchor-bg";
-    bg.src = "/img/career-path-default.png";
+    bg.src = "/img/career-path-default.webp";
     bg.alt = "";
     bg.setAttribute("aria-hidden", "true");
     bg.loading = "eager";
