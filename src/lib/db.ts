@@ -1966,23 +1966,30 @@ export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardF
 // ---------------------------------------------------------------------------
 // ROSTER TRUTH - resolved current team + transactions
 // ---------------------------------------------------------------------------
+// flip_card_front_stage is THE reconciled current team - the same row the
+// flip card front and back render, refreshed from MLB every 3 hours by
+// .github/workflows/mlb_roster-sync.yml. This used to read
+// v_player_current_team_resolved (player_current_team), which the roster
+// sync stopped writing on 2026-04-25 - so the profile page showed a frozen
+// April team for every player who moved since (757 players, e.g. Casey
+// Legumina as Seattle Mariners while his flip card said Tampa Bay Rays).
+// Profile header, profile page, and the share image all read through
+// here, so they can never disagree with the flip card again.
 export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
   try {
-    const { rows } = await query(
-      `SELECT
-         playerid,
-         teamid,
-         team_name,
-         level,
-         source,
-         last_verified
-       FROM public.v_player_current_team_resolved
-       WHERE playerid::text = $1
-       LIMIT 1`,
-      [playerid]
-    );
-    return rows[0] || null;
-  } catch {
+    const stage = await getFlipCardFrontStageByPlayerId(playerid);
+    const teamName = String(stage?.current_team_name || '').trim();
+    if (!teamName) return null;
+    return {
+      playerid: stage.playerid,
+      teamid: stage.current_teamid ?? null,
+      team_name: teamName,
+      level: stage.level_label || '',
+      source: stage.current_team_source ?? null,
+      last_verified: stage.current_team_last_verified ?? null,
+    };
+  } catch (error) {
+    console.error(`[getResolvedCurrentTeam] flip_card_front_stage read failed for playerid=${playerid}:`, error);
     return null;
   }
 }
