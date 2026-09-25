@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
+import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
@@ -88,6 +89,10 @@ function wireSyntheticSlot(slot: HTMLElement) {
   if (image && image.dataset.row3SyntheticErrorWired !== 'true') {
     image.dataset.row3SyntheticErrorWired = 'true';
     image.addEventListener('error', () => {
+      // configureSlot's onerror (set on every slot, and it runs first) owns
+      // the fallback chain, including trying the original photo; acting
+      // here too would overwrite what it just chose.
+      if (image.onerror) return;
       const fallback = clean(image.dataset.guardFallbackSrc);
       if (!fallback || image.dataset.guardFallbackApplied === 'true') return;
       image.dataset.guardFallbackApplied = 'true';
@@ -159,20 +164,37 @@ function configureSlot(
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
   if (image) {
+    // Only (re)point the image when the photo this slot should show has
+    // actually changed (different player or tab). This sync re-runs on
+    // every src change in the strip, so it used to see a slot sitting on
+    // its fallback silhouette, "correct" it back to the missing photo, and
+    // loop -- fail, silhouette, reset, fail -- every frame for every
+    // player without a photo: the flashing row 3 slots, and a silhouette
+    // that never stayed put.
+    const desiredChanged = image.dataset.guardDesiredSrc !== src;
     image.alt = playerName || `Player ${playerId}`;
     image.dataset.guardDesiredSrc = src;
     image.dataset.guardFallbackSrc = fallback;
-    image.dataset.guardFallbackApplied = '';
+    if (desiredChanged) image.dataset.guardFallbackApplied = '';
     image.classList.toggle('gallery-slot-img--contain', isCurrent);
 
     image.onerror = () => {
+      // A card-size copy that hasn't been made yet: try the original photo
+      // before the generic fallback.
+      const original = getOriginalForCardCopy(image.getAttribute('src'));
+      if (original) {
+        image.setAttribute('src', original);
+        return;
+      }
       const guardedFallback = clean(image.dataset.guardFallbackSrc);
       if (guardedFallback && image.getAttribute('src') !== guardedFallback) {
         image.setAttribute('src', guardedFallback);
       }
     };
 
-    if (src && image.getAttribute('src') !== src) {
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    if (src && desiredChanged && image.getAttribute('src') !== src) {
       image.dataset.extensionFallbackApplied = 'true';
       image.dataset.fallbackApplied = 'true';
       image.setAttribute('src', src);

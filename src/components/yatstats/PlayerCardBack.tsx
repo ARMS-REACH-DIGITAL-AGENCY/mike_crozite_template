@@ -31,6 +31,13 @@ function getPlayerBackImageUrl(imageId: string): string {
   return `${S3_BASE}/players/back/${imageId}.jpg`;
 }
 
+// Card-size WebP copy of the back photo (Build Web Cutouts job, 800px
+// wide): ~15-30KB instead of the ~1MB original, which stays as the
+// fallback until the job has made the copy.
+function getPlayerBackCardUrl(imageId: string): string {
+  return `${S3_BASE}/players/back-card/${imageId}.webp`;
+}
+
 const YATCREST_URL = `${S3_BASE}/assets/YatCrest.png`;
 
 function asText(value: unknown): string {
@@ -296,11 +303,16 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
       <div className="yat-back-texture">
         <div className="yat-back-inner">
           <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
+            {/* Lazy: every card back sits in the page (including hidden
+                tabs, where an eager <img> still downloads), but only the
+                cards near the screen need their photo. */}
             <SafeImage
-              src={backImageSrc}
+              src={getPlayerBackCardUrl(imageId)}
+              fallbackSrc={backImageSrc}
               alt={displayName}
               className="yat-back-img"
               placeholderSrc={YATCREST_URL}
+              loading="lazy"
             />
             <div className="yat-back-hero-fallback" aria-hidden="true" />
             <div className="yat-back-scrim" aria-hidden="true" />

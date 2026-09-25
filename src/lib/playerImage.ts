@@ -104,6 +104,39 @@ export function getPlayerThenImageUrl(imageId: string): string {
 }
 
 /**
+ * Card-size copies of the original photos, made ahead of time by the Build
+ * Web Cutouts job (scripts/build-web-cutouts-s3.py): WebP, 800px wide for the
+ * flip card's front/back, 400px for the gallery strip headshot. The originals
+ * average ~1.4MB; these are ~15-140KB. A copy exists for every original within
+ * about an hour of upload -- until then, fall back to the original with
+ * getOriginalForCardCopy().
+ */
+export function getPlayerThenCardUrl(imageId: string): string {
+  return `${S3_BASE}/players/then-card/${imageId}.webp`;
+}
+
+export function getPlayerBackCardUrl(imageId: string): string {
+  return `${S3_BASE}/players/back-card/${imageId}.webp`;
+}
+
+export function getPlayerNowThumbUrl(imageId: string): string {
+  return `${S3_BASE}/players/now-thumb/${imageId}.webp`;
+}
+
+const CARD_COPY_ORIGINAL: Record<string, string> = {
+  'then-card': 'then',
+  'back-card': 'back',
+  'now-thumb': 'now',
+};
+
+/** The original .jpg a card-size copy was made from, or '' for any other URL. */
+export function getOriginalForCardCopy(src?: string | null): string {
+  const match = String(src || '').match(/^(.*\/players\/)(then-card|back-card|now-thumb)\/([^/?#]+)\.webp(?=$|[?#])/);
+  if (!match) return '';
+  return `${match[1]}${CARD_COPY_ORIGINAL[match[2]]}/${match[3]}.jpg`;
+}
+
+/**
  * Legacy S3 path for the player's general/current-era image.
  *
  * IMPORTANT: This is NOT a designated HEADSHOT and must NOT be used as the back-card image.

@@ -14,8 +14,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* The card-name font (Indigo), fetched right away instead of when
+            the browser first reaches a card -- with font-display:block in
+            YatStyles, names wait for it (14KB) rather than drawing in the
+            fallback font and then visibly swapping. */}
+        <link rel="preload" href="/fonts/Indigo.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -29,7 +34,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
+        {/* Applies a saved light theme before the first paint. Without it
+            the page painted dark and flipped to light a moment later, once
+            the drawer script read localStorage. Same key and classes as
+            DrawerRailController. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('yat-theme')==='light'){document.documentElement.classList.add('light-theme');document.body.classList.add('light-theme');}}catch(e){}",
+          }}
+        />
         <StyledJsxRegistry>{children}</StyledJsxRegistry>
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-WQHT9SNHLC"

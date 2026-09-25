@@ -24,7 +24,11 @@ import 'server-only';
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
-  max: Number(process.env.PG_POOL_MAX || 5),
+  // 10 per server instance (was 5): with 5, a couple of slow queries held
+  // every connection and the rest of the page's queries timed out waiting
+  // ("timeout exceeded when trying to connect": 968 errors in one
+  // afternoon). The Neon pooler endpoint takes far more than this.
+  max: Number(process.env.PG_POOL_MAX || 10),
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 5000,
   ssl: { rejectUnauthorized: false },
@@ -761,6 +765,15 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // ---------------------------------------------------------------------------
 // ALL-TIME ROSTER - every alumni ever tagged to a school (all-time page)
 // ---------------------------------------------------------------------------
+// Every stats step below is limited to this school's players
+// (school_players). They used to roll up batting/pitching history for every
+// player in the database (~250k rows, ~15 text-to-number conversions each)
+// and only then join to the school -- about 2.7s+ per call, called by both
+// the [hsid] layout and page, which ran past the database's statement
+// timeout on busy schools (Perry, 13562: "canceling statement due to
+// statement timeout", a blank All-Time list and an ~18s page). Same rows
+// either way: Hamilton's 107 rows fingerprint identically before and after;
+// a trimmed version for Perry went from 2.74s to 0.44s.
 export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
@@ -791,6 +804,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
         draft_info,
         playyears
       FROM public.v_tbc_batting_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
@@ -802,6 +816,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
         draft_info     AS pit_draft_info,
         playyears      AS pit_playyears
       FROM public.v_tbc_pitching_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
@@ -858,6 +873,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
           ELSE NULL
         END AS ops
       FROM public.v_tbc_batting_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       GROUP BY playerid::text, bucket
     ),
 
@@ -1102,6 +1118,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
           ELSE NULL
         END AS so_bb
       FROM public.v_tbc_pitching_all_seasons_resolved
+      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       GROUP BY playerid::text, bucket
     ),
 
@@ -1564,26 +1581,6 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// TEAM CONTEXT - optional organization / conference metadata for a team.
-// ---------------------------------------------------------------------------
-export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
-  try {
-    const { rows } = await query(
-      `SELECT
-         COALESCE(organization, mlb_org, org)      AS organization,
-         COALESCE(conference, league, association) AS conference
-       FROM teams
-       WHERE team_id::text = $1
-       LIMIT 1`,
-      [teamId]
-    );
-    return rows[0] ?? null;
-  } catch {
     return null;
   }
 }

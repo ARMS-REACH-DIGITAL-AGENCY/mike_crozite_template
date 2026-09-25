@@ -1130,7 +1130,12 @@ function rate(value: unknown) {
 }
 
 export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10): Promise<IndyStatsForPlayer> {
-  await ensureIndyIscoreTables();
+  // Read-only: no ensureIndyIscoreTables() here. The site's database role
+  // can read these tables but not create in schema public, so running the
+  // CREATE TABLE IF NOT EXISTS pass on every profile stats request failed
+  // with "permission denied for schema public" and threw away the whole
+  // lookup -- ~435 Indy players' 2026 stats never reached their profiles.
+  // The tables already exist; the ingest jobs still run the ensure pass.
   const [batting, pitching, recentGames] = await Promise.all([
     query<AnyRecord>(
       `select

@@ -10,6 +10,8 @@ interface SafeImageProps {
   fallbackSrc?: string | null;
   placeholderSrc?: string;
   style?: React.CSSProperties;
+  /** Pass "lazy" to let the browser defer the download until the image is near the screen. */
+  loading?: 'lazy' | 'eager';
 }
 
 /** Tracks which base source a fail count applies to (0=initial, 1=fallback when available, 2=placeholder). */
@@ -40,6 +42,7 @@ function StatefulSafeImage({
   alt,
   className,
   style,
+  loading,
 }: {
   initialSrc: string;
   computedFallback: string;
@@ -47,6 +50,7 @@ function StatefulSafeImage({
   alt: string;
   className?: string;
   style?: React.CSSProperties;
+  loading?: 'lazy' | 'eager';
 }) {
   const [failState, setFailState] = useState<FailState>({ baseSrc: initialSrc, count: 0 });
   const effectiveFailCount = computeEffectiveFailCount(failState, initialSrc);
@@ -96,6 +100,8 @@ function StatefulSafeImage({
       alt={alt}
       className={className}
       style={style}
+      loading={loading}
+      decoding={loading === 'lazy' ? 'async' : undefined}
       onError={handleError}
     />
   );
@@ -108,6 +114,7 @@ export default function SafeImage({
   fallbackSrc,
   placeholderSrc,
   style,
+  loading,
 }: SafeImageProps) {
   // Default placeholder: silhouettes for players; crest fallback for schools/logos.
   const computedPlaceholder = useMemo(() => {
@@ -155,6 +162,7 @@ export default function SafeImage({
       alt={alt}
       className={className}
       style={style}
+      loading={loading}
     />
   );
 }

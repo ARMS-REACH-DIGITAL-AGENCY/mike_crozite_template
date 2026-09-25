@@ -194,6 +194,93 @@ function applyPreset(section: string) {
   applyFilters(section);
 }
 
+// "Take me to his flip card" links (favorites drawer, search, the profile's
+// school bar) arrive as ?view=active&player={id}#player-{id} -- view=active
+// for everyone. The tab and these presets follow #sec-{tab} (or whichever
+// tab is showing), so a #player- hash never changed tabs, and the browser
+// just jumped to the first element with that id: every alum is rendered in
+// both Active and All-Time with the same id, so for a retired player that
+// was his copy hidden in Active. (YatInteractivity's handler for these
+// links never runs: that inline script has failed to parse since Sept 20.)
+function readLinkedPlayer(): { id: string; view: string } {
+  const params = new URLSearchParams(window.location.search);
+  const hash = window.location.hash || '';
+  const fromHash = hash.startsWith('#player-') ? decodeURIComponent(hash.slice('#player-'.length)) : '';
+  const id = String(params.get('player') || fromHash || '').trim();
+  let view = String(params.get('view') || '').toLowerCase().replace(/[-_]/g, '');
+  if (view === 'team') view = 'current';
+  return { id, view: PLAYER_GALLERY_SECTIONS.has(view) ? view : 'active' };
+}
+
+// Whether a tab's roster preset (applyPreset) shows this card.
+function presetShows(section: string, card: HTMLElement): boolean {
+  const status = normalize(card.dataset.status);
+  if (section === 'active') {
+    const allowed = getGroupBoxes('filterStatus').map((box) => normalize(box.value)).filter((s) => s && s !== 'RETIRED');
+    return allowed.length ? allowed.includes(status) : status !== 'RETIRED';
+  }
+  if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
+  return true;
+}
+
+function findCard(section: string, playerId: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`#sec-${section} .yat-card[data-playerid="${CSS.escape(playerId)}"]`);
+}
+
+// The tab a linked player lives on: the requested one if its preset shows
+// him, else Current (the high school team), else All-Time (everyone).
+function sectionForPlayer(playerId: string, requested: string): string {
+  const order = [requested, 'current', 'alltime', 'active'].filter((s, i, all) => all.indexOf(s) === i);
+  for (const section of order) {
+    const card = findCard(section, playerId);
+    if (card && presetShows(section, card)) return section;
+  }
+  return requested;
+}
+
+function scrollToLinkedCard(section: string, playerId: string) {
+  // Re-aim for a moment while cards above it finish laying out, unless the
+  // fan starts scrolling on their own.
+  let stopped = false;
+  let highlighted = false;
+  const stop = () => { stopped = true; };
+  window.addEventListener('touchstart', stop, { once: true, passive: true });
+  window.addEventListener('wheel', stop, { once: true, passive: true });
+  const aim = () => {
+    if (stopped) return;
+    const card = findCard(section, playerId);
+    const shown = card && (card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card).style.display !== 'none';
+    if (!card || !shown) return;
+    card.scrollIntoView({ behavior: 'auto', block: 'center' });
+    if (!highlighted) {
+      highlighted = true;
+      card.animate?.(
+        [{ boxShadow: '0 0 0 4px #f5c542' }, { boxShadow: '0 0 0 4px #f5c542' }, { boxShadow: '0 0 0 0 rgba(245,197,66,0)' }],
+        { duration: 1800, easing: 'ease-out' }
+      );
+    }
+  };
+  [120, 350, 700, 1200, 1800].forEach((ms) => window.setTimeout(aim, ms));
+  window.setTimeout(() => {
+    window.removeEventListener('touchstart', stop);
+    window.removeEventListener('wheel', stop);
+  }, 1900);
+}
+
+// Point the address at the player's tab (#sec-{tab}, which SharedShell and
+// this controller both follow), keeping ?player= so the link still names
+// him, then scroll to his card.
+function openLinkedPlayer() {
+  if (window.location.pathname.includes('/player/')) return;
+  const { id, view } = readLinkedPlayer();
+  if (!id) return;
+  const section = sectionForPlayer(id, view);
+  const query = `?view=${section}&player=${encodeURIComponent(id)}`;
+  window.history.replaceState(null, '', `${window.location.pathname}${query}#sec-${section}`);
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  scrollToLinkedCard(section, id);
+}
+
 export default function GalleryFilterController() {
   useEffect(() => {
     let lastSection = '';
@@ -303,6 +390,7 @@ export default function GalleryFilterController() {
       sectionObserver.observe(section, { attributes: true, attributeFilter: ['class'] });
     });
 
+    openLinkedPlayer();
     syncSection();
 
     return () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -43,6 +44,9 @@ function cleanSrc(value?: string | null): string {
 function getExtensionFallbackSrc(value?: string | null): string {
   const src = cleanSrc(value);
   if (!src) return '';
+  // A card-size copy that hasn't been made yet: try the original photo.
+  const original = getOriginalForCardCopy(src);
+  if (original) return original;
   if (/\.jpe?g(?=($|[?#]))/i.test(src)) return src.replace(/\.jpe?g(?=($|[?#]))/i, '.png');
   if (/\.png(?=($|[?#]))/i.test(src)) return src.replace(/\.png(?=($|[?#]))/i, '.jpg');
   return '';
@@ -451,6 +455,8 @@ export default function InteractionStrip({
                     <img
                       src={displaySrc}
                       alt={player.name}
+                      loading="lazy"
+                      decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
                       data-then-src={thenSrc}

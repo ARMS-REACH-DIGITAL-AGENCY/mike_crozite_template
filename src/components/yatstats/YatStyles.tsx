@@ -7,10 +7,10 @@ export default function YatStyles() {
 
     @font-face{
   font-family:"Indigo";
-  src:url("/fonts/Indigo.otf") format("opentype");
+  src:url("/fonts/Indigo.woff2") format("woff2"), url("/fonts/Indigo.otf") format("opentype");
   font-weight:400;
   font-style:normal;
-  font-display:swap;
+  font-display:block;
 }
     
     :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:42px;--footerH:66px;--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:36px;--row2-h:54px;--row3-h:100px;--row4-h:56px;--fz-tabs-h:44px}
@@ -527,6 +527,7 @@ export default function YatStyles() {
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
+      .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
       .yat-front-content{
   position:absolute;
