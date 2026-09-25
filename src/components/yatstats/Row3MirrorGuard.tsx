@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
+import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
@@ -88,6 +89,10 @@ function wireSyntheticSlot(slot: HTMLElement) {
   if (image && image.dataset.row3SyntheticErrorWired !== 'true') {
     image.dataset.row3SyntheticErrorWired = 'true';
     image.addEventListener('error', () => {
+      // configureSlot's onerror (set on every slot, and it runs first) owns
+      // the fallback chain, including trying the original photo; acting
+      // here too would overwrite what it just chose.
+      if (image.onerror) return;
       const fallback = clean(image.dataset.guardFallbackSrc);
       if (!fallback || image.dataset.guardFallbackApplied === 'true') return;
       image.dataset.guardFallbackApplied = 'true';
@@ -166,12 +171,21 @@ function configureSlot(
     image.classList.toggle('gallery-slot-img--contain', isCurrent);
 
     image.onerror = () => {
+      // A card-size copy that hasn't been made yet: try the original photo
+      // before the generic fallback.
+      const original = getOriginalForCardCopy(image.getAttribute('src'));
+      if (original) {
+        image.setAttribute('src', original);
+        return;
+      }
       const guardedFallback = clean(image.dataset.guardFallbackSrc);
       if (guardedFallback && image.getAttribute('src') !== guardedFallback) {
         image.setAttribute('src', guardedFallback);
       }
     };
 
+    image.loading = 'lazy';
+    image.decoding = 'async';
     if (src && image.getAttribute('src') !== src) {
       image.dataset.extensionFallbackApplied = 'true';
       image.dataset.fallbackApplied = 'true';

@@ -527,6 +527,7 @@ export default function YatStyles() {
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
+      .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
       .yat-front-content{
   position:absolute;

@@ -2,7 +2,7 @@
 // Full flip card container: article element with front and back faces
 
 import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
-import { getPlayerThenImageUrl } from "@/lib/playerImage";
+import { getPlayerNowThumbUrl, getPlayerThenCardUrl } from "@/lib/playerImage";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
@@ -93,8 +93,12 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // Block 3 mirrors Block 5 while using section-specific artwork:
   // active = current headshot, all-time = HS-era card front,
   // current team = /teams/{committed_teamid}.png from flip_card_front_stage.
-  const nowThumbnailUrl = imageText(headshotUrl) || `${YAT_ASSETS_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`;
-  const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenImageUrl(playerId);
+  // Card-size copies (see getPlayerThenCardUrl); the strip's error handler
+  // falls back to the originals via getOriginalForCardCopy. The "then"
+  // thumbnail is the same file as the card front's photo, so the browser
+  // downloads it once for both.
+  const nowThumbnailUrl = imageText(headshotUrl) || getPlayerNowThumbUrl(encodeURIComponent(playerId));
+  const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenCardUrl(playerId);
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );

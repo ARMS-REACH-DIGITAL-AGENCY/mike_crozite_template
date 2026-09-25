@@ -1,5 +1,6 @@
 import { CSSProperties } from "react";
-import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import CardPhoto from "./CardPhoto";
 
 interface PlayerCardFrontProps {
   player: Record<string, unknown>;
@@ -342,8 +343,12 @@ export default function PlayerCardFront({
     bats: p.bats,
     throws: p.throws,
   });
-  const photoUrl = normalizeImageUrl(frontImageUrl) || getPlayerThenImageUrl(imageId);
-  const frontBackgroundImage = `url('${photoUrl}'), url('${thenSilhouetteUrl}')`;
+  // A designated photo is used as-is; otherwise the card-size copy of
+  // players/then/{id}.jpg, falling back to the original (see CardPhoto).
+  const designatedPhotoUrl = normalizeImageUrl(frontImageUrl);
+  const photoSrcs = designatedPhotoUrl
+    ? [designatedPhotoUrl]
+    : [getPlayerThenCardUrl(imageId), getPlayerThenImageUrl(imageId)];
 
   const { first, last } = formatNameParts(p);
 
@@ -479,12 +484,12 @@ export default function PlayerCardFront({
 
   return (
     <div className="yat-face yat-front yat-front-cq">
-      <div
-        className="yat-bg"
-        data-src={photoUrl}
-        data-placeholder={thenSilhouetteUrl}
-        style={{ backgroundImage: frontBackgroundImage }}
-      />
+      {/* The silhouette is the background; the photo is a lazy <img> on
+          top of it (no data-src, so YatInteractivity's loadBgImages no
+          longer downloads every card's full-size original up front). */}
+      <div className="yat-bg" style={{ backgroundImage: `url('${thenSilhouetteUrl}')` }}>
+        <CardPhoto srcs={photoSrcs} />
+      </div>
       <div className="yat-shade" />
 
       <div className="yat-front-content">
