@@ -29,6 +29,16 @@ async function buildCutout(kind: string, id: string): Promise<string | null> {
   // 403/404 both mean "no cutout for this player" on this bucket.
   if (!upstream.ok) return null;
   const input: Buffer = Buffer.from(await upstream.arrayBuffer());
+  // Decoded once and scaled down to a working size first: the originals run
+  // up to ~2000x2800, and fading/trimming at full size roughly doubled the
+  // time a player's first view waits on this route.
+  const { data, info } = await sharp(input)
+    .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  let image = sharp(data, { raw: info });
   // Flip-card-back action photos are wide rectangles (~2.3-3.2:1) laid
   // out for the card back, where the name/stats sit over the LEFT third
   // and the photo fades behind them -- so the player is almost always in
@@ -42,37 +52,30 @@ async function buildCutout(kind: string, id: string): Promise<string | null> {
   // edge just past the headline column. A back cutout that's been
   // hand-cropped to something squarer (w:h under 2, e.g. Cody
   // Bellinger's, Casey Legumina's) is left unfaded.
-  let source: Buffer = input;
-  if (kind === 'back') {
-    const { width = 0, height = 0 } = await sharp(input).metadata();
-    if (width && height && width / height >= 2) {
-      const row = Buffer.alloc(width * 4);
-      for (let x = 0; x < width; x++) {
-        const t = Math.min(1, Math.max(0, (x / width - 0.12) / 0.3));
-        const a = Math.pow(t * t * (3 - 2 * t), 1.5);
-        row[x * 4] = 255;
-        row[x * 4 + 1] = 255;
-        row[x * 4 + 2] = 255;
-        row[x * 4 + 3] = Math.round(a * 255);
-      }
-      const mask = await sharp(row, { raw: { width, height: 1, channels: 4 } })
-        .resize(width, height, { fit: 'fill', kernel: 'nearest' })
-        .png()
-        .toBuffer();
-      source = await sharp(input)
-        .ensureAlpha()
-        .composite([{ input: mask, blend: 'dest-in' }])
-        .png()
-        .toBuffer();
+  if (kind === 'back' && width / height >= 2) {
+    const row = Buffer.alloc(width * 4);
+    for (let x = 0; x < width; x++) {
+      const t = Math.min(1, Math.max(0, (x / width - 0.12) / 0.3));
+      const a = Math.pow(t * t * (3 - 2 * t), 1.5);
+      row[x * 4] = 255;
+      row[x * 4 + 1] = 255;
+      row[x * 4 + 2] = 255;
+      row[x * 4 + 3] = Math.round(a * 255);
     }
+    const mask = await sharp(row, { raw: { width, height: 1, channels: 4 } })
+      .resize(width, height, { fit: 'fill', kernel: 'nearest' })
+      .png()
+      .toBuffer();
+    const faded = await image.composite([{ input: mask, blend: 'dest-in' }]).raw().toBuffer();
+    image = sharp(faded, { raw: info });
   }
   // With a transparent top-left pixel, sharp's trim removes the
   // transparent border on all four sides. Trimmed first, then resized, so
   // the resize budget goes to the figure rather than empty canvas.
-  const trimmed = await sharp(source).trim({ threshold: 10 }).png().toBuffer();
-  const output = await sharp(trimmed)
+  const trimmed = await image.trim({ threshold: 10 }).raw().toBuffer({ resolveWithObject: true });
+  const output = await sharp(trimmed.data, { raw: trimmed.info })
     .resize({ width: MAX_W, height: MAX_H, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 82, alphaQuality: 90 })
+    .webp({ quality: 82, alphaQuality: 90, effort: 3 })
     .toBuffer();
   return output.toString('base64');
 }
@@ -83,7 +86,7 @@ async function buildCutout(kind: string, id: string): Promise<string | null> {
 // hour's revalidate lets a replaced cutout, or a newly added one for a
 // player who had none, show up the same day; a stale entry is served
 // instantly while it refreshes in the background.
-const getCutout = unstable_cache(buildCutout, ['api-cutout-webp-v1'], { revalidate: 3600 });
+const getCutout = unstable_cache(buildCutout, ['api-cutout-webp-v2'], { revalidate: 3600 });
 
 export async function GET(req: NextRequest) {
   const kind = req.nextUrl.searchParams.get('kind') || '';
