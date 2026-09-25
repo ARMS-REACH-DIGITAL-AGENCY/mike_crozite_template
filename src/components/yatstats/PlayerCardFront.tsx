@@ -485,8 +485,9 @@ export default function PlayerCardFront({
   return (
     <div className="yat-face yat-front yat-front-cq">
       {/* The silhouette is the background; the photo is a lazy <img> on
-          top of it (no data-src, so YatInteractivity's loadBgImages no
-          longer downloads every card's full-size original up front). */}
+          top of it (see CardPhoto). It used to be a second background
+          layer, which the browser downloaded for every card in the open
+          tab whether it was on screen or not. */}
       <div className="yat-bg" style={{ backgroundImage: `url('${thenSilhouetteUrl}')` }}>
         <CardPhoto srcs={photoSrcs} />
       </div>
