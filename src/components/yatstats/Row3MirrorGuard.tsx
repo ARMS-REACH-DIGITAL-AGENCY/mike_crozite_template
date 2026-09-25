@@ -164,10 +164,18 @@ function configureSlot(
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
   if (image) {
+    // Only (re)point the image when the photo this slot should show has
+    // actually changed (different player or tab). This sync re-runs on
+    // every src change in the strip, so it used to see a slot sitting on
+    // its fallback silhouette, "correct" it back to the missing photo, and
+    // loop -- fail, silhouette, reset, fail -- every frame for every
+    // player without a photo: the flashing row 3 slots, and a silhouette
+    // that never stayed put.
+    const desiredChanged = image.dataset.guardDesiredSrc !== src;
     image.alt = playerName || `Player ${playerId}`;
     image.dataset.guardDesiredSrc = src;
     image.dataset.guardFallbackSrc = fallback;
-    image.dataset.guardFallbackApplied = '';
+    if (desiredChanged) image.dataset.guardFallbackApplied = '';
     image.classList.toggle('gallery-slot-img--contain', isCurrent);
 
     image.onerror = () => {
@@ -186,7 +194,7 @@ function configureSlot(
 
     image.loading = 'lazy';
     image.decoding = 'async';
-    if (src && image.getAttribute('src') !== src) {
+    if (src && desiredChanged && image.getAttribute('src') !== src) {
       image.dataset.extensionFallbackApplied = 'true';
       image.dataset.fallbackApplied = 'true';
       image.setAttribute('src', src);
