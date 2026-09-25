@@ -18,7 +18,6 @@ import {
   getTeamSchedule,
   getPlayerGameLogs,
   getTeamIdMap,
-  getTeamContext,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
 } from "@/lib/db";
@@ -215,8 +214,8 @@ export default async function ProfilePage({ params }: Props) {
   // for the Yankees) when the source is mlb_api - NOT the tbc_teamid that
   // v_team_schedule_feed/college_schedule_games_raw and this codebase's own
   // team logos are keyed by (Yankees there is 20, not 147). Kept separately
-  // so the schedule fetch below can translate it; getTeamContext and the
-  // other two fallbacks already return tbc-scheme ids.
+  // so the schedule fetch below can translate it; the other two fallbacks
+  // already return tbc-scheme ids.
   const currentTeamSource = String((transactionStatus as any)?.current_team_source || "").trim();
 
   const rawMlbTeamId = (transactionStatus as any)?.current_team_source_team_id
@@ -231,10 +230,12 @@ export default async function ProfilePage({ params }: Props) {
         ? String((mostRecentSeason as any).teamid)
         : null;
 
-  const teamCtx = currentTeamId ? await getTeamContext(currentTeamId) : null;
-  const ctxOrg = (teamCtx?.organization || "").trim();
-  const ctxConference = (teamCtx?.conference || "").trim();
-  const rawCurrentOrgOrConference = ctxOrg || ctxConference || "";
+  // getTeamContext (removed) queried teams.organization/conference, columns
+  // that table doesn't have, so it failed on every profile load and always
+  // came back empty. Not re-pointed at teams.organization_name: that
+  // table's team ids don't line up with TBC's, so it would attach the wrong
+  // organization. Same (empty) result as before, minus a failing query.
+  const rawCurrentOrgOrConference = "";
   const currentOrgOrConference = isSourcedDeparture
     ? previousOrgOrConferenceName
     : rawCurrentOrgOrConference;

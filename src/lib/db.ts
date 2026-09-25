@@ -24,7 +24,11 @@ import 'server-only';
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
-  max: Number(process.env.PG_POOL_MAX || 5),
+  // 10 per server instance (was 5): with 5, a couple of slow queries held
+  // every connection and the rest of the page's queries timed out waiting
+  // ("timeout exceeded when trying to connect": 968 errors in one
+  // afternoon). The Neon pooler endpoint takes far more than this.
+  max: Number(process.env.PG_POOL_MAX || 10),
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 5000,
   ssl: { rejectUnauthorized: false },
@@ -1577,26 +1581,6 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// TEAM CONTEXT - optional organization / conference metadata for a team.
-// ---------------------------------------------------------------------------
-export async function getTeamContext(teamId: string): Promise<{ organization?: string; conference?: string } | null> {
-  try {
-    const { rows } = await query(
-      `SELECT
-         COALESCE(organization, mlb_org, org)      AS organization,
-         COALESCE(conference, league, association) AS conference
-       FROM teams
-       WHERE team_id::text = $1
-       LIMIT 1`,
-      [teamId]
-    );
-    return rows[0] ?? null;
-  } catch {
     return null;
   }
 }
