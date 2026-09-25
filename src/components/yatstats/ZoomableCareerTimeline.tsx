@@ -560,7 +560,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [identityMeta, setIdentityMeta] = useState<{
     currentTeamName: string; orgConferenceName: string; levelLabel: string; statusLabel: string;
     position: string; bats: string; throws: string; height: string; weight: string;
+    classOf: string;
   } | null>(null);
+  // True once the identity fetch below has settled (either way). Class Of
+  // and the anchor slide wait on it so a fan never sees the estimated grad
+  // year flash before the verified one arrives.
+  const [identityLoaded, setIdentityLoaded] = useState(false);
   // SharedShell doesn't remount between two players' profiles, so this
   // effect re-fires on client-side navigation with the previous player's
   // identity still in state. Cleared first so a slow or failed fetch
@@ -568,6 +573,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // player's team as if it were this one's.
   useEffect(() => {
     setIdentityMeta(null);
+    setIdentityLoaded(false);
     if (!playerId) return;
     let cancelled = false;
     fetch(`/api/player-identity?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
@@ -576,7 +582,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         return res.json();
       })
       .then((data) => { if (!cancelled && data) setIdentityMeta(data); })
-      .catch((error) => { if (!cancelled) console.error('[ZoomableCareerTimeline] identity fetch failed:', error); });
+      .catch((error) => { if (!cancelled) console.error('[ZoomableCareerTimeline] identity fetch failed:', error); })
+      .finally(() => { if (!cancelled) setIdentityLoaded(true); });
     return () => { cancelled = true; };
   }, [playerId]);
   // Same resolution SchoolContextBar.tsx uses for its own breadcrumb: the
@@ -597,6 +604,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // card's back rather than approximating it.
   const currentTeamName = identityMeta?.currentTeamName || player?.currentTeamName || '';
   const orgConferenceName = identityMeta?.orgConferenceName || player?.orgConferenceName || '';
+  // flip_card_front_stage.class_of via the fetched identity, same as the
+  // flip card's CLASS OF chip. player?.classOf alone is always empty here
+  // (see the usePlayerProfile() note above), which is what made every
+  // profile show the estimated year instead of the verified one.
+  const verifiedClassOf = String(identityMeta?.classOf || player?.classOf || '').trim();
   // Position moved off this line and onto the end of batsThrowsHw below --
   // per direct feedback, this line is level + status only now (e.g.
   // "NCAA-D1 - ACTIVE"), not "position - level - status" like the flip
@@ -721,7 +733,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     // classOf falls back to elsewhere on this page (see displayClassOf
     // below, which now just mirrors this value instead of computing its
     // own separately).
-    const verifiedGradYear = Number(String(player?.classOf || '').trim()) || null;
+    const verifiedGradYear = Number(verifiedClassOf) || null;
     const hsYear = verifiedGradYear || Math.max(1900, firstStatYear - 1);
 
     const seen = new Set<string>();
@@ -884,9 +896,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, player?.classOf]);
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf]);
 
-  const ready = statsLoaded && uploadsLoaded;
+  const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
   useEffect(() => {
     if (!ready || initializedRef.current) return;
@@ -923,8 +935,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // separately -- the two used to drift apart (this line said one grad
   // year, the anchor slide landed on a different one), which is what made
   // the timeline look like it was missing a year.
-  const verifiedClassOf = String(player?.classOf || '').trim();
-  const displayClassOf = verifiedClassOf || String(model.hsYear);
+  const displayClassOf = identityLoaded ? verifiedClassOf || String(model.hsYear) : '';
   const classOfIsEstimated = !verifiedClassOf;
 
   function handleReactionToggled(id: string, reacted: boolean, count: number) {
