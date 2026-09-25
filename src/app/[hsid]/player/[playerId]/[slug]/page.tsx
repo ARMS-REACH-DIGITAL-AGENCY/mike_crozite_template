@@ -24,6 +24,7 @@ import {
 } from "@/lib/db";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
+import { preload } from "react-dom";
 type Props = {
   params: Promise<{
     hsid: string;
@@ -91,6 +92,13 @@ function fmtAvg(v: any): string {
 
 export default async function ProfilePage({ params }: Props) {
   const { hsid, playerId, slug } = await params;
+  // Tells the browser to start fetching the career timeline's anchor-slide
+  // photos (HS cutout + pro action cutout) as soon as this page's HTML
+  // starts arriving, rather than after the timeline's own data fetches
+  // finish -- which made the photos land well after the rest of the page.
+  const cutoutId = encodeURIComponent(String(playerId));
+  preload(`/api/cutout?kind=then&id=${cutoutId}`, { as: "image", fetchPriority: "high" });
+  preload(`/api/cutout?kind=back&id=${cutoutId}`, { as: "image" });
 
    let player: any = null;
   let _diagSlugRows: number | null = null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 
@@ -348,10 +348,34 @@ function useFanSession() {
   return session;
 }
 
-function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties }) {
+type Reveal = 'left' | 'right';
+// One keyframe pinned at offset 0 = "animate FROM this to the element's
+// own resting state", so the entrance lands exactly on the slide's
+// scroll-driven inline opacity and the CSS position, whatever those are.
+// The explicit offset matters: a lone keyframe without one is treated as
+// the END state, which ran the animation backwards (image shown, faded
+// out, then snapped back in -- a double flash).
+const REVEAL_KEYFRAMES: Record<Reveal, Keyframe[]> = {
+  left: [{ offset: 0, opacity: 0, transform: 'translateX(-56px)' }],
+  right: [{ offset: 0, opacity: 0, transform: 'translateX(56px)' }],
+};
+
+function SmartImage({ src, srcs, alt, className, style, reveal, hold = false, revealDelay = 0, onSettled }: {
+  src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties;
+  // Set only for the anchor slide's first appearance (always rendered
+  // client-side, after the timeline's data fetches, so onLoad reliably
+  // fires even for a cached image): the image stays
+  // hidden until it has fully loaded AND hold is false, then slides in
+  // from that side. Without it the image renders like a plain <img>.
+  reveal?: Reveal; hold?: boolean; revealDelay?: number;
+  // Called once per source list: true when an image loaded, false when
+  // every source failed (so a caller waiting on it is never stuck).
+  onSettled?: (ok: boolean) => void;
+}) {
   const sources = useMemo(() => Array.from(new Set([...(srcs || []), ...(src ? [src] : [])].filter(Boolean))), [src, srcs]);
   const sourcesKey = sources.join('|');
   const [index, setIndex] = useState(0);
+  const [loadedSrc, setLoadedSrc] = useState('');
   // Resetting the fallback index during render (not in an effect) when the
   // source list changes avoids the extra render pass an effect-based
   // reset would cause.
@@ -359,31 +383,40 @@ function SmartImage({ src, srcs, alt, className, style }: { src?: string; srcs?:
   if (sourcesKey !== prevSourcesKey) {
     setPrevSourcesKey(sourcesKey);
     setIndex(0);
+    setLoadedSrc('');
   }
   const active = sources[index];
-  // Hidden until fully decoded, then faded in, so a big photo never paints
-  // top-down in stripes or pops in mid-screen. mountedAt tells a cold
-  // download (fade) apart from a cached image (loads within a frame or
-  // two, e.g. when a slide remounts during a swipe: shown as-is).
-  const [loadedSrc, setLoadedSrc] = useState('');
-  const mountedAt = useRef(0);
-  useEffect(() => { mountedAt.current = performance.now(); }, [active]);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const animatedFor = useRef('');
+  const onSettledRef = useRef(onSettled);
+  useEffect(() => { onSettledRef.current = onSettled; }, [onSettled]);
+  const visible = !reveal || (Boolean(active) && loadedSrc === active && !hold);
+
+  // Every source failed: report it, so the anchor slide's HS-first
+  // sequencing moves on to the pro image instead of waiting forever.
+  useEffect(() => { if (!active) onSettledRef.current?.(false); }, [active]);
+  // Layout effect so the animation is in place before the browser paints
+  // the first visible frame -- as a plain effect, the image would flash
+  // fully visible for a frame before sliding in.
+  useLayoutEffect(() => {
+    const img = imgRef.current;
+    if (!reveal || !visible || !img || !active || animatedFor.current === active) return;
+    animatedFor.current = active;
+    img.animate?.(REVEAL_KEYFRAMES[reveal], { duration: 620, delay: revealDelay, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+  }, [reveal, visible, active, revealDelay]);
+
   if (!active) return null;
-  function handleLoad(event: SyntheticEvent<HTMLImageElement>) {
-    const img = event.currentTarget;
+  function handleLoad() {
+    if (loadedSrc === active) return;
     setLoadedSrc(active);
-    // A single keyframe animates from opacity 0 to whatever the element's
-    // own opacity is (the slide's scroll-driven inline opacity), so the
-    // fade never overshoots a slide that's only partly faded in.
-    if (performance.now() - mountedAt.current > 80) img.animate?.([{ opacity: 0 }], { duration: 320, easing: 'ease-out' });
+    onSettledRef.current?.(true);
   }
-  const shown = loadedSrc === active;
   // data-fallback lets CSS style the "gave up on the preferred source and
   // is showing a later one instead" case differently if ever needed, since
   // CSS has no other way to tell which URL actually loaded. .zt-person-now
   // uses it: an action shot's right edge sits just past the headline
   // column's left edge, the headshot fallback flush on it.
-  return <img key={active} className={className} style={shown ? style : { ...style, visibility: 'hidden' }} src={active} alt={alt} loading="eager" decoding="async" data-fallback={index > 0 ? 'true' : undefined} onLoad={handleLoad} onError={() => setIndex((next) => next + 1)} />;
+  return <img ref={imgRef} key={active} className={className} style={visible ? style : { ...style, visibility: 'hidden' }} src={active} alt={alt} loading="eager" decoding="async" data-fallback={index > 0 ? 'true' : undefined} onLoad={handleLoad} onError={() => setIndex((next) => next + 1)} />;
 }
 
 function ReactionButton({ moment, session, onToggled }: { moment: Slide; session: FanSession | null; onToggled: (id: string, reacted: boolean, count: number) => void }) {
@@ -914,6 +947,48 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
+  // Start downloading the anchor slide's two photos right away, in
+  // parallel with the stats/uploads/identity fetches, instead of only once
+  // the slides render after all three finish (the page's server render
+  // also preloads them). By the time the slide appears they're usually
+  // already in the browser cache.
+  useEffect(() => {
+    if (!playerId) return;
+    for (const kind of ['then', 'back']) {
+      const img = new Image();
+      img.src = `/api/cutout?kind=${kind}&id=${encodeURIComponent(playerId)}`;
+    }
+  }, [playerId]);
+
+  // Anchor-slide entrance, once per player, per direct feedback: the HS
+  // cutout always lands first (slides in from the left), and the pro
+  // image only then follows it in from the right -- never the other way
+  // around, however the two downloads happen to finish. After both have
+  // played, later visits to the slide show the images plainly.
+  const [hsSettled, setHsSettled] = useState(false);
+  const [proSettled, setProSettled] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
+  const [introFor, setIntroFor] = useState(playerId);
+  if (introFor !== playerId) {
+    setIntroFor(playerId);
+    setHsSettled(false);
+    setProSettled(false);
+    setIntroDone(false);
+  }
+  // Safety net: a stalled HS request never keeps the pro image hidden
+  // for good.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setHsSettled(true), 6000);
+    return () => window.clearTimeout(timer);
+  }, [playerId]);
+  useEffect(() => {
+    if (!hsSettled || !proSettled || introDone) return;
+    const timer = window.setTimeout(() => setIntroDone(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [hsSettled, proSettled, introDone]);
+  const handleHsSettled = useCallback(() => setHsSettled(true), []);
+  const handleProSettled = useCallback(() => setProSettled(true), []);
+
   // Layout effect, not a plain effect: the jump to the anchor slide has to
   // land before the browser paints the first ready frame. As a plain
   // effect, that first frame painted slide 0 (the earliest life year and
@@ -1348,7 +1423,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 {/* Served through /api/cutout, which trims the transparent
                     border off the S3 cutout so the figure (not empty
                     canvas) fills its box -- see that route's comment. */}
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`/api/cutout?kind=then&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} cutout`} />
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} src={`/api/cutout?kind=then&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} cutout`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
                 {/* "Then vs now" -- a cutout from the current/most-recent
                     action photo (players/back/, run through the same
                     background-removal pipeline into players/back-cutouts/).
@@ -1365,7 +1440,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     chain (the same mechanism season slides use for their
                     YaTi placeholder), not a second image element. Only
                     renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`/api/cutout?kind=back&id=${encodeURIComponent(playerId)}`]} src={`/api/cutout?kind=now&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} today`} />
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[`/api/cutout?kind=back&id=${encodeURIComponent(playerId)}`]} src={`/api/cutout?kind=now&id=${encodeURIComponent(playerId)}`} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
               </Fragment>
             );
           }
