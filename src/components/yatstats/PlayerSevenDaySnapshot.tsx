@@ -232,22 +232,29 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
   return { items, todayIso: today };
 }
 
-// The line score is the reason a fan opens this tab, so it gets the widest
-// column and never ellipsizes mid-stat: each stat ("1-4", "2B", "1 RBI") is
-// its own unbreakable piece that wraps to a second line as a whole when the
-// line is long. The divider sits in front of every piece and the inner row
-// is pulled left by exactly one divider width, so whichever piece starts a
-// line has its divider clipped off - no stray "|" at the start of line 2.
-// Batting lines use " | ", pitching lines ", " (sync-mlb-player-gamelogs).
+// Box-score style: "2-4 | 2B, 1 RBI, 1 R, BB, 1K" - the only divider sits
+// after hits-at-bats, everything else is comma-separated (the batting
+// line_summary stores " | " between every stat; pitching lines are already
+// all commas). Each stat is unbreakable, so a long line wraps to a second
+// line at a comma instead of being cut off mid-stat.
 function StatLine({ text, className }: { text: string; className: string }) {
   const pieces = text.split(/\s*\|\s*|,\s+/).filter(Boolean);
+  const leadsWithHitsAtBats = /^\d+-\d+$/.test(pieces[0] || '') && pieces.length > 1;
+  const rest = leadsWithHitsAtBats ? pieces.slice(1) : pieces;
   return (
     <div className={className}>
-      <div className="yat-snap-stat-pieces">
-        {pieces.map((piece, i) => (
-          <span className="yat-snap-stat-piece" key={i}>{piece}</span>
-        ))}
-      </div>
+      {leadsWithHitsAtBats && (
+        <>
+          <span className="yat-snap-stat-piece">{pieces[0]}</span>
+          <span className="yat-snap-stat-bar" aria-hidden="true"> | </span>
+        </>
+      )}
+      {rest.map((piece, i) => (
+        <span key={i}>
+          <span className="yat-snap-stat-piece">{piece}</span>
+          {i < rest.length - 1 ? ', ' : ''}
+        </span>
+      ))}
     </div>
   );
 }
@@ -414,15 +421,15 @@ export default async function PlayerSevenDaySnapshot({
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:clamp(30px,11cqi,46px) clamp(52px,19cqi,88px) clamp(26px,10cqi,46px) minmax(0,1fr);
+          grid-template-columns:clamp(34px,12.5cqi,52px) clamp(60px,21.5cqi,98px) clamp(26px,9cqi,44px) minmax(0,1fr);
           align-items:center;
-          gap:clamp(3px,1.2cqi,7px);
+          gap:clamp(4px,1.4cqi,8px);
           text-decoration:none;
           color:inherit;
           background:rgba(255,255,255,0.72);
           border:1px solid rgba(30,22,14,0.10);
           border-radius:clamp(4px,1.2cqi,7px);
-          padding:clamp(2px,1cqi,6px) clamp(5px,1.4cqi,9px);
+          padding:clamp(2px,1cqi,6px) clamp(6px,1.6cqi,10px);
           box-shadow:0 1px 2px rgba(0,0,0,0.06);
           min-width:0;
           overflow:hidden;
@@ -434,7 +441,7 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-date{
           display:flex;
           align-items:center;
-          gap:clamp(2px,.7cqi,5px);
+          gap:clamp(3px,1cqi,6px);
           line-height:1;
           min-width:0;
         }
@@ -528,30 +535,15 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-score-time{ color:#221a12; }
         .yat-snap-score-ppd{ color:#8a7c68; }
         .yat-snap-statline{
-          --sep:.75em;
-          font:700 clamp(10px,3.7cqi,16px)/1.05 "Bebas Neue",Oswald,sans-serif;
+          font:400 clamp(10px,3.6cqi,16px)/1.05 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
-          color:#17120c;
+          color:#221a12;
           min-width:0;
           max-height:2.1em;
           overflow:hidden;
         }
-        .yat-snap-stat-pieces{
-          display:flex;
-          flex-wrap:wrap;
-          margin-left:calc(-1 * var(--sep));
-        }
-        .yat-snap-stat-piece{
-          white-space:nowrap;
-        }
-        .yat-snap-stat-piece::before{
-          content:"|";
-          display:inline-block;
-          width:var(--sep);
-          text-align:center;
-          font-weight:400;
-          color:#b3a58f;
-        }
+        .yat-snap-stat-piece{ white-space:nowrap; }
+        .yat-snap-stat-bar{ color:#a89a86; }
         .yat-snap-offday{
           grid-column:2;
           min-width:0;
@@ -620,11 +612,11 @@ export default async function PlayerSevenDaySnapshot({
           white-space:nowrap;
         }
         .yat-snap-dh-stat{
-          --sep:.7em;
           flex:1;
           min-width:0;
-          font:700 clamp(7.5px,2.6cqi,12px)/1.05 "Bebas Neue",Oswald,sans-serif;
-          color:#17120c;
+          font:400 clamp(7.5px,2.7cqi,12px)/1.05 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.03em;
+          color:#221a12;
           max-height:2.1em;
           overflow:hidden;
         }
