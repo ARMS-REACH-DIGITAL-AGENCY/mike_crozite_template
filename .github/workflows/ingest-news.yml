@@ -1,12 +1,19 @@
 name: Ingest YATSTATS News
 
+# Pilot: daily Webz.io news for the schools in NEWS_HSIDS only (Hamilton
+# today). Each school costs Webz.io calls from the 1,000/month free plan,
+# so adding one is a deliberate change here - there is no all-schools mode.
+
 on:
+  schedule:
+    # Daily, ~5:45 AM Arizona time.
+    - cron: "47 12 * * *"
   workflow_dispatch:
     inputs:
       hsid:
-        description: "Optional school hsid to ingest. Use 5004 for Hamilton. Leave blank for all schools."
+        description: "School hsid(s), comma-separated. Blank = NEWS_HSIDS below (Hamilton, 5004)."
         required: false
-        default: "5004"
+        default: ""
       dry_run:
         description: "Preview only; do not write news_articles rows"
         required: false
@@ -25,6 +32,10 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       WEBZ_API_TOKEN: ${{ secrets.WEBZ_API_TOKEN }}
+      # Schools with news turned on.
+      NEWS_HSIDS: "5004"
+      # Stop when Webz.io reports fewer calls than this left for the month.
+      NEWS_MIN_REQUESTS_LEFT: "100"
 
     steps:
       - name: Check out repository
