@@ -9,15 +9,25 @@
 // This is the "middleman" — Webz.io is never called on user page loads.
 // Run this script on a schedule (daily cron) or manually.
 //
+// Pilot scope: news is on for the schools listed in NEWS_HSIDS / --hsid
+// only (Hamilton, 5004, today). There is deliberately no "every school"
+// mode - each school searched costs Webz.io calls from a 1,000/month
+// free plan, so turning a school on is an explicit decision.
+//
 // Usage:
-//   npx ts-node scripts/ingest-news.ts                    # all active players
-//   npx ts-node scripts/ingest-news.ts --hsid 5004        # one school only
-//   npx ts-node scripts/ingest-news.ts --dry-run          # preview queries, don't write
+//   npx tsx scripts/ingest-news.ts                      # NEWS_HSIDS, default 5004
+//   npx tsx scripts/ingest-news.ts --hsid 5004,1234     # these schools
+//   npx tsx scripts/ingest-news.ts --dry-run            # preview queries, no calls, no writes
 //
 // Required env vars:
 //   DATABASE_URL    — Neon Postgres connection string
 //   WEBZ_API_TOKEN  — Webz.io News API Lite token
+// Optional:
+//   NEWS_HSIDS               — comma-separated school hsids (default "5004")
+//   NEWS_MIN_REQUESTS_LEFT   — stop when Webz.io reports fewer calls left
+//                              this month (default 100)
 
+import { appendFileSync } from "fs";
 import { Pool } from "pg";
 
 // ---------------------------------------------------------------------------
@@ -29,8 +39,14 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const WEBZ_TOKEN =
-  process.env.WEBZ_API_TOKEN || "e293311e-b089-4595-bb2c-1ea330fe1c81";
+const WEBZ_TOKEN: string = process.env.WEBZ_API_TOKEN ?? "";
+if (!WEBZ_TOKEN) {
+  console.error("ERROR: WEBZ_API_TOKEN environment variable is not set.");
+  process.exit(1);
+}
+
+// Leave headroom in the monthly Webz.io allowance for manual runs.
+const MIN_REQUESTS_LEFT = Number(process.env.NEWS_MIN_REQUESTS_LEFT || 100);
 
 const BATCH_SIZE = 8; // max player names per Webz.io query
 const LOOKBACK_DAYS = 30; // how far back to search
@@ -40,7 +56,11 @@ const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const hsidIdx = args.indexOf("--hsid");
-const targetHsid = hsidIdx !== -1 ? args[hsidIdx + 1] : null;
+const hsidArg = hsidIdx !== -1 ? args[hsidIdx + 1] : "";
+const targetHsids = (hsidArg || process.env.NEWS_HSIDS || "5004")
+  .split(",")
+  .map((h) => h.trim())
+  .filter(Boolean);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,33 +139,30 @@ async function ensureTable(): Promise<void> {
   );
 }
 
-/** Get active players with their school hsid */
-async function getActivePlayers(hsid?: string | null): Promise<PlayerRow[]> {
-  const whereClause = hsid ? `AND ph.hsid = $1` : "";
-  const params = hsid ? [hsid] : [];
-
-  const sql = `
-    SELECT DISTINCT
-      tp.playerid::text AS playerid,
-      tp.firstname,
-      tp.lastname,
-      ph.hsid::text AS hsid
-    FROM tbc_players_raw tp
-    JOIN player_hsids ph ON tp.playerid::text = ph.playerid::text
-    WHERE (
-      tp.playerid::text IN (
-        SELECT DISTINCT playerid::text FROM tbc_batting_raw WHERE year = '2025'
-      )
-      OR tp.playerid::text IN (
-        SELECT DISTINCT playerid::text FROM tbc_pitching_raw WHERE year = '2025'
-      )
-    )
-    ${whereClause}
-    AND TRIM(tp.firstname) != '' AND TRIM(tp.lastname) != ''
-    ORDER BY hsid, lastname, firstname
-  `;
-
-  const { rows } = await pool.query(sql, params);
+/**
+ * Active alumni of the given schools, from the flip cards: anyone still
+ * playing (active, injured, redshirt, ...) - not retired, not a free
+ * agent, not a current high schooler. (This used to be "had 2025 stats",
+ * which never picked up anyone new in 2026.)
+ */
+async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
+  const { rows } = await pool.query<PlayerRow>(
+    `SELECT DISTINCT
+       f.playerid::text AS playerid,
+       TRIM(COALESCE(f.first_name, tp.firstname)) AS firstname,
+       TRIM(COALESCE(f.last_name, tp.lastname)) AS lastname,
+       f.hsid::text AS hsid
+     FROM flip_card_front_stage f
+     LEFT JOIN tbc_players_raw tp ON tp.playerid::text = f.playerid::text
+     WHERE f.hsid::text = ANY($1::text[])
+       AND NULLIF(TRIM(f.status_label), '') IS NOT NULL
+       AND UPPER(TRIM(f.status_label)) NOT IN ('RETIRED', 'FREE AGENT', 'UNCOMMITTED', 'COMMIT', 'NOT ACTIVE')
+       AND UPPER(TRIM(COALESCE(f.level_label, ''))) NOT IN ('HIGH SCHOOL', 'HS')
+       AND TRIM(COALESCE(f.first_name, tp.firstname, '')) <> ''
+       AND TRIM(COALESCE(f.last_name, tp.lastname, '')) <> ''
+     ORDER BY hsid, lastname, firstname`,
+    [hsids]
+  );
   return rows;
 }
 
@@ -242,7 +259,7 @@ async function insertArticle(
 async function main() {
   console.log("=== YAT?STATS News Ingest ===");
   console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}`);
-  if (targetHsid) console.log(`Target school: hsid=${targetHsid}`);
+  console.log(`Schools: ${targetHsids.join(", ")}`);
   console.log(`Lookback: ${LOOKBACK_DAYS} days`);
   console.log("");
 
@@ -253,7 +270,7 @@ async function main() {
   }
 
   // 2. Get active players
-  const players = await getActivePlayers(targetHsid);
+  const players = await getActivePlayers(targetHsids);
   console.log(`✓ Found ${players.length} active players`);
 
   if (players.length === 0) {
@@ -275,8 +292,11 @@ async function main() {
   let totalApiCalls = 0;
   let totalArticlesInserted = 0;
   let totalArticlesMatched = 0;
+  let totalUnattributed = 0;
+  let requestsLeft: number | null = null;
+  let stoppedForBudget = false;
 
-  for (const [hsid, schoolPlayers] of schoolGroups) {
+  schools: for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
       `── School hsid=${hsid} (${schoolPlayers.length} players) ──`
     );
@@ -311,22 +331,16 @@ async function main() {
       console.log(
         `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, ${data.requestsLeft} calls remaining)`
       );
+      if (typeof data.requestsLeft === "number") requestsLeft = data.requestsLeft;
 
       // Match and insert each article
       for (const post of data.posts) {
         const matchedPlayers = matchPlayerToArticle(post, schoolPlayers);
 
         if (matchedPlayers.length === 0) {
-          // Article matched the query but we can't pin it to a specific player.
-          // Still store it under the school for the Alumni News page.
-          const inserted = await insertArticle(post, {
-            playerid: "",
-            firstname: "",
-            lastname: "",
-            hsid,
-          } as PlayerRow);
-          if (inserted) totalArticlesInserted++;
-          totalArticlesMatched++;
+          // The search hit, but no alum's full name is in the story - a
+          // playerless card on the News page would just say "--", so skip it.
+          totalUnattributed++;
           continue;
         }
 
@@ -337,6 +351,14 @@ async function main() {
           if (inserted) totalArticlesInserted++;
           totalArticlesMatched++;
         }
+      }
+
+      if (requestsLeft !== null && requestsLeft < MIN_REQUESTS_LEFT) {
+        console.log(
+          `  ! Webz.io reports ${requestsLeft} calls left this month (< ${MIN_REQUESTS_LEFT}); stopping to leave headroom.`
+        );
+        stoppedForBudget = true;
+        break schools;
       }
 
       // Rate-limit courtesy delay
@@ -352,9 +374,33 @@ async function main() {
   console.log(`API calls made:      ${totalApiCalls}`);
   console.log(`Articles matched:    ${totalArticlesMatched}`);
   console.log(`New rows inserted:   ${totalArticlesInserted}`);
+  console.log(`No alum named (skipped): ${totalUnattributed}`);
+  console.log(`Webz.io calls left this month: ${requestsLeft ?? "unknown"}`);
+  if (stoppedForBudget) console.log("Stopped early to stay under the monthly Webz.io allowance.");
   console.log(
     `(Duplicates skipped via ON CONFLICT DO NOTHING)`
   );
+
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      [
+        `## News ingest (${dryRun ? "dry run" : "live"})`,
+        "",
+        `| | |`,
+        `|---|---|`,
+        `| Schools | ${targetHsids.join(", ")} |`,
+        `| Active alumni searched | ${players.length} |`,
+        `| Webz.io calls made | ${totalApiCalls} |`,
+        `| Webz.io calls left this month | ${requestsLeft ?? "unknown"} |`,
+        `| Stories matched to an alum | ${totalArticlesMatched} |`,
+        `| New stories saved | ${totalArticlesInserted} |`,
+        `| Search hits naming no alum (skipped) | ${totalUnattributed} |`,
+        stoppedForBudget ? `| Stopped early | under ${MIN_REQUESTS_LEFT} calls left |` : "",
+        "",
+      ].join("\n")
+    );
+  }
 }
 
 main()
