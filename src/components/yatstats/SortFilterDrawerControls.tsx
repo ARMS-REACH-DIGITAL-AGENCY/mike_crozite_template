@@ -78,11 +78,11 @@ function parseStatNumber(raw: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 function getNumericStat(card: HTMLElement, key: string): number | null { return parseStatNumber(card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || ''); }
-// The batting and pitching feeds reuse the same name for walks (bb), and
-// walks drawn vs. walks allowed are different stats, so BB reads the value
-// for the column that was clicked. Games played is the same stat either
-// way, so both GP columns use the card's one GP value.
-const GROUP_SPLIT_METRICS = new Set(['bb']);
+// The batting and pitching feeds reuse the same names for walks (bb) and
+// games (gp). Each column sorts on its own feed's value: pitching GP ranks
+// pitchers by games pitched, batting GP ranks hitters by games played, and
+// players with nothing on that side drop below the ranked group.
+const GROUP_SPLIT_METRICS = new Set(['bb', 'gp']);
 function getSeasonStat(card: HTMLElement, key: string, group: string): number | null {
   if (!GROUP_SPLIT_METRICS.has(key)) return getNumericStat(card, key);
   const side = group === 'pitching' ? 'pit' : 'bat';
@@ -109,12 +109,7 @@ function getCareerStats(card: HTMLElement): CareerStats | null {
   return parsed;
 }
 function getCareerStat(card: HTMLElement, level: CareerLevel, group: string, key: string): number | null {
-  const career = getCareerStats(card)?.[level];
-  if (!career) return null;
-  // Same GP rule as the card and season sort: batting games, falling back to
-  // pitching games for a player with no batting line at this level.
-  if (key === 'gp') return parseStatNumber(career.bat?.gp ?? career.pit?.gp ?? '');
-  const line = career[group === 'pitching' ? 'pit' : 'bat'];
+  const line = getCareerStats(card)?.[level]?.[group === 'pitching' ? 'pit' : 'bat'];
   return line ? parseStatNumber(line[key]) : null;
 }
 function getVisibleCards(section: HTMLElement): HTMLElement[] {
