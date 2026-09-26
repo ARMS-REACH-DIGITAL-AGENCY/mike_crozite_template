@@ -1765,12 +1765,22 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
         nd.match_confidence,
         nd.generation_status,
         nd.approval_status,
-        nd.updated_at AS derivatives_updated_at
+        nd.updated_at AS derivatives_updated_at,
+        -- The player's card as of now; news_articles' own copies of these
+        -- are a snapshot from ingest time.
+        f.level_label AS stage_level_label,
+        f.status_label AS stage_status_label,
+        f.current_team_name AS stage_team_name,
+        f.current_org_or_conference_name AS stage_org_name,
+        f.class_of AS stage_class_of,
+        f.roster_years AS stage_roster_years
        FROM news_articles na
        LEFT JOIN news_article_derivatives nd
          ON nd.news_article_uuid = na.uuid
         AND nd.generation_status IN ('staged','published')
         AND nd.approval_status IN ('approved','published')
+       LEFT JOIN flip_card_front_stage f
+         ON f.playerid::text = na.playerid
        WHERE na.hsid = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,
@@ -1798,12 +1808,22 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
         nd.match_confidence,
         nd.generation_status,
         nd.approval_status,
-        nd.updated_at AS derivatives_updated_at
+        nd.updated_at AS derivatives_updated_at,
+        -- The player's card as of now; news_articles' own copies of these
+        -- are a snapshot from ingest time.
+        f.level_label AS stage_level_label,
+        f.status_label AS stage_status_label,
+        f.current_team_name AS stage_team_name,
+        f.current_org_or_conference_name AS stage_org_name,
+        f.class_of AS stage_class_of,
+        f.roster_years AS stage_roster_years
        FROM news_articles na
        LEFT JOIN news_article_derivatives nd
          ON nd.news_article_uuid = na.uuid
         AND nd.generation_status IN ('staged','published')
         AND nd.approval_status IN ('approved','published')
+       LEFT JOIN flip_card_front_stage f
+         ON f.playerid::text = na.playerid
        WHERE na.playerid = $1
        ORDER BY na.published_at DESC
        LIMIT $2`,

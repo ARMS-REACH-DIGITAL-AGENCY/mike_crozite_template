@@ -318,9 +318,15 @@ export default function InteractionStrip({
   const handleSlotClick = (event: MouseEvent<HTMLAnchorElement>, playerId: string) => {
     event.preventDefault();
 
-    // News keeps its separate delegated player-filter behavior. Player gallery
-    // pages use the same thumbnail as an anchor to the matching block-five card.
-    if (activeSection !== 'news' && PLAYER_GALLERY_SECTIONS.has(activeSection)) {
+    // On the News tab a headshot filters the news cards to that player
+    // (NewsGallery listens; clicking the same one again shows everyone).
+    // Player gallery pages use the same thumbnail as an anchor to the
+    // matching block-five card.
+    if (activeSection === 'news') {
+      window.dispatchEvent(new CustomEvent('yat:news-player-filter', { detail: { playerId } }));
+      return;
+    }
+    if (PLAYER_GALLERY_SECTIONS.has(activeSection)) {
       scrollToPlayerCard(playerId, activeSection);
     }
   };
