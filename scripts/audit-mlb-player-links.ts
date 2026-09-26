@@ -64,6 +64,13 @@ interface LinkRow {
 interface MlbPerson {
   id: number;
   fullName?: string;
+  rosterEntries?: {
+    team?: { id?: number; name?: string };
+    status?: { description?: string };
+    startDate?: string;
+    endDate?: string;
+    statusDate?: string;
+  }[];
   birthDate?: string;
   birthCity?: string;
   birthStateProvince?: string;
@@ -79,7 +86,9 @@ async function fetchPeople(ids: string[]): Promise<Map<string, MlbPerson>> {
   const out = new Map<string, MlbPerson>();
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch = ids.slice(i, i + BATCH_SIZE);
-    const res = await fetch(`${MLB_API_BASE}/people?personIds=${batch.join(",")}`);
+    const res = await fetch(
+      `${MLB_API_BASE}/people?personIds=${batch.join(",")}&hydrate=rosterEntries`
+    );
     if (!res.ok) throw new Error(`MLB /people HTTP ${res.status} for batch starting ${batch[0]}`);
     const data = (await res.json()) as { people?: MlbPerson[] };
     for (const person of data.people ?? []) out.set(String(person.id), person);
@@ -171,6 +180,16 @@ async function main() {
     ];
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
   }
+
+  const integrity = await integrityChecks(people);
+
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, integrity.markdown);
+  }
+
+  // A scheduled run fails (so GitHub emails the repo owner) when a link to
+  // the wrong person exists - the syncs should never create one now.
+  if (!apply && rejected.length > 0) process.exitCode = 1;
 
   if (!apply || rejected.length === 0) {
     if (!apply) console.log("\nReport only - nothing written. Re-run with --apply to fix.");
@@ -288,6 +307,99 @@ async function main() {
     client.release();
     await pool.end();
   }
+}
+
+// Daily data-integrity report (report only; nothing is written):
+//   - cards whose MLB team isn't where MLB says the player is now (his open
+//     roster entry), e.g. a traded player stuck on his old club
+//   - alumni linked to more than one MLB player
+//   - status labels the site's filters don't know
+const KNOWN_STATUSES = new Set([
+  "ACTIVE",
+  "RETIRED",
+  "FREE AGENT",
+  "REHAB ASSIGNMENT",
+  "DEVELOPMENT LIST",
+  "DESIGNATED FOR ASSIGNMENT",
+  "INJURED - FULL SEASON",
+]);
+
+function isKnownStatus(status: string): boolean {
+  return (
+    KNOWN_STATUSES.has(status) ||
+    /^INJURED/.test(status) ||
+    /(SUSPENDED|RESTRICTED|BEREAVEMENT|REASSIGNED|OPTION|MINOR|PATERNITY|TEMPORARY)/.test(status)
+  );
+}
+
+async function integrityChecks(
+  people: Map<string, MlbPerson>
+): Promise<{ markdown: string }> {
+  const { rows: cards } = await pool.query<{
+    playerid: string;
+    display_name: string | null;
+    current_team_name: string | null;
+    current_team_source_player_id: string | null;
+    current_team_source_team_id: string | null;
+    status_label: string | null;
+  }>(`
+    SELECT playerid::text AS playerid, display_name, current_team_name,
+           current_team_source_player_id::text AS current_team_source_player_id,
+           current_team_source_team_id::text AS current_team_source_team_id,
+           status_label
+      FROM public.flip_card_front_stage
+     WHERE current_team_source = 'mlb_api'
+  `);
+
+  const wrongTeam: string[] = [];
+  for (const card of cards) {
+    const person = card.current_team_source_player_id
+      ? people.get(card.current_team_source_player_id)
+      : undefined;
+    if (!person || !card.current_team_name) continue;
+    const open = (person.rosterEntries ?? []).filter((e) => !e.endDate);
+    if (open.length === 0) {
+      wrongTeam.push(`${card.display_name} (${card.playerid}): card says ${card.current_team_name}, MLB has no current roster entry`);
+      continue;
+    }
+    const openTeamIds = new Set(open.map((e) => String(e.team?.id ?? "")));
+    if (card.current_team_source_team_id && !openTeamIds.has(card.current_team_source_team_id)) {
+      wrongTeam.push(
+        `${card.display_name} (${card.playerid}): card says ${card.current_team_name}, MLB says ${open
+          .map((e) => `${e.team?.name} (${e.status?.description})`)
+          .join(" / ")}`
+      );
+    }
+  }
+
+  const { rows: multi } = await pool.query<{ playerid: string; n: number; names: string }>(`
+    SELECT m.playerid::text AS playerid, count(*)::int AS n,
+           string_agg(m.source_player_name || ' ' || m.source_player_id, ', ') AS names
+      FROM public.player_source_map m
+     WHERE m.source = 'mlb_api' AND m.match_method IS DISTINCT FROM '${REJECTED_MATCH_METHOD}'
+     GROUP BY m.playerid
+    HAVING count(*) > 1
+  `);
+
+  const unknownStatus = cards
+    .filter((c) => c.status_label && !isKnownStatus(c.status_label.toUpperCase()))
+    .map((c) => `${c.display_name} (${c.playerid}): ${c.status_label}`);
+
+  const sections: [string, string[]][] = [
+    ["Card team differs from MLB's current assignment", wrongTeam],
+    ["Alumni linked to more than one MLB player", multi.map((m) => `playerid ${m.playerid}: ${m.names}`)],
+    ["Unrecognized status labels", unknownStatus],
+  ];
+
+  console.log("");
+  console.log("=== Data integrity ===");
+  const md = ["", "## Data integrity", ""];
+  for (const [title, items] of sections) {
+    console.log(`${title}: ${items.length}`);
+    for (const item of items.slice(0, 50)) console.log(`  ${item}`);
+    md.push(`### ${title}: ${items.length}`, "", ...items.slice(0, 100).map((i) => `- ${i}`), "");
+  }
+  return { markdown: md.join("\n") };
 }
 
 main().catch((err) => {

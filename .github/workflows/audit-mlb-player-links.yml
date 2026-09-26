@@ -1,8 +1,11 @@
 name: Audit Alumni MLB Links
 
 # Checks every alumni <-> MLB player link against MLB's birthdate / birth
-# city (scripts/audit-mlb-player-links.ts). Scheduled runs only report;
-# a manual run with apply = true rejects the failing links and clears the
+# city (scripts/audit-mlb-player-links.ts), then reports data-integrity
+# problems (card team vs MLB's current assignment, multiple MLB links,
+# unknown statuses) in the run summary. Scheduled runs only report, and
+# fail - so GitHub emails the owner - if a wrong-person link exists. A
+# manual run with apply = true rejects the failing links and clears the
 # flip-card data that came from the wrong person.
 
 on:
