@@ -16,7 +16,7 @@ import {
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, sortAllTimePlayers, ORG_FILTER_LIST } from '@/lib/playerUtils';
+import { formatSchoolName, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
 
@@ -98,28 +98,11 @@ function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
     }
   }
 
-  const priority = [
-    'ACTIVE',
-    'INJURED - FULL SEASON',
-    'INJURED',
-    'DEVELOPMENT LIST',
-    'DESIGNATED FOR ASSIGNMENT',
-    'FREE AGENT',
-    'RED SHIRT',
-    'MEDICAL REDSHIRT',
-    'PARTNER/SPONSOR',
-    'PARTNER - SPONSOR',
-    'RETIRED',
-  ];
-
+  // Alphabetical, with ACTIVE pinned first even if a school ever has a
+  // status that would sort ahead of it.
   return Array.from(statuses).sort((a, b) => {
-    const ai = priority.indexOf(a);
-    const bi = priority.indexOf(b);
-
-    if (ai !== -1 && bi !== -1) return ai - bi;
-    if (ai !== -1) return -1;
-    if (bi !== -1) return 1;
-
+    if (a === 'ACTIVE') return -1;
+    if (b === 'ACTIVE') return 1;
     return a.localeCompare(b);
   });
 }
@@ -476,6 +459,20 @@ export default async function HsidLayout({
           </details>
 
           <details className="yat-filter-group">
+            <summary>By Level</summary>
+            <div className="yat-filter-options" id="filterLevels">
+              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
+              {[
+                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
+              ].map((l) => (
+                <label key={l}>
+                  <input type="checkbox" value={l} /> {l}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          <details className="yat-filter-group">
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
@@ -501,32 +498,7 @@ export default async function HsidLayout({
             </div>
           </details>
 
-          <details className="yat-filter-group">
-            <summary>By Level</summary>
-            <div className="yat-filter-options" id="filterLevels">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
-              {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
-              ].map((l) => (
-                <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
-                </label>
-              ))}
-            </div>
-          </details>
-
-          <details className="yat-filter-group">
-            <summary>By Organization / Conference</summary>
-            <div className="yat-filter-options" id="filterOrgs">
-              <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterOrgs" /> Select All</label>
-              {ORG_FILTER_LIST.map((org) => (
-                <label key={org}>
-                  <input type="checkbox" value={org} /> {org}</label>
-              ))}
-            </div>
-          </details>
-
-          <details className="yat-filter-group">
+          <details className="yat-filter-group" open>
             <summary>By Name</summary>
             <div className="yat-filter-options">
               <input id="filterName" type="text" placeholder="Type a name…" />
