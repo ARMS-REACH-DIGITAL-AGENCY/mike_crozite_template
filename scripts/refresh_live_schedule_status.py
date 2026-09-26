@@ -455,7 +455,31 @@ def expire_stale_next_games(conn: psycopg.Connection) -> int:
               next_game_status_label = null,
               stage_updated_at = now()
             where next_game_time_utc is not null
-              and next_game_time_utc < now();
+              and (
+                -- A scheduled game whose start time has passed and that
+                -- the refresh above didn't replace (it only picks future
+                -- scheduled games) is stale.
+                (
+                  next_game_time_utc < now()
+                  and upper(trim(coalesce(next_game_status_label, 'NEXT GAME'))) = 'NEXT GAME'
+                )
+                -- A live label (In Progress, Pre-Game, Delayed, ...) always
+                -- has a start time in the past - that's what makes it live -
+                -- so it only expires once no game could still be going.
+                or next_game_time_utc < now() - interval '8 hours'
+                -- ...or as soon as that game is final (e.g. a season finale,
+                -- where the refresh above has no later game to replace it).
+                or exists (
+                  select 1
+                  from public.team_schedules ts
+                  where ts.game_time_utc = flip_card_front_stage.next_game_time_utc
+                    and lower(trim(flip_card_front_stage.current_team_name)) in (
+                      lower(trim(ts.home_team_name)),
+                      lower(trim(ts.away_team_name))
+                    )
+                    and lower(trim(coalesce(ts.status, ''))) in ('final', 'game over', 'completed early')
+                )
+              );
             """
         )
         expired = cur.rowcount or 0
