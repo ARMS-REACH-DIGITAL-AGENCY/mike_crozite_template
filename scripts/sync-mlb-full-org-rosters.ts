@@ -21,6 +21,7 @@ import {
   resolvePlayerFromSourceMap,
   upsertSourceMap,
 } from "./lib/player-source-map";
+import { identityVerdict, toIsoDate } from "./lib/player-identity";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -257,11 +258,8 @@ function scoreCandidate(
   if (preferredKey && dbKey === preferredKey) score += 60;
   if (legalKey && dbKey === legalKey) score += 35;
 
-  if (
-    person.birthDate &&
-    row.borndate &&
-    row.borndate.startsWith(person.birthDate)
-  ) {
+  const rowBirthDate = toIsoDate(row.borndate);
+  if (person.birthDate && rowBirthDate && rowBirthDate === toIsoDate(person.birthDate)) {
     score += 80;
   }
 
@@ -736,7 +734,38 @@ async function resolveAndSave(args: {
     }
   }
 
-  const candidates = Array.from(candidateMap.values());
+  // Same name is not the same person: only candidates whose birthdate (or,
+  // lacking one, birth city) matches this MLB person may be linked. See
+  // scripts/lib/player-identity.ts.
+  const nameMatches = Array.from(candidateMap.values());
+  const verdicts = nameMatches.map((row) => ({
+    playerid: row.playerid,
+    verdict: identityVerdict(row, p),
+  }));
+  const candidates = nameMatches.filter(
+    (_row, i) => verdicts[i].verdict === "confirmed"
+  );
+
+  if (candidates.length === 0 && nameMatches.length > 0) {
+    await saveMlbOrgRosterResolution({
+      runId: args.runId,
+      rawId: args.rawId,
+      playerid: null,
+      sourcePlayerId,
+      sourcePlayerName: displayName,
+      sourceTeamId,
+      sourceTeamName,
+      matchStatus: "unmatched",
+      matchMethod: "identity_check_failed",
+      matchConfidence: null,
+      candidatePlayerIds: nameMatches.map((c) => c.playerid),
+      notes: `Name matches ${JSON.stringify(verdicts)} but no birthdate/birth-city confirmation (MLB born ${
+        p.birthDate ?? "?"
+      } in ${p.birthCity ?? "?"}). Not linked.`,
+    });
+
+    return "unmatched";
+  }
 
   if (candidates.length === 0) {
     await saveMlbOrgRosterResolution({
@@ -771,10 +800,10 @@ async function resolveAndSave(args: {
       sourceTeamId,
       sourceTeamName,
       matchStatus: "matched",
-      matchMethod: "candidate_key_unique",
-      matchConfidence: 0.9,
+      matchMethod: "name_and_identity",
+      matchConfidence: 0.95,
       candidatePlayerIds: [dbPlayer.playerid],
-      notes: `Resolved uniquely via candidate keys: ${candidateKeys.join(", ")}`,
+      notes: `Name (${candidateKeys.join(", ")}) and birthdate/birth city match`,
     });
 
     await saveSourceMap(
@@ -783,10 +812,10 @@ async function resolveAndSave(args: {
       displayName,
       sourceTeamId,
       sourceTeamName,
-      "candidate_key_unique",
-      0.9,
+      "name_and_identity",
+      0.95,
       true,
-      `Resolved uniquely via candidate keys: ${candidateKeys.join(", ")}`
+      `Name (${candidateKeys.join(", ")}) and birthdate/birth city match`
     );
 
     return "matched_name";

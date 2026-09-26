@@ -20,6 +20,7 @@ import {
   resolvePlayerFromSourceMap,
   upsertSourceMap,
 } from "./lib/player-source-map";
+import { identityVerdict, type IdentityVerdict } from "./lib/player-identity";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -90,6 +91,8 @@ interface DbPlayerRow {
   playerid: string;
   firstname: string;
   lastname: string;
+  borndate: string | null;
+  place: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +243,9 @@ async function getAllDbPlayers(): Promise<DbPlayerRow[]> {
     SELECT
       playerid::text                  AS playerid,
       TRIM(firstname)                 AS firstname,
-      TRIM(lastname)                  AS lastname
+      TRIM(lastname)                  AS lastname,
+      borndate::text                  AS borndate,
+      TRIM(place)                     AS place
     FROM tbc_players_raw
     WHERE TRIM(firstname) != '' AND TRIM(lastname) != ''
   `);
@@ -295,7 +300,42 @@ async function saveSourceMap(
   mlbPersonId: number,
   fullName: string
 ): Promise<void> {
-  return upsertSourceMap(pool, playerid, "mlb_api", String(mlbPersonId), fullName);
+  return upsertSourceMap(
+    pool,
+    playerid,
+    "mlb_api",
+    String(mlbPersonId),
+    fullName,
+    null,
+    null,
+    "name_and_identity",
+    0.95,
+    true,
+    "Transactions sync: name and birthdate/birth city match"
+  );
+}
+
+// Transaction payloads carry only id + name, so the birthdate/birth city
+// needed for the identity check comes from /people (cached per run).
+const mlbPersonCache = new Map<number, { birthDate?: string; birthCity?: string } | null>();
+
+async function fetchMlbPersonIdentity(
+  personId: number
+): Promise<{ birthDate?: string; birthCity?: string } | null> {
+  if (mlbPersonCache.has(personId)) return mlbPersonCache.get(personId) ?? null;
+  let identity: { birthDate?: string; birthCity?: string } | null = null;
+  try {
+    const res = await fetch(`${MLB_API_BASE}/people/${personId}`);
+    if (res.ok) {
+      const data = (await res.json()) as { people?: { birthDate?: string; birthCity?: string }[] };
+      const person = data.people?.[0];
+      if (person) identity = { birthDate: person.birthDate, birthCity: person.birthCity };
+    }
+  } catch (err) {
+    console.error(`  fetchMlbPersonIdentity(${personId}) failed:`, err);
+  }
+  mlbPersonCache.set(personId, identity);
+  return identity;
 }
 
 /** Insert one transaction row. Returns true if a new row was inserted. */
@@ -438,8 +478,20 @@ async function main() {
       continue;
     }
 
-    // Exactly one name match — safe to use
+    // Exactly one name match - still not proof it's the same person
+    // (common names collide), so the birthdate / birth city must agree.
     const dbPlayer = matches[0];
+    const mlbIdentity = await fetchMlbPersonIdentity(txn.person.id);
+    const verdict: IdentityVerdict = mlbIdentity
+      ? identityVerdict(dbPlayer, mlbIdentity)
+      : "unverified";
+    if (verdict !== "confirmed") {
+      totalUnmatched++;
+      unmatchedLog.push(
+        `  IDENTITY ${verdict.toUpperCase()}: ${txn.person.fullName} (mlbId=${txn.person.id}) vs playerid ${dbPlayer.playerid} - same name, not linked`
+      );
+      continue;
+    }
 
     if (dryRun) {
       console.log(
