@@ -67,7 +67,7 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
   const years = Array.isArray(post.rosterYears) && post.rosterYears.length ? post.rosterYears.slice(0, 4) : [];
   const profileHref =
     post.playerId && name
-      ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(post.playerId)}/${toSlugFromDisplay(name)}#ppTab-news`
+      ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(post.playerId)}/${toSlugFromDisplay(name)}?story=${encodeURIComponent(post.uuid)}#ppTab-news`
       : null;
   const shareText = encodeURIComponent(`Check out this news about ${name || "our alumni"}: ${headline}`);
   const shareUrl = encodeURIComponent(post.url);
