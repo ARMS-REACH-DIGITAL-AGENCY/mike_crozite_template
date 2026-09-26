@@ -20,6 +20,7 @@ import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { formatSchoolName, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
+import NewsGallery from "@/components/yatstats/NewsGallery";
 
 export const runtime = "nodejs";
 
@@ -527,12 +528,7 @@ export default async function SchoolPage({
       <section id="sec-news" className="yat-section">
         <div className="yat-news-wrap">
           <div className="yat-news-header"><div /></div>
-          <div className="yat-grid" id="news-grid">
-            <div className="yat-news-loading">
-              <div className="yat-news-loading-spinner" />
-              <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
-            </div>
-          </div>
+          <NewsGallery hsid={resolvedHsid} />
         </div>
       </section>
 
