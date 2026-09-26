@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/indy-iscore-ingest",
       "schedule": "35 9 * * *"
+    },
+    {
+      "path": "/api/cron/live-schedule-refresh",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
