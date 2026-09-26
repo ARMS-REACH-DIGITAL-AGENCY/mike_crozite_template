@@ -1787,6 +1787,19 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = na.playerid
        WHERE na.hsid = $1
+         -- At most 6 stories per player on the school feed, so one alum
+         -- in a lot of league-wide roundups can't crowd out everyone else.
+         AND na.id IN (
+           SELECT id FROM (
+             SELECT id, ROW_NUMBER() OVER (
+               PARTITION BY COALESCE(NULLIF(playerid, ''), uuid)
+               ORDER BY published_at DESC
+             ) AS rn
+             FROM news_articles
+             WHERE hsid = $1
+           ) ranked
+           WHERE rn <= 6
+         )
        ORDER BY na.published_at DESC
        LIMIT $2`,
       [hsid, limit]
