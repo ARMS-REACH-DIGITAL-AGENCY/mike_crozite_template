@@ -63,6 +63,69 @@ function isYear2026(value: unknown): boolean {
   return String(value || "").trim() === "2026";
 }
 
+type CareerLevel = "mlb" | "minors" | "college";
+type CareerStatLine = Record<string, string>;
+type CareerStats = Partial<Record<CareerLevel, { bat?: CareerStatLine; pit?: CareerStatLine }>>;
+
+const CAREER_LEVELS: CareerLevel[] = ["mlb", "minors", "college"];
+
+// Sort-drawer metric key -> the bucket's own stat field. Pitching uses a few
+// different names (ko/so9/so_bb/saves) than the drawer's metric keys.
+const CAREER_BAT_FIELDS: Record<string, string[]> = {
+  avg: ["avg"], ab: ["ab"], h: ["h"], obp: ["obp"], r: ["r"], bb: ["bb"],
+  slg: ["slg"], hr: ["hr"], rbi: ["rbi"], ops: ["ops"], sb: ["sb"], gp: ["g"],
+};
+const CAREER_PIT_FIELDS: Record<string, string[]> = {
+  ip: ["ip"], er: ["er"], era: ["era"], k: ["ko"], bb: ["bb"], whip: ["whip"],
+  k9: ["so9"], bb9: ["bb9"], kbb: ["so_bb"], wl: ["w"], sv: ["saves"], gp: ["g", "pg"],
+};
+
+function parseBuckets(value: unknown): Array<{ bucket?: unknown; stats?: Record<string, unknown> }> {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function pickCareerLine(stats: Record<string, unknown> | undefined, fields: Record<string, string[]>): CareerStatLine | undefined {
+  if (!stats) return undefined;
+  const line: CareerStatLine = {};
+  for (const [metric, sources] of Object.entries(fields)) {
+    for (const source of sources) {
+      const value = statValue(stats[source]);
+      if (value) {
+        line[metric] = value;
+        break;
+      }
+    }
+  }
+  return Object.keys(line).length ? line : undefined;
+}
+
+// MLB, minor league, and college careers kept separate - lumping them into
+// one career total isn't how baseball compares players.
+function buildCareerStats(p: Record<string, unknown>): CareerStats {
+  const career: CareerStats = {};
+  const add = (value: unknown, side: "bat" | "pit", fields: Record<string, string[]>) => {
+    for (const entry of parseBuckets(value)) {
+      const level = String(entry?.bucket || "") as CareerLevel;
+      if (!CAREER_LEVELS.includes(level)) continue;
+      const line = pickCareerLine(entry.stats, fields);
+      if (!line) continue;
+      career[level] = { ...career[level], [side]: line };
+    }
+  };
+  add(p.career_batting_buckets, "bat", CAREER_BAT_FIELDS);
+  add(p.career_pitching_buckets, "pit", CAREER_PIT_FIELDS);
+  return career;
+}
+
 function imageText(value: unknown): string {
   const text = String(value || "").trim();
   if (!text || text.toLowerCase() === "null" || text.toLowerCase() === "undefined") return "";
@@ -88,6 +151,8 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const playerWithSlug = { ...p, slug };
   const gp = statValue(p.g || p.pg);
   const has2026Stats = truthyFlag(p.has_2026_stats) || isYear2026(p.stat_year) || isYear2026(p.pitch_year);
+  const careerStats = buildCareerStats(p);
+  const careerStatsAttr = Object.keys(careerStats).length ? JSON.stringify(careerStats) : undefined;
   const playerId = String(p.playerid || "");
 
   // Block 3 mirrors Block 5 while using section-specific artwork:
@@ -149,6 +214,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-stat-w={statValue(p.w)}
       data-stat-wl={statValue(p.w)}
       data-stat-sv={statValue(p.saves)}
+      data-career-stats={careerStatsAttr}
     >
       <PlayerCardFlipBehavior />
       <div className="yat-card-inner">
