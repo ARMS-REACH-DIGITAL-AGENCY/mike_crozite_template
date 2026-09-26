@@ -1,0 +1,40 @@
+name: Audit Alumni MLB Links
+
+# Checks every alumni <-> MLB player link against MLB's birthdate / birth
+# city (scripts/audit-mlb-player-links.ts). Scheduled runs only report;
+# a manual run with apply = true rejects the failing links and clears the
+# flip-card data that came from the wrong person.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply the fix (false = report only)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "40 13 * * *"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout Easter-NEWS branch
+        uses: actions/checkout@v4
+        with:
+          ref: Easter-NEWS
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Audit links
+        run: npx tsx ./scripts/audit-mlb-player-links.ts ${{ inputs.apply && '--apply' || '' }}

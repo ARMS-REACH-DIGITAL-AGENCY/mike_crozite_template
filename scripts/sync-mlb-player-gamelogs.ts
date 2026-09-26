@@ -118,7 +118,8 @@ async function getMappedPlayers(): Promise<SourceMapRow[]> {
     const { rows } = await pool.query<SourceMapRow>(
       `SELECT playerid, source_player_id
          FROM public.player_source_map
-        WHERE source = 'mlb_api' AND source_player_id = $1`,
+        WHERE source = 'mlb_api' AND source_player_id = $1
+          AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'`,
       [SINGLE_PERSON_ID]
     );
     return rows;
@@ -127,7 +128,9 @@ async function getMappedPlayers(): Promise<SourceMapRow[]> {
   const { rows } = await pool.query<SourceMapRow>(
     `SELECT playerid, source_player_id
        FROM public.player_source_map
-      WHERE source = 'mlb_api'`
+      WHERE source = 'mlb_api'
+        -- a link rejected as a different person (same name) never pulls games
+        AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'`
   );
   return rows;
 }

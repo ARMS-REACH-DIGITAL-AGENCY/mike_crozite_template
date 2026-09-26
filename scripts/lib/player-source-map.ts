@@ -1,5 +1,8 @@
 import { Pool } from "pg";
+import { REJECTED_MATCH_METHOD } from "./player-identity";
 
+// A link rejected as a different person (same name, different birthdate /
+// birth city) stays in the table as a record, but never resolves.
 export async function resolvePlayerFromSourceMap(
   pool: Pool,
   source: string,
@@ -9,8 +12,9 @@ export async function resolvePlayerFromSourceMap(
     `SELECT playerid
      FROM player_source_map
      WHERE source = $1 AND source_player_id = $2
+       AND match_method IS DISTINCT FROM $3
      LIMIT 1`,
-    [source, sourcePlayerId]
+    [source, sourcePlayerId, REJECTED_MATCH_METHOD]
   );
   return rows[0]?.playerid ?? null;
 }
