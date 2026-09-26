@@ -20,7 +20,9 @@ import {
   getTeamIdMap,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
+  getNewsByPlayer,
 } from "@/lib/db";
+import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
@@ -138,6 +140,18 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
+
+  // News tab: this player's stories (newest first). getNewsByPlayer returns
+  // [] on any error, so the tab falls back to its placeholder.
+  const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, 20)).map((row: any) => ({
+    uuid: String(row.uuid),
+    title: row.gallery_front_json?.headline ?? row.title ?? "",
+    url: row.url,
+    source: row.source_full ?? row.source ?? null,
+    publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
+    recap: row.gallery_back_json?.yati_recap ?? row.local_recap ?? row.snippet ?? null,
+    whyLocal: row.gallery_back_json?.why_local ?? null,
+  }));
 
   const firstName = (player.firstname || "").trim();
   const lastName = (player.lastname || "").trim();
@@ -677,10 +691,7 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── NEWS tab ─────────────────────────────────────────────────────── */}
         <div id="ppTab-news" className="pp-fz-panel">
-          <div className="pp-fz-placeholder">
-            <i className="ri-newspaper-line pp-ph-icon" />
-            <p>Latest headlines for {firstName} will appear here.</p>
-          </div>
+          <ProfileNewsList stories={newsStories} firstName={firstName} />
         </div>
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
