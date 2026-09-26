@@ -78,6 +78,15 @@ function parseStatNumber(raw: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 function getNumericStat(card: HTMLElement, key: string): number | null { return parseStatNumber(card.dataset[statAttrName(key)] || card.getAttribute(`data-stat-${key}`) || ''); }
+// The batting and pitching feeds reuse the same names for walks (bb) and
+// games (gp), so these two read the value for the column that was clicked
+// rather than the card's single shared value.
+const GROUP_SPLIT_METRICS = new Set(['bb', 'gp']);
+function getSeasonStat(card: HTMLElement, key: string, group: string): number | null {
+  if (!GROUP_SPLIT_METRICS.has(key)) return getNumericStat(card, key);
+  const side = group === 'pitching' ? 'pit' : 'bat';
+  return parseStatNumber(card.getAttribute(`data-stat-${side}-${key}`) || '');
+}
 function hasCurrentSeasonStats(card: HTMLElement): boolean { return card.dataset.has2026Stats === 'true' || card.getAttribute('data-has-2026-stats') === 'true'; }
 // All-Time cards don't carry current-season stats, but every player also has
 // an Active-section twin that does, so season sorting on All-Time reads it.
@@ -197,7 +206,7 @@ function applyFlipCardSort() {
   const statFor = (card: HTMLElement): number | null => {
     if (scope === 'career') return getCareerStat(card, level, metricGroup, metric);
     const source = seasonSourceCard(card, section);
-    return hasCurrentSeasonStats(source) ? getNumericStat(source, metric) : null;
+    return hasCurrentSeasonStats(source) ? getSeasonStat(source, metric, metricGroup) : null;
   };
   const sortedCards = [...scopedCards].sort((a, b) => {
     const ai = Number(getCardWrap(a).dataset.sortOriginalIndex || 0);
