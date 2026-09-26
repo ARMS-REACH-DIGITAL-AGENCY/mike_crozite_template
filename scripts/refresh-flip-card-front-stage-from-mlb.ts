@@ -67,9 +67,127 @@ async function ensureStageColumns(): Promise<void> {
   `);
 }
 
-async function refreshStage(): Promise<number> {
+// Where MLB itself says each linked player is right now.
+//
+// The roster pull's fullRoster listing is season-long: a player traded
+// away (Jameson Taillon, Cubs -> Blue Jays) or retired (Casey Opitz, on
+// the Voluntarily Retired List since July) still appears there as
+// "Active", and whichever org's listing happened to be read last won.
+// MLB's /people rosterEntries carry the real answer: the entry with no
+// endDate is the player's current assignment; no open entry at all means
+// he has left affiliated baseball.
+type MlbCurrent = {
+  mlb_id: string;
+  team_id: string | null; // open roster entry's team
+  status: string | null; // open roster entry's status ("Injured 15-Day")
+  departed: "RETIRED" | "FREE AGENT" | null; // no open entry, last one says so
+  departed_detail: string | null;
+  departed_team_name: string | null;
+};
+
+type MlbRosterEntryInfo = {
+  team?: { id?: number; name?: string };
+  status?: { description?: string };
+  startDate?: string;
+  endDate?: string;
+  statusDate?: string;
+};
+
+const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
+
+function classifyDeparture(description: string | null | undefined): "RETIRED" | "FREE AGENT" | null {
+  const text = (description ?? "").toLowerCase();
+  if (text.includes("retired")) return "RETIRED";
+  if (text.includes("released") || text.includes("declared free agency") || text === "free agent") {
+    return "FREE AGENT";
+  }
+  return null;
+}
+
+// Everyone matched in the latest roster run, plus every card whose team
+// still comes from this pipeline - a player who has dropped off every
+// roster (retired, released) isn't in the run but his card still shows
+// his old team until MLB's roster entries say where he went.
+async function linkedMlbIds(): Promise<string[]> {
+  const { rows } = await pool.query<{ source_player_id: string }>(`
+    SELECT current_team_source_player_id::text AS source_player_id
+      FROM public.flip_card_front_stage
+     WHERE current_team_source = 'mlb_api'
+       AND NULLIF(TRIM(current_team_source_player_id::text), '') IS NOT NULL
+    UNION
+    SELECT DISTINCT raw.source_player_id::text AS source_player_id
+      FROM public.mlb_org_roster_resolution res
+      JOIN public.mlb_org_roster_raw raw ON raw.id = res.raw_id
+     WHERE res.match_status = 'matched'
+       AND res.playerid IS NOT NULL
+       AND raw.run_id = (
+         SELECT run_id FROM public.source_ingest_runs
+          WHERE source = 'mlb_api' AND feed_name = 'mlb_full_org_roster' AND status = 'completed'
+          ORDER BY completed_at DESC NULLS LAST, started_at DESC
+          LIMIT 1
+       )
+  `);
+  return rows.map((r) => r.source_player_id);
+}
+
+// Best effort: a failed batch just leaves those players on the roster-only
+// logic below, exactly as before.
+async function fetchMlbCurrent(ids: string[]): Promise<MlbCurrent[]> {
+  const out: MlbCurrent[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = ids.slice(i, i + 100);
+    try {
+      const res = await fetch(
+        `${MLB_API_BASE}/people?personIds=${batch.join(",")}&hydrate=rosterEntries`
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        people?: { id: number; rosterEntries?: MlbRosterEntryInfo[] }[];
+      };
+      for (const person of data.people ?? []) {
+        const entries = person.rosterEntries ?? [];
+        const when = (e: MlbRosterEntryInfo) => e.statusDate || e.endDate || e.startDate || "";
+        const open = entries
+          .filter((e) => !e.endDate)
+          .sort((a, b) => when(b).localeCompare(when(a)))[0];
+        if (open) {
+          out.push({
+            mlb_id: String(person.id),
+            team_id: open.team?.id != null ? String(open.team.id) : null,
+            status: open.status?.description ?? null,
+            departed: null,
+            departed_detail: null,
+            departed_team_name: null,
+          });
+          continue;
+        }
+        const last = [...entries].sort((a, b) => when(b).localeCompare(when(a)))[0];
+        out.push({
+          mlb_id: String(person.id),
+          team_id: null,
+          status: null,
+          departed: classifyDeparture(last?.status?.description),
+          departed_detail: last?.status?.description ?? null,
+          departed_team_name: last?.team?.name ?? null,
+        });
+      }
+    } catch (err) {
+      console.error(`  MLB /people batch starting ${batch[0]} failed:`, err);
+    }
+  }
+  return out;
+}
+
+async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
   const result = await pool.query(`
-    WITH latest_completed_run AS (
+    WITH mlb_current AS (
+      SELECT *
+        FROM jsonb_to_recordset($1::jsonb) AS x(
+          mlb_id text, team_id text, status text, departed text,
+          departed_detail text, departed_team_name text
+        )
+    ),
+    latest_completed_run AS (
       SELECT run_id
       FROM public.source_ingest_runs
       WHERE source = 'mlb_api'
@@ -100,17 +218,25 @@ async function refreshStage(): Promise<number> {
           WHEN 'ROOKIE' THEN 'ROOKIE'
           ELSE UPPER(COALESCE(raw.level, ''))
         END AS normalized_level,
-        raw.roster_status,
+        COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status) AS roster_status,
+        (mc.team_id IS NOT NULL AND raw.source_team_id::text = mc.team_id) AS at_current_team,
         CASE
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%REHAB%' THEN 'REHAB ASSIGNMENT'
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%INJURED%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%IL%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%SUSPENDED%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%RESTRICTED%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%BEREAVEMENT%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%REASSIGNED%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%OPTION%' THEN UPPER(raw.roster_status)
-          WHEN UPPER(COALESCE(raw.roster_status, '')) LIKE '%MINOR%' THEN UPPER(raw.roster_status)
+          -- Departures first: the '%IL%' test below also matches the "il"
+          -- in "Voluntarily Retired List".
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%RETIRED%' THEN 'RETIRED'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%RELEASED%' THEN 'FREE AGENT'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) = 'FREE AGENT' THEN 'FREE AGENT'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DEVELOPMENT%' THEN 'DEVELOPMENT LIST'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DESIGNATED%' THEN 'DESIGNATED FOR ASSIGNMENT'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%REHAB%' THEN 'REHAB ASSIGNMENT'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%INJURED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%IL%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%SUSPENDED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%RESTRICTED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%BEREAVEMENT%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%REASSIGNED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%OPTION%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%MINOR%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
           ELSE 'ACTIVE'
         END AS normalized_status,
         raw.roster_type,
@@ -128,15 +254,21 @@ async function refreshStage(): Promise<number> {
         ON raw.id = res.raw_id
       JOIN latest_completed_run lr
         ON lr.run_id = raw.run_id
+      LEFT JOIN mlb_current mc
+        ON mc.mlb_id = raw.source_player_id::text
       WHERE res.match_status = 'matched'
         AND res.playerid IS NOT NULL
+        -- Left affiliated baseball per MLB (no open roster entry); his
+        -- stale season-long listings must not resurrect him.
+        -- applyDepartures() handles these.
+        AND mc.departed IS NULL
     ),
     active_truth AS (
       SELECT DISTINCT ON (playerid)
         *
       FROM matched_rows
       WHERE LOWER(COALESCE(roster_type, '')) = 'active'
-      ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
+      ORDER BY playerid, at_current_team DESC, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
     forty_man_context AS (
       SELECT DISTINCT ON (playerid)
@@ -146,7 +278,7 @@ async function refreshStage(): Promise<number> {
         org_abbr AS forty_man_org_abbr
       FROM matched_rows
       WHERE is_true_mlb_40man_row IS TRUE
-      ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
+      ORDER BY playerid, at_current_team DESC, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
     full_roster_truth AS (
       SELECT DISTINCT ON (playerid)
@@ -155,6 +287,9 @@ async function refreshStage(): Promise<number> {
       WHERE LOWER(COALESCE(roster_type, '')) = 'fullroster'
       ORDER BY
         playerid,
+        -- The org MLB says he's with now beats a season-long listing at
+        -- an org he has left.
+        at_current_team DESC,
         CASE
           -- Affiliate fullRoster rows carry the actual assignment for optioned/IL minor leaguers.
           -- Parent-club fullRoster rows can still describe 40-man context, so keep them behind
@@ -330,7 +465,92 @@ async function refreshStage(): Promise<number> {
            stage_updated_at = NOW()
       FROM display_truth
      WHERE stage.playerid::text = display_truth.playerid::text
-  `);
+  `, [JSON.stringify(mlbCurrent)]);
+
+  return result.rowCount ?? 0;
+}
+
+// A linked player MLB shows with no open roster entry, whose last entry
+// was a retirement or release: same card shape as a sourced departure in
+// scripts/apply-mlb-transaction-status.ts (status + previous_* team, no
+// current team, off the 40-man). It deliberately doesn't set the
+// last_transaction_* fields - those belong to the transactions pipeline,
+// whose self-healing would clear them - and skips rows that pipeline
+// already owns. Only touches rows whose team came from the MLB roster
+// pipeline, and only players on no active or 40-man roster this run.
+async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
+  const departed = mlbCurrent.filter((m) => m.departed);
+  if (departed.length === 0) return 0;
+
+  const result = await pool.query(
+    `WITH departed AS (
+       SELECT *
+         FROM jsonb_to_recordset($1::jsonb) AS x(
+           mlb_id text, departed text, departed_detail text, departed_team_name text
+         )
+     ),
+     latest_completed_run AS (
+       SELECT run_id FROM public.source_ingest_runs
+        WHERE source = 'mlb_api' AND feed_name = 'mlb_full_org_roster' AND status = 'completed'
+        ORDER BY completed_at DESC NULLS LAST, started_at DESC
+        LIMIT 1
+     ),
+     -- Keyed on the MLB id the card's current team came from, so it also
+     -- reaches players who have dropped off every roster.
+     player_departures AS (
+       SELECT stage.playerid::text AS playerid,
+              d.departed,
+              d.departed_team_name
+         FROM public.flip_card_front_stage stage
+         JOIN departed d ON d.mlb_id = stage.current_team_source_player_id::text
+        WHERE NOT EXISTS (
+          SELECT 1
+            FROM public.mlb_org_roster_resolution res
+            JOIN public.mlb_org_roster_raw raw ON raw.id = res.raw_id
+            JOIN latest_completed_run lr ON lr.run_id = raw.run_id
+           WHERE res.match_status = 'matched'
+             AND res.playerid::text = stage.playerid::text
+             AND LOWER(COALESCE(raw.roster_type, '')) IN ('active', '40man')
+        )
+     )
+     UPDATE public.flip_card_front_stage stage
+        SET status_label = pd.departed,
+            display_status_label = pd.departed,
+            team_affiliation_status = pd.departed,
+            previous_team_name = CASE
+              WHEN stage.current_team_name IS NOT NULL THEN COALESCE(pd.departed_team_name, stage.current_team_name)
+              ELSE stage.previous_team_name
+            END,
+            previous_org_or_conference_name = CASE
+              WHEN stage.current_team_name IS NOT NULL THEN stage.current_org_or_conference_name
+              ELSE stage.previous_org_or_conference_name
+            END,
+            previous_level_label = CASE
+              WHEN stage.current_team_name IS NOT NULL THEN stage.level_label
+              ELSE stage.previous_level_label
+            END,
+            current_team_name = NULL,
+            current_org_or_conference_name = NULL,
+            is_on_40man = false,
+            forty_man_org_name = NULL,
+            forty_man_org_abbr = NULL,
+            next_game_date = NULL,
+            next_game_time_local = NULL,
+            next_game_time_utc = NULL,
+            next_game_home_away = NULL,
+            next_game_opponent = NULL,
+            next_game_status_label = NULL,
+            stage_updated_at = NOW()
+       FROM player_departures pd
+      WHERE stage.playerid::text = pd.playerid
+        AND stage.current_team_source = 'mlb_api'
+        AND stage.last_transaction_applied_at IS NULL
+        AND (
+          stage.status_label IS DISTINCT FROM pd.departed
+          OR stage.current_team_name IS NOT NULL
+        )`,
+    [JSON.stringify(departed)]
+  );
 
   return result.rowCount ?? 0;
 }
@@ -448,10 +668,19 @@ async function main() {
   try {
     await ensureStageColumns();
 
-    const updated = await refreshStage();
+    const matchedIds = await linkedMlbIds();
+    const mlbCurrent = await fetchMlbCurrent(matchedIds);
+    console.log(
+      `MLB current assignments: ${mlbCurrent.filter((m) => m.team_id).length} open, ` +
+        `${mlbCurrent.filter((m) => m.departed).length} departed, of ${matchedIds.length} linked players`
+    );
+
+    const updated = await refreshStage(mlbCurrent);
+    const departed = await applyDepartures(mlbCurrent);
     const absences = await flagRosterAbsences();
 
     console.log(`Updated flip_card_front_stage rows: ${updated}`);
+    console.log(`Departed (retired/released per MLB roster entries): ${departed}`);
     console.log(
       `Roster-absence pass: ${absences.reappeared} reappeared (clock cleared), ` +
         `${absences.firstMiss} first miss (clock started), ` +
