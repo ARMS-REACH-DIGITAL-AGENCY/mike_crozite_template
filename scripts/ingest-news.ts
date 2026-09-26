@@ -169,22 +169,41 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
 // ---------------------------------------------------------------------------
 // Webz.io API
 // ---------------------------------------------------------------------------
+// The News API (api.webz.io/api/news) - the endpoint a current Webz.io
+// account's token is issued for. The older "News API Lite" address
+// (/newsApiLite) answers 401 to these tokens. WEBZ_API_URL overrides it.
+const WEBZ_API_URL = process.env.WEBZ_API_URL || "https://api.webz.io/api/news";
+const RESULTS_PER_CALL = 50;
+
+class WebzAuthError extends Error {}
+
 async function fetchWebzNews(
   queryString: string
 ): Promise<WebzResponse | null> {
   const ts = Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-  const url = `https://api.webz.io/newsApiLite?token=${encodeURIComponent(
-    WEBZ_TOKEN
-  )}&q=${encodeURIComponent(queryString)}&ts=${ts}`;
+  const params = new URLSearchParams({
+    token: WEBZ_TOKEN,
+    q: queryString,
+    ts: String(ts),
+    sort: "crawled",
+    format: "json",
+    size: String(RESULTS_PER_CALL),
+  });
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(`${WEBZ_API_URL}?${params.toString()}`);
+    if (res.status === 401 || res.status === 403) {
+      const body = (await res.text()).slice(0, 300);
+      throw new WebzAuthError(`Webz.io rejected the token (${res.status}): ${body}`);
+    }
     if (!res.ok) {
       console.error(`  Webz.io API error: ${res.status} ${res.statusText}`);
       return null;
     }
-    return (await res.json()) as WebzResponse;
+    const data = (await res.json()) as WebzResponse;
+    return { ...data, posts: Array.isArray(data.posts) ? data.posts : [] };
   } catch (err) {
+    if (err instanceof WebzAuthError) throw err;
     console.error(`  Webz.io fetch error:`, err);
     return null;
   }
@@ -295,6 +314,7 @@ async function main() {
   let totalUnattributed = 0;
   let requestsLeft: number | null = null;
   let stoppedForBudget = false;
+  let failedCalls = 0;
 
   schools: for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
@@ -319,11 +339,20 @@ async function main() {
         continue;
       }
 
-      // Call Webz.io
-      const data = await fetchWebzNews(queryString);
+      // Call Webz.io. A rejected token won't work for the next batch
+      // either, so stop and fail the run (GitHub emails the failure).
+      let data: WebzResponse | null;
+      try {
+        data = await fetchWebzNews(queryString);
+      } catch (err) {
+        console.error(`  ✗ ${(err as Error).message}`);
+        process.exitCode = 1;
+        break schools;
+      }
       totalApiCalls++;
 
       if (!data) {
+        failedCalls++;
         console.log(`  ✗ API call failed, skipping batch`);
         continue;
       }
@@ -376,6 +405,9 @@ async function main() {
   console.log(`New rows inserted:   ${totalArticlesInserted}`);
   console.log(`No alum named (skipped): ${totalUnattributed}`);
   console.log(`Webz.io calls left this month: ${requestsLeft ?? "unknown"}`);
+  if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
+  // Every call failed: fail the run so it's noticed, not a quiet "success".
+  if (!dryRun && totalApiCalls > 0 && failedCalls === totalApiCalls) process.exitCode = 1;
   if (stoppedForBudget) console.log("Stopped early to stay under the monthly Webz.io allowance.");
   console.log(
     `(Duplicates skipped via ON CONFLICT DO NOTHING)`
