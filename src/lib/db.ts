@@ -683,6 +683,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         ) THEN lp.bb
         ELSE lb.bb
       END AS bb,
+      -- bb above is one column shared by both feeds (pitching walks allowed
+      -- for a pitcher, batting walks otherwise). The sort drawer needs each
+      -- one on its own, so they're also exposed separately.
+      lb.bb AS bat_bb,
+      lp.bb AS pit_bb,
       lb.so,
       lb.avg, lb.obp, lb.slg, lb.ops,
       COALESCE(lb.draft_info, lp.pit_draft_info)  AS draft_info,
