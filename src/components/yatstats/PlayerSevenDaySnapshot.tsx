@@ -232,6 +232,26 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
   return { items, todayIso: today };
 }
 
+// The line score is the reason a fan opens this tab, so it gets the widest
+// column and never ellipsizes mid-stat: each stat ("1-4", "2B", "1 RBI") is
+// its own unbreakable piece that wraps to a second line as a whole when the
+// line is long. The divider sits in front of every piece and the inner row
+// is pulled left by exactly one divider width, so whichever piece starts a
+// line has its divider clipped off - no stray "|" at the start of line 2.
+// Batting lines use " | ", pitching lines ", " (sync-mlb-player-gamelogs).
+function StatLine({ text, className }: { text: string; className: string }) {
+  const pieces = text.split(/\s*\|\s*|,\s+/).filter(Boolean);
+  return (
+    <div className={className}>
+      <div className="yat-snap-stat-pieces">
+        {pieces.map((piece, i) => (
+          <span className="yat-snap-stat-piece" key={i}>{piece}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Lives inside FunZone's GAME LOG tab panel (passed in as a prop from
  * PlayerCardBack, since this is an async Server Component and FunZone is a
@@ -324,9 +344,16 @@ export default async function PlayerSevenDaySnapshot({
                     </div>
                   </div>
 
-                  <div className={`yat-snap-score yat-snap-score-${item.game.resultClass}`}>{item.game.resultLine}</div>
-
-                  <div className="yat-snap-statline">{item.game.subLine || '-'}</div>
+                  {item.game.resultClass === 'time' && !item.game.subLine ? (
+                    // Upcoming game, no line yet: the start time gets the
+                    // score + line columns instead of a lone "-".
+                    <div className="yat-snap-score yat-snap-score-time yat-snap-score-wide">{item.game.resultLine}</div>
+                  ) : (
+                    <>
+                      <div className={`yat-snap-score yat-snap-score-${item.game.resultClass}`}>{item.game.resultLine}</div>
+                      <StatLine className="yat-snap-statline" text={item.game.subLine || '-'} />
+                    </>
+                  )}
                 </>
               ) : item.kind === 'doubleheader' ? (
                 <div className="yat-snap-dh">
@@ -339,7 +366,7 @@ export default async function PlayerSevenDaySnapshot({
                         <span className="yat-snap-dh-team-prefix">{g.isHome ? 'vs' : '@'}</span> {g.opponentLabel}
                       </div>
                       <div className={`yat-snap-dh-score yat-snap-score-${g.resultClass}`}>{g.resultLine}</div>
-                      <div className="yat-snap-dh-stat">{g.subLine || '-'}</div>
+                      <StatLine className="yat-snap-dh-stat" text={g.subLine || '-'} />
                     </div>
                   ))}
                 </div>
@@ -387,15 +414,15 @@ export default async function PlayerSevenDaySnapshot({
           flex:1;
           min-height:0;
           display:grid;
-          grid-template-columns:clamp(42px,15cqi,60px) clamp(70px,24cqi,110px) clamp(52px,19cqi,82px) 1fr;
+          grid-template-columns:clamp(30px,11cqi,46px) clamp(52px,19cqi,88px) clamp(26px,10cqi,46px) minmax(0,1fr);
           align-items:center;
-          gap:clamp(5px,1.5cqi,9px);
+          gap:clamp(3px,1.2cqi,7px);
           text-decoration:none;
           color:inherit;
           background:rgba(255,255,255,0.72);
           border:1px solid rgba(30,22,14,0.10);
           border-radius:clamp(4px,1.2cqi,7px);
-          padding:clamp(2px,1cqi,6px) clamp(6px,1.6cqi,10px);
+          padding:clamp(2px,1cqi,6px) clamp(5px,1.4cqi,9px);
           box-shadow:0 1px 2px rgba(0,0,0,0.06);
           min-width:0;
           overflow:hidden;
@@ -407,7 +434,7 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-date{
           display:flex;
           align-items:center;
-          gap:clamp(3px,1cqi,6px);
+          gap:clamp(2px,.7cqi,5px);
           line-height:1;
           min-width:0;
         }
@@ -440,12 +467,12 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-team{
           display:flex;
           align-items:center;
-          gap:clamp(4px,1.3cqi,8px);
+          gap:clamp(3px,1cqi,7px);
           min-width:0;
         }
         .yat-snap-team img{
-          width:clamp(17px,5.5cqi,27px);
-          height:clamp(17px,5.5cqi,27px);
+          width:clamp(15px,5cqi,26px);
+          height:clamp(15px,5cqi,26px);
           object-fit:contain;
           flex:0 0 auto;
         }
@@ -488,11 +515,12 @@ export default async function PlayerSevenDaySnapshot({
           font:700 clamp(8px,2.6cqi,13px)/1.1 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           white-space:nowrap;
-          text-align:center;
+          text-align:left;
           min-width:0;
           overflow:hidden;
           text-overflow:ellipsis;
         }
+        .yat-snap-score-wide{ grid-column:3 / -1; word-spacing:.2em; }
         .yat-snap-score-win{ color:#1c7a3e; }
         .yat-snap-score-loss{ color:#b4232c; }
         .yat-snap-score-tie{ color:#4a4038; }
@@ -500,14 +528,29 @@ export default async function PlayerSevenDaySnapshot({
         .yat-snap-score-time{ color:#221a12; }
         .yat-snap-score-ppd{ color:#8a7c68; }
         .yat-snap-statline{
-          font:700 clamp(11px,4cqi,18px)/1.1 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.01em;
+          --sep:.75em;
+          font:700 clamp(10px,3.7cqi,16px)/1.05 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.02em;
           color:#17120c;
-          text-align:right;
           min-width:0;
-          white-space:nowrap;
+          max-height:2.1em;
           overflow:hidden;
-          text-overflow:ellipsis;
+        }
+        .yat-snap-stat-pieces{
+          display:flex;
+          flex-wrap:wrap;
+          margin-left:calc(-1 * var(--sep));
+        }
+        .yat-snap-stat-piece{
+          white-space:nowrap;
+        }
+        .yat-snap-stat-piece::before{
+          content:"|";
+          display:inline-block;
+          width:var(--sep);
+          text-align:center;
+          font-weight:400;
+          color:#b3a58f;
         }
         .yat-snap-offday{
           grid-column:2;
@@ -577,14 +620,13 @@ export default async function PlayerSevenDaySnapshot({
           white-space:nowrap;
         }
         .yat-snap-dh-stat{
+          --sep:.7em;
           flex:1;
           min-width:0;
-          text-align:right;
-          font:700 clamp(7.5px,2.6cqi,12px)/1.1 "Bebas Neue",Oswald,sans-serif;
+          font:700 clamp(7.5px,2.6cqi,12px)/1.05 "Bebas Neue",Oswald,sans-serif;
           color:#17120c;
-          white-space:nowrap;
+          max-height:2.1em;
           overflow:hidden;
-          text-overflow:ellipsis;
         }
       `}</style>
     </div>
