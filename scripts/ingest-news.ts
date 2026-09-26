@@ -233,8 +233,51 @@ function matchPlayerToArticle(
 }
 
 // ---------------------------------------------------------------------------
+// Quality rules - a name hit alone isn't a story about our alum
+// ---------------------------------------------------------------------------
+
+// Most stories kept per player per run; the ones naming him in the
+// headline win. A one-line mention in a league-wide roundup ("4 MLB teams
+// built best for deep playoff runs") otherwise buries everyone else -
+// Cody Bellinger drew 48 in one run.
+const MAX_STORIES_PER_PLAYER = 5;
+
+const BASEBALL_TERMS =
+  /\b(baseball|mlb|milb|minor league|pitch(er|ed|ing)?|inning|homer(ed|s)?|home run|rbi|strikeouts?|shortstop|outfielder|infielder|catcher|dugout|bullpen|triple-a|double-a|single-a|draft)\b/i;
+const OTHER_SPORT_TERMS =
+  /\b(football|touchdown|quarterback|nfl|basketball|nba|hockey|nhl|soccer|hydroplane|volleyball|lacrosse)\b/i;
+
+// Is this story plausibly baseball, and about our alum rather than a
+// namesake in another sport? Headline decides when it's clear-cut.
+function looksLikeBaseballStory(post: WebzPost): boolean {
+  const title = `${post.title || ""}`;
+  const body = `${post.text || ""}`.slice(0, 1500);
+  if (OTHER_SPORT_TERMS.test(title) && !BASEBALL_TERMS.test(title)) return false;
+  return BASEBALL_TERMS.test(title) || BASEBALL_TERMS.test(body);
+}
+
+function nameInHeadline(post: WebzPost, player: PlayerRow): boolean {
+  const title = `${post.title || ""} ${post.highlightTitle || ""}`.toLowerCase();
+  return title.includes(`${player.firstname} ${player.lastname}`.toLowerCase()) ||
+    title.includes(` ${player.lastname.toLowerCase()}`);
+}
+
+function normalizeTitle(title: string | null | undefined): string {
+  return (title || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// ---------------------------------------------------------------------------
 // Insert articles into DB
 // ---------------------------------------------------------------------------
+/** Headlines already saved for this player (normalized), to skip syndicated copies. */
+async function existingTitles(playerid: string): Promise<Set<string>> {
+  const { rows } = await pool.query<{ title: string }>(
+    `SELECT title FROM news_articles WHERE playerid = $1`,
+    [playerid]
+  );
+  return new Set(rows.map((r) => normalizeTitle(r.title)));
+}
+
 async function insertArticle(
   post: WebzPost,
   player: PlayerRow
@@ -315,6 +358,9 @@ async function main() {
   let requestsLeft: number | null = null;
   let stoppedForBudget = false;
   let failedCalls = 0;
+  let totalOffTopic = 0;
+  let totalDuplicateTitles = 0;
+  let totalOverCap = 0;
 
   schools: for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
@@ -363,6 +409,8 @@ async function main() {
       if (typeof data.requestsLeft === "number") requestsLeft = data.requestsLeft;
 
       // Match and insert each article
+      // Gather candidates per player, then keep the best few for each.
+      const candidates = new Map<string, { player: PlayerRow; post: WebzPost; headline: boolean }[]>();
       for (const post of data.posts) {
         const matchedPlayers = matchPlayerToArticle(post, schoolPlayers);
 
@@ -372,12 +420,43 @@ async function main() {
           totalUnattributed++;
           continue;
         }
+        if (!looksLikeBaseballStory(post)) {
+          totalOffTopic++;
+          continue;
+        }
 
-        // Insert one row per matched player (same article can appear on
-        // multiple player profiles if it mentions multiple alumni)
         for (const player of matchedPlayers) {
+          const list = candidates.get(player.playerid) ?? [];
+          list.push({ player, post, headline: nameInHeadline(post, player) });
+          candidates.set(player.playerid, list);
+        }
+      }
+
+      for (const [playerid, list] of candidates) {
+        const existing = await existingTitles(playerid);
+        const seen = new Set<string>(existing);
+        const ranked = list.sort(
+          (a, b) =>
+            Number(b.headline) - Number(a.headline) ||
+            (a.post.thread?.domain_rank ?? 1e9) - (b.post.thread?.domain_rank ?? 1e9)
+        );
+        let kept = 0;
+        for (const { player, post } of ranked) {
+          const key = normalizeTitle(post.title);
+          if (!key || seen.has(key)) {
+            totalDuplicateTitles++;
+            continue;
+          }
+          if (kept >= MAX_STORIES_PER_PLAYER) {
+            totalOverCap++;
+            continue;
+          }
+          seen.add(key);
           const inserted = await insertArticle(post, player);
-          if (inserted) totalArticlesInserted++;
+          if (inserted) {
+            totalArticlesInserted++;
+            kept++;
+          }
           totalArticlesMatched++;
         }
       }
@@ -404,6 +483,9 @@ async function main() {
   console.log(`Articles matched:    ${totalArticlesMatched}`);
   console.log(`New rows inserted:   ${totalArticlesInserted}`);
   console.log(`No alum named (skipped): ${totalUnattributed}`);
+  console.log(`Not a baseball story (skipped): ${totalOffTopic}`);
+  console.log(`Same headline already saved (skipped): ${totalDuplicateTitles}`);
+  console.log(`Over ${MAX_STORIES_PER_PLAYER} per player this run (skipped): ${totalOverCap}`);
   console.log(`Webz.io calls left this month: ${requestsLeft ?? "unknown"}`);
   if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
   // Every call failed: fail the run so it's noticed, not a quiet "success".
@@ -428,6 +510,9 @@ async function main() {
         `| Stories matched to an alum | ${totalArticlesMatched} |`,
         `| New stories saved | ${totalArticlesInserted} |`,
         `| Search hits naming no alum (skipped) | ${totalUnattributed} |`,
+        `| Not a baseball story (skipped) | ${totalOffTopic} |`,
+        `| Same headline already saved (skipped) | ${totalDuplicateTitles} |`,
+        `| Over ${MAX_STORIES_PER_PLAYER} per player (skipped) | ${totalOverCap} |`,
         stoppedForBudget ? `| Stopped early | under ${MIN_REQUESTS_LEFT} calls left |` : "",
         "",
       ].join("\n")
