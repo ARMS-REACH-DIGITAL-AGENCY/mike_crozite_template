@@ -169,11 +169,10 @@ export default async function ProfilePage({ params }: Props) {
       (row.playerid
         ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
         : null),
-    newsworthiness:
-      !row.verification_evidence?.nameInHeadline &&
-      Number(row.verification_evidence?.nameMentions ?? 0) <= 1
-        ? "LOW"
-        : String(row.newsworthiness || "NORMAL").toUpperCase(),
+    // Placement on the profile News tab follows the canonical database
+    // classification. Do not infer LOW relevance from missing legacy evidence:
+    // older rows store snake_case evidence and may not include mention counts.
+    newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
       row.tease_json?.body ??
       row.gallery_back_json?.why_local ??
