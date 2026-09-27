@@ -286,10 +286,20 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         sb::text, bb::text, so::text,
         NULL::text AS draft_info,
         NULL::text AS playyears
-      FROM public.indy_iscore_batting_2026_season_raw
-      WHERE season_year = 2026
-        AND yatstats_playerid IS NOT NULL
-        AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
+      FROM (
+        SELECT DISTINCT ON (yatstats_playerid, season_year, teamid)
+          *
+        FROM public.indy_iscore_batting_2026_season_raw
+        WHERE season_year = 2026
+          AND yatstats_playerid IS NOT NULL
+          AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
+        ORDER BY
+          yatstats_playerid,
+          season_year,
+          teamid,
+          CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
+          updated_at DESC
+      ) indy_bat
     ),
 
     batting_2026_by_level AS (
@@ -425,10 +435,20 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         NULL::text AS draft_info,
         NULL::text AS playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
-      FROM public.indy_iscore_pitching_2026_season_raw
-      WHERE season_year = 2026
-        AND yatstats_playerid IS NOT NULL
-        AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
+      FROM (
+        SELECT DISTINCT ON (yatstats_playerid, season_year, teamid)
+          *
+        FROM public.indy_iscore_pitching_2026_season_raw
+        WHERE season_year = 2026
+          AND yatstats_playerid IS NOT NULL
+          AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
+        ORDER BY
+          yatstats_playerid,
+          season_year,
+          teamid,
+          CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
+          updated_at DESC
+      ) indy_pitch
     ),
 
     pitching_2026_by_level AS (
