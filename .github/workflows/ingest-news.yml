@@ -34,8 +34,8 @@ jobs:
       WEBZ_API_TOKEN: ${{ secrets.WEBZ_API_TOKEN }}
       # Schools with news turned on.
       NEWS_HSIDS: "5004"
-      # Stop when Webz.io reports fewer calls than this left for the month.
-      NEWS_MIN_REQUESTS_LEFT: "100"
+      # Stop once the Webz.io balance (USD) falls below this.
+      NEWS_MIN_BALANCE: "0.50"
 
     steps:
       - name: Check out repository
