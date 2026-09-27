@@ -276,7 +276,13 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         season_year::text AS year,
         'INDY'::text AS highlevel,
         teamid::text AS teamid,
-        g::text, ab::text, r::text, h::text, dbl::text, tpl::text, hr::text, rbi::text,
+        COALESCE(
+          raw_stats #>> '{stats,GP}',
+          raw_stats #>> '{stats,G}',
+          raw_stats #>> '{GP}',
+          raw_stats #>> '{G}'
+        )::text AS g,
+        ab::text, r::text, h::text, dbl::text, tpl::text, hr::text, rbi::text,
         sb::text, bb::text, so::text,
         NULL::text AS draft_info,
         NULL::text AS playyears
