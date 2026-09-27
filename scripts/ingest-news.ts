@@ -204,7 +204,9 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
      LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = f.playerid::text
      WHERE f.hsid::text = ANY($1::text[])
        AND NULLIF(TRIM(f.status_label), '') IS NOT NULL
-       AND UPPER(TRIM(f.status_label)) NOT IN ('RETIRED', 'FREE AGENT', 'UNCOMMITTED', 'COMMIT', 'NOT ACTIVE')
+       -- Free agents stay in: a signing with a new club is exactly the
+       -- news fans want.
+       AND UPPER(TRIM(f.status_label)) NOT IN ('RETIRED', 'UNCOMMITTED', 'COMMIT', 'NOT ACTIVE')
        AND UPPER(TRIM(COALESCE(f.level_label, ''))) NOT IN ('HIGH SCHOOL', 'HS')
        AND TRIM(COALESCE(f.first_name, tp.firstname, '')) <> ''
        AND TRIM(COALESCE(f.last_name, tp.lastname, '')) <> ''
