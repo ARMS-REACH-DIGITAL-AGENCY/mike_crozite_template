@@ -1911,14 +1911,18 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   }
 }
 
-// featuredOnly: just the stories about him - FEATURED means his name is in
-// the headline - with repeated headlines (syndicated copies) collapsed to
-// the newest. This is what the back of his flip card shows.
+// bestFirst: the back of his flip card. The stories most about him, in the
+// best light, lead:
+//   1. FEATURED (his name is in the headline) that isn't negative
+//   2. other stories that aren't negative - positive before neutral, then
+//      the most mentions of him, then the newest
+//   3. negative stories, only if there's nothing else
+// Repeated headlines (syndicated copies) are collapsed to the newest.
 export async function getNewsByPlayer(
   playerId: string,
   limit: number | null = 10,
   includeLowRelevance = false,
-  featuredOnly = false
+  bestFirst = false
 ): Promise<any[]> {
   try {
     const hasLimit = typeof limit === 'number' && Number.isFinite(limit) && limit > 0;
@@ -1968,16 +1972,22 @@ export async function getNewsByPlayer(
               AND rejected.approval_status = 'rejected'
          )
          AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-         ${featuredOnly ? `AND na.newsworthiness = 'FEATURED'
-         AND NOT EXISTS (
+         ${bestFirst ? `AND NOT EXISTS (
            SELECT 1 FROM news_articles dup
             WHERE dup.playerid = na.playerid
               AND dup.verification_status = 'VERIFIED'
-              AND dup.newsworthiness = 'FEATURED'
               AND LOWER(TRIM(dup.title)) = LOWER(TRIM(na.title))
               AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(na.published_at, 'epoch'), na.id)
          )` : ''}
-       ORDER BY na.published_at DESC NULLS LAST, na.id DESC
+       ORDER BY
+         ${bestFirst ? `CASE
+           WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2
+           WHEN na.newsworthiness = 'FEATURED' THEN 0
+           ELSE 1
+         END,
+         CASE LOWER(COALESCE(na.sentiment, '')) WHEN 'positive' THEN 0 WHEN 'negative' THEN 2 ELSE 1 END,
+         COALESCE((na.verification_evidence->>'nameMentions')::int, 0) DESC,` : ''}
+         na.published_at DESC NULLS LAST, na.id DESC
        ${limitClause}`,
       params
     );
