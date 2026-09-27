@@ -141,14 +141,44 @@ export default async function ProfilePage({ params }: Props) {
 
   const safePlayerId = String(playerId);
 
-  const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, 20)).map((row: any) => ({
+  const playerNewsFullName = [player.firstname, player.lastname]
+    .map((value: unknown) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
+  const playerCentricRecap = (row: any) => {
+    const candidate = String(
+      row.gallery_back_json?.yati_recap ?? row.local_recap ?? ""
+    ).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (!candidate) return null;
+    const fullName = playerNewsFullName.toLowerCase();
+    if (fullName && !candidate.toLowerCase().includes(fullName)) return null;
+    return candidate;
+  };
+
+  const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, 20, true)).map((row: any) => ({
     uuid: String(row.uuid),
     title: row.gallery_front_json?.headline ?? row.title ?? "",
     url: row.url,
     source: row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
-    recap: row.gallery_back_json?.yati_recap ?? row.local_recap ?? row.snippet ?? null,
+    recap: playerCentricRecap(row),
     whyLocal: row.gallery_back_json?.why_local ?? null,
+    imageUrl:
+      row.display_image_url ??
+      (row.playerid
+        ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
+        : null),
+    newsworthiness:
+      !row.verification_evidence?.nameInHeadline &&
+      Number(row.verification_evidence?.nameMentions ?? 0) <= 1
+        ? "LOW"
+        : String(row.newsworthiness || "NORMAL").toUpperCase(),
+    tease:
+      row.tease_json?.body ??
+      row.gallery_back_json?.why_local ??
+      row.summary ??
+      null,
   }));
 
   const firstName = (player.firstname || "").trim();
