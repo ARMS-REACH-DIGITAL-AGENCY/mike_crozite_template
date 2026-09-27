@@ -1885,13 +1885,11 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
            ) ranked
            WHERE rn <= 6
          )
+       -- Newest first, full stop. Featured stories used to lead
+       -- regardless of date, which put a March story above September's.
        ORDER BY
-         CASE UPPER(COALESCE(na.newsworthiness, 'NORMAL'))
-           WHEN 'FEATURED' THEN 0
-           WHEN 'NORMAL' THEN 1
-           ELSE 2
-         END,
-         na.published_at DESC
+         na.published_at DESC NULLS LAST,
+         na.id DESC
        LIMIT $2`,
       [hsid, limit]
     );
