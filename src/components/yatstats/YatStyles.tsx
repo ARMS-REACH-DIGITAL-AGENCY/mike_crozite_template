@@ -732,10 +732,17 @@ export default function YatStyles() {
         border-radius:3px;
         flex-shrink:0;
       }
-      /* MY HOME SCHOOL label is bold to distinguish from visiting */
-      .yat-drawer-home-school span{
+      /* One bold word per nav label (MY HOME SCHOOL, WHERE THEY YAT?,
+         ACTIVE ALUMNI NEWS...), in the weight MY HOME SCHOOL used to have. */
+      .yat-drawer-nav-item strong{
         font-weight:700;
         letter-spacing:.06em;
+      }
+      /* The two crest rows sit at the top, beside the drawer's close button:
+         stop their rule short of it. */
+      .yat-drawer-home-school,
+      .yat-drawer-visiting-school{
+        margin-right:44px;
       }
 
       .yat-drawer-nav-item:hover{
