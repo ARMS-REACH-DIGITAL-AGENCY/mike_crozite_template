@@ -31,7 +31,8 @@ async function main() {
        f.current_team_name AS current_team,
        f.current_org_or_conference_name AS current_org,
        f.level_label AS current_level,
-       ctx.college_path_text AS college_path
+       ctx.college_path_text AS college_path,
+       ctx.career_team_names AS career_teams
      FROM news_articles na
      JOIN flip_card_front_stage f ON f.playerid::text = na.playerid
      LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = na.playerid
@@ -65,7 +66,7 @@ async function main() {
         currentTeam: row.current_team,
         currentOrg: row.current_org,
         currentLevel: row.current_level,
-        collegePath: row.college_path,
+        collegePath: [row.college_path, row.career_teams].filter(Boolean).join("; "),
       }
     );
 
