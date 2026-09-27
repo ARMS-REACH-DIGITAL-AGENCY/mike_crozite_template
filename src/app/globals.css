@@ -221,9 +221,10 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
 .yat-card.yat-card {
   transform: translateY(0) scale(1);
   transform-origin: center center;
-  /* The outer card must not draw a stationary frame. The visible edge
-     belongs to each rotating face so it turns in perspective with the card. */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.20);
+  /* Geometry shell only. Any shadow/border here would remain stationary
+     while the inner card rotates, which is the artifact visible on mobile. */
+  background: transparent;
+  box-shadow: none;
   transition: transform 0.24s ease, filter 0.24s ease;
   will-change: transform;
 }
