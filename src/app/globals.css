@@ -221,17 +221,28 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
 .yat-card.yat-card {
   transform: translateY(0) scale(1);
   transform-origin: center center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+  /* The outer card must not draw a stationary frame. The visible edge
+     belongs to each rotating face so it turns in perspective with the card. */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.20);
   transition: transform 0.24s ease, filter 0.24s ease;
   will-change: transform;
 }
 
+/* The bevel/frame used to live on .yat-card::after, which never rotates.
+   Put it on both faces instead so the border, highlights and lower shadow
+   physically travel with the card during both forward and reverse flips. */
 .yat-card.yat-card::after {
+  content: none;
+}
+
+.yat-card .yat-face::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 5;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 18%),
     linear-gradient(0deg, rgba(0, 0, 0, 0.20), transparent 22%);
@@ -248,7 +259,7 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
     transform: translateY(-2px) scale(1.003);
   }
 
-  .yat-card.yat-card:hover::after {
+  .yat-card.yat-card:hover .yat-face::after {
     opacity: 0.86;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.18),
@@ -268,7 +279,7 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
   z-index: 3;
 }
 
-.yat-card.yat-card.is-flipping::after {
+.yat-card.yat-card.is-flipping .yat-face::after {
   opacity: 0.96;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 20%),
