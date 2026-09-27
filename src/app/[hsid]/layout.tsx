@@ -353,8 +353,6 @@ export default async function HsidLayout({
         </button>
 
         <div className="yat-drawer-content yat-left-nav-content">
-          <h3>NAVIGATION</h3>
-
           <div className="yat-drawer-nav">
             <a
               className="yat-drawer-nav-item yat-drawer-home-school"
@@ -363,29 +361,34 @@ export default async function HsidLayout({
               data-home-nav="true"
               style={{ display: 'none' }}
             >
+              <span>MY <strong>HOME</strong> SCHOOL</span>
               <img
                 id="drawerHomeCrestImg"
                 src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
                 alt="Home school crest"
                 className="yat-drawer-crest-thumb"
               />
-              <span>MY HOME SCHOOL</span>
             </a>
 
             <a className="yat-drawer-nav-item yat-drawer-visiting-school" href={`/${resolvedHsid}`}>
+              <span>WHERE THEY <strong>YAT?</strong></span>
+              {/* The school whose site this is - the visited one, which is the
+                  home school only when they're the same. */}
               <img
                 src={crestUrl}
                 alt={`${schoolName} crest`}
                 className="yat-drawer-crest-thumb"
               />
-              <span>WHERE THEY YAT?</span>
             </a>
-            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news">ACTIVE ALUMNI NEWS</a>
-            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL ALL-TIME LIST</a>
-            <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">{highSchoolTeamLabel()}</a>
-            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy">FANTASY BRACKET TOURNEY</a>
-            <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">MENTORSHIP MARKETPLACE</a>
-            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner">PARTNERSHIP PROGRAM</a>
+            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news">ACTIVE ALUMNI <strong>NEWS</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL <strong>ALL-TIME LIST</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">
+              {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
+              <strong>{highSchoolTeamLabel().split(" ")[0]}</strong> {highSchoolTeamLabel().split(" ").slice(1).join(" ")}
+            </a>
+            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><strong>FANTASY</strong> BRACKET TOURNEY</a>
+            <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">MENTORSHIP <strong>MARKETPLACE</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><strong>PARTNERSHIP</strong> PROGRAM</a>
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
             <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ&apos;S</a>
           </div>
