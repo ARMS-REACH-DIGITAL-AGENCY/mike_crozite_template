@@ -50,7 +50,6 @@ if (!WEBZ_TOKEN) {
 const MIN_REQUESTS_LEFT = Number(process.env.NEWS_MIN_REQUESTS_LEFT || 100);
 
 const BATCH_SIZE = 8; // max player names per Webz.io query
-const LOOKBACK_DAYS = 30; // how far back to search
 const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
 
 // Parse CLI args
@@ -112,6 +111,24 @@ interface WebzResponse {
   posts: WebzPost[];
   totalResults: number;
   requestsLeft: number;
+  // This account is billed from a prepaid balance: each response reports
+  // what the call cost (it grows with the number of posts returned) and
+  // the balance left. It sends no requests_left.
+  balance: number;
+  cost: number;
+}
+
+// The News API sends its envelope in snake_case (total_results,
+// requests_left); reading only the camelCase names left the monthly budget
+// guard blind ("undefined calls remaining").
+interface WebzRawResponse {
+  posts?: WebzPost[];
+  total_results?: number;
+  requests_left?: number;
+  totalResults?: number;
+  requestsLeft?: number;
+  balance?: number;
+  cost?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,12 +222,18 @@ class WebzAuthError extends Error {}
 async function fetchWebzNews(
   queryString: string
 ): Promise<WebzResponse | null> {
-  const ts = Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+  // Newest first, paging backward from now. Webz.io's crawled sort
+  // defaults to oldest first, so with ts = 30 days ago every run returned
+  // the start of that window (a month-old backlog) and never reached this
+  // week's stories. With order=desc, ts marks the END of the window, so it
+  // is now. Webz caps results at posts published in the last 31 days.
+  // https://docs.webz.io/docs/webz/news-blogs-forums-time-range
   const params = new URLSearchParams({
     token: WEBZ_TOKEN,
     q: queryString,
-    ts: String(ts),
+    ts: String(Date.now()),
     sort: "crawled",
+    order: "desc",
     format: "json",
     size: String(RESULTS_PER_CALL),
   });
@@ -225,8 +248,14 @@ async function fetchWebzNews(
       console.error(`  Webz.io API error: ${res.status} ${res.statusText}`);
       return null;
     }
-    const data = (await res.json()) as WebzResponse;
-    return { ...data, posts: Array.isArray(data.posts) ? data.posts : [] };
+    const data = (await res.json()) as WebzRawResponse;
+    return {
+      posts: Array.isArray(data.posts) ? data.posts : [],
+      totalResults: Number(data.total_results ?? data.totalResults),
+      requestsLeft: Number(data.requests_left ?? data.requestsLeft),
+      balance: Number(data.balance),
+      cost: Number(data.cost),
+    };
   } catch (err) {
     if (err instanceof WebzAuthError) throw err;
     console.error(`  Webz.io fetch error:`, err);
@@ -388,7 +417,7 @@ async function main() {
   console.log("=== YAT?STATS News Ingest ===");
   console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}`);
   console.log(`Schools: ${targetHsids.join(", ")}`);
-  console.log(`Lookback: ${LOOKBACK_DAYS} days`);
+  console.log(`Window: newest first, back to 31 days`);
   console.log("");
 
   // 1. Ensure table exists
@@ -422,6 +451,8 @@ async function main() {
   let totalArticlesMatched = 0;
   let totalUnattributed = 0;
   let requestsLeft: number | null = null;
+  let balance: number | null = null;
+  let runCost = 0;
   let stoppedForBudget = false;
   let failedCalls = 0;
   let totalOffTopic = 0;
@@ -473,9 +504,11 @@ async function main() {
       }
 
       console.log(
-        `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, ${data.requestsLeft} calls remaining)`
+        `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, cost ${data.cost}, balance ${data.balance})`
       );
-      if (typeof data.requestsLeft === "number") requestsLeft = data.requestsLeft;
+      if (Number.isFinite(data.requestsLeft)) requestsLeft = data.requestsLeft;
+      if (Number.isFinite(data.balance)) balance = data.balance;
+      if (Number.isFinite(data.cost)) runCost += data.cost;
 
       // Match and insert each article
       // Gather candidates per player, then keep the best few for each.
@@ -588,7 +621,8 @@ async function main() {
   console.log(`Identity VERIFIED:    ${totalVerified}`);
   console.log(`Identity REVIEW:      ${totalReview}`);
   console.log(`Identity REJECTED:    ${totalRejected}`);
-  console.log(`Webz.io calls left this month: ${requestsLeft ?? "unknown"}`);
+  console.log(`Webz.io cost this run: ${runCost.toFixed(3)}`);
+  console.log(`Webz.io balance left: ${balance ?? "unknown"}`);
   if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
   // Every call failed: fail the run so it's noticed, not a quiet "success".
   if (!dryRun && totalApiCalls > 0 && failedCalls === totalApiCalls) process.exitCode = 1;
@@ -608,7 +642,8 @@ async function main() {
         `| Schools | ${targetHsids.join(", ")} |`,
         `| Active alumni searched | ${players.length} |`,
         `| Webz.io calls made | ${totalApiCalls} |`,
-        `| Webz.io calls left this month | ${requestsLeft ?? "unknown"} |`,
+        `| Webz.io cost this run | ${runCost.toFixed(3)} |`,
+        `| Webz.io balance left | ${balance ?? "unknown"} |`,
         `| Stories matched to an alum | ${totalArticlesMatched} |`,
         `| New stories saved | ${totalArticlesInserted} |`,
         `| Search hits naming no alum (skipped) | ${totalUnattributed} |`,
