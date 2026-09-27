@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -42,6 +43,11 @@ export default function ProfileNewsList({
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (storyParam && stories.some((s) => s.uuid === storyParam)) {
@@ -50,6 +56,23 @@ export default function ProfileNewsList({
   }, [storyParam, stories]);
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
+
+  useEffect(() => {
+    if (!openStory) return;
+
+    const priorOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenUuid("");
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = priorOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openStory]);
 
   const topStories = useMemo(() => stories.slice(0, 2), [stories]);
   const otherStories = useMemo(() => stories.slice(2), [stories]);
@@ -106,40 +129,43 @@ export default function ProfileNewsList({
         </aside>
       </div>
 
-      {openStory ? (
-        <div className="pp-news-modal" role="dialog" aria-modal="true" aria-label={stripHtml(openStory.title)}>
-          <button
-            type="button"
-            className="pp-news-modal-backdrop"
-            aria-label="Close story"
-            onClick={() => setOpenUuid("")}
-          />
-          <article className="pp-news-modal-sheet">
-            <div className="pp-news-modal-header">
-              <div>
-                <div className="pp-news-modal-kicker">YAT?STATS LOCAL RECAP</div>
-                <h3>{stripHtml(openStory.title) || "Alumni news"}</h3>
-                <div className="pp-news-modal-meta">
-                  {(openStory.source || "News").toUpperCase()}
-                  {openStory.publishedAt ? ` · ${formatDate(openStory.publishedAt)}` : ""}
+      {portalReady && openStory
+        ? createPortal(
+            <div className="pp-news-modal" role="dialog" aria-modal="true" aria-label={stripHtml(openStory.title)}>
+              <button
+                type="button"
+                className="pp-news-modal-backdrop"
+                aria-label="Close story"
+                onClick={() => setOpenUuid("")}
+              />
+              <article className="pp-news-modal-sheet">
+                <div className="pp-news-modal-header">
+                  <div>
+                    <div className="pp-news-modal-kicker">YAT?STATS LOCAL RECAP</div>
+                    <h3>{stripHtml(openStory.title) || "Alumni news"}</h3>
+                    <div className="pp-news-modal-meta">
+                      {(openStory.source || "News").toUpperCase()}
+                      {openStory.publishedAt ? ` · ${formatDate(openStory.publishedAt)}` : ""}
+                    </div>
+                  </div>
+                  <button type="button" className="pp-news-modal-close" onClick={() => setOpenUuid("")} aria-label="Close story">
+                    ×
+                  </button>
                 </div>
-              </div>
-              <button type="button" className="pp-news-modal-close" onClick={() => setOpenUuid("")} aria-label="Close story">
-                ×
-              </button>
-            </div>
 
-            <div className="pp-news-modal-scroll">
-              {openStory.recap ? <p>{stripHtml(openStory.recap)}</p> : null}
-              {openStory.whyLocal ? <p className="pp-news-modal-why">{stripHtml(openStory.whyLocal)}</p> : null}
-              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-                Read the original story at {(openStory.source || "the source").toUpperCase()}
-                <i className="ri-external-link-line" />
-              </a>
-            </div>
-          </article>
-        </div>
-      ) : null}
+                <div className="pp-news-modal-scroll">
+                  {openStory.recap ? <p>{stripHtml(openStory.recap)}</p> : null}
+                  {openStory.whyLocal ? <p className="pp-news-modal-why">{stripHtml(openStory.whyLocal)}</p> : null}
+                  <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
+                    Read the original story at {(openStory.source || "the source").toUpperCase()}
+                    <i className="ri-external-link-line" />
+                  </a>
+                </div>
+              </article>
+            </div>,
+            document.body
+          )
+        : null}
 
       <style>{`
         .pp-news-layout{
@@ -202,7 +228,7 @@ export default function ProfileNewsList({
         .pp-news-modal{
           position:fixed;
           inset:0;
-          z-index:10050;
+          z-index:2147483000;
           display:flex;
           align-items:stretch;
           justify-content:center;
@@ -218,8 +244,9 @@ export default function ProfileNewsList({
         .pp-news-modal-sheet{
           position:relative;
           z-index:1;
-          width:min(760px,100%);
+          width:min(760px,100vw);
           height:100dvh;
+          min-height:100dvh;
           background:#111;
           color:#fff;
           display:flex;
