@@ -156,7 +156,7 @@ export default async function ProfilePage({ params }: Props) {
     return candidate;
   };
 
-  const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, 20, true)).map((row: any) => ({
+  const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, null, true)).map((row: any) => ({
     uuid: String(row.uuid),
     title: row.gallery_front_json?.headline ?? row.title ?? "",
     url: row.url,
@@ -169,11 +169,7 @@ export default async function ProfilePage({ params }: Props) {
       (row.playerid
         ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
         : null),
-    newsworthiness:
-      !row.verification_evidence?.nameInHeadline &&
-      Number(row.verification_evidence?.nameMentions ?? 0) <= 1
-        ? "LOW"
-        : String(row.newsworthiness || "NORMAL").toUpperCase(),
+    newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
       row.tease_json?.body ??
       row.gallery_back_json?.why_local ??
