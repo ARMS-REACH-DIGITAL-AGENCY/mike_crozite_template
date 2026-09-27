@@ -1787,8 +1787,11 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = na.playerid
        WHERE na.hsid = $1
-         -- At most 6 stories per player on the school feed, so one alum
-         -- in a lot of league-wide roundups can't crowd out everyone else.
+         -- Discovery is not publication. Only identity-verified, meaningful
+         -- candidates may leave the candidate store and reach public UI.
+         AND na.verification_status = 'VERIFIED'
+         AND COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW'
+         -- At most 6 VERIFIED stories per player on the school feed.
          AND na.id IN (
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
@@ -1797,6 +1800,8 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
              ) AS rn
              FROM news_articles
              WHERE hsid = $1
+               AND verification_status = 'VERIFIED'
+               AND COALESCE(newsworthiness, 'NORMAL') <> 'LOW'
            ) ranked
            WHERE rn <= 6
          )
@@ -1843,6 +1848,8 @@ export async function getNewsByPlayer(playerId: string, limit = 10): Promise<any
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = na.playerid
        WHERE na.playerid = $1
+         AND na.verification_status = 'VERIFIED'
+         AND COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW'
        ORDER BY na.published_at DESC
        LIMIT $2`,
       [playerId, limit]
