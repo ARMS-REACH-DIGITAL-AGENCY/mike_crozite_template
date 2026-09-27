@@ -7,9 +7,10 @@
 //
 // Supports:
 //   GET /api/news/:hsid              — all news for a school
-//   GET /api/news/:hsid?player=123   — a player's FEATURED stories (his name
-//                                      in the headline) - what the back of
-//                                      his flip card shows
+//   GET /api/news/:hsid?player=123   — a player's best stories first
+//                                      (featured, then most about him, not
+//                                      negative) - what the back of his
+//                                      flip card shows
 //   GET /api/news/:hsid?limit=5      — limit results
 
 import { NextRequest, NextResponse } from 'next/server';
