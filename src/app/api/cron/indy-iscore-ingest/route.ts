@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  ensureIndyIscoreTables,
   ingestIndyIscoreLeague,
   loadActiveIndyIscoreLeagues,
 } from '@/lib/indyIscore';
@@ -57,7 +56,6 @@ export async function GET(req: NextRequest) {
   const playerDetailLimit = intParam(req, 'playerDetailLimit', 300, 1, 2000);
   const maxGames = intParam(req, 'maxGames', 10, 1, 200);
 
-  await ensureIndyIscoreTables();
   const leagues = await loadActiveIndyIscoreLeagues(leagueFilter);
   const results = [];
 

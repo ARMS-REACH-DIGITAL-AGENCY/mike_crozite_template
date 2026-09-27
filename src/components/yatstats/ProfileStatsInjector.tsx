@@ -23,7 +23,7 @@ const pitchingColumns: readonly Column[] = [
 
 const sumBattingKeys = ['g','ab','r','h','dbl','tpl','hr','rbi','sb','cs','bb','so','hbp','sh','sf','ibb','gdp','tb','pa','xbh','sgl'] as const;
 const sumPitchingKeys = ['w','l','g','gs','cg','sho','gr','gf','sv','h','r','er','hr','bb','so','wp','bk','hb'] as const;
-const levelBuckets = ['MLB', 'AAA', 'AA', 'A+', 'A', 'RK', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO'] as const;
+const levelBuckets = ['MLB', 'AAA', 'AA', 'A+', 'A', 'RK', 'INDY', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO'] as const;
 const minorBuckets = new Set(['AAA', 'AA', 'A+', 'A', 'RK']);
 const collegeBuckets = new Set(['NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'JUCO', 'COLLEGE']);
 const twoDecimalKeys = new Set(['era', 'whip', 'h9', 'hr9', 'bb9', 'so9', 'ra9', 'so_bb']);
