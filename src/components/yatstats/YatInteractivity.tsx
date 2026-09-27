@@ -3,6 +3,7 @@
 // drawer open/close, hero inline search, player drawer search, filter logic
 
 import Script from 'next/script';
+import { highSchoolTeamLabel } from '@/lib/playerUtils';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
 
@@ -643,7 +644,7 @@ function syncStripToVisibleCards() {
         active:'ACTIVE BASEBALL ALUMNI',
         news:'ACTIVE ALUMNI NEWS',
         alltime:'NEXT-LEVEL ALL-TIME LIST',
-        current:'2026 HIGH SCHOOL TEAM',
+        current:'${highSchoolTeamLabel()}',
         fantasy:'FANTASY BRACKET TOURNEY',
         mentor:'MENTORSHIP MARKETPLACE',
         partner:'PARTNERSHIP PROGRAM',

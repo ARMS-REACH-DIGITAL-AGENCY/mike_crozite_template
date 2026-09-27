@@ -184,6 +184,16 @@ export type NavItem = { thin: string; bold: string; tab: string };
  * or the name ends with "PREP" or "ACADEMY" (whole-word match at end).
  */
 /**
+ * Title of a school's high school team gallery, named for the spring season
+ * it covers. Arizona's season ends in May, so from June 1 the gallery is
+ * next spring's team: in September 2026 it reads "2027 HIGH SCHOOL TEAM".
+ */
+export function highSchoolTeamLabel(now: Date = new Date()): string {
+  const seasonYear = now.getUTCMonth() >= 5 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
+  return `${seasonYear} HIGH SCHOOL TEAM`;
+}
+
+/**
  * A player marked RETIRED while still at high-school level graduated
  * without playing at the next level. He has no card on the school's pages -
  * not on the high school team (he's graduated) and not with the alumni (he

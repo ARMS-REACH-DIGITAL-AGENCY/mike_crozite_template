@@ -3,6 +3,7 @@
 
 import { useContext, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { highSchoolTeamLabel } from '@/lib/playerUtils';
 import { SchoolContext } from '@/context/SchoolContext';
 import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
@@ -82,7 +83,7 @@ const SECTION_LABELS: Record<string, string> = {
   active: 'ACTIVE BASEBALL ALUMNI',
   news: 'ACTIVE ALUMNI NEWS',
   alltime: 'NEXT-LEVEL ALL-TIME LIST',
-  current: '2026 HIGH SCHOOL TEAM',
+  current: highSchoolTeamLabel(),
   fantasy: 'FANTASY BRACKET TOURNEY',
   mentor: 'MENTORSHIP MARKETPLACE',
   partner: 'PARTNERSHIP PROGRAM',
