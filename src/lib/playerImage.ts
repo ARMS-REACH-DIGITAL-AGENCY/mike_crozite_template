@@ -123,6 +123,26 @@ export function getPlayerNowThumbUrl(imageId: string): string {
   return `${S3_BASE}/players/now-thumb/${imageId}.webp`;
 }
 
+/**
+ * Photos for a news card, best first. A story's publisher image is used only
+ * when verification confirmed it shows our player (display_image_url set to
+ * something other than the legacy players/now/ fallback); publisher heroes
+ * are usually someone else. Then our own card-size copies: the back-card
+ * action photo, the now-thumb headshot, the then-card HS photo. Callers put
+ * a silhouette behind these for when none of them load.
+ */
+export function getNewsPhotoSrcs(playerId?: string | null, displayImageUrl?: string | null): string[] {
+  const srcs: string[] = [];
+  const verified = String(displayImageUrl || '').trim();
+  if (verified && !verified.includes('/players/now/')) srcs.push(verified);
+  const id = String(playerId || '').trim();
+  if (id) {
+    const imageId = encodeURIComponent(id);
+    srcs.push(getPlayerBackCardUrl(imageId), getPlayerNowThumbUrl(imageId), getPlayerThenCardUrl(imageId));
+  }
+  return srcs;
+}
+
 const CARD_COPY_ORIGINAL: Record<string, string> = {
   'then-card': 'then',
   'back-card': 'back',

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import CardPhoto from "./CardPhoto";
 import ProfileContentDrawer from "./ProfileContentDrawer";
+import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -40,9 +42,11 @@ function formatDate(value: string | null): string {
 export default function ProfileNewsList({
   stories,
   firstName,
+  playerId,
 }: {
   stories: ProfileNewsStory[];
   firstName: string;
+  playerId: string;
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
@@ -75,11 +79,13 @@ export default function ProfileNewsList({
             className="pp-news-teaser"
             onClick={() => setOpenUuid(story.uuid)}
           >
-            {story.imageUrl ? (
-              <img className="pp-news-thumb" src={story.imageUrl} alt="" />
-            ) : (
-              <div className="pp-news-thumb pp-news-thumb-fallback">NEWS</div>
-            )}
+            {/* Our own photo of the player, silhouette behind it. */}
+            <div
+              className="pp-news-thumb pp-news-thumb-photo"
+              style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
+            >
+              <CardPhoto srcs={getNewsPhotoSrcs(playerId, story.imageUrl)} className="pp-news-thumb-img" />
+            </div>
             <div className="pp-news-copy">
               <div className="pp-news-label">
                 {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
@@ -232,6 +238,17 @@ export default function ProfileNewsList({
           .pp-news-title{font-size:15px}
           .pp-news-body{font-size:10px}
           .pp-news-reader-copy{font-size:14px;line-height:1.65}
+        }
+
+        /* Story copy in the shared news font (globals.css), and never
+           smaller than 12px on a phone. */
+        .pp-news-body,
+        .pp-news-reader-copy{font-family:var(--yat-news-font)}
+        .pp-news-body{font-size:13px;line-height:1.4}
+        .pp-news-thumb-photo{position:relative;overflow:hidden;background-position:center;background-size:cover}
+        .pp-news-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+        @media(max-width:640px){
+          .pp-news-body{font-size:12px}
         }
       `}</style>
     </>
