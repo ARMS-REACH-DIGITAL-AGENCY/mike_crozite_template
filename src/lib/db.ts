@@ -1823,10 +1823,17 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
 
 export async function getNewsByPlayer(
   playerId: string,
-  limit = 10,
+  limit: number | null = 10,
   includeLowRelevance = false
 ): Promise<any[]> {
   try {
+    const hasLimit = typeof limit === 'number' && Number.isFinite(limit) && limit > 0;
+    const lowRelevanceParam = hasLimit ? '$3' : '$2';
+    const limitClause = hasLimit ? 'LIMIT $2' : '';
+    const params = hasLimit
+      ? [playerId, limit, includeLowRelevance]
+      : [playerId, includeLowRelevance];
+
     const { rows } = await query(
       `SELECT
         na.*,
@@ -1859,16 +1866,10 @@ export async function getNewsByPlayer(
          ON f.playerid::text = na.playerid
        WHERE na.playerid = $1
          AND na.verification_status = 'VERIFIED'
-         AND ($3::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-       ORDER BY
-         CASE UPPER(COALESCE(na.newsworthiness, 'NORMAL'))
-           WHEN 'FEATURED' THEN 0
-           WHEN 'NORMAL' THEN 1
-           ELSE 2
-         END,
-         na.published_at DESC
-       LIMIT $2`,
-      [playerId, limit, includeLowRelevance]
+         AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
+       ORDER BY na.published_at DESC NULLS LAST, na.id DESC
+       ${limitClause}`,
+      params
     );
     return rows;
   } catch {
