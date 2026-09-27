@@ -1094,6 +1094,11 @@ export default function FunZone({
           gap:clamp(5px,1.8cqi,10px);
           align-items:flex-start;
           min-width:0;
+          padding:clamp(6px,1.8cqi,10px);
+          border:1px solid rgba(30,22,14,.18);
+          border-radius:clamp(5px,1.4cqi,8px);
+          background:rgba(255,255,255,.18);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
         }
         .fz-news-thumb-link{
           flex:0 0 auto;
@@ -1142,7 +1147,12 @@ export default function FunZone({
           color:rgba(30,22,14,0.9);
         }
         .fz-news-body{
-          font:400 clamp(8px,2.5cqi,11px)/1.4 Oswald,sans-serif;
+          font:400 clamp(8px,2.5cqi,11px)/1.45 Georgia,"Times New Roman",serif;
+          color:rgba(30,22,14,.82);
+          display:-webkit-box;
+          -webkit-line-clamp:3;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
         }
         .fz-news-footer{
           font:700 clamp(6px,2cqi,9px) Oswald,sans-serif;
