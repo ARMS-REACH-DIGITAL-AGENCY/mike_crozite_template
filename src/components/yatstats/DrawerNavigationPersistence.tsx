@@ -60,6 +60,22 @@ function restoreDrawerState() {
   } catch {}
 }
 
+function isMobileNavigationViewport() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+function closeLeftNavigationDrawer() {
+  document.body.classList.remove(
+    'drawer-left-open',
+    'drawer-open',
+    'yat-left-search-mode'
+  );
+  try {
+    sessionStorage.removeItem(DRAWER_STATE_KEY);
+  } catch {}
+}
+
+
 function showSectionWithoutClosing(tabId: string) {
   const key = tabId === 'team' ? 'current' : tabId;
   const target = document.getElementById(`sec-${key}`);
@@ -115,7 +131,9 @@ export default function DrawerNavigationPersistence() {
       const drawer = target.closest('#drawerLeft, #drawerSort, #drawerFilters, #drawerFavorites, #drawerAccount');
       const tabLink = target.closest('[data-tab]') as HTMLElement | null;
 
-      // Drawer navigation should behave like a working rail: switch the content, but do not close the rail.
+      // Desktop/tablet can behave like a persistent navigation rail.
+      // On mobile, once a destination is selected, reveal the destination and
+      // close the drawer so the user can immediately see the new section.
       if (drawer && tabLink && !tabLink.closest('#drawerAccount')) {
         const tab = tabLink.getAttribute('data-tab') || '';
         if (!tab) return;
@@ -123,6 +141,16 @@ export default function DrawerNavigationPersistence() {
         event.preventDefault();
         event.stopPropagation();
         if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+        const isMobileLeftNav =
+          drawer.id === 'drawerLeft' && isMobileNavigationViewport();
+
+        if (isMobileLeftNav) {
+          showSectionWithoutClosing(tab);
+          closeLeftNavigationDrawer();
+          applySavedTheme();
+          return;
+        }
 
         saveDrawerState();
         showSectionWithoutClosing(tab);
@@ -133,9 +161,16 @@ export default function DrawerNavigationPersistence() {
         return;
       }
 
-      // Any normal link launched from a drawer should carry the current rail/theme state to the next screen.
+      // Normal left-nav links should also close immediately on mobile.
+      // Desktop keeps the existing persistent-rail behavior across navigation.
       const link = target.closest('a[href]');
       if (drawer && link) {
+        if (drawer.id === 'drawerLeft' && isMobileNavigationViewport()) {
+          closeLeftNavigationDrawer();
+          applySavedTheme();
+          return;
+        }
+
         saveDrawerState();
         window.setTimeout(() => {
           applySavedTheme();
