@@ -266,6 +266,12 @@ export default function ProfileContentDrawer({
           opacity:.15;
           pointer-events:none;
         }
+        /* Light theme: the reader turns paper-colored, where the white crest
+           would vanish - show it as dark ink instead. */
+        body.light-theme .yat-content-drawer__header::before{filter:invert(1);opacity:.09}
+        /* Bright gold is unreadable on the light paper - same darker gold the
+           News card backs use in light mode. */
+        body.light-theme .yat-content-drawer__kicker{color:#9a6f00}
       `}</style>
     </div>,
     document.body

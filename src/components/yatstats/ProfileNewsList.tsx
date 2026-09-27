@@ -274,6 +274,7 @@ export default function ProfileNewsList({
         .pp-news-body{font-size:13px;line-height:1.4}
         .pp-news-thumb-photo{position:relative;overflow:hidden;background-position:center;background-size:cover}
         .pp-news-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+        body.light-theme .pp-news-modal-source{color:#9a6f00}
         @media(max-width:640px){
           .pp-news-body{font-size:12px}
         }
