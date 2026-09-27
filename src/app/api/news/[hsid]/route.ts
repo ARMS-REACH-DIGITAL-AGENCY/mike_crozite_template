@@ -77,7 +77,14 @@ export async function GET(
         sourceFull: row.source_full,
         publishedAt: row.published_at,
         url: row.url,
-        imageUrl: row.image_url,
+        // Never assume the publisher hero depicts our alumnus. display_image_url
+        // is the verified/safe image; image_url remains the raw source image.
+        imageUrl:
+          row.display_image_url ??
+          (row.playerid
+            ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
+            : null),
+        sourceImageUrl: row.image_url,
         snippet: row.snippet,
         sentiment: row.sentiment,
         categories: row.categories || [],
@@ -108,6 +115,11 @@ export async function GET(
         matchConfidence: row.match_confidence ?? null,
         generationStatus: row.generation_status ?? null,
         approvalStatus: row.approval_status ?? null,
+        verificationStatus: row.verification_status ?? null,
+        verificationScore: row.verification_score ?? null,
+        verificationReason: row.verification_reason ?? null,
+        newsworthiness: row.newsworthiness ?? null,
+        imageVerificationStatus: row.image_verification_status ?? null,
 
         displayHeadline: galleryFront?.headline ?? row.title,
         displaySourceLabel: galleryFront?.source_label ?? row.source_full ?? row.source,
