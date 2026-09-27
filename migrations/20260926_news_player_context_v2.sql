@@ -52,7 +52,7 @@ college_dedup AS (
 ),
 college_path AS (
   SELECT cd.playerid,
-         string_agg(cd.college_name, '; ' ORDER BY cd.first_year, cd.college_name) AS college_path_text
+         string_agg(cd.college_name, chr(59) || ' ' ORDER BY cd.first_year, cd.college_name) AS college_path_text
   FROM college_dedup cd
   GROUP BY cd.playerid
 ),
@@ -83,7 +83,7 @@ career_dedup AS (
 ),
 career_path AS (
   SELECT playerid,
-         string_agg(team_name, '; ' ORDER BY first_year, team_name) AS career_team_names
+         string_agg(team_name, chr(59) || ' ' ORDER BY first_year, team_name) AS career_team_names
   FROM career_dedup
   GROUP BY playerid
 )
