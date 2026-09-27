@@ -225,7 +225,13 @@ function extractStat(row: AnyRecord, ...keys: string[]): unknown {
   for (const key of keys) {
     const direct = get(row, key);
     if (direct !== null && direct !== undefined && direct !== '') return direct;
-    const statsValue = getNested(row, ['stats', key]) || getNested(row, ['stat', key]);
+    const statsValue =
+      getNested(row, ['stats', key]) ||
+      getNested(row, ['stat', key]) ||
+      getNested(row, ['stats', 'RATES', key]) ||
+      getNested(row, ['stats', 'rates', key]) ||
+      getNested(row, ['RATES', key]) ||
+      getNested(row, ['rates', key]);
     if (statsValue !== null && statsValue !== undefined && statsValue !== '') return statsValue;
   }
   return null;
