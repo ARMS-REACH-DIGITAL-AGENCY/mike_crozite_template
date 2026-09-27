@@ -1,8 +1,8 @@
 name: Ingest YATSTATS News
 
 # Pilot: daily Webz.io news for the schools in NEWS_HSIDS only (Hamilton
-# today). Each school costs Webz.io calls from the 1,000/month free plan,
-# so adding one is a deliberate change here - there is no all-schools mode.
+# today). Webz.io bills per story returned against $5 of free credits a
+# month, so adding a school is a deliberate change - no all-schools mode.
 
 on:
   schedule:
@@ -22,6 +22,15 @@ on:
         options:
           - "false"
           - "true"
+      summaries:
+        description: "new = normal run. preview-rewrite / rewrite-all skip the Webz.io search (no credits) and only redo recaps; preview-rewrite writes nothing."
+        required: false
+        default: "new"
+        type: choice
+        options:
+          - "new"
+          - "preview-rewrite"
+          - "rewrite-all"
 
 jobs:
   ingest-news:
@@ -52,6 +61,7 @@ jobs:
           npm install --no-save tsx @types/node
 
       - name: Ingest news
+        if: ${{ github.event.inputs.summaries == '' || github.event.inputs.summaries == 'new' }}
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.hsid }}" ]; then
@@ -63,7 +73,7 @@ jobs:
           npx tsx scripts/ingest-news.ts $ARGS
 
       - name: Re-verify stored news candidates
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event.inputs.summaries == '' || github.event.inputs.summaries == 'new') }}
         run: |
           TARGET_HSID="${{ github.event.inputs.hsid }}"
           if [ -z "$TARGET_HSID" ]; then
@@ -81,6 +91,11 @@ jobs:
             TARGET_HSID="$NEWS_HSIDS"
           fi
           # Discovery + verification are separate from publication. Only after
-          # re-verification succeeds do VERIFIED, non-LOW stories receive the
-          # YAT?STATS derivative used by cards and the profile reader drawer.
-          npx tsx scripts/generate-news-derivatives.ts --hsid "$TARGET_HSID"
+          # re-verification succeeds do VERIFIED stories receive the YAT?STATS
+          # recap used by cards and the profile reader drawer.
+          ARGS=""
+          case "${{ github.event.inputs.summaries }}" in
+            preview-rewrite) ARGS="--regenerate --dry-run" ;;
+            rewrite-all) ARGS="--regenerate" ;;
+          esac
+          npx tsx scripts/generate-news-derivatives.ts --hsid "$TARGET_HSID" $ARGS

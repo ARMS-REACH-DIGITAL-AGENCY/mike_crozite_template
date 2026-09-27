@@ -1871,6 +1871,13 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
          -- candidates may leave the candidate store and reach public UI.
          AND na.verification_status = 'VERIFIED'
          AND COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW'
+         -- Stories the recap generator found no clean sentence about him in
+         -- (and not featured) are marked rejected: not news about him.
+         AND NOT EXISTS (
+           SELECT 1 FROM news_article_derivatives rejected
+            WHERE rejected.news_article_uuid = na.uuid
+              AND rejected.approval_status = 'rejected'
+         )
          -- At most 6 VERIFIED stories per player on the school feed.
          AND na.id IN (
            SELECT id FROM (
@@ -1882,6 +1889,11 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
              WHERE hsid = $1
                AND verification_status = 'VERIFIED'
                AND COALESCE(newsworthiness, 'NORMAL') <> 'LOW'
+               AND NOT EXISTS (
+                 SELECT 1 FROM news_article_derivatives rejected
+                  WHERE rejected.news_article_uuid = news_articles.uuid
+                    AND rejected.approval_status = 'rejected'
+               )
            ) ranked
            WHERE rn <= 6
          )
@@ -1952,6 +1964,13 @@ export async function getNewsByPlayer(
          ON f.playerid::text = na.playerid
        WHERE na.playerid = $1
          AND na.verification_status = 'VERIFIED'
+         -- Stories the recap generator found no clean sentence about him in
+         -- (and not featured) are marked rejected: not news about him.
+         AND NOT EXISTS (
+           SELECT 1 FROM news_article_derivatives rejected
+            WHERE rejected.news_article_uuid = na.uuid
+              AND rejected.approval_status = 'rejected'
+         )
          AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
          ${bestFirst ? `AND NOT EXISTS (
            SELECT 1 FROM news_articles dup
