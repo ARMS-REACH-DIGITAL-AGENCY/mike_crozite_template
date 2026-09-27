@@ -1167,6 +1167,26 @@ function rate(value: unknown) {
   return n < 1 && n > -1 ? n.toFixed(3).replace(/^0/, '') : n;
 }
 
+function rawBatStat(row: AnyRecord, key: string) {
+  return (
+    getNested(row.raw_stats, ['stats', key]) ??
+    getNested(row.raw_stats, ['stat', key]) ??
+    getNested(row.raw_stats, [key]) ??
+    ''
+  );
+}
+
+function rawBatRate(row: AnyRecord, key: string) {
+  return (
+    row[key.toLowerCase()] ??
+    getNested(row.raw_stats, ['stats', 'RATES', key]) ??
+    getNested(row.raw_stats, ['stats', 'rates', key]) ??
+    getNested(row.raw_stats, ['RATES', key]) ??
+    getNested(row.raw_stats, ['rates', key]) ??
+    ''
+  );
+}
+
 export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10): Promise<IndyStatsForPlayer> {
   // Read-only: no ensureIndyIscoreTables() here. The site's database role
   // can read these tables but not create in schema public, so running the
@@ -1219,23 +1239,24 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
       league: row.current_org_or_conference_abbrev || row.current_org_or_conference_name || row.league_name,
       level: row.level_label || 'INDY',
       org_conf: row.current_org_or_conference_abbrev || row.current_org_or_conference_name || row.league_name,
-      pa: row.pa ?? '',
-      ab: row.ab ?? '',
-      r: row.r ?? '',
-      h: row.h ?? '',
-      dbl: row.dbl ?? '',
-      tpl: row.tpl ?? '',
-      hr: row.hr ?? '',
-      rbi: row.rbi ?? '',
-      bb: row.bb ?? '',
-      so: row.so ?? '',
-      sb: row.sb ?? '',
-      cs: row.cs ?? '',
-      avg: rate(row.avg),
-      bavg: rate(row.avg),
-      obp: rate(row.obp),
-      slg: rate(row.slg),
-      ops: rate(row.ops),
+      g: rawBatStat(row, 'GP') || rawBatStat(row, 'G'),
+      pa: row.pa ?? rawBatStat(row, 'PA'),
+      ab: row.ab ?? rawBatStat(row, 'AB'),
+      r: row.r ?? rawBatStat(row, 'R'),
+      h: row.h ?? rawBatStat(row, 'H'),
+      dbl: row.dbl ?? rawBatStat(row, '2B'),
+      tpl: row.tpl ?? rawBatStat(row, '3B'),
+      hr: row.hr ?? rawBatStat(row, 'HR'),
+      rbi: row.rbi ?? rawBatStat(row, 'RBI'),
+      bb: row.bb ?? rawBatStat(row, 'BB'),
+      so: row.so ?? rawBatStat(row, 'SO'),
+      sb: row.sb ?? rawBatStat(row, 'SB'),
+      cs: row.cs ?? rawBatStat(row, 'CS'),
+      avg: rate(rawBatRate(row, 'AVG')),
+      bavg: rate(rawBatRate(row, 'AVG')),
+      obp: rate(rawBatRate(row, 'OBP')),
+      slg: rate(rawBatRate(row, 'SLG')),
+      ops: rate(rawBatRate(row, 'OPS')),
       raw: row.raw_stats,
     })),
     pitching: pitching.rows.map((row) => ({
