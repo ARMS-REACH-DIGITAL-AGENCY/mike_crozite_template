@@ -99,46 +99,49 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
               style={post.imageUrl ? { backgroundImage: `url("${post.imageUrl.replace(/"/g, "%22")}")` } : undefined}
             />
             <div className="yat-shade" />
-            <div className="yat-front-content">
-              <div className="yat-front-top" style={{ justifyContent: "flex-end" }}>
-                <div className="yat-front-top-right">
-                  <span className="front-chip">{(post.source || "NEWS").toUpperCase()}</span>
-                </div>
-              </div>
-              <div className="yat-news-bottom-wrap">
-                <div className="yat-info-block">
-                  <div className="yat-name">
+            <div className="yat-front-content yat-news-front-content">
+              <div className="yat-news-headline-top">{headline}</div>
+
+              <div className="yat-news-front-bottom-row">
+                <div className="yat-news-player-meta">
+                  <div className="yat-name yat-news-player-name">
                     <span>{first.toUpperCase()}</span>
                     <span>{last.toUpperCase()}</span>
                   </div>
-                  <div className="yat-meta">
-                    <span>{post.teamName || post.orgName || post.level || "ALUMNI NEWS"}</span>
+
+                  <div className="yat-front-team-name">
+                    {post.teamName || "--"}
                   </div>
-                  <div className="yat-front-badge-row">
-                    {post.level ? <span className="front-chip">{post.level.toUpperCase()}</span> : null}
+
+                  {post.orgName ? (
+                    <div className="yat-front-org-name">{post.orgName}</div>
+                  ) : null}
+
+                  <div className="yat-front-chip-stack yat-news-chip-stack">
                     <span className="front-chip">{(post.status || "ACTIVE").toUpperCase()}</span>
-                  </div>
-                  <div className="yat-chips-col" style={{ marginTop: 4 }}>
-                    <span className="front-chip">{post.gradClass ? `CLASS OF ${post.gradClass}` : "ALUMNI NEWS"}</span>
+                    {post.level ? <span className="front-chip">{post.level.toUpperCase()}</span> : null}
+                    {post.gradClass ? (
+                      <span className="front-chip">{`CLASS OF ${post.gradClass}`}</span>
+                    ) : null}
                     {years.length ? (
-                      <div className="yat-dots" style={{ marginTop: 4 }}>
+                      <div className="yat-front-year-dots">
                         {years.map((y) => (
-                          <div className="yat-dot" key={y}>{y}</div>
+                          <div className="yat-dot" key={y}>{String(y).slice(-2)}</div>
                         ))}
                       </div>
                     ) : null}
                   </div>
-                  <div className="yat-game-block" style={{ marginTop: 8 }}>
-                    <div className="yat-pill" style={{ background: "#00e676", color: "#000", border: "none" }}>
-                      FLIP TO READ RECAP <i className="ri-arrow-right-line" />
-                    </div>
-                    <div className="yat-game-text" style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>
-                      {(post.displaySourceLabel || post.source || "NEWS").toUpperCase()} ({formatDate(post.publishedAt)})
-                    </div>
-                  </div>
                 </div>
-                <div className="yat-news-headline-wrap">
-                  <div className="yat-news-headline">{headline}</div>
+
+                <div className="yat-news-source-actions">
+                  <div className="yat-news-source-line">
+                    {(post.displaySourceLabel || post.source || "NEWS").toUpperCase()}
+                    <span>{formatDate(post.publishedAt)}</span>
+                  </div>
+                  <span className="yat-front-flip-button yat-news-flip-button">
+                    <span>FLIP FOR FULL RECAP</span>
+                    <span aria-hidden="true">&gt;</span>
+                  </span>
                 </div>
               </div>
             </div>
