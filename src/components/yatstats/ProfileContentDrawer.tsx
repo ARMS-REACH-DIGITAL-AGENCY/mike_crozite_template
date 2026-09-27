@@ -224,6 +224,24 @@ export default function ProfileContentDrawer({
             padding:16px 16px 28px;
           }
         }
+
+        /* YAT?STATS crest screened back in the header's top-right corner,
+           behind the close button. */
+        .yat-content-drawer__header{position:relative;isolation:isolate;overflow:hidden}
+        .yat-content-drawer__header::before{
+          content:"";
+          position:absolute;
+          z-index:-1;
+          top:50%;
+          right:-6px;
+          width:150px;
+          height:118px;
+          transform:translateY(-50%);
+          background:url("/img/ys-crest-watermark.webp") center/contain no-repeat;
+          opacity:.1;
+          pointer-events:none;
+        }
+        body.light-theme .yat-content-drawer__header::before{filter:invert(1);opacity:.08}
       `}</style>
     </div>,
     document.body

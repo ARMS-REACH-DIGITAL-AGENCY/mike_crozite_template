@@ -122,7 +122,6 @@ export default function ProfileNewsList({
         }
       >
         {openStory?.recap ? <p className="pp-news-reader-copy">{stripHtml(openStory.recap)}</p> : null}
-        {openStory?.whyLocal ? <p className="pp-news-reader-copy pp-news-modal-why">{stripHtml(openStory.whyLocal)}</p> : null}
       </ProfileContentDrawer>
 
       <style>{`

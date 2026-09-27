@@ -172,7 +172,6 @@ export default async function ProfilePage({ params }: Props) {
     newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
       row.tease_json?.body ??
-      row.gallery_back_json?.why_local ??
       row.summary ??
       null,
   }));

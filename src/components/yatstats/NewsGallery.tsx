@@ -165,12 +165,8 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
 
           <div className="yat-face yat-back">
             <div className="news-back-content yat-news-back">
-              <div className="yat-news-back-label">LOCAL YAT?STATS RECAP</div>
-              <div className="yat-news-back-title">{keepHyphenatedWords(headline.toUpperCase())}</div>
-              <div className="yat-news-back-body">
-                {recap}
-                {post.displayWhyLocal ? <div className="yat-news-back-why">{stripHtml(post.displayWhyLocal)}</div> : null}
-              </div>
+              <div className="yat-news-back-label">YAT?STATS LOCAL RECAP</div>
+              <div className="yat-news-back-body">{recap}</div>
               <div className="yat-news-back-actions">
                 {profileHref ? (
                   <a className="yat-news-back-cta" href={profileHref}>
@@ -432,10 +428,8 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           box-shadow:0 2px 8px rgba(0,0,0,.3);
         }
         .yat-news-back{padding:16px 18px;display:flex;flex-direction:column;height:100%}
-        .yat-news-back-label{color:var(--gold);font:400 12px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;margin-bottom:4px}
-        .yat-news-back-title{font:400 18px/1.1 "Bebas Neue",Oswald,sans-serif;color:#fff;margin-bottom:12px;text-wrap:balance}
+        .yat-news-back-label{color:var(--gold);font:700 11px/1 Oswald,sans-serif;letter-spacing:.1em;margin-bottom:12px}
         .yat-news-back-body{font:400 15px/1.5 var(--yat-news-font);color:rgba(255,255,255,.92);flex:1;overflow-y:auto;padding-right:4px;padding-bottom:18px;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
-        .yat-news-back-why{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.76);font:italic 400 13px/1.45 var(--yat-news-font)}
         .yat-news-back-actions{margin-top:10px;display:flex;flex-direction:column;gap:8px}
         .yat-news-back-cta{display:block;background:var(--gold);color:#000;text-align:center;padding:10px;font:400 14px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;border-radius:4px;text-decoration:none}
         .yat-news-back-source{display:block;text-align:center;color:rgba(255,255,255,.7);font:400 12px/1.2 Oswald,sans-serif;text-decoration:underline}
