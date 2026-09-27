@@ -330,7 +330,7 @@ async function fetchJson(url: URL): Promise<FetchResult> {
   }
 }
 
-function leaderboardUrl(league: IndyLeagueConfig, kind: LeaderboardKind, size = DEFAULT_SIZE) {
+function leaderboardUrl(league: IndyLeagueConfig, kind: LeaderboardKind, size = DEFAULT_SIZE, page = 0) {
   const base = league.stats_base_url || ISCORE_API_BASE;
   const url = new URL(`${base.replace(/\/$/, '')}/api/leaderboard/player/${kind}`);
   url.searchParams.set('seasonId', league.season_id);
@@ -338,6 +338,7 @@ function leaderboardUrl(league: IndyLeagueConfig, kind: LeaderboardKind, size = 
   url.searchParams.set('sortBy', kind === 'batting' ? 'PA' : 'OUTS_PITCHED');
   url.searchParams.set('sortDir', 'desc');
   url.searchParams.set('size', String(size));
+  url.searchParams.set('page', String(page));
   return url;
 }
 
@@ -832,26 +833,55 @@ async function autoMatchPlayersForLeague(league: IndyLeagueConfig) {
 }
 
 async function ingestLeaderboard(league: IndyLeagueConfig, kind: LeaderboardKind, dryRun: boolean, size: number) {
-  const fetched = await fetchJson(leaderboardUrl(league, kind, size));
-  const rows = pickRows(fetched.payload);
-  if (dryRun) return { rowsSeen: rows.length, playersSeen: rows.filter((row) => extractSourcePlayerId(row)).length };
+  // iScore's leaderboard service has historically returned at most 100 rows
+  // even when a larger size is requested. Page until the requested ceiling is
+  // reached so late-season additions and lower-volume players are not silently
+  // excluded from the YAT?STATS Indy universe.
+  const pageSize = Math.min(Math.max(size || DEFAULT_SIZE, 50), 100);
+  const requestedLimit = Math.max(size || DEFAULT_SIZE, pageSize);
+  const maxPages = Math.max(1, Math.ceil(requestedLimit / pageSize));
+  const seenPlayerIds = new Set<string>();
 
-  const rawPayloadId = await saveIndyRawPayload({
-    leagueCode: league.league_code,
-    payloadType: `leaderboard_${kind}`,
-    sourceUrl: fetched.url,
-    payload: fetched.payload,
-  });
-
+  let rowsSeen = 0;
   let playersSeen = 0;
-  for (const row of rows) {
-    const input = rowToSeasonInput(row, kind, league, rawPayloadId);
-    if (!input.sourcePlayerId) continue;
-    playersSeen += 1;
-    await upsertPlayerMap(input);
-    await upsertSeasonRow(kind, input);
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const fetched = await fetchJson(leaderboardUrl(league, kind, pageSize, page));
+    const rows = pickRows(fetched.payload);
+    const freshRows = rows.filter((row) => {
+      const sourcePlayerId = extractSourcePlayerId(row);
+      if (!sourcePlayerId || seenPlayerIds.has(sourcePlayerId)) return false;
+      seenPlayerIds.add(sourcePlayerId);
+      return true;
+    });
+
+    // Some iScore deployments ignore the page parameter. Stop immediately
+    // when a page contributes no new players rather than reprocessing page 0.
+    if (page > 0 && freshRows.length === 0) break;
+
+    rowsSeen += freshRows.length;
+    playersSeen += freshRows.length;
+
+    if (!dryRun) {
+      const rawPayloadId = await saveIndyRawPayload({
+        leagueCode: league.league_code,
+        payloadType: `leaderboard_${kind}`,
+        sourceUrl: fetched.url,
+        payload: fetched.payload,
+      });
+
+      for (const row of freshRows) {
+        const input = rowToSeasonInput(row, kind, league, rawPayloadId);
+        if (!input.sourcePlayerId) continue;
+        await upsertPlayerMap(input);
+        await upsertSeasonRow(kind, input);
+      }
+    }
+
+    if (rows.length < pageSize || seenPlayerIds.size >= requestedLimit) break;
   }
-  return { rowsSeen: rows.length, playersSeen };
+
+  return { rowsSeen, playersSeen };
 }
 
 function playerDetailHasGameIds(payload: unknown): string[] {
@@ -1050,7 +1080,9 @@ async function ingestGamesAndBoxScores(league: IndyLeagueConfig, dryRun: boolean
 }
 
 export async function ingestIndyIscoreLeague(league: IndyLeagueConfig, options: { dryRun?: boolean; force?: boolean; includeDetails?: boolean; includeGames?: boolean; size?: number; playerDetailLimit?: number; maxGames?: number } = {}) {
-  await ensureIndyIscoreTables();
+  // Schema creation belongs to migrations/bootstrap, not the production cron
+  // role. The Vercel runtime can read/write these existing tables but does not
+  // have CREATE privileges on public, so an ensure pass here aborts every run.
   const summary: IndyIngestSummary = {
     leagueCode: league.league_code,
     leagueName: league.league_name,
