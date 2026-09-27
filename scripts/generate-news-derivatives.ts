@@ -10,11 +10,23 @@
 //   - player-profile News feed + reader drawer
 //
 // The generator is precision-first:
-//   * only VERIFIED, non-LOW stories are eligible
-//   * source text is centered around the matched player
-//   * the generated recap always names the player, so the profile's
-//     player-centric display guard remains effective
-//   * existing derivatives are preserved (manual/editorial work wins)
+//   * only VERIFIED stories are eligible (LOW ones too - the profile feed
+//     shows them, and a reader must never open blank)
+//   * the recap is built from clean, whole sentences that name the player
+//     (or continue about him: "He...", "His..."). Stat lines, roster tables
+//     and site boilerplate ("Subscribe", "Try it free") are never used, and
+//     a recap never ends mid-sentence
+//   * a story that isn't about him (not FEATURED) and has no clean sentence
+//     about him is marked approval_status='rejected'; the news feeds leave
+//     rejected stories out
+//   * existing derivatives are preserved (manual/editorial work wins);
+//     --regenerate rewrites only the ones this generator wrote
+//   * --dry-run prints old vs new recaps and writes nothing
+//
+// Usage:
+//   npx tsx scripts/generate-news-derivatives.ts --hsid 5004            # new stories only
+//   npx tsx scripts/generate-news-derivatives.ts --regenerate --dry-run # preview a rewrite
+//   npx tsx scripts/generate-news-derivatives.ts --regenerate           # rewrite generated recaps
 
 import { appendFileSync } from "fs";
 import { Pool } from "pg";
@@ -35,6 +47,13 @@ const targetHsids = (hsidArg || process.env.NEWS_HSIDS || "5004")
 const limitIdx = args.indexOf("--limit");
 const limitArg = limitIdx !== -1 ? Number(args[limitIdx + 1]) : 0;
 const batchLimit = Number.isFinite(limitArg) && limitArg > 0 ? Math.floor(limitArg) : 0;
+const regenerate = args.includes("--regenerate");
+const dryRun = args.includes("--dry-run");
+
+// Written into every derivative this script makes, so --regenerate can tell
+// its own work from a hand edit. (Untagged rows predate the tag; nothing but
+// this script has ever written derivatives, so those count as generated.)
+const GENERATOR = "auto-v2";
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -58,6 +77,7 @@ type CandidateRow = {
   snippet: string | null;
   summary: string | null;
   raw_payload: any;
+  existing_recap?: string | null;
   verification_score: string | number | null;
   verification_evidence: any;
   newsworthiness: string | null;
@@ -87,6 +107,7 @@ function cleanText(value: unknown): string {
     .replace(/\bNow Playing\b/gi, " ")
     .replace(/\bPaused Ad Playing\b/gi, " ")
     .replace(/pic\.twitter\.com\/\S+/gi, " ")
+    .replace(/\[\s*read more[^\]]*\]/gi, " ")
     .replace(/https?:\/\/\S+/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -100,17 +121,41 @@ function sentenceList(value: string): string[] {
     .filter((s) => s.length >= 18);
 }
 
-function trimTo(value: string, max: number): string {
-  const text = value.trim();
-  if (text.length <= max) return text;
-  const clipped = text.slice(0, max + 1);
-  const boundary = Math.max(
-    clipped.lastIndexOf(". "),
-    clipped.lastIndexOf("; "),
-    clipped.lastIndexOf(", "),
-    clipped.lastIndexOf(" ")
-  );
-  return (boundary > max * 0.6 ? clipped.slice(0, boundary) : clipped.slice(0, max)).trimEnd() + "…";
+// Pieces joined in order while the total stays within max. The first piece
+// is always kept; nothing is ever cut mid-sentence.
+function fitSentences(parts: string[], max: number): string {
+  const kept: string[] = [];
+  let length = 0;
+  for (const part of parts.map((p) => p.trim()).filter(Boolean)) {
+    const added = (kept.length ? 1 : 0) + part.length;
+    if (kept.length && length + added > max) break;
+    kept.push(part);
+    length += added;
+  }
+  return kept.join(" ");
+}
+
+const BOILERPLATE =
+  /(subscri|sign up|newsletter|try it free|free trial|join (the )?\w+\s*\+|access the|podcast|click here|read more|cookie|advertis|all rights reserved|©|follow us|download the app|terms of (use|service)|privacy policy|getty images|photo by|image credit|watch:|listen:)/i;
+
+// A stat line or roster table: "(1-for-7, HBP, 2 R)", "4 IP", "[AA]", "N/A".
+const STAT_MARKERS = /\(\d+-for-\d+|\b\d+(\.\d)? IP\b|\b\d+ K\b|\bN\/A\b|\[[A-Z+]{1,4}\]|\b\d+-\d+,|\bK-BB%|\bwRC\+/g;
+
+// A real, readable sentence: starts like a sentence, ends with punctuation,
+// reasonable length, not a table, stat dump or site boilerplate.
+function isCleanSentence(sentence: string): boolean {
+  const s = sentence.trim();
+  if (s.length < 40 || s.length > 320) return false;
+  if (!/^["'‘“(]?[A-Z0-9]/.test(s)) return false;
+  if (!/[.!?]["'’”)]?$/.test(s)) return false;
+  if (s.split(/\s+/).length < 7) return false;
+  if (s.includes("|")) return false;
+  if (BOILERPLATE.test(s)) return false;
+  if ((s.match(STAT_MARKERS) || []).length >= 2) return false;
+  if ((s.match(/,/g) || []).length > 5) return false;
+  const digits = (s.match(/\d/g) || []).length;
+  if (digits / s.length > 0.15) return false;
+  return true;
 }
 
 function sourceDomain(row: CandidateRow): string {
@@ -136,50 +181,35 @@ function sourceText(row: CandidateRow): string {
   );
 }
 
-function selectPlayerContext(row: CandidateRow, fullName: string, lastName: string): string {
+// Clean sentences about him, in article order: ones that name him (full
+// name, or last name if it's distinctive), each optionally followed by one
+// that continues about him ("He...", "His..."). At most three.
+function selectPlayerContext(row: CandidateRow, fullName: string, lastName: string): string[] {
   const text = sourceText(row);
-  if (!text) return "";
-
   const sentences = sentenceList(text);
   const full = fullName.toLowerCase();
-  const last = lastName.toLowerCase();
-
-  let indexes = sentences
-    .map((sentence, index) => ({ index, sentence: sentence.toLowerCase() }))
-    .filter(({ sentence }) => full && sentence.includes(full))
-    .map(({ index }) => index);
-
-  if (indexes.length === 0 && last.length >= 4) {
-    indexes = sentences
-      .map((sentence, index) => ({ index, sentence: sentence.toLowerCase() }))
-      .filter(({ sentence }) => sentence.includes(last))
-      .map(({ index }) => index);
-  }
+  // Last name alone counts only as a capitalized word in a story that also
+  // names him in full - "Ball" must not match "the ball" or "Ball State".
+  const lastPattern =
+    lastName.length >= 4 && full && text.toLowerCase().includes(full)
+      ? new RegExp(`\\b${lastName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b(?! State)`)
+      : null;
+  const namesHim = (sentence: string) =>
+    (full && sentence.toLowerCase().includes(full)) || Boolean(lastPattern && lastPattern.test(sentence));
 
   const selected: string[] = [];
-  const seen = new Set<number>();
-
-  for (const index of indexes.slice(0, 3)) {
-    for (const candidateIndex of [index, index + 1]) {
-      if (
-        candidateIndex >= 0 &&
-        candidateIndex < sentences.length &&
-        !seen.has(candidateIndex)
-      ) {
-        selected.push(sentences[candidateIndex]);
-        seen.add(candidateIndex);
-      }
-      if (selected.join(" ").length >= 760) break;
+  const used = new Set<number>();
+  for (let i = 0; i < sentences.length && selected.length < 3; i++) {
+    if (used.has(i) || !namesHim(sentences[i]) || !isCleanSentence(sentences[i])) continue;
+    selected.push(sentences[i]);
+    used.add(i);
+    const next = sentences[i + 1];
+    if (next && selected.length < 3 && /^(He|His|Him)\b/.test(next) && isCleanSentence(next)) {
+      selected.push(next);
+      used.add(i + 1);
     }
-    if (selected.join(" ").length >= 760) break;
   }
-
-  if (selected.length > 0) return trimTo(selected.join(" "), 760);
-
-  // A headline can be the verified identity anchor even when the provider's
-  // highlight body is sparse. Keep the fallback short rather than dumping a
-  // generic article body into a player's recap.
-  return trimTo(sentences.slice(0, 2).join(" ") || text, 320);
+  return selected;
 }
 
 function buildDerivative(row: CandidateRow) {
@@ -215,25 +245,26 @@ function buildDerivative(row: CandidateRow) {
 
   const domain = sourceDomain(row);
   const context = selectPlayerContext(row, fullName, effectiveLastName);
-  const classLabel = classOf ? ` (Class of ${classOf})` : "";
 
   const lead =
     playerRelevance === "primary"
-      ? `${fullName}${classLabel} is the focus of a new ${domain} report.`
+      ? `${fullName} is the focus of this ${domain} story.`
       : playerRelevance === "secondary"
-        ? `${fullName}${classLabel} is part of a new ${domain} baseball update.`
-        : `${fullName}${classLabel} is mentioned in a broader ${domain} baseball report; the source story is not primarily about him.`;
+        ? `${fullName} is featured in this ${domain} story.`
+        : `${fullName} gets a mention in this ${domain} story.`;
 
-  const recap = trimTo([lead, context].filter(Boolean).join(" "), 520);
-  const profileBody = trimTo(
+  // His name is in the headline, so the story is about him even when the
+  // body has no clean sentence to quote. Otherwise, no clean sentence about
+  // him means it isn't really news about him: keep it off the feeds.
+  const publishable = playerRelevance === "primary" || context.length > 0;
+
+  const recap = fitSentences([lead, ...context], 520);
+  const profileBody = fitSentences(
     [
-      recap,
-      team
-        ? `YAT?STATS currently tracks ${fullName} with ${team}${org ? ` in ${org}` : ""}.`
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" "),
+      lead,
+      ...context,
+      team ? `YAT?STATS currently tracks ${fullName} with ${team}${org ? ` in ${org}` : ""}.` : "",
+    ],
     900
   );
 
@@ -250,12 +281,13 @@ function buildDerivative(row: CandidateRow) {
     score,
     recap,
     profileBody,
+    publishable,
     publishedDate,
     domain,
     tease: {
       headline: row.title,
       badge: level ? `${level} UPDATE` : "ALUMNI UPDATE",
-      body: trimTo(recap, 300),
+      body: fitSentences([lead, ...context], 300),
       footer: `${domain} · ${publishedDate}`,
       primary_cta: {
         label: "READ FULL NEWS ON PROFILE",
@@ -272,6 +304,7 @@ function buildDerivative(row: CandidateRow) {
       cta: "FLIP TO READ MORE",
     },
     galleryBack: {
+      generator: GENERATOR,
       yati_recap: recap,
       why_local: classOf
         ? `Why this matters locally: ${fullName} is a Hamilton alum from the Class of ${classOf}.`
@@ -292,6 +325,7 @@ function buildDerivative(row: CandidateRow) {
       },
     },
     profile: {
+      generator: GENERATOR,
       title: row.title,
       body: profileBody,
       meta_subline: [fullName, level, team || org].filter(Boolean).join(" · "),
@@ -329,7 +363,8 @@ async function loadCandidates(): Promise<CandidateRow[]> {
        f.status_label AS stage_status_label,
        f.current_team_name AS stage_team_name,
        f.current_org_or_conference_name AS stage_org_name,
-       f.current_teamid::text AS current_teamid
+       f.current_teamid::text AS current_teamid,
+       nd.gallery_back_json->>'yati_recap' AS existing_recap
      FROM public.news_articles na
      LEFT JOIN public.flip_card_front_stage f
        ON f.playerid::text = na.playerid::text
@@ -338,9 +373,12 @@ async function loadCandidates(): Promise<CandidateRow[]> {
       AND nd.playerid = na.playerid
      WHERE na.hsid = ANY($1::text[])
        AND na.verification_status = 'VERIFIED'
-       AND COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW'
        AND NULLIF(TRIM(COALESCE(na.playerid, '')), '') IS NOT NULL
-       AND nd.id IS NULL
+       AND ${
+         regenerate
+           ? `(nd.id IS NULL OR COALESCE(nd.gallery_back_json->>'generator', 'auto') LIKE 'auto%')`
+           : "nd.id IS NULL"
+       }
      ORDER BY na.published_at DESC, na.id DESC
      ${limitClause}`,
     params
@@ -349,9 +387,7 @@ async function loadCandidates(): Promise<CandidateRow[]> {
   return rows;
 }
 
-async function writeDerivative(row: CandidateRow): Promise<boolean> {
-  const d = buildDerivative(row);
-
+async function writeDerivative(row: CandidateRow, d: ReturnType<typeof buildDerivative>): Promise<boolean> {
   const result = await pool.query(
     `INSERT INTO public.news_article_derivatives (
        news_article_uuid,
@@ -382,9 +418,24 @@ async function writeDerivative(row: CandidateRow): Promise<boolean> {
        'article',$5,$6,$7,$8,
        $9,$10,$11,$12,$13,
        $14::jsonb,$15::jsonb,$16::jsonb,$17::jsonb,$18::jsonb,
-       'staged','approved',NOW(),NOW()
+       'staged',$19,NOW(),NOW()
      )
-     ON CONFLICT (news_article_uuid, playerid) DO NOTHING`,
+     ON CONFLICT (news_article_uuid, playerid) ${
+       regenerate
+         ? `DO UPDATE SET
+              story_scope = EXCLUDED.story_scope,
+              player_relevance = EXCLUDED.player_relevance,
+              match_confidence = EXCLUDED.match_confidence,
+              story_grade = EXCLUDED.story_grade,
+              tease_json = EXCLUDED.tease_json,
+              gallery_front_json = EXCLUDED.gallery_front_json,
+              gallery_back_json = EXCLUDED.gallery_back_json,
+              profile_json = EXCLUDED.profile_json,
+              share_json = EXCLUDED.share_json,
+              approval_status = EXCLUDED.approval_status,
+              updated_at = NOW()`
+         : "DO NOTHING"
+     }`,
     [
       row.uuid,
       row.playerid,
@@ -404,6 +455,7 @@ async function writeDerivative(row: CandidateRow): Promise<boolean> {
       JSON.stringify(d.galleryBack),
       JSON.stringify(d.profile),
       JSON.stringify(d.share),
+      d.publishable ? "approved" : "rejected",
     ]
   );
 
@@ -424,15 +476,27 @@ async function main() {
   console.log("=== YAT?STATS News Derivative Generator ===");
   console.log(`Schools: ${targetHsids.join(", ")}`);
 
+  if (regenerate) console.log("Mode: rewrite this generator's recaps");
+  if (dryRun) console.log("DRY RUN: nothing is written");
+
   const candidates = await loadCandidates();
-  console.log(`Missing verified derivatives: ${candidates.length}`);
+  console.log(`${regenerate ? "Verified stories to (re)generate" : "Missing verified derivatives"}: ${candidates.length}`);
 
   let generated = 0;
   let failed = 0;
+  let hidden = 0;
 
   for (const row of candidates) {
     try {
-      if (await writeDerivative(row)) generated += 1;
+      const d = buildDerivative(row);
+      if (!d.publishable) hidden += 1;
+      if (dryRun) {
+        console.log(`\n── ${row.player_name || row.playerid} · ${row.title}`);
+        console.log(`   OLD: ${row.existing_recap || "(none)"}`);
+        console.log(`   NEW: ${d.recap}${d.publishable ? "" : "   [hidden: no clean sentence about him]"}`);
+        continue;
+      }
+      if (await writeDerivative(row, d)) generated += 1;
     } catch (error) {
       failed += 1;
       console.error(
@@ -442,7 +506,8 @@ async function main() {
     }
   }
 
-  console.log(`Generated: ${generated}`);
+  console.log(`\nGenerated: ${generated}`);
+  console.log(`Hidden (no clean sentence about him, not featured): ${hidden}`);
   console.log(`Failed: ${failed}`);
 
   if (process.env.GITHUB_STEP_SUMMARY) {
@@ -457,6 +522,7 @@ async function main() {
         `| Schools | ${targetHsids.join(", ")} |`,
         `| Verified stories missing derivatives | ${candidates.length} |`,
         `| Derivatives generated | ${generated} |`,
+        `| Hidden (no clean sentence about him) | ${hidden} |`,
         `| Failures | ${failed} |`,
       ].join("\n") + "\n"
     );
