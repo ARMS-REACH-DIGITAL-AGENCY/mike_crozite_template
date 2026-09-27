@@ -423,7 +423,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       WHERE season_year = 2026
         AND yatstats_playerid IS NOT NULL
         AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
-    )
+    ),
 
     pitching_2026_by_level AS (
       SELECT
