@@ -218,7 +218,7 @@ function NewsPanel({
   isActive: boolean;
 }) {
   const [loading, setLoading] = useState(true);
-  const [featuredNews, setFeaturedNews] = useState<NewsTease | null>(null);
+  const [featuredNews, setFeaturedNews] = useState<NewsTease[]>([]);
   const hasFetchedRef = useRef(false);
 
   const playerId = String(player.playerid || "");
@@ -240,7 +240,7 @@ function NewsPanel({
       }
 
       try {
-        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=1`, {
+        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=2`, {
           cache: "no-store",
         });
 
@@ -249,53 +249,51 @@ function NewsPanel({
         }
 
         const data = await res.json();
-const firstPost: NewsApiPost | undefined = data?.posts?.[0];
+const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 2) : [];
 
-const normalizedTease: NewsTease | null = firstPost
-  ? {
-      badge:
-        firstPost.tease?.badge ??
-        (firstPost.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
-      headline:
-        firstPost.tease?.headline ??
-        firstPost.displayHeadline ??
-        firstPost.headline ??
-        firstPost.title ??
-        undefined,
-      body:
-        firstPost.tease?.body ??
-        firstPost.displayRecap ??
-        firstPost.summary ??
-        undefined,
-      footer:
-        firstPost.tease?.footer ??
-        ([
-          firstPost.displaySourceLabel,
-          firstPost.publishedAt
-            ? new Date(firstPost.publishedAt).toLocaleDateString("en-US", {
-                month: "numeric",
-                day: "numeric",
-                year: "numeric",
-              })
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ") || undefined),
-      imageUrl: firstPost.tease?.imageUrl ?? firstPost.imageUrl ?? undefined,
-      newsCardId:
-        firstPost.tease?.newsCardId ??
-        firstPost.uuid ??
-        (firstPost.id != null ? String(firstPost.id) : undefined),
-    }
-  : null;
+const normalizedTeases: NewsTease[] = posts.map((post) => ({
+  badge:
+    post.tease?.badge ??
+    (post.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
+  headline:
+    post.tease?.headline ??
+    post.displayHeadline ??
+    post.headline ??
+    post.title ??
+    undefined,
+  body:
+    post.tease?.body ??
+    post.displayRecap ??
+    post.summary ??
+    undefined,
+  footer:
+    post.tease?.footer ??
+    ([
+      post.displaySourceLabel,
+      post.publishedAt
+        ? new Date(post.publishedAt).toLocaleDateString("en-US", {
+            month: "numeric",
+            day: "numeric",
+            year: "numeric",
+          })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined),
+  imageUrl: post.tease?.imageUrl ?? post.imageUrl ?? undefined,
+  newsCardId:
+    post.tease?.newsCardId ??
+    post.uuid ??
+    (post.id != null ? String(post.id) : undefined),
+}));
 
 if (!cancelled) {
-  setFeaturedNews(normalizedTease);
+  setFeaturedNews(normalizedTeases);
 }
       } catch (error) {
         console.error("FunZone news fetch error:", error);
         if (!cancelled) {
-  setFeaturedNews(null);
+  setFeaturedNews([]);
 }
       } finally {
         if (!cancelled) {
@@ -320,7 +318,7 @@ if (!cancelled) {
     );
   }
 
-  if (!featuredNews) {
+  if (featuredNews.length === 0) {
     return (
       <div className="fz-placeholder">
         <i className="ri-newspaper-line fz-ph-icon" />
@@ -331,49 +329,56 @@ if (!cancelled) {
 
   const slug = String(player.slug || "");
 const profileHref = `/${resolvedHsid}/player/${playerId}/${slug}#ppTab-news`;
-const featuredNewsHref = featuredNews.newsCardId
-  ? `/${resolvedHsid}/player/${playerId}/${slug}?story=${encodeURIComponent(featuredNews.newsCardId)}#ppTab-news`
-  : profileHref;
 
 return (
-  <div className="fz-news-featured">
-    {featuredNews.imageUrl ? (
-      <a href={featuredNewsHref} className="fz-news-thumb-link">
-        <img
-          src={featuredNews.imageUrl}
-          alt={featuredNews.headline || "Latest news"}
-          className="fz-news-thumb"
-        />
-      </a>
-    ) : (
-      <a href={featuredNewsHref} className="fz-news-thumb-link">
-        <div className="fz-news-thumb fz-news-thumb-fallback">
-          NEWS
-        </div>
-      </a>
-    )}
+  <div className="fz-news-list">
+    {featuredNews.map((story, index) => {
+      const storyHref = story.newsCardId
+        ? `/${resolvedHsid}/player/${playerId}/${slug}?story=${encodeURIComponent(story.newsCardId)}#ppTab-news`
+        : profileHref;
 
-    <div className="fz-news-copy">
-      {featuredNews.badge && (
-        <div className="fz-news-label">{featuredNews.badge}</div>
-      )}
+      return (
+        <article className="fz-news-featured" key={story.newsCardId || `${story.headline || "news"}-${index}`}>
+          {story.imageUrl ? (
+            <a href={storyHref} className="fz-news-thumb-link">
+              <img
+                src={story.imageUrl}
+                alt={story.headline || "Latest news"}
+                className="fz-news-thumb"
+              />
+            </a>
+          ) : (
+            <a href={storyHref} className="fz-news-thumb-link">
+              <div className="fz-news-thumb fz-news-thumb-fallback">
+                NEWS
+              </div>
+            </a>
+          )}
 
-      {featuredNews.headline && (
-        <a href={profileHref} className="fz-news-title-link">
-          <div className="fz-news-title">{featuredNews.headline}</div>
-        </a>
-      )}
+          <div className="fz-news-copy">
+            {story.badge && (
+              <div className="fz-news-label">{story.badge}</div>
+            )}
 
-      {featuredNews.body && (
-        <div className="fz-news-body">{featuredNews.body}</div>
-      )}
+            {story.headline && (
+              <a href={storyHref} className="fz-news-title-link">
+                <div className="fz-news-title">{story.headline}</div>
+              </a>
+            )}
 
-      {featuredNews.footer && (
-        <div className="fz-news-footer">{featuredNews.footer}</div>
-      )}
-      </div>
-    </div>
-  );
+            {story.body && (
+              <div className="fz-news-body">{story.body}</div>
+            )}
+
+            {story.footer && (
+              <div className="fz-news-footer">{story.footer}</div>
+            )}
+          </div>
+        </article>
+      );
+    })}
+  </div>
+);
 }
 // Facebook's sharer.php no longer accepts pre-filled text/tags at all
 // (deprecated for spam reasons around 2018) - a Facebook share can only
@@ -1120,12 +1125,19 @@ export default function FunZone({
 
         /* -- News teaser ------------------------------------------------ */
         
+        .fz-news-list{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(5px,1.3cqi,8px);
+          width:100%;
+          min-width:0;
+        }
         .fz-news-featured{
           display:flex;
           gap:clamp(5px,1.8cqi,10px);
           align-items:flex-start;
           min-width:0;
-          padding:clamp(6px,1.8cqi,10px);
+          padding:clamp(5px,1.45cqi,8px);
           border:1px solid rgba(30,22,14,.18);
           border-radius:clamp(5px,1.4cqi,8px);
           background:rgba(255,255,255,.18);
@@ -1137,8 +1149,8 @@ export default function FunZone({
         }
         .fz-news-thumb{
           display:block;
-          width:clamp(52px,18cqi,84px);
-          height:clamp(72px,24cqi,118px);
+          width:clamp(44px,15cqi,68px);
+          height:clamp(58px,19cqi,88px);
           object-fit:cover;
           border-radius:clamp(4px,1cqi,8px);
           border:1px solid rgba(30,22,14,0.18);
@@ -1174,15 +1186,15 @@ export default function FunZone({
           color:rgba(30,22,14,0.5);
         }
         .fz-news-title{
-          font:700 clamp(10px,3.5cqi,14px)/1.2 "Bebas Neue",sans-serif;
+          font:700 clamp(9px,3cqi,13px)/1.12 "Bebas Neue",sans-serif;
           letter-spacing:.03em;
           color:rgba(30,22,14,0.9);
         }
         .fz-news-body{
-          font:400 clamp(8px,2.5cqi,11px)/1.45 Georgia,"Times New Roman",serif;
+          font:400 clamp(7px,2.15cqi,10px)/1.35 Georgia,"Times New Roman",serif;
           color:rgba(30,22,14,.82);
           display:-webkit-box;
-          -webkit-line-clamp:3;
+          -webkit-line-clamp:2;
           -webkit-box-orient:vertical;
           overflow:hidden;
         }

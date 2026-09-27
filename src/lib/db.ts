@@ -1805,7 +1805,13 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
            ) ranked
            WHERE rn <= 6
          )
-       ORDER BY na.published_at DESC
+       ORDER BY
+         CASE UPPER(COALESCE(na.newsworthiness, 'NORMAL'))
+           WHEN 'FEATURED' THEN 0
+           WHEN 'NORMAL' THEN 1
+           ELSE 2
+         END,
+         na.published_at DESC
        LIMIT $2`,
       [hsid, limit]
     );
