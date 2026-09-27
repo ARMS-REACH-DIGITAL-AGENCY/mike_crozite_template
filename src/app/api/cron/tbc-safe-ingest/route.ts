@@ -379,21 +379,94 @@ async function syncOneFeed(client: any, feed: FeedKey) {
 // get a card. Runs after the players feed sync, inside the same
 // transaction, so a new player never has more than one ingest cycle's
 // delay before getting a baseline row.
-async function ensureFlipCardBaselineRows(client: any): Promise<number> {
+//
+// Identity guard: a new TBC id is held back, not given a card, when
+//   - the crosswalk already says who he is (a player_source_map row with
+//     source 'tbc' and this TBC id as source_player_id), or
+//   - his school already has a card with the same first and last name
+//     under an id TBC doesn't own (a YAT id like YAT000001).
+// The second is how Madden Pezzorello got two cards: TBC's 384172 arrived
+// after YAT000001 was built by hand. Held players are listed in the job
+// result and sent to the ingest alert webhook for review. Same-name pairs
+// between two TBC ids are left alone - TBC keeps its own ids apart, and a
+// father and son can share a name at the same school.
+type HeldBaselinePlayer = {
+  tbc_playerid: string;
+  hsid: string;
+  name: string;
+  reason: "crosswalk" | "same_name_yat_card";
+  matched_playerid: string;
+};
+
+async function ensureFlipCardBaselineRows(
+  client: any,
+): Promise<{ created: number; held: HeldBaselinePlayer[] }> {
   const { rows } = await client.query(`
-    insert into public.flip_card_front_stage (playerid, hsid, display_name, first_name, last_name)
-    select distinct ph.playerid, ph.hsid::text,
-           trim(coalesce(t.firstname, '') || ' ' || coalesce(t.lastname, '')),
-           t.firstname, t.lastname
-    from public.player_hsids ph
-    join public.tbc_players_raw t on t.playerid = ph.playerid
-    left join public.flip_card_front_stage f on f.playerid = ph.playerid
-    where ph.hsid is not null
-      and f.playerid is null
-    on conflict (playerid) do nothing
-    returning playerid
+    with candidates as (
+      select distinct ph.playerid, ph.hsid::text as hsid, t.firstname, t.lastname
+      from public.player_hsids ph
+      join public.tbc_players_raw t on t.playerid = ph.playerid
+      left join public.flip_card_front_stage f on f.playerid = ph.playerid
+      where ph.hsid is not null
+        and f.playerid is null
+    ),
+    checked as (
+      select c.*,
+        (
+          select m.playerid
+          from public.player_source_map m
+          where m.source = 'tbc'
+            and m.source_player_id = c.playerid::text
+            and coalesce(m.match_method, '') <> 'rejected_bad_identity_match'
+          limit 1
+        ) as crosswalk_playerid,
+        (
+          select e.playerid::text
+          from public.flip_card_front_stage e
+          where e.hsid::text = c.hsid
+            and e.playerid::text <> c.playerid::text
+            and regexp_replace(lower(coalesce(c.lastname, '')), '[^a-z]', '', 'g') <> ''
+            and regexp_replace(lower(coalesce(e.first_name, '')), '[^a-z]', '', 'g')
+              = regexp_replace(lower(coalesce(c.firstname, '')), '[^a-z]', '', 'g')
+            and regexp_replace(lower(coalesce(e.last_name, '')), '[^a-z]', '', 'g')
+              = regexp_replace(lower(coalesce(c.lastname, '')), '[^a-z]', '', 'g')
+            and not exists (
+              select 1 from public.tbc_players_raw tt where tt.playerid::text = e.playerid::text
+            )
+          limit 1
+        ) as yat_match_playerid
+      from candidates c
+    ),
+    inserted as (
+      insert into public.flip_card_front_stage (playerid, hsid, display_name, first_name, last_name)
+      select playerid, hsid,
+             trim(coalesce(firstname, '') || ' ' || coalesce(lastname, '')),
+             firstname, lastname
+      from checked
+      where crosswalk_playerid is null
+        and yat_match_playerid is null
+      on conflict (playerid) do nothing
+      returning playerid
+    )
+    select
+      (select count(*)::int from inserted) as created,
+      coalesce(
+        (
+          select json_agg(json_build_object(
+            'tbc_playerid', playerid::text,
+            'hsid', hsid,
+            'name', trim(coalesce(firstname, '') || ' ' || coalesce(lastname, '')),
+            'reason', case when crosswalk_playerid is not null then 'crosswalk' else 'same_name_yat_card' end,
+            'matched_playerid', coalesce(crosswalk_playerid, yat_match_playerid)
+          ) order by hsid, lastname, firstname)
+          from checked
+          where crosswalk_playerid is not null
+             or yat_match_playerid is not null
+        ),
+        '[]'::json
+      ) as held
   `);
-  return rows.length;
+  return { created: Number(rows[0]?.created || 0), held: rows[0]?.held || [] };
 }
 
 async function ensureIngestHealthTable(client: any): Promise<void> {
@@ -506,11 +579,29 @@ export async function GET(req: NextRequest) {
     results.push(await syncOneFeed(client, "pitching"));
     validateResults(results);
 
-    const newFlipCardRows = await ensureFlipCardBaselineRows(client);
+    const baseline = await ensureFlipCardBaselineRows(client);
+    const newFlipCardRows = baseline.created;
+    const heldForIdentityReview = baseline.held;
 
-    await recordIngestSuccess(client, { results, newFlipCardRows });
+    await recordIngestSuccess(client, { results, newFlipCardRows, heldForIdentityReview });
 
     await client.query("commit");
+
+    if (heldForIdentityReview.length > 0) {
+      console.warn("[tbc-safe-ingest] held new TBC players for identity review", heldForIdentityReview);
+      try {
+        await sendIngestAlert({
+          event: "yatstats_identity_review",
+          job: JOB_NAME,
+          occurredAt: new Date().toISOString(),
+          details: { heldForIdentityReview },
+        });
+      } catch (alertError) {
+        console.error("[tbc-safe-ingest] failed to send identity review alert", {
+          message: sanitizeError(alertError),
+        });
+      }
+    }
 
     if (previousFailures > 0) {
       try {
@@ -533,6 +624,7 @@ export async function GET(req: NextRequest) {
       ranAt: new Date().toISOString(),
       results,
       newFlipCardRows,
+      heldForIdentityReview,
     });
   } catch (error: any) {
     if (client) {
