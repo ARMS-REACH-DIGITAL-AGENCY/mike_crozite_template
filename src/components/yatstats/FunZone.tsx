@@ -269,7 +269,7 @@ const normalizedTease: NewsTease | null = firstPost
         undefined,
       footer:
         firstPost.tease?.footer ??
-        [
+        ([
           firstPost.displaySourceLabel,
           firstPost.publishedAt
             ? new Date(firstPost.publishedAt).toLocaleDateString("en-US", {
@@ -280,8 +280,7 @@ const normalizedTease: NewsTease | null = firstPost
             : null,
         ]
           .filter(Boolean)
-          .join(" · ") ||
-        undefined,
+          .join(" · ") || undefined),
       imageUrl: firstPost.tease?.imageUrl ?? firstPost.imageUrl ?? undefined,
       newsCardId:
         firstPost.tease?.newsCardId ??
