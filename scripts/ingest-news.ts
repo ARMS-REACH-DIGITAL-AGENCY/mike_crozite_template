@@ -11,8 +11,18 @@
 //
 // Pilot scope: news is on for the schools listed in NEWS_HSIDS / --hsid
 // only (Hamilton, 5004, today). There is deliberately no "every school"
-// mode - each school searched costs Webz.io calls from a 1,000/month
-// free plan, so turning a school on is an explicit decision.
+// mode - Webz.io bills every story it returns (about half a cent each)
+// against $5 of free credits a month, so turning a school on is an
+// explicit decision.
+//
+// Keeping a school's daily run inside that budget:
+//   - each run searches only what Webz.io crawled since the school's last
+//     completed run (recorded in source_ingest_runs), so a story is never
+//     paid for twice;
+//   - each search returns at most RESULTS_PER_CALL stories;
+//   - fantasy/betting/promo pages are excluded in the query itself;
+//   - the run stops once the balance Webz.io reports drops below
+//     NEWS_MIN_BALANCE.
 //
 // Usage:
 //   npx tsx scripts/ingest-news.ts                      # NEWS_HSIDS, default 5004
@@ -24,9 +34,10 @@
 //   WEBZ_API_TOKEN  — Webz.io News API Lite token
 // Optional:
 //   NEWS_HSIDS               — comma-separated school hsids (default "5004")
-//   NEWS_MIN_REQUESTS_LEFT   — stop when Webz.io reports fewer calls left
-//                              this month (default 100)
+//   NEWS_MIN_BALANCE         — stop once the Webz.io balance (USD) falls
+//                              below this (default 0.50)
 
+import { randomUUID } from "crypto";
 import { appendFileSync } from "fs";
 import { Pool } from "pg";
 import { verifyNewsIdentity, type VerificationResult } from "./lib/newsIdentity";
@@ -46,8 +57,8 @@ if (!WEBZ_TOKEN) {
   process.exit(1);
 }
 
-// Leave headroom in the monthly Webz.io allowance for manual runs.
-const MIN_REQUESTS_LEFT = Number(process.env.NEWS_MIN_REQUESTS_LEFT || 100);
+// Leave headroom in the monthly Webz.io credits for manual runs.
+const MIN_BALANCE = Number(process.env.NEWS_MIN_BALANCE || 0.5);
 
 const BATCH_SIZE = 8; // max player names per Webz.io query
 const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
@@ -110,7 +121,6 @@ interface WebzPost {
 interface WebzResponse {
   posts: WebzPost[];
   totalResults: number;
-  requestsLeft: number;
   // This account is billed from a prepaid balance: each response reports
   // what the call cost (it grows with the number of posts returned) and
   // the balance left. It sends no requests_left.
@@ -118,15 +128,11 @@ interface WebzResponse {
   cost: number;
 }
 
-// The News API sends its envelope in snake_case (total_results,
-// requests_left); reading only the camelCase names left the monthly budget
-// guard blind ("undefined calls remaining").
+// The News API sends its envelope in snake_case (total_results).
 interface WebzRawResponse {
   posts?: WebzPost[];
   total_results?: number;
-  requests_left?: number;
   totalResults?: number;
-  requestsLeft?: number;
   balance?: number;
   cost?: number;
 }
@@ -215,25 +221,80 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
 // account's token is issued for. The older "News API Lite" address
 // (/newsApiLite) answers 401 to these tokens. WEBZ_API_URL overrides it.
 const WEBZ_API_URL = process.env.WEBZ_API_URL || "https://api.webz.io/api/news";
-const RESULTS_PER_CALL = 50;
+// Webz.io bills per story returned, so keep this small; the per-player cap
+// (MAX_STORIES_PER_PLAYER) keeps fewer than this anyway.
+const RESULTS_PER_CALL = 10;
+
+// Pages that name our alumni but aren't news about them: fantasy rankings,
+// betting previews, sportsbook promos. Excluded in the query so we don't
+// pay for them. ("odds" and "picks" are left out on purpose - they appear
+// in real stories: "against the odds", "draft picks".)
+const EXCLUDED_TERMS = ["fantasy", "betting", "sportsbook", "\"promo code\"", "\"best bets\"", "\"prop bets\"", "PrizePicks", "DFS"];
+
+// Where a school's search window starts: what Webz.io crawled since that
+// school's last completed run began (less an hour of overlap for posts
+// crawled mid-run), so each story is bought once. A school's first run
+// looks back 3 days; nothing reaches past Webz.io's 31-day limit.
+const WINDOW_OVERLAP_MS = 60 * 60 * 1000;
+const FIRST_RUN_LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
+const MAX_LOOKBACK_MS = 31 * 24 * 60 * 60 * 1000;
+const RUN_SOURCE = "webz";
+const runFeedName = (hsid: string) => `news_ingest_${hsid}`;
+
+async function windowStart(hsid: string): Promise<number> {
+  const { rows } = await pool.query<{ started_at: Date }>(
+    `SELECT started_at FROM public.source_ingest_runs
+      WHERE source = $1 AND feed_name = $2 AND status = 'completed'
+      ORDER BY started_at DESC
+      LIMIT 1`,
+    [RUN_SOURCE, runFeedName(hsid)]
+  );
+  const now = Date.now();
+  const since = rows[0] ? rows[0].started_at.getTime() - WINDOW_OVERLAP_MS : now - FIRST_RUN_LOOKBACK_MS;
+  return Math.max(since, now - MAX_LOOKBACK_MS);
+}
+
+async function startSchoolRun(hsid: string): Promise<string> {
+  const runId = randomUUID();
+  await pool.query(
+    `INSERT INTO public.source_ingest_runs (run_id, source, feed_name, status, started_at)
+     VALUES ($1, $2, $3, 'running', NOW())`,
+    [runId, RUN_SOURCE, runFeedName(hsid)]
+  );
+  return runId;
+}
+
+async function finishSchoolRun(
+  runId: string,
+  status: "completed" | "failed",
+  counts: { received: number; stored: number; matched: number; unmatched: number },
+  notes: Record<string, unknown>
+): Promise<void> {
+  await pool.query(
+    `UPDATE public.source_ingest_runs
+        SET status = $2, completed_at = NOW(),
+            rows_received = $3, rows_stored = $4, rows_matched = $5, rows_unmatched = $6,
+            notes = $7
+      WHERE run_id = $1`,
+    [runId, status, counts.received, counts.stored, counts.matched, counts.unmatched, JSON.stringify(notes)]
+  );
+}
 
 class WebzAuthError extends Error {}
 
 async function fetchWebzNews(
-  queryString: string
+  queryString: string,
+  since: number
 ): Promise<WebzResponse | null> {
-  // Newest first, paging backward from now. Webz.io's crawled sort
-  // defaults to oldest first, so with ts = 30 days ago every run returned
-  // the start of that window (a month-old backlog) and never reached this
-  // week's stories. With order=desc, ts marks the END of the window, so it
-  // is now. Webz caps results at posts published in the last 31 days.
-  // https://docs.webz.io/docs/webz/news-blogs-forums-time-range
+  // Crawled since `since`, oldest first (Webz.io's default for the crawled
+  // sort; ts is the window's start). The window is only as long as the
+  // gap since the last run, so this is this week's news, not a month-old
+  // backlog. https://docs.webz.io/docs/webz/news-blogs-forums-time-range
   const params = new URLSearchParams({
     token: WEBZ_TOKEN,
     q: queryString,
-    ts: String(Date.now()),
+    ts: String(since),
     sort: "crawled",
-    order: "desc",
     format: "json",
     size: String(RESULTS_PER_CALL),
   });
@@ -252,7 +313,6 @@ async function fetchWebzNews(
     return {
       posts: Array.isArray(data.posts) ? data.posts : [],
       totalResults: Number(data.total_results ?? data.totalResults),
-      requestsLeft: Number(data.requests_left ?? data.requestsLeft),
       balance: Number(data.balance),
       cost: Number(data.cost),
     };
@@ -417,7 +477,8 @@ async function main() {
   console.log("=== YAT?STATS News Ingest ===");
   console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}`);
   console.log(`Schools: ${targetHsids.join(", ")}`);
-  console.log(`Window: newest first, back to 31 days`);
+  console.log(`Window: since each school's last completed run`);
+  console.log(`Stories per search: ${RESULTS_PER_CALL}; stop below balance $${MIN_BALANCE.toFixed(2)}`);
   console.log("");
 
   // 1. Ensure table exists
@@ -450,7 +511,6 @@ async function main() {
   let totalArticlesInserted = 0;
   let totalArticlesMatched = 0;
   let totalUnattributed = 0;
-  let requestsLeft: number | null = null;
   let balance: number | null = null;
   let runCost = 0;
   let stoppedForBudget = false;
@@ -461,17 +521,41 @@ async function main() {
   let totalVerified = 0;
   let totalReview = 0;
   let totalRejected = 0;
+  let totalReceived = 0;
 
   schools: for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
       `── School hsid=${hsid} (${schoolPlayers.length} players) ──`
     );
 
+    // This school's run: its search window, and a source_ingest_runs row
+    // that marks where the next run's window starts - only if every batch
+    // was searched, so a stopped or failed run is simply covered again.
+    const since = dryRun ? Date.now() - FIRST_RUN_LOOKBACK_MS : await windowStart(hsid);
+    const runId = dryRun ? null : await startSchoolRun(hsid);
+    const before = { received: totalReceived, stored: totalArticlesInserted, matched: totalArticlesMatched, unmatched: totalUnattributed, cost: runCost };
+    let schoolComplete = true;
+    const finishRun = async () => {
+      if (!runId) return;
+      await finishSchoolRun(
+        runId,
+        schoolComplete ? "completed" : "failed",
+        {
+          received: totalReceived - before.received,
+          stored: totalArticlesInserted - before.stored,
+          matched: totalArticlesMatched - before.matched,
+          unmatched: totalUnattributed - before.unmatched,
+        },
+        { since: new Date(since).toISOString(), cost: Number((runCost - before.cost).toFixed(3)), balance }
+      );
+    };
+    console.log(`  Searching stories crawled since ${new Date(since).toISOString()}`);
+
     // Split into batches of BATCH_SIZE
     for (let i = 0; i < schoolPlayers.length; i += BATCH_SIZE) {
       const batch = schoolPlayers.slice(i, i + BATCH_SIZE);
       const names = batch.map((p) => `"${p.firstname} ${p.lastname}"`);
-      const queryString = `(${names.join(" OR ")}) baseball`;
+      const queryString = `(${names.join(" OR ")}) baseball NOT (${EXCLUDED_TERMS.join(" OR ")})`;
 
       console.log(
         `  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch
@@ -489,16 +573,19 @@ async function main() {
       // either, so stop and fail the run (GitHub emails the failure).
       let data: WebzResponse | null;
       try {
-        data = await fetchWebzNews(queryString);
+        data = await fetchWebzNews(queryString, since);
       } catch (err) {
         console.error(`  ✗ ${(err as Error).message}`);
         process.exitCode = 1;
+        schoolComplete = false;
+        await finishRun();
         break schools;
       }
       totalApiCalls++;
 
       if (!data) {
         failedCalls++;
+        schoolComplete = false;
         console.log(`  ✗ API call failed, skipping batch`);
         continue;
       }
@@ -506,9 +593,9 @@ async function main() {
       console.log(
         `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, cost ${data.cost}, balance ${data.balance})`
       );
-      if (Number.isFinite(data.requestsLeft)) requestsLeft = data.requestsLeft;
       if (Number.isFinite(data.balance)) balance = data.balance;
       if (Number.isFinite(data.cost)) runCost += data.cost;
+      totalReceived += data.posts.length;
 
       // Match and insert each article
       // Gather candidates per player, then keep the best few for each.
@@ -593,11 +680,13 @@ async function main() {
         }
       }
 
-      if (requestsLeft !== null && requestsLeft < MIN_REQUESTS_LEFT) {
+      if (balance !== null && balance < MIN_BALANCE) {
         console.log(
-          `  ! Webz.io reports ${requestsLeft} calls left this month (< ${MIN_REQUESTS_LEFT}); stopping to leave headroom.`
+          `  ! Webz.io balance is $${balance} (< $${MIN_BALANCE.toFixed(2)}); stopping to leave headroom.`
         );
         stoppedForBudget = true;
+        if (i + BATCH_SIZE < schoolPlayers.length) schoolComplete = false;
+        await finishRun();
         break schools;
       }
 
@@ -606,6 +695,7 @@ async function main() {
         await new Promise((r) => setTimeout(r, DELAY_BETWEEN_CALLS_MS));
       }
     }
+    await finishRun();
     console.log("");
   }
 
@@ -626,7 +716,7 @@ async function main() {
   if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
   // Every call failed: fail the run so it's noticed, not a quiet "success".
   if (!dryRun && totalApiCalls > 0 && failedCalls === totalApiCalls) process.exitCode = 1;
-  if (stoppedForBudget) console.log("Stopped early to stay under the monthly Webz.io allowance.");
+  if (stoppedForBudget) console.log("Stopped early to keep some of the monthly Webz.io credits.");
   console.log(
     `(Duplicates skipped via ON CONFLICT DO NOTHING)`
   );
@@ -653,7 +743,7 @@ async function main() {
         `| Identity VERIFIED | ${totalVerified} |`,
         `| Identity REVIEW | ${totalReview} |`,
         `| Identity REJECTED | ${totalRejected} |`,
-        stoppedForBudget ? `| Stopped early | under ${MIN_REQUESTS_LEFT} calls left |` : "",
+        stoppedForBudget ? `| Stopped early | balance under $${MIN_BALANCE.toFixed(2)} |` : "",
         "",
       ].join("\n")
     );
