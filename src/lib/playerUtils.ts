@@ -183,6 +183,22 @@ export type NavItem = { thin: string; bold: string; tab: string };
  * Appends "HIGH SCHOOL" unless the name already contains it,
  * or the name ends with "PREP" or "ACADEMY" (whole-word match at end).
  */
+/**
+ * A player marked RETIRED while still at high-school level graduated
+ * without playing at the next level. He has no card on the school's pages -
+ * not on the high school team (he's graduated) and not with the alumni (he
+ * never played past high school). If he turns up on a college or pro
+ * roster, entering that team brings the card back.
+ */
+export function isRetiredAtHighSchoolLevel(p: Record<string, unknown>): boolean {
+  const status = String(p.status_label ?? p.status ?? "").trim().toUpperCase();
+  if (status !== "RETIRED") return false;
+  return [p.level_label, p.display_level_label, p.level, p.current_level, p.current_level_label].some((value) => {
+    const level = String(value ?? "").trim().toUpperCase();
+    return level === "HIGH SCHOOL" || level === "HS";
+  });
+}
+
 export function formatSchoolName(raw: string): string {
   const u = raw.toUpperCase().trim();
   if (u.includes("HIGH SCHOOL")) return u;

@@ -16,7 +16,7 @@ import {
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, sortAllTimePlayers } from '@/lib/playerUtils';
+import { formatSchoolName, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
 
@@ -230,7 +230,9 @@ export default async function HsidLayout({
     }),
   ]);
 
-  const stageRows = Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : [];
+  const stageRows = (Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : []).filter(
+    (p) => !isRetiredAtHighSchoolLevel(p)
+  );
   const allTimeRosterRows = Array.isArray(rawAllTimeRoster) ? (rawAllTimeRoster as Record<string, unknown>[]) : [];
   const currentRosterRows = stageRows.filter((p) => isHighSchoolStripPlayer(p));
   const collegeCommitCount = currentRosterRows.filter(
