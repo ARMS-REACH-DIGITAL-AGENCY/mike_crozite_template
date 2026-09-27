@@ -89,10 +89,12 @@ export function verifyNewsIdentity(
     };
   }
 
+  // High school is useful context, but it is deliberately NOT a strong
+  // autonomous identity anchor: a Hamilton-area story can mention Hamilton
+  // without proving that a common-name person is our alumnus.
   const anchorCandidates = [
     ["current team", player.currentTeam],
     ["current organization/conference", player.currentOrg],
-    ["high school", player.highSchool],
     ...String(player.collegePath || "")
       .split(";")
       .map((v) => ["career team", v.trim()] as const),
