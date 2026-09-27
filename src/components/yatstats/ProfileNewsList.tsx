@@ -79,9 +79,6 @@ export default function ProfileNewsList({
                 {story.publishedAt ? <span>{formatDate(story.publishedAt)}</span> : null}
               </div>
               <div className="pp-news-headline">{stripHtml(story.title) || "Alumni news"}</div>
-              {story.recap ? (
-                <div className="pp-news-deck">{stripHtml(story.recap)}</div>
-              ) : null}
             </button>
           ))}
         </section>
@@ -179,15 +176,6 @@ export default function ProfileNewsList({
           font:400 22px/1.05 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.02em;
           color:var(--fg,#fff);
-        }
-        .pp-news-deck{
-          margin-top:7px;
-          font:400 12px/1.35 Georgia,"Times New Roman",serif;
-          color:var(--muted,#aaa);
-          display:-webkit-box;
-          -webkit-line-clamp:2;
-          -webkit-box-orient:vertical;
-          overflow:hidden;
         }
         .pp-news-rail-label{
           font:700 10px/1 Oswald,sans-serif;
@@ -310,7 +298,6 @@ export default function ProfileNewsList({
           }
           .pp-news-headline-card{padding:10px}
           .pp-news-headline{font-size:18px}
-          .pp-news-deck{font-size:11px}
           .pp-news-rail-item{padding:8px}
           .pp-news-rail-title{font-size:13px}
           .pp-news-modal-header{padding:14px 14px 12px}
