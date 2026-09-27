@@ -67,10 +67,8 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
   const years = Array.isArray(post.rosterYears) && post.rosterYears.length ? post.rosterYears.slice(0, 4) : [];
   const profileHref =
     post.playerId && name
-      ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(post.playerId)}/${toSlugFromDisplay(name)}#ppTab-news`
+      ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(post.playerId)}/${toSlugFromDisplay(name)}?story=${encodeURIComponent(post.uuid)}#ppTab-news`
       : null;
-  const shareText = encodeURIComponent(`Check out this news about ${name || "our alumni"}: ${headline}`);
-  const shareUrl = encodeURIComponent(post.url);
 
   const onCardClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as Element;
@@ -170,21 +168,6 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
                   {profileHref ? "Original story at " : "READ FULL STORY AT "}
                   {(post.source || "SOURCE").toUpperCase()}
                 </a>
-                <div className="yat-news-back-share">
-                  <span>SHARE:</span>
-                  <a href={`https://x.com/intent/tweet?text=${shareText}&url=${shareUrl}`} target="_blank" rel="noopener noreferrer" aria-label="Share on X">
-                    <i className="ri-twitter-x-line" />
-                  </a>
-                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`} target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook">
-                    <i className="ri-facebook-fill" />
-                  </a>
-                  <a href={`mailto:?subject=${shareText}&body=${shareUrl}`} aria-label="Share by email">
-                    <i className="ri-mail-line" />
-                  </a>
-                  <a href={`sms:?&body=${shareText}%20${shareUrl}`} aria-label="Share by text">
-                    <i className="ri-chat-1-line" />
-                  </a>
-                </div>
               </div>
             </div>
           </div>
@@ -315,6 +298,16 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         {body}
       </div>
       <style>{`
+        .news-card .yat-bg{filter:brightness(.78) saturate(.86)}
+        .news-card .yat-shade{
+          background:linear-gradient(
+            to bottom,
+            rgba(0,0,0,.86) 0%,
+            rgba(0,0,0,.68) 24%,
+            rgba(0,0,0,.38) 55%,
+            rgba(0,0,0,.70) 100%
+          );
+        }
         .news-card .yat-news-front-content{padding:12px;display:flex;flex-direction:column;justify-content:space-between}
         .yat-news-headline-top{
           width:100%;
@@ -404,12 +397,12 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           text-transform:uppercase;
           box-shadow:0 2px 8px rgba(0,0,0,.3);
         }
-        .yat-news-back{padding:20px;display:flex;flex-direction:column;height:100%}
+        .yat-news-back{padding:16px 18px;display:flex;flex-direction:column;height:100%}
         .yat-news-back-label{color:var(--gold);font:400 12px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;margin-bottom:4px}
-        .yat-news-back-title{font:400 18px/1.1 "Bebas Neue",Oswald,sans-serif;color:#fff;margin-bottom:15px}
-        .yat-news-back-body{font:400 14px/1.4 Oswald,sans-serif;color:rgba(255,255,255,.8);flex:1;overflow-y:auto}
-        .yat-news-back-why{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.62);font-size:12px;line-height:1.35}
-        .yat-news-back-actions{margin-top:15px;display:flex;flex-direction:column;gap:10px}
+        .yat-news-back-title{font:400 18px/1.1 "Bebas Neue",Oswald,sans-serif;color:#fff;margin-bottom:12px}
+        .yat-news-back-body{font:400 14px/1.58 Georgia,"Times New Roman",serif;color:rgba(255,255,255,.92);flex:1;overflow-y:auto;padding-right:4px}
+        .yat-news-back-why{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.76);font:italic 12px/1.45 Georgia,"Times New Roman",serif}
+        .yat-news-back-actions{margin-top:10px;display:flex;flex-direction:column;gap:8px}
         .yat-news-back-cta{display:block;background:var(--gold);color:#000;text-align:center;padding:10px;font:400 14px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;border-radius:4px;text-decoration:none}
         .yat-news-back-source{display:block;text-align:center;color:rgba(255,255,255,.7);font:400 12px/1.2 Oswald,sans-serif;text-decoration:underline}
         .yat-news-back-share{display:flex;align-items:center;gap:12px}
