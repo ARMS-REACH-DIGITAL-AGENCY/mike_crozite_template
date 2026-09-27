@@ -298,14 +298,23 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         {body}
       </div>
       <style>{`
-        .news-card .yat-bg{filter:brightness(.78) saturate(.86)}
+        .news-card .yat-bg{
+          filter:brightness(.84) saturate(.88);
+        }
         .news-card .yat-shade{
+          /* Base card CSS only covers the bottom 70%, which created the
+             visible horizontal dark band. News cards need one continuous
+             full-image screen from top to bottom. */
+          top:0;
+          bottom:0;
+          height:auto;
           background:linear-gradient(
             to bottom,
-            rgba(0,0,0,.86) 0%,
-            rgba(0,0,0,.68) 24%,
-            rgba(0,0,0,.38) 55%,
-            rgba(0,0,0,.70) 100%
+            rgba(0,0,0,.76) 0%,
+            rgba(0,0,0,.58) 22%,
+            rgba(0,0,0,.28) 48%,
+            rgba(0,0,0,.40) 72%,
+            rgba(0,0,0,.68) 100%
           );
         }
         .news-card .yat-news-front-content{padding:12px;display:flex;flex-direction:column;justify-content:space-between}
