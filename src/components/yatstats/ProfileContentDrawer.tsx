@@ -225,23 +225,25 @@ export default function ProfileContentDrawer({
           }
         }
 
-        /* YAT?STATS crest screened back in the header's top-right corner,
-           behind the close button. */
+        /* YAT?STATS crest screened back behind the header, the same way
+           the Career Path Timeline shows it (.zt-logo-layer): the same
+           image, large at 15% opacity, bleeding off the right edge so only
+           part of it shows. Same file, so it's already cached on profile
+           pages. */
         .yat-content-drawer__header{position:relative;isolation:isolate;overflow:hidden}
         .yat-content-drawer__header::before{
           content:"";
           position:absolute;
           z-index:-1;
           top:50%;
-          right:-6px;
-          width:150px;
-          height:118px;
+          right:-14%;
+          width:62%;
+          aspect-ratio:1637/1281;
           transform:translateY(-50%);
-          background:url("/img/ys-crest-watermark.webp") center/contain no-repeat;
-          opacity:.1;
+          background:url("/img/ys-crest.png") center/contain no-repeat;
+          opacity:.15;
           pointer-events:none;
         }
-        body.light-theme .yat-content-drawer__header::before{filter:invert(1);opacity:.08}
       `}</style>
     </div>,
     document.body
