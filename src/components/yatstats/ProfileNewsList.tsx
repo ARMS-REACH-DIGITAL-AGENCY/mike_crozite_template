@@ -11,6 +11,9 @@ export type ProfileNewsStory = {
   publishedAt: string | null;
   recap: string | null;
   whyLocal: string | null;
+  imageUrl: string | null;
+  newsworthiness: string;
+  tease: string | null;
 };
 
 const noSubscribe = () => () => {};
@@ -52,8 +55,15 @@ export default function ProfileNewsList({
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
 
-  const topStories = useMemo(() => stories.slice(0, 2), [stories]);
-  const otherStories = useMemo(() => stories.slice(2), [stories]);
+  const topStories = useMemo(
+    () => stories.filter((story) => story.newsworthiness !== "LOW").slice(0, 2),
+    [stories]
+  );
+  const topIds = useMemo(() => new Set(topStories.map((story) => story.uuid)), [topStories]);
+  const otherStories = useMemo(
+    () => stories.filter((story) => !topIds.has(story.uuid)),
+    [stories, topIds]
+  );
 
   if (stories.length === 0) {
     return (
@@ -72,14 +82,23 @@ export default function ProfileNewsList({
             <button
               type="button"
               key={story.uuid}
-              className="pp-news-headline-card"
+              className="pp-news-teaser"
               onClick={() => setOpenUuid(story.uuid)}
             >
-              <div className="pp-news-meta">
-                <span>{(story.source || "News").toUpperCase()}</span>
-                {story.publishedAt ? <span>{formatDate(story.publishedAt)}</span> : null}
+              {story.imageUrl ? (
+                <img className="pp-news-thumb" src={story.imageUrl} alt="" />
+              ) : (
+                <div className="pp-news-thumb pp-news-thumb-fallback">NEWS</div>
+              )}
+              <div className="pp-news-copy">
+                <div className="pp-news-label">YAT?STATS NEWS</div>
+                <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
+                {story.tease ? <div className="pp-news-body">{stripHtml(story.tease)}</div> : null}
+                <div className="pp-news-footer">
+                  {(story.source || "News").toUpperCase()}
+                  {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
+                </div>
               </div>
-              <div className="pp-news-headline">{stripHtml(story.title) || "Alumni news"}</div>
             </button>
           ))}
         </section>
@@ -91,14 +110,26 @@ export default function ProfileNewsList({
               <button
                 type="button"
                 key={story.uuid}
-                className="pp-news-rail-item"
+                className="pp-news-teaser pp-news-teaser-rail"
                 onClick={() => setOpenUuid(story.uuid)}
               >
-                <span className="pp-news-rail-title">{stripHtml(story.title) || "Alumni news"}</span>
-                <span className="pp-news-rail-meta">
-                  {(story.source || "News").toUpperCase()}
-                  {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
-                </span>
+                {story.imageUrl ? (
+                  <img className="pp-news-thumb pp-news-thumb-rail" src={story.imageUrl} alt="" />
+                ) : (
+                  <div className="pp-news-thumb pp-news-thumb-rail pp-news-thumb-fallback">NEWS</div>
+                )}
+                <div className="pp-news-copy">
+                  <div className="pp-news-label">
+                    {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
+                  </div>
+                  <div className="pp-news-title pp-news-title-rail">
+                    {stripHtml(story.title) || "Alumni news"}
+                  </div>
+                  <div className="pp-news-footer">
+                    {(story.source || "News").toUpperCase()}
+                    {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
+                  </div>
+                </div>
               </button>
             ))
           ) : (
@@ -140,32 +171,11 @@ export default function ProfileNewsList({
           min-height:100%;
           align-items:start;
         }
-        .pp-news-main,.pp-news-rail{display:flex;flex-direction:column;gap:10px;min-width:0}
-        .pp-news-headline-card,.pp-news-rail-item{
-          appearance:none;
-          width:100%;
-          text-align:left;
-          cursor:pointer;
-          color:inherit;
-          border:1px solid var(--line,rgba(255,255,255,.14));
-          background:rgba(255,255,255,.035);
-          border-radius:8px;
-        }
-        .pp-news-headline-card{padding:13px 14px}
-        .pp-news-headline-card:hover,.pp-news-rail-item:hover{border-color:var(--gold,#ffc107)}
-        .pp-news-meta{
+        .pp-news-main,.pp-news-rail{
           display:flex;
-          justify-content:space-between;
+          flex-direction:column;
           gap:10px;
-          font:400 10px/1.2 Oswald,sans-serif;
-          letter-spacing:.06em;
-          color:var(--muted,#999);
-          margin-bottom:5px;
-        }
-        .pp-news-headline{
-          font:400 22px/1.05 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.02em;
-          color:var(--fg,#fff);
+          min-width:0;
         }
         .pp-news-rail-label{
           font:700 10px/1 Oswald,sans-serif;
@@ -173,17 +183,90 @@ export default function ProfileNewsList({
           color:var(--gold,#ffc107);
           padding:2px 2px 0;
         }
-        .pp-news-rail-item{
-          padding:9px 10px;
+        .pp-news-teaser{
+          appearance:none;
+          width:100%;
           display:flex;
+          align-items:flex-start;
+          gap:10px;
+          min-width:0;
+          padding:8px;
+          text-align:left;
+          cursor:pointer;
+          border:1px solid rgba(30,22,14,.18);
+          border-radius:8px;
+          background:rgba(255,255,255,.18);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
+          color:inherit;
+        }
+        .pp-news-teaser:hover{
+          border-color:var(--gold,#ffc107);
+        }
+        .pp-news-thumb{
+          display:block;
+          flex:0 0 auto;
+          width:68px;
+          height:88px;
+          object-fit:cover;
+          border-radius:8px;
+          border:1px solid rgba(30,22,14,.18);
+          box-shadow:0 1px 3px rgba(0,0,0,.12);
+          background:rgba(30,22,14,.06);
+        }
+        .pp-news-thumb-fallback{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font:700 11px "Bebas Neue",sans-serif;
+          letter-spacing:.08em;
+          color:rgba(30,22,14,.55);
+        }
+        .pp-news-copy{
+          display:flex;
+          flex:1;
+          min-width:0;
           flex-direction:column;
-          gap:5px;
+          gap:4px;
         }
-        .pp-news-rail-title{
-          font:400 15px/1.08 "Bebas Neue",Oswald,sans-serif;
-          color:var(--fg,#fff);
+        .pp-news-label{
+          font:700 8px/1 Oswald,sans-serif;
+          letter-spacing:.1em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,.5);
         }
-        .pp-news-rail-meta,.pp-news-rail-empty{
+        .pp-news-title{
+          font:700 17px/1.12 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.03em;
+          color:rgba(30,22,14,.9);
+        }
+        .pp-news-body{
+          font:400 12px/1.35 Georgia,"Times New Roman",serif;
+          color:rgba(30,22,14,.82);
+          display:-webkit-box;
+          -webkit-line-clamp:2;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
+        }
+        .pp-news-footer{
+          font:700 9px/1.2 Oswald,sans-serif;
+          letter-spacing:.06em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,.5);
+        }
+        .pp-news-teaser-rail{
+          gap:7px;
+          padding:6px;
+        }
+        .pp-news-thumb-rail{
+          width:48px;
+          height:62px;
+          border-radius:6px;
+        }
+        .pp-news-title-rail{
+          font-size:13px;
+          line-height:1.08;
+        }
+        .pp-news-rail-empty{
           font:400 9px/1.2 Oswald,sans-serif;
           color:var(--muted,#999);
           letter-spacing:.04em;
@@ -218,10 +301,12 @@ export default function ProfileNewsList({
             padding-left:8px;
             padding-right:8px;
           }
-          .pp-news-headline-card{padding:10px}
-          .pp-news-headline{font-size:18px}
-          .pp-news-rail-item{padding:8px}
-          .pp-news-rail-title{font-size:13px}
+          .pp-news-teaser{gap:7px;padding:6px}
+          .pp-news-thumb{width:58px;height:76px}
+          .pp-news-title{font-size:14px}
+          .pp-news-body{font-size:10px}
+          .pp-news-thumb-rail{width:42px;height:54px}
+          .pp-news-title-rail{font-size:12px}
           .pp-news-reader-copy{font-size:14px;line-height:1.65}
         }
       `}</style>
