@@ -714,7 +714,7 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── NEWS tab ─────────────────────────────────────────────────────── */}
         <div id="ppTab-news" className="pp-fz-panel">
-          <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} />
+          <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} />
         </div>
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import CardPhoto from "./CardPhoto";
+import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 
@@ -43,10 +44,13 @@ export default function ProfileNewsList({
   stories,
   firstName,
   playerId,
+  playerName,
 }: {
   stories: ProfileNewsStory[];
   firstName: string;
   playerId: string;
+  // Bolded in each story's copy; not linked - this is his profile already.
+  playerName: string;
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
@@ -91,7 +95,7 @@ export default function ProfileNewsList({
                 {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
               </div>
               <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
-              {story.tease ? <div className="pp-news-body">{stripHtml(story.tease)}</div> : null}
+              {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), playerName)}</div> : null}
               <div className="pp-news-footer">
                 {(story.source || "News").toUpperCase()}
                 {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
@@ -121,7 +125,7 @@ export default function ProfileNewsList({
           ) : null
         }
       >
-        {openStory?.recap ? <p className="pp-news-reader-copy">{stripHtml(openStory.recap)}</p> : null}
+        {openStory?.recap ? <p className="pp-news-reader-copy">{markPlayerName(stripHtml(openStory.recap), playerName)}</p> : null}
       </ProfileContentDrawer>
 
       <style>{`

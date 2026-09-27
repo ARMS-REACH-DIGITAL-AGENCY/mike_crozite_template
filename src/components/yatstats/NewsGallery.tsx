@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CardPhoto from "@/components/yatstats/CardPhoto";
+import { markPlayerName } from "@/components/yatstats/PlayerNameMentions";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { toSlugFromDisplay } from "@/lib/slug";
 
@@ -82,10 +83,11 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
   );
   const photoSrcs = getNewsPhotoSrcs(post.playerId, post.imageUrl);
   const years = Array.isArray(post.rosterYears) && post.rosterYears.length ? post.rosterYears.slice(0, 4) : [];
-  const profileHref =
+  const playerHref =
     post.playerId && name
-      ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(post.playerId)}/${toSlugFromDisplay(name)}?story=${encodeURIComponent(post.uuid)}#ppTab-news`
+      ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(post.playerId)}/${toSlugFromDisplay(name)}`
       : null;
+  const profileHref = playerHref ? `${playerHref}?story=${encodeURIComponent(post.uuid)}#ppTab-news` : null;
 
   const onCardClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as Element;
@@ -166,21 +168,15 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
           <div className="yat-face yat-back">
             <div className="news-back-content yat-news-back">
               <div className="yat-news-back-label">YAT?STATS LOCAL RECAP</div>
-              <div className="yat-news-back-body">{recap}</div>
+              <div className="yat-news-back-body">{markPlayerName(recap, name, playerHref)}</div>
               <div className="yat-news-back-actions">
                 {profileHref ? (
                   <a className="yat-news-back-cta" href={profileHref}>
-                    READ MORE ON {first.toUpperCase() || "HIS"}&apos;S PROFILE
+                    {first.toUpperCase() || "PLAYER"}&apos;S PROFILE <span aria-hidden="true">&rsaquo;</span>
                   </a>
                 ) : null}
-                <a
-                  className={profileHref ? "yat-news-back-source" : "yat-news-back-cta"}
-                  href={post.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {profileHref ? "Original story at " : "READ FULL STORY AT "}
-                  {(post.source || "SOURCE").toUpperCase()}
+                <a className="yat-news-back-source" href={post.url} target="_blank" rel="noopener noreferrer">
+                  {(post.source || "Original story").toUpperCase()} <i className="ri-external-link-line" />
                 </a>
               </div>
             </div>
@@ -427,12 +423,32 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           text-transform:uppercase;
           box-shadow:0 2px 8px rgba(0,0,0,.3);
         }
+        /* Card back follows the site theme: dark by default, light paper
+           in light mode. */
+        .news-card .yat-back{
+          --news-back-bg:#111;
+          --news-back-fg:rgba(255,255,255,.92);
+          --news-back-muted:rgba(255,255,255,.62);
+          --news-back-label:var(--gold,#ffc107);
+          --news-back-rule:rgba(255,255,255,.14);
+        }
+        body.light-theme .news-card .yat-back{
+          background:#fbf9f4;
+          --news-back-bg:#fbf9f4;
+          --news-back-fg:rgba(18,18,18,.9);
+          --news-back-muted:rgba(18,18,18,.58);
+          --news-back-label:#9a6f00;
+          --news-back-rule:rgba(0,0,0,.12);
+        }
+        .news-card .news-back-content{background:var(--news-back-bg);color:var(--news-back-fg)}
         .yat-news-back{padding:16px 18px;display:flex;flex-direction:column;height:100%}
-        .yat-news-back-label{color:var(--gold);font:700 11px/1 Oswald,sans-serif;letter-spacing:.1em;margin-bottom:12px}
-        .yat-news-back-body{font:400 15px/1.5 var(--yat-news-font);color:rgba(255,255,255,.92);flex:1;overflow-y:auto;padding-right:4px;padding-bottom:18px;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
-        .yat-news-back-actions{margin-top:10px;display:flex;flex-direction:column;gap:8px}
-        .yat-news-back-cta{display:block;background:var(--gold);color:#000;text-align:center;padding:10px;font:400 14px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;border-radius:4px;text-decoration:none}
-        .yat-news-back-source{display:block;text-align:center;color:rgba(255,255,255,.7);font:400 12px/1.2 Oswald,sans-serif;text-decoration:underline}
+        .yat-news-back-label{color:var(--news-back-label);font:700 11px/1 Oswald,sans-serif;letter-spacing:.1em;margin-bottom:12px}
+        .yat-news-back-body{font:400 15px/1.5 var(--yat-news-font);color:var(--news-back-fg);flex:1;overflow-y:auto;padding-right:4px;padding-bottom:18px;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
+        .yat-news-player-mention{color:inherit;font-weight:700}
+        a.yat-news-player-mention{text-decoration:underline;text-decoration-color:var(--gold,#ffc107);text-decoration-thickness:2px;text-underline-offset:3px}
+        .yat-news-back-actions{margin-top:10px;padding-top:10px;border-top:1px solid var(--news-back-rule);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px}
+        .yat-news-back-cta{display:inline-flex;align-items:center;gap:5px;background:var(--gold);color:#000;padding:6px 10px;font:700 10px/1 Oswald,sans-serif;letter-spacing:.08em;border-radius:4px;text-decoration:none;white-space:nowrap}
+        .yat-news-back-source{display:inline-flex;align-items:center;gap:4px;min-width:0;color:var(--news-back-muted);font:500 10px/1.2 Oswald,sans-serif;letter-spacing:.05em;text-decoration:none;overflow-wrap:break-word}
         .yat-news-back-share{display:flex;align-items:center;gap:12px}
         .yat-news-back-share span{font:400 12px "Bebas Neue",Oswald,sans-serif;color:rgba(255,255,255,.5)}
         .yat-news-back-share a{background:rgba(255,255,255,.1);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none}
