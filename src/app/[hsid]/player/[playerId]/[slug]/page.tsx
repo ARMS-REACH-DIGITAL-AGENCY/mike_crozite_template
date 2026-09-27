@@ -169,7 +169,11 @@ export default async function ProfilePage({ params }: Props) {
       (row.playerid
         ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
         : null),
-    newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
+    newsworthiness:
+      !row.verification_evidence?.nameInHeadline &&
+      Number(row.verification_evidence?.nameMentions ?? 0) <= 1
+        ? "LOW"
+        : String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
       row.tease_json?.body ??
       row.gallery_back_json?.why_local ??
