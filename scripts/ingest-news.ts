@@ -78,6 +78,7 @@ interface PlayerRow {
   current_org: string | null;
   current_level: string | null;
   college_path: string | null;
+  career_teams: string | null;
 }
 
 interface WebzPost {
@@ -173,7 +174,8 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
        f.current_team_name AS current_team,
        f.current_org_or_conference_name AS current_org,
        f.level_label AS current_level,
-       ctx.college_path_text AS college_path
+       ctx.college_path_text AS college_path,
+       ctx.career_team_names AS career_teams
      FROM flip_card_front_stage f
      LEFT JOIN tbc_players_raw tp ON tp.playerid::text = f.playerid::text
      LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = f.playerid::text
@@ -511,7 +513,7 @@ async function main() {
               currentTeam: player.current_team,
               currentOrg: player.current_org,
               currentLevel: player.current_level,
-              collegePath: player.college_path,
+              collegePath: [player.college_path, player.career_teams].filter(Boolean).join("; "),
             }
           );
 
