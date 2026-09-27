@@ -119,6 +119,15 @@ export default function ProfileContentDrawer({
           cursor:pointer;
         }
         .yat-content-drawer__sheet{
+          --yat-content-drawer-bg:#111;
+          --yat-content-drawer-header-start:#171717;
+          --yat-content-drawer-header-end:#111;
+          --yat-content-drawer-fg:#fff;
+          --yat-content-drawer-copy:rgba(255,255,255,.94);
+          --yat-content-drawer-muted:rgba(255,255,255,.58);
+          --yat-content-drawer-border:rgba(255,255,255,.12);
+          --yat-content-drawer-close-bg:rgba(255,255,255,.04);
+          --yat-content-drawer-media-bg:#080808;
           position:absolute;
           z-index:1;
           top:0;
@@ -126,14 +135,27 @@ export default function ProfileContentDrawer({
           width:min(var(--yat-content-drawer-max,580px),92vw);
           height:100dvh;
           min-height:100dvh;
-          background:#111;
-          color:#fff;
+          background:var(--yat-content-drawer-bg);
+          color:var(--yat-content-drawer-fg);
           display:flex;
           flex-direction:column;
           box-shadow:-18px 0 48px rgba(0,0,0,.48);
           border-left:1px solid rgba(255,193,7,.28);
           overflow:hidden;
           animation:yatDrawerIn .18s ease-out both;
+        }
+        body.light-theme .yat-content-drawer__sheet{
+          --yat-content-drawer-bg:#f4efe5;
+          --yat-content-drawer-header-start:#fffdf8;
+          --yat-content-drawer-header-end:#f4efe5;
+          --yat-content-drawer-fg:#1f1a13;
+          --yat-content-drawer-copy:rgba(31,26,19,.92);
+          --yat-content-drawer-muted:rgba(31,26,19,.58);
+          --yat-content-drawer-border:rgba(61,47,28,.16);
+          --yat-content-drawer-close-bg:rgba(31,26,19,.04);
+          --yat-content-drawer-media-bg:#e9e1d3;
+          box-shadow:-18px 0 48px rgba(50,38,24,.22);
+          border-left-color:rgba(183,134,0,.38);
         }
         @keyframes yatDrawerIn{
           from{transform:translateX(24px);opacity:.5}
@@ -144,9 +166,9 @@ export default function ProfileContentDrawer({
           justify-content:space-between;
           gap:14px;
           padding:18px 18px 14px;
-          border-bottom:1px solid rgba(255,255,255,.12);
+          border-bottom:1px solid var(--yat-content-drawer-border);
           flex:0 0 auto;
-          background:linear-gradient(180deg,#171717,#111);
+          background:linear-gradient(180deg,var(--yat-content-drawer-header-start),var(--yat-content-drawer-header-end));
         }
         .yat-content-drawer__heading{min-width:0}
         .yat-content-drawer__kicker{
@@ -165,15 +187,15 @@ export default function ProfileContentDrawer({
           margin-top:7px;
           font:400 10px/1.2 Oswald,sans-serif;
           letter-spacing:.06em;
-          color:rgba(255,255,255,.55);
+          color:var(--yat-content-drawer-muted);
         }
         .yat-content-drawer__close{
           width:38px;
           height:38px;
-          border:1px solid rgba(255,255,255,.14);
+          border:1px solid var(--yat-content-drawer-border);
           border-radius:50%;
-          background:rgba(255,255,255,.04);
-          color:#fff;
+          background:var(--yat-content-drawer-close-bg);
+          color:var(--yat-content-drawer-fg);
           font:300 28px/1 Arial,sans-serif;
           cursor:pointer;
           padding:0 0 2px;
@@ -182,7 +204,7 @@ export default function ProfileContentDrawer({
         }
         .yat-content-drawer__actions{
           flex:0 0 auto;
-          border-bottom:1px solid rgba(255,255,255,.10);
+          border-bottom:1px solid var(--yat-content-drawer-border);
           padding:8px 14px;
         }
         .yat-content-drawer__content{
@@ -197,9 +219,9 @@ export default function ProfileContentDrawer({
         }
         .yat-content-drawer__media{
           max-height:42dvh;
-          background:#080808;
+          background:var(--yat-content-drawer-media-bg);
           overflow:auto;
-          border-bottom:1px solid rgba(255,255,255,.1);
+          border-bottom:1px solid var(--yat-content-drawer-border);
         }
         .yat-content-drawer__scroll{
           min-height:0;
