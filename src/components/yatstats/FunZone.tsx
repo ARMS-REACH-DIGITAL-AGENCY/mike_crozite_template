@@ -293,7 +293,7 @@ if (!cancelled) {
       } catch (error) {
         console.error("FunZone news fetch error:", error);
         if (!cancelled) {
-  setFeaturedNews(null);
+  setFeaturedNews([]);
 }
       } finally {
         if (!cancelled) {
