@@ -169,23 +169,30 @@ function sourceDomain(row: CandidateRow): string {
   }
 }
 
-function sourceText(row: CandidateRow): string {
+// Every text field the story came with, best first: the provider summary,
+// then the highlight, snippet and full text. The summary is often generic,
+// so the recap looks further down when it says nothing about him.
+function sourceTexts(row: CandidateRow): string[] {
   const raw = row.raw_payload && typeof row.raw_payload === "object" ? row.raw_payload : {};
-  return cleanText(
-    row.summary ||
-      raw.summary ||
-      raw.highlightText ||
-      row.snippet ||
-      raw.text ||
-      ""
-  );
+  const texts = [row.summary, raw.summary, raw.highlightText, row.snippet, raw.text]
+    .map((value) => cleanText(value || ""))
+    .filter(Boolean);
+  return Array.from(new Set(texts));
 }
 
 // Clean sentences about him, in article order: ones that name him (full
 // name, or last name if it's distinctive), each optionally followed by one
 // that continues about him ("He...", "His..."). At most three.
+// Uses the first text field that has a clean sentence about him.
 function selectPlayerContext(row: CandidateRow, fullName: string, lastName: string): string[] {
-  const text = sourceText(row);
+  for (const text of sourceTexts(row)) {
+    const selected = selectContextFrom(text, fullName, lastName);
+    if (selected.length > 0) return selected;
+  }
+  return [];
+}
+
+function selectContextFrom(text: string, fullName: string, lastName: string): string[] {
   const sentences = sentenceList(text);
   const full = fullName.toLowerCase();
   // Last name alone counts only as a capitalized word in a story that also
