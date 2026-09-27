@@ -111,6 +111,11 @@ interface WebzResponse {
   posts: WebzPost[];
   totalResults: number;
   requestsLeft: number;
+  // This account is billed from a prepaid balance: each response reports
+  // what the call cost (it grows with the number of posts returned) and
+  // the balance left. It sends no requests_left.
+  balance: number;
+  cost: number;
 }
 
 // The News API sends its envelope in snake_case (total_results,
@@ -122,6 +127,8 @@ interface WebzRawResponse {
   requests_left?: number;
   totalResults?: number;
   requestsLeft?: number;
+  balance?: number;
+  cost?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -242,18 +249,12 @@ async function fetchWebzNews(
       return null;
     }
     const data = (await res.json()) as WebzRawResponse;
-    // Where does this plan report the calls left? Log the envelope's field
-    // names and any quota-looking headers. Values only for numeric fields:
-    // "next" carries our token.
-    const envelope = Object.fromEntries(
-      Object.entries(data).filter(([key]) => key !== "posts").map(([key, value]) => [key, typeof value === "number" ? value : typeof value])
-    );
-    const quotaHeaders = [...res.headers.entries()].filter(([name]) => /request|quota|credit|limit/i.test(name));
-    console.log(`  Webz.io envelope: ${JSON.stringify(envelope)} headers: ${JSON.stringify(quotaHeaders)}`);
     return {
       posts: Array.isArray(data.posts) ? data.posts : [],
       totalResults: Number(data.total_results ?? data.totalResults),
       requestsLeft: Number(data.requests_left ?? data.requestsLeft),
+      balance: Number(data.balance),
+      cost: Number(data.cost),
     };
   } catch (err) {
     if (err instanceof WebzAuthError) throw err;
@@ -450,6 +451,8 @@ async function main() {
   let totalArticlesMatched = 0;
   let totalUnattributed = 0;
   let requestsLeft: number | null = null;
+  let balance: number | null = null;
+  let runCost = 0;
   let stoppedForBudget = false;
   let failedCalls = 0;
   let totalOffTopic = 0;
@@ -501,9 +504,11 @@ async function main() {
       }
 
       console.log(
-        `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, ${data.requestsLeft} calls remaining)`
+        `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, cost ${data.cost}, balance ${data.balance})`
       );
       if (Number.isFinite(data.requestsLeft)) requestsLeft = data.requestsLeft;
+      if (Number.isFinite(data.balance)) balance = data.balance;
+      if (Number.isFinite(data.cost)) runCost += data.cost;
 
       // Match and insert each article
       // Gather candidates per player, then keep the best few for each.
@@ -616,7 +621,8 @@ async function main() {
   console.log(`Identity VERIFIED:    ${totalVerified}`);
   console.log(`Identity REVIEW:      ${totalReview}`);
   console.log(`Identity REJECTED:    ${totalRejected}`);
-  console.log(`Webz.io calls left this month: ${requestsLeft ?? "unknown"}`);
+  console.log(`Webz.io cost this run: ${runCost.toFixed(3)}`);
+  console.log(`Webz.io balance left: ${balance ?? "unknown"}`);
   if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
   // Every call failed: fail the run so it's noticed, not a quiet "success".
   if (!dryRun && totalApiCalls > 0 && failedCalls === totalApiCalls) process.exitCode = 1;
@@ -636,7 +642,8 @@ async function main() {
         `| Schools | ${targetHsids.join(", ")} |`,
         `| Active alumni searched | ${players.length} |`,
         `| Webz.io calls made | ${totalApiCalls} |`,
-        `| Webz.io calls left this month | ${requestsLeft ?? "unknown"} |`,
+        `| Webz.io cost this run | ${runCost.toFixed(3)} |`,
+        `| Webz.io balance left | ${balance ?? "unknown"} |`,
         `| Stories matched to an alum | ${totalArticlesMatched} |`,
         `| New stories saved | ${totalArticlesInserted} |`,
         `| Search hits naming no alum (skipped) | ${totalUnattributed} |`,
