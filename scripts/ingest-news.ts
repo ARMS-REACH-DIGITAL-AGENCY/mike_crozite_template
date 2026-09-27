@@ -29,6 +29,7 @@
 
 import { appendFileSync } from "fs";
 import { Pool } from "pg";
+import { verifyNewsIdentity, type VerificationResult } from "./lib/newsIdentity";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -70,6 +71,14 @@ interface PlayerRow {
   firstname: string;
   lastname: string;
   hsid: string;
+  high_school: string | null;
+  class_of: string | null;
+  position: string | null;
+  current_team: string | null;
+  current_org: string | null;
+  current_level: string | null;
+  college_path: string | null;
+  career_teams: string | null;
 }
 
 interface WebzPost {
@@ -83,7 +92,14 @@ interface WebzPost {
   published: string;
   sentiment: string;
   categories: string[];
+  summary?: string;
+  entities?: {
+    persons?: unknown[];
+    organizations?: unknown[];
+  };
+  topics?: string[];
   thread: {
+    uuid?: string;
     site: string;
     site_full: string;
     main_image: string;
@@ -151,9 +167,18 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
        f.playerid::text AS playerid,
        TRIM(COALESCE(f.first_name, tp.firstname)) AS firstname,
        TRIM(COALESCE(f.last_name, tp.lastname)) AS lastname,
-       f.hsid::text AS hsid
+       f.hsid::text AS hsid,
+       COALESCE(ctx.high_school, tp.high_school) AS high_school,
+       f.class_of::text AS class_of,
+       COALESCE(NULLIF(TRIM(f.position), ''), tp.posit) AS position,
+       f.current_team_name AS current_team,
+       f.current_org_or_conference_name AS current_org,
+       f.level_label AS current_level,
+       ctx.college_path_text AS college_path,
+       ctx.career_team_names AS career_teams
      FROM flip_card_front_stage f
      LEFT JOIN tbc_players_raw tp ON tp.playerid::text = f.playerid::text
+     LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = f.playerid::text
      WHERE f.hsid::text = ANY($1::text[])
        AND NULLIF(TRIM(f.status_label), '') IS NOT NULL
        AND UPPER(TRIM(f.status_label)) NOT IN ('RETIRED', 'FREE AGENT', 'UNCOMMITTED', 'COMMIT', 'NOT ACTIVE')
@@ -280,16 +305,45 @@ async function existingTitles(playerid: string): Promise<Set<string>> {
 
 async function insertArticle(
   post: WebzPost,
-  player: PlayerRow
+  player: PlayerRow,
+  verification: VerificationResult
 ): Promise<boolean> {
   try {
+    const playerFallbackImage =
+      `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(player.playerid)}.jpg`;
+
     const result = await pool.query(
       `INSERT INTO news_articles
         (uuid, playerid, player_name, hsid, title, source, source_full,
          published_at, url, image_url, snippet, sentiment, categories,
-         country, domain_rank)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-       ON CONFLICT (uuid) DO NOTHING`,
+         country, domain_rank, summary, discovery_source, raw_payload,
+         webz_persons, webz_organizations, webz_topics, syndication_id,
+         verification_status, verification_score, verification_reason,
+         verification_evidence, newsworthiness, image_verification_status,
+         display_image_url, verified_at)
+       VALUES (
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+         $16,'webz',$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
+         'FALLBACK_PLAYER',$27,
+         CASE WHEN $22 = 'VERIFIED' THEN NOW() ELSE NULL END
+       )
+       ON CONFLICT (uuid) DO UPDATE SET
+         raw_payload = EXCLUDED.raw_payload,
+         webz_persons = EXCLUDED.webz_persons,
+         webz_organizations = EXCLUDED.webz_organizations,
+         webz_topics = EXCLUDED.webz_topics,
+         syndication_id = COALESCE(EXCLUDED.syndication_id, news_articles.syndication_id),
+         verification_status = EXCLUDED.verification_status,
+         verification_score = EXCLUDED.verification_score,
+         verification_reason = EXCLUDED.verification_reason,
+         verification_evidence = EXCLUDED.verification_evidence,
+         newsworthiness = EXCLUDED.newsworthiness,
+         display_image_url = COALESCE(news_articles.display_image_url, EXCLUDED.display_image_url),
+         verified_at = CASE
+           WHEN EXCLUDED.verification_status = 'VERIFIED'
+             THEN COALESCE(news_articles.verified_at, NOW())
+           ELSE NULL
+         END`,
       [
         post.uuid,
         player.playerid,
@@ -306,11 +360,23 @@ async function insertArticle(
         post.categories || [],
         post.thread?.country || null,
         post.thread?.domain_rank || null,
+        post.summary || null,
+        JSON.stringify(post),
+        JSON.stringify(post.entities?.persons || []),
+        JSON.stringify(post.entities?.organizations || []),
+        post.topics || [],
+        post.thread?.uuid || null,
+        verification.status,
+        verification.score,
+        verification.reason,
+        JSON.stringify(verification.evidence),
+        verification.newsworthiness,
+        playerFallbackImage,
       ]
     );
     return (result.rowCount ?? 0) > 0;
   } catch (err) {
-    console.error(`  DB insert error for uuid=${post.uuid}:`, err);
+    console.error(`  DB insert/update error for uuid=${post.uuid}:`, err);
     return false;
   }
 }
@@ -361,6 +427,9 @@ async function main() {
   let totalOffTopic = 0;
   let totalDuplicateTitles = 0;
   let totalOverCap = 0;
+  let totalVerified = 0;
+  let totalReview = 0;
+  let totalRejected = 0;
 
   schools: for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
@@ -410,7 +479,7 @@ async function main() {
 
       // Match and insert each article
       // Gather candidates per player, then keep the best few for each.
-      const candidates = new Map<string, { player: PlayerRow; post: WebzPost; headline: boolean }[]>();
+      const candidates = new Map<string, { player: PlayerRow; post: WebzPost; headline: boolean; verification: VerificationResult }[]>();
       for (const post of data.posts) {
         const matchedPlayers = matchPlayerToArticle(post, schoolPlayers);
 
@@ -426,8 +495,35 @@ async function main() {
         }
 
         for (const player of matchedPlayers) {
+          const verification = verifyNewsIdentity(
+            {
+              title: post.title,
+              text: post.text || post.highlightText,
+              summary: post.summary,
+              source: post.thread?.site_full || post.thread?.site,
+            },
+            {
+              playerid: player.playerid,
+              firstname: player.firstname,
+              lastname: player.lastname,
+              hsid: player.hsid,
+              highSchool: player.high_school,
+              classOf: player.class_of,
+              position: player.position,
+              currentTeam: player.current_team,
+              currentOrg: player.current_org,
+              currentLevel: player.current_level,
+              collegePath: [player.college_path, player.career_teams].filter(Boolean).join("; "),
+            }
+          );
+
           const list = candidates.get(player.playerid) ?? [];
-          list.push({ player, post, headline: nameInHeadline(post, player) });
+          list.push({
+            player,
+            post,
+            headline: nameInHeadline(post, player),
+            verification,
+          });
           candidates.set(player.playerid, list);
         }
       }
@@ -441,7 +537,7 @@ async function main() {
             (a.post.thread?.domain_rank ?? 1e9) - (b.post.thread?.domain_rank ?? 1e9)
         );
         let kept = 0;
-        for (const { player, post } of ranked) {
+        for (const { player, post, verification } of ranked) {
           const key = normalizeTitle(post.title);
           if (!key || seen.has(key)) {
             totalDuplicateTitles++;
@@ -452,7 +548,10 @@ async function main() {
             continue;
           }
           seen.add(key);
-          const inserted = await insertArticle(post, player);
+          const inserted = await insertArticle(post, player, verification);
+          if (verification.status === "VERIFIED") totalVerified++;
+          else if (verification.status === "REVIEW") totalReview++;
+          else totalRejected++;
           if (inserted) {
             totalArticlesInserted++;
             kept++;
@@ -486,6 +585,9 @@ async function main() {
   console.log(`Not a baseball story (skipped): ${totalOffTopic}`);
   console.log(`Same headline already saved (skipped): ${totalDuplicateTitles}`);
   console.log(`Over ${MAX_STORIES_PER_PLAYER} per player this run (skipped): ${totalOverCap}`);
+  console.log(`Identity VERIFIED:    ${totalVerified}`);
+  console.log(`Identity REVIEW:      ${totalReview}`);
+  console.log(`Identity REJECTED:    ${totalRejected}`);
   console.log(`Webz.io calls left this month: ${requestsLeft ?? "unknown"}`);
   if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
   // Every call failed: fail the run so it's noticed, not a quiet "success".
@@ -513,6 +615,9 @@ async function main() {
         `| Not a baseball story (skipped) | ${totalOffTopic} |`,
         `| Same headline already saved (skipped) | ${totalDuplicateTitles} |`,
         `| Over ${MAX_STORIES_PER_PLAYER} per player (skipped) | ${totalOverCap} |`,
+        `| Identity VERIFIED | ${totalVerified} |`,
+        `| Identity REVIEW | ${totalReview} |`,
+        `| Identity REJECTED | ${totalRejected} |`,
         stoppedForBudget ? `| Stopped early | under ${MIN_REQUESTS_LEFT} calls left |` : "",
         "",
       ].join("\n")
