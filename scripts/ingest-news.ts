@@ -114,6 +114,17 @@ interface WebzResponse {
   requestsLeft: number;
 }
 
+// The News API sends its envelope in snake_case (total_results,
+// requests_left); reading only the camelCase names left the monthly budget
+// guard blind ("undefined calls remaining").
+interface WebzRawResponse {
+  posts?: WebzPost[];
+  total_results?: number;
+  requests_left?: number;
+  totalResults?: number;
+  requestsLeft?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Database helpers
 // ---------------------------------------------------------------------------
@@ -211,6 +222,10 @@ async function fetchWebzNews(
     q: queryString,
     ts: String(ts),
     sort: "crawled",
+    // Newest first. Webz.io's crawled sort defaults to oldest first, so
+    // every run returned the start of the 30-day window (a month-old
+    // backlog) and never reached this week's stories.
+    order: "desc",
     format: "json",
     size: String(RESULTS_PER_CALL),
   });
@@ -225,8 +240,12 @@ async function fetchWebzNews(
       console.error(`  Webz.io API error: ${res.status} ${res.statusText}`);
       return null;
     }
-    const data = (await res.json()) as WebzResponse;
-    return { ...data, posts: Array.isArray(data.posts) ? data.posts : [] };
+    const data = (await res.json()) as WebzRawResponse;
+    return {
+      posts: Array.isArray(data.posts) ? data.posts : [],
+      totalResults: Number(data.total_results ?? data.totalResults),
+      requestsLeft: Number(data.requests_left ?? data.requestsLeft),
+    };
   } catch (err) {
     if (err instanceof WebzAuthError) throw err;
     console.error(`  Webz.io fetch error:`, err);
@@ -475,7 +494,7 @@ async function main() {
       console.log(
         `  ✓ ${data.posts.length} articles returned (${data.totalResults} total, ${data.requestsLeft} calls remaining)`
       );
-      if (typeof data.requestsLeft === "number") requestsLeft = data.requestsLeft;
+      if (Number.isFinite(data.requestsLeft)) requestsLeft = data.requestsLeft;
 
       // Match and insert each article
       // Gather candidates per player, then keep the best few for each.
