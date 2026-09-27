@@ -315,22 +315,116 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         {body}
       </div>
       <style>{`
+        .news-card .yat-news-front-content{padding:12px;display:flex;flex-direction:column;justify-content:space-between}
+        .yat-news-headline-top{
+          width:100%;
+          font:400 21px/1.05 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.025em;
+          text-transform:uppercase;
+          color:#fff;
+          text-shadow:1px 1px 4px rgba(0,0,0,.8);
+          padding:1px 2px 8px;
+          border-bottom:2px solid var(--gold);
+        }
+        .yat-news-front-bottom-row{
+          width:100%;
+          display:grid;
+          grid-template-columns:minmax(0,1fr) minmax(86px,40%);
+          align-items:end;
+          gap:8px;
+        }
+        .yat-news-player-meta{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+        .news-card .yat-news-player-name{
+          font-size:20px;
+          line-height:.88;
+          margin-bottom:4px;
+        }
+        .news-card .yat-front-team-name{
+          font:500 12px/1.05 Oswald,sans-serif;
+          color:#fff;
+          text-shadow:1px 1px 3px rgba(0,0,0,.75);
+          text-transform:none;
+        }
+        .news-card .yat-front-org-name{
+          margin-top:2px;
+          font:400 9px/1.1 Oswald,sans-serif;
+          color:rgba(255,255,255,.8);
+          text-shadow:1px 1px 3px rgba(0,0,0,.75);
+        }
+        .yat-news-chip-stack{
+          display:flex;
+          flex-direction:column;
+          gap:5px;
+          align-items:flex-start;
+          margin-top:7px;
+        }
+        .news-card .yat-news-chip-stack .front-chip{
+          width:fit-content;
+          background:rgba(0,0,0,.58);
+          color:#fff;
+          border:1px solid rgba(255,255,255,.3);
+          border-radius:5px;
+          padding:3px 7px;
+          font:700 9px/1 Oswald,sans-serif;
+          letter-spacing:.04em;
+        }
+        .news-card .yat-front-year-dots{display:flex;gap:4px;margin-top:1px}
+        .news-card .yat-dot{width:22px;height:22px;font-size:9px}
+        .yat-news-source-actions{
+          min-width:0;
+          display:flex;
+          flex-direction:column;
+          align-items:stretch;
+          justify-content:flex-end;
+          gap:6px;
+        }
+        .yat-news-source-line{
+          font:500 9px/1.2 Oswald,sans-serif;
+          letter-spacing:.04em;
+          text-transform:uppercase;
+          color:rgba(255,255,255,.9);
+          text-align:right;
+          text-shadow:1px 1px 3px rgba(0,0,0,.8);
+          overflow-wrap:anywhere;
+        }
+        .yat-news-source-line span{display:block;color:rgba(255,255,255,.65);margin-top:2px}
+        .news-card .yat-news-flip-button{
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          width:100%;
+          min-height:30px;
+          background:var(--gold);
+          border:1px solid rgba(255,255,255,.38);
+          border-radius:6px;
+          color:#000;
+          padding:6px 8px;
+          font:700 10px/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.08em;
+          text-transform:uppercase;
+          box-shadow:0 2px 8px rgba(0,0,0,.3);
+        }
         .yat-news-back{padding:20px;display:flex;flex-direction:column;height:100%}
-        .yat-news-back-label{color:#00e676;font:400 12px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;margin-bottom:4px}
+        .yat-news-back-label{color:var(--gold);font:400 12px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;margin-bottom:4px}
         .yat-news-back-title{font:400 18px/1.1 "Bebas Neue",Oswald,sans-serif;color:#fff;margin-bottom:15px}
         .yat-news-back-body{font:400 14px/1.4 Oswald,sans-serif;color:rgba(255,255,255,.8);flex:1;overflow-y:auto}
         .yat-news-back-why{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.62);font-size:12px;line-height:1.35}
         .yat-news-back-actions{margin-top:15px;display:flex;flex-direction:column;gap:10px}
-        .yat-news-back-cta{display:block;background:#00e676;color:#000;text-align:center;padding:10px;font:400 14px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;border-radius:4px;text-decoration:none}
+        .yat-news-back-cta{display:block;background:var(--gold);color:#000;text-align:center;padding:10px;font:400 14px/1 "Bebas Neue",Oswald,sans-serif;letter-spacing:.1em;border-radius:4px;text-decoration:none}
         .yat-news-back-source{display:block;text-align:center;color:rgba(255,255,255,.7);font:400 12px/1.2 Oswald,sans-serif;text-decoration:underline}
         .yat-news-back-share{display:flex;align-items:center;gap:12px}
         .yat-news-back-share span{font:400 12px "Bebas Neue",Oswald,sans-serif;color:rgba(255,255,255,.5)}
         .yat-news-back-share a{background:rgba(255,255,255,.1);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none}
         .yat-news-empty-sub{font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto}
         .yat-news-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin:0 0 12px;border:1px solid var(--line);border-radius:6px;font:400 13px/1.2 Oswald,sans-serif;letter-spacing:.05em;color:var(--fg)}
-        .yat-news-filter-bar strong{color:var(--green)}
+        .yat-news-filter-bar strong{color:var(--gold)}
         .yat-news-filter-bar button{background:none;border:1px solid var(--line);color:var(--fg);font:400 12px Oswald,sans-serif;letter-spacing:.08em;padding:6px 10px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
-        .gallery-slot-link.active-news-player-filter{outline:3px solid #00e676;outline-offset:-3px}
+        .gallery-slot-link.active-news-player-filter{outline:3px solid var(--gold);outline-offset:-3px}
+
+        @media(max-width:520px){
+          .yat-news-headline-top{font-size:20px}
+          .news-card .yat-news-player-name{font-size:19px}
+        }
       `}</style>
     </>
   );
