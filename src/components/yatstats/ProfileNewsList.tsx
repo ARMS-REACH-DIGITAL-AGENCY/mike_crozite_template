@@ -130,12 +130,32 @@ export default function ProfileNewsList({
 
       <style>{`
         .pp-news-feed{
+          --pp-news-card-bg:rgba(255,255,255,.055);
+          --pp-news-card-border:rgba(255,255,255,.14);
+          --pp-news-card-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 1px 3px rgba(0,0,0,.22);
+          --pp-news-thumb-bg:rgba(255,255,255,.06);
+          --pp-news-thumb-border:rgba(255,255,255,.13);
+          --pp-news-title:rgba(255,255,255,.95);
+          --pp-news-body:rgba(255,255,255,.78);
+          --pp-news-muted:rgba(255,255,255,.52);
+          --pp-news-label:var(--gold,#ffc107);
           display:flex;
           flex-direction:column;
           gap:10px;
           padding:10px 10px calc(var(--profile-tabs-h,68px) + 12px);
           min-height:100%;
           min-width:0;
+        }
+        body.light-theme .pp-news-feed{
+          --pp-news-card-bg:rgba(255,255,255,.52);
+          --pp-news-card-border:rgba(53,43,30,.18);
+          --pp-news-card-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 3px rgba(72,54,30,.08);
+          --pp-news-thumb-bg:rgba(53,43,30,.05);
+          --pp-news-thumb-border:rgba(53,43,30,.17);
+          --pp-news-title:rgba(31,25,18,.94);
+          --pp-news-body:rgba(31,25,18,.78);
+          --pp-news-muted:rgba(31,25,18,.52);
+          --pp-news-label:#b78600;
         }
         .pp-news-teaser{
           appearance:none;
@@ -147,14 +167,18 @@ export default function ProfileNewsList({
           padding:8px;
           text-align:left;
           cursor:pointer;
-          border:1px solid rgba(30,22,14,.18);
+          border:1px solid var(--pp-news-card-border);
           border-radius:8px;
-          background:rgba(255,255,255,.18);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
-          color:inherit;
+          background:var(--pp-news-card-bg);
+          box-shadow:var(--pp-news-card-shadow);
+          color:var(--pp-news-title);
+          transition:border-color .15s ease,background .15s ease,transform .15s ease;
         }
         .pp-news-teaser:hover{
           border-color:var(--gold,#ffc107);
+        }
+        .pp-news-teaser:active{
+          transform:scale(.997);
         }
         .pp-news-thumb{
           display:block;
@@ -163,9 +187,9 @@ export default function ProfileNewsList({
           height:88px;
           object-fit:cover;
           border-radius:8px;
-          border:1px solid rgba(30,22,14,.18);
-          box-shadow:0 1px 3px rgba(0,0,0,.12);
-          background:rgba(30,22,14,.06);
+          border:1px solid var(--pp-news-thumb-border);
+          box-shadow:0 1px 3px rgba(0,0,0,.16);
+          background:var(--pp-news-thumb-bg);
         }
         .pp-news-thumb-fallback{
           display:flex;
@@ -173,7 +197,7 @@ export default function ProfileNewsList({
           justify-content:center;
           font:700 11px "Bebas Neue",sans-serif;
           letter-spacing:.08em;
-          color:rgba(30,22,14,.55);
+          color:var(--pp-news-muted);
         }
         .pp-news-copy{
           display:flex;
@@ -186,16 +210,16 @@ export default function ProfileNewsList({
           font:700 8px/1 Oswald,sans-serif;
           letter-spacing:.1em;
           text-transform:uppercase;
-          color:rgba(30,22,14,.5);
+          color:var(--pp-news-label);
         }
         .pp-news-title{
           font:700 17px/1.12 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.03em;
-          color:rgba(30,22,14,.9);
+          color:var(--pp-news-title);
         }
         .pp-news-body{
           font:400 12px/1.35 Georgia,"Times New Roman",serif;
-          color:rgba(30,22,14,.82);
+          color:var(--pp-news-body);
           display:-webkit-box;
           -webkit-line-clamp:2;
           -webkit-box-orient:vertical;
@@ -205,19 +229,19 @@ export default function ProfileNewsList({
           font:700 9px/1.2 Oswald,sans-serif;
           letter-spacing:.06em;
           text-transform:uppercase;
-          color:rgba(30,22,14,.5);
+          color:var(--pp-news-muted);
         }
 
         .pp-news-reader-copy{
           margin:0 0 16px;
           font:400 15px/1.68 Georgia,"Times New Roman",serif;
-          color:rgba(255,255,255,.94);
+          color:var(--yat-content-drawer-copy,rgba(255,255,255,.94));
         }
         .pp-news-modal-why{
           padding-top:14px;
-          border-top:1px solid rgba(255,255,255,.12);
+          border-top:1px solid var(--yat-content-drawer-border,rgba(255,255,255,.12));
           font-style:italic;
-          color:rgba(255,255,255,.72);
+          color:var(--yat-content-drawer-muted,rgba(255,255,255,.72));
         }
         .pp-news-modal-source{
           display:inline-flex;
