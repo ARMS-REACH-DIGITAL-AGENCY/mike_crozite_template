@@ -17,7 +17,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
-import { formatSchoolName, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
+import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -380,7 +380,7 @@ export default async function SchoolPage({
 
   const activeRosterRows = asRows(activeRosterResult);
   const allTimeRosterRows = asRows(allTimeRosterResult);
-  const stageRows = asRows(flipFrontStageResult);
+  const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
   const currentTeamRoster = sortActivePlayers(stageRows.filter(isHighSchoolPlayer).map((p) => ({ ...p })));
