@@ -7,7 +7,9 @@
 //
 // Supports:
 //   GET /api/news/:hsid              — all news for a school
-//   GET /api/news/:hsid?player=123   — news for a specific player
+//   GET /api/news/:hsid?player=123   — a player's FEATURED stories (his name
+//                                      in the headline) - what the back of
+//                                      his flip card shows
 //   GET /api/news/:hsid?limit=5      — limit results
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -58,7 +60,7 @@ export async function GET(
     let articles: any[];
 
     if (playerId) {
-      articles = await getNewsByPlayer(playerId, limit);
+      articles = await getNewsByPlayer(playerId, limit, false, true);
     } else {
       articles = await getNewsByHsid(hsid, limit);
     }

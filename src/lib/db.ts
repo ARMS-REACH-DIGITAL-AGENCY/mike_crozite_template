@@ -1899,10 +1899,14 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   }
 }
 
+// featuredOnly: just the stories about him - FEATURED means his name is in
+// the headline - with repeated headlines (syndicated copies) collapsed to
+// the newest. This is what the back of his flip card shows.
 export async function getNewsByPlayer(
   playerId: string,
   limit: number | null = 10,
-  includeLowRelevance = false
+  includeLowRelevance = false,
+  featuredOnly = false
 ): Promise<any[]> {
   try {
     const hasLimit = typeof limit === 'number' && Number.isFinite(limit) && limit > 0;
@@ -1945,6 +1949,15 @@ export async function getNewsByPlayer(
        WHERE na.playerid = $1
          AND na.verification_status = 'VERIFIED'
          AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
+         ${featuredOnly ? `AND na.newsworthiness = 'FEATURED'
+         AND NOT EXISTS (
+           SELECT 1 FROM news_articles dup
+            WHERE dup.playerid = na.playerid
+              AND dup.verification_status = 'VERIFIED'
+              AND dup.newsworthiness = 'FEATURED'
+              AND LOWER(TRIM(dup.title)) = LOWER(TRIM(na.title))
+              AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(na.published_at, 'epoch'), na.id)
+         )` : ''}
        ORDER BY na.published_at DESC NULLS LAST, na.id DESC
        ${limitClause}`,
       params
