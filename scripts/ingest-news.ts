@@ -50,7 +50,6 @@ if (!WEBZ_TOKEN) {
 const MIN_REQUESTS_LEFT = Number(process.env.NEWS_MIN_REQUESTS_LEFT || 100);
 
 const BATCH_SIZE = 8; // max player names per Webz.io query
-const LOOKBACK_DAYS = 30; // how far back to search
 const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
 
 // Parse CLI args
@@ -216,15 +215,17 @@ class WebzAuthError extends Error {}
 async function fetchWebzNews(
   queryString: string
 ): Promise<WebzResponse | null> {
-  const ts = Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+  // Newest first, paging backward from now. Webz.io's crawled sort
+  // defaults to oldest first, so with ts = 30 days ago every run returned
+  // the start of that window (a month-old backlog) and never reached this
+  // week's stories. With order=desc, ts marks the END of the window, so it
+  // is now. Webz caps results at posts published in the last 31 days.
+  // https://docs.webz.io/docs/webz/news-blogs-forums-time-range
   const params = new URLSearchParams({
     token: WEBZ_TOKEN,
     q: queryString,
-    ts: String(ts),
+    ts: String(Date.now()),
     sort: "crawled",
-    // Newest first. Webz.io's crawled sort defaults to oldest first, so
-    // every run returned the start of the 30-day window (a month-old
-    // backlog) and never reached this week's stories.
     order: "desc",
     format: "json",
     size: String(RESULTS_PER_CALL),
@@ -241,6 +242,14 @@ async function fetchWebzNews(
       return null;
     }
     const data = (await res.json()) as WebzRawResponse;
+    // Where does this plan report the calls left? Log the envelope's field
+    // names and any quota-looking headers. Values only for numeric fields:
+    // "next" carries our token.
+    const envelope = Object.fromEntries(
+      Object.entries(data).filter(([key]) => key !== "posts").map(([key, value]) => [key, typeof value === "number" ? value : typeof value])
+    );
+    const quotaHeaders = [...res.headers.entries()].filter(([name]) => /request|quota|credit|limit/i.test(name));
+    console.log(`  Webz.io envelope: ${JSON.stringify(envelope)} headers: ${JSON.stringify(quotaHeaders)}`);
     return {
       posts: Array.isArray(data.posts) ? data.posts : [],
       totalResults: Number(data.total_results ?? data.totalResults),
@@ -407,7 +416,7 @@ async function main() {
   console.log("=== YAT?STATS News Ingest ===");
   console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}`);
   console.log(`Schools: ${targetHsids.join(", ")}`);
-  console.log(`Lookback: ${LOOKBACK_DAYS} days`);
+  console.log(`Window: newest first, back to 31 days`);
   console.log("");
 
   // 1. Ensure table exists
