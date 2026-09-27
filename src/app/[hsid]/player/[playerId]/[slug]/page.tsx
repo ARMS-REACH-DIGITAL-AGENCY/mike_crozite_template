@@ -147,7 +147,7 @@ export default async function ProfilePage({ params }: Props) {
     url: row.url,
     source: row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
-    recap: row.gallery_back_json?.yati_recap ?? row.local_recap ?? row.snippet ?? null,
+    recap: row.gallery_back_json?.yati_recap ?? row.local_recap ?? null,
     whyLocal: row.gallery_back_json?.why_local ?? null,
   }));
 
