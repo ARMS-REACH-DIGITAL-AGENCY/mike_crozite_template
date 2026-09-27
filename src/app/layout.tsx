@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&family=Bebas+Neue&family=Caveat:wght@500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&family=Bebas+Neue&family=Caveat:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
           rel="stylesheet"
         />
       </head>

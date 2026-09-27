@@ -172,7 +172,6 @@ export default async function ProfilePage({ params }: Props) {
     newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
       row.tease_json?.body ??
-      row.gallery_back_json?.why_local ??
       row.summary ??
       null,
   }));
@@ -715,7 +714,7 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── NEWS tab ─────────────────────────────────────────────────────── */}
         <div id="ppTab-news" className="pp-fz-panel">
-          <ProfileNewsList stories={newsStories} firstName={firstName} />
+          <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} />
         </div>
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}

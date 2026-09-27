@@ -1191,7 +1191,7 @@ export default function FunZone({
           color:rgba(30,22,14,0.9);
         }
         .fz-news-body{
-          font:400 clamp(7px,2.15cqi,10px)/1.35 Georgia,"Times New Roman",serif;
+          font:400 clamp(7px,2.15cqi,10px)/1.35 var(--yat-news-font);
           color:rgba(30,22,14,.82);
           display:-webkit-box;
           -webkit-line-clamp:2;

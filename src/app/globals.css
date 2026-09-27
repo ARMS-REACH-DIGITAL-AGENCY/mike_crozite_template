@@ -12,6 +12,11 @@
 
   --border: rgba(0, 0, 0, 0.08);
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+  /* Body copy of every news story - gallery card backs, the profile News
+     feed and its reader drawer. Newsreader is a serif drawn for reading
+     news on screens; headlines stay in Bebas Neue. */
+  --yat-news-font: "Newsreader", Georgia, "Times New Roman", serif;
 }
 
 @media (prefers-color-scheme: dark) {
