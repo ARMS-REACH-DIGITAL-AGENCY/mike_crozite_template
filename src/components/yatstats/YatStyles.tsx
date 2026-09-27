@@ -890,22 +890,22 @@ export default function YatStyles() {
       .news-card .front-chip { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; font: 700 10px Oswald, sans-serif; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.05em; }
       .news-card .yat-front-badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
       .news-card .news-cta-row { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 12px; }
-      .news-card .news-flip-btn { background: none; border: none; color: var(--green); font: 700 12px Oswald, sans-serif; letter-spacing: 0.1em; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0; }
+      .news-card .news-flip-btn { background: none; border: none; color: var(--gold); font: 700 12px Oswald, sans-serif; letter-spacing: 0.1em; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0; }
       
       .news-back-content { padding: 24px; display: flex; flex-direction: column; height: 100%; background: #111; color: #fff; }
       .news-recap-header { margin-bottom: 20px; }
-      .news-recap-label { font: 700 10px Oswald, sans-serif; color: var(--green); letter-spacing: 0.1em; margin-bottom: 4px; }
+      .news-recap-label { font: 700 10px Oswald, sans-serif; color: var(--gold); letter-spacing: 0.1em; margin-bottom: 4px; }
       .news-recap-title { font: 700 18px/1.2 "Bebas Neue", sans-serif; color: #fff; text-transform: uppercase; }
       .news-recap-body { font: 300 15px/1.6 Oswald, sans-serif; color: #ccc; flex: 1; overflow-y: auto; margin-bottom: 20px; }
       .news-actions { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; }
-      .news-full-story-btn { display: block; width: 100%; background: var(--green); color: #000; font: 700 12px Oswald, sans-serif; text-align: center; padding: 12px; border-radius: 4px; letter-spacing: 0.05em; margin-bottom: 16px; }
+      .news-full-story-btn { display: block; width: 100%; background: var(--gold); color: #000; font: 700 12px Oswald, sans-serif; text-align: center; padding: 12px; border-radius: 4px; letter-spacing: 0.05em; margin-bottom: 16px; }
       .news-share-row { display: flex; align-items: center; gap: 12px; }
       .news-share-row .share-label { font: 700 10px Oswald, sans-serif; color: #666; letter-spacing: 0.1em; }
       .news-share-row .share-icon { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
-      .news-share-row .share-icon:hover { background: var(--green); color: #000; border-color: var(--green); }
+      .news-share-row .share-icon:hover { background: var(--gold); color: #000; border-color: var(--gold); }
 
       .yat-news-loading{grid-column:1/-1;text-align:center;padding:60px 0}
-      .yat-news-loading-spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:yat-spin 0.8s linear infinite}
+      .yat-news-loading-spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:yat-spin 0.8s linear infinite}
       @keyframes yat-spin{to{transform:rotate(360deg)}}
       .yat-news-loading-text{font:300 13px Oswald,sans-serif;color:var(--muted);margin-top:12px;letter-spacing:.06em}
     `}</style>
