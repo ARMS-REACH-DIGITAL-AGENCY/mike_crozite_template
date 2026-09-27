@@ -90,10 +90,11 @@ career_path AS (
 SELECT tp.playerid, tp.firstname, tp.lastname, sm.hsid,
        COALESCE(sm.hsname, tp.high_school) AS high_school,
        tp.highlevel, lsc.draft_info, lsc.playyears,
-       cp.college_path_text, cap.career_team_names,
+       cp.college_path_text,
        lsc.current_teamid, t.team_name AS current_team_name,
        t.organization_name AS current_org_name, t.level AS current_team_level,
-       lsc.current_level, tp.throws, tp.bats, tp.posit
+       lsc.current_level, tp.throws, tp.bats, tp.posit,
+       cap.career_team_names
 FROM public.tbc_players_raw tp
 LEFT JOIN school_map sm ON sm.playerid = tp.playerid
 LEFT JOIN latest_season_choice lsc ON lsc.playerid = tp.playerid
