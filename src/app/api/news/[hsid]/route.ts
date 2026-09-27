@@ -71,7 +71,7 @@ export async function GET(
       const share = row.share_json ?? null;
 
       const displayHeadline = galleryFront?.headline ?? row.title;
-      const displayRecap = galleryBack?.yati_recap ?? row.local_recap ?? row.snippet ?? null;
+      const displayRecap = galleryBack?.yati_recap ?? row.local_recap ?? row.summary ?? null;
       const displaySourceLabel = galleryFront?.source_label ?? row.source_full ?? row.source;
 
       return {
