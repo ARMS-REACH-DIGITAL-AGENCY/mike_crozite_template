@@ -379,6 +379,7 @@ return (
     })}
   </div>
 );
+}
 // Facebook's sharer.php no longer accepts pre-filled text/tags at all
 // (deprecated for spam reasons around 2018) - a Facebook share can only
 // carry the URL itself, whose link preview then comes from that page's own
