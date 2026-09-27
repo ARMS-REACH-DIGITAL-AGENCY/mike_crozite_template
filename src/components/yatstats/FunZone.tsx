@@ -89,9 +89,15 @@ interface NewsTease {
 }
 
 interface NewsApiPost {
+  uuid?: string | null;
+  title?: string | null;
   tease?: NewsTease | null;
   headline?: string | null;
   summary?: string | null;
+  displayHeadline?: string | null;
+  displayRecap?: string | null;
+  displaySourceLabel?: string | null;
+  publishedAt?: string | null;
   imageUrl?: string | null;
   id?: string | number | null;
 }
@@ -247,13 +253,39 @@ const firstPost: NewsApiPost | undefined = data?.posts?.[0];
 
 const normalizedTease: NewsTease | null = firstPost
   ? {
-      badge: firstPost.tease?.badge ?? undefined,
-      headline: firstPost.tease?.headline ?? firstPost.headline ?? undefined,
-      body: firstPost.tease?.body ?? firstPost.summary ?? undefined,
-      footer: firstPost.tease?.footer ?? undefined,
+      badge:
+        firstPost.tease?.badge ??
+        (firstPost.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
+      headline:
+        firstPost.tease?.headline ??
+        firstPost.displayHeadline ??
+        firstPost.headline ??
+        firstPost.title ??
+        undefined,
+      body:
+        firstPost.tease?.body ??
+        firstPost.displayRecap ??
+        firstPost.summary ??
+        undefined,
+      footer:
+        firstPost.tease?.footer ??
+        [
+          firstPost.displaySourceLabel,
+          firstPost.publishedAt
+            ? new Date(firstPost.publishedAt).toLocaleDateString("en-US", {
+                month: "numeric",
+                day: "numeric",
+                year: "numeric",
+              })
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") ||
+        undefined,
       imageUrl: firstPost.tease?.imageUrl ?? firstPost.imageUrl ?? undefined,
       newsCardId:
         firstPost.tease?.newsCardId ??
+        firstPost.uuid ??
         (firstPost.id != null ? String(firstPost.id) : undefined),
     }
   : null;
@@ -301,7 +333,7 @@ if (!cancelled) {
   const slug = String(player.slug || "");
 const profileHref = `/${resolvedHsid}/player/${playerId}/${slug}#ppTab-news`;
 const featuredNewsHref = featuredNews.newsCardId
-  ? `/${resolvedHsid}/player/${playerId}/${slug}#news-card-${featuredNews.newsCardId}`
+  ? `/${resolvedHsid}/player/${playerId}/${slug}?story=${encodeURIComponent(featuredNews.newsCardId)}#ppTab-news`
   : profileHref;
 
 return (
@@ -1094,6 +1126,11 @@ export default function FunZone({
           gap:clamp(5px,1.8cqi,10px);
           align-items:flex-start;
           min-width:0;
+          padding:clamp(6px,1.8cqi,10px);
+          border:1px solid rgba(30,22,14,.18);
+          border-radius:clamp(5px,1.4cqi,8px);
+          background:rgba(255,255,255,.18);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
         }
         .fz-news-thumb-link{
           flex:0 0 auto;
@@ -1120,9 +1157,10 @@ export default function FunZone({
         .fz-news-copy{
           display:flex;
           flex-direction:column;
-          gap:4px;
+          gap:clamp(2px,.7cqi,4px);
           min-width:0;
           flex:1;
+          justify-content:flex-start;
         }
         .fz-news-title-link{
           text-decoration:none;
@@ -1142,7 +1180,12 @@ export default function FunZone({
           color:rgba(30,22,14,0.9);
         }
         .fz-news-body{
-          font:400 clamp(8px,2.5cqi,11px)/1.4 Oswald,sans-serif;
+          font:400 clamp(8px,2.5cqi,11px)/1.45 Georgia,"Times New Roman",serif;
+          color:rgba(30,22,14,.82);
+          display:-webkit-box;
+          -webkit-line-clamp:3;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
         }
         .fz-news-footer{
           font:700 clamp(6px,2cqi,9px) Oswald,sans-serif;
