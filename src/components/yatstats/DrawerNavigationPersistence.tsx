@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { highSchoolTeamLabel } from '@/lib/playerUtils';
 
 const DRAWER_STATE_KEY = 'yat-drawer-state';
 const THEME_KEY = 'yat-theme';
@@ -92,7 +93,7 @@ function showSectionWithoutClosing(tabId: string) {
       active: 'ACTIVE BASEBALL ALUMNI',
       news: 'ACTIVE ALUMNI NEWS',
       alltime: 'NEXT-LEVEL ALL-TIME LIST',
-      current: '2026 HIGH SCHOOL TEAM',
+      current: highSchoolTeamLabel(),
       fantasy: 'FANTASY BRACKET TOURNEY',
       mentor: 'MENTORSHIP MARKETPLACE',
       partner: 'PARTNERSHIP PROGRAM',

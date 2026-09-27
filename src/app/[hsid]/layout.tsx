@@ -16,7 +16,7 @@ import {
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
-import { formatSchoolName, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
+import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
 
@@ -382,7 +382,7 @@ export default async function HsidLayout({
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news">ACTIVE ALUMNI NEWS</a>
             <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL ALL-TIME LIST</a>
-            <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">2026 HIGH SCHOOL TEAM</a>
+            <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">{highSchoolTeamLabel()}</a>
             <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy">FANTASY BRACKET TOURNEY</a>
             <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">MENTORSHIP MARKETPLACE</a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner">PARTNERSHIP PROGRAM</a>
