@@ -70,9 +70,17 @@ export async function GET(
       const profile = row.profile_json ?? null;
       const share = row.share_json ?? null;
 
+      const displayHeadline = galleryFront?.headline ?? row.title;
+      const displayRecap = galleryBack?.yati_recap ?? row.local_recap ?? row.snippet ?? null;
+      const displaySourceLabel = galleryFront?.source_label ?? row.source_full ?? row.source;
+
       return {
+        id: row.id,
         uuid: row.uuid,
         title: row.title,
+        // Compatibility aliases consumed by the flip-card FunZone News teaser.
+        headline: displayHeadline,
+        summary: displayRecap,
         source: row.source,
         sourceFull: row.source_full,
         publishedAt: row.published_at,
@@ -121,8 +129,8 @@ export async function GET(
         newsworthiness: row.newsworthiness ?? null,
         imageVerificationStatus: row.image_verification_status ?? null,
 
-        displayHeadline: galleryFront?.headline ?? row.title,
-        displaySourceLabel: galleryFront?.source_label ?? row.source_full ?? row.source,
+        displayHeadline,
+        displaySourceLabel,
         displayPublishedAt: galleryFront?.published_at ?? row.published_at,
         displayMetaPills:
           galleryFront?.meta_pills ??
@@ -132,7 +140,7 @@ export async function GET(
             row.class_of ? `Class of ${row.class_of}` : '',
           ].filter(Boolean),
 
-        displayRecap: galleryBack?.yati_recap ?? row.local_recap ?? row.snippet ?? null,
+        displayRecap,
         displayWhyLocal: galleryBack?.why_local ?? null,
         displayProfileBody: profile?.body ?? row.local_recap ?? row.snippet ?? null,
       };
