@@ -220,7 +220,9 @@ function buildDerivative(row: CandidateRow) {
   const lead =
     playerRelevance === "primary"
       ? `${fullName}${classLabel} is the focus of a new ${domain} report.`
-      : `${fullName}${classLabel} is included in a new ${domain} baseball update.`;
+      : playerRelevance === "secondary"
+        ? `${fullName}${classLabel} is part of a new ${domain} baseball update.`
+        : `${fullName}${classLabel} is mentioned in a broader ${domain} baseball report; the source story is not primarily about him.`;
 
   const recap = trimTo([lead, context].filter(Boolean).join(" "), 520);
   const profileBody = trimTo(
