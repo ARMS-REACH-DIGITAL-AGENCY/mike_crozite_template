@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import ProfileContentModal from "./ProfileContentModal";
+import ProfileContentDrawer from "./ProfileContentDrawer";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -107,7 +107,7 @@ export default function ProfileNewsList({
         </aside>
       </div>
 
-      <ProfileContentModal
+      <ProfileContentDrawer
         open={Boolean(openStory)}
         onClose={() => setOpenUuid("")}
         ariaLabel={stripHtml(openStory?.title) || "Alumni news"}
@@ -129,7 +129,7 @@ export default function ProfileNewsList({
       >
         {openStory?.recap ? <p className="pp-news-reader-copy">{stripHtml(openStory.recap)}</p> : null}
         {openStory?.whyLocal ? <p className="pp-news-reader-copy pp-news-modal-why">{stripHtml(openStory.whyLocal)}</p> : null}
-      </ProfileContentModal>
+      </ProfileContentDrawer>
 
       <style>{`
         .pp-news-layout{
