@@ -72,3 +72,15 @@ jobs:
           # Hamilton pilot is a single school today. Each stored candidate is
           # re-checked against current YAT?STATS identity facts before it can publish.
           npx tsx scripts/reverify-news.ts --hsid "${TARGET_HSID%%,*}"
+
+      - name: Generate player-centered recaps
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          TARGET_HSID="${{ github.event.inputs.hsid }}"
+          if [ -z "$TARGET_HSID" ]; then
+            TARGET_HSID="$NEWS_HSIDS"
+          fi
+          # Discovery + verification are separate from publication. Only after
+          # re-verification succeeds do VERIFIED, non-LOW stories receive the
+          # YAT?STATS derivative used by cards and the profile reader drawer.
+          npx tsx scripts/generate-news-derivatives.ts --hsid "$TARGET_HSID"
