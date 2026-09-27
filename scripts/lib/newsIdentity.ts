@@ -147,7 +147,12 @@ export function verifyNewsIdentity(
       score,
       reason: `Exact name plus known identity anchor(s): ${anchors.join(", ")}`,
       playerRelevance,
-      newsworthiness: playerRelevance === "PRIMARY" ? "FEATURED" : "NORMAL",
+      newsworthiness:
+        playerRelevance === "PRIMARY"
+          ? "FEATURED"
+          : playerRelevance === "SECONDARY"
+            ? "NORMAL"
+            : "LOW",
       evidence: { exactName, nameInHeadline, anchors, contradictions, nameMentions },
     };
   }
