@@ -516,12 +516,26 @@ export default function YatStyles() {
          by rows 1-4's chrome. Per direct feedback: same card size, more
          columns on a wider screen, not bigger cards. */
       .yat-grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,264px);justify-content:center;gap:12px}
-      .yat-card{position:relative;background:var(--card-bg);overflow:hidden;box-shadow:0 4px 8px rgba(0,0,0,.2)}
+      /* Keep the outer card as a geometry/perspective shell only.
+         Any visible background, edge or shadow on this element stays
+         stationary while .yat-flip rotates and makes the flip look fake. */
+      .yat-card{position:relative;background:transparent;overflow:visible;box-shadow:none}
       .yat-card::before{content:"";display:block;padding-top:140%}
       .yat-card-inner{position:absolute;inset:0;perspective:1200px}
       .yat-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
       .yat-card.is-flipped .yat-flip{transform:rotateY(180deg)}
-      .yat-face{position:absolute;inset:0;backface-visibility:hidden}
+      /* The physical card surface lives on the rotating faces so its
+         background and drop shadow collapse to the edge at 90deg and
+         return with the opposite face. */
+      .yat-face{
+        position:absolute;
+        inset:0;
+        overflow:hidden;
+        background:var(--card-bg);
+        box-shadow:0 4px 8px rgba(0,0,0,.2);
+        backface-visibility:hidden;
+        -webkit-backface-visibility:hidden;
+      }
       .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
       .yat-card.is-flipped .yat-front{pointer-events:none}
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
