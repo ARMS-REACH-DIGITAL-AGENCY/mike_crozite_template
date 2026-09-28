@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
+import TeammatesList from '@/components/yatstats/TeammatesList';
 import StoryViewer, { StoryStyles, StoryThread, shareStory, storyWhen, toggleStoryLike, type Story } from '@/components/yatstats/StoryViewer';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
@@ -284,7 +285,11 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   return (
     <div className="ysf">
-      {body}
+      {/* The feed, with his teammates in a narrow column beside it. */}
+      <div className="ysf-layout">
+        <div className="ysf-main">{body}</div>
+        <TeammatesList playerId={playerId} />
+      </div>
 
       {openStory && typeof document !== 'undefined' && (
         <StoryViewer key={`${openStory.id}-${openPhoto}`} story={openStory} playerId={playerId} initialPhoto={openPhoto} focusComment={openForComment} onClose={closeViewer} onChange={updateStory} onDeleted={removeStory} />
@@ -320,6 +325,13 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         }
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 system-ui, sans-serif; }
         .ysf-empty strong { color: var(--ysf-strong); font: 700 18px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .ysf-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+        .ysf-layout > .ytm { width: 150px; }
+        .ysf-main { min-width: 0; }
+        @media (max-width: 899px) {
+          .ysf-layout { gap: 8px; }
+          .ysf-layout > .ytm { width: 92px; }
+        }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
         .ysf-feed-posts { gap: 16px; max-width: 720px; margin: 0 auto; }
         .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 720px; }
