@@ -12,6 +12,7 @@
 // The story is live immediately, in the Stories tab.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
 
@@ -76,6 +77,10 @@ export default function StoryDrawer() {
   const [tagResults, setTagResults] = useState<TagCandidate[]>([]);
   const [status, setStatus] = useState<{ kind: 'idle' | 'posting' | 'error' | 'done'; text?: string; storyId?: string }>({ kind: 'idle' });
   const fileInput = useRef<HTMLInputElement | null>(null);
+  // Rendered straight into <body>: inside the profile page's containers a
+  // position:fixed drawer is pinned to the page section, not the screen.
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   const signedIn = Boolean(session?.uid && session?.email);
   const fanName = [session?.firstName, session?.lastName].map((v) => String(v || '').trim()).filter(Boolean).join(' ') || session?.email || '';
@@ -240,7 +245,9 @@ export default function StoryDrawer() {
 
   const posting = status.kind === 'posting';
 
-  return (
+  if (!portalReady) return null;
+
+  return createPortal(
     <aside className="yat-drawer yat-drawer-right yat-story-drawer" id="drawerStory" aria-label="Add a story" aria-hidden={!open}>
       <div className="ysd-header">
         <div>
@@ -408,6 +415,7 @@ export default function StoryDrawer() {
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font: 700 22px/1.1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
       `}</style>
-    </aside>
+    </aside>,
+    document.body
   );
 }

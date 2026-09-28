@@ -7,6 +7,7 @@
 // the Polaroid on the Career Path Timeline (StoryDrawer), never here.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toPlayerSlug } from '@/lib/slug';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 
@@ -155,7 +156,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     <div className="ysf">
       {body}
 
-      {openStory && (
+      {/* Rendered into <body> so it covers the screen, not just the tab. */}
+      {openStory && typeof document !== 'undefined' && createPortal(
         <div className="ysf-modal" role="dialog" aria-modal="true" aria-label="Story" onClick={() => setOpenStory(null)}>
           <div className="ysf-modal-card" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="ysf-modal-close" onClick={() => setOpenStory(null)} aria-label="Close">
@@ -191,7 +193,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style jsx global>{`
