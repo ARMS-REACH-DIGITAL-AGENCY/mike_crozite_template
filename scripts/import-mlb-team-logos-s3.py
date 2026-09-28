@@ -19,8 +19,10 @@ Matching a TBC team id to an MLB id, exact names only:
 Logos: https://www.mlbstatic.com/team-logos/{id}.svg (transparent), drawn
 to an 800px-wide PNG; the midfield.mlbstatic.com PNG is the fallback.
 
-A team that already has any file in teams/ is left alone, so hand-uploaded
-logos are never replaced.
+The official logo replaces any logo a team already has (the hand-made
+test logos included). Before that, each existing teams/{teamid}.* file is
+copied to teams/replaced/ so nothing is lost. The web copy is rebuilt from
+the newest source, so the new PNG wins even where an older .jpg exists.
 
 Environment:
 - DATABASE_URL (required)
@@ -116,9 +118,20 @@ def mlb_names() -> dict[str, int]:
     return by_name
 
 
-def has_logo(teamid: str) -> bool:
-    res = s3.list_objects_v2(Bucket=BUCKET, Prefix=f"teams/{teamid}.", MaxKeys=1)
-    return res.get("KeyCount", 0) > 0
+def existing_logos(teamid: str) -> list[str]:
+    res = s3.list_objects_v2(Bucket=BUCKET, Prefix=f"teams/{teamid}.")
+    return [obj["Key"] for obj in res.get("Contents", [])]
+
+
+def back_up(keys: list[str]) -> None:
+    for key in keys:
+        backup = "teams/replaced/" + key.split("/", 1)[1]
+        try:
+            s3.head_object(Bucket=BUCKET, Key=backup)
+            continue  # an earlier run already kept the original
+        except s3.exceptions.ClientError:
+            pass
+        s3.copy_object(Bucket=BUCKET, Key=backup, CopySource={"Bucket": BUCKET, "Key": key})
 
 
 def fetch_logo(mlb_id: int) -> tuple[bytes | None, str]:
@@ -170,40 +183,39 @@ def main() -> int:
     processed = 0
     for team in teams:
         status, mlb_id, method, source = "", None, "", ""
-        if has_logo(team["teamid"]):
-            status = "already_has_logo"
+        existing = existing_logos(team["teamid"])
+        if team["mapped_id"]:
+            mlb_id, method = int(team["mapped_id"]), "team_map_exact"
+        elif names.get(norm(team["name"])):
+            mlb_id, method = names[norm(team["name"])], "stats_api_name"
+        if not mlb_id:
+            status = "no_mlb_match"
+        elif MAX_TEAMS and processed >= MAX_TEAMS:
+            status = "skipped_max_teams"
         else:
-            if team["mapped_id"]:
-                mlb_id, method = int(team["mapped_id"]), "team_map_exact"
-            elif names.get(norm(team["name"])):
-                mlb_id, method = names[norm(team["name"])], "stats_api_name"
-            if not mlb_id:
-                status = "no_mlb_match"
-            elif MAX_TEAMS and processed >= MAX_TEAMS:
-                status = "skipped_max_teams"
+            processed += 1
+            png, source = fetch_logo(mlb_id)
+            if not png:
+                status = "logo_not_found"
+            elif DRY_RUN:
+                status = "would_replace" if existing else "would_upload"
             else:
-                processed += 1
-                png, source = fetch_logo(mlb_id)
-                if not png:
-                    status = "logo_not_found"
-                elif DRY_RUN:
-                    status = "would_upload"
-                else:
-                    s3.put_object(
-                        Bucket=BUCKET,
-                        Key=f"teams/{team['teamid']}.png",
-                        Body=png,
-                        ContentType="image/png",
-                        CacheControl="public, max-age=31536000",
-                    )
-                    status = "uploaded"
-                time.sleep(0.2)
+                back_up(existing)
+                s3.put_object(
+                    Bucket=BUCKET,
+                    Key=f"teams/{team['teamid']}.png",
+                    Body=png,
+                    ContentType="image/png",
+                    CacheControl="public, max-age=31536000",
+                )
+                status = "replaced" if existing else "uploaded"
+            time.sleep(0.2)
         counts[status] = counts.get(status, 0) + 1
-        rows.append({**team, "mlb_id": mlb_id or "", "match": method, "source": source, "status": status})
+        rows.append({**team, "had_logo": "yes" if existing else "", "mlb_id": mlb_id or "", "match": method, "source": source, "status": status})
         print(f"{team['teamid']:>7}  {team['level']:<9} {team['name'][:34]:<34} {str(mlb_id or ''):>6}  {status}")
 
     with open(REPORT_PATH, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["teamid", "name", "level", "mapped_id", "mlb_id", "match", "source", "status"])
+        writer = csv.DictWriter(fh, fieldnames=["teamid", "name", "level", "mapped_id", "had_logo", "mlb_id", "match", "source", "status"])
         writer.writeheader()
         writer.writerows(rows)
     print("\nSummary: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))

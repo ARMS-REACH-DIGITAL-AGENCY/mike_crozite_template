@@ -2,9 +2,10 @@ name: Import MLB Team Logos
 
 # Saves the official MLB / minor league logo for every pro team in our
 # players' season stats to S3 as teams/{teamid}.png (see
-# scripts/import-mlb-team-logos-s3.py). Teams that already have a logo in
-# teams/ are skipped. The hourly Build Web Cutouts job then makes the
-# teams-web/ copies the site loads.
+# scripts/import-mlb-team-logos-s3.py). The official logo replaces any
+# logo a team already has; the old file is copied to teams/replaced/ first.
+# The hourly Build Web Cutouts job then makes the teams-web/ copies the
+# site loads.
 #
 # Manual only; defaults to a dry run. The report (every team, its MLB id,
 # how it matched and what happened) is attached to the run as an artifact.

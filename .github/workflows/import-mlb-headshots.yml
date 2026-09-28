@@ -1,0 +1,79 @@
+name: Import MLB Headshots
+
+# Saves the official MLB / minor league headshot of every platform player
+# with an MLB id (see scripts/import-mlb-headshots-s3.py):
+#   players/season-headshots/{playerid}_{season}.jpg  (every real run)
+#   players/now/{playerid}.jpg                        (only when missing,
+#                                                      unless replace_now)
+# The hourly Player Image Cutouts job cuts out anything new in players/now/.
+#
+# Manual only; defaults to a dry run. The report is attached to the run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Look up and download, but don't upload to S3"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      replace_now:
+        description: "Also replace a player's existing players/now/ photo (the old one is copied to players/replaced-now/)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      max_players:
+        description: "Optional max number of players. Leave blank for all."
+        required: false
+        default: ""
+      only_playerids:
+        description: "Optional comma-separated player ids"
+        required: false
+        default: ""
+
+jobs:
+  import-mlb-headshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      REPLACE_NOW: ${{ github.event.inputs.replace_now || 'false' }}
+      MAX_PLAYERS: ${{ github.event.inputs.max_players || '' }}
+      ONLY_PLAYERIDS: ${{ github.event.inputs.only_playerids || '' }}
+      REPORT_PATH: headshot-report.csv
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install boto3 "psycopg[binary]" requests pillow
+
+      - name: Import headshots
+        run: python scripts/import-mlb-headshots-s3.py
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headshot-report
+          path: headshot-report.csv
+          if-no-files-found: ignore
