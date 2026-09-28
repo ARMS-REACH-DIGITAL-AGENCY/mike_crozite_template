@@ -607,6 +607,57 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
   );
 }
 
+// A year's fan photos on its slide: the current one in the hero spot (where
+// the YaTi cartoon stands), the rest lined up to its right behind the quote,
+// faded way back. Every tick the line slides left - the next photo becomes
+// the hero, the old hero fades out to the left and rejoins at the end.
+function StoryHeroStrip({ photos, tick, alt }: { photos: string[]; tick: number; alt: string }) {
+  const n = photos.length;
+  if (n === 1) {
+    return <img className="zt-person zt-person-story zt-story-hero-img" src={photos[0]} alt={alt} loading="eager" decoding="async" />;
+  }
+  const current = tick % n;
+  const previous = (current - 1 + n) % n;
+  return (
+    <>
+      {photos.map((src, i) => {
+        const slot = (i - current + n) % n;
+        // Bumps when this photo wraps from the hero spot to the end of the
+        // line, so it re-enters there instead of sliding back across.
+        const lap = Math.floor((tick - i + n - 1) / n);
+        return (
+          <img
+            key={`${i}-${lap}`}
+            className={`zt-person zt-person-story ${slot === 0 ? 'zt-story-hero-img' : 'zt-story-queued'}${slot === n - 1 ? ' zt-story-entering' : ''}`}
+            style={{ '--slot': slot } as CSSProperties}
+            src={src}
+            alt={slot === 0 ? alt : ''}
+            loading="eager"
+            decoding="async"
+          />
+        );
+      })}
+      {tick > 0 && (
+        <img key={`leaving-${tick}`} className="zt-person zt-person-story zt-story-leaving" src={photos[previous]} alt="" aria-hidden="true" decoding="async" />
+      )}
+    </>
+  );
+}
+
+// Behind a year's slide when it has fan photos: all of them as a dark
+// montage (one photo: that photo, enlarged and blurred).
+function StoryMontage({ photos }: { photos: string[] }) {
+  const tiles = photos.slice(0, 6);
+  return (
+    <span className={`zt-story-montage${tiles.length === 1 ? ' zt-story-montage-single' : ''}`} aria-hidden="true">
+      {tiles.map((src) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={src} src={src} alt="" decoding="async" />
+      ))}
+    </span>
+  );
+}
+
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
   const player = usePlayerProfile();
   // usePlayerProfile() reads PlayerProfileContext, which is only provided
@@ -786,12 +837,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return () => { cancelled = true; window.removeEventListener('yat:story-posted', load); };
   }, [playerId]);
 
-  // When a year has more than one fan photo they take turns, crossfading.
+  // When a year has more than one fan photo they take turns (StoryHeroStrip).
   const [heroTick, setHeroTick] = useState(0);
   const rotatingHeroes = Object.values(storyPhotosByYear).some((photos) => photos.length > 1);
   useEffect(() => {
     if (!rotatingHeroes) return;
-    const timer = window.setInterval(() => setHeroTick((n) => n + 1), 6000);
+    const timer = window.setInterval(() => setHeroTick((n) => n + 1), 5000);
     return () => window.clearInterval(timer);
   }, [rotatingHeroes]);
 
@@ -1441,7 +1492,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
+              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'lifeyear' || slide.kind === 'future') ? (
+                <StoryMontage photos={storyPhotosByYear[slide.year]} />
+              ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
+              {(slide.kind === 'lifeyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
               {slide.kind === 'season' && (
                 <span className="zt-logo-layer" aria-hidden="true">
                   <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
@@ -1518,12 +1577,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           const storyPhotos = slide.kind === 'season' || slide.kind === 'lifeyear' || slide.kind === 'future' ? storyPhotosByYear[slide.year] : undefined;
           if (storyPhotos?.length) {
-            const current = heroTick % storyPhotos.length;
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
-                {storyPhotos.map((src, n) => (
-                  <img key={src} className="zt-person zt-person-story" style={{ opacity: n === current ? 1 : 0 }} src={src} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} loading="eager" decoding="async" />
-                ))}
+                <StoryHeroStrip photos={storyPhotos} tick={heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
               </span>
             );
           }
@@ -1800,7 +1856,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            whole photo (not a cutout), so it sits above the rail instead of
            running off the bottom. Several photos crossfade (see heroTick). */
         .zt-story-hero { position:absolute; inset:0; }
-        .zt-person-stack :global(.zt-person.zt-person-story) { bottom:30px; height:calc(100% - 44px); transition:opacity .9s ease; }
+        .zt-person-stack :global(.zt-person.zt-person-story) { bottom:30px; height:calc(100% - 44px); transform-origin:left bottom; transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .9s ease, filter .9s ease; }
+        /* The line of waiting photos: each one slot further right, smaller
+           and faded way back, behind the quote (this layer sits under the
+           headline's). */
+        .zt-person-stack :global(.zt-story-queued) { transform:translateX(calc(var(--slot) * 104%)) scale(.84); opacity:.2; filter:grayscale(.35) drop-shadow(0 10px 18px rgba(0,0,0,.4)); }
+        .zt-person-stack :global(.zt-story-entering) { animation:zt-story-enter .9s ease both; }
+        .zt-person-stack :global(.zt-story-leaving) { animation:zt-story-leave .9s cubic-bezier(.2,.8,.2,1) forwards; }
+        @keyframes zt-story-enter { from { opacity:0; } to { opacity:.2; } }
+        @keyframes zt-story-leave { from { transform:translateX(0); opacity:1; } to { transform:translateX(-60%); opacity:0; } }
+        /* Behind a year with fan photos: its photos as a dark montage. */
+        .zt-visual :global(.zt-story-montage) { position:absolute; z-index:0; inset:0; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; overflow:hidden; pointer-events:none; }
+        .zt-visual :global(.zt-story-montage img) { width:100%; height:100%; object-fit:cover; display:block; filter:brightness(.34) saturate(.8); }
+        .zt-visual :global(.zt-story-montage-single img) { transform:scale(1.15); filter:blur(14px) brightness(.38) saturate(.85); }
+        @media (prefers-reduced-motion: reduce) {
+          .zt-person-stack :global(.zt-person.zt-person-story) { transition:none; }
+          .zt-person-stack :global(.zt-story-entering), .zt-person-stack :global(.zt-story-leaving) { animation:none; }
+          .zt-person-stack :global(.zt-story-leaving) { display:none; }
+        }
         /* Anchor slide, per direct feedback: the HS cutout (.zt-person-
            then, below) is the big image; the pro image -- a back-cutout
            action photo, or the headshot cutout when there's no back photo
