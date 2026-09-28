@@ -239,7 +239,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card { appearance: none; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; margin: 0; padding: 10px 12px 12px; text-align: left; cursor: pointer; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; }
         .ysf-card:hover { border-color: var(--gold, #ffc107); }
         .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
-        .ysf-card-when { color: var(--ysf-when); font: 800 17px/1 Oswald, "Bebas Neue", sans-serif; letter-spacing: .01em; text-transform: uppercase; white-space: nowrap; }
+        /* Same type as the News cards' eyebrow (.pp-news-label). */
+        .ysf-card-when { color: var(--ysf-when); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
         .ysf-card-row { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
         .ysf-card-photo { position: relative; flex: 0 0 auto; display: block; width: 150px; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 4px; background: var(--ysf-thumb-bg); }
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; display: block; }
@@ -261,7 +262,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-modal-text p { margin: 0; font: 400 16px/1.6 var(--yat-news-font, Georgia, serif); white-space: pre-line; }
         .ysf-modal-tags { font-size: 13px; opacity: .85; }
         .ysf-modal-tags a { color: #d2b45c; }
-        .ysf-modal-text .ysf-card-when { color: #d2b45c; }
+        .ysf-modal-text .ysf-card-when { color: #d2b45c; font-size: 11px; }
         .ysf-modal-text .ysf-card-by { color: rgba(255,255,255,.6); }
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
@@ -269,7 +270,6 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           .ysf-card { gap: 6px; padding: 9px 10px 10px; }
           .ysf-card-row { gap: 10px; }
           .ysf-card-photo { width: 112px; }
-          .ysf-card-when { font-size: 15px; }
           .ysf-card-text { font-size: 15px; }
           .ysf-card-by { font-size: 11px; }
           .ysf-modal { padding: 0; align-items: stretch; }
