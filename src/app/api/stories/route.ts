@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
+import { AUTH_PASS_COOKIE, readAuthPass } from '@/lib/authPass';
 import { getUserProfile } from '@/lib/userProfile';
 import {
   NotAnImageError,
@@ -117,8 +118,15 @@ export async function POST(req: NextRequest) {
     return fail('The upload was too large or incomplete. Try fewer or smaller photos.', 413);
   }
 
-  // 1. Who is posting (verified with Firebase).
-  const identity = await verifyFirebaseIdToken(String(form.get('idToken') || ''));
+  // 1. Who is posting: a Firebase ID token from this page, or else the
+  //    signed pass set at sign-in (covers a fan signed in on another
+  //    yatstats.com site, where this page has no Firebase user).
+  const idToken = String(form.get('idToken') || '');
+  let identity = idToken ? await verifyFirebaseIdToken(idToken) : null;
+  if (!identity) {
+    const passUid = readAuthPass(req.cookies.get(AUTH_PASS_COOKIE)?.value);
+    if (passUid) identity = { uid: passUid, email: '' };
+  }
   if (!identity) return fail('Please sign in again to post a story.', 401);
 
   const profile = await getUserProfile(identity.uid).catch(() => null);

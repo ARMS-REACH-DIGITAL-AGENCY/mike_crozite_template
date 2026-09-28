@@ -3,6 +3,8 @@ import { lookupGHLContactByEmail, getGHLLocationId } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
+import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
+import { AUTH_PASS_COOKIE, AUTH_PASS_MAX_AGE, createAuthPass } from "@/lib/authPass";
 
 export const runtime = "nodejs";
 
@@ -15,6 +17,9 @@ interface LoginRequestBody {
   firstName?: string;
   lastName?: string;
   currentHsid?: string;
+  // Firebase ID token for uid. When it verifies, the response also sets the
+  // signed auth pass (lib/authPass.ts) that works on every microsite.
+  idToken?: string;
 }
 
 async function getSchoolByHsid(hsid: string) {
@@ -208,6 +213,21 @@ export async function POST(request: NextRequest) {
     partitioned: true,
     maxAge: 60 * 60 * 24 * 30,
   });
+
+  const verified = body.idToken ? await verifyFirebaseIdToken(body.idToken) : null;
+  const pass = verified && verified.uid === body.uid ? createAuthPass(body.uid) : null;
+  if (pass) {
+    response.cookies.set({
+      name: AUTH_PASS_COOKIE,
+      value: pass,
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+      path: "/",
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: AUTH_PASS_MAX_AGE,
+    });
+  }
 
   clearLegacySessionCookies(response, cookieDomain);
   return response;
