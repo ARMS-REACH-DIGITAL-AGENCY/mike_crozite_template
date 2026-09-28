@@ -223,6 +223,7 @@ function teamLogoCandidates(row: StatRow) {
   const teamId = String(row.teamid || row.team_id || '').trim();
   if (!teamId || !/^\d+$/.test(teamId)) return [];
   return [
+    `${S3_BASE}/teams-web/${teamId}.webp`,
     `${S3_BASE}/teams/${teamId}.png`,
     `${S3_BASE}/teams/${teamId}.jpg`,
     `${S3_BASE}/teams/${teamId}.jpeg`,
