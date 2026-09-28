@@ -2,13 +2,12 @@
 // Full flip card container: article element with front and back faces
 
 import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
-import { getPlayerNowThumbUrl, getPlayerThenCardUrl } from "@/lib/playerImage";
+import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl } from "@/lib/playerImage";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
 import PlayerCardFlipBehavior from "@/components/yatstats/PlayerCardFlipBehavior";
 
-const YAT_ASSETS_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 const HEADSHOT_FALLBACK_URL = "/img/headshot-silhouette.png";
 const UNCOMMITTED_BADGE_URL = "/img/uncommitted.png";
 
@@ -157,7 +156,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   // Block 3 mirrors Block 5 while using section-specific artwork:
   // active = current headshot, all-time = HS-era card front,
-  // current team = /teams/{committed_teamid}.png from flip_card_front_stage.
+  // current team = the committed_teamid logo from flip_card_front_stage.
   // Card-size copies (see getPlayerThenCardUrl); the strip's error handler
   // falls back to the originals via getOriginalForCardCopy. The "then"
   // thumbnail is the same file as the card front's photo, so the browser
@@ -167,9 +166,9 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );
-  const committedLogoUrl = committedTeamId
-    ? `${YAT_ASSETS_BASE}/teams/${encodeURIComponent(committedTeamId)}.png`
-    : UNCOMMITTED_BADGE_URL;
+  // Small WebP copy; the strip falls back to the uploaded .png, then the
+  // uncommitted badge.
+  const committedLogoUrl = committedTeamId ? getTeamLogoUrl(committedTeamId) : UNCOMMITTED_BADGE_URL;
 
   return (
     <article

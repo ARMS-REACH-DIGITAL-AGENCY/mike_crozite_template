@@ -19,6 +19,11 @@ gallery's flip cards (drawn 264px wide; the originals average 1.4MB):
 - players/back/{id}.jpg -> players/back-card/{id}.webp  (flip-card back, 800px wide)
 - players/now/{id}.jpg  -> players/now-thumb/{id}.webp  (gallery strip headshot, 400px wide)
 
+And small copies of the team logos, which are uploaded by hand at full
+size (a 1346x1558 PNG is 531KB; the strip draws it about 90px wide):
+
+- teams/{teamid}.png -> teams-web/{teamid}.webp  (fits 400x400, transparency kept)
+
 Cutout processing mirrors api/cutout/route.ts (keep the two in step):
 1. Downscale to fit 2000x2000.
 2. back only, when the image is at least twice as wide as tall: fade
@@ -40,12 +45,12 @@ rebuilt one reaches browsers.
 Environment variables:
 - YATSTATS_S3_BUCKET: default yatstats-assets
 - AWS_REGION / AWS_DEFAULT_REGION: default us-west-2
-- KINDS: comma-separated subset of then,back,now,then-card,back-card,now-thumb
-  (default all six)
+- KINDS: comma-separated subset of
+  then,back,now,then-card,back-card,now-thumb,team-logo (default all seven)
 - DRY_RUN: true/false, default true
 - OVERWRITE: true/false, default false (rebuild even when up to date)
 - MAX_FILES: optional integer limit per kind, for testing
-- ONLY_IDS: optional comma-separated player ids to process
+- ONLY_IDS: optional comma-separated player (or team) ids to process
 """
 
 from __future__ import annotations
@@ -58,7 +63,7 @@ from PIL import Image, ImageChops, ImageOps
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-west-2"
-ALL_KINDS = "then,back,now,then-card,back-card,now-thumb"
+ALL_KINDS = "then,back,now,then-card,back-card,now-thumb,team-logo"
 KINDS = [k.strip() for k in os.getenv("KINDS", ALL_KINDS).split(",") if k.strip()]
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
@@ -114,6 +119,19 @@ def build_card_photo(photo_bytes: bytes, width: int) -> bytes:
     return out.getvalue()
 
 
+LOGO_MAX = 400
+
+
+def build_team_logo(logo_bytes: bytes) -> bytes:
+    """Fit a team logo within 400x400, keeping its transparency."""
+    image = Image.open(io.BytesIO(logo_bytes))
+    image = ImageOps.exif_transpose(image).convert("RGBA")
+    image.thumbnail((LOGO_MAX, LOGO_MAX), Image.LANCZOS)
+    out = io.BytesIO()
+    image.save(out, format="WEBP", quality=82, alpha_quality=90, method=4)
+    return out.getvalue()
+
+
 PHOTO_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 
 # kind -> (source folder, source extensions, output folder, builder)
@@ -124,6 +142,8 @@ JOBS = {
     "then-card": ("players/then/", PHOTO_EXTENSIONS, "players/then-card/", lambda b: build_card_photo(b, 800)),
     "back-card": ("players/back/", PHOTO_EXTENSIONS, "players/back-card/", lambda b: build_card_photo(b, 800)),
     "now-thumb": ("players/now/", PHOTO_EXTENSIONS, "players/now-thumb/", lambda b: build_card_photo(b, 400)),
+    # Direct children of teams/ only, so teams/cutouts/ is left alone.
+    "team-logo": ("teams/", PHOTO_EXTENSIONS, "teams-web/", build_team_logo),
 }
 
 

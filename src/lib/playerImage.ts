@@ -149,9 +149,25 @@ const CARD_COPY_ORIGINAL: Record<string, string> = {
   'now-thumb': 'now',
 };
 
-/** The original .jpg a card-size copy was made from, or '' for any other URL. */
+/**
+ * A team's logo: the small WebP copy (teams-web/, fits 400x400) built by
+ * scripts/build-web-cutouts-s3.py from the hand-uploaded teams/{id}.png.
+ * getOriginalForCardCopy() maps it back to the .png for a logo uploaded
+ * since the last converter run.
+ */
+export function getTeamLogoUrl(teamId: string): string {
+  return `${S3_BASE}/teams-web/${encodeURIComponent(teamId)}.webp`;
+}
+
+/**
+ * The original a card-size copy was made from (.jpg for player photos,
+ * .png for team logos), or '' for any other URL.
+ */
 export function getOriginalForCardCopy(src?: string | null): string {
-  const match = String(src || '').match(/^(.*\/players\/)(then-card|back-card|now-thumb)\/([^/?#]+)\.webp(?=$|[?#])/);
+  const text = String(src || '');
+  const logo = text.match(/^(.*\/)teams-web\/([^/?#]+)\.webp(?=$|[?#])/);
+  if (logo) return `${logo[1]}teams/${logo[2]}.png`;
+  const match = text.match(/^(.*\/players\/)(then-card|back-card|now-thumb)\/([^/?#]+)\.webp(?=$|[?#])/);
   if (!match) return '';
   return `${match[1]}${CARD_COPY_ORIGINAL[match[2]]}/${match[3]}.jpg`;
 }
