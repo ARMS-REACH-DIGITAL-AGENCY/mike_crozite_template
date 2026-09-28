@@ -119,7 +119,7 @@ const TABS: Tab[] = [
   { id: "news",     label: "News",     icon: "ri-newspaper-line" },
   { id: "social",   label: "Social",   icon: "ri-share-line" },
   { id: "connect",  label: "Connect",  icon: "ri-group-line" },
-  { id: "upload",   label: "Upload",   icon: "ri-upload-cloud-line" },
+  { id: "upload",   label: "Stories",  icon: "ri-upload-cloud-line" },
 ];
 
 // CTA copy per tab
@@ -137,7 +137,7 @@ function getCta(tab: TabId, firstName: string): string {
     case "connect":
       return `Connect with ${firstName} through our Mentorship Marketplace.`;
     case "upload":
-      return `Upload your favorite memories to ${firstName}'s Career Path timeline.`;
+      return `See and share stories about ${firstName} on his player profile page.`;
   }
 }
 
@@ -690,16 +690,19 @@ function ConnectPanel({ profileHref }: { profileHref: string }) {
   );
 }
 
-function UploadPanel({ player }: { player: Record<string, unknown> }) {
+// The Stories tab: what the Career Path timeline is, and a link to the
+// profile page, where the stories and the upload live.
+function UploadPanel({ player, profileHref }: { player: Record<string, unknown>; profileHref: string }) {
   const firstName = String(player.firstname || player.first_name || "").split(" ")[0] || "this player";
   return (
-    <div className="fz-placeholder">
+    <a className="fz-placeholder" href={profileHref}>
       <i className="ri-upload-cloud-line fz-ph-icon" />
       <div className="fz-ph-text">
-        Upload your favorite memories to {firstName}&apos;s{" "}
-        <strong>Career Path timeline</strong> on the player profile page.
+        Photos and memories fans share about {firstName} appear on his{" "}
+        <strong>Career Path timeline</strong>, placed by year, and in the{" "}
+        <strong>Stories</strong> tab of his player profile page.
       </div>
-    </div>
+    </a>
   );
 }
 
@@ -854,7 +857,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "upload" ? " fz-panel-active" : ""}`}
         data-fz-tab="upload"
       >
-        <UploadPanel player={player} />
+        <UploadPanel player={player} profileHref={profileHref} />
       </div>
 
       {/*
@@ -1311,6 +1314,7 @@ export default function FunZone({
           padding:clamp(6px,3cqi,18px) 8px;
           text-align:center;
         }
+        a.fz-placeholder{text-decoration:none;color:inherit;height:100%}
         .fz-ph-icon{font-size:clamp(14px,5cqi,26px);opacity:.25;color:rgba(30,22,14,0.7)}
         .fz-ph-text{
           font:300 clamp(7px,2.2cqi,10px)/1.45 Oswald,sans-serif;

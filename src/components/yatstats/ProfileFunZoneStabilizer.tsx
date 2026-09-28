@@ -75,7 +75,7 @@ function activate(hashValue?: string | null) {
   document.querySelectorAll<HTMLAnchorElement>('.pp-fz-tab').forEach((tab) => {
     if (tab.getAttribute('href') === '#ppTab-influence') {
       tab.href = '#ppTab-upload';
-      tab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Upload</span>';
+      tab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Stories</span>';
     }
     tab.classList.toggle('pp-fz-tab-active', normalizeHash(tab.getAttribute('href')) === hash);
   });
