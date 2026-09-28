@@ -82,6 +82,51 @@ async function authHeaders(): Promise<Record<string, string>> {
   }
 }
 
+// Like or un-like (no account needed). Used by posts and the small cards.
+export async function toggleStoryLike(storyId: string): Promise<{ liked: boolean; likeCount: number } | null> {
+  try {
+    const res = await fetch(`/api/stories/${storyId}/like`, { method: 'POST', headers: await authHeaders(), credentials: 'include' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return null;
+    return { liked: Boolean(data.liked), likeCount: Number(data.likeCount) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+// The phone's share sheet, else copy the link. Returns a message to show
+// (or null when the share sheet handled it / was cancelled).
+export async function shareStory(story: Story): Promise<string | null> {
+  const url = shareUrlFor(story.id);
+  const title = `${story.author}'s story${story.year ? ` · ${storyWhen(story)}` : ''}`;
+  let method = 'link';
+  let message: string | null = null;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text: story.story.slice(0, 140), url });
+      method = 'native';
+    } else {
+      await navigator.clipboard.writeText(url);
+      message = 'Link copied. Paste it anywhere to share.';
+    }
+  } catch (error) {
+    if ((error as Error)?.name === 'AbortError') return null;
+    try {
+      await navigator.clipboard.writeText(url);
+      message = 'Link copied. Paste it anywhere to share.';
+    } catch {
+      window.prompt('Copy this link to share the story:', url);
+    }
+  }
+  fetch(`/api/stories/${story.id}/share`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    credentials: 'include',
+    body: JSON.stringify({ method }),
+  }).catch(() => {});
+  return message;
+}
+
 export function shareUrlFor(storyId: string) {
   const url = new URL(window.location.href);
   url.searchParams.set('story', storyId);
@@ -144,11 +189,14 @@ export function StoryThread({
   onDeleted,
   variant,
   media,
+  focusComment = false,
 }: {
   story: Story;
   playerId: string;
   onChange: (story: Story) => void;
   onDeleted: (id: string) => void;
+  // Opened from a card's Comment button: put the cursor in the comment box.
+  focusComment?: boolean;
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
@@ -170,6 +218,10 @@ export function StoryThread({
 
   const others = story.players.filter((p) => p.playerId !== playerId);
   const hasComments = story.commentCount > 0;
+
+  useEffect(() => {
+    if (focusComment && me) composerRef.current?.focus();
+  }, [focusComment, me]);
 
   // Comments: loaded when the post appears (skipped when there are none).
   useEffect(() => {
@@ -213,16 +265,14 @@ export function StoryThread({
     const was = Boolean(story.likedByMe);
     setBusy('like');
     onChange({ ...story, likedByMe: !was, likeCount: Math.max(0, story.likeCount + (was ? -1 : 1)) });
-    try {
-      const { res, data } = await call(`/api/stories/${story.id}/like`, { method: 'POST' });
-      if (!res.ok) throw new Error(data?.error);
-      onChange({ ...story, likedByMe: Boolean(data.liked), likeCount: Number(data.likeCount) || 0 });
-    } catch {
+    const result = await toggleStoryLike(story.id);
+    if (result) {
+      onChange({ ...story, likedByMe: result.liked, likeCount: result.likeCount });
+    } else {
       onChange({ ...story });
       flash('That like didn’t go through.');
-    } finally {
-      setBusy('');
     }
+    setBusy('');
   };
 
   const postComment = async () => {
@@ -255,27 +305,8 @@ export function StoryThread({
   };
 
   const share = async () => {
-    const url = shareUrlFor(story.id);
-    const title = `${story.author}'s story${story.year ? ` · ${storyWhen(story)}` : ''}`;
-    let method = 'link';
-    try {
-      if (navigator.share) {
-        await navigator.share({ title, text: story.story.slice(0, 140), url });
-        method = 'native';
-      } else {
-        await navigator.clipboard.writeText(url);
-        flash('Link copied. Paste it anywhere to share.');
-      }
-    } catch (error) {
-      if ((error as Error)?.name === 'AbortError') return;
-      try {
-        await navigator.clipboard.writeText(url);
-        flash('Link copied. Paste it anywhere to share.');
-      } catch {
-        window.prompt('Copy this link to share the story:', url);
-      }
-    }
-    call(`/api/stories/${story.id}/share`, { method: 'POST', body: JSON.stringify({ method }) }).catch(() => {});
+    const message = await shareStory(story);
+    if (message) flash(message);
   };
 
   const startEdit = () => {
@@ -507,6 +538,7 @@ export default function StoryViewer({
   story,
   playerId,
   initialPhoto = 0,
+  focusComment = false,
   onClose,
   onChange,
   onDeleted,
@@ -514,6 +546,7 @@ export default function StoryViewer({
   story: Story;
   playerId: string;
   initialPhoto?: number;
+  focusComment?: boolean;
   onClose: () => void;
   onChange: (story: Story) => void;
   onDeleted: (id: string) => void;
@@ -549,7 +582,7 @@ export default function StoryViewer({
             </>
           )}
         </div>
-        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" />
+        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={focusComment} />
       </div>
       <StoryStyles />
     </div>,
