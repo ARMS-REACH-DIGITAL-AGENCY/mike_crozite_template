@@ -59,7 +59,7 @@ import io
 import os
 import sys
 
-from PIL import Image, ImageChops, ImageOps
+from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
 AWS_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-west-2"
@@ -156,7 +156,7 @@ def main() -> int:
     if ONLY_IDS:
         print(f"Only ids: {sorted(ONLY_IDS)}")
 
-    built = skipped = failed = would_build = 0
+    built = skipped = failed = would_build = not_images = 0
     unknown = [k for k in KINDS if k not in JOBS]
     if unknown:
         print(f"Unknown KINDS: {unknown} (expected some of {ALL_KINDS})")
@@ -214,6 +214,12 @@ def main() -> int:
                 )
                 print(f"{label}  OK {len(png):,} -> {len(webp):,} bytes")
                 built += 1
+            except UnidentifiedImageError:
+                # Not an image at all (8 teams/*.png files are saved web
+                # pages): nothing to build. Reported, but not a job failure,
+                # or every hourly run would go red until it's re-uploaded.
+                print(f"{label}  SKIPPED: not an image file - re-upload it")
+                not_images += 1
             except Exception as exc:  # keep going; report at the end
                 print(f"{label}  FAILED: {exc}")
                 failed += 1
@@ -222,6 +228,7 @@ def main() -> int:
     print(f"Built: {built}")
     print(f"Up to date (skipped): {skipped}")
     print(f"Dry run, would build: {would_build}")
+    print(f"Not image files (skipped, re-upload): {not_images}")
     print(f"Failed: {failed}")
     return 1 if failed else 0
 
