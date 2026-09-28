@@ -83,22 +83,24 @@ export default function ProfileNewsList({
             className="pp-news-teaser"
             onClick={() => setOpenUuid(story.uuid)}
           >
-            {/* Our own photo of the player, silhouette behind it. */}
-            <div
-              className="pp-news-thumb pp-news-thumb-photo"
-              style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
-            >
-              <CardPhoto srcs={getNewsPhotoSrcs(playerId, story.imageUrl)} className="pp-news-thumb-img" />
+            <div className="pp-news-label">
+              {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
             </div>
-            <div className="pp-news-copy">
-              <div className="pp-news-label">
-                {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
+            <div className="pp-news-row">
+              {/* Our own photo of the player, silhouette behind it. */}
+              <div
+                className="pp-news-thumb pp-news-thumb-photo"
+                style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
+              >
+                <CardPhoto srcs={getNewsPhotoSrcs(playerId, story.imageUrl)} className="pp-news-thumb-img" />
               </div>
-              <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
-              {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), playerName)}</div> : null}
-              <div className="pp-news-footer">
-                {(story.source || "News").toUpperCase()}
-                {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
+              <div className="pp-news-copy">
+                <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
+                {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), playerName)}</div> : null}
+                <div className="pp-news-footer">
+                  {(story.source || "News").toUpperCase()}
+                  {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
+                </div>
               </div>
             </div>
           </button>
@@ -157,12 +159,15 @@ export default function ProfileNewsList({
           --pp-news-muted:rgba(31,25,18,.52);
           --pp-news-label:#b78600;
         }
+        /* The eyebrow on its own line at the top left; under it the photo
+           and the headline side by side, their tops level. */
         .pp-news-teaser{
           appearance:none;
           width:100%;
           display:flex;
-          align-items:flex-start;
-          gap:10px;
+          flex-direction:column;
+          align-items:stretch;
+          gap:7px;
           min-width:0;
           padding:8px;
           text-align:left;
@@ -179,6 +184,12 @@ export default function ProfileNewsList({
         }
         .pp-news-teaser:active{
           transform:scale(.997);
+        }
+        .pp-news-row{
+          display:flex;
+          align-items:flex-start;
+          gap:10px;
+          min-width:0;
         }
         .pp-news-thumb{
           display:block;
@@ -213,6 +224,7 @@ export default function ProfileNewsList({
           color:var(--pp-news-label);
         }
         .pp-news-title{
+          margin-top:-.08em;
           font:700 17px/1.12 "Bebas Neue",Oswald,sans-serif;
           letter-spacing:.03em;
           color:var(--pp-news-title);
@@ -260,7 +272,8 @@ export default function ProfileNewsList({
             padding-left:8px;
             padding-right:8px;
           }
-          .pp-news-teaser{gap:8px;padding:7px}
+          .pp-news-teaser{gap:6px;padding:7px}
+          .pp-news-row{gap:8px}
           .pp-news-thumb{width:62px;height:80px}
           .pp-news-title{font-size:15px}
           .pp-news-body{font-size:10px}
