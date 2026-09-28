@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
+import FanConfirm from '@/components/yatstats/FanConfirm';
 
 export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null };
 export type StoryPlayer = { playerId: string; hsid: string | null; name: string; isPrimary: boolean };
@@ -29,7 +30,7 @@ export type Story = {
 };
 
 type StoryComment = { id: string; text: string; author: string; createdAt: string; isMine: boolean; canDelete: boolean };
-type Me = { firstName: string; lastName: string } | null;
+type Me = { firstName: string; lastName: string; email: string } | null;
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -105,6 +106,9 @@ export default function StoryViewer({
   const [note, setNote] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{ text: string; month: number; year: number } | null>(null);
+  // Set when this site couldn't tell who the fan is: the action to retry
+  // once they've confirmed it's them (FanConfirm).
+  const [retry, setRetry] = useState<null | (() => void)>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const others = story.players.filter((p) => p.playerId !== playerId);
@@ -122,7 +126,7 @@ export default function StoryViewer({
       .then((data) => {
         if (cancelled) return;
         const s = data?.authenticated ? data.session : null;
-        setMe(s ? { firstName: String(s.firstName || ''), lastName: String(s.lastName || '') } : null);
+        setMe(s ? { firstName: String(s.firstName || ''), lastName: String(s.lastName || ''), email: String(s.email || '') } : null);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -144,6 +148,11 @@ export default function StoryViewer({
     window.setTimeout(() => setNote(''), 2600);
   }, []);
 
+  const needConfirm = (action: () => void) => {
+    if (!me) return openSignIn();
+    setRetry(() => action);
+  };
+
   const call = async (url: string, init: RequestInit = {}) => {
     const headers = { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(await authHeaders()) };
     const res = await fetch(url, { ...init, headers, credentials: 'include' });
@@ -159,7 +168,7 @@ export default function StoryViewer({
     onChange({ ...story, likedByMe: !was, likeCount: Math.max(0, story.likeCount + (was ? -1 : 1)) });
     try {
       const { res, data } = await call(`/api/stories/${story.id}/like`, { method: 'POST' });
-      if (res.status === 401) { onChange({ ...story }); return openSignIn(); }
+      if (res.status === 401) { onChange({ ...story }); return needConfirm(toggleLike); }
       if (!res.ok) throw new Error(data?.error);
       onChange({ ...story, likedByMe: Boolean(data.liked), likeCount: Number(data.likeCount) || 0 });
     } catch {
@@ -177,7 +186,7 @@ export default function StoryViewer({
     setBusy('comment');
     try {
       const { res, data } = await call(`/api/stories/${story.id}/comments`, { method: 'POST', body: JSON.stringify({ text }) });
-      if (res.status === 401) return openSignIn();
+      if (res.status === 401) return needConfirm(postComment);
       if (!res.ok) throw new Error(data?.error || 'Your comment could not be posted.');
       setComments((list) => [...(list || []), data.comment]);
       setDraft('');
@@ -192,6 +201,7 @@ export default function StoryViewer({
   const removeComment = async (comment: StoryComment) => {
     if (!window.confirm('Delete this comment?')) return;
     const { res, data } = await call(`/api/stories/${story.id}/comments/${comment.id}`, { method: 'DELETE' });
+    if (res.status === 401) return needConfirm(() => removeComment(comment));
     if (!res.ok) return flash(data?.error || 'The comment could not be removed.');
     setComments((list) => (list || []).filter((c) => c.id !== comment.id));
     onChange({ ...story, commentCount: Math.max(0, story.commentCount - 1) });
@@ -235,7 +245,7 @@ export default function StoryViewer({
         method: 'PATCH',
         body: JSON.stringify({ story: editing.text, month: editing.month, year: editing.year }),
       });
-      if (res.status === 401) return openSignIn();
+      if (res.status === 401) return needConfirm(saveEdit);
       if (!res.ok) throw new Error(data?.error || 'Your changes could not be saved.');
       onChange({ ...story, story: data.story, date: data.date, year: data.year });
       setEditing(null);
@@ -253,7 +263,7 @@ export default function StoryViewer({
     setBusy('delete');
     try {
       const { res, data } = await call(`/api/stories/${story.id}`, { method: 'DELETE' });
-      if (res.status === 401) return openSignIn();
+      if (res.status === 401) return needConfirm(remove);
       if (!res.ok) throw new Error(data?.error || 'The story could not be deleted.');
       onDeleted(story.id);
       window.dispatchEvent(new CustomEvent('yat:story-posted', { detail: { id: story.id } }));
@@ -392,6 +402,12 @@ export default function StoryViewer({
 
           {note && <div className="ysv-note" role="status">{note}</div>}
 
+          {retry && (
+            <div className="ysv-confirm">
+              <FanConfirm email={me?.email} onConfirmed={() => { const run = retry; setRetry(null); run(); }} />
+            </div>
+          )}
+
           {/* Comment as ... (signed-in fans); a sign-in prompt otherwise. */}
           <div className="ysv-composer">
             {me ? (
@@ -469,6 +485,7 @@ export default function StoryViewer({
         .ysv-comment-meta { display: flex; gap: 12px; padding: 3px 12px 0; color: rgba(255,255,255,.5); font: 700 12px/1 system-ui, sans-serif; }
         .ysv-comment-meta button { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
         .ysv-comment-meta button:hover { color: #ff7b7b; }
+        .ysv-confirm { padding: 0 12px 8px; }
         .ysv-note { margin: 0 16px 6px; padding: 8px 12px; border-radius: 8px; background: rgba(255,215,0,.14); color: #FFD700; font: 400 13px/1.3 system-ui, sans-serif; }
         .ysv-composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid rgba(255,255,255,.1); }
         .ysv-composer textarea { flex: 1; resize: none; max-height: 120px; border-radius: 20px; padding: 10px 14px; }
