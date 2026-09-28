@@ -140,9 +140,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
               <span className="ysf-card-when">{fullWhenLabel(s)}</span>
               <span className="ysf-card-row">
                 <span className="ysf-card-photo">
-                  {cover?.web || cover?.thumb ? (
+                  {cover?.thumb || cover?.web ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cover.web || cover.thumb || ''} alt="" loading="lazy" decoding="async" />
+                    <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
                   ) : null}
                   {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
                 </span>
@@ -214,6 +214,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-card-border: rgba(255,255,255,.14);
           --ysf-card-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 3px rgba(0,0,0,.22);
           --ysf-thumb-bg: rgba(255,255,255,.06);
+          --ysf-thumb-border: rgba(255,255,255,.13);
           --ysf-text: rgba(255,255,255,.88);
           --ysf-muted: rgba(255,255,255,.55);
           --ysf-strong: rgba(255,255,255,.95);
@@ -225,6 +226,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-card-border: rgba(53,43,30,.18);
           --ysf-card-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 1px 3px rgba(72,54,30,.08);
           --ysf-thumb-bg: rgba(53,43,30,.05);
+          --ysf-thumb-border: rgba(53,43,30,.17);
           --ysf-text: rgba(31,25,18,.86);
           --ysf-muted: rgba(31,25,18,.55);
           --ysf-strong: rgba(31,25,18,.94);
@@ -236,18 +238,19 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         /* The date on its own line at the top left; under it the photo and
            the story side by side, their tops level. Thin border like the
            News cards. */
-        .ysf-card { appearance: none; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; margin: 0; padding: 10px 12px 12px; text-align: left; cursor: pointer; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; }
+        .ysf-card { appearance: none; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 7px; min-width: 0; margin: 0; padding: 8px; text-align: left; cursor: pointer; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; }
         .ysf-card:hover { border-color: var(--gold, #ffc107); }
         .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
         /* Same type as the News cards' eyebrow (.pp-news-label). */
         .ysf-card-when { color: var(--ysf-when); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
-        .ysf-card-row { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
-        .ysf-card-photo { position: relative; flex: 0 0 auto; display: block; width: 150px; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 4px; background: var(--ysf-thumb-bg); }
-        .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; display: block; }
-        .ysf-card-count { position: absolute; right: 4px; bottom: 4px; padding: 2px 6px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
-        .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 8px; }
-        .ysf-card-text { color: var(--ysf-text); font: 400 16px/1.45 var(--yat-news-font, Georgia, serif); margin-top: -.2em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
-        .ysf-card-by { color: var(--ysf-muted); font: 700 12px/1.2 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .ysf-card-row { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+        /* Same size and frame as the News thumbnail (.pp-news-thumb). */
+        .ysf-card-photo { position: relative; flex: 0 0 auto; display: block; width: 68px; height: 88px; overflow: hidden; border-radius: 8px; border: 1px solid var(--ysf-thumb-border); box-shadow: 0 1px 3px rgba(0,0,0,.16); background: var(--ysf-thumb-bg); }
+        .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
+        .ysf-card-count { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 2px 0; text-align: center; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+        .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+        .ysf-card-by { color: var(--ysf-muted); font: 700 9px/1.2 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .ysf-modal { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.82); }
         .ysf-modal-card { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); width: min(1100px, 100%); max-height: calc(100dvh - 32px); background: #0d0d0d; color: #f4f4f4; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; overflow: hidden; }
         .ysf-modal-close { position: absolute; top: 8px; right: 8px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; }
@@ -267,11 +270,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
           .ysf-feed { gap: 8px; }
-          .ysf-card { gap: 6px; padding: 9px 10px 10px; }
-          .ysf-card-row { gap: 10px; }
-          .ysf-card-photo { width: 112px; }
-          .ysf-card-text { font-size: 15px; }
-          .ysf-card-by { font-size: 11px; }
+          .ysf-card { gap: 6px; padding: 7px; }
+          .ysf-card-row { gap: 8px; }
+          .ysf-card-photo { width: 62px; height: 80px; }
+          .ysf-card-text { font-size: 12px; }
           .ysf-modal { padding: 0; align-items: stretch; }
           .ysf-modal-card { grid-template-columns: 1fr; grid-template-rows: auto 1fr; max-height: 100dvh; border-radius: 0; }
           .ysf-modal-photo img { max-height: 55dvh; }
