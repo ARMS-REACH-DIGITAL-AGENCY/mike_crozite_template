@@ -180,8 +180,8 @@ async function ensureTable(): Promise<void> {
 
 /**
  * Active alumni of the given schools, from the flip cards: anyone still
- * playing (active, injured, redshirt, ...) - not retired, not a free
- * agent, not a current high schooler. (This used to be "had 2025 stats",
+ * playing (active, injured, redshirt, a free agent, ...) - not retired,
+ * not a current high schooler. (This used to be "had 2025 stats",
  * which never picked up anyone new in 2026.)
  */
 async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
@@ -203,10 +203,25 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
      LEFT JOIN tbc_players_raw tp ON tp.playerid::text = f.playerid::text
      LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = f.playerid::text
      WHERE f.hsid::text = ANY($1::text[])
-       AND NULLIF(TRIM(f.status_label), '') IS NOT NULL
+       AND (
+         NULLIF(TRIM(f.status_label), '') IS NOT NULL
+         -- A free agent who signs has his status cleared by the MLB
+         -- transaction job until the next roster refresh (up to three
+         -- hours). Keep him in that gap, or the signing story would be
+         -- skipped for good once this run moves the search window on. A
+         -- verified MLB link is what marks him: the untouched TBC rows with
+         -- no status never have one.
+         OR EXISTS (
+           SELECT 1 FROM player_source_map m
+            WHERE m.playerid = f.playerid::text
+              AND m.source = 'mlb_api'
+              AND m.is_verified
+              AND COALESCE(m.match_method, '') <> 'rejected_bad_identity_match'
+         )
+       )
        -- Free agents stay in: a signing with a new club is exactly the
        -- news fans want.
-       AND UPPER(TRIM(f.status_label)) NOT IN ('RETIRED', 'UNCOMMITTED', 'COMMIT', 'NOT ACTIVE')
+       AND UPPER(TRIM(COALESCE(f.status_label, ''))) NOT IN ('RETIRED', 'UNCOMMITTED', 'COMMIT', 'NOT ACTIVE')
        AND UPPER(TRIM(COALESCE(f.level_label, ''))) NOT IN ('HIGH SCHOOL', 'HS')
        AND TRIM(COALESCE(f.first_name, tp.firstname, '')) <> ''
        AND TRIM(COALESCE(f.last_name, tp.lastname, '')) <> ''
