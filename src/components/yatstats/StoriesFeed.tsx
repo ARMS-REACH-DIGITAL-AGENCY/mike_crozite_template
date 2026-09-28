@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
-import StoryViewer, { StoryStyles, StoryThread, storyWhen, type Story } from '@/components/yatstats/StoryViewer';
+import StoryViewer, { StoryStyles, StoryThread, shareStory, storyWhen, toggleStoryLike, type Story } from '@/components/yatstats/StoryViewer';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
 function useIsDesktop() {
@@ -62,6 +62,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const [search, setSearch] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [openPhoto, setOpenPhoto] = useState(0);
+  const [openForComment, setOpenForComment] = useState(false);
+  const [note, setNote] = useState('');
   const openStory = stories?.find((s) => s.id === openId) || null;
   // A shared link (?story=<id>) opens that story once the list is in.
   const pendingOpen = useRef<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('story') : null);
@@ -154,9 +156,33 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     }
   }, []);
 
-  const show = (story: Story, photo = 0) => {
+  const show = (story: Story, photo = 0, forComment = false) => {
     setOpenPhoto(photo);
+    setOpenForComment(forComment);
     setOpenId(story.id);
+  };
+
+  const flash = (text: string) => {
+    setNote(text);
+    window.setTimeout(() => setNote(''), 2600);
+  };
+
+  // Like and Share work straight from a card (no account needed for
+  // either); Comment opens the story with the comment box ready.
+  const likeFromCard = async (story: Story) => {
+    const was = Boolean(story.likedByMe);
+    updateStory({ ...story, likedByMe: !was, likeCount: Math.max(0, story.likeCount + (was ? -1 : 1)) });
+    const result = await toggleStoryLike(story.id);
+    if (result) updateStory({ ...story, likedByMe: result.liked, likeCount: result.likeCount });
+    else {
+      updateStory(story);
+      flash('That like didn’t go through.');
+    }
+  };
+
+  const shareFromCard = async (story: Story) => {
+    const message = await shareStory(story);
+    if (message) flash(message);
   };
 
   const visible = useMemo(() => {
@@ -221,26 +247,35 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
             {list.map((s) => {
               const cover = s.photos[0];
               return (
-                <button type="button" className="ysf-card" id={`story-${s.id}`} key={s.id} onClick={() => show(s)}>
-                  <span className="ysf-card-when">{fullWhenLabel(s)}</span>
-                  <span className="ysf-card-row">
-                    <span className="ysf-card-photo">
-                      {cover?.thumb || cover?.web ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
-                      ) : null}
-                      {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
-                    </span>
-                    <span className="ysf-card-body">
-                      <span className="ysf-card-text">{s.story}</span>
-                      <span className="ysf-card-by">
-                        By {s.author}
-                        {s.likeCount > 0 ? <span className="ysf-card-stat"><i className="ri-thumb-up-fill" /> {s.likeCount}</span> : null}
-                        {s.commentCount > 0 ? <span className="ysf-card-stat"><i className="ri-chat-3-fill" /> {s.commentCount}</span> : null}
+                <div className="ysf-card" id={`story-${s.id}`} key={s.id}>
+                  <button type="button" className="ysf-card-open" onClick={() => show(s)} aria-label={`Open ${s.author}'s story from ${fullWhenLabel(s)}`}>
+                    <span className="ysf-card-when">{fullWhenLabel(s)}</span>
+                    <span className="ysf-card-row">
+                      <span className="ysf-card-photo">
+                        {cover?.thumb || cover?.web ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
+                        ) : null}
+                        {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
+                      </span>
+                      <span className="ysf-card-body">
+                        <span className="ysf-card-text">{s.story}</span>
+                        <span className="ysf-card-by">By {s.author}</span>
                       </span>
                     </span>
-                  </span>
-                </button>
+                  </button>
+                  <div className="ysf-card-actions">
+                    <button type="button" className={s.likedByMe ? 'ysf-liked' : ''} onClick={() => likeFromCard(s)} aria-pressed={Boolean(s.likedByMe)}>
+                      <i className={s.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like{s.likeCount > 0 ? ` · ${s.likeCount}` : ''}
+                    </button>
+                    <button type="button" onClick={() => show(s, 0, true)}>
+                      <i className="ri-chat-3-line" /> Comment{s.commentCount > 0 ? ` · ${s.commentCount}` : ''}
+                    </button>
+                    <button type="button" onClick={() => shareFromCard(s)}>
+                      <i className="ri-share-forward-line" /> Share
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -254,8 +289,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       {body}
 
       {openStory && typeof document !== 'undefined' && (
-        <StoryViewer key={`${openStory.id}-${openPhoto}`} story={openStory} playerId={playerId} initialPhoto={openPhoto} onClose={closeViewer} onChange={updateStory} onDeleted={removeStory} />
+        <StoryViewer key={`${openStory.id}-${openPhoto}`} story={openStory} playerId={playerId} initialPhoto={openPhoto} focusComment={openForComment} onClose={closeViewer} onChange={updateStory} onDeleted={removeStory} />
       )}
+      {note && <div className="ysf-toast" role="status">{note}</div>}
       <StoryStyles />
 
       <style jsx global>{`
@@ -289,6 +325,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
         .ysf-feed-posts { gap: 16px; max-width: 720px; margin: 0 auto; }
         .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 720px; }
+        /* Search and sort stay pinned at the top of the tab while you scroll. */
+        .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
         .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
         .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; outline: none; }
         .ysf-tools select { min-height: 38px; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; }
@@ -305,7 +343,15 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         /* The date on its own line at the top left; under it the photo and
            the story side by side, their tops level. Thin border like the
            News cards. */
-        .ysf-card { appearance: none; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 7px; min-width: 0; margin: 0; padding: 8px; text-align: left; cursor: pointer; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; }
+        .ysf-card { width: 100%; display: flex; flex-direction: column; align-items: stretch; min-width: 0; margin: 0; padding: 0; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; overflow: hidden; }
+        .ysf-card-open { appearance: none; display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 100%; min-width: 0; margin: 0; padding: 8px 8px 6px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+        /* Like · Comment · Share on each card. */
+        .ysf-card-actions { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ysf-card-border); }
+        .ysf-card-actions button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; cursor: pointer; }
+        .ysf-card-actions button i { font-size: 15px; }
+        .ysf-card-actions button:hover { color: var(--ysf-strong); }
+        .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
+        .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #FFD700; border: 1px solid rgba(255,215,0,.5); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
         .ysf-card:hover { border-color: var(--gold, #ffc107); }
         .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
         /* Same type as the News cards' eyebrow (.pp-news-label). */
@@ -318,12 +364,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
         .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
         .ysf-card-by { color: var(--ysf-muted); font: 700 9px/1.2 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-        .ysf-card-stat { margin-left: 10px; white-space: nowrap; }
-        .ysf-card-stat i { font-size: 10px; vertical-align: -1px; }
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
           .ysf-feed { gap: 8px; }
-          .ysf-card { gap: 6px; padding: 7px; }
+          .ysf-card-open { gap: 6px; padding: 7px 7px 5px; }
           .ysf-card-row { gap: 8px; }
           .ysf-card-photo { width: 62px; height: 80px; }
           .ysf-card-text { font-size: 12px; }
