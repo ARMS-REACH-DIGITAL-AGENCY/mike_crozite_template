@@ -619,6 +619,10 @@ type HeroPhoto = { web: string; cutout: string | null; source: string | null };
 type RailStory = { id: string; thumb: string | null };
 
 const RAIL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+// Where the month line starts (just past the year label). Each month is an
+// equal stretch of the line and its name marks the 1st: January begins
+// right after the year, and December has a full stretch before the end.
+const RAIL_MONTH_START = 64;
 
 // Phones keep the year rail only (no months). Same 620px breakpoint as the
 // phone rules in the style block below.
@@ -1868,7 +1872,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 {RAIL_MONTHS.map((label, m) => {
                   const stories = storiesByMonth[monthRailYear]?.[m + 1] || [];
                   return (
-                    <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}`} style={{ left: `${14 + (m / 11) * 86}%` }}>
+                    <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}`} style={{ left: `calc(${RAIL_MONTH_START}px + (100% - ${RAIL_MONTH_START}px) * ${m / 12})` }}>
                       <span className="zt-rail-month-label" aria-hidden="true">{label}</span>
                       {stories.length > 0 && (
                         <button
@@ -2361,7 +2365,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         /* The only thing on the month rail that says which year it is, so
            it's bigger than the scrubber chip. */
         .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_YELLOW}; font:700 17px/24px "Bebas Neue",Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
-        .zt-rail-months .zt-rail-track { left:52px; }
+        .zt-rail-months .zt-rail-track { left:${RAIL_MONTH_START}px; }
         .zt-rail-month { position:absolute; top:50%; width:5px; height:5px; margin-left:-2.5px; transform:translateY(-50%); border-radius:50%; background:#e5342a; animation:zt-rail-in .25s ease both; }
         .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_YELLOW}; }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
