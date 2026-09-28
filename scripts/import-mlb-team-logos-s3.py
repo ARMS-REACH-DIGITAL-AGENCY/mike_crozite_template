@@ -15,6 +15,10 @@ Matching a TBC team id to an MLB id, exact names only:
 2. Otherwise the team's name, compared letters-and-digits only, against
    every affiliated team the Stats API lists for each season from 1990 on.
    A name used by more than one team id resolves to the most recent one.
+   MLB only serves a franchise's current logo, so a team is matched only
+   when its name is still that franchise's current name: the Montreal Expos
+   or Cleveland Indians would otherwise get the Nationals' or Guardians'
+   logo.
 
 Logos: https://www.mlbstatic.com/team-logos/{id}.svg (transparent), drawn
 to an 800px-wide PNG; the midfield.mlbstatic.com PNG is the fallback.
@@ -67,7 +71,9 @@ s3 = boto3.client("s3", region_name=REGION)
 
 
 def norm(name: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    key = re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    # MLB's short form for the Diamondbacks' affiliates ("ACL D-backs").
+    return key.replace("diamondbacks", "dbacks")
 
 
 def pro_teams(conn) -> list[dict]:
@@ -93,8 +99,10 @@ def pro_teams(conn) -> list[dict]:
 
 
 def mlb_names() -> dict[str, int]:
-    """Normalized team name -> MLB team id (the most recent season wins)."""
+    """Normalized team name -> MLB team id, for names that are still that
+    team id's current name (the most recent season wins)."""
     by_name: dict[str, int] = {}
+    current_name: dict[int, str] = {}
     for season in range(FIRST_SEASON, date.today().year + 1):
         url = f"https://statsapi.mlb.com/api/v1/teams?sportIds={SPORT_IDS}&season={season}"
         for attempt in range(3):
@@ -113,8 +121,12 @@ def mlb_names() -> dict[str, int]:
             key = norm(team.get("name", ""))
             if key and team.get("id"):
                 by_name[key] = int(team["id"])  # later seasons overwrite earlier ones
+                current_name[int(team["id"])] = key
         time.sleep(0.2)
-    print(f"Stats API: {len(by_name)} distinct team names, {FIRST_SEASON}-{date.today().year}")
+    renamed = [name for name, team_id in by_name.items() if current_name.get(team_id) != name]
+    for name in renamed:
+        del by_name[name]
+    print(f"Stats API: {len(by_name)} current team names ({len(renamed)} former names skipped), {FIRST_SEASON}-{date.today().year}")
     return by_name
 
 
