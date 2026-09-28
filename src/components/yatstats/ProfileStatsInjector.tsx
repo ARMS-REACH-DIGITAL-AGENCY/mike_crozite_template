@@ -415,34 +415,50 @@ function css() {
     #ppTab-stats .psi-bucket-total-row td[data-key="year"],
     #ppTab-stats .psi-bucket-total-row td[data-key="team"] { background:var(--psi-cell-bg-alt) !important; color:var(--psi-text) !important; border-top:2px solid rgba(191,148,43,.72); }
     #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:var(--psi-muted-text); background:var(--psi-card-bg); font:800 13px/1.35 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
+    #ppTab-stats .psi-table th .psi-sort-mark { font-size:7px; line-height:1; }
+    #ppTab-stats .psi-table th.is-sort-desc .psi-sort-mark::after { content:'▼'; }
+    #ppTab-stats .psi-table th.is-sort-asc .psi-sort-mark::after { content:'▲'; }
     @media (max-width:860px) { #ppTab-stats { padding:6px 4px calc(var(--profile-tabs-h,72px) + 10px) !important; } #ppTab-stats .psi-table { font-size:9px; } #ppTab-stats .psi-table th button, #ppTab-stats .psi-table td { padding:3px 2px; } #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { width:38px; min-width:38px; max-width:38px; } #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { width:102px; min-width:102px; max-width:102px; left:38px; } }
   </style>`;
 }
 
+// Every column sorts. The table opens sorted by YEAR, newest first (▼ on
+// YEAR); the first click on any column sorts it high to low, and clicking it
+// again flips it. Same rules as the Schedule tab's game log
+// (PlayerScheduleTable). Ties keep their order (Array.prototype.sort is
+// stable), so seasons with several stints stay in their usual order.
 function attachSortHandlers(panel: HTMLElement) {
   const tables = Array.from(panel.querySelectorAll<HTMLTableElement>('.psi-table'));
   tables.forEach((tableEl) => {
     const headers = Array.from(tableEl.querySelectorAll<HTMLTableCellElement>('th[data-sort-key]'));
     const tbody = tableEl.querySelector('tbody');
     if (!tbody) return;
+
+    const sortBy = (index: number, direction: 'asc' | 'desc') => {
+      headers.forEach((h) => { h.classList.remove('is-sort-asc', 'is-sort-desc'); h.removeAttribute('aria-sort'); });
+      headers[index].classList.add(direction === 'asc' ? 'is-sort-asc' : 'is-sort-desc');
+      headers[index].setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+      const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr'));
+      rows.sort((a, b) => {
+        const av = a.children[index]?.textContent?.trim() || '';
+        const bv = b.children[index]?.textContent?.trim() || '';
+        const an = Number(av.replace(/[^0-9.-]/g, ''));
+        const bn = Number(bv.replace(/[^0-9.-]/g, ''));
+        const numeric = av !== '' && bv !== '' && Number.isFinite(an) && Number.isFinite(bn);
+        const result = numeric ? an - bn : av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+        return direction === 'asc' ? result : -result;
+      });
+      rows.forEach((row) => tbody.appendChild(row));
+    };
+
     headers.forEach((header, index) => {
       header.querySelector('button')?.addEventListener('click', () => {
-        const direction = header.classList.contains('is-sort-asc') ? 'desc' : 'asc';
-        headers.forEach((h) => h.classList.remove('is-sort-asc', 'is-sort-desc'));
-        header.classList.add(direction === 'asc' ? 'is-sort-asc' : 'is-sort-desc');
-        const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr'));
-        rows.sort((a, b) => {
-          const av = a.children[index]?.textContent?.trim() || '';
-          const bv = b.children[index]?.textContent?.trim() || '';
-          const an = Number(av.replace(/[^0-9.-]/g, ''));
-          const bn = Number(bv.replace(/[^0-9.-]/g, ''));
-          const numeric = av !== '' && bv !== '' && Number.isFinite(an) && Number.isFinite(bn);
-          const result = numeric ? an - bn : av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
-          return direction === 'asc' ? result : -result;
-        });
-        rows.forEach((row) => tbody.appendChild(row));
+        sortBy(index, header.classList.contains('is-sort-desc') ? 'asc' : 'desc');
       });
     });
+
+    const yearIndex = headers.findIndex((h) => h.dataset.sortKey === 'year');
+    if (yearIndex >= 0) sortBy(yearIndex, 'desc');
   });
 }
 

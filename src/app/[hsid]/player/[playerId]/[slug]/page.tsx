@@ -535,36 +535,66 @@ export default async function ProfilePage({ params }: Props) {
     .slice()
     .sort((a: any, b: any) => toISODate(a.game_date).localeCompare(toISODate(b.game_date)));
 
-  // ── Box score columns (Fox Sports-style game log) ───────────────────────────
+  // ── Game log columns ────────────────────────────────────────────────────────
+  // The same stat columns, in the same order and with the same formulas, as
+  // the season-by-season table on the Stats tab (ProfileStatsInjector) -
+  // one game per row instead of one season. G is left out (always 1).
 
-  function statCell(v: unknown): string {
+  function gnum(v: unknown): number {
     const n = Number(v);
-    return Number.isFinite(n) ? String(n) : "-";
+    return Number.isFinite(n) ? n : 0;
+  }
+  function grate(v: number): string {
+    return Number.isFinite(v) ? v.toFixed(3).replace(/^0/, "") : "";
+  }
+  function gdec(v: number): string {
+    return Number.isFinite(v) ? v.toFixed(2) : "";
+  }
+  function ipToOuts(v: unknown): number {
+    const [whole, part] = String(v ?? "").split(".");
+    return (Number(whole) || 0) * 3 + (Number(part) || 0);
   }
 
-  function battingBoxScore(stats: Record<string, unknown> | null | undefined) {
-    const s = stats || {};
-    return {
-      ab: statCell(s.atBats),
-      h: statCell(s.hits),
-      r: statCell(s.runs),
-      hr: statCell(s.homeRuns),
-      rbi: statCell(s.rbi),
-      bb: statCell(s.baseOnBalls),
-      so: statCell(s.strikeOuts),
-    };
+  const BATTING_LOG_HEADERS = ["AB", "R", "H", "2B", "3B", "HR", "RBI", "SB", "CS", "BB", "SO", "HBP", "SH", "SF", "IBB", "GDP", "TB", "PA", "XBH", "1B", "AVG", "OBP", "SLG", "OPS", "SECA", "ISO", "BABIP"];
+  const PITCHING_LOG_HEADERS = ["W", "L", "GS", "CG", "SHO", "GR", "GF", "SV", "IP", "H", "R", "ER", "HR", "BB", "SO", "WP", "BK", "HB", "ERA", "WHIP", "H/9", "HR/9", "BB/9", "K/9", "RA/9", "K/BB"];
+
+  function battingLogCells(stats: Record<string, unknown>): string[] {
+    const ab = gnum(stats.atBats), r = gnum(stats.runs), h = gnum(stats.hits), d = gnum(stats.doubles), t = gnum(stats.triples);
+    const hr = gnum(stats.homeRuns), rbi = gnum(stats.rbi), sb = gnum(stats.stolenBases), cs = gnum(stats.caughtStealing);
+    const bb = gnum(stats.baseOnBalls), so = gnum(stats.strikeOuts), hbp = gnum(stats.hitByPitch), sh = gnum(stats.sacBunts);
+    const sf = gnum(stats.sacFlies), ibb = gnum(stats.intentionalWalks), gdp = gnum(stats.groundIntoDoublePlay);
+    const tb = stats.totalBases != null ? gnum(stats.totalBases) : h + d + 2 * t + 3 * hr;
+    const pa = stats.plateAppearances != null ? gnum(stats.plateAppearances) : ab + bb + hbp + sf + sh;
+    const avg = ab > 0 ? h / ab : NaN;
+    const obpDen = ab + bb + hbp + sf;
+    const obp = obpDen > 0 ? (h + bb + hbp) / obpDen : NaN;
+    const slg = ab > 0 ? tb / ab : NaN;
+    const babipDen = ab - hr - so + sf;
+    return [
+      ab, r, h, d, t, hr, rbi, sb, cs, bb, so, hbp, sh, sf, ibb, gdp, tb, pa, d + t + hr, h - d - t - hr,
+      grate(avg), grate(obp), grate(slg),
+      Number.isFinite(obp) && Number.isFinite(slg) ? grate(obp + slg) : "",
+      ab > 0 ? grate((bb + (tb - h) + sb - cs) / ab) : "",
+      Number.isFinite(slg) && Number.isFinite(avg) ? grate(slg - avg) : "",
+      babipDen > 0 ? grate((h - hr) / babipDen) : "",
+    ].map(String);
   }
 
-  function pitchingBoxScore(stats: Record<string, unknown> | null | undefined) {
-    const s = stats || {};
-    return {
-      ip: s.inningsPitched != null ? String(s.inningsPitched) : "-",
-      h: statCell(s.hits),
-      r: statCell(s.runs),
-      er: statCell(s.earnedRuns),
-      bb: statCell(s.baseOnBalls),
-      so: statCell(s.strikeOuts),
-    };
+  function pitchingLogCells(stats: Record<string, unknown>): string[] {
+    const outs = stats.outs != null ? gnum(stats.outs) : ipToOuts(stats.inningsPitched);
+    const inn = outs / 3;
+    const h = gnum(stats.hits), r = gnum(stats.runs), er = gnum(stats.earnedRuns), hr = gnum(stats.homeRuns);
+    const bb = gnum(stats.baseOnBalls), so = gnum(stats.strikeOuts);
+    const gs = gnum(stats.gamesStarted);
+    const per9 = (v: number) => (inn > 0 ? gdec((v * 9) / inn) : "");
+    return [
+      gnum(stats.wins), gnum(stats.losses), gs, gnum(stats.completeGames), gnum(stats.shutouts), gs > 0 ? 0 : 1,
+      gnum(stats.gamesFinished), gnum(stats.saves),
+      `${Math.floor(outs / 3)}.${outs % 3}`,
+      h, r, er, hr, bb, so, gnum(stats.wildPitches), gnum(stats.balks), gnum(stats.hitBatsmen ?? stats.hitByPitch),
+      per9(er), inn > 0 ? gdec((h + bb) / inn) : "", per9(h), per9(hr), per9(bb), per9(so), per9(r),
+      bb > 0 ? gdec(so / bb) : "",
+    ].map(String);
   }
 
   function resultBadge(result: unknown): { letter: "W" | "L" | "T"; className: string } | null {
@@ -575,9 +605,7 @@ export default async function ProfilePage({ params }: Props) {
     return null;
   }
 
-  const statHeaders = isPitcher
-    ? ["IP", "H", "R", "ER", "BB", "K"]
-    : ["AB", "H", "R", "HR", "RBI", "BB", "SO"];
+  const statHeaders = isPitcher ? PITCHING_LOG_HEADERS : BATTING_LOG_HEADERS;
 
   const scheduleTableRows: ScheduleTableRow[] = allGames.map((g: any) => {
     const d = toISODate(g.game_date);
@@ -585,15 +613,14 @@ export default async function ProfilePage({ params }: Props) {
     const badge = resultBadge(g.result);
     const logoUrl = mlbTeamLogoUrl(teamIdMap, log?.opponent_mlb_id);
 
-    const stats = isPitcher
-      ? (() => {
-          const box = pitchingBoxScore(log?.stats);
-          return [box.ip, box.h, box.r, box.er, box.bb, box.so];
-        })()
-      : (() => {
-          const box = battingBoxScore(log?.stats);
-          return [box.ab, box.h, box.r, box.hr, box.rbi, box.bb, box.so];
-        })();
+    // Games not played yet (or with no log) show "-" in every stat column.
+    const logStats =
+      log?.stats && typeof log.stats === "object" && log.stat_type === (isPitcher ? "pitching" : "batting")
+        ? (log.stats as Record<string, unknown>)
+        : null;
+    const stats = logStats
+      ? (isPitcher ? pitchingLogCells(logStats) : battingLogCells(logStats))
+      : statHeaders.map(() => "-");
 
     return {
       iso: d || "",
