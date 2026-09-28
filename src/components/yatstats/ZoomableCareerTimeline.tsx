@@ -747,7 +747,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [identityMeta, setIdentityMeta] = useState<{
     currentTeamName: string; orgConferenceName: string; levelLabel: string; statusLabel: string;
     position: string; bats: string; throws: string; height: string; weight: string;
-    classOf: string;
+    classOf: string; hsid?: string; hsname?: string; rosterYears?: string[];
   } | null>(null);
   // True once the identity fetch below has settled (either way). Class Of
   // and the anchor slide wait on it so a fan never sees the estimated grad
@@ -796,6 +796,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // (see the usePlayerProfile() note above), which is what made every
   // profile show the estimated year instead of the verified one.
   const verifiedClassOf = String(identityMeta?.classOf || player?.classOf || '').trim();
+  // The player's own high school (not necessarily this site's school):
+  // its name on the grad-year slide, its crest behind that slide and
+  // behind every year he was on its varsity roster (the YAT?STATS crest
+  // for the other years, or when the school hasn't shared varsity years).
+  const hsName = identityMeta?.hsname || school?.hsName || '';
+  const hsCrestSrcs = [
+    ...(identityMeta?.hsid ? [`${S3_BASE}/schools/${encodeURIComponent(identityMeta.hsid)}.png`] : []),
+    ...(school?.crestUrl ? [school.crestUrl] : []),
+  ];
+  const varsityYears = useMemo(() => new Set((identityMeta?.rosterYears || []).map(Number).filter(Boolean)), [identityMeta?.rosterYears]);
   // Position moved off this line and onto the end of batsThrowsHw below --
   // per direct feedback, this line is level + status only now (e.g.
   // "NCAA-D1 - ACTIVE"), not "position - level - status" like the flip
@@ -1103,7 +1113,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       id: 'career-path-hs-year',
       kind: 'hsyear',
       year: hsYear,
-      title: school?.hsName || 'High School',
+      title: hsName || 'High School',
     };
 
     // Skipped when a real season already lands on endYear -- when a
@@ -1151,7 +1161,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, school?.hsName]);
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName]);
 
   const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
@@ -1222,6 +1232,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // Not on phones, and not on the anchor (the opening screen keeps the
   // years; the grad year's months are on its own slide just before it).
   const activeSlide = model.slides[activeIndex];
+  // How much of the landing slide is showing (1 when it's fully in view),
+  // so its row of team logos on the rail fades with it.
+  const anchorRailOpacity = ready ? clamp(1 - 4 * Math.abs(scrollProgress - model.anchorIndex), 0, 1) : 0;
   const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' ? activeSlide.year : null;
 
   // The first time the timeline is ready it may not scroll at all (already
@@ -1637,7 +1650,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <span className="zt-visual-gradient" aria-hidden="true" />
               {(slide.kind === 'lifeyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
                 <span className="zt-logo-layer" aria-hidden="true">
-                  <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                  <SmartImage srcs={slide.kind === 'lifeyear' && varsityYears.has(slide.year) ? hsCrestSrcs : []} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
               {slide.kind === 'season' && (
@@ -1652,7 +1665,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               )}
               {slide.kind === 'hsyear' && (
                 <span className="zt-logo-layer" aria-hidden="true">
-                  <SmartImage srcs={school?.crestUrl ? [school.crestUrl] : []} src={YS_CREST_FALLBACK} alt="" />
+                  <SmartImage srcs={hsCrestSrcs} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
               {slide.kind === 'today' && (
@@ -1894,6 +1907,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               </>
             ) : (
             <>
+            {/* On the landing (graduation) slide, each season's dash - from
+                its tick to the next - carries the logo of the team he played
+                for that year; blank when there's no logo. Painted before the
+                ticks so the ticks and year chip sit on top. */}
+            {anchorRailOpacity > 0 && model.slides.map((slide, i) => (
+              slide.kind === 'season' && slide.teamLogoSrcs?.length ? (
+                <span
+                  key={`dash-${slide.id}`}
+                  className="zt-rail-dash-logo"
+                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `${100 / Math.max(1, model.slides.length - 1)}%`, opacity: anchorRailOpacity }}
+                  aria-hidden="true"
+                >
+                  <SmartImage srcs={slide.teamLogoSrcs} alt="" />
+                </span>
+              ) : null
+            ))}
             {model.slides.map((slide, i) => (
               <button
                 type="button"
@@ -2375,6 +2404,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-rail-story-thumb { display:block; width:100%; height:100%; object-fit:cover; border-radius:2px; }
         .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_YELLOW}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
+        /* A season's logo standing on the rail, as wide as its dash. */
+        .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
+        .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
         .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
         .zt-rail-tick.active .zt-rail-tick-year { display:none; }
         .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }

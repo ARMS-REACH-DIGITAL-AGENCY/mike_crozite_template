@@ -2222,6 +2222,9 @@ export type PlayerIdentityMeta = {
   hsid: string;
   hsname: string;
   hslocation: string;
+  // Years on the high school's varsity roster (from the coach), e.g.
+  // ["2017","2016"]; empty when the school hasn't shared them.
+  rosterYears: string[];
 };
 
 // The single source of truth for "this player's identity/status facts,
@@ -2240,7 +2243,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
   const empty: PlayerIdentityMeta = {
     currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: '',
     position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
-    hsid: '', hsname: '', hslocation: '',
+    hsid: '', hsname: '', hslocation: '', rosterYears: [],
   };
 
   try {
@@ -2261,6 +2264,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
         last_transaction_type: string | null;
         previous_team_name: string | null;
         previous_org_or_conference_name: string | null;
+        roster_years: string[] | null;
       }>(
         `select
            f.hsid::text as hsid,
@@ -2275,7 +2279,8 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
            f.team_affiliation_status,
            f.last_transaction_type,
            f.previous_team_name,
-           f.previous_org_or_conference_name
+           f.previous_org_or_conference_name,
+           f.roster_years
          from flip_card_front_stage f
          left join school_success ss on ss.hsid::text = f.hsid::text
          where f.playerid::text = $1
@@ -2320,6 +2325,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
       hsid: String(stage?.hsid || player?.hsid || '').trim(),
       hsname: String(stage?.hsname || '').trim(),
       hslocation: String(stage?.hslocation || '').trim(),
+      rosterYears: Array.isArray(stage?.roster_years) ? stage.roster_years.map((y: unknown) => String(y).trim()).filter(Boolean) : [],
     };
   } catch {
     return empty;
