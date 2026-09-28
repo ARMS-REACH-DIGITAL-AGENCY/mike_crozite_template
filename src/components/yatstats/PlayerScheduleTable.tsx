@@ -9,10 +9,12 @@
 // - Sticky column headers inside their own scroll container (this is a
 //   full profile page, not the space-constrained flip-card FunZone panel,
 //   so an internal scroll region is appropriate here).
-// - Every column is clickable to sort ascending/descending, with a ▲/▼
-//   arrow on whichever column is currently sorted so it's visible that
-//   every column here is sortable; rows stay intact (the whole row object
-//   moves together, never individual cells).
+// - Every column is clickable to sort, with a ▼/▲ arrow on whichever column
+//   is currently sorted (DATE ▼ to start). The first click on a column
+//   sorts it high to low; clicking it again flips it. Rows stay intact
+//   (the whole row object moves together, never individual cells). Same
+//   rules as the season table on the Stats tab (ProfileStatsInjector), and
+//   the same look: same stat columns, header, row height and colours.
 // - On mount, scrolls to today's date (or the nearest upcoming game if
 //   today is an off day) so a fan lands on "now," not buried in the
 //   season - future games are still there, just a scroll up away, rather
@@ -91,14 +93,26 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
     if (key === sortKey) {
       setSortDir((d) => (d === 1 ? -1 : 1));
     } else {
+      // A new column always starts high to low.
       setSortKey(key);
-      setSortDir(1);
+      setSortDir(-1);
     }
   }
 
   function sortIndicator(key: SortKey) {
     if (key !== sortKey) return null;
     return <span className="pst-sort-arrow">{sortDir === 1 ? "▲" : "▼"}</span>;
+  }
+
+  function header(key: SortKey, label: string, className?: string) {
+    return (
+      <th key={String(key)} className={className} aria-sort={key === sortKey ? (sortDir === 1 ? "ascending" : "descending") : "none"}>
+        <button type="button" onClick={() => onSort(key)}>
+          {label}
+          {sortIndicator(key)}
+        </button>
+      </th>
+    );
   }
 
   // Scroll to today's date on first load - the target is computed from the
@@ -124,26 +138,24 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
       <table className="pst-table">
         <thead ref={theadRef}>
           <tr>
-            <th onClick={() => onSort("date")}>DATE{sortIndicator("date")}</th>
-            <th onClick={() => onSort("opponent")}>OPPONENT{sortIndicator("opponent")}</th>
-            <th onClick={() => onSort("result")}>{sortIndicator("result")}</th>
-            {statHeaders.map((label, i) => (
-              <th key={label} onClick={() => onSort(i)}>
-                {label}
-                {sortIndicator(i)}
-              </th>
-            ))}
+            {header("date", "DATE", "pst-date")}
+            {header("opponent", "OPPONENT", "pst-opp")}
+            {header("result", "W/L", "pst-res")}
+            {statHeaders.map((label, i) => header(i, label))}
           </tr>
         </thead>
         <tbody>
           {sortedRows.map((row, i) => (
             <tr key={`${row.iso}-${i}`} data-iso={row.iso} className={row.iso === todayIso ? "pst-row-today" : undefined}>
-              <td>{row.dateLabel}</td>
-              <td className="pst-opponent">
-                {row.logoUrl && <img src={row.logoUrl} alt="" className="pst-opponent-logo" />}
-                {row.opponent || "--"}
+              <td className="pst-date">{row.dateLabel}</td>
+              <td className="pst-opp">
+                <span className="pst-opponent">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {row.logoUrl && <img src={row.logoUrl} alt="" className="pst-opponent-logo" />}
+                  <span className="pst-opponent-name">{row.opponent || "--"}</span>
+                </span>
               </td>
-              <td>{row.resultLetter && <span className={row.resultClass}>{row.resultLetter}</span>}</td>
+              <td className="pst-res">{row.resultLetter && <span className={row.resultClass}>{row.resultLetter}</span>}</td>
               {row.stats.map((v, si) => (
                 <td key={si}>{v}</td>
               ))}
@@ -152,57 +164,85 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
         </tbody>
       </table>
 
+      {/* Same look as the Stats tab's season table (ProfileStatsInjector):
+          its colour variables (--psi-*, set on #playerFunZone for light and
+          dark), header, cell padding, font and row height. */}
       <style>{`
         .pst-wrap{
           max-height: 70vh;
           overflow: auto;
-          border: 1px solid var(--line, rgba(255,255,255,.08));
-          border-radius: 6px;
+          border: 1px solid var(--psi-border, rgba(255,255,255,.18));
+          background: var(--psi-panel-bg, #080808);
+          box-shadow: 0 14px 32px rgba(0,0,0,.22);
         }
         .pst-table{
-          width: 100%;
-          border-collapse: collapse;
-          font: 400 10px/1.4 Oswald, sans-serif;
+          width: max-content;
+          min-width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font: 500 9.5px/1.05 Oswald, Arial, sans-serif;
+          color: var(--psi-text, #f4f0e6);
         }
         .pst-table thead th{
           position: sticky;
           top: 0;
-          z-index: 1;
-          background: var(--card-bg, #1a1a1a);
-          font: 600 8px/1 Oswald, sans-serif;
-          letter-spacing: .1em;
-          color: var(--muted, #888);
-          padding: 6px;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.08));
-          text-align: center;
+          z-index: 8;
+          padding: 0;
+          border-right: 1px solid var(--psi-border, rgba(255,255,255,.18));
+          border-bottom: 1px solid var(--psi-border, rgba(255,255,255,.18));
+          background: linear-gradient(180deg, var(--psi-head-bg-a, #202020), var(--psi-head-bg-b, #101010));
+          color: var(--psi-text, #f4f0e6);
           white-space: nowrap;
+        }
+        .pst-table thead th button{
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 2px;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          padding: 4px 3px;
+          font: 900 9px/1 Oswald, Arial, sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
           cursor: pointer;
-          user-select: none;
         }
-        .pst-table thead th:first-child,
-        .pst-table thead th:nth-child(2){
-          text-align: left;
-        }
-        .pst-sort-arrow{ margin-left: 4px; font-size: 7px; }
+        .pst-table thead th.pst-date button,
+        .pst-table thead th.pst-opp button{ justify-content: flex-start; }
+        .pst-table thead th.pst-res button{ justify-content: center; }
+        .pst-sort-arrow{ font-size: 7px; line-height: 1; }
         .pst-table td{
-          padding: 5px 6px;
-          border-bottom: 1px solid var(--line, rgba(255,255,255,.06));
-          color: var(--fg, #f0f0f0);
-          text-align: center;
+          padding: 3px 3px;
+          border-right: 1px solid rgba(128,128,128,.14);
+          border-bottom: 1px solid rgba(128,128,128,.16);
+          background: var(--psi-cell-bg, rgba(255,255,255,.035));
+          color: var(--psi-muted-text, rgba(255,255,255,.84));
+          text-align: right;
           white-space: nowrap;
+          font-variant-numeric: tabular-nums;
         }
-        .pst-table td:first-child,
-        .pst-table td:nth-child(2){
-          text-align: left;
-        }
-        .pst-row-today td{
-          background: rgba(200,169,110,.10);
-        }
-        .pst-opponent{ display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-        .pst-opponent-logo{ width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
+        .pst-table tbody tr:nth-child(even) td{ background: var(--psi-cell-bg-alt, rgba(255,255,255,.065)); }
+        .pst-table tbody tr:hover td{ background: var(--psi-cell-hover, rgba(255,255,255,.12)); color: var(--psi-text, #f4f0e6); }
+        .pst-table td.pst-date, .pst-table td.pst-opp{ text-align: left; color: var(--psi-text, #f4f0e6); }
+        .pst-table td.pst-res{ text-align: center; }
+        /* DATE stays put while the stat columns scroll sideways (like YEAR). */
+        .pst-table th.pst-date, .pst-table td.pst-date{ position: sticky; left: 0; z-index: 6; box-shadow: 4px 0 10px rgba(0,0,0,.18); }
+        .pst-table th.pst-date{ z-index: 10; }
+        .pst-table td.pst-date{ background: linear-gradient(var(--psi-cell-bg, rgba(255,255,255,.035)), var(--psi-cell-bg, rgba(255,255,255,.035))), var(--psi-panel-bg, #080808); }
+        .pst-table tbody tr:nth-child(even) td.pst-date{ background: linear-gradient(var(--psi-cell-bg-alt, rgba(255,255,255,.065)), var(--psi-cell-bg-alt, rgba(255,255,255,.065))), var(--psi-panel-bg, #080808); }
+        .pst-row-today td{ background: rgba(214,178,83,.22) !important; }
+        .pst-opponent{ display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .pst-opponent-logo{ width: 11px; height: 11px; object-fit: contain; flex-shrink: 0; }
         .pp-result-w{ color: #2ecc71; font-weight: 700; }
         .pp-result-l{ color: #e74c3c; font-weight: 700; }
         .pp-result-t{ color: var(--muted, #888); font-weight: 700; }
+        @media (max-width: 860px){
+          .pst-table{ font-size: 9px; }
+          .pst-table thead th button, .pst-table td{ padding: 3px 2px; }
+          .pst-opponent-logo{ width: 10px; height: 10px; }
+        }
       `}</style>
     </div>
   );
