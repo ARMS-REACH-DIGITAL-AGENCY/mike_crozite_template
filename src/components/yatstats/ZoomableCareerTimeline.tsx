@@ -1321,7 +1321,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           comparing directly against .zt-person-stack's 4 instead of being
           capped by .zt-moment-cta's own stacking context (that div is
           position:absolute + z-index:3, which forms one). */}
-      <div className="zt-polaroid-stack" aria-hidden="true">
+      {/* The only way to add a story: opens the Story drawer (StoryDrawer,
+          mounted on the profile page) with the year of the slide the fan is
+          looking at. Inline pointer-events overrides the stack's own
+          pointer-events:none in the style block below. */}
+      <div
+        className="zt-polaroid-stack"
+        role="button"
+        tabIndex={0}
+        aria-label={`Add a memory to ${resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}'s Career Timeline`}
+        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+        }}
+      >
         {/* Class Of used to live written on this Polaroid's own bottom
             border -- moved up into .zt-persist-id as its own gold line
             instead (see above), so the Polaroid card itself now just says

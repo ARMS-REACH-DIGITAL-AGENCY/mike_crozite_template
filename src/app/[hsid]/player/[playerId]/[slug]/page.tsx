@@ -23,6 +23,7 @@ import {
   getNewsByPlayer,
 } from "@/lib/db";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
@@ -764,13 +765,7 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── UPLOAD tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-upload" className="pp-fz-panel">
-          <div className="pp-fz-placeholder">
-            <i className="ri-upload-cloud-line pp-ph-icon" />
-            <p>
-              Upload your favorite memories to {firstName}&apos;s{" "}
-              <strong>Career Path timeline</strong>.
-            </p>
-          </div>
+          <StoriesFeed playerId={safePlayerId} playerName={playerNewsFullName} />
         </div>
 
         {/* Sticky tab strip shell — now at the BOTTOM of Block 5, above Block 6 */}

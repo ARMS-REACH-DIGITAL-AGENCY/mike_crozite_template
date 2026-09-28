@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, getPlayerIdentityMeta, type PlayerIdentityMeta } from '@/lib/db';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
+import StoryDrawer from '@/components/yatstats/StoryDrawer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
 import ProfileStatsFinalOverrides from '@/components/yatstats/ProfileStatsFinalOverrides';
@@ -106,6 +107,7 @@ export default async function PlayerLayout({
       <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
       <ProfileFunZoneCleanupStyles />
+      <StoryDrawer />
       <ProfileStatsFinalOverrides />
     </PlayerProfileContextProvider>
   );
