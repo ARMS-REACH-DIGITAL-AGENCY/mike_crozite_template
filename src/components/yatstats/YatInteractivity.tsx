@@ -223,12 +223,14 @@ window.__firebase_config = ${firebaseConfigJSON};
 
   var yatFlipAllActive=false;
 
-  function getVisibleGallerySection(){
-    var activeSection=document.getElementById('sec-active');
-    var allTimeSection=document.getElementById('sec-alltime');
+  // Every tab whose cards flip: the player galleries and the news cards.
+  var YAT_FLIP_SECTIONS=['sec-active','sec-alltime','sec-current','sec-news'];
 
-    if(activeSection&&activeSection.classList.contains('visible'))return activeSection;
-    if(allTimeSection&&allTimeSection.classList.contains('visible'))return allTimeSection;
+  function getVisibleGallerySection(){
+    for(var i=0;i<YAT_FLIP_SECTIONS.length;i++){
+      var section=document.getElementById(YAT_FLIP_SECTIONS[i]);
+      if(section&&section.classList.contains('visible'))return section;
+    }
 
     return null;
   }
@@ -237,7 +239,7 @@ window.__firebase_config = ${firebaseConfigJSON};
     var visibleSection=getVisibleGallerySection();
     if(!visibleSection)return [];
 
-    return Array.from(visibleSection.querySelectorAll('.yat-card[data-playerid]')).filter(function(card){
+    return Array.from(visibleSection.querySelectorAll('.yat-card[data-playerid], .yat-card.news-card')).filter(function(card){
       var wrap=card.closest('[data-player-card-wrap="true"]');
       if(wrap&&wrap.style.display==='none')return false;
       return card.style.display!=='none';

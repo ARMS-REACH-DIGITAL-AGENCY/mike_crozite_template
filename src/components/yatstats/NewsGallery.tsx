@@ -261,6 +261,13 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
 
   const clearFilter = useCallback(() => setPlayerFilter(""), []);
 
+  // Cards that arrive after FLIP ALL was pressed (the news loads when the
+  // tab opens, or a player filter adds cards) follow it too.
+  useEffect(() => {
+    if (document.getElementById("flipAllCards")?.getAttribute("aria-pressed") !== "true") return;
+    document.querySelectorAll<HTMLElement>("#sec-news .news-card").forEach((card) => card.classList.add("is-flipped"));
+  }, [visible]);
+
   let body: React.ReactNode;
   if (failed) {
     body = (

@@ -1834,6 +1834,28 @@ export async function getTeamIdMap(): Promise<Map<string, string>> {
 // ---------------------------------------------------------------------------
 // NEWS ARTICLES - from news_articles table (populated by Webz.io cron job)
 // ---------------------------------------------------------------------------
+// The same story is often syndicated across sites (Yahoo and AOL, a
+// newspaper group's sister papers) and was saved once per site before the
+// ingest learned to skip repeated headlines. Show one copy per player and
+// headline: hide a row when a newer visible copy exists. Headlines are
+// compared the way scripts/ingest-news.ts normalizes them.
+function syndicatedCopyFilter(alias: string, hideLowNewsworthiness: boolean): string {
+  const headline = (a: string) => `TRIM(LOWER(REGEXP_REPLACE(COALESCE(${a}.title, ''), '[^a-zA-Z0-9]+', ' ', 'g')))`;
+  return `NOT EXISTS (
+           SELECT 1 FROM news_articles dup
+            WHERE dup.playerid = ${alias}.playerid
+              AND dup.verification_status = 'VERIFIED'
+              ${hideLowNewsworthiness ? "AND COALESCE(dup.newsworthiness, 'NORMAL') <> 'LOW'" : ''}
+              AND NOT EXISTS (
+                SELECT 1 FROM news_article_derivatives dup_rejected
+                 WHERE dup_rejected.news_article_uuid = dup.uuid
+                   AND dup_rejected.approval_status = 'rejected'
+              )
+              AND ${headline('dup')} = ${headline(alias)}
+              AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(${alias}.published_at, 'epoch'), ${alias}.id)
+         )`;
+}
+
 export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
   try {
     const { rows } = await query(
@@ -1878,22 +1900,25 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
          )
-         -- At most 6 VERIFIED stories per player on the school feed.
+         AND ${syndicatedCopyFilter('na', true)}
+         -- At most 6 VERIFIED stories per player on the school feed
+         -- (distinct stories: syndicated copies don't count).
          AND na.id IN (
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
                PARTITION BY COALESCE(NULLIF(playerid, ''), uuid)
                ORDER BY published_at DESC
              ) AS rn
-             FROM news_articles
+             FROM news_articles ranked_na
              WHERE hsid = $1
                AND verification_status = 'VERIFIED'
                AND COALESCE(newsworthiness, 'NORMAL') <> 'LOW'
                AND NOT EXISTS (
                  SELECT 1 FROM news_article_derivatives rejected
-                  WHERE rejected.news_article_uuid = news_articles.uuid
+                  WHERE rejected.news_article_uuid = ranked_na.uuid
                     AND rejected.approval_status = 'rejected'
                )
+               AND ${syndicatedCopyFilter('ranked_na', true)}
            ) ranked
            WHERE rn <= 6
          )
@@ -1917,7 +1942,7 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
 //   2. other stories that aren't negative - positive before neutral, then
 //      the most mentions of him, then the newest
 //   3. negative stories, only if there's nothing else
-// Repeated headlines (syndicated copies) are collapsed to the newest.
+// Every order: repeated headlines (syndicated copies) collapse to the newest.
 export async function getNewsByPlayer(
   playerId: string,
   limit: number | null = 10,
@@ -1972,13 +1997,7 @@ export async function getNewsByPlayer(
               AND rejected.approval_status = 'rejected'
          )
          AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-         ${bestFirst ? `AND NOT EXISTS (
-           SELECT 1 FROM news_articles dup
-            WHERE dup.playerid = na.playerid
-              AND dup.verification_status = 'VERIFIED'
-              AND LOWER(TRIM(dup.title)) = LOWER(TRIM(na.title))
-              AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(na.published_at, 'epoch'), na.id)
-         )` : ''}
+         AND ${syndicatedCopyFilter('na', false)}
        ORDER BY
          ${bestFirst ? `CASE
            WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2
