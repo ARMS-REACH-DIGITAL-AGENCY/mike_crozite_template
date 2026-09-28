@@ -17,16 +17,21 @@ export const STORY_MAX_TEXT = 10000;
 export const STORY_MAX_TAGS = 20;
 export const STORY_DAILY_LIMIT = 20;
 
-const S3_REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
-const S3_BUCKET =
-  process.env.S3_BUCKET ||
-  process.env.YATSTATS_UPLOADS_S3_BUCKET ||
-  process.env.AWS_S3_BUCKET ||
-  'yatstats-assets';
+// Vercel doesn't pass the standard AWS_* keys through to functions (and sets
+// AWS_REGION to its own region), so the site reads its own names. The
+// bucket lives in us-west-2.
+const S3_REGION = process.env.YATSTATS_AWS_REGION || 'us-west-2';
+const S3_BUCKET = process.env.YATSTATS_S3_BUCKET || process.env.S3_BUCKET || 'yatstats-assets';
 
 let s3Client: S3Client | null = null;
 function getS3() {
-  if (!s3Client) s3Client = new S3Client({ region: S3_REGION });
+  if (s3Client) return s3Client;
+  const accessKeyId = process.env.YATSTATS_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.YATSTATS_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error('S3 keys are not set: add YATSTATS_AWS_ACCESS_KEY_ID and YATSTATS_AWS_SECRET_ACCESS_KEY in Vercel');
+  }
+  s3Client = new S3Client({ region: S3_REGION, credentials: { accessKeyId, secretAccessKey } });
   return s3Client;
 }
 
