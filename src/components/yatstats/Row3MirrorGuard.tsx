@@ -191,6 +191,11 @@ function configureSlot(
         image.setAttribute('src', guardedFallback);
       }
     };
+    // It may have failed before this handler existed (a team logo's WebP
+    // copy that the converter hasn't built yet fails fast): catch up now.
+    if (image.getAttribute('src') && image.complete && image.naturalWidth === 0) {
+      image.onerror(new Event('error'));
+    }
 
     image.loading = 'lazy';
     image.decoding = 'async';
