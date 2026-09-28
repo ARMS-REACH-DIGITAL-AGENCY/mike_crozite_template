@@ -3,7 +3,11 @@ import "server-only";
 const MAX_ERROR_LENGTH = 500;
 
 export type IngestAlertPayload = {
-  event: "yatstats_ingest_failed" | "yatstats_ingest_recovered" | "yatstats_ingest_stale";
+  event:
+    | "yatstats_ingest_failed"
+    | "yatstats_ingest_recovered"
+    | "yatstats_ingest_stale"
+    | "yatstats_identity_review";
   job: string;
   occurredAt: string;
   environment: string;
