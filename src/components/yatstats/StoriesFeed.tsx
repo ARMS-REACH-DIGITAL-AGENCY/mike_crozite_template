@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
+import SortToggle from '@/components/yatstats/SortToggle';
 import StoryViewer, { StoryStyles, StoryThread, shareStory, storyWhen, toggleStoryLike, type Story } from '@/components/yatstats/StoryViewer';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
@@ -216,10 +217,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           <i className="ri-search-line" aria-hidden="true" />
           <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
         </label>
-        <select value={sort} onChange={(e) => setSort(e.target.value as 'newest' | 'oldest')} aria-label="Sort stories">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </select>
+        <SortToggle dir={sort} onChange={setSort} />
       </div>
     );
     const list = visible || [];
@@ -329,7 +327,6 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
         .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
         .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; outline: none; }
-        .ysf-tools select { min-height: 38px; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; }
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
