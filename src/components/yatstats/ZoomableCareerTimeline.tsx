@@ -102,7 +102,8 @@ type StatRow = {
 type BigStat = { label: string; value: string };
 
 // 'hsyear' is the grad year itself (senior year of high school). The anchor
-// shares that year but is the opening screen, not the year's own slide.
+// (graduation, the opening screen) comes right after it, at the end of that
+// year; the first college/pro season follows the anchor.
 type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future';
 
 type MomentComment = {
@@ -1091,9 +1092,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       year: hsYear,
       title: resolvedPlayerName || 'High School',
     };
-    // The grad year's own slide, right after the anchor (same year; the
-    // stable sort below keeps this order). Its hero is that year's fan
-    // photos, else the player's high school photo.
+    // The grad year's own slide, just before the anchor: birth through
+    // senior year, then graduation, then college/pro. Its hero is that
+    // year's fan photos, else the player's high school photo.
     const hsSlide: Slide = {
       id: 'career-path-hs-year',
       kind: 'hsyear',
@@ -1136,7 +1137,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     // by year the anchor always lands at index 18 -- the 19th screen --
     // instead of always being first. A fan can still swipe further back
     // through those 18 life years, all the way to birth.
-    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, hsSlide, ...seasons, ...postHsUploaded, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+    // Same-year slides keep this order (the sort is stable): the grad
+    // year's slide and its moments, then the anchor, then anything after
+    // graduation that same year.
+    const gradYearUploads = postHsUploaded.filter((s) => s.year === hsYear);
+    const laterUploads = postHsUploaded.filter((s) => s.year !== hsYear);
+    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
       .sort((a, b) => a.year - b.year);
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
@@ -1210,7 +1216,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
   const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
   // Not on phones, and not on the anchor (the opening screen keeps the
-  // years; the grad year's months are on its own slide right after it).
+  // years; the grad year's months are on its own slide just before it).
   const activeSlide = model.slides[activeIndex];
   const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' ? activeSlide.year : null;
 
@@ -2170,7 +2176,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            the two, so bottom-aligning left its first line sitting well
            below the Polaroid's top). gap:4px, not 10px -- per direct
            feedback, "push the text block closer to the Polaroid." */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:110px; display:flex; flex-direction:row; align-items:flex-start; gap:4px; pointer-events:none; }
+        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:94px; display:flex; flex-direction:row; align-items:flex-start; gap:4px; pointer-events:none; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
            same UI chrome type everywhere else on this slide. One wording
@@ -2352,8 +2358,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            a label at every tick once the rail itself is that
            compressed. */
         /* Month rail (see monthRailYear). */
-        .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; }
-        .zt-rail-months .zt-rail-track { left:34px; }
+        /* The only thing on the month rail that says which year it is, so
+           it's bigger than the scrubber chip. */
+        .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_YELLOW}; font:700 17px/24px "Bebas Neue",Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
+        .zt-rail-months .zt-rail-track { left:52px; }
         .zt-rail-month { position:absolute; top:50%; width:5px; height:5px; margin-left:-2.5px; transform:translateY(-50%); border-radius:50%; background:#e5342a; animation:zt-rail-in .25s ease both; }
         .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_YELLOW}; }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
@@ -2596,7 +2604,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           /* Recomputed for this breakpoint's smaller metadata block (see
              the font-size overrides just above), plus the same added
              breathing room as the desktop base rule. */
-          .zt-polaroid-stack { top:80px; }
+          .zt-polaroid-stack { top:66px; }
           .zt-moment-thumb { width:clamp(38px,14vw,50px); }
           .zt-moment-thumb-upload { font-size:clamp(6px,1.6vw,7.5px); }
           /* No room for a year label at every tick once the rail itself is
