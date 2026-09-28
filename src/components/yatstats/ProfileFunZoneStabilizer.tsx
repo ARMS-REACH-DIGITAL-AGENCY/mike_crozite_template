@@ -35,10 +35,12 @@ function scrollsSideways(start: EventTarget | null, stop: Element, dx: number) {
   return false;
 }
 
+// A profile opens on Stories unless the link names a tab (the flip card's
+// "go to profile" link opens on the tab the fan was looking at).
 function normalizeHash(value?: string | null) {
-  const hash = value || window.location.hash || '#ppTab-stats';
+  const hash = value || window.location.hash || '#ppTab-upload';
   if (hash === '#ppTab-influence') return '#ppTab-upload';
-  return TAB_IDS.includes(hash.replace('#', '')) ? hash : '#ppTab-stats';
+  return TAB_IDS.includes(hash.replace('#', '')) ? hash : '#ppTab-upload';
 }
 
 // The Stories tab (#ppTab-upload) is filled by StoriesFeed. The old upload

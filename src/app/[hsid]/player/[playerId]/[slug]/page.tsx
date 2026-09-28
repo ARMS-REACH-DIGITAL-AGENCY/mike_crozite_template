@@ -664,7 +664,7 @@ export default async function ProfilePage({ params }: Props) {
         </div>
 
         {/* ── STATS tab (default visible) ───────────────────────────────────── */}
-        <div id="ppTab-stats" className="pp-fz-panel pp-fz-panel-default">
+        <div id="ppTab-stats" className="pp-fz-panel">
 
           {/* Current / career headline grid */}
           {currentStatsGrid.length > 0 && (
@@ -843,7 +843,7 @@ export default async function ProfilePage({ params }: Props) {
         </div>
 
         {/* ── UPLOAD tab ───────────────────────────────────────────────────── */}
-        <div id="ppTab-upload" className="pp-fz-panel">
+        <div id="ppTab-upload" className="pp-fz-panel pp-fz-panel-default">
           <StoriesFeed playerId={safePlayerId} playerName={playerNewsFullName} />
         </div>
 
@@ -1018,7 +1018,8 @@ export default async function ProfilePage({ params }: Props) {
           -webkit-overflow-scrolling: touch;
           padding: 14px 12px;
         }
-        /* Stats panel is the default visible panel */
+        /* Stories is the default visible panel (a link that names a tab
+           opens that one instead) */
         .pp-fz-panel-default {
           display: flex;
           flex-direction: column;
@@ -1033,13 +1034,8 @@ export default async function ProfilePage({ params }: Props) {
           display: flex;
           flex-direction: column;
         }
-        /* When any other tab is targeted, hide the default stats panel */
-        #ppTab-schedule:target ~ #ppTab-stats.pp-fz-panel-default,
-        body:has(#ppTab-schedule:target) #ppTab-stats.pp-fz-panel-default,
-        body:has(#ppTab-news:target) #ppTab-stats.pp-fz-panel-default,
-        body:has(#ppTab-social:target) #ppTab-stats.pp-fz-panel-default,
-        body:has(#ppTab-connect:target) #ppTab-stats.pp-fz-panel-default,
-        body:has(#ppTab-upload:target) #ppTab-stats.pp-fz-panel-default {
+        /* When any other tab is targeted, hide the default panel */
+        body:has(.pp-fz-panel:target) .pp-fz-panel-default:not(:target) {
           display: none;
         }
 
