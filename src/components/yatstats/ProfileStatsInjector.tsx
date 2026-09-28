@@ -439,6 +439,12 @@ function attachSortHandlers(panel: HTMLElement) {
       headers[index].classList.add(direction === 'asc' ? 'is-sort-asc' : 'is-sort-desc');
       headers[index].setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
       const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr'));
+      // Newest season first, then the chosen column - so ties (seasons with
+      // the same value) stay newest first.
+      const yearAt = headers.findIndex((h) => h.dataset.sortKey === 'year');
+      if (yearAt >= 0 && yearAt !== index) {
+        rows.sort((a, b) => (Number(b.children[yearAt]?.textContent) || 0) - (Number(a.children[yearAt]?.textContent) || 0));
+      }
       rows.sort((a, b) => {
         const av = a.children[index]?.textContent?.trim() || '';
         const bv = b.children[index]?.textContent?.trim() || '';
