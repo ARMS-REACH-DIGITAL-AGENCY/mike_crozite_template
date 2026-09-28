@@ -1,8 +1,9 @@
 'use client';
 
-import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
+import { SchoolContext } from '@/context/SchoolContext';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -100,7 +101,9 @@ type StatRow = {
 
 type BigStat = { label: string; value: string };
 
-type SlideKind = 'anchor' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future';
+// 'hsyear' is the grad year itself (senior year of high school). The anchor
+// shares that year but is the opening screen, not the year's own slide.
+type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future';
 
 type MomentComment = {
   id: string;
@@ -616,6 +619,18 @@ type RailStory = { id: string; thumb: string | null };
 
 const RAIL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
+// Phones keep the year rail only (no months). Same 620px breakpoint as the
+// phone rules in the style block below.
+const PHONE_QUERY = '(max-width: 620px)';
+function subscribePhone(onChange: () => void) {
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+function useIsPhone() {
+  return useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
+}
+
 // A month-rail thumbnail: opens the Stories tab on that story.
 function showStoryInStoriesTab(id: string) {
   history.replaceState(null, '', `${window.location.pathname}${window.location.search}#ppTab-upload`);
@@ -712,6 +727,8 @@ function StoryMontage({ photos }: { photos: string[] }) {
 
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
   const player = usePlayerProfile();
+  const school = useContext(SchoolContext);
+  const isPhone = useIsPhone();
   // usePlayerProfile() reads PlayerProfileContext, which is only provided
   // around {children} in [hsid]/player/[playerId]/layout.tsx. This
   // component is rendered by SharedShell's row3 - a SIBLING of {children},
@@ -1074,6 +1091,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       year: hsYear,
       title: resolvedPlayerName || 'High School',
     };
+    // The grad year's own slide, right after the anchor (same year; the
+    // stable sort below keeps this order). Its hero is that year's fan
+    // photos, else the player's high school photo.
+    const hsSlide: Slide = {
+      id: 'career-path-hs-year',
+      kind: 'hsyear',
+      year: hsYear,
+      title: school?.hsName || 'High School',
+    };
 
     // Skipped when a real season already lands on endYear -- when a
     // player's latest recorded season IS the current calendar year (he's
@@ -1110,12 +1136,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     // by year the anchor always lands at index 18 -- the 19th screen --
     // instead of always being first. A fan can still swipe further back
     // through those 18 life years, all the way to birth.
-    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, ...seasons, ...postHsUploaded, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, anchor, hsSlide, ...seasons, ...postHsUploaded, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
       .sort((a, b) => a.year - b.year);
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf]);
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, school?.hsName]);
 
   const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
@@ -1183,7 +1209,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
   const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
-  const monthRailYear = railSettled && ready ? model.slides[activeIndex]?.year ?? null : null;
+  // Not on phones, and not on the anchor (the opening screen keeps the
+  // years; the grad year's months are on its own slide right after it).
+  const activeSlide = model.slides[activeIndex];
+  const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' ? activeSlide.year : null;
 
   // The first time the timeline is ready it may not scroll at all (already
   // on its opening slide), so check once whether it's at rest.
@@ -1592,7 +1621,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
-              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'lifeyear' || slide.kind === 'future') ? (
+              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future') ? (
                 <StoryMontage photos={storyPhotosByYear[slide.year].map((p) => p.web)} />
               ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
@@ -1609,6 +1638,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               {slide.kind === 'anchor' && (
                 <span className="zt-logo-layer" aria-hidden="true">
                   <SmartImage src={YS_CREST_FALLBACK} alt="" />
+                </span>
+              )}
+              {slide.kind === 'hsyear' && (
+                <span className="zt-logo-layer" aria-hidden="true">
+                  <SmartImage srcs={school?.crestUrl ? [school.crestUrl] : []} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
               {slide.kind === 'today' && (
@@ -1675,12 +1709,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               </Fragment>
             );
           }
-          const storyPhotos = slide.kind === 'season' || slide.kind === 'lifeyear' || slide.kind === 'future' ? storyPhotosByYear[slide.year] : undefined;
+          const storyPhotos = slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future' ? storyPhotosByYear[slide.year] : undefined;
           if (storyPhotos?.length) {
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
                 <StoryHeroStrip photos={storyPhotos} tick={heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
               </span>
+            );
+          }
+          if (slide.kind === 'hsyear') {
+            return (
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
             );
           }
           if (slide.kind === 'season') {
@@ -1737,6 +1776,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   ) : (
                     <span className="zt-bodycopy">{slide.headline}</span>
                   )}
+                </>
+              )}
+              {slide.kind === 'hsyear' && (
+                <>
+                  <span className="zt-kick">{slide.year} · High School</span>
+                  <span className="zt-title">{slide.title}</span>
+                  <span className="zt-bodycopy">Class of {slide.year}</span>
                 </>
               )}
               {slide.kind === 'today' && (
@@ -1810,17 +1856,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             {monthRailYear ? (
               <>
                 {/* The settled slide's year, then its twelve months. A month
-                    with stories gets a tiny photo (a flag on a phone) that
-                    opens the story in the Stories tab. */}
+                    with stories gets a tiny photo that opens the story in
+                    the Stories tab. */}
                 <span className="zt-rail-monthyear">{monthRailYear}</span>
                 {RAIL_MONTHS.map((label, m) => {
                   const stories = storiesByMonth[monthRailYear]?.[m + 1] || [];
                   return (
                     <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}`} style={{ left: `${14 + (m / 11) * 86}%` }}>
-                      <span className="zt-rail-month-label" aria-hidden="true">
-                        <span className="zt-rail-month-long">{label}</span>
-                        <span className="zt-rail-month-short">{label[0]}</span>
-                      </span>
+                      <span className="zt-rail-month-label" aria-hidden="true">{label}</span>
                       {stories.length > 0 && (
                         <button
                           type="button"
@@ -1832,7 +1875,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                             // eslint-disable-next-line @next/next/no-img-element
                             <img className="zt-rail-story-thumb" src={stories[0].thumb} alt="" />
                           ) : null}
-                          <i className="ri-flag-fill zt-rail-story-flag" aria-hidden="true" />
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
                       )}
@@ -1851,7 +1893,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 onClick={() => scrollToIndex(i)}
                 aria-label={`Slide ${i + 1}: ${slide.year}`}
               >
-                <span className="zt-rail-tick-year" aria-hidden="true">{String(slide.year).slice(-2)}</span>
+                {slide.kind !== 'anchor' && <span className="zt-rail-tick-year" aria-hidden="true">{String(slide.year).slice(-2)}</span>}
               </button>
             ))}
             <span
@@ -2201,7 +2243,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            headline, not their own italic style, and pre-line was forcing
            a source-text line break to render literally instead of letting
            the sentence just flow and wrap naturally. */
-        .zt-anchor .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title { white-space:normal; overflow-wrap:anywhere; }
         /* Thin black outline around every headline, per direct feedback --
            same 8-direction text-shadow technique as .zt-polaroid-caption,
            at 1px instead of 1.5px. */
@@ -2316,11 +2358,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_YELLOW}; }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_YELLOW}; }
-        .zt-rail-month-short { display:none; }
         .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:block; width:26px; height:26px; padding:0; border:1.5px solid ${TIMELINE_YELLOW}; border-radius:3px; background:#000; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.5); }
         .zt-rail-story:hover { transform:translateX(-50%) scale(1.15); }
         .zt-rail-story-thumb { display:block; width:100%; height:100%; object-fit:cover; border-radius:2px; }
-        .zt-rail-story-flag { display:none; }
         .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_YELLOW}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
@@ -2567,15 +2607,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              so it can sit right at the very bottom of the section instead
              of the desktop base rule's 8px -- per direct feedback. */
           .zt-rail { bottom:2px; }
-          /* Month rail on a phone: one-letter months above the line, and a
-             small flag (not a photo) on months with stories. */
-          .zt-rail-month-label { top:auto; bottom:100%; margin:0 0 3px; font-size:7px; }
-          .zt-rail-month-long { display:none; }
-          .zt-rail-month-short { display:inline; }
-          .zt-rail-story { width:18px; height:18px; bottom:calc(100% + 11px); border:0; background:transparent; box-shadow:none; }
-          .zt-rail-story-thumb { display:none; }
-          .zt-rail-story-flag { display:block; color:${TIMELINE_YELLOW}; font-size:13px; line-height:18px; text-align:center; filter:drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
-          .zt-rail-story-count { top:-4px; right:-6px; }
           .zt-nav { bottom:0; }
           .zt-rail-tick-boundary { bottom:6px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
