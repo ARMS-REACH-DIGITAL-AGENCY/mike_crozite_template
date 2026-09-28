@@ -378,6 +378,12 @@ export default function StoryDrawer() {
         body.drawer-story-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
         .yat-story-drawer { width: min(94vw, 440px); }
         .ysd-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+        /* The YAT?STATS crest screened back behind the header, the same as
+           the News reader drawer (ProfileContentDrawer): large at 15%
+           opacity, bleeding off the right edge. */
+        .ysd-header { position: relative; isolation: isolate; overflow: hidden; }
+        .ysd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -14%; width: 62%; aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
+        body.light-theme .ysd-header::before { filter: invert(1); opacity: .09; }
         .ysd-kicker { color: #d2b45c; font: 700 12px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
         .ysd-title { margin: 6px 0 0 !important; padding: 0 !important; font: 700 20px/1.05 "Bebas Neue", Oswald, sans-serif !important; letter-spacing: .04em; }
         .ysd-close { position: static !important; flex: none; }
