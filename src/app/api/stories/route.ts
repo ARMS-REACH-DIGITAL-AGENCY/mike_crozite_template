@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
-import { identifyFan, viewerUid } from '@/lib/fanIdentity';
+import { identifyFan, likerKey, viewerUid } from '@/lib/fanIdentity';
 import { getUserProfile } from '@/lib/userProfile';
 import {
   NotAnImageError,
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
                 WHERE mp.moment_id = m.id) AS players,
               (SELECT count(*)::int FROM player_moment_likes l WHERE l.moment_id = m.id) AS like_count,
               (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count,
-              EXISTS (SELECT 1 FROM player_moment_likes l WHERE l.moment_id = m.id AND l.firebase_uid = $2) AS liked_by_me,
+              EXISTS (SELECT 1 FROM player_moment_likes l WHERE l.moment_id = m.id AND l.firebase_uid = $3) AS liked_by_me,
               (m.contributor_firebase_uid IS NOT NULL AND m.contributor_firebase_uid = $2) AS is_mine
          FROM player_moment_submissions m
          JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $1
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
           AND COALESCE(m.is_private, false) = false
         ORDER BY m.created_at DESC, m.id DESC
         LIMIT 100`,
-      [playerId, viewerUid(req)]
+      [playerId, viewerUid(req), likerKey(req)]
     );
 
     const stories = rows.map((r) => ({

@@ -119,9 +119,15 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     };
     window.addEventListener(STORY_POSTED_EVENT, onPosted);
     window.addEventListener('yat:story-focus', onFocus);
+    // Who's viewing changed: reload so "liked by me" and the ⋯ menu on
+    // your own stories are right.
+    window.addEventListener('yat-auth-success', onPosted);
+    window.addEventListener('yat-sign-out', onPosted);
     return () => {
       window.removeEventListener(STORY_POSTED_EVENT, onPosted);
       window.removeEventListener('yat:story-focus', onFocus);
+      window.removeEventListener('yat-auth-success', onPosted);
+      window.removeEventListener('yat-sign-out', onPosted);
     };
   }, [load, tryFocus]);
 

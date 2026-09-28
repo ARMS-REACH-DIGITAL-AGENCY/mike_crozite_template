@@ -94,6 +94,19 @@ export function shareUrlFor(storyId: string) {
 let meRequest: Promise<Me> | null = null;
 let meValue: Me | undefined;
 const meListeners = new Set<() => void>();
+let meWatching = false;
+// Signing in or out (Join / Log in drawer) re-checks who's viewing, so the
+// posts switch to "Comment as ..." without a page reload.
+function watchAuthChanges() {
+  if (meWatching || typeof window === 'undefined') return;
+  meWatching = true;
+  const refresh = () => {
+    meRequest = null;
+    void loadMe();
+  };
+  window.addEventListener('yat-auth-success', refresh);
+  window.addEventListener('yat-sign-out', refresh);
+}
 function loadMe() {
   if (!meRequest) {
     meRequest = fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
@@ -115,6 +128,7 @@ export function useFanMe(): Me {
   return useSyncExternalStore(
     (fn) => {
       meListeners.add(fn);
+      watchAuthChanges();
       void loadMe();
       return () => meListeners.delete(fn);
     },
@@ -193,15 +207,14 @@ export function StoryThread({
     return { res, data };
   };
 
+  // Anyone can like - no account needed (visitors like anonymously).
   const toggleLike = async () => {
-    if (!me) return openSignIn();
     if (busy) return;
     const was = Boolean(story.likedByMe);
     setBusy('like');
     onChange({ ...story, likedByMe: !was, likeCount: Math.max(0, story.likeCount + (was ? -1 : 1)) });
     try {
       const { res, data } = await call(`/api/stories/${story.id}/like`, { method: 'POST' });
-      if (res.status === 401) { onChange({ ...story }); return needConfirm(toggleLike); }
       if (!res.ok) throw new Error(data?.error);
       onChange({ ...story, likedByMe: Boolean(data.liked), likeCount: Number(data.likeCount) || 0 });
     } catch {
@@ -454,7 +467,7 @@ export function StoryThread({
             </button>
           </>
         ) : (
-          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to like and comment</button>
+          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to comment</button>
         )}
       </div>
     </>
