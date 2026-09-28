@@ -384,39 +384,44 @@ export default function StoryDrawer() {
         .ysd-header { position: relative; isolation: isolate; overflow: hidden; }
         .ysd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -14%; width: 62%; aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ysd-header::before { filter: invert(1); opacity: .09; }
-        .ysd-kicker { color: #d2b45c; font: 700 12px/1 Oswald, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+        /* Colours and type match the Join / Log in drawer (AccountDrawer): its
+           gold (#FFD700), Bebas Neue for headings and buttons, 8px-rounded
+           inputs in the drawer's own font. */
+        .ysd-kicker { color: #FFD700; font: 400 15px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+        body.light-theme .ysd-kicker { color: #9a6f00; }
         .ysd-title { margin: 6px 0 0 !important; padding: 0 !important; font: 700 20px/1.05 "Bebas Neue", Oswald, sans-serif !important; letter-spacing: .04em; }
         .ysd-close { position: static !important; flex: none; }
         .ysd-body { display: flex; flex-direction: column; gap: 16px; padding: 14px 16px 28px; }
         .ysd-muted { opacity: .65; }
         .ysd-small { font-size: 12px; margin-top: 6px; }
-        .ysd-poster { font-size: 13px; }
+        .ysd-poster { font-size: 14px; }
         .ysd-poster strong { font-weight: 700; }
         .ysd-field { display: flex; flex-direction: column; gap: 6px; }
-        .ysd-label { font: 700 11px/1.2 Oswald, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+        .ysd-label { font: 400 15px/1.1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .ysd-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
         .yat-story-drawer select, .yat-story-drawer textarea, .yat-story-drawer input[type="search"] {
-          width: 100%; border: 1px solid var(--line); border-radius: 6px; background: rgba(127,127,127,.08);
-          color: var(--ink); padding: 10px; font: 400 15px/1.45 system-ui, sans-serif;
+          width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06);
+          color: var(--ink); padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: 1.45;
         }
         .yat-story-drawer textarea { resize: vertical; min-height: 140px; }
         .ysd-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .ysd-photo, .ysd-photo-add { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+        .ysd-photo, .ysd-photo-add { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
         .ysd-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .ysd-photo button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
-        .ysd-photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: transparent; color: inherit; cursor: pointer; font: 700 10px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+        .ysd-photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: transparent; color: inherit; cursor: pointer; font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .ysd-photo-add i { font-size: 22px; }
         .ysd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .ysd-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 999px; background: rgba(210,180,92,.18); border: 1px solid rgba(210,180,92,.6); font-size: 13px; }
+        .ysd-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 999px; background: rgba(255,215,0,.14); border: 1px solid rgba(255,215,0,.6); font-size: 13px; }
         .ysd-tag button { border: 0; background: none; color: inherit; font-size: 15px; cursor: pointer; }
-        .ysd-results { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+        .ysd-results { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
         .ysd-results button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: inherit; text-align: left; cursor: pointer; }
         .ysd-results li:last-child button { border-bottom: 0; }
         .ysd-results span { font-size: 12px; opacity: .65; }
         .ysd-error { color: #ff6b6b; font-size: 13px; }
         .ysd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ysd-btn { min-height: 42px; padding: 0 18px; border-radius: 6px; border: 1px solid rgba(210,180,92,.85); background: transparent; color: #d2b45c; font: 700 13px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
-        .ysd-btn-primary { background: #d2b45c; color: #111; }
+        .ysd-btn { min-height: 42px; padding: 0 18px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+        .ysd-btn-primary { background: #FFD700; color: #000; }
+        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: #9a6f00; color: #9a6f00; }
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font: 700 22px/1.1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
