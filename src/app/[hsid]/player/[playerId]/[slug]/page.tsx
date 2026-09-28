@@ -21,7 +21,10 @@ import {
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
   getNewsByPlayer,
+  query,
 } from "@/lib/db";
+import type { Metadata } from "next";
+import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
@@ -34,6 +37,55 @@ type Props = {
     slug: string;
   }>;
 };
+
+const SHARE_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// A shared story link (?story=<id>, from the Share button) previews as that
+// story in texts and social apps: its first photo, "<Player> · <Month Year>"
+// and the start of the story, instead of the school's crest.
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props & { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
+  const { playerId } = await params;
+  const storyParam = (await searchParams)?.story;
+  const storyId = typeof storyParam === 'string' && /^\d{1,18}$/.test(storyParam) ? storyParam : null;
+  if (!storyId) return {};
+  try {
+    const { rows } = await query<{
+      caption: string | null; contributor_name: string | null; photo_taken_date: string | null; photo_taken_year: number | null;
+      s3_key: string | null; width: number | null; height: number | null; first_name: string | null; last_name: string | null;
+    }>(
+      `SELECT m.caption, m.contributor_name, m.photo_taken_date::text AS photo_taken_date, m.photo_taken_year,
+              p.s3_key, p.width, p.height, f.first_name, f.last_name
+         FROM player_moment_submissions m
+         JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $2
+         LEFT JOIN LATERAL (SELECT s3_key, width, height FROM player_moment_photos WHERE moment_id = m.id ORDER BY sort_order, id LIMIT 1) p ON true
+         LEFT JOIN LATERAL (SELECT first_name, last_name FROM flip_card_front_stage WHERE playerid::text = $2 LIMIT 1) f ON true
+        WHERE m.id = $1 AND m.status = 'live' AND COALESCE(m.is_private, false) = false`,
+      [storyId, String(playerId)]
+    );
+    const r = rows[0];
+    if (!r) return {};
+    const month = r.photo_taken_date ? Number(r.photo_taken_date.slice(5, 7)) : 0;
+    const when = [month ? SHARE_MONTHS[month - 1] : '', r.photo_taken_year || ''].filter(Boolean).join(' ');
+    const player = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Player';
+    const title = when ? `${player} · ${when}` : player;
+    const text = String(r.caption || '').replace(/\s+/g, ' ').trim();
+    const description = `${text.length > 180 ? `${text.slice(0, 177)}…` : text}${r.contributor_name ? ` Shared by ${r.contributor_name} on YAT?STATS.` : ''}`;
+    const image = storyAssetUrl(r.s3_key);
+    const images = image ? [{ url: image, ...(r.width && r.height ? { width: r.width, height: r.height } : {}), alt: title }] : undefined;
+    return {
+      title: `${title} | YAT?STATS`,
+      description,
+      openGraph: { title, description, type: 'article', siteName: 'YAT?STATS', ...(images ? { images } : {}) },
+      twitter: { card: images ? 'summary_large_image' : 'summary', title, description, ...(image ? { images: [image] } : {}) },
+    };
+  } catch (error) {
+    console.error('[stories] share preview failed', error);
+    return {};
+  }
+}
 
 type BattingSeason = {
   year: string | number;

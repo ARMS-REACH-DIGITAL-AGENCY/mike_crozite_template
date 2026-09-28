@@ -2,68 +2,95 @@
 
 // src/components/yatstats/StoriesFeed.tsx
 // The Stories tab on the player profile page: every live story this player
-// is in (posted on his page or tagged), newest first, as small posts like
-// the news cards. Tapping one opens it large. Uploading happens only from
-// the Polaroid on the Career Path Timeline (StoryDrawer), never here.
+// is in (posted on his page or tagged), sortable newest / oldest first and
+// searchable.
+//   Phone:   small cards like the news cards; tapping one opens it large.
+//   Desktop: each story as a full post right here - photos, Like · Comment ·
+//            Share, the latest comments and a comment box - so there's
+//            nothing to open to join in (a photo still opens large).
+// Uploading happens only from the Polaroid on the Career Path Timeline
+// (StoryDrawer), never here.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { toPlayerSlug } from '@/lib/slug';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
+import StoryViewer, { StoryStyles, StoryThread, storyWhen, type Story } from '@/components/yatstats/StoryViewer';
 
-type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null };
-type StoryPlayer = { playerId: string; hsid: string | null; name: string; isPrimary: boolean };
-type Story = {
-  id: string;
-  story: string;
-  author: string;
-  date: string | null;
-  year: number | null;
-  postedAt: string;
-  photos: StoryPhoto[];
-  players: StoryPlayer[];
-  likeCount: number;
-  commentCount: number;
-};
+const DESKTOP_QUERY = '(min-width: 900px)';
+function useIsDesktop() {
+  return useSyncExternalStore(
+    (fn) => {
+      const mq = window.matchMedia(DESKTOP_QUERY);
+      mq.addEventListener('change', fn);
+      return () => mq.removeEventListener('change', fn);
+    },
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false
+  );
+}
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+// When it happened (the story's month/year), then when it was posted.
+function sortKey(story: Story) {
+  return `${story.date || (story.year ? `${story.year}-01-01` : '0000-00-00')}|${story.postedAt}`;
+}
 
-function whenLabel(story: Story) {
-  const m = story.date ? Number(story.date.slice(5, 7)) : 0;
-  return [m ? MONTHS[m - 1] : '', story.year || ''].filter(Boolean).join(' ');
+// A post's photos on desktop, laid out like Facebook's: one large; two side
+// by side; three as one large plus two; four as a 2x2 grid.
+function StoryPhotos({ story, onOpen }: { story: Story; onOpen: (index: number) => void }) {
+  const photos = story.photos.slice(0, 4);
+  if (!photos.length) return null;
+  return (
+    <div className={`ysf-photos ysf-photos-${photos.length}`}>
+      {photos.map((p, i) => (
+        <button type="button" key={i} className="ysf-photos-item" onClick={() => onOpen(i)} aria-label={`Open photo ${i + 1}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={(photos.length === 1 ? p.full || p.web : p.web || p.full) || ''} alt="" loading="lazy" decoding="async" />
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // Story cards spell the month out ("April 2003").
-function fullWhenLabel(story: Story) {
-  const m = story.date ? Number(story.date.slice(5, 7)) : 0;
-  return [m ? FULL_MONTHS[m - 1] : '', story.year || ''].filter(Boolean).join(' ');
-}
-
-function profileHref(player: StoryPlayer) {
-  const [first, ...rest] = player.name.split(' ');
-  return `/${encodeURIComponent(player.hsid || '')}/player/${encodeURIComponent(player.playerId)}/${toPlayerSlug(first || '', rest.join(' '))}`;
-}
+const fullWhenLabel = (story: Story) => storyWhen(story);
 
 export default function StoriesFeed({ playerId, playerName }: { playerId: string; playerName: string }) {
   const firstName = (playerName || '').split(' ')[0] || 'this player';
   const [stories, setStories] = useState<Story[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [openStory, setOpenStory] = useState<Story | null>(null);
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const isDesktop = useIsDesktop();
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [search, setSearch] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [openPhoto, setOpenPhoto] = useState(0);
+  const openStory = stories?.find((s) => s.id === openId) || null;
+  // A shared link (?story=<id>) opens that story once the list is in.
+  const pendingOpen = useRef<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('story') : null);
   // A story someone asked to see (just posted, or a timeline thumbnail);
   // shown as soon as its card is on the page.
   const pendingFocus = useRef<string | null>(null);
 
   const load = useCallback(() => {
-    fetch(`/api/stories?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
+    fetch(`/api/stories?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store', credentials: 'include' })
       .then((res) => {
         if (!res.ok) throw new Error(String(res.status));
         return res.json();
       })
       .then((data) => {
-        setStories(Array.isArray(data?.stories) ? data.stories : []);
+        const list: Story[] = Array.isArray(data?.stories) ? data.stories : [];
+        setStories(list);
         setFailed(false);
+        // A shared link (?story=<id>): desktop scrolls to that post, a
+        // phone opens it. Only the first load after the page opens.
+        const shared = pendingOpen.current;
+        pendingOpen.current = null;
+        if (shared && list.some((s) => s.id === shared)) {
+          if (window.matchMedia(DESKTOP_QUERY).matches) {
+            pendingFocus.current = shared;
+          } else {
+            setOpenPhoto(0);
+            setOpenId(shared);
+          }
+        }
       })
       .catch(() => setFailed(true));
   }, [playerId]);
@@ -92,9 +119,15 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     };
     window.addEventListener(STORY_POSTED_EVENT, onPosted);
     window.addEventListener('yat:story-focus', onFocus);
+    // Who's viewing changed: reload so "liked by me" and the ⋯ menu on
+    // your own stories are right.
+    window.addEventListener('yat-auth-success', onPosted);
+    window.addEventListener('yat-sign-out', onPosted);
     return () => {
       window.removeEventListener(STORY_POSTED_EVENT, onPosted);
       window.removeEventListener('yat:story-focus', onFocus);
+      window.removeEventListener('yat-auth-success', onPosted);
+      window.removeEventListener('yat-sign-out', onPosted);
     };
   }, [load, tryFocus]);
 
@@ -102,21 +135,41 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     tryFocus();
   }, [stories, tryFocus]);
 
-  useEffect(() => {
-    if (!openStory) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenStory(null);
-      if (event.key === 'ArrowRight') setPhotoIndex((i) => Math.min(i + 1, openStory.photos.length - 1));
-      if (event.key === 'ArrowLeft') setPhotoIndex((i) => Math.max(i - 1, 0));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [openStory]);
+  const updateStory = useCallback((next: Story) => {
+    setStories((list) => (list ? list.map((s) => (s.id === next.id ? next : s)) : list));
+  }, []);
 
-  const show = (story: Story) => {
-    setPhotoIndex(0);
-    setOpenStory(story);
+  const removeStory = useCallback((id: string) => {
+    setOpenId(null);
+    setStories((list) => (list ? list.filter((s) => s.id !== id) : list));
+  }, []);
+
+  const closeViewer = useCallback(() => {
+    setOpenId(null);
+    // Drop a shared ?story= from the address once it's been shown.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('story')) {
+      url.searchParams.delete('story');
+      history.replaceState(null, '', url.toString());
+    }
+  }, []);
+
+  const show = (story: Story, photo = 0) => {
+    setOpenPhoto(photo);
+    setOpenId(story.id);
   };
+
+  const visible = useMemo(() => {
+    if (!stories) return stories;
+    const q = search.trim().toLowerCase();
+    const list = q
+      ? stories.filter((s) =>
+          [s.story, s.author, storyWhen(s), ...s.players.map((p) => p.name)].join(' ').toLowerCase().includes(q)
+        )
+      : stories.slice();
+    list.sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0) * (sort === 'newest' ? -1 : 1));
+    return list;
+  }, [stories, search, sort]);
 
   let body: React.ReactNode;
   if (failed) {
@@ -131,80 +184,79 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       </div>
     );
   } else {
-    body = (
-      <div className="ysf-feed">
-        {stories.map((s) => {
-          const cover = s.photos[0];
-          return (
-            <button type="button" className="ysf-card" id={`story-${s.id}`} key={s.id} onClick={() => show(s)}>
-              <span className="ysf-card-when">{fullWhenLabel(s)}</span>
-              <span className="ysf-card-row">
-                <span className="ysf-card-photo">
-                  {cover?.thumb || cover?.web ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
-                  ) : null}
-                  {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
-                </span>
-                <span className="ysf-card-body">
-                  <span className="ysf-card-text">{s.story}</span>
-                  <span className="ysf-card-by">By {s.author}</span>
-                </span>
-              </span>
-            </button>
-          );
-        })}
+    const toolbar = (
+      <div className="ysf-tools">
+        <label className="ysf-search">
+          <i className="ri-search-line" aria-hidden="true" />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
+        </label>
+        <select value={sort} onChange={(e) => setSort(e.target.value as 'newest' | 'oldest')} aria-label="Sort stories">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
       </div>
     );
+    const list = visible || [];
+    body = (
+      <>
+        {toolbar}
+        {list.length === 0 ? (
+          <div className="ysf-empty">No stories match “{search.trim()}”.</div>
+        ) : isDesktop ? (
+          <div className="ysf-feed ysf-feed-posts">
+            {list.map((s) => (
+              <StoryThread
+                key={s.id}
+                story={s}
+                playerId={playerId}
+                variant="inline"
+                onChange={updateStory}
+                onDeleted={removeStory}
+                media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="ysf-feed">
+            {list.map((s) => {
+              const cover = s.photos[0];
+              return (
+                <button type="button" className="ysf-card" id={`story-${s.id}`} key={s.id} onClick={() => show(s)}>
+                  <span className="ysf-card-when">{fullWhenLabel(s)}</span>
+                  <span className="ysf-card-row">
+                    <span className="ysf-card-photo">
+                      {cover?.thumb || cover?.web ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
+                      ) : null}
+                      {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
+                    </span>
+                    <span className="ysf-card-body">
+                      <span className="ysf-card-text">{s.story}</span>
+                      <span className="ysf-card-by">
+                        By {s.author}
+                        {s.likeCount > 0 ? <span className="ysf-card-stat"><i className="ri-thumb-up-fill" /> {s.likeCount}</span> : null}
+                        {s.commentCount > 0 ? <span className="ysf-card-stat"><i className="ri-chat-3-fill" /> {s.commentCount}</span> : null}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </>
+    );
   }
-
-  const photo = openStory?.photos[photoIndex];
-  const others = openStory?.players.filter((p) => p.playerId !== playerId) || [];
 
   return (
     <div className="ysf">
       {body}
 
-      {/* Rendered into <body> so it covers the screen, not just the tab. */}
-      {openStory && typeof document !== 'undefined' && createPortal(
-        <div className="ysf-modal" role="dialog" aria-modal="true" aria-label="Story" onClick={() => setOpenStory(null)}>
-          <div className="ysf-modal-card" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="ysf-modal-close" onClick={() => setOpenStory(null)} aria-label="Close">
-              <i className="ri-close-line" />
-            </button>
-            <div className="ysf-modal-photo">
-              {photo?.full ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo.full} alt="" />
-              ) : null}
-              {openStory.photos.length > 1 && (
-                <>
-                  <button type="button" className="ysf-nav ysf-nav-prev" disabled={photoIndex === 0} onClick={() => setPhotoIndex((i) => i - 1)} aria-label="Previous photo">‹</button>
-                  <button type="button" className="ysf-nav ysf-nav-next" disabled={photoIndex === openStory.photos.length - 1} onClick={() => setPhotoIndex((i) => i + 1)} aria-label="Next photo">›</button>
-                  <span className="ysf-modal-count">{photoIndex + 1}/{openStory.photos.length}</span>
-                </>
-              )}
-            </div>
-            <div className="ysf-modal-text">
-              <div className="ysf-card-when">{whenLabel(openStory)}</div>
-              <p>{openStory.story}</p>
-              <div className="ysf-card-by">— {openStory.author}</div>
-              {others.length > 0 && (
-                <div className="ysf-modal-tags">
-                  Also in this story:{' '}
-                  {others.map((p, i) => (
-                    <span key={p.playerId}>
-                      {i > 0 ? ', ' : ''}
-                      <a href={profileHref(p)}>{p.name || 'Player'}</a>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
+      {openStory && typeof document !== 'undefined' && (
+        <StoryViewer key={`${openStory.id}-${openPhoto}`} story={openStory} playerId={playerId} initialPhoto={openPhoto} onClose={closeViewer} onChange={updateStory} onDeleted={removeStory} />
       )}
+      <StoryStyles />
 
       <style jsx global>{`
         /* Horizontal cards matching the News tab (ProfileNewsList): photo on
@@ -235,6 +287,21 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 system-ui, sans-serif; }
         .ysf-empty strong { color: var(--ysf-strong); font: 700 18px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
+        .ysf-feed-posts { gap: 16px; max-width: 720px; margin: 0 auto; }
+        .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 720px; }
+        .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
+        .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; outline: none; }
+        .ysf-tools select { min-height: 38px; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; }
+        .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
+        .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
+        .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
+        .ysf-photos-1 .ysf-photos-item img { height: auto; max-height: 560px; object-fit: contain; margin: 0 auto; }
+        .ysf-photos-2 { grid-template-columns: 1fr 1fr; }
+        .ysf-photos-2 .ysf-photos-item { aspect-ratio: 1; }
+        .ysf-photos-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 260px 200px; }
+        .ysf-photos-3 .ysf-photos-item:first-child { grid-column: 1 / -1; }
+        .ysf-photos-4 { grid-template-columns: 1fr 1fr; }
+        .ysf-photos-4 .ysf-photos-item { aspect-ratio: 4 / 3; }
         /* The date on its own line at the top left; under it the photo and
            the story side by side, their tops level. Thin border like the
            News cards. */
@@ -251,22 +318,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
         .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
         .ysf-card-by { color: var(--ysf-muted); font: 700 9px/1.2 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-        .ysf-modal { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.82); }
-        .ysf-modal-card { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); width: min(1100px, 100%); max-height: calc(100dvh - 32px); background: #0d0d0d; color: #f4f4f4; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; overflow: hidden; }
-        .ysf-modal-close { position: absolute; top: 8px; right: 8px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; }
-        .ysf-modal-photo { position: relative; display: flex; align-items: center; justify-content: center; background: #000; min-height: 280px; }
-        .ysf-modal-photo img { max-width: 100%; max-height: calc(100dvh - 32px); object-fit: contain; display: block; }
-        .ysf-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
-        .ysf-nav:disabled { opacity: .25; cursor: default; }
-        .ysf-nav-prev { left: 8px; }
-        .ysf-nav-next { right: 8px; }
-        .ysf-modal-count { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.6); font: 700 11px/1.4 Oswald, sans-serif; }
-        .ysf-modal-text { display: flex; flex-direction: column; gap: 10px; padding: 22px 20px; overflow-y: auto; }
-        .ysf-modal-text p { margin: 0; font: 400 16px/1.6 var(--yat-news-font, Georgia, serif); white-space: pre-line; }
-        .ysf-modal-tags { font-size: 13px; opacity: .85; }
-        .ysf-modal-tags a { color: #d2b45c; }
-        .ysf-modal-text .ysf-card-when { color: #d2b45c; font-size: 11px; }
-        .ysf-modal-text .ysf-card-by { color: rgba(255,255,255,.6); }
+        .ysf-card-stat { margin-left: 10px; white-space: nowrap; }
+        .ysf-card-stat i { font-size: 10px; vertical-align: -1px; }
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
           .ysf-feed { gap: 8px; }
@@ -274,9 +327,6 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           .ysf-card-row { gap: 8px; }
           .ysf-card-photo { width: 62px; height: 80px; }
           .ysf-card-text { font-size: 12px; }
-          .ysf-modal { padding: 0; align-items: stretch; }
-          .ysf-modal-card { grid-template-columns: 1fr; grid-template-rows: auto 1fr; max-height: 100dvh; border-radius: 0; }
-          .ysf-modal-photo img { max-height: 55dvh; }
         }
       `}</style>
     </div>

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
+import FanConfirm from '@/components/yatstats/FanConfirm';
 
 export const STORY_DRAWER_OPEN_EVENT = 'yat:story-drawer-open';
 export const STORY_POSTED_EVENT = 'yat:story-posted';
@@ -77,7 +78,7 @@ export default function StoryDrawer() {
   const [tags, setTags] = useState<TagCandidate[]>([]);
   const [tagQuery, setTagQuery] = useState('');
   const [tagResults, setTagResults] = useState<TagCandidate[]>([]);
-  const [status, setStatus] = useState<{ kind: 'idle' | 'posting' | 'error' | 'done'; text?: string; storyId?: string; signIn?: boolean }>({ kind: 'idle' });
+  const [status, setStatus] = useState<{ kind: 'idle' | 'posting' | 'error' | 'done'; text?: string; storyId?: string; confirm?: boolean }>({ kind: 'idle' });
   const fileInput = useRef<HTMLInputElement | null>(null);
   // Rendered straight into <body>: inside the profile page's containers a
   // position:fixed drawer is pinned to the page section, not the screen.
@@ -238,7 +239,7 @@ export default function StoryDrawer() {
       const res = await fetch('/api/stories', { method: 'POST', body: form, credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
-        setStatus({ kind: 'error', text: 'Please sign in once more to post. Your story will still be here.', signIn: true });
+        setStatus({ kind: 'error', confirm: true });
         return;
       }
       if (!res.ok) throw new Error(data?.error || 'Your story could not be posted. Please try again.');
@@ -380,16 +381,13 @@ export default function StoryDrawer() {
               )}
             </div>
 
-            {status.kind === 'error' && (
-              <div className="ysd-error">
-                {status.text}
-                {status.signIn && (
-                  <div className="ysd-actions" style={{ marginTop: 8 }}>
-                    <button type="button" className="ysd-btn ysd-btn-primary" onClick={() => openAccountDrawer('signin')}>Sign in</button>
-                  </div>
-                )}
-              </div>
-            )}
+            {status.kind === 'error' && status.confirm ? (
+              // This site couldn't tell who's posting: confirm once, then the
+              // story posts straight away (nothing to retype).
+              <FanConfirm email={session?.email} onConfirmed={() => { void submit(); }} />
+            ) : status.kind === 'error' ? (
+              <div className="ysd-error">{status.text}</div>
+            ) : null}
 
             <div className="ysd-actions">
               <button type="button" className="ysd-btn ysd-btn-primary" onClick={submit} disabled={posting}>

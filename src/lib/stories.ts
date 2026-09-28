@@ -10,6 +10,7 @@ import 'server-only';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { randomUUID } from 'crypto';
+import { S3_BUCKET, S3_REGION, storyAssetUrl } from './storyAssets';
 
 export const STORY_MAX_PHOTOS = 4;
 export const STORY_MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -20,8 +21,7 @@ export const STORY_DAILY_LIMIT = 20;
 // Vercel doesn't pass the standard AWS_* keys through to functions (and sets
 // AWS_REGION to its own region), so the site reads its own names. The
 // bucket lives in us-west-2.
-const S3_REGION = process.env.YATSTATS_AWS_REGION || 'us-west-2';
-const S3_BUCKET = process.env.YATSTATS_S3_BUCKET || process.env.S3_BUCKET || 'yatstats-assets';
+export { storyAssetUrl };
 
 let s3Client: S3Client | null = null;
 function getS3() {
@@ -35,10 +35,6 @@ function getS3() {
   return s3Client;
 }
 
-export function storyAssetUrl(key: string | null | undefined): string | null {
-  if (!key) return null;
-  return `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key.split('/').map(encodeURIComponent).join('/')}`;
-}
 
 // Who is posting: see firebaseIdToken.ts.
 export { verifyFirebaseIdToken } from './firebaseIdToken';

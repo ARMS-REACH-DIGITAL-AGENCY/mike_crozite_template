@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
-import { AUTH_PASS_COOKIE, readAuthPass } from '@/lib/authPass';
+import { identifyFan, likerKey, viewerUid } from '@/lib/fanIdentity';
 import { getUserProfile } from '@/lib/userProfile';
 import {
   NotAnImageError,
@@ -21,7 +21,6 @@ import {
   STORY_MAX_TEXT,
   storeStoryPhoto,
   storyAssetUrl,
-  verifyFirebaseIdToken,
 } from '@/lib/stories';
 
 export const runtime = 'nodejs';
@@ -39,6 +38,8 @@ type StoryRow = {
   players: { playerid: string; hsid: string | null; first_name: string | null; last_name: string | null; is_primary: boolean }[] | null;
   like_count: number;
   comment_count: number;
+  liked_by_me: boolean;
+  is_mine: boolean;
 };
 
 export async function GET(req: NextRequest) {
@@ -64,14 +65,16 @@ export async function GET(req: NextRequest) {
                  LEFT JOIN flip_card_front_stage f ON f.playerid::text = mp.playerid
                 WHERE mp.moment_id = m.id) AS players,
               (SELECT count(*)::int FROM player_moment_likes l WHERE l.moment_id = m.id) AS like_count,
-              (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count
+              (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count,
+              EXISTS (SELECT 1 FROM player_moment_likes l WHERE l.moment_id = m.id AND l.firebase_uid = $3) AS liked_by_me,
+              (m.contributor_firebase_uid IS NOT NULL AND m.contributor_firebase_uid = $2) AS is_mine
          FROM player_moment_submissions m
          JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $1
         WHERE m.status = 'live'
           AND COALESCE(m.is_private, false) = false
         ORDER BY m.created_at DESC, m.id DESC
         LIMIT 100`,
-      [playerId]
+      [playerId, viewerUid(req), likerKey(req)]
     );
 
     const stories = rows.map((r) => ({
@@ -97,6 +100,8 @@ export async function GET(req: NextRequest) {
       })),
       likeCount: r.like_count,
       commentCount: r.comment_count,
+      likedByMe: r.liked_by_me,
+      isMine: r.is_mine,
     }));
 
     return NextResponse.json({ stories }, { headers: { 'Cache-Control': 'no-store' } });
@@ -121,12 +126,7 @@ export async function POST(req: NextRequest) {
   // 1. Who is posting: a Firebase ID token from this page, or else the
   //    signed pass set at sign-in (covers a fan signed in on another
   //    yatstats.com site, where this page has no Firebase user).
-  const idToken = String(form.get('idToken') || '');
-  let identity = idToken ? await verifyFirebaseIdToken(idToken) : null;
-  if (!identity) {
-    const passUid = readAuthPass(req.cookies.get(AUTH_PASS_COOKIE)?.value);
-    if (passUid) identity = { uid: passUid, email: '' };
-  }
+  const identity = await identifyFan(req, String(form.get('idToken') || ''));
   if (!identity) return fail('Please sign in again to post a story.', 401);
 
   const profile = await getUserProfile(identity.uid).catch(() => null);
