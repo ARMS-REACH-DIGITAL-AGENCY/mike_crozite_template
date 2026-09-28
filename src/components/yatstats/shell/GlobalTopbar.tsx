@@ -261,11 +261,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
             display: block !important;
           }
 
-          #ppTab-schedule:target ~ #ppTab-stats.pp-fz-panel-default,
-          #ppTab-news:target ~ #ppTab-stats.pp-fz-panel-default,
-          #ppTab-social:target ~ #ppTab-stats.pp-fz-panel-default,
-          #ppTab-connect:target ~ #ppTab-stats.pp-fz-panel-default,
-          #ppTab-upload:target ~ #ppTab-stats.pp-fz-panel-default {
+          body:has(.pp-fz-panel:target) .pp-fz-panel-default:not(:target) {
             display: none !important;
           }
 

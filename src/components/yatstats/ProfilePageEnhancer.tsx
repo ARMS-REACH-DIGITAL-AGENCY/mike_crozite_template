@@ -90,9 +90,10 @@ function activeFunZoneHash(preferred?: string) {
   if (candidate?.startsWith('#ppTab-') && document.querySelector(candidate)) return candidate;
   const active = document.querySelector<HTMLAnchorElement>('.pp-fz-tab-active[href^="#ppTab-"]')?.getAttribute('href');
   if (active && document.querySelector(active)) return active;
-  if (document.querySelector('#ppTab-stats')) return '#ppTab-stats';
+  // No tab named: Stories (see ProfileFunZoneStabilizer's normalizeHash).
+  if (document.querySelector('#ppTab-upload')) return '#ppTab-upload';
   const firstPanel = document.querySelector<HTMLElement>('.pp-fz-panel');
-  return firstPanel?.id ? `#${firstPanel.id}` : '#ppTab-stats';
+  return firstPanel?.id ? `#${firstPanel.id}` : '#ppTab-upload';
 }
 
 function activateFunZonePanel(preferred?: string) {
