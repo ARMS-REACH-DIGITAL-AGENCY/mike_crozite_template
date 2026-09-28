@@ -798,7 +798,7 @@ export default async function ProfilePage({ params }: Props) {
             </a>
             <a href="#ppTab-upload" className="pp-fz-tab">
               <i className="ri-upload-cloud-line" aria-hidden="true" />
-              <span>Upload</span>
+              <span>Stories</span>
             </a>
           </nav>
         </div>

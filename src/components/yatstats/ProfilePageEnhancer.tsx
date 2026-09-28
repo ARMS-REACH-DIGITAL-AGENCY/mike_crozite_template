@@ -75,12 +75,12 @@ function repairUploadTab() {
   const influenceTab = tabs.querySelector<HTMLAnchorElement>('a[href="#ppTab-influence"]');
   if (influenceTab) {
     influenceTab.href = '#ppTab-upload';
-    influenceTab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Upload</span>';
+    influenceTab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Stories</span>';
   }
 
   const uploadTab = tabs.querySelector<HTMLAnchorElement>('a[href="#ppTab-upload"]');
   if (uploadTab) {
-    uploadTab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Upload</span>';
+    uploadTab.innerHTML = '<i class="ri-upload-cloud-line" aria-hidden="true"></i><span>Stories</span>';
   }
 }
 
