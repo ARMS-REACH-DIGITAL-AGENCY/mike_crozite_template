@@ -19,6 +19,8 @@ import {
   STORY_MAX_PHOTOS,
   STORY_MAX_TAGS,
   STORY_MAX_TEXT,
+  cutoutKeyFor,
+  makeStoryCutout,
   storeStoryPhoto,
   storyAssetUrl,
 } from '@/lib/stories';
@@ -86,6 +88,10 @@ export async function GET(req: NextRequest) {
       postedAt: r.created_at,
       postedOnPlayerId: r.posted_on_playerid,
       photos: (r.photos || []).map((p) => ({
+        // Timeline hero cutout (may not exist yet - the timeline falls back
+        // to the whole photo and asks /api/stories/cutout to make it).
+        cutout: p.full ? storyAssetUrl(cutoutKeyFor(p.full)) : null,
+        source: p.full,
         web: storyAssetUrl(p.web),
         thumb: storyAssetUrl(p.thumb),
         full: storyAssetUrl(p.full),
@@ -185,6 +191,15 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < photos.length; i++) {
       stored.push(await storeStoryPhoto(folder, i, Buffer.from(await photos[i].arrayBuffer())));
     }
+
+    // Cut out each photo for the timeline's hero spot now, so it's there
+    // the moment the story is. Capped so a slow remove.bg never holds up
+    // the post (anything not done is made the first time the timeline
+    // shows that photo).
+    await Promise.race([
+      Promise.all(stored.map((p) => makeStoryCutout(p.s3_key))),
+      new Promise((resolve) => setTimeout(resolve, 20000)),
+    ]);
 
     // 6. The story, its photos, its players and the fan's activity - one
     //    statement, so it all saves or none of it does.

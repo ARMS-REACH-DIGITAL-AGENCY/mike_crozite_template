@@ -611,34 +611,75 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // the YaTi cartoon stands), the rest lined up to its right behind the quote,
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
-function StoryHeroStrip({ photos, tick, alt }: { photos: string[]; tick: number; alt: string }) {
+type HeroPhoto = { web: string; cutout: string | null; source: string | null };
+
+// Cutouts that aren't there (yet) this page view, and ones already asked
+// for - shared by every image so a missing cutout is requested once.
+const missingCutouts = new Set<string>();
+const requestedCutouts = new Set<string>();
+
+// One fan photo in the hero spot. Uses the photo's cutout (background
+// knocked out, cropped to the people) placed exactly like the YaTi
+// cartoon - bottom pinned to the bottom of the slide, full height. Until a
+// cutout exists it shows the whole photo (sitting above the rail) and asks
+// the server to make one, so the next visit gets the cutout.
+function StoryHeroImg({ photo, className, style, alt }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string }) {
+  const canCut = Boolean(photo.cutout && photo.source && !missingCutouts.has(photo.source));
+  const [cutFailed, setCutFailed] = useState(false);
+  const useCut = canCut && !cutFailed;
+  const onError = () => {
+    if (!useCut || !photo.source) return;
+    missingCutouts.add(photo.source);
+    setCutFailed(true);
+    if (!requestedCutouts.has(photo.source)) {
+      requestedCutouts.add(photo.source);
+      fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
+    }
+  };
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className={`${className}${useCut ? ' zt-story-cut' : ''}`}
+      style={style}
+      src={useCut ? photo.cutout || photo.web : photo.web}
+      alt={alt}
+      loading="eager"
+      decoding="async"
+      onError={onError}
+    />
+  );
+}
+
+// A year's fan photos on its slide: the current one in the hero spot (where
+// the YaTi cartoon stands), the rest lined up to its right behind the quote,
+// faded way back. Every tick the line slides left - the next photo becomes
+// the hero, the old hero fades out to the left and rejoins at the end.
+function StoryHeroStrip({ photos, tick, alt }: { photos: HeroPhoto[]; tick: number; alt: string }) {
   const n = photos.length;
   if (n === 1) {
-    return <img className="zt-person zt-person-story zt-story-hero-img" src={photos[0]} alt={alt} loading="eager" decoding="async" />;
+    return <StoryHeroImg photo={photos[0]} className="zt-person zt-person-story zt-story-hero-img" alt={alt} />;
   }
   const current = tick % n;
   const previous = (current - 1 + n) % n;
   return (
     <>
-      {photos.map((src, i) => {
+      {photos.map((photo, i) => {
         const slot = (i - current + n) % n;
         // Bumps when this photo wraps from the hero spot to the end of the
         // line, so it re-enters there instead of sliding back across.
         const lap = Math.floor((tick - i + n - 1) / n);
         return (
-          <img
+          <StoryHeroImg
             key={`${i}-${lap}`}
+            photo={photo}
             className={`zt-person zt-person-story ${slot === 0 ? 'zt-story-hero-img' : 'zt-story-queued'}${slot === n - 1 ? ' zt-story-entering' : ''}`}
             style={{ '--slot': slot } as CSSProperties}
-            src={src}
             alt={slot === 0 ? alt : ''}
-            loading="eager"
-            decoding="async"
           />
         );
       })}
       {tick > 0 && (
-        <img key={`leaving-${tick}`} className="zt-person zt-person-story zt-story-leaving" src={photos[previous]} alt="" aria-hidden="true" decoding="async" />
+        <StoryHeroImg key={`leaving-${tick}`} photo={photos[previous]} className="zt-person zt-person-story zt-story-leaving" alt="" />
       )}
     </>
   );
@@ -811,7 +852,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // Fan Stories (/api/stories, newest first): each year's photos become
   // that year's hero image, in place of the YaTi cartoon. Reloaded when a
   // fan posts from the drawer.
-  const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, string[]>>({});
+  const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
   useEffect(() => {
     setStoryPhotosByYear({});
     if (!playerId) return;
@@ -821,11 +862,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (cancelled || !Array.isArray(data?.stories)) return;
-          const byYear: Record<number, string[]> = {};
-          for (const story of data.stories as { year: number | null; photos?: { web: string | null }[] }[]) {
+          const byYear: Record<number, HeroPhoto[]> = {};
+          type ApiPhoto = { web: string | null; cutout?: string | null; source?: string | null };
+          for (const story of data.stories as { year: number | null; photos?: ApiPhoto[] }[]) {
             if (!story.year) continue;
             for (const photo of story.photos || []) {
-              if (photo.web) (byYear[story.year] ||= []).push(photo.web);
+              if (photo.web) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
             }
           }
           setStoryPhotosByYear(byYear);
@@ -1493,7 +1535,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
               {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'lifeyear' || slide.kind === 'future') ? (
-                <StoryMontage photos={storyPhotosByYear[slide.year]} />
+                <StoryMontage photos={storyPhotosByYear[slide.year].map((p) => p.web)} />
               ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
               {(slide.kind === 'lifeyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
@@ -1856,7 +1898,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            whole photo (not a cutout), so it sits above the rail instead of
            running off the bottom. Several photos crossfade (see heroTick). */
         .zt-story-hero { position:absolute; inset:0; }
-        .zt-person-stack :global(.zt-person.zt-person-story) { bottom:30px; height:calc(100% - 44px); transform-origin:left bottom; transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .9s ease, filter .9s ease; }
+        .zt-person-stack :global(.zt-person.zt-person-story) { transform-origin:left bottom; transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .9s ease, filter .9s ease; }
+        /* A cutout (.zt-story-cut) keeps the plain .zt-person placement - the
+           YaTi cartoon's: bottom pinned to the bottom of the slide, full
+           height. A whole photo (no cutout yet) sits above the rail instead. */
+        .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:30px; height:calc(100% - 44px); }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */

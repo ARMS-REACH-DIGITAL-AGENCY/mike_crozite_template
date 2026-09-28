@@ -109,3 +109,82 @@ export async function storeStoryPhoto(folder: string, index: number, input: Buff
     file_size_bytes: full.data.length,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Hero cutouts: the background knocked out (remove.bg), cropped to the
+// people in the photo and saved as WebP next to the original:
+//   stories/{folder}/N-xxxx-full.jpg -> stories/{folder}/N-xxxx-cutout.webp
+// The Career Path Timeline shows it in the hero spot, placed like the YaTi
+// cartoon; everywhere else (Stories tab, cards, big view, share previews)
+// keeps the original photo. When remove.bg can't find anyone to keep, a
+// small "-cutout-none.txt" marker is saved so it isn't asked again, and the
+// timeline keeps using the whole photo.
+// ---------------------------------------------------------------------------
+const FULL_KEY = /^stories\/[0-9a-f-]{36}\/\d+-[0-9a-f]{8}-full\.jpg$/;
+
+export function isStoryFullKey(key: string) {
+  return FULL_KEY.test(key);
+}
+
+export function cutoutKeyFor(fullKey: string) {
+  return fullKey.replace(/-full\.jpg$/, '-cutout.webp');
+}
+
+function cutoutMarkerKeyFor(fullKey: string) {
+  return fullKey.replace(/-full\.jpg$/, '-cutout-none.txt');
+}
+
+async function publicObjectExists(key: string) {
+  const url = storyAssetUrl(key);
+  if (!url) return false;
+  const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+  return Boolean(res?.ok);
+}
+
+export type CutoutResult = 'made' | 'exists' | 'none' | 'skipped';
+
+// Makes the cutout for one story photo. Never throws: a story always posts,
+// and the timeline falls back to the whole photo.
+export async function makeStoryCutout(fullKey: string): Promise<CutoutResult> {
+  const apiKey = process.env.REMOVE_BG_API_KEY;
+  if (!apiKey || !isStoryFullKey(fullKey)) return 'skipped';
+  try {
+    const cutoutKey = cutoutKeyFor(fullKey);
+    if (await publicObjectExists(cutoutKey)) return 'exists';
+    if (await publicObjectExists(cutoutMarkerKeyFor(fullKey))) return 'none';
+
+    const form = new FormData();
+    form.set('image_url', storyAssetUrl(fullKey) || '');
+    form.set('size', 'auto');
+    form.set('type', 'auto');
+    form.set('crop', 'true');
+    form.set('format', 'png');
+    const res = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: { 'X-Api-Key': apiKey },
+      body: form,
+      signal: AbortSignal.timeout(25000),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      console.error('[stories] cutout failed', res.status, fullKey, detail.slice(0, 300));
+      // 400 = nothing to keep in this photo: remember that. Anything else
+      // (credits, rate limit, outage) is worth trying again later.
+      if (res.status === 400) await put(cutoutMarkerKeyFor(fullKey), Buffer.from(detail.slice(0, 500) || 'none'), 'text/plain');
+      return 'none';
+    }
+
+    const png = Buffer.from(await res.arrayBuffer());
+    const webp = await sharp(png)
+      .trim({ threshold: 1 })
+      .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82, alphaQuality: 90 })
+      .toBuffer();
+    await put(cutoutKey, webp, 'image/webp');
+    return 'made';
+  } catch (error) {
+    console.error('[stories] cutout error', fullKey, error instanceof Error ? error.message : error);
+    return 'skipped';
+  }
+}
