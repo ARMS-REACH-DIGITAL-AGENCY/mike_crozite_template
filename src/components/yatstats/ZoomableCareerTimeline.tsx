@@ -612,6 +612,17 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
 type HeroPhoto = { web: string; cutout: string | null; source: string | null };
+type RailStory = { id: string; thumb: string | null };
+
+const RAIL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+// A month-rail thumbnail: opens the Stories tab on that story.
+function showStoryInStoriesTab(id: string) {
+  history.replaceState(null, '', `${window.location.pathname}${window.location.search}#ppTab-upload`);
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  window.dispatchEvent(new CustomEvent('yat:story-focus', { detail: { id } }));
+  document.getElementById('playerFunZone')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 // Cutouts that aren't there (yet) this page view, and ones already asked
 // for - shared by every image so a missing cutout is requested once.
@@ -798,6 +809,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const railDragRef = useRef<{ dragging: boolean; pointerId: number | null }>({ dragging: false, pointerId: null });
   const scrollRafRef = useRef<number | null>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The month rail: once a slide has fully come to rest (no scrolling or
+  // dragging for a moment, sitting exactly on the slide) the year rail
+  // turns into that year's JAN-DEC. Any movement turns it straight back
+  // into years; nothing changes mid-slide.
+  const [railSettled, setRailSettled] = useState(false);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -853,8 +870,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // that year's hero image, in place of the YaTi cartoon. Reloaded when a
   // fan posts from the drawer.
   const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
+  // year -> month (1-12) -> that month's stories (for the month rail).
+  const [storiesByMonth, setStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
   useEffect(() => {
     setStoryPhotosByYear({});
+    setStoriesByMonth({});
     if (!playerId) return;
     let cancelled = false;
     const load = () => {
@@ -863,14 +883,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         .then((data) => {
           if (cancelled || !Array.isArray(data?.stories)) return;
           const byYear: Record<number, HeroPhoto[]> = {};
-          type ApiPhoto = { web: string | null; cutout?: string | null; source?: string | null };
-          for (const story of data.stories as { year: number | null; photos?: ApiPhoto[] }[]) {
+          const byMonth: Record<number, Record<number, RailStory[]>> = {};
+          type ApiPhoto = { web: string | null; thumb?: string | null; cutout?: string | null; source?: string | null };
+          for (const story of data.stories as { id: string; year: number | null; date?: string | null; photos?: ApiPhoto[] }[]) {
             if (!story.year) continue;
+            const month = story.date ? Number(story.date.slice(5, 7)) : 0;
+            if (month >= 1 && month <= 12) {
+              ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
+            }
             for (const photo of story.photos || []) {
               if (photo.web) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
             }
           }
           setStoryPhotosByYear(byYear);
+          setStoriesByMonth(byMonth);
         })
         .catch((error) => console.error('[ZoomableCareerTimeline] stories fetch failed:', error));
     };
@@ -1157,6 +1183,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
   const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
+  const monthRailYear = railSettled && ready ? model.slides[activeIndex]?.year ?? null : null;
+
+  // The first time the timeline is ready it may not scroll at all (already
+  // on its opening slide), so check once whether it's at rest.
+  useEffect(() => {
+    if (!ready) return;
+    const timer = setTimeout(() => {
+      const el = trackRef.current;
+      if (!el || dragRef.current.dragging || railDragRef.current.dragging || settleTimerRef.current != null) return;
+      const progress = el.scrollLeft / getSlideWidth();
+      if (Math.abs(progress - Math.round(progress)) < 0.01) setRailSettled(true);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [ready]);
   // Fraction of the rail the "traveled" fill covers, driven by the
   // continuous scroll position (not the rounded activeIndex) so it tracks
   // smoothly mid-drag instead of snapping slide-to-slide.
@@ -1256,6 +1296,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   function handleRailYearPointerDown(event: ReactPointerEvent) {
     event.stopPropagation();
     railDragRef.current = { dragging: true, pointerId: event.pointerId };
+    markRailMoving();
     try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch {}
     updateScrollFromClientX(event.clientX);
   }
@@ -1297,7 +1338,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     }, 140);
   }
 
+  // Called on every scroll or drag: back to years now, and months again once
+  // things have been still for a beat on a whole slide.
+  function markRailMoving() {
+    setRailSettled(false);
+    if (settleTimerRef.current != null) clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null;
+      if (dragRef.current.dragging || railDragRef.current.dragging) return;
+      const el = trackRef.current;
+      if (!el) return;
+      const progress = el.scrollLeft / getSlideWidth();
+      if (Math.abs(progress - Math.round(progress)) < 0.01) setRailSettled(true);
+    }, 450);
+  }
+
   function handleScroll() {
+    markRailMoving();
     if (scrollRafRef.current != null) return;
     scrollRafRef.current = requestAnimationFrame(() => {
       scrollRafRef.current = null;
@@ -1314,6 +1371,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     const el = trackRef.current;
     if (!el) return;
     dragRef.current = { dragging: true, moved: false, startX: event.clientX, startScroll: el.scrollLeft, pointerId: event.pointerId };
+    markRailMoving();
     try { el.setPointerCapture(event.pointerId); } catch {}
   }
   function handlePointerMove(event: ReactPointerEvent) {
@@ -1742,11 +1800,48 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               doesn't open a screen of its own -- plain span, not a button,
               and outside .zt-rail entirely so it doesn't need to fit into
               that div's own index-based tick spacing. */}
-          <span className="zt-rail-tick zt-rail-tick-boundary" aria-hidden="true">
-            <span className="zt-rail-tick-year">{String(model.futureYear + 1).slice(-2)}</span>
-          </span>
-          <div className="zt-rail" ref={railRef}>
+          {!monthRailYear && (
+            <span className="zt-rail-tick zt-rail-tick-boundary" aria-hidden="true">
+              <span className="zt-rail-tick-year">{String(model.futureYear + 1).slice(-2)}</span>
+            </span>
+          )}
+          <div className={`zt-rail${monthRailYear ? ' zt-rail-months' : ''}`} ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
+            {monthRailYear ? (
+              <>
+                {/* The settled slide's year, then its twelve months. A month
+                    with stories gets a tiny photo (a flag on a phone) that
+                    opens the story in the Stories tab. */}
+                <span className="zt-rail-monthyear">{monthRailYear}</span>
+                {RAIL_MONTHS.map((label, m) => {
+                  const stories = storiesByMonth[monthRailYear]?.[m + 1] || [];
+                  return (
+                    <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}`} style={{ left: `${14 + (m / 11) * 86}%` }}>
+                      <span className="zt-rail-month-label" aria-hidden="true">
+                        <span className="zt-rail-month-long">{label}</span>
+                        <span className="zt-rail-month-short">{label[0]}</span>
+                      </span>
+                      {stories.length > 0 && (
+                        <button
+                          type="button"
+                          className="zt-rail-story"
+                          onClick={() => showStoryInStoriesTab(stories[0].id)}
+                          aria-label={`${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
+                        >
+                          {stories[0].thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="zt-rail-story-thumb" src={stories[0].thumb} alt="" />
+                          ) : null}
+                          <i className="ri-flag-fill zt-rail-story-flag" aria-hidden="true" />
+                          {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </>
+            ) : (
+            <>
             {model.slides.map((slide, i) => (
               <button
                 type="button"
@@ -1776,6 +1871,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             >
               {model.slides[activeIndex]?.year ?? ''}
             </span>
+            </>
+            )}
           </div>
         </>
       )}
@@ -2212,6 +2309,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            narrow phone widths (see the 620px media query) -- no room for
            a label at every tick once the rail itself is that
            compressed. */
+        /* Month rail (see monthRailYear). */
+        .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; }
+        .zt-rail-months .zt-rail-track { left:34px; }
+        .zt-rail-month { position:absolute; top:50%; width:5px; height:5px; margin-left:-2.5px; transform:translateY(-50%); border-radius:50%; background:#e5342a; animation:zt-rail-in .25s ease both; }
+        .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_YELLOW}; }
+        .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
+        .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_YELLOW}; }
+        .zt-rail-month-short { display:none; }
+        .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:block; width:26px; height:26px; padding:0; border:1.5px solid ${TIMELINE_YELLOW}; border-radius:3px; background:#000; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.5); }
+        .zt-rail-story:hover { transform:translateX(-50%) scale(1.15); }
+        .zt-rail-story-thumb { display:block; width:100%; height:100%; object-fit:cover; border-radius:2px; }
+        .zt-rail-story-flag { display:none; }
+        .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_YELLOW}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
+        @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
         .zt-rail-tick.active .zt-rail-tick-year { display:none; }
         .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
@@ -2456,6 +2567,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              so it can sit right at the very bottom of the section instead
              of the desktop base rule's 8px -- per direct feedback. */
           .zt-rail { bottom:2px; }
+          /* Month rail on a phone: one-letter months above the line, and a
+             small flag (not a photo) on months with stories. */
+          .zt-rail-month-label { top:auto; bottom:100%; margin:0 0 3px; font-size:7px; }
+          .zt-rail-month-long { display:none; }
+          .zt-rail-month-short { display:inline; }
+          .zt-rail-story { width:18px; height:18px; bottom:calc(100% + 11px); border:0; background:transparent; box-shadow:none; }
+          .zt-rail-story-thumb { display:none; }
+          .zt-rail-story-flag { display:block; color:${TIMELINE_YELLOW}; font-size:13px; line-height:18px; text-align:center; filter:drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+          .zt-rail-story-count { top:-4px; right:-6px; }
           .zt-nav { bottom:0; }
           .zt-rail-tick-boundary { bottom:6px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
