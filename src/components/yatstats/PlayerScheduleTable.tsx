@@ -86,7 +86,8 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
 
   const sortedRows = useMemo(() => {
     const dir = sortDir;
-    return [...rows].sort((a, b) => compareRows(a, b, sortKey, dir));
+    // Ties (e.g. every 0-HR game when sorting by HR) go newest game first.
+    return [...rows].sort((a, b) => compareRows(a, b, sortKey, dir) || (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0));
   }, [rows, sortKey, sortDir]);
 
   function onSort(key: SortKey) {

@@ -10,7 +10,7 @@ const TAB_IDS = ['ppTab-schedule', 'ppTab-stats', 'ppTab-news', 'ppTab-social', 
 // scroll under it (inside the profile page's containers a position:fixed
 // element is pinned to the page section instead of the screen).
 const DOCK_TABS = [
-  { id: 'ppTab-schedule', icon: 'ri-calendar-line', label: 'Schedule' },
+  { id: 'ppTab-schedule', icon: 'ri-calendar-line', label: 'Game Log' },
   { id: 'ppTab-stats', icon: 'ri-bar-chart-2-line', label: 'Stats' },
   { id: 'ppTab-news', icon: 'ri-newspaper-line', label: 'News' },
   { id: 'ppTab-social', icon: 'ri-share-line', label: 'Social' },
