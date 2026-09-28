@@ -137,8 +137,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           const cover = s.photos[0];
           return (
             <button type="button" className="ysf-card" id={`story-${s.id}`} key={s.id} onClick={() => show(s)}>
-              <span className="ysf-card-side">
-                <span className="ysf-card-when">{fullWhenLabel(s)}</span>
+              <span className="ysf-card-when">{fullWhenLabel(s)}</span>
+              <span className="ysf-card-row">
                 <span className="ysf-card-photo">
                   {cover?.web || cover?.thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -146,10 +146,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                   ) : null}
                   {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
                 </span>
-              </span>
-              <span className="ysf-card-body">
-                <span className="ysf-card-text">{s.story}</span>
-                <span className="ysf-card-by">By {s.author}</span>
+                <span className="ysf-card-body">
+                  <span className="ysf-card-text">{s.story}</span>
+                  <span className="ysf-card-by">By {s.author}</span>
+                </span>
               </span>
             </button>
           );
@@ -210,8 +210,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         /* Horizontal cards matching the News tab (ProfileNewsList): photo on
            the left, date, story and author on the right, in both themes. */
         .ysf {
-          --ysf-card-bg: rgba(255,255,255,.06);
-          --ysf-card-hover: rgba(255,255,255,.1);
+          --ysf-card-bg: rgba(255,255,255,.055);
+          --ysf-card-border: rgba(255,255,255,.14);
+          --ysf-card-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 3px rgba(0,0,0,.22);
           --ysf-thumb-bg: rgba(255,255,255,.06);
           --ysf-text: rgba(255,255,255,.88);
           --ysf-muted: rgba(255,255,255,.55);
@@ -220,8 +221,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           padding: 10px 10px 20px;
         }
         body.light-theme .ysf {
-          --ysf-card-bg: rgba(53,43,30,.06);
-          --ysf-card-hover: rgba(53,43,30,.1);
+          --ysf-card-bg: rgba(255,255,255,.52);
+          --ysf-card-border: rgba(53,43,30,.18);
+          --ysf-card-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 1px 3px rgba(72,54,30,.08);
           --ysf-thumb-bg: rgba(53,43,30,.05);
           --ysf-text: rgba(31,25,18,.86);
           --ysf-muted: rgba(31,25,18,.55);
@@ -231,18 +233,19 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 system-ui, sans-serif; }
         .ysf-empty strong { color: var(--ysf-strong); font: 700 18px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
-        /* Per the mockup: a flat panel; the date over a landscape photo on
-           the left, the story and byline on the right. */
-        .ysf-card { appearance: none; width: 100%; display: flex; align-items: flex-start; gap: 16px; min-width: 0; margin: 0; padding: 12px 14px 14px; text-align: left; cursor: pointer; border: 0; border-radius: 0; background: var(--ysf-card-bg); color: var(--ysf-text); transition: background .15s ease; }
-        .ysf-card:hover { background: var(--ysf-card-hover); }
-        .ysf-card-focus { box-shadow: inset 0 0 0 2px var(--gold, #ffc107); }
-        .ysf-card-side { flex: 0 0 auto; width: 150px; display: flex; flex-direction: column; gap: 8px; }
+        /* The date on its own line at the top left; under it the photo and
+           the story side by side, their tops level. Thin border like the
+           News cards. */
+        .ysf-card { appearance: none; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; margin: 0; padding: 10px 12px 12px; text-align: left; cursor: pointer; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; }
+        .ysf-card:hover { border-color: var(--gold, #ffc107); }
+        .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
         .ysf-card-when { color: var(--ysf-when); font: 800 17px/1 Oswald, "Bebas Neue", sans-serif; letter-spacing: .01em; text-transform: uppercase; white-space: nowrap; }
-        .ysf-card-photo { position: relative; display: block; width: 100%; aspect-ratio: 3 / 2; overflow: hidden; background: var(--ysf-thumb-bg); }
+        .ysf-card-row { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+        .ysf-card-photo { position: relative; flex: 0 0 auto; display: block; width: 150px; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 4px; background: var(--ysf-thumb-bg); }
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; display: block; }
         .ysf-card-count { position: absolute; right: 4px; bottom: 4px; padding: 2px 6px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
-        .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 10px; }
-        .ysf-card-text { color: var(--ysf-text); font: 400 16px/1.45 var(--yat-news-font, Georgia, serif); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+        .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 8px; }
+        .ysf-card-text { color: var(--ysf-text); font: 400 16px/1.45 var(--yat-news-font, Georgia, serif); margin-top: -.2em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
         .ysf-card-by { color: var(--ysf-muted); font: 700 12px/1.2 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .ysf-modal { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.82); }
         .ysf-modal-card { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); width: min(1100px, 100%); max-height: calc(100dvh - 32px); background: #0d0d0d; color: #f4f4f4; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; overflow: hidden; }
@@ -263,8 +266,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
           .ysf-feed { gap: 8px; }
-          .ysf-card { gap: 12px; padding: 10px 10px 12px; }
-          .ysf-card-side { width: 112px; gap: 6px; }
+          .ysf-card { gap: 6px; padding: 9px 10px 10px; }
+          .ysf-card-row { gap: 10px; }
+          .ysf-card-photo { width: 112px; }
           .ysf-card-when { font-size: 15px; }
           .ysf-card-text { font-size: 15px; }
           .ysf-card-by { font-size: 11px; }
