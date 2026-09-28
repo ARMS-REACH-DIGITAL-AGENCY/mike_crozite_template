@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import SortToggle, { type SortDir } from "./SortToggle";
 import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
@@ -63,6 +64,13 @@ export default function ProfileNewsList({
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
 
+  // Newest first by default; ▲▼ at the top flips it (same as Stories).
+  const [sort, setSort] = useState<SortDir>("newest");
+  const sorted = useMemo(() => {
+    const time = (s: ProfileNewsStory) => (s.publishedAt ? new Date(s.publishedAt).getTime() || 0 : 0);
+    return stories.slice().sort((a, b) => (sort === "newest" ? time(b) - time(a) : time(a) - time(b)));
+  }, [stories, sort]);
+
 
   if (stories.length === 0) {
     return (
@@ -76,7 +84,10 @@ export default function ProfileNewsList({
   return (
     <>
       <div className="pp-news-feed" aria-label={`${firstName}'s news stories`}>
-        {stories.map((story) => (
+        <div className="pp-news-tools">
+          <SortToggle dir={sort} onChange={setSort} />
+        </div>
+        {sorted.map((story) => (
           <button
             type="button"
             key={story.uuid}
@@ -161,6 +172,17 @@ export default function ProfileNewsList({
         }
         /* The eyebrow on its own line at the top left; under it the photo
            and the headline side by side, their tops level. */
+        /* The ▲▼ sort stays pinned at the top of the tab while scrolling. */
+        .pp-news-tools{
+          position:sticky;
+          top:0;
+          z-index:6;
+          display:flex;
+          justify-content:flex-end;
+          margin:-10px 0 0;
+          padding:8px 0 6px;
+          background:var(--psi-page-bg,#070707);
+        }
         .pp-news-teaser{
           appearance:none;
           width:100%;
