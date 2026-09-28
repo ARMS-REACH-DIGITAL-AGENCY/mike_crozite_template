@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
+import { installFunZoneSwipe } from '@/components/yatstats/funZoneSwipe';
 
 type YatUser = {
   uid?: string;
@@ -815,6 +816,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
             if (injectedCard) {
               attachFlipListener(injectedCard);
               attachFunZoneTabListener(injectedCard);
+              installFunZoneSwipe();
               attachFunZoneShareListener(injectedCard);
             }
             nudgeFavoritesFilter();

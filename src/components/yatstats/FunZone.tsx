@@ -31,6 +31,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { installFunZoneSwipe } from "./funZoneSwipe";
 
 // Constants
 
@@ -724,6 +725,9 @@ export default function FunZone({
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [activeStatsIndex, setActiveStatsIndex] = useState(0);
+  // Swipe left/right on the card back to change tab (one listener for the
+  // whole page, installed by whichever card mounts first).
+  useEffect(() => installFunZoneSwipe(), []);
   const resolvedStatBuckets =
     statBuckets && statBuckets.length > 0
       ? statBuckets
