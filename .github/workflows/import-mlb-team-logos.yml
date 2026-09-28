@@ -1,0 +1,73 @@
+name: Import MLB Team Logos
+
+# Saves the official MLB / minor league logo for every pro team in our
+# players' season stats to S3 as teams/{teamid}.png (see
+# scripts/import-mlb-team-logos-s3.py). The official logo replaces any
+# logo a team already has; the old file is copied to teams/replaced/ first.
+# The hourly Build Web Cutouts job then makes the teams-web/ copies the
+# site loads.
+#
+# Manual only; defaults to a dry run. The report (every team, its MLB id,
+# how it matched and what happened) is attached to the run as an artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Match and download, but don't upload to S3"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      max_teams:
+        description: "Optional max number of logos to fetch. Leave blank for all."
+        required: false
+        default: ""
+      only_teamids:
+        description: "Optional comma-separated TBC team ids (e.g. 14062,14063)"
+        required: false
+        default: ""
+
+jobs:
+  import-mlb-team-logos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      MAX_TEAMS: ${{ github.event.inputs.max_teams || '' }}
+      ONLY_TEAMIDS: ${{ github.event.inputs.only_teamids || '' }}
+      REPORT_PATH: team-logo-report.csv
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y libcairo2
+          pip install boto3 cairosvg "psycopg[binary]" requests pillow
+
+      - name: Import logos
+        run: python scripts/import-mlb-team-logos-s3.py
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: team-logo-report
+          path: team-logo-report.csv
+          if-no-files-found: ignore
