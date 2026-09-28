@@ -23,6 +23,7 @@ import {
   getNewsByPlayer,
 } from "@/lib/db";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
@@ -764,44 +765,11 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── UPLOAD tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-upload" className="pp-fz-panel">
-          <div className="pp-fz-placeholder">
-            <i className="ri-upload-cloud-line pp-ph-icon" />
-            <p>
-              Upload your favorite memories to {firstName}&apos;s{" "}
-              <strong>Career Path timeline</strong>.
-            </p>
-          </div>
+          <StoriesFeed playerId={safePlayerId} playerName={playerNewsFullName} />
         </div>
 
-        {/* Sticky tab strip shell — now at the BOTTOM of Block 5, above Block 6 */}
-        <div className="pp-fz-tabs-shell">
-          <nav className="pp-fz-tabs" aria-label="Player profile tabs">
-            <a href="#ppTab-schedule" className="pp-fz-tab">
-              <i className="ri-calendar-line" aria-hidden="true" />
-              <span>Schedule</span>
-            </a>
-            <a href="#ppTab-stats" className="pp-fz-tab pp-fz-tab-default">
-              <i className="ri-bar-chart-2-line" aria-hidden="true" />
-              <span>Stats</span>
-            </a>
-            <a href="#ppTab-news" className="pp-fz-tab">
-              <i className="ri-newspaper-line" aria-hidden="true" />
-              <span>News</span>
-            </a>
-            <a href="#ppTab-social" className="pp-fz-tab">
-              <i className="ri-share-line" aria-hidden="true" />
-              <span>Social</span>
-            </a>
-            <a href="#ppTab-connect" className="pp-fz-tab">
-              <i className="ri-group-line" aria-hidden="true" />
-              <span>Connect</span>
-            </a>
-            <a href="#ppTab-upload" className="pp-fz-tab">
-              <i className="ri-upload-cloud-line" aria-hidden="true" />
-              <span>Stories</span>
-            </a>
-          </nav>
-        </div>
+        {/* The icon row that switches these tabs is rendered by
+            ProfileFunZoneStabilizer, pinned above the footer ad. */}
 
       </section>
       </div>{/* /pp-funzone-outer */}

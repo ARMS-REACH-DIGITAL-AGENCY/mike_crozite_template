@@ -757,6 +757,44 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return () => { cancelled = true; };
   }, [playerId]);
 
+  // Fan Stories (/api/stories, newest first): each year's photos become
+  // that year's hero image, in place of the YaTi cartoon. Reloaded when a
+  // fan posts from the drawer.
+  const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, string[]>>({});
+  useEffect(() => {
+    setStoryPhotosByYear({});
+    if (!playerId) return;
+    let cancelled = false;
+    const load = () => {
+      fetch(`/api/stories?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (cancelled || !Array.isArray(data?.stories)) return;
+          const byYear: Record<number, string[]> = {};
+          for (const story of data.stories as { year: number | null; photos?: { web: string | null }[] }[]) {
+            if (!story.year) continue;
+            for (const photo of story.photos || []) {
+              if (photo.web) (byYear[story.year] ||= []).push(photo.web);
+            }
+          }
+          setStoryPhotosByYear(byYear);
+        })
+        .catch((error) => console.error('[ZoomableCareerTimeline] stories fetch failed:', error));
+    };
+    load();
+    window.addEventListener('yat:story-posted', load);
+    return () => { cancelled = true; window.removeEventListener('yat:story-posted', load); };
+  }, [playerId]);
+
+  // When a year has more than one fan photo they take turns, crossfading.
+  const [heroTick, setHeroTick] = useState(0);
+  const rotatingHeroes = Object.values(storyPhotosByYear).some((photos) => photos.length > 1);
+  useEffect(() => {
+    if (!rotatingHeroes) return;
+    const timer = window.setInterval(() => setHeroTick((n) => n + 1), 6000);
+    return () => window.clearInterval(timer);
+  }, [rotatingHeroes]);
+
   const model = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const statYears = stats.map((row) => yearOf(row.year)).filter((year): year is number => typeof year === 'number');
@@ -1322,7 +1360,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           comparing directly against .zt-person-stack's 4 instead of being
           capped by .zt-moment-cta's own stacking context (that div is
           position:absolute + z-index:3, which forms one). */}
-      <div className="zt-polaroid-stack" aria-hidden="true">
+      {/* The only way to add a story: opens the Story drawer (StoryDrawer,
+          mounted on the profile page) with the year of the slide the fan is
+          looking at. Inline pointer-events overrides the stack's own
+          pointer-events:none in the style block below. */}
+      <div
+        className="zt-polaroid-stack"
+        role="button"
+        tabIndex={0}
+        aria-label={`Add a memory to ${resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}'s Career Timeline`}
+        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+        }}
+      >
         {/* Class Of used to live written on this Polaroid's own bottom
             border -- moved up into .zt-persist-id as its own gold line
             instead (see above), so the Polaroid card itself now just says
@@ -1458,6 +1514,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     renders nothing if NEITHER exists. */}
                 <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('back', playerId), apiCutoutUrl('back', playerId), webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={2} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
               </Fragment>
+            );
+          }
+          const storyPhotos = slide.kind === 'season' || slide.kind === 'lifeyear' || slide.kind === 'future' ? storyPhotosByYear[slide.year] : undefined;
+          if (storyPhotos?.length) {
+            const current = heroTick % storyPhotos.length;
+            return (
+              <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
+                {storyPhotos.map((src, n) => (
+                  <img key={src} className="zt-person zt-person-story" style={{ opacity: n === current ? 1 : 0 }} src={src} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} loading="eager" decoding="async" />
+                ))}
+              </span>
             );
           }
           if (slide.kind === 'season') {
@@ -1729,6 +1796,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            per direct feedback that it still wasn't close enough to the
            headline. */
         .zt-person-stack :global(.zt-person) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(150px,18vw,252px)); bottom:-4%; width:clamp(150px,18vw,252px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* A fan photo standing in for the YaTi cartoon: same spot, but a
+           whole photo (not a cutout), so it sits above the rail instead of
+           running off the bottom. Several photos crossfade (see heroTick). */
+        .zt-story-hero { position:absolute; inset:0; }
+        .zt-person-stack :global(.zt-person.zt-person-story) { bottom:30px; height:calc(100% - 44px); transition:opacity .9s ease; }
         /* Anchor slide, per direct feedback: the HS cutout (.zt-person-
            then, below) is the big image; the pro image -- a back-cutout
            action photo, or the headshot cutout when there's no back photo
