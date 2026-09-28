@@ -386,8 +386,14 @@ async function syncOneFeed(client: any, feed: FeedKey) {
 //   - his school already has a card with the same first and last name
 //     under an id TBC doesn't own (a YAT id like YAT000001).
 // The second is how Madden Pezzorello got two cards: TBC's 384172 arrived
-// after YAT000001 was built by hand. Held players are listed in the job
-// result and sent to the ingest alert webhook for review. Same-name pairs
+// after YAT000001 was built by hand. A held player also gets a
+// player_hsid_exclusion row (source 'tbc_identity_guard'), which drops him
+// from player_hsids - so no roster shows him, and he is held once, not
+// again every night. He is listed in the job result and sent to the ingest
+// alert webhook for review. If he turns out to be a different person,
+// release him with a player_source_map row (source 'tbc', his TBC id, the
+// YAT id, match_method 'rejected_bad_identity_match') and delete the
+// exclusion row; he gets his own card on the next run. Same-name pairs
 // between two TBC ids are left alone - TBC keeps its own ids apart, and a
 // father and son can share a name at the same school.
 type HeldBaselinePlayer = {
@@ -433,9 +439,31 @@ async function ensureFlipCardBaselineRows(
             and not exists (
               select 1 from public.tbc_players_raw tt where tt.playerid::text = e.playerid::text
             )
+            -- Reviewed and found to be a different person.
+            and not exists (
+              select 1 from public.player_source_map r
+              where r.source = 'tbc'
+                and r.source_player_id = c.playerid::text
+                and r.playerid = e.playerid::text
+                and r.match_method = 'rejected_bad_identity_match'
+            )
           limit 1
         ) as yat_match_playerid
       from candidates c
+    ),
+    excluded as (
+      insert into public.player_hsid_exclusion (playerid, hsid, reason, source)
+      select playerid::text, hsid,
+             'Held for identity review: ' ||
+               case when crosswalk_playerid is not null
+                    then 'crosswalk names ' || crosswalk_playerid
+                    else 'same name as ' || yat_match_playerid || ' at this school' end,
+             'tbc_identity_guard'
+      from checked
+      where crosswalk_playerid is not null
+         or yat_match_playerid is not null
+      on conflict do nothing
+      returning playerid
     ),
     inserted as (
       insert into public.flip_card_front_stage (playerid, hsid, display_name, first_name, last_name)
