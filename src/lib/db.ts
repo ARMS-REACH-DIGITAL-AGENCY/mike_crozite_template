@@ -1839,13 +1839,15 @@ export async function getTeamIdMap(): Promise<Map<string, string>> {
 // ingest learned to skip repeated headlines. Show one copy per player and
 // headline: hide a row when a newer visible copy exists. Headlines are
 // compared the way scripts/ingest-news.ts normalizes them.
-function syndicatedCopyFilter(alias: string, hideLowNewsworthiness: boolean): string {
+// lowVisible: SQL that is true when LOW-newsworthiness stories are shown in
+// this feed. A copy the feed hides must not hide the one it would show.
+function syndicatedCopyFilter(alias: string, lowVisible: string): string {
   const headline = (a: string) => `TRIM(LOWER(REGEXP_REPLACE(COALESCE(${a}.title, ''), '[^a-zA-Z0-9]+', ' ', 'g')))`;
   return `NOT EXISTS (
            SELECT 1 FROM news_articles dup
             WHERE dup.playerid = ${alias}.playerid
               AND dup.verification_status = 'VERIFIED'
-              ${hideLowNewsworthiness ? "AND COALESCE(dup.newsworthiness, 'NORMAL') <> 'LOW'" : ''}
+              AND (${lowVisible} OR COALESCE(dup.newsworthiness, 'NORMAL') <> 'LOW')
               AND NOT EXISTS (
                 SELECT 1 FROM news_article_derivatives dup_rejected
                  WHERE dup_rejected.news_article_uuid = dup.uuid
@@ -1900,7 +1902,7 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
          )
-         AND ${syndicatedCopyFilter('na', true)}
+         AND ${syndicatedCopyFilter('na', 'false')}
          -- At most 6 VERIFIED stories per player on the school feed
          -- (distinct stories: syndicated copies don't count).
          AND na.id IN (
@@ -1918,7 +1920,7 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
                   WHERE rejected.news_article_uuid = ranked_na.uuid
                     AND rejected.approval_status = 'rejected'
                )
-               AND ${syndicatedCopyFilter('ranked_na', true)}
+               AND ${syndicatedCopyFilter('ranked_na', 'false')}
            ) ranked
            WHERE rn <= 6
          )
@@ -1997,7 +1999,7 @@ export async function getNewsByPlayer(
               AND rejected.approval_status = 'rejected'
          )
          AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-         AND ${syndicatedCopyFilter('na', false)}
+         AND ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)}
        ORDER BY
          ${bestFirst ? `CASE
            WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2
