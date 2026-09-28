@@ -31,7 +31,9 @@ type FanSession = {
   homeSchoolName?: string | null;
 };
 
-type TagCandidate = { playerId: string; displayName: string; schoolName?: string; city?: string; state?: string };
+type TagCandidate = { playerId: string; displayName: string; schoolName?: string; city?: string; state?: string; crestUrl?: string };
+
+const CREST_FALLBACK = '/img/school-placeholder.png';
 
 type PickedPhoto = { id: string; file: File; preview: string };
 
@@ -75,7 +77,7 @@ export default function StoryDrawer() {
   const [tags, setTags] = useState<TagCandidate[]>([]);
   const [tagQuery, setTagQuery] = useState('');
   const [tagResults, setTagResults] = useState<TagCandidate[]>([]);
-  const [status, setStatus] = useState<{ kind: 'idle' | 'posting' | 'error' | 'done'; text?: string; storyId?: string }>({ kind: 'idle' });
+  const [status, setStatus] = useState<{ kind: 'idle' | 'posting' | 'error' | 'done'; text?: string; storyId?: string; signIn?: boolean }>({ kind: 'idle' });
   const fileInput = useRef<HTMLInputElement | null>(null);
   // Rendered straight into <body>: inside the profile page's containers a
   // position:fixed drawer is pinned to the page section, not the screen.
@@ -83,7 +85,7 @@ export default function StoryDrawer() {
   useEffect(() => setPortalReady(true), []);
 
   const signedIn = Boolean(session?.uid && session?.email);
-  const fanName = [session?.firstName, session?.lastName].map((v) => String(v || '').trim()).filter(Boolean).join(' ') || session?.email || '';
+  const fanFirstName = String(session?.firstName || '').trim() || 'there';
 
   const close = useCallback(() => {
     setOpen(false);
@@ -110,7 +112,10 @@ export default function StoryDrawer() {
       const detail = (event as CustomEvent<{ year?: number | null }>).detail || {};
       const slideYear = Number(detail.year);
       const thisYear = new Date().getFullYear();
-      setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 1 ? slideYear : thisYear);
+      // Keep the fan's own pick when they come back to a story in progress
+      // (e.g. after signing in).
+      const inProgress = status.kind !== 'done' && (story.trim() !== '' || photos.length > 0);
+      if (!inProgress) setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 1 ? slideYear : thisYear);
       if (status.kind === 'done') resetForm();
       setOpen(true);
       document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open');
@@ -124,7 +129,7 @@ export default function StoryDrawer() {
     };
     window.addEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
-  }, [resetForm, status.kind]);
+  }, [resetForm, status.kind, story, photos.length]);
 
   // Close on Escape or a tap on the dark mask.
   useEffect(() => {
@@ -211,16 +216,14 @@ export default function StoryDrawer() {
 
     setStatus({ kind: 'posting', text: 'Posting your story…' });
     try {
+      // A Firebase ID token when this site has a Firebase user; if the fan
+      // signed in on another yatstats.com site there isn't one here, and the
+      // server uses the signed pass set at sign-in instead.
       await auth.authStateReady?.();
-      const user = auth.currentUser;
-      if (!user) {
-        setStatus({ kind: 'error', text: 'Please sign in again to post.' });
-        return;
-      }
-      const idToken = await user.getIdToken();
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
 
       const form = new FormData();
-      form.set('idToken', idToken);
+      if (idToken) form.set('idToken', idToken);
       form.set('playerId', playerId);
       form.set('year', String(year));
       form.set('month', String(month));
@@ -234,6 +237,10 @@ export default function StoryDrawer() {
 
       const res = await fetch('/api/stories', { method: 'POST', body: form, credentials: 'include' });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setStatus({ kind: 'error', text: 'Please sign in once more to post. Your story will still be here.', signIn: true });
+        return;
+      }
       if (!res.ok) throw new Error(data?.error || 'Your story could not be posted. Please try again.');
 
       setStatus({ kind: 'done', storyId: data?.id });
@@ -282,10 +289,7 @@ export default function StoryDrawer() {
           </div>
         ) : (
           <>
-            <div className="ysd-poster">
-              Posting as <strong>{fanName}</strong>
-              {session?.homeSchoolName ? <span> · {session.homeSchoolName}</span> : null}
-            </div>
+            <div className="ysd-poster">Hi {fanFirstName}!</div>
 
             <div className="ysd-field">
               <div className="ysd-label">When was this?</div>
@@ -349,20 +353,43 @@ export default function StoryDrawer() {
               )}
               <input id="ysdTag" type="search" value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} placeholder="Search players by name" autoComplete="off" />
               {tagResults.length > 0 && (
-                <ul className="ysd-results">
-                  {tagResults.filter((r) => r.playerId !== playerId).map((r) => (
-                    <li key={r.playerId}>
-                      <button type="button" onClick={() => addTag(r)}>
-                        <strong>{r.displayName}</strong>
-                        <span>{[r.schoolName, r.state].filter(Boolean).join(' · ')}</span>
+                <div className="ysd-results yat-gs-results" role="listbox" aria-label="Players">
+                  {tagResults.filter((r) => r.playerId !== playerId).map((r) => {
+                    const loc = [r.city, r.state].filter(Boolean).join(', ');
+                    const subtitle = [r.schoolName, loc].filter(Boolean).join(' - ');
+                    return (
+                      <button type="button" key={r.playerId} className="yat-gs-result yat-gs-player" role="option" aria-selected={false} onClick={() => addTag(r)}>
+                        <span className="yat-gs-result-top">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            className="yat-gs-result-crest"
+                            src={r.crestUrl || CREST_FALLBACK}
+                            alt=""
+                            loading="lazy"
+                            onError={(e) => { const img = e.currentTarget; if (!img.src.endsWith(CREST_FALLBACK)) img.src = CREST_FALLBACK; }}
+                          />
+                          <span className="yat-gs-result-info">
+                            <span className="yat-gs-result-name">{r.displayName}</span>
+                            {subtitle ? <span className="yat-gs-result-loc">{subtitle}</span> : null}
+                          </span>
+                        </span>
                       </button>
-                    </li>
-                  ))}
-                </ul>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
-            {status.kind === 'error' && <div className="ysd-error">{status.text}</div>}
+            {status.kind === 'error' && (
+              <div className="ysd-error">
+                {status.text}
+                {status.signIn && (
+                  <div className="ysd-actions" style={{ marginTop: 8 }}>
+                    <button type="button" className="ysd-btn ysd-btn-primary" onClick={() => openAccountDrawer('signin')}>Sign in</button>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="ysd-actions">
               <button type="button" className="ysd-btn ysd-btn-primary" onClick={submit} disabled={posting}>
@@ -381,7 +408,7 @@ export default function StoryDrawer() {
         /* The YAT?STATS crest screened back behind the header, the same as
            the News reader drawer (ProfileContentDrawer): large at 15%
            opacity, bleeding off the right edge. */
-        .ysd-header { position: relative; isolation: isolate; overflow: hidden; }
+        .ysd-header { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; }
         .ysd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -14%; width: 62%; aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ysd-header::before { filter: invert(1); opacity: .09; }
         /* Colours and type match the Join / Log in drawer (AccountDrawer): its
@@ -391,11 +418,10 @@ export default function StoryDrawer() {
         body.light-theme .ysd-kicker { color: #9a6f00; }
         .ysd-title { margin: 6px 0 0 !important; padding: 0 !important; font: 700 20px/1.05 "Bebas Neue", Oswald, sans-serif !important; letter-spacing: .04em; }
         .ysd-close { position: static !important; flex: none; }
-        .ysd-body { display: flex; flex-direction: column; gap: 16px; padding: 14px 16px 28px; }
+        .ysd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; padding: 14px 16px 28px; }
         .ysd-muted { opacity: .65; }
         .ysd-small { font-size: 12px; margin-top: 6px; }
-        .ysd-poster { font-size: 14px; }
-        .ysd-poster strong { font-weight: 700; }
+        .ysd-poster { font: 400 22px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
         .ysd-field { display: flex; flex-direction: column; gap: 6px; }
         .ysd-label { font: 400 15px/1.1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .ysd-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
@@ -413,10 +439,8 @@ export default function StoryDrawer() {
         .ysd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .ysd-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 999px; background: rgba(255,215,0,.14); border: 1px solid rgba(255,215,0,.6); font-size: 13px; }
         .ysd-tag button { border: 0; background: none; color: inherit; font-size: 15px; cursor: pointer; }
-        .ysd-results { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-        .ysd-results button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: inherit; text-align: left; cursor: pointer; }
-        .ysd-results li:last-child button { border-bottom: 0; }
-        .ysd-results span { font-size: 12px; opacity: .65; }
+        .ysd-results.yat-gs-results { max-height: none; overflow: visible; }
+        .ysd-results .yat-gs-result { width: 100%; text-align: left; font: inherit; }
         .ysd-error { color: #ff6b6b; font-size: 13px; }
         .ysd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .ysd-btn { min-height: 42px; padding: 0 18px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }

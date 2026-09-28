@@ -365,6 +365,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             uid,
             email,
             currentHsid: subdomain,
+            idToken: await currentUser.getIdToken().catch(() => undefined),
           }),
         });
 
@@ -506,7 +507,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         const loginRes = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid, email, currentHsid: subdomain }),
+          body: JSON.stringify({ uid, email, currentHsid: subdomain, idToken: await cred.user.getIdToken().catch(() => undefined) }),
         });
 
         const loginData = await loginRes.json();

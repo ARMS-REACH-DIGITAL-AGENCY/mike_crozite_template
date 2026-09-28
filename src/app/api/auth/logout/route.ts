@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 
 const PLATFORM_SESSION_COOKIE = "yat-platform-session";
 const LEGACY_SESSION_COOKIE = "yat-session";
+const AUTH_PASS_COOKIE = "yat-auth-pass";
 
 function getCookieDomain(hostname: string | null) {
   if (!hostname) return undefined;
@@ -49,8 +50,10 @@ export async function POST(request: NextRequest) {
   expireCookie(response, PLATFORM_SESSION_COOKIE);
   expireCookie(response, PLATFORM_SESSION_COOKIE, undefined, true);
   expireCookie(response, LEGACY_SESSION_COOKIE);
+  expireCookie(response, AUTH_PASS_COOKIE);
 
   if (cookieDomain) {
+    expireCookie(response, AUTH_PASS_COOKIE, cookieDomain);
     expireCookie(response, PLATFORM_SESSION_COOKIE, cookieDomain);
     expireCookie(response, PLATFORM_SESSION_COOKIE, cookieDomain, true);
     expireCookie(response, LEGACY_SESSION_COOKIE, cookieDomain);
