@@ -36,6 +36,7 @@ const ROW_H = 200;
 // space").
 const ROW_H_MOBILE = 150;
 const TIMELINE_YELLOW = '#ffb21c';
+const DRAFT_GOLD = '#d6b253';
 // Same asset the corporate hero and this component's own HS anchor slide
 // have always pointed at (audience-site.js's BG) -- one canonical
 // background image, not a separate copy.
@@ -620,6 +621,31 @@ type HeroPhoto = { web: string; cutout: string | null; source: string | null };
 type RailStory = { id: string; thumb: string | null };
 
 const RAIL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+// Draft milestone (player_draft_picks, via /api/player-identity; fields
+// keep their column names).
+type DraftPick = {
+  draft_year: number;
+  draft_round: string | null;
+  draft_round_pick: number | null;
+  draft_overall_pick: number | null;
+  draft_team_name: string | null;
+  drafted_from: string | null;
+};
+const PRO_SEASON_LEVELS = new Set(['Rookie', 'A Ball', 'High-A', 'Double-A', 'Triple-A', 'MLB']);
+// The draft moved from June to July in 2021; the month rail's pennant sits
+// on the draft month (0-based).
+function draftMonthIndex(year: number) {
+  return year >= 2021 ? 6 : 5;
+}
+function draftLine(pick: DraftPick) {
+  return [
+    'Drafted',
+    pick.draft_round ? `Round ${pick.draft_round}` : '',
+    pick.draft_overall_pick ? `#${pick.draft_overall_pick} Overall` : '',
+    pick.draft_team_name || '',
+  ].filter(Boolean).join(' · ');
+}
 // Where the month line starts (just past the year label). Each month is an
 // equal stretch of the line and its name marks the 1st: January begins
 // right after the year, and December has a full stretch before the end.
@@ -749,7 +775,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [identityMeta, setIdentityMeta] = useState<{
     currentTeamName: string; orgConferenceName: string; levelLabel: string; statusLabel: string;
     position: string; bats: string; throws: string; height: string; weight: string;
-    classOf: string; hsid?: string; hsname?: string; rosterYears?: string[];
+    classOf: string; hsid?: string; hsname?: string; rosterYears?: string[]; draftPicks?: DraftPick[];
   } | null>(null);
   // True once the identity fetch below has settled (either way). Class Of
   // and the anchor slide wait on it so a fan never sees the estimated grad
@@ -1238,6 +1264,26 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // so its row of team logos on the rail fades with it.
   const anchorRailOpacity = ready ? clamp(1 - 4 * Math.abs(scrollProgress - model.anchorIndex), 0, 1) : 0;
   const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' ? activeSlide.year : null;
+
+  // Every time he was drafted: a "DRAFTED" line on that year's first pro
+  // season slide (the draft ends a college career, so not the college
+  // season's), else the year's first slide; a gold pennant on that slide's
+  // rail tick and on the draft month of the month rail.
+  const draftByYear = useMemo(() => {
+    const byYear = new Map<number, DraftPick>();
+    for (const pick of identityMeta?.draftPicks || []) if (pick?.draft_year) byYear.set(Number(pick.draft_year), pick);
+    return byYear;
+  }, [identityMeta?.draftPicks]);
+  const draftBySlideId = useMemo(() => {
+    const bySlide = new Map<string, DraftPick>();
+    for (const [year, pick] of draftByYear) {
+      const sameYear = model.slides.filter((slide) => slide.year === year && slide.kind !== 'anchor' && slide.kind !== 'upload');
+      const target = sameYear.find((slide) => slide.kind === 'season' && PRO_SEASON_LEVELS.has(slide.level || '')) || sameYear[0];
+      if (target) bySlide.set(target.id, pick);
+    }
+    return bySlide;
+  }, [draftByYear, model.slides]);
+  const monthRailDraft = monthRailYear ? draftByYear.get(monthRailYear) : undefined;
 
   // The first time the timeline is ready it may not scroll at all (already
   // on its opening slide), so check once whether it's at rest.
@@ -1778,6 +1824,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         {ready && model.slides.map((slide) => (
           <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
             <span className="zt-copy">
+              {draftBySlideId.has(slide.id) && (
+                <span className="zt-drafted">
+                  <span className="zt-pennant zt-pennant-inline" aria-hidden="true" />
+                  {draftLine(draftBySlideId.get(slide.id)!)}
+                </span>
+              )}
               {slide.kind === 'anchor' && (
                 <>
                   <span className="zt-kick">His hometown never stopped caring</span>
@@ -1889,6 +1941,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   return (
                     <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}`} style={{ left: `calc(${RAIL_MONTH_START}px + (100% - ${RAIL_MONTH_START}px) * ${m / 12})` }}>
                       <span className="zt-rail-month-label" aria-hidden="true">{label}</span>
+                      {monthRailDraft && m === draftMonthIndex(monthRailYear) && (
+                        <span className="zt-pennant" role="img" aria-label={draftLine(monthRailDraft)} title={draftLine(monthRailDraft)} />
+                      )}
                       {stories.length > 0 && (
                         <button
                           type="button"
@@ -1932,9 +1987,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
                 style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
                 onClick={() => scrollToIndex(i)}
-                aria-label={`Slide ${i + 1}: ${slide.year}`}
+                aria-label={`Slide ${i + 1}: ${slide.year}${draftBySlideId.has(slide.id) ? ` · ${draftLine(draftBySlideId.get(slide.id)!)}` : ''}`}
               >
                 {slide.kind !== 'anchor' && <span className="zt-rail-tick-year" aria-hidden="true">{String(slide.year).slice(-2)}</span>}
+                {draftBySlideId.has(slide.id) && <span className="zt-pennant" aria-hidden="true" />}
               </button>
             ))}
             <span
@@ -2409,6 +2465,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         /* A season's logo standing on the rail, as wide as its dash. */
         .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
         .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+        /* Draft pennant: a gold flag on a short pole, standing on the rail
+           (above the tick, clear of the year chip) and inline on the slide. */
+        .zt-pennant { position:absolute; left:50%; bottom:calc(100% + 8px); width:1px; height:13px; margin-left:-0.5px; background:${DRAFT_GOLD}; z-index:3; pointer-events:auto; }
+        .zt-pennant::after { content:''; position:absolute; top:0; left:1px; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:9px solid ${DRAFT_GOLD}; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+        .zt-rail-month .zt-pennant { bottom:calc(100% + 3px); }
+        .zt-rail-month.has-story .zt-pennant { left:calc(50% + 17px); }
+        .zt-pennant-inline { position:relative; left:auto; bottom:auto; display:inline-block; margin:0 12px 0 0; vertical-align:-2px; }
+        .zt-drafted { display:block; margin:0 0 6px; color:${DRAFT_GOLD}; font:700 10px/1.2 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
         .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
         .zt-rail-tick.active .zt-rail-tick-year { display:none; }
         .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_YELLOW}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
@@ -2699,6 +2763,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              getting cut off by the single-line ellipsis. */
           .zt-anchor .zt-bodycopy { font-size:clamp(8px,2vw,10px); }
           .zt-kick { font-size:7px; margin-bottom:3px; }
+          .zt-drafted { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
           .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
         }

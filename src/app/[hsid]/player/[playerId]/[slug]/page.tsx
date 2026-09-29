@@ -18,6 +18,7 @@ import {
   getTeamSchedule,
   getPlayerGameLogs,
   getTeamIdMap,
+  getPlayerTeamStints,
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
   getNewsByPlayer,
@@ -27,7 +28,7 @@ import type { Metadata } from "next";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
-import { mlbTeamLogoUrl, toISODate, formatDisplayDate } from "@/lib/playerUtils";
+import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
 type Props = {
@@ -378,9 +379,10 @@ export default async function ProfilePage({ params }: Props) {
       : null
   ) as PitchingSeason | null;
 
-  const [gameLogs, teamIdMap] = await Promise.all([
+  const [gameLogs, teamIdMap, teamStints] = await Promise.all([
     getPlayerGameLogs(safePlayerId),
     getTeamIdMap(),
+    getPlayerTeamStints(safePlayerId),
   ]);
 
   // current_team_source_team_id only needs translating through team_id_map
@@ -398,35 +400,72 @@ export default async function ProfilePage({ params }: Props) {
       : rawMlbTeamId
     : currentTeamId;
 
-  const teamSchedule = scheduleTeamId ? await getTeamSchedule(scheduleTeamId) : [];
+  // ── Game Log: every game his team played, stint by stint ──────────────────
+  // player_team_stints says which team he was on and when (a trade, call-up,
+  // demotion or college -> pro move starts a new stint). Each stint lists
+  // every game that team played in that window - his line where he played,
+  // "Did not play" where he didn't - which the Fantasy Bracket relies on. The
+  // open stint (no end) runs on into upcoming games, next season included.
+  // Players the stints job hasn't reached fall back to their current team.
+  // College stints have no per-game lines on file, so their past games stay
+  // blank rather than "Did not play" (tracksLines false).
+  const NO_GAME_LOGS_LEVEL = /NCAA|NAIA|NJCAA|CCCAA|NWAC|HIGH SCHOOL/i;
+  type LogStint = {
+    teamid: string;
+    teamName: string | null;
+    level: string | null;
+    start: string | null;
+    end: string | null;
+    tracksLines: boolean;
+  };
+  const sortedStints = [...teamStints].sort((a, b) => a.stint_start.localeCompare(b.stint_start));
+  const logStints: LogStint[] = sortedStints.length
+    ? sortedStints.map((st, i) => {
+        // A stint never runs past the start of the next one (last season's
+        // open stint stops where this season's first stint begins).
+        const next = sortedStints[i + 1];
+        const dayBeforeNext = next ? shiftIsoDate(next.stint_start, -1) : null;
+        const end = dayBeforeNext && (!st.stint_end || st.stint_end > dayBeforeNext) ? dayBeforeNext : st.stint_end;
+        return {
+          teamid: st.teamid,
+          teamName: st.team_name,
+          level: st.level,
+          start: st.stint_start,
+          end,
+          tracksLines: !NO_GAME_LOGS_LEVEL.test(st.level || ""),
+        };
+      })
+    : scheduleTeamId
+      ? [{ teamid: scheduleTeamId, teamName: null, level: null, start: null, end: null, tracksLines: currentTeamSource === "mlb_api" }]
+      : [];
+  const stintSchedules = await Promise.all(
+    logStints.map((st) => getTeamSchedule(st.teamid, 400, { from: st.start, to: st.end }))
+  );
 
-  // Keyed by date so it merges onto the season schedule below regardless of
-  // which team the player suited up for that day (a mid-season trade should
-  // not blank out his pre-trade line scores). Stored as an array per date,
-  // not a single row, because a doubleheader gives two schedule rows for
-  // the same date - a single-value map would show the same box score
-  // twice instead of each game's own line.
-  const gameLogByDate = new Map<string, any[]>();
+  // His game log rows, found by game id (pro) or by date (a schedule with no
+  // game id). Each row is used once, so a doubleheader's two games each get
+  // their own line and anything left over still shows (see below).
+  const usedLogs = new Set<any>();
+  const logsByGamePk = new Map<string, any[]>();
+  const logsByDate = new Map<string, any[]>();
   for (const row of gameLogs as any[]) {
+    const pk = String(row.source_game_id || "").trim();
+    if (pk) logsByGamePk.set(pk, [...(logsByGamePk.get(pk) ?? []), row]);
     const d = toISODate(row.game_date);
-    if (!d) continue;
-    const bucket = gameLogByDate.get(d) ?? [];
-    bucket.push(row);
-    gameLogByDate.set(d, bucket);
+    if (d) logsByDate.set(d, [...(logsByDate.get(d) ?? []), row]);
   }
-
-  // Pulls one game log entry for a date, preferring the given stat_type -
-  // needed because a two-way player can have both a batting and a pitching
-  // row for the SAME game on the same date, and a plain array.shift() could
-  // grab the wrong one. Removes the entry it returns (splice, not a plain
-  // lookup) so a genuine doubleheader's two same-type rows are each
-  // consumed once instead of both schedule rows showing the same log.
-  function takeGameLog(date: string, preferredType: "batting" | "pitching"): any | undefined {
-    const bucket = gameLogByDate.get(date);
-    if (!bucket || bucket.length === 0) return undefined;
-    const idx = bucket.findIndex((r) => r.stat_type === preferredType);
-    const useIdx = idx !== -1 ? idx : 0;
-    return bucket.splice(useIdx, 1)[0];
+  // A two-way player can have a batting and a pitching row for one game:
+  // prefer the one this page's columns show.
+  function takeGameLog(gamePk: unknown, date: string, preferredType: "batting" | "pitching"): any | undefined {
+    const pk = String(gamePk ?? "").trim();
+    const bucket = (pk ? logsByGamePk.get(pk) : logsByDate.get(date)) ?? [];
+    const open = bucket.filter((r) => !usedLogs.has(r));
+    const log = open.find((r) => r.stat_type === preferredType) ?? open[0];
+    if (log) {
+      // Both of a two-way player's rows belong to this one game.
+      for (const r of bucket) if (String(r.source_game_id) === String(log.source_game_id)) usedLogs.add(r);
+    }
+    return log;
   }
 
   // ── Stats grids ──────────────────────────────────────────────────────────────
@@ -531,9 +570,6 @@ export default async function ProfilePage({ params }: Props) {
   // default ascending date order to descending, so there's no need to
   // pre-split into "recent" vs "upcoming" buckets here.
   const todayIso = new Date().toISOString().slice(0, 10);
-  const allGames = (teamSchedule as any[])
-    .slice()
-    .sort((a: any, b: any) => toISODate(a.game_date).localeCompare(toISODate(b.game_date)));
 
   // ── Game log columns ────────────────────────────────────────────────────────
   // The same stat columns, in the same order and with the same formulas, as
@@ -607,31 +643,99 @@ export default async function ProfilePage({ params }: Props) {
 
   const statHeaders = isPitcher ? PITCHING_LOG_HEADERS : BATTING_LOG_HEADERS;
 
-  const scheduleTableRows: ScheduleTableRow[] = allGames.map((g: any) => {
-    const d = toISODate(g.game_date);
-    const log = d ? takeGameLog(d, isPitcher ? "pitching" : "batting") : undefined;
-    const badge = resultBadge(g.result);
-    const logoUrl = mlbTeamLogoUrl(teamIdMap, log?.opponent_mlb_id);
+  const preferredType = isPitcher ? "pitching" : "batting";
+  function statCells(log: any): string[] | null {
+    return log?.stats && typeof log.stats === "object" && log.stat_type === preferredType
+      ? isPitcher
+        ? pitchingLogCells(log.stats as Record<string, unknown>)
+        : battingLogCells(log.stats as Record<string, unknown>)
+      : null;
+  }
 
-    // Games not played yet (or with no log) show "-" in every stat column.
-    const logStats =
-      log?.stats && typeof log.stats === "object" && log.stat_type === (isPitcher ? "pitching" : "batting")
-        ? (log.stats as Record<string, unknown>)
-        : null;
-    const stats = logStats
-      ? (isPitcher ? pitchingLogCells(logStats) : battingLogCells(logStats))
-      : statHeaders.map(() => "-");
+  const scheduleTableRows: ScheduleTableRow[] = [];
+  logStints.forEach((st, si) => {
+    const games = (stintSchedules[si] as any[])
+      .slice()
+      .sort((a: any, b: any) => toISODate(a.game_date).localeCompare(toISODate(b.game_date)));
+    // A marker where he moved to another team during a season, and a "With"
+    // marker opening any season he spent with more than one team.
+    const season = st.start ? st.start.slice(0, 4) : "";
+    const prev = logStints[si - 1];
+    const next = logStints[si + 1];
+    const prevSameSeason = Boolean(prev?.start && prev.start.slice(0, 4) === season);
+    const nextSameSeason = Boolean(next?.start && next.start.slice(0, 4) === season);
+    if (st.start && (prevSameSeason || nextSameSeason)) {
+      const verb = !prevSameSeason ? "With" : prev.teamid === st.teamid ? "Rejoined" : "Joined";
+      scheduleTableRows.push({
+        kind: "move",
+        iso: st.start,
+        season: Number(st.start.slice(0, 4)),
+        dateLabel: formatDisplayDate(st.start) || st.start,
+        opponent: "",
+        logoUrl: null,
+        resultLetter: null,
+        resultClass: "",
+        stats: [],
+        note: `${verb} ${games[0]?.team_name || st.teamName || "new team"}${st.level ? ` · ${levelLabel(st.level)}` : ""}`,
+      });
+    }
 
-    return {
-      iso: d || "",
-      dateLabel: formatDisplayDate(d) || d || "--",
-      opponent: g.opponent || g.away_team || "--",
-      logoUrl,
-      resultLetter: badge?.letter ?? null,
-      resultClass: badge?.className ?? "",
-      stats,
-    };
+    for (const g of games) {
+      const d = toISODate(g.game_date);
+      if (!d) continue;
+      const log = takeGameLog(g.game_pk, d, preferredType);
+      const badge = resultBadge(g.result);
+      const opponentMlbId = g.is_home ? g.away_team_id : g.home_team_id;
+      const stats = statCells(log);
+      scheduleTableRows.push({
+        kind: "game",
+        iso: d,
+        season: Number(d.slice(0, 4)),
+        dateLabel: formatDisplayDate(d) || d,
+        opponent: g.opponent || g.away_team || "--",
+        logoUrl: mlbTeamLogoUrl(teamIdMap, opponentMlbId ?? log?.opponent_mlb_id),
+        resultLetter: badge?.letter ?? null,
+        resultClass: badge?.className ?? "",
+        stats: stats ?? statHeaders.map(() => "-"),
+        // A finished game (before today, so the 4-hourly game log sync has
+        // caught up) with no line of his.
+        didNotPlay: !log && st.tracksLines && Boolean(badge) && d < todayIso,
+      });
+    }
   });
+
+  // Any game he played that isn't on a stint's schedule (a team we can't
+  // match to a schedule yet) still shows, from his own game log.
+  for (const log of gameLogs as any[]) {
+    if (usedLogs.has(log)) continue;
+    const d = toISODate(log.game_date);
+    if (!d) continue;
+    const sameGame = (gameLogs as any[]).filter((r) => String(r.source_game_id) === String(log.source_game_id));
+    const pick = sameGame.find((r) => r.stat_type === preferredType) ?? log;
+    for (const r of sameGame) usedLogs.add(r);
+    const win = String(pick.is_win ?? "").toLowerCase();
+    const letter = win === "true" ? "W" : win === "false" ? "L" : null;
+    scheduleTableRows.push({
+      kind: "game",
+      iso: d,
+      season: Number(d.slice(0, 4)),
+      dateLabel: formatDisplayDate(d) || d,
+      opponent: pick.opponent_name || "--",
+      logoUrl: mlbTeamLogoUrl(teamIdMap, pick.opponent_mlb_id),
+      resultLetter: letter,
+      resultClass: letter === "W" ? "pp-result-w" : letter === "L" ? "pp-result-l" : "",
+      stats: statCells(pick) ?? statHeaders.map(() => "-"),
+    });
+  }
+  scheduleTableRows.sort((a, b) => a.iso.localeCompare(b.iso) || (a.kind === "move" ? -1 : b.kind === "move" ? 1 : 0));
+
+  // Opens on this season when it has games, else the latest season before
+  // it, else the first one coming up.
+  const logSeasons = [...new Set(scheduleTableRows.map((r) => r.season))].sort((a, b) => a - b);
+  const thisYear = Number(todayIso.slice(0, 4));
+  const defaultLogSeason = logSeasons.includes(thisYear)
+    ? thisYear
+    : ([...logSeasons].reverse().find((y) => y < thisYear) ?? logSeasons[0] ?? thisYear);
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
@@ -654,7 +758,12 @@ export default async function ProfilePage({ params }: Props) {
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
           {scheduleTableRows.length > 0 ? (
-            <PlayerScheduleTable rows={scheduleTableRows} statHeaders={statHeaders} todayIso={todayIso} />
+            <PlayerScheduleTable
+              rows={scheduleTableRows}
+              statHeaders={statHeaders}
+              todayIso={todayIso}
+              defaultSeason={defaultLogSeason}
+            />
           ) : (
             <div className="pp-fz-placeholder">
               <i className="ri-calendar-line pp-ph-icon" />

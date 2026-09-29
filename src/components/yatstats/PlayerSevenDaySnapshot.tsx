@@ -187,7 +187,11 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
       : rawTeamId
     : '';
 
-  const schedule = teamId ? await getTeamSchedule(teamId) : [];
+  // Only the week around today, so a team with next season's schedule loaded
+  // too never pushes this week past getTeamSchedule's row limit.
+  const schedule = teamId
+    ? await getTeamSchedule(teamId, 300, { from: addDays(today, -4), to: addDays(today, 4) })
+    : [];
   const hasSchedule = Boolean(teamId) && (schedule as ScheduleRow[]).length > 0;
 
   const scheduleByDate = new Map<string, ScheduleRow[]>();

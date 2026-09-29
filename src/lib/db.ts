@@ -1672,8 +1672,15 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 
 // ---------------------------------------------------------------------------
 // TEAM SCHEDULE - chronological game feed for a given team_id.
+// `range` limits it to game dates from/to (inclusive, 'YYYY-MM-DD', either
+// optional) - e.g. one stint on a team, or a week around today - so a team
+// with more than one season loaded never runs past `limit` into the wrong one.
 // ---------------------------------------------------------------------------
-export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[]> {
+export async function getTeamSchedule(
+  teamId: string,
+  limit = 300,
+  range: { from?: string | null; to?: string | null } = {}
+): Promise<any[]> {
   try {
     // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
     // team_schedules). College teams' games live in college_schedule_games_raw,
@@ -1746,11 +1753,44 @@ export async function getTeamSchedule(teamId: string, limit = 300): Promise<any[
            ELSE NULL
          END AS result
        FROM combined
+       WHERE ($3::date IS NULL OR game_date::date >= $3::date)
+         AND ($4::date IS NULL OR game_date::date <= $4::date)
        ORDER BY game_date ASC
        LIMIT $2`,
-      [teamId, limit]
+      [teamId, limit, range.from || null, range.to || null]
     );
     return rows;
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER TEAM STINTS - which team a player was on, from when to when, every
+// season (scripts/build-player-team-stints.ts). stint_end NULL = still on
+// that team. Oldest first.
+// ---------------------------------------------------------------------------
+export type PlayerTeamStint = {
+  teamid: string;
+  team_name: string | null;
+  level: string | null;
+  season: number;
+  stint_start: string; // 'YYYY-MM-DD'
+  stint_end: string | null;
+  start_source: string;
+};
+
+export async function getPlayerTeamStints(playerId: string): Promise<PlayerTeamStint[]> {
+  try {
+    const { rows } = await query(
+      `SELECT teamid, team_name, level, season,
+              stint_start::text AS stint_start, stint_end::text AS stint_end, start_source
+         FROM public.player_team_stints
+        WHERE playerid = $1
+        ORDER BY stint_start ASC, season ASC`,
+      [playerId]
+    );
+    return rows as PlayerTeamStint[];
   } catch {
     return [];
   }
@@ -1779,7 +1819,8 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
          home_away,
          line_summary,
          stats,
-         raw_payload->'opponent'->>'id' AS opponent_mlb_id
+         raw_payload->'opponent'->>'id' AS opponent_mlb_id,
+         raw_payload->>'isWin' AS is_win
        FROM public.player_game_logs
        WHERE playerid::text = $1
        ORDER BY game_date ASC`,
@@ -2225,6 +2266,18 @@ export type PlayerIdentityMeta = {
   // Years on the high school's varsity roster (from the coach), e.g.
   // ["2017","2016"]; empty when the school hasn't shared them.
   rosterYears: string[];
+  // Every time he was drafted (player_draft_picks, oldest first) - the
+  // Career Path Timeline's "DRAFTED" milestone. Fields keep their column names.
+  draftPicks: PlayerDraftPick[];
+};
+
+export type PlayerDraftPick = {
+  draft_year: number;
+  draft_round: string | null;
+  draft_round_pick: number | null;
+  draft_overall_pick: number | null;
+  draft_team_name: string | null;
+  drafted_from: string | null;
 };
 
 // The single source of truth for "this player's identity/status facts,
@@ -2243,11 +2296,11 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
   const empty: PlayerIdentityMeta = {
     currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: '',
     position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
-    hsid: '', hsname: '', hslocation: '', rosterYears: [],
+    hsid: '', hsname: '', hslocation: '', rosterYears: [], draftPicks: [],
   };
 
   try {
-    const [player, resolvedCurrentTeam, stageResult] = await Promise.all([
+    const [player, resolvedCurrentTeam, stageResult, draftResult] = await Promise.all([
       getPlayerById(playerId),
       getResolvedCurrentTeam(playerId),
       query<{
@@ -2288,6 +2341,13 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
          limit 1`,
         [playerId]
       ).catch(() => ({ rows: [] as any[] })),
+      query<PlayerDraftPick>(
+        `select draft_year, draft_round, draft_round_pick, draft_overall_pick, draft_team_name, drafted_from
+           from player_draft_picks
+          where playerid = $1
+          order by draft_year asc`,
+        [playerId]
+      ).catch(() => ({ rows: [] as PlayerDraftPick[] })),
     ]);
 
     const stage = stageResult.rows[0];
@@ -2326,6 +2386,14 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
       hsname: String(stage?.hsname || '').trim(),
       hslocation: String(stage?.hslocation || '').trim(),
       rosterYears: Array.isArray(stage?.roster_years) ? stage.roster_years.map((y: unknown) => String(y).trim()).filter(Boolean) : [],
+      draftPicks: draftResult.rows.map((d) => ({
+        draft_year: Number(d.draft_year),
+        draft_round: d.draft_round,
+        draft_round_pick: d.draft_round_pick == null ? null : Number(d.draft_round_pick),
+        draft_overall_pick: d.draft_overall_pick == null ? null : Number(d.draft_overall_pick),
+        draft_team_name: d.draft_team_name,
+        drafted_from: d.drafted_from,
+      })),
     };
   } catch {
     return empty;
