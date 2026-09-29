@@ -827,6 +827,43 @@ export function Styles() {
         min-height:100vh; background:var(--bg); color:var(--text); font:400 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding:24px 16px 80px; }
       .bl * { box-sizing:border-box; }
       .bl.bl-embed { min-height:0; padding:16px 16px 48px; }
+      /* On a school's page every game card is a player flip card's size
+         (264px wide, 1 : 1.4) and a round is always three across; the card
+         scrolls inside, and flips between the two schools. */
+      .bl.bl-embed { --cw:min(264px, calc((100vw - 56px) / 3)); }
+      .bl.bl-embed .bl-row { width:calc(var(--cw) * 3 + 24px); max-width:100%; margin:0 auto; }
+      .bl.bl-embed .bl-cards, .bl.bl-embed .bl-cards.n1 { display:grid; grid-template-columns:repeat(3, var(--cw)); gap:12px; justify-content:start;
+        overflow:visible; margin:0; padding:0; scroll-snap-type:none; }
+      .bl.bl-embed .bl-cards > * { flex:none; }
+      .bl.bl-embed .bl-card { position:relative; width:var(--cw); }
+      .bl.bl-embed .bl-card::before { content:""; display:block; padding-top:140%; }
+      .bl.bl-embed .bl-inner { position:absolute; inset:0; display:block; }
+      .bl.bl-embed .bl-face { position:absolute; inset:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; border-radius:0; box-shadow:0 4px 8px rgba(0,0,0,.2); }
+      .bl.bl-embed .bl-top { padding:8px 8px 9px; }
+      .bl.bl-embed .bl-meta { font-size:9.5px; }
+      .bl.bl-embed .bl-score { gap:6px; margin-top:6px; }
+      .bl.bl-embed .bl-team { font-size:11px; overflow-wrap:normal; overflow:hidden; text-overflow:ellipsis; }
+      .bl.bl-embed .bl-runs { font-size:30px; }
+      .bl.bl-embed .bl-final { font-size:9px; }
+      .bl.bl-embed .bl-ls { font-size:10.5px; }
+      .bl.bl-embed .bl-ls th, .bl.bl-embed .bl-ls td { padding:5px 1px; }
+      .bl.bl-embed .bl-ls thead th { font-size:9.5px; }
+      .bl.bl-embed .bl-ls tbody th { padding-left:6px; }
+      .bl.bl-embed .bl-ls td.r { font-size:12px; }
+      .bl.bl-embed .bl-note { padding:5px 8px; font-size:10.5px; }
+      .bl.bl-embed .bl-tabs { padding:8px 8px 4px; gap:8px; }
+      .bl.bl-embed .bl-tabs span.on { font-size:13px; }
+      .bl.bl-embed .bl-tabs button { font-size:11px; }
+      .bl.bl-embed .bl-box { font-size:10px; }
+      .bl.bl-embed .bl-box th, .bl.bl-embed .bl-box td { padding:4px 2px; }
+      .bl.bl-embed .bl-box thead th { font-size:9px; }
+      .bl.bl-embed .bl-box .nm { padding-left:8px; max-width:88px; }
+      .bl.bl-embed .bl-box .plus { padding-right:8px; }
+      .bl.bl-embed .bl-how { margin:8px; padding:6px 7px; }
+      .bl.bl-embed .bl-days { font-size:9.5px; }
+      .bl.bl-embed .bl-wl { font-size:10.5px; }
+      .bl.bl-embed .bl-legend { font-size:9.5px; }
+      .bl.bl-embed .bl-muted { padding:8px; font-size:11px; }
       /* On a school's page the cards follow the site's light / dark toggle. */
       body.light-theme .bl.bl-embed { --bg:#f4f4f4; --panel:#fff; --panel2:#f3f4f6; --line:#e1e4e8; --text:#121212; --muted:#5f6670; --gold:#b07d00;
         --win:#1e8e3e; --loss:#c62828; --dim:#a0a6ae; --faint:#80868e; --gold-bg:#fff4d6; --tint:rgba(0,0,0,.06); --tint2:rgba(0,0,0,.02); --gold-tint:rgba(255,193,7,.14); }
