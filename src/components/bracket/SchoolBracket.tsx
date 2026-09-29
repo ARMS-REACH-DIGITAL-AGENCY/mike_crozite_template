@@ -8,9 +8,11 @@
 // column is the region's Most Runs Scored Leaderboard. Row 3's timeline
 // (FantasyTimeline) has a slide per week.
 //
-// The cards: this round's on top, then the results (newest first), then the
-// weeks still to play. All 30 weeks are there from the start; Round 1's
-// opponent is known, each later round's fills in when the round before ends.
+// The cards are in week order, like a profile's game log, and the tab opens
+// scrolled so the current round sits right under row 3's timeline (the
+// weeks before it a scroll up away). All 30 weeks are there from the start;
+// Round 1's opponent is known, each later round's fills in when the round
+// before ends.
 //
 // How each player did is one tap away: a school's name or logo opens its week
 // in a drawer - the home team's from the right, the visitor's from the left.
@@ -229,29 +231,46 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const cards = useMemo(() => (index && lb && asof ? schoolSeason(index, lb, me, asof) : []), [index, lb, asof, me]);
   const cal = useMemo(() => (index && asof ? calendar(index, asof) : null), [index, asof]);
 
-  // This round on top, then the results (newest first), then what's to come.
+  // Week order, under a heading per round (and the postseason).
   const groups = useMemo(() => {
-    if (!cal) return [];
-    const w = cal.week;
-    const inRound = (c: WeekCard) => (w >= 1 && w <= LAST_WEEK ? Math.ceil(c.week / 3) === Math.ceil(w / 3) && c.week <= LAST_WEEK : c.week === Math.max(1, w));
-    const now = cards.filter(inRound);
-    const done = cards.filter((c) => !inRound(c) && c.week <= cal.final).reverse();
-    const later = cards.filter((c) => !inRound(c) && c.week > cal.final);
-    const r = Math.ceil(Math.max(1, Math.min(w, LAST_WEEK)) / 3);
-    const nowTitle = w >= 1 && w <= LAST_WEEK ? `This round · Round ${r} · weeks ${r * 3 - 2}–${r * 3}` : `This week · week ${Math.max(1, w)}`;
-    return [
-      { key: 'now', title: nowTitle, list: now },
-      { key: 'done', title: 'Results', list: done },
-      { key: 'later', title: 'Still to play', list: later },
-    ].filter((x) => x.list.length);
-  }, [cards, cal]);
+    const out: { key: string; title: string; list: WeekCard[] }[] = [];
+    for (const c of cards) {
+      const r = c.week <= LAST_WEEK ? Math.ceil(c.week / 3) : 0;
+      const key = r ? `r${r}` : 'post';
+      if (out[out.length - 1]?.key !== key) out.push({ key, title: r ? `Round ${r} · weeks ${r * 3 - 2}–${r * 3}` : 'Postseason', list: [] });
+      out[out.length - 1].list.push(c);
+    }
+    return out;
+  }, [cards]);
+  // The week to open on: the current round's first week (the current week
+  // after week 30; the last week once the season's over).
+  const startWeek = useMemo(() => {
+    if (!cal || cal.week < 1 || !cards.length) return 0;
+    if (cal.week <= LAST_WEEK) return Math.ceil(cal.week / 3) * 3 - 2;
+    return cards.find((c) => c.week === cal.week)?.week ?? cards[cards.length - 1].week;
+  }, [cal, cards]);
+
+  // Scroll a week's card to just under rows 1-3 (they stay pinned at the top).
+  const scrollToWeek = (week: number, smooth: boolean) => {
+    const el = document.getElementById(`fweek-${week}`);
+    if (!el) return;
+    const pinned = document.querySelector('.yat-row3-shell')?.getBoundingClientRect();
+    const top = el.getBoundingClientRect().top + window.scrollY - (pinned ? Math.max(0, pinned.bottom) : 0) - 30;
+    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+  };
+  // Open on the current round, once.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || !startWeek) return;
+    opened.current = true;
+    requestAnimationFrame(() => scrollToWeek(startWeek, false));
+  }, [startWeek]);
 
   // Row 3's timeline: a slide scrolls to its week's card.
   useEffect(() => {
     if (!nav.focusSeq || !nav.focusWeek) return;
-    const el = document.getElementById(`fweek-${nav.focusWeek}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!document.getElementById(`fweek-${nav.focusWeek}`)) return;
+    scrollToWeek(nav.focusWeek, true);
     const on = window.setTimeout(() => setFocused(nav.focusWeek), 0);
     const off = window.setTimeout(() => setFocused(0), 2200);
     return () => { window.clearTimeout(on); window.clearTimeout(off); };
@@ -272,7 +291,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             </div>
             {groups.map((grp) => (
               <section key={grp.key} className="yfp-group">
-                <h3>{grp.title}</h3>
+                <h3 className={cal.week <= index.weeks.length && grp.list.some((c) => c.week === startWeek) ? 'now' : ''}>{grp.title}</h3>
                 <div className="yfp-feed">
                   {grp.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} focused={focused === c.week} onOpen={setOpen} />)}
                 </div>
@@ -315,6 +334,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-kick { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 10px; color: var(--yfp-gold); font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         .yfp-kick span { color: var(--yfp-muted); }
         .yfp-group { margin: 0 0 16px; }
+        .yfp-group h3.now::after { content: ' · now'; color: var(--yfp-muted); }
         .yfp-group h3 { margin: 0 0 8px; color: var(--yfp-gold); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
         .yfp-feed { display: flex; flex-direction: column; gap: 8px; }
 
@@ -354,7 +374,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-q { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px dashed var(--yfp-card-border); border-radius: 50%; font: 400 20px/1 "Bebas Neue", Oswald, sans-serif; }
 
         /* The leaderboard column (a profile's teammates). */
-        .yfp-lb { min-width: 0; position: sticky; top: 8px; max-height: calc(100vh - 140px); overflow-y: auto; font: 400 10px/1.35 system-ui, sans-serif; }
+        /* Pinned just under rows 1-3 while the weeks scroll. */
+        .yfp-lb { min-width: 0; position: sticky; top: calc(var(--row1-h, 36px) + var(--row2-h, 54px) + var(--row3-h, 100px) + 8px); max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--footerH, 66px) - 16px); overflow-y: auto; font: 400 10px/1.35 system-ui, sans-serif; }
         .yfp-lb-title { color: var(--yfp-gold); font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .yfp-lb-sub { margin: 3px 0 6px; color: var(--yfp-muted); font-size: 9px; }
         .yfp-lb-regions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin: 0 0 8px; }
