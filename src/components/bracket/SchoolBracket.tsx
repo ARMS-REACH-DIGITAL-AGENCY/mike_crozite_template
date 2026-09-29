@@ -19,7 +19,7 @@
 //
 // "Now" follows the calendar; ?asof=YYYY-MM-DD previews any date.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type GameBox, type Index, type LbGame,
@@ -76,7 +76,7 @@ function WeekCardView({ index, card, me, star, rec, focused, onOpen }: {
         <>
           {row('a')}
           {row('h')}
-          {card.state === 'final' && star && <div className="yfp-star"><b>★ Alumni of the Week:</b> {starLine(star)}</div>}
+          {card.state === 'final' && star && <div className="yfp-star"><b>★ Alumni of the Week:</b> <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star)}</a></div>}
           {card.state === 'final' && tieNote(g[4]) && <div className="yfp-note">{tieNote(g[4])}</div>}
           {card.state === 'final' && g[4] === 'tie' && <div className="yfp-note">Tie · half a win each</div>}
           <table className="yfp-line">
@@ -109,6 +109,33 @@ function WeekCardView({ index, card, me, star, rec, focused, onOpen }: {
   );
 }
 
+// Where a drawer opens: on desktop only over row 5 (the timeline and the
+// ticker stay in view above it, the footer ad below); on a phone the whole
+// screen.
+function DrawerWrap({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const [box, setBox] = useState<{ top: number } | null>(null);
+  useEffect(() => {
+    const place = () => {
+      const row5 = document.querySelector('.yfz') || document.querySelector('.yat-row5-shell');
+      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(0, row5.getBoundingClientRect().top) } : null);
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className={`yfp-drawer-wrap${box ? ' row5' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={onClose}>
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 // A school's week in a drawer: every player's line, OPS+ and FIP-, and how
 // each run was scored. Home from the right, visitor from the left.
 function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
@@ -120,16 +147,11 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
     if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
     return () => { cancelled = true; };
   }, [card.file]);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
   const S = index.schools;
   const h = side === 'h' ? g[2] : g[3];
   const [hr, ar] = runsThrough(g, 7);
-  return createPortal(
-    <div className="yfp-drawer-wrap" role="presentation" onClick={onClose}>
+  return (
+    <DrawerWrap onClose={onClose}>
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
@@ -145,26 +167,19 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
             decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!box} />
         )}
       </aside>
-    </div>,
-    document.body,
+    </DrawerWrap>
   );
 }
 
 // The rules, in a drawer from the right.
 function RulesDrawer({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return createPortal(
-    <div className="yfp-drawer-wrap" role="presentation" onClick={onClose}>
+  return (
+    <DrawerWrap onClose={onClose}>
       <aside className="bl bl-embed yfp-drawer right" role="dialog" aria-modal="true" aria-label="Rules" onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head"><div><b>Rules</b><span>How it&apos;s played and scored</span></div><button type="button" onClick={onClose} aria-label="Close">✕</button></div>
         <BracketRules />
       </aside>
-    </div>,
-    document.body,
+    </DrawerWrap>
   );
 }
 
@@ -479,6 +494,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-line .r { width: 34px; border-left: 1px solid var(--yfp-card-border); }
         .yfp-star { margin-top: 6px; color: var(--yfp-text); font: 500 12px/1.35 Oswald, sans-serif; letter-spacing: .02em; }
         .yfp-star b { color: var(--yfp-gold); font-weight: 600; }
+        .yfp-star a { color: inherit; text-decoration: none; }
+        .yfp-star a:hover { color: var(--yfp-gold); text-decoration: underline; }
         .yfp-note { margin-top: 4px; color: var(--yfp-muted); font: 400 11px/1.35 system-ui, sans-serif; }
         .yfp-tbd { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--yfp-muted); font: 500 13px/1.2 Oswald, sans-serif; letter-spacing: .03em; }
         .yfp-tbd small { display: block; margin-top: 2px; font: 400 11px/1.3 system-ui, sans-serif; letter-spacing: 0; }
@@ -519,7 +536,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-title span { overflow: hidden; text-overflow: ellipsis; }
         .yfz-title i { font: 500 9px/1.4 Oswald, sans-serif; font-style: normal; letter-spacing: .06em; color: var(--yfp-muted); overflow: hidden; text-overflow: ellipsis; }
         .yfz-cards { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
-        .yfz-cards .yfp-card { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 6px 10px; }
+        .yfz-cards .yfp-card { flex: 0 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 6px 10px; }
         .yfz-cards .yfp-head { margin-bottom: 4px; }
         .yfz-cards .yfp-team { padding: 1px 0; }
         .yfz-cards .yfp-team b { font-size: 17px; }
@@ -531,16 +548,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-cards .yfp-line th, .yfz-cards .yfp-line td { padding: 2px 0; }
         .yfz-cards .yfp-line thead th { font-size: 10px; }
         .yfz-cards .yfp-tbd { margin-top: 0; }
-        /* Wide screens: the line score beside the two schools. */
-        @media (min-width: 900px) {
-          .yfz-cards .yfp-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-rows: auto auto auto 1fr; column-gap: 20px; align-content: center; }
-          .yfz-cards .yfp-card > .yfp-head, .yfz-cards .yfp-card > .yfp-team, .yfz-cards .yfp-card > .yfp-star, .yfz-cards .yfp-card > .yfp-tbd { grid-column: 1; }
-          .yfz-cards .yfp-card > .yfp-line { grid-column: 2; grid-row: 1 / span 4; align-self: center; margin: 0; }
-          .yfz-cards .yfp-team b { font-size: 19px; }
-          .yfz-cards .yfp-line { font-size: 12px; }
-          .yfz-cards .yfp-line th, .yfz-cards .yfp-line td { padding: 4px 0; }
-        }
-
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
         .yfz-all table { width: 100%; border-collapse: collapse; font: 500 12px/1.2 Oswald, sans-serif; color: var(--yfp-text); }
@@ -582,6 +589,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* The drawers: home from the right, visitor from the left. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.45); }
+        .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: rgba(0,0,0,.3); }
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }

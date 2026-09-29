@@ -71,7 +71,7 @@ function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard;
         <span className="yft-kick">Week {card.week} · {card.stage} · {dates}</span>
         <span className={`yft-title ${res}`}>{title}</span>
         {star && card.state === 'final'
-          ? <span className="yft-body"><b>★ Alumni of the Week</b>{starLine(star)}</span>
+          ? <span className="yft-body"><b>★ Alumni of the Week</b><a className="yft-plink" href={`/${me}/player/${encodeURIComponent(star[5])}`} onClick={(e) => e.stopPropagation()}>{starLine(star)}</a></span>
           : body ? <span className="yft-body">{body}</span> : null}
       </span>
     </div>
@@ -161,6 +161,8 @@ export default function FantasyTimeline() {
         .yft-title.W { color: #7fd18b; }
         .yft-title.L { color: #e2786a; }
         .yft-body { color: rgba(255,255,255,.82); font: 500 14px/1.3 Oswald, sans-serif; letter-spacing: .02em; }
+        .yft-plink { color: inherit; text-decoration: underline; text-decoration-color: rgba(255,255,255,.35); text-underline-offset: 3px; position: relative; z-index: 2; }
+        .yft-plink:hover { color: var(--gold, #ffc107); }
         .yft-body b { display: block; color: var(--gold, #ffc107); font-weight: 600; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
         .yft-nav { position: absolute; top: calc(50% - 30px); width: 32px; height: 44px; border: 0; background: rgba(0,0,0,.35); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; z-index: 3; }
         .yft-nav:disabled { opacity: .25; cursor: default; }

@@ -811,6 +811,11 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const owl = theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '—');
   const sim = (mine?.p || []).some((p) => p[3]);
+  // Each name links to his profile (a tap there doesn't flip the card).
+  const myHsid = me === 0 ? home : away;
+  const player = (p: PlayerRow) => (
+    <><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()}>{p[1]}{p[3] ? '*' : ''}</a> <small>{lvl(p[2])}</small></>
+  );
 
   return (
     // A tap anywhere on the card flips it, like the player gallery.
@@ -866,7 +871,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
           <div className="bl-scroll">
             <table className="bl-box">
               <thead>
-                <tr><th className="nm">Batters</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>BB</th><th>HBP</th><th>SF</th><th>OPS</th><th>OPS+</th></tr>
+                <tr><th className="nm">Batters</th><th className="plus">OPS+</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>BB</th><th>HBP</th><th>SF</th><th>OPS</th></tr>
               </thead>
               <tbody>
                 {batters.length === 0 && <tr><td className="nm none" colSpan={11}>No hitters played this week</td></tr>}
@@ -874,19 +879,19 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
                   const b = p[4] as number[];
                   return (
                     <tr key={p[0]}>
-                      <td className="nm">{p[1]}{p[3] ? '*' : ''} <small>{lvl(p[2])}</small></td>
+                      <td className="nm">{player(p)}</td>
+                      <td className="plus">{p[6] ?? '—'}</td>
                       {b.slice(1).map((v, i) => <td key={i}>{v}</td>)}
                       <td>{rate(obpSlg(b))}</td>
-                      <td className="plus">{p[6] ?? '—'}</td>
                     </tr>
                   );
                 })}
                 {batters.length > 0 && (
                   <tr className="tot">
                     <td className="nm">Team</td>
+                    <td className="plus">{weekVals ? fmtStat(weekVals[me]) : '—'}</td>
                     {teamBat.slice(1).map((v, i) => <td key={i}>{v}</td>)}
                     <td>{rate(obpSlg(teamBat))}</td>
-                    <td className="plus">{weekVals ? fmtStat(weekVals[me]) : '—'}</td>
                   </tr>
                 )}
               </tbody>
@@ -895,7 +900,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
           <div className="bl-scroll">
             <table className="bl-box">
               <thead>
-                <tr><th className="nm">Pitchers</th><th>IP</th><th>K</th><th>BB</th><th>HBP</th><th>HR</th><th>FIP-</th></tr>
+                <tr><th className="nm">Pitchers</th><th className="plus">FIP-</th><th>IP</th><th>K</th><th>BB</th><th>HBP</th><th>HR</th></tr>
               </thead>
               <tbody>
                 {pitchers.length === 0 && <tr><td className="nm none" colSpan={7}>No pitchers pitched this week</td></tr>}
@@ -903,17 +908,17 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
                   const [outs, hr, bb, hbp, so] = p[5] as number[];
                   return (
                     <tr key={p[0]}>
-                      <td className="nm">{p[1]}{p[3] ? '*' : ''} <small>{lvl(p[2])}</small></td>
-                      <td>{ip(outs)}</td><td>{so}</td><td>{bb}</td><td>{hbp}</td><td>{hr}</td>
+                      <td className="nm">{player(p)}</td>
                       <td className="plus">{p[7] ?? '—'}</td>
+                      <td>{ip(outs)}</td><td>{so}</td><td>{bb}</td><td>{hbp}</td><td>{hr}</td>
                     </tr>
                   );
                 })}
                 {pitchers.length > 0 && (
                   <tr className="tot">
                     <td className="nm">Team</td>
-                    <td>{ip(teamPit[0])}</td><td>{teamPit[4]}</td><td>{teamPit[2]}</td><td>{teamPit[3]}</td><td>{teamPit[1]}</td>
                     <td className="plus">{weekVals ? fmtStat(weekVals[2 + me]) : '—'}</td>
+                    <td>{ip(teamPit[0])}</td><td>{teamPit[4]}</td><td>{teamPit[2]}</td><td>{teamPit[3]}</td><td>{teamPit[1]}</td>
                   </tr>
                 )}
               </tbody>
@@ -1013,7 +1018,7 @@ export function Styles() {
       .bl.bl-embed .bl-box th, .bl.bl-embed .bl-box td { padding:4px 2px; }
       .bl.bl-embed .bl-box thead th { font-size:9px; }
       .bl.bl-embed .bl-box .nm { padding-left:8px; max-width:88px; }
-      .bl.bl-embed .bl-box .plus { padding-right:8px; }
+      .bl.bl-embed .bl-box th:last-child, .bl.bl-embed .bl-box td:last-child { padding-right:12px; }
       .bl.bl-embed .bl-how { margin:8px; padding:6px 7px; }
       .bl.bl-embed .bl-days { font-size:9.5px; }
       .bl.bl-embed .bl-wl { font-size:10.5px; }
@@ -1102,7 +1107,11 @@ export function Styles() {
       .bl-box .nm { text-align:left; padding-left:10px; max-width:118px; overflow:hidden; text-overflow:ellipsis; }
       .bl-box .nm small { color:var(--muted); font-size:10px; }
       .bl-box .none { color:var(--muted); font-style:italic; }
-      .bl-box .plus { color:var(--gold); font-weight:600; padding-right:10px; }
+      /* OPS+ / FIP- first after the name; room after the last column so it isn't cut off. */
+      .bl-box .plus { color:var(--gold); font-weight:700; padding-left:6px; padding-right:8px; text-align:center; }
+      .bl-box th:last-child, .bl-box td:last-child { padding-right:14px; }
+      .bl-plink { color:inherit; text-decoration:none; }
+      .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
       .bl-how { margin:10px 12px 12px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--tint2); }
       .bl-howt { font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
