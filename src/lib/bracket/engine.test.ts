@@ -15,6 +15,8 @@ import {
   pitchingScore,
   playGame,
   playSeries,
+  teamOffense,
+  teamPitching,
 } from './engine';
 
 const baselines: Baselines = new Map([
@@ -32,7 +34,8 @@ const off = (): LevelBuckets => new Map();
 const AVG = { mode: 'adjusted', absent: 'average' } as const;
 const FORFEIT = { mode: 'adjusted', absent: 'forfeit' } as const;
 const HOLD = { mode: 'adjusted', absent: 'hold' } as const;
-const week = (days: LevelBuckets[], wins = 0, losses = 0): SideWeek => ({ days, wins, losses });
+// Each test day is one player's lines ('p').
+const week = (days: LevelBuckets[], wins = 0, losses = 0): SideWeek => ({ days: days.map((d) => new Map(d.size ? [['p', d]] : [])), wins, losses });
 
 test('OPS+ measures each level against its own average', () => {
   // .300/.400 at MLB (OPS .700) beats .380/.480 at juco (OPS .860) once adjusted
@@ -51,6 +54,23 @@ test('FIP- is 100 for a league-average line and lower is better', () => {
   const v = pitchingScore(good, baselines, 'adjusted')!;
   assert.ok(Math.abs(v - (100 * (4 / 9 + 3.1)) / 4.1) < 1e-9);
   assert.equal(pitchingScore(off(), baselines, 'adjusted'), null);
+});
+
+test("the school's OPS+ and FIP- are its players' own, weighted by playing time", () => {
+  // MLB, 20 PA, .400 / .600 -> OPS+ 175; juco, 10 PA, .300 / .300 -> OPS+ 35
+  const mlb = day('MLB', { pa: 20, ab: 20, h: 8, d2: 4 });
+  const juco = day('NJCAA', { pa: 10, ab: 10, h: 3 });
+  const a = offenseScore(mlb, baselines, 'adjusted')!;
+  const b = offenseScore(juco, baselines, 'adjusted')!;
+  assert.ok(Math.abs(a - 175.1) < 0.1 && Math.abs(b - 35) < 1e-9);
+  const both = new Map([['a', mlb], ['b', juco]]);
+  assert.ok(Math.abs(teamOffense(both, baselines, 'adjusted')! - (a * 20 + b * 10) / 30) < 1e-9); // 128.4
+  // pitchers by innings: 6 IP at FIP- x and 3 IP at FIP- y
+  const p1 = day('MLB', {}, { outs: 18, so: 8 });
+  const p2 = day('MLB', {}, { outs: 9, hr: 2, bb: 3 });
+  const x = pitchingScore(p1, baselines, 'adjusted')!, y = pitchingScore(p2, baselines, 'adjusted')!;
+  assert.ok(Math.abs(teamPitching(new Map([['a', p1], ['b', p2]]), baselines, 'adjusted')! - (x * 18 + y * 9) / 27) < 1e-9);
+  assert.equal(teamOffense(new Map(), baselines, 'adjusted'), null);
 });
 
 test('a day off counts as league average, not as a loss', () => {

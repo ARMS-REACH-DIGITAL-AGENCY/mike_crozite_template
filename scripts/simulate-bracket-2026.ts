@@ -51,6 +51,7 @@ import {
   type LevelBuckets,
   type Mode,
   type PitTotals,
+  type PlayerLines,
   type SideWeek,
   addToBuckets,
   bracketOrder,
@@ -353,21 +354,18 @@ if (SPRING) {
 // ---------------------------------------------------------------------------
 // Games
 // ---------------------------------------------------------------------------
-function dayBuckets(hsid: number, date: string): LevelBuckets {
-  const b: LevelBuckets = new Map();
-  for (const pd of daily.get(hsid)?.get(date) || []) addToBuckets(b, pd.level, pd.bat, pd.pit);
-  return b;
+// A school's alumni on one day: playerid -> his lines by level.
+function dayLines(hsid: number, date: string): PlayerLines {
+  const out: PlayerLines = new Map();
+  for (const pd of daily.get(hsid)?.get(date) || []) {
+    if (!out.has(pd.playerid)) out.set(pd.playerid, new Map());
+    addToBuckets(out.get(pd.playerid)!, pd.level, pd.bat, pd.pit);
+  }
+  return out;
 }
 function sideWeek(hsid: number, week: number): SideWeek {
   const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
-  const players = new Map<string, LevelBuckets>();
-  for (const d of weekDates(week)) {
-    for (const pd of daily.get(hsid)?.get(d) || []) {
-      if (!players.has(pd.playerid)) players.set(pd.playerid, new Map());
-      addToBuckets(players.get(pd.playerid)!, pd.level, pd.bat, pd.pit);
-    }
-  }
-  return { days: weekDates(week).map((d) => dayBuckets(hsid, d)), wins: wl.w, losses: wl.l, players };
+  return { days: weekDates(week).map((d) => dayLines(hsid, d)), wins: wl.w, losses: wl.l };
 }
 // The commissioner's coin flip, fixed per game so every rerun agrees.
 const coinFlip = (week: number, home: number, away: number) => () =>

@@ -21,10 +21,15 @@
 //               league average
 // Equal values score nothing.
 //
-// Level adjustment ('adjusted' mode): every line is measured against the
-// 2026 average for the level it was played at (MLB, Triple-A ... NCAA-D1,
-// JUCO), so a juco hitter's .900 OPS and a big leaguer's .750 are compared
-// fairly. 'raw' mode compares plain OPS and FIP, as the first prototype did.
+// Level adjustment ('adjusted' mode): every player's line is measured
+// against the 2026 average for the level he played at (MLB, Triple-A ...
+// NCAA-D1, JUCO), so a juco hitter's .900 OPS and a big leaguer's .750 are
+// compared fairly. 'raw' mode compares plain OPS and FIP, as the first
+// prototype did.
+//
+// A school's number for a day or week is the average of its players' own
+// numbers, weighted by playing time: OPS+ by plate appearances, FIP- by
+// innings pitched. (Averages, so more alumni never helps by itself.)
 //
 // Ties after 9: player vs player. Each school's best hitter of the week
 // (OPS+) against the other's, and best pitcher (FIP-) against the other's,
@@ -45,8 +50,11 @@ export type Level = string;
 export type BatTotals = { pa: number; ab: number; h: number; d2: number; d3: number; hr: number; bb: number; hbp: number; sf: number };
 export type PitTotals = { outs: number; hr: number; bb: number; hbp: number; so: number };
 
-// One school's production on one day (or one week), split by level.
+// One player's production on one day (or one week), split by level (a
+// player promoted mid-week has lines at two levels).
 export type LevelBuckets = Map<Level, { bat: BatTotals; pit: PitTotals }>;
+// A school's alumni on one day (or one week): playerid -> his lines.
+export type PlayerLines = Map<string, LevelBuckets>;
 
 // A level's 2026 average. fip is the league FIP (set equal to league ERA
 // via the FIP constant cfip).
@@ -99,8 +107,8 @@ export const ops = (b: BatTotals) => {
 };
 export const fipCore = (p: PitTotals) => (p.outs ? (13 * p.hr + 3 * (p.bb + p.hbp) - 2 * p.so) / (p.outs / 3) : 0);
 
-// The school's offense for a day/week: OPS+ (adjusted) or OPS (raw).
-// null when nobody batted.
+// One player's offense for a day/week: OPS+ (adjusted; against his level's
+// average) or OPS (raw). null when he didn't bat.
 export function offenseScore(buckets: LevelBuckets, baselines: Baselines, mode: Mode): number | null {
   let num = 0, den = 0, tbs = 0, ab = 0, lgObpW = 0, lgSlgW = 0;
   for (const [level, { bat }] of buckets) {
@@ -122,9 +130,9 @@ export function offenseScore(buckets: LevelBuckets, baselines: Baselines, mode: 
   return 100 * ((lgObp ? obp / lgObp : 0) + (lgSlg ? slg / lgSlg : 0) - 1);
 }
 
-// The school's pitching: FIP- (adjusted; each level's FIP against that
-// level's league FIP, weighted by innings) or FIP (raw). null when nobody
-// pitched.
+// One player's pitching: FIP- (adjusted; against his level's league FIP,
+// weighted by innings if he pitched at two levels) or FIP (raw). null when
+// he didn't pitch.
 export function pitchingScore(buckets: LevelBuckets, baselines: Baselines, mode: Mode): number | null {
   let outs = 0, core = 0, fipW = 0, lgW = 0;
   for (const [level, { pit }] of buckets) {
@@ -151,13 +159,48 @@ const averagePitching = (mode: Mode) => (mode === 'raw' ? RAW_AVERAGE_FIP : 100)
 export type Side = 'home' | 'away';
 
 export type SideWeek = {
-  days: LevelBuckets[]; // 7 entries, Monday first
+  days: PlayerLines[]; // 7 entries, Monday first
   // Real clubs' results that week, summed over the school's alumni.
   wins: number;
   losses: number;
-  // Each alumnus's week (playerid -> his lines by level), for the tiebreak.
-  players?: Map<string, LevelBuckets>;
+  // Each alumnus's week for the tiebreak (default: the days merged).
+  players?: PlayerLines;
 };
+
+// The school's OPS+ (OPS raw): its players' own, weighted by plate
+// appearances. null when nobody batted.
+export function teamOffense(lines: PlayerLines, baselines: Baselines, mode: Mode): number | null {
+  let sum = 0, weight = 0;
+  for (const buckets of lines.values()) {
+    const v = offenseScore(buckets, baselines, mode);
+    if (v === null) continue;
+    let pa = 0;
+    for (const { bat } of buckets.values()) pa += Math.max(bat.pa, obpParts(bat).den);
+    sum += v * pa; weight += pa;
+  }
+  return weight ? sum / weight : null;
+}
+
+// The school's FIP- (FIP raw): its pitchers' own, weighted by innings
+// pitched. null when nobody pitched.
+export function teamPitching(lines: PlayerLines, baselines: Baselines, mode: Mode): number | null {
+  let sum = 0, weight = 0;
+  for (const buckets of lines.values()) {
+    const v = pitchingScore(buckets, baselines, mode);
+    if (v === null) continue;
+    let outs = 0;
+    for (const { pit } of buckets.values()) outs += pit.outs;
+    sum += v * outs; weight += outs;
+  }
+  return weight ? sum / weight : null;
+}
+
+// Several days' lines combined, player by player.
+export function mergeLines(list: PlayerLines[]): PlayerLines {
+  const out: PlayerLines = new Map();
+  for (const day of list) for (const [pid, buckets] of day) out.set(pid, mergeBuckets([out.get(pid) || new Map(), buckets]));
+  return out;
+}
 
 export type Inning = {
   inning: number;
@@ -198,12 +241,12 @@ function compareSides(hv: number | null, av: number | null, average: number, hig
   return [x, y];
 }
 
-function scoreInning(inning: number, kind: 'day' | 'week', home: LevelBuckets, away: LevelBuckets, baselines: Baselines, rules: Rules): Inning {
+function scoreInning(inning: number, kind: 'day' | 'week', home: PlayerLines, away: PlayerLines, baselines: Baselines, rules: Rules): Inning {
   const { mode, absent } = rules;
-  const ho = offenseScore(home, baselines, mode);
-  const ao = offenseScore(away, baselines, mode);
-  const hp = pitchingScore(home, baselines, mode);
-  const ap = pitchingScore(away, baselines, mode);
+  const ho = teamOffense(home, baselines, mode);
+  const ao = teamOffense(away, baselines, mode);
+  const hp = teamPitching(home, baselines, mode);
+  const ap = teamPitching(away, baselines, mode);
   const [ox, oy] = compareSides(ho, ao, averageOffense(mode), true, absent);
   // lower FIP / FIP- is better
   const [px, py] = compareSides(hp, ap, averagePitching(mode), false, absent);
@@ -216,7 +259,7 @@ export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : null);
 // A school's alumni ranked on the week: hitters by OPS+ (best first),
 // pitchers by FIP- (best = lowest first). Each player's week is measured
 // against his own level's average.
-export function rankPlayers(players: Map<string, LevelBuckets> | undefined, baselines: Baselines, mode: Mode) {
+export function rankPlayers(players: PlayerLines | undefined, baselines: Baselines, mode: Mode) {
   const hitters: number[] = [], pitchers: number[] = [];
   for (const week of players?.values() || []) {
     const o = offenseScore(week, baselines, mode);
@@ -236,8 +279,8 @@ export function rankPlayers(players: Map<string, LevelBuckets> | undefined, base
 // with no one left to face counts only by beating league average, the same
 // as in the innings. Returns null when both rosters run out still level.
 function playerTiebreak(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules): { winner: Side; rank: number } | null {
-  const h = rankPlayers(home.players, baselines, rules.mode);
-  const a = rankPlayers(away.players, baselines, rules.mode);
+  const h = rankPlayers(home.players ?? mergeLines(home.days), baselines, rules.mode);
+  const a = rankPlayers(away.players ?? mergeLines(away.days), baselines, rules.mode);
   const depth = Math.max(h.hitters.length, a.hitters.length, h.pitchers.length, a.pitchers.length);
   for (let k = 0; k < depth; k++) {
     const [bx, by] = compareSides(h.hitters[k] ?? null, a.hitters[k] ?? null, averageOffense(rules.mode), true, rules.absent);
@@ -263,8 +306,8 @@ export function volume(buckets: LevelBuckets) {
 export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false, coinFlip?: () => Side): GameResult {
   const innings: Inning[] = [];
   for (let d = 0; d < 7; d++) innings.push(scoreInning(d + 1, 'day', home.days[d] || new Map(), away.days[d] || new Map(), baselines, rules));
-  const homeWeek = mergeBuckets(home.days);
-  const awayWeek = mergeBuckets(away.days);
+  const homeWeek = mergeLines(home.days);
+  const awayWeek = mergeLines(away.days);
   innings.push(scoreInning(8, 'week', homeWeek, awayWeek, baselines, rules));
   const hw = winPct(home.wins, home.losses);
   const aw = winPct(away.wins, away.losses);
