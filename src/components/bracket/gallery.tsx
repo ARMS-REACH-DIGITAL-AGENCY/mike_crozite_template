@@ -827,15 +827,24 @@ export function Styles() {
         min-height:100vh; background:var(--bg); color:var(--text); font:400 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding:24px 16px 80px; }
       .bl * { box-sizing:border-box; }
       .bl.bl-embed { min-height:0; padding:16px 16px 48px; }
-      /* On a school's page every game card is a player flip card's size
-         (264px wide, 1 : 1.4) and a round is always three across; the card
-         scrolls inside, and flips between the two schools. */
-      .bl.bl-embed { --cw:min(264px, calc((100vw - 56px) / 3)); }
-      .bl.bl-embed .bl-row { width:calc(var(--cw) * 3 + 24px); max-width:100%; margin:0 auto; }
-      .bl.bl-embed .bl-cards, .bl.bl-embed .bl-cards.n1 { display:grid; grid-template-columns:repeat(3, var(--cw)); gap:12px; justify-content:start;
+      /* On a school's page the game cards follow the player gallery's rules
+         (.yat-grid): each card is a player flip card's size (264px wide,
+         1 : 1.4), as many across as fit (a round's three on a wide screen,
+         stacked on a phone), centered; with a side drawer open the columns
+         go fluid the same way. The card scrolls inside and flips between
+         the two schools. */
+      .bl.bl-embed .bl-row { width:100%; }
+      .bl.bl-embed .bl-cards, .bl.bl-embed .bl-cards.n1 { display:grid; grid-template-columns:repeat(auto-fit, 264px); justify-content:center; gap:12px;
         overflow:visible; margin:0; padding:0; scroll-snap-type:none; }
+      @media (min-width:780px) {
+        body.drawer-left-open .bl.bl-embed .bl-cards, body.drawer-right-open .bl.bl-embed .bl-cards,
+        body.drawer-account-open .bl.bl-embed .bl-cards, body.drawer-favorites-open .bl.bl-embed .bl-cards,
+        body.yat-desktop-docked-drawers .bl.bl-embed .bl-cards { grid-template-columns:repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+        body.drawer-left-open.drawer-right-open .bl.bl-embed .bl-cards, body.drawer-left-open.drawer-account-open .bl.bl-embed .bl-cards,
+        body.drawer-left-open.drawer-favorites-open .bl.bl-embed .bl-cards { grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+      }
       .bl.bl-embed .bl-cards > * { flex:none; }
-      .bl.bl-embed .bl-card { position:relative; width:var(--cw); }
+      .bl.bl-embed .bl-card { position:relative; width:100%; }
       .bl.bl-embed .bl-card::before { content:""; display:block; padding-top:140%; }
       .bl.bl-embed .bl-inner { position:absolute; inset:0; display:block; }
       .bl.bl-embed .bl-face { position:absolute; inset:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; border-radius:0; box-shadow:0 4px 8px rgba(0,0,0,.2); }
