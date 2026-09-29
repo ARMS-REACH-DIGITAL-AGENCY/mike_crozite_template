@@ -436,7 +436,9 @@ export default async function ProfilePage({ params }: Props) {
         };
       })
     : scheduleTeamId
-      ? [{ teamid: scheduleTeamId, teamName: null, level: null, start: null, end: null, tracksLines: currentTeamSource === "mlb_api" }]
+      ? // No stint dates yet, so no way to tell a game he sat out from one
+        // before he joined: no "Did not play" here.
+        [{ teamid: scheduleTeamId, teamName: null, level: null, start: null, end: null, tracksLines: false }]
       : [];
   const stintSchedules = await Promise.all(
     logStints.map((st) => getTeamSchedule(st.teamid, 400, { from: st.start, to: st.end }))
