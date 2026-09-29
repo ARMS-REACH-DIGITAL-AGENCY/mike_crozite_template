@@ -21,6 +21,7 @@ import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAl
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
+import SchoolBracket from "@/components/bracket/SchoolBracket";
 
 export const runtime = "nodejs";
 
@@ -557,7 +558,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-fantasy" className="yat-section">
-        <Placeholder icon="🏆" title="Fantasy Bracket Tournament" body="School-vs-school bracket gameplay and alumni performance tournament experience. Coming soon." />
+        <SchoolBracket hsid={resolvedHsid} />
       </section>
 
       <section id="sec-mentor" className="yat-section">

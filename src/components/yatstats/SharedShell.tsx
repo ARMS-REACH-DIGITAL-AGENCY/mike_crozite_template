@@ -14,6 +14,7 @@ import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
 import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
+import BracketRow3 from '../bracket/BracketRow3';
 
 type StripPlayer = {
   id: string;
@@ -144,7 +145,11 @@ export default function SharedShell({
         <div className="yat-row3-shell">
           {row3Content
             ? row3Content
-            : profilePlayerId
+            : activeSection === 'fantasy' && !isPlayerProfile
+              // The Fantasy Bracket Tourney tab: Round and Region filters
+              // in place of the alumni headshots.
+              ? <BracketRow3 />
+              : profilePlayerId
               ? (
                   <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
                     <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
