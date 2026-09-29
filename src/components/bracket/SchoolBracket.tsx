@@ -19,6 +19,7 @@ import {
   buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, previewDate, schoolStageRows, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
 } from './gallery';
 import { useBracketNav } from './bracketNav';
+import BracketRules from './BracketRules';
 
 const STAGE_NAME = (s: Stage) =>
   s.kind === 'round' ? ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Round 6', 'Regional Final', 'Elite Eight', 'Final Four', 'Championship'][s.r - 1]
@@ -135,7 +136,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
   // The tournament, the same on every school's page.
   const region = nav.region;
-  const items = useMemo(() => (index && lb && cal && !nav.boards && !nav.team ? tournamentItems(index, lb, cal.final, region) : []), [index, lb, cal, nav.boards, nav.team, region]);
+  const items = useMemo(() => (index && lb && cal && !nav.boards && !nav.team && !nav.rules ? tournamentItems(index, lb, cal.final, region) : []), [index, lb, cal, nav.boards, nav.team, nav.rules, region]);
   const { shown, sentinel: more } = useReveal(items.length, 16);
 
   return (
@@ -149,7 +150,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             2026 National Alumni Bracket · simulation · as of {asof}{region ? ` · Region ${region} · ${REGIONS[region]}` : ''}
           </div>
 
-          {nav.team ? (
+          {nav.rules ? (
+            // Row 3's Rules tile: how everything is figured.
+            <section className="ysb-block">
+              <h3>Rules · how it&apos;s scored</h3>
+              <BracketRules />
+            </section>
+          ) : nav.team ? (
             // Row 3's school tile: this school's current round only.
             <section className="ysb-block">
               <h3>

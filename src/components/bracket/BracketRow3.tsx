@@ -3,7 +3,7 @@
 // src/components/bracket/BracketRow3.tsx
 // Row 3 on the Fantasy Bracket Tourney tab. It works like the News tab's
 // headshot strip: the same tiles - this school (its current round), the
-// regional leaderboards, then one per region. A tile filters the tournament
+// regional leaderboards, the rules, then one per region. A tile filters the tournament
 // below; the same tile again shows everything.
 
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -39,16 +39,22 @@ export default function BracketRow3() {
       <div ref={scrollRef} className="gallery-strip-inner" role="group" aria-label="Filter the tournament by region">
         <button type="button" title={`${schoolName}: this round`} aria-pressed={nav.team}
           className={`gallery-slot ybr3-tile team${nav.team ? ' is-active on' : ''}`}
-          onClick={() => setBracketNav(nav.team ? { team: false } : { team: true, region: 0, boards: false })}>
+          onClick={() => setBracketNav(nav.team ? { team: false } : { team: true, region: 0, boards: false, rules: false })}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="ybr3-crest" src={school?.crestUrl || CREST_FALLBACK_PATH} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }} />
           <span className="ybr3-name">{schoolName}</span>
         </button>
         <button type="button" title="Regional leaderboards" aria-pressed={nav.boards}
           className={`gallery-slot ybr3-tile${nav.boards ? ' is-active on' : ''}`}
-          onClick={() => setBracketNav({ boards: !nav.boards, team: false })}>
+          onClick={() => setBracketNav({ boards: !nav.boards, team: false, rules: false })}>
           <span className="ybr3-big">LB</span>
           <span className="ybr3-name">Leaderboards</span>
+        </button>
+        <button type="button" title="Rules and how it's scored" aria-pressed={nav.rules}
+          className={`gallery-slot ybr3-tile${nav.rules ? ' is-active on' : ''}`}
+          onClick={() => setBracketNav({ rules: !nav.rules, team: false, boards: false })}>
+          <span className="ybr3-big">?</span>
+          <span className="ybr3-name">Rules</span>
         </button>
         <span className="ybr3-gap" aria-hidden="true" />
         {Object.entries(REGIONS).map(([k, v]) => {
@@ -57,7 +63,7 @@ export default function BracketRow3() {
           return (
             <button key={k} type="button" title={`Region ${r} · ${v}`} aria-pressed={on}
               className={`gallery-slot ybr3-tile region${on ? ' is-active on' : ''}`}
-              onClick={() => setBracketNav({ region: on ? 0 : r, team: false })}>
+              onClick={() => setBracketNav({ region: on ? 0 : r, team: false, rules: false })}>
               <span className="ybr3-kick">Region</span>
               <span className="ybr3-big">{r}</span>
               <span className="ybr3-name">{v}</span>
