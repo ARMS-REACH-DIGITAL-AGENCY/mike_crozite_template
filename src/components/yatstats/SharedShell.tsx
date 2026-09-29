@@ -15,6 +15,7 @@ import GalleryFilterController from './GalleryFilterController';
 import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
 import BracketRow3 from '../bracket/BracketRow3';
+import BracketTicker from '../bracket/BracketTicker';
 
 type StripPlayer = {
   id: string;
@@ -168,7 +169,11 @@ export default function SharedShell({
         <div className="yat-row4-shell">
           {row4Content
             ? row4Content
-            : profilePlayerId
+            : activeSection === 'fantasy' && !isPlayerProfile
+              // The Fantasy Bracket Tourney tab: the current round's scores
+              // as a scrolling scoreboard ticker instead of the metadata.
+              ? <BracketTicker />
+              : profilePlayerId
               // The player profile's thin year-tick timeline (the old
               // variant="line" row) is now folded into the taller
               // variant="images" strip in row 3 above -- one row instead of

@@ -342,6 +342,14 @@ export function lastFinalWeek(index: Index, iso: string) {
   return w;
 }
 
+// Today's date (YYYY-MM-DD), or ?asof=YYYY-MM-DD to preview any date.
+export function previewDate() {
+  const q = new URLSearchParams(window.location.search).get('asof') || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // One school's games in a stage, played through maxWeek: its bracket series,
 // or its weekly leaderboard games once it's out, or its tournament games.
 export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: Stage, maxWeek: number): Row[] {

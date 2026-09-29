@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Index, type LbGame, type Row, type Stage,
   LAST_WEEK, REGIONS, Leaderboards, SeriesRowView, Styles,
-  buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, schoolStageRows, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
+  buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, previewDate, schoolStageRows, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
 } from './gallery';
 import { useBracketNav } from './bracketNav';
 
@@ -92,13 +92,6 @@ function tournamentItems(index: Index, lb: LbGame[], final: number, region: numb
     for (const row of rows) items.push({ kind: 'row', key: row.key, row });
   }
   return items;
-}
-
-function previewDate() {
-  const q = new URLSearchParams(window.location.search).get('asof') || '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function SchoolBracket({ hsid }: { hsid: string }) {
