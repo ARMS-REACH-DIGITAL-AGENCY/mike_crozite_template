@@ -7,8 +7,14 @@
 // a series; rounds stack down the page. Filters: round, region, a school
 // search and favorite schools (kept in this browser).
 //
-// Data: /bracket-lab/2026/index.json (every series and line score) and one
-// box-score file per round + region, fetched when its cards come on screen.
+// Leaderboards: the 8 regional leaderboards (every school, weeks 1-30, most
+// runs then run differential), standings through any week, and each
+// school's whole season as flip cards.
+//
+// Data: /bracket-lab/2026/index.json (every series and line score), lb.json
+// (the eliminated schools' weekly regional games) and one box-score file
+// per round + region (d-lb-<week>-<region> for leaderboard games), fetched
+// when its cards come on screen.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -24,9 +30,12 @@ type Index = {
   lbt: { seeds: [number, number]; game: GameRow }[];
   gf: GameRow[];
   champion: number;
+  lbLeaders: number[]; // the Leaderboard 8, seed order
   lbChampion: number;
   grandChampion: number;
 };
+// A leaderboard game: the same as a GameRow plus the region.
+type LbGame = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null, region: number];
 // [playerid, name, level, simulated, bat [PA AB H 2B 3B HR BB HBP SF] | 0, pit [outs HR BB HBP K] | 0, OPS+, FIP-]
 type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null];
 type SideBox = { p: PlayerRow[]; wl: [number, number] };
@@ -71,6 +80,52 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 const fmtRange = (a: string, b: string) => `${fmtDate(a)} – ${fmtDate(b)}`;
+const LAST_WEEK = 30; // the bracket and the leaderboards end with week 30
+const ROUND_SHORT = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'Regional Final', 'Elite 8', 'Final 4', 'Championship'];
+const runsOf = (inn: number[]) => {
+  let h = 0, a = 0;
+  inn.forEach((v, i) => { if (i % 2 === 0) h += v; else a += v; });
+  return [h, a];
+};
+
+// Leaderboard standings through a week: every school's runs for and
+// against, W-L-T and games, from its bracket games and leaderboard games.
+type Stand = { h: number; rf: number; ra: number; w: number; l: number; t: number; g: number };
+function standings(index: Index, lb: LbGame[], week: number) {
+  const st = new Map<number, Stand>();
+  for (const k of Object.keys(index.schools)) st.set(Number(k), { h: Number(k), rf: 0, ra: 0, w: 0, l: 0, t: 0, g: 0 });
+  const add = (g: GameRow | LbGame) => {
+    if (g[1] > week) return;
+    const [hr, ar] = runsOf(g[5]);
+    for (const [h, rf, ra] of [[g[2], hr, ar], [g[3], ar, hr]]) {
+      const s = st.get(h);
+      if (!s) continue;
+      s.g++; s.rf += rf; s.ra += ra;
+      if (g[6] === h) s.w++; else if (g[6] === null) s.t++; else s.l++;
+    }
+  };
+  for (const r of index.rounds) for (const s of r.series) for (const g of s[7]) add(g);
+  for (const g of lb) add(g);
+  return st;
+}
+// Most runs, then run differential, wins, seed (same order as the simulator).
+function rankRegion(index: Index, st: Map<number, Stand>, region: number) {
+  const seed = (h: number) => index.schools[h]?.[2] ?? 999;
+  return [...st.values()]
+    .filter((s) => index.schools[s.h]?.[1] === region)
+    .sort((x, y) => y.rf - x.rf || (y.rf - y.ra) - (x.rf - x.ra) || y.w - x.w || seed(x.h) - seed(y.h));
+}
+// When each school went out of the bracket (round, week of its last game).
+function eliminations(index: Index) {
+  const out = new Map<number, { round: number; week: number }>();
+  for (const r of index.rounds) {
+    for (const s of r.series) {
+      const loser = s[5] === s[1] ? s[2] : s[1];
+      out.set(loser, { round: r.r, week: s[7][s[7].length - 1][1] });
+    }
+  }
+  return out;
+}
 const ip = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`;
 const rate = (v: number) => (v >= 1 ? v.toFixed(3) : v.toFixed(3).replace(/^0/, ''));
 
@@ -114,22 +169,27 @@ function useReveal(total: number, step = 12) {
   return { shown, sentinel: ref };
 }
 
-type View = { kind: 'round'; r: number } | { kind: 'lbt' } | { kind: 'gf' } | { kind: 'season' };
+type View = { kind: 'round'; r: number } | { kind: 'lbt' } | { kind: 'gf' } | { kind: 'season' } | { kind: 'boards' } | { kind: 'school'; h: number };
 
-// One row in the gallery: a series (three cards) or a single game.
+// One row in the gallery: a series (three cards), a single game, or up to
+// three of one school's leaderboard games ('plain': no single opponent).
 type Row = {
   key: string;
   roundLabel: string;
   title: string;
+  plain?: boolean;
+  week: number;
   region: number;
   home: number;
   away: number;
   homeSeed: number;
   awaySeed: number;
   result: string;
-  file: string;
+  files: string[]; // the box-score file of each game
   games: GameRow[];
   gameLabels: string[];
+  // On a school's page every card opens on that school's box score.
+  school?: number;
 };
 
 export default function BracketLab() {
@@ -139,6 +199,8 @@ export default function BracketLab() {
   const [region, setRegion] = useState(0);
   const [query, setQuery] = useState('');
   const [onlyFavs, setOnlyFavs] = useState(false);
+  const [week, setWeek] = useState(LAST_WEEK);
+  const [lb, setLb] = useState<LbGame[] | null>(null);
   const { favs, toggle } = useFavorites();
 
   useEffect(() => {
@@ -148,64 +210,110 @@ export default function BracketLab() {
       .catch((e) => setError(String(e)));
   }, []);
 
+  // The leaderboard games load the first time the leaderboards or a school's
+  // season are opened.
+  const needLb = view.kind === 'boards' || view.kind === 'school';
+  useEffect(() => {
+    if (!needLb || lb) return;
+    fetch(`${BASE}/lb.json`)
+      .then((r) => (r.ok ? r.json() : { games: [] }))
+      .then((d: { games: LbGame[] }) => setLb(d.games))
+      .catch(() => setLb([]));
+  }, [needLb, lb]);
+
   const rows = useMemo<Row[]>(() => {
     if (!index) return [];
     const S = index.schools;
     const name = (h: number) => S[h]?.[0] || String(h);
     const out: Row[] = [];
-    const addRound = (round: Round) => {
-      for (const s of round.series) {
-        const [reg, home, away, hs, as, winner, wins, games] = s;
-        const w = winner === home ? home : away;
-        const wWins = winner === home ? wins[0] : wins[1];
-        const lWins = winner === home ? wins[1] : wins[0];
-        out.push({
-          key: `r${round.r}-${home}-${away}`,
-          roundLabel: `${round.name}${reg ? ` · Region ${reg}` : ''}`,
-          title: `#${hs} ${shortName(name(home))} vs #${as} ${shortName(name(away))}`,
-          region: reg,
-          home, away, homeSeed: hs, awaySeed: as,
-          result: `${shortName(name(w))} wins the series ${wWins}–${lWins}`,
-          file: `d-${round.r}-${reg}`,
-          games,
-          gameLabels: games.map((_, i) => `Game ${i + 1}`),
-        });
-      }
+    const seriesRow = (round: Round, s: SeriesRow): Row => {
+      const [reg, home, away, hs, as, winner, wins, games] = s;
+      const w = winner === home ? home : away;
+      const wWins = winner === home ? wins[0] : wins[1];
+      const lWins = winner === home ? wins[1] : wins[0];
+      return {
+        key: `r${round.r}-${home}-${away}`,
+        roundLabel: `${round.name}${reg ? ` · Region ${reg}` : ''}`,
+        title: `#${hs} ${shortName(name(home))} vs #${as} ${shortName(name(away))}`,
+        week: games[0][1],
+        region: reg,
+        home, away, homeSeed: hs, awaySeed: as,
+        result: `${shortName(name(w))} wins the series ${wWins}–${lWins}`,
+        files: games.map(() => `d-${round.r}-${reg}`),
+        games,
+        gameLabels: games.map((_, i) => `Game ${i + 1}`),
+      };
     };
-    if (view.kind === 'round') addRound(index.rounds[view.r - 1]);
-    if (view.kind === 'season') index.rounds.forEach(addRound);
-    if (view.kind === 'lbt' || view.kind === 'season') {
-      for (const { seeds, game } of index.lbt) {
-        const [, week, home, away, , , winner] = game;
+    const lbtRow = ({ seeds, game }: Index['lbt'][number]): Row => {
+      const [, wk, home, away, , , winner] = game;
+      return {
+        key: `lbt-${game[0]}`,
+        roundLabel: `Leaderboard Tournament · ${LBT_ROUNDS[wk] || ''}`,
+        title: `#${seeds[0]} ${shortName(name(home))} vs #${seeds[1]} ${shortName(name(away))}`,
+        week: wk,
+        region: 0,
+        home, away, homeSeed: seeds[0], awaySeed: seeds[1],
+        result: `${shortName(name(winner!))} advances`,
+        files: ['d-lbt'],
+        games: [game],
+        gameLabels: [LBT_ROUNDS[wk] || 'Game'],
+      };
+    };
+    const gfRow = (game: GameRow): Row => {
+      const [, wk, home, away, , , winner] = game;
+      return {
+        key: `gf-${game[0]}`,
+        roundLabel: 'Grand Final',
+        title: `${shortName(name(home))} (bracket champion) vs ${shortName(name(away))} (leaderboard champion)`,
+        week: wk,
+        region: 0,
+        home, away, homeSeed: 1, awaySeed: 2,
+        result: `${shortName(name(winner!))} wins the Grand Final`,
+        files: ['d-gf'],
+        games: [game],
+        gameLabels: ['Grand Final'],
+      };
+    };
+
+    // One school's whole season: its bracket series, its leaderboard games
+    // (three weeks to a row), then the tournament and the Grand Final.
+    if (view.kind === 'school') {
+      const h = view.h;
+      for (const round of index.rounds) for (const s of round.series) if (s[1] === h || s[2] === h) out.push(seriesRow(round, s));
+      const mine = (lb || []).filter((g) => g[2] === h || g[3] === h).sort((a, b) => a[1] - b[1]);
+      for (let i = 0; i < mine.length; i += 3) {
+        const chunk = mine.slice(i, i + 3);
+        let runs = 0, w = 0, l = 0, t = 0;
+        for (const g of chunk) {
+          const [hr, ar] = runsOf(g[5]);
+          runs += g[2] === h ? hr : ar;
+          if (g[6] === h) w++; else if (g[6] === null) t++; else l++;
+        }
+        const reg = chunk[0][7];
+        const first = chunk[0][1], last = chunk[chunk.length - 1][1];
         out.push({
-          key: `lbt-${game[0]}`,
-          roundLabel: `Leaderboard Tournament · ${LBT_ROUNDS[week] || ''}`,
-          title: `#${seeds[0]} ${shortName(name(home))} vs #${seeds[1]} ${shortName(name(away))}`,
-          region: 0,
-          home, away, homeSeed: seeds[0], awaySeed: seeds[1],
-          result: `${shortName(name(winner!))} advances`,
-          file: 'd-lbt',
-          games: [game],
-          gameLabels: [LBT_ROUNDS[week] || 'Game'],
+          key: `lb-${h}-${chunk[0][0]}`,
+          roundLabel: `Region ${reg} leaderboard · ${first === last ? `week ${first}` : `weeks ${first}–${last}`}`,
+          title: `${shortName(name(h))}'s leaderboard games`,
+          plain: true,
+          week: first,
+          region: reg,
+          home: h, away: h, homeSeed: 0, awaySeed: 0,
+          result: `${runs} runs · ${w}–${l}${t ? `–${t}` : ''}`,
+          files: chunk.map((g) => `d-lb-${g[1]}-${g[7]}`),
+          games: chunk.map((g) => g.slice(0, 7) as GameRow),
+          gameLabels: chunk.map((g) => `vs ${shortName(name(g[2] === h ? g[3] : g[2]))}`),
         });
       }
+      for (const x of index.lbt) if (x.game[2] === h || x.game[3] === h) out.push(lbtRow(x));
+      for (const g of index.gf) if (g[2] === h || g[3] === h) out.push(gfRow(g));
+      return out.map((r) => ({ ...r, school: h })).sort((a, b) => a.week - b.week);
     }
-    if (view.kind === 'gf' || view.kind === 'season') {
-      for (const game of index.gf) {
-        const [, , home, away, , , winner] = game;
-        out.push({
-          key: `gf-${game[0]}`,
-          roundLabel: 'Grand Final',
-          title: `${shortName(name(home))} (bracket champion) vs ${shortName(name(away))} (leaderboard champion)`,
-          region: 0,
-          home, away, homeSeed: 1, awaySeed: 2,
-          result: `${shortName(name(winner!))} wins the Grand Final`,
-          file: 'd-gf',
-          games: [game],
-          gameLabels: ['Grand Final'],
-        });
-      }
-    }
+
+    if (view.kind === 'round') for (const s of index.rounds[view.r - 1].series) out.push(seriesRow(index.rounds[view.r - 1], s));
+    if (view.kind === 'season') for (const round of index.rounds) for (const s of round.series) out.push(seriesRow(round, s));
+    if (view.kind === 'lbt' || view.kind === 'season') for (const x of index.lbt) out.push(lbtRow(x));
+    if (view.kind === 'gf' || view.kind === 'season') for (const g of index.gf) out.push(gfRow(g));
     const q = query.trim().toLowerCase();
     return out.filter((row) => {
       if (region && row.region && row.region !== region) return false;
@@ -214,7 +322,7 @@ export default function BracketLab() {
       if (q && !name(row.home).toLowerCase().includes(q) && !name(row.away).toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [index, view, region, query, onlyFavs, favs]);
+  }, [index, view, region, query, onlyFavs, favs, lb]);
 
   const { shown, sentinel } = useReveal(rows.length);
 
@@ -225,6 +333,8 @@ export default function BracketLab() {
   const nm = (h: number) => shortName(S[h]?.[0] || String(h));
   const viewKey = view.kind === 'round' ? `r${view.r}` : view.kind;
   const pick = (v: View) => { setView(v); window.scrollTo({ top: 0 }); };
+  const openSchool = (h: number) => pick({ kind: 'school', h });
+  const gallery = view.kind !== 'boards';
 
   return (
     <main className="bl">
@@ -238,6 +348,9 @@ export default function BracketLab() {
 
       <nav className="bl-nav" aria-label="Rounds">
         <div className="bl-pills">
+          <button type="button" className={viewKey === 'boards' || viewKey === 'school' ? 'on' : ''} onClick={() => pick({ kind: 'boards' })}>
+            <b>Leaderboards</b><span>8 regions · most runs</span>
+          </button>
           {index.rounds.map((r) => (
             <button key={r.r} type="button" className={viewKey === `r${r.r}` ? 'on' : ''} onClick={() => pick({ kind: 'round', r: r.r })}>
               <b>{r.r <= 6 ? `R${r.r}` : r.name}</b>
@@ -267,16 +380,34 @@ export default function BracketLab() {
             ★ My teams{favs.size ? ` (${favs.size})` : ''}
           </button>
         </div>
-        <div className="bl-count">{rows.length.toLocaleString()} {rows.length === 1 ? 'matchup' : 'matchups'} · tap a card to flip it</div>
+        {gallery && (
+          <div className="bl-count">
+            {view.kind === 'school' ? `${rows.length} ${rows.length === 1 ? 'row' : 'rows'}` : `${rows.length.toLocaleString()} ${rows.length === 1 ? 'matchup' : 'matchups'}`} · tap a card to flip it · tap a school to see its season
+          </div>
+        )}
       </nav>
 
-      <section className="bl-rows">
-        {rows.slice(0, shown).map((row) => (
-          <SeriesRowView key={row.key} row={row} index={index} favs={favs} onFav={toggle} />
-        ))}
-        {rows.length === 0 && <p className="bl-empty">{onlyFavs && !favs.size ? 'Star a school on any matchup to follow it here.' : 'No matchups match these filters.'}</p>}
-        <div ref={sentinel} className="bl-sentinel" aria-hidden="true" />
-      </section>
+      {view.kind === 'boards' && (
+        lb
+          ? <Leaderboards index={index} lb={lb} week={week} setWeek={setWeek} region={region} query={query} onlyFavs={onlyFavs} favs={favs} onFav={toggle} onOpen={openSchool} />
+          : <p className="bl-empty">Loading the leaderboards…</p>
+      )}
+
+      {view.kind === 'school' && (
+        lb
+          ? <SchoolHead index={index} lb={lb} h={view.h} favs={favs} onFav={toggle} onBack={() => pick({ kind: 'boards' })} />
+          : <p className="bl-empty">Loading the season…</p>
+      )}
+
+      {gallery && (view.kind !== 'school' || lb) && (
+        <section className="bl-rows">
+          {rows.slice(0, shown).map((row) => (
+            <SeriesRowView key={row.key} row={row} index={index} favs={favs} onFav={toggle} onOpen={openSchool} />
+          ))}
+          {rows.length === 0 && <p className="bl-empty">{onlyFavs && !favs.size ? 'Star a school on any matchup to follow it here.' : 'No matchups match these filters.'}</p>}
+          <div ref={sentinel} className="bl-sentinel" aria-hidden="true" />
+        </section>
+      )}
       <footer className="bl-foot">
         Simulated on 2026 stats: pros are real box scores (spring training included); college lines marked * are simulated from each player&apos;s 2026 season totals.
         OPS+ and FIP- compare every player with the average at his own level (100 = average).
@@ -286,10 +417,177 @@ export default function BracketLab() {
   );
 }
 
-function SeriesRowView({ row, index, favs, onFav }: { row: Row; index: Index; favs: Set<number>; onFav: (h: number) => void }) {
+function Star({ h, index, favs, onFav }: { h: number; index: Index; favs: Set<number>; onFav: (h: number) => void }) {
+  const on = favs.has(h);
+  return (
+    <button type="button" className={`bl-star${on ? ' on' : ''}`} onClick={() => onFav(h)} aria-pressed={on} aria-label={`${on ? 'Unfollow' : 'Follow'} ${index.schools[h]?.[0]}`}>
+      {on ? '★' : '☆'}
+    </button>
+  );
+}
+
+// The 8 regional leaderboards through a chosen week: every school, most runs
+// first, then run differential. After week 30 each region's leader is in the
+// Leaderboard 8 (the bracket champion sits out; its region sends the next).
+function Leaderboards({ index, lb, week, setWeek, region, query, onlyFavs, favs, onFav, onOpen }: {
+  index: Index; lb: LbGame[]; week: number; setWeek: (w: number) => void; region: number; query: string;
+  onlyFavs: boolean; favs: Set<number>; onFav: (h: number) => void; onOpen: (h: number) => void;
+}) {
+  const st = useMemo(() => standings(index, lb, week), [index, lb, week]);
+  const elim = useMemo(() => eliminations(index), [index]);
+  const final = week >= LAST_WEEK;
+  const [ws, we] = index.weeks[week - 1] || ['', ''];
+  const regions = region ? [region] : [1, 2, 3, 4, 5, 6, 7, 8];
+  const status = (h: number) => {
+    if (final && h === index.champion) return { text: 'Bracket champion', cls: 'champ' };
+    const e = elim.get(h);
+    if (e && e.week <= week) return { text: `Out · ${ROUND_SHORT[e.round - 1]}`, cls: 'out' };
+    return { text: 'In the bracket', cls: 'alive' };
+  };
+  const name = (h: number) => index.schools[h]?.[0] || String(h);
+  const lbSeed = new Map(index.lbLeaders.map((h, i) => [h, i + 1]));
+
+  return (
+    <section className="bl-boards">
+      <div className="bl-weekbar">
+        <button type="button" onClick={() => setWeek(Math.max(1, week - 1))} disabled={week <= 1} aria-label="Previous week">‹</button>
+        <input type="range" min={1} max={LAST_WEEK} value={week} onChange={(e) => setWeek(Number(e.target.value))} aria-label="Standings through week" />
+        <button type="button" onClick={() => setWeek(Math.min(LAST_WEEK, week + 1))} disabled={week >= LAST_WEEK} aria-label="Next week">›</button>
+        <div className="bl-weeklabel">Standings through <b>Week {week}</b>{ws ? ` · ${fmtRange(ws, we)}` : ''}{final ? ' · final' : ''}</div>
+      </div>
+
+      {final && (
+        <div className="bl-announce">
+          <div className="bl-announce-t">The Leaderboard 8 · announced before Week 31</div>
+          <p>Each region&apos;s leader in total runs (run differential breaks ties) plays a single-game tournament, {fmtRange(index.weeks[LAST_WEEK][0], index.weeks[LAST_WEEK + 2][1])}. The winner meets bracket champion <b>{shortName(name(index.champion))}</b> in the Grand Final, which sits out until then.</p>
+          <ol>
+            {index.lbLeaders.map((h) => {
+              const s = st.get(h)!;
+              return (
+                <li key={h}>
+                  <span className="seed">#{lbSeed.get(h)}</span>
+                  <button type="button" className="bl-link" onClick={() => onOpen(h)}><b>{shortName(name(h))}</b></button>
+                  <i>Region {index.schools[h][1]} · {REGIONS[index.schools[h][1]]}</i>
+                  <span className="runs">{s.rf} R</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+
+      <div className="bl-grid">
+        {regions.map((r) => (
+          <RegionBoard key={r} region={r} ranked={rankRegion(index, st, r)} index={index} final={final} query={query}
+            onlyFavs={onlyFavs} favs={favs} onFav={onFav} onOpen={onOpen} status={status} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RegionBoard({ region, ranked, index, final, query, onlyFavs, favs, onFav, onOpen, status }: {
+  region: number; ranked: Stand[]; index: Index; final: boolean; query: string; onlyFavs: boolean;
+  favs: Set<number>; onFav: (h: number) => void; onOpen: (h: number) => void; status: (h: number) => { text: string; cls: string };
+}) {
+  const [all, setAll] = useState(false);
+  const TOP = 10;
+  const name = (h: number) => index.schools[h]?.[0] || String(h);
+  // The region's spot in the Leaderboard 8: its leader, or the next school
+  // when the leader is the bracket champion.
+  const qualifier = ranked.find((s) => !final || s.h !== index.champion)?.h;
+  const q = query.trim().toLowerCase();
+  const rows = ranked
+    .map((s, i) => ({ s, rank: i + 1 }))
+    .filter(({ s, rank }) => {
+      if (q) return name(s.h).toLowerCase().includes(q);
+      if (onlyFavs) return favs.has(s.h);
+      return all || rank <= TOP || favs.has(s.h);
+    });
+
+  return (
+    <div className="bl-board">
+      <div className="bl-board-h">
+        <b>Region {region}</b> <span>{REGIONS[region]}</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th className="rk">#</th><th className="nm">School</th><th>R</th><th>Diff</th><th>W-L</th><th className="st">Status</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(({ s, rank }) => {
+            const diff = s.rf - s.ra;
+            const st = status(s.h);
+            const isQ = s.h === qualifier;
+            return (
+              <tr key={s.h} className={`${isQ ? 'lead' : ''}${rank > TOP && !all ? ' extra' : ''}`}>
+                <td className="rk">{rank}</td>
+                <td className="nm">
+                  <Star h={s.h} index={index} favs={favs} onFav={onFav} />
+                  <button type="button" className="bl-link" onClick={() => onOpen(s.h)}>{shortName(name(s.h))}</button>
+                  {isQ && <em className="q">{final ? 'Qualified' : 'Leads'}</em>}
+                </td>
+                <td className="r">{s.rf}</td>
+                <td className={diff > 0 ? 'pos' : diff < 0 ? 'neg' : ''}>{diff > 0 ? `+${diff}` : diff}</td>
+                <td>{s.w}–{s.l}{s.t ? `–${s.t}` : ''}</td>
+                <td className={`st ${st.cls}`}>{st.text}</td>
+              </tr>
+            );
+          })}
+          {rows.length === 0 && <tr><td colSpan={6} className="none">{q ? 'No school matches.' : 'No followed schools in this region.'}</td></tr>}
+        </tbody>
+      </table>
+      {!q && !onlyFavs && (
+        <button type="button" className="bl-more" onClick={() => setAll((v) => !v)}>
+          {all ? `Top ${TOP} only` : `All ${ranked.length} schools`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// The top of a school's season page: where it stands on its leaderboard
+// and how its bracket run ended.
+function SchoolHead({ index, lb, h, favs, onFav, onBack }: { index: Index; lb: LbGame[]; h: number; favs: Set<number>; onFav: (h: number) => void; onBack: () => void }) {
+  const st = useMemo(() => standings(index, lb, LAST_WEEK), [index, lb]);
+  const elim = useMemo(() => eliminations(index), [index]);
+  const [nm, region, seed] = index.schools[h] || [String(h), 0, 0];
+  const ranked = rankRegion(index, st, region);
+  const rank = ranked.findIndex((s) => s.h === h) + 1;
+  const s = st.get(h)!;
+  const e = elim.get(h);
+  const bracket = h === index.champion ? 'Won the bracket' : e ? `Out of the bracket in ${ROUND_SHORT[e.round - 1]} (week ${e.week})` : '';
+  const extra = [
+    index.lbLeaders.includes(h) ? 'In the Leaderboard 8' : '',
+    h === index.lbChampion ? 'won the Leaderboard 8' : '',
+    h === index.grandChampion ? 'won the Grand Final' : '',
+  ].filter(Boolean).join(' · ');
+  return (
+    <div className="bl-school">
+      <button type="button" className="bl-backlink" onClick={onBack}>‹ Leaderboards</button>
+      <div className="bl-school-t">
+        <Star h={h} index={index} favs={favs} onFav={onFav} />
+        <b>{shortName(nm)}</b> <i>{place(nm)}</i>
+      </div>
+      <div className="bl-school-s">
+        Region {region} · {REGIONS[region]} · #{seed} seed · <b>{rank}{ordinal(rank)}</b> on the leaderboard with <b>{s.rf} runs</b> ({s.rf - s.ra >= 0 ? '+' : ''}{s.rf - s.ra}) · {s.w}–{s.l}{s.t ? `–${s.t}` : ''} in {s.g} games
+      </div>
+      <div className="bl-school-s">{bracket}{extra ? ` · ${extra}` : ''}</div>
+    </div>
+  );
+}
+
+function ordinal(n: number) {
+  const t = n % 100;
+  if (t >= 11 && t <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+}
+
+function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; index: Index; favs: Set<number>; onFav: (h: number) => void; onOpen: (h: number) => void }) {
   const S = index.schools;
   const [boxes, setBoxes] = useState<Record<string, GameBox> | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
+  const filesKey = [...new Set(row.files)].join('|');
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -297,17 +595,20 @@ function SeriesRowView({ row, index, favs, onFav }: { row: Row; index: Index; fa
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         io.disconnect();
-        loadBoxes(row.file).then((b) => { if (!cancelled) setBoxes(b); });
+        Promise.all(filesKey.split('|').map(loadBoxes)).then((list) => {
+          if (!cancelled) setBoxes(Object.assign({}, ...list));
+        });
       }
     }, { rootMargin: '800px 0px' });
     io.observe(el);
     return () => { cancelled = true; io.disconnect(); };
-  }, [row.file]);
+  }, [filesKey]);
 
-  const star = (h: number) => (
-    <button type="button" className={`bl-star${favs.has(h) ? ' on' : ''}`} onClick={() => onFav(h)} aria-pressed={favs.has(h)} aria-label={`${favs.has(h) ? 'Unfollow' : 'Follow'} ${S[h]?.[0]}`}>
-      {favs.has(h) ? '★' : '☆'}
-    </button>
+  const team = (h: number, seed: number) => (
+    <span>
+      {seed ? `#${seed} ` : ''}
+      <button type="button" className="bl-link" onClick={() => onOpen(h)}><b>{shortName(S[h]?.[0] || '')}</b></button> <i>{place(S[h]?.[0] || '')}</i>
+    </span>
   );
 
   return (
@@ -315,22 +616,29 @@ function SeriesRowView({ row, index, favs, onFav }: { row: Row; index: Index; fa
       <div className="bl-rowhead">
         <div className="bl-round">{row.roundLabel}</div>
         <div className="bl-title">
-          {star(row.home)}<span>#{row.homeSeed} <b>{shortName(S[row.home]?.[0] || '')}</b> <i>{place(S[row.home]?.[0] || '')}</i></span>
-          <span className="bl-vs">vs</span>
-          {star(row.away)}<span>#{row.awaySeed} <b>{shortName(S[row.away]?.[0] || '')}</b> <i>{place(S[row.away]?.[0] || '')}</i></span>
+          {row.plain ? (
+            <><Star h={row.home} index={index} favs={favs} onFav={onFav} />{team(row.home, 0)}<span className="bl-vs">weekly regional games</span></>
+          ) : (
+            <>
+              <Star h={row.home} index={index} favs={favs} onFav={onFav} />{team(row.home, row.homeSeed)}
+              <span className="bl-vs">vs</span>
+              <Star h={row.away} index={index} favs={favs} onFav={onFav} />{team(row.away, row.awaySeed)}
+            </>
+          )}
         </div>
         <div className="bl-result">{row.result}</div>
       </div>
       <div className={`bl-cards n${row.games.length}`}>
         {row.games.map((g, i) => (
-          <FlipCard key={g[0]} game={g} label={row.gameLabels[i]} index={index} box={boxes ? boxes[String(g[0])] : undefined} loading={!boxes} />
+          <FlipCard key={g[0]} game={g} label={row.gameLabels[i]} index={index} box={boxes ? boxes[String(g[0])] : undefined} loading={!boxes}
+            front={row.school !== undefined && g[3] === row.school ? 'a' : 'h'} />
         ))}
       </div>
     </div>
   );
 }
 
-function FlipCard({ game, label, index, box, loading }: { game: GameRow; label: string; index: Index; box?: GameBox; loading: boolean }) {
+function FlipCard({ game, label, index, box, loading, front = 'h' }: { game: GameRow; label: string; index: Index; box?: GameBox; loading: boolean; front?: 'h' | 'a' }) {
   const [flipped, setFlipped] = useState(false);
   const [id, week, home, away, decidedBy, innings, winner] = game;
   const S = index.schools;
@@ -358,8 +666,8 @@ function FlipCard({ game, label, index, box, loading }: { game: GameRow; label: 
   return (
     <div className={`bl-card${flipped ? ' flipped' : ''}`} data-game={id}>
       <div className="bl-inner">
-        <div className="bl-face bl-front">{face('h')}</div>
-        <div className="bl-face bl-back">{face('a')}</div>
+        <div className="bl-face bl-front">{face(front)}</div>
+        <div className="bl-face bl-back">{face(front === 'h' ? 'a' : 'h')}</div>
       </div>
     </div>
   );
@@ -643,6 +951,56 @@ function Styles() {
       .bl-muted.small { padding-top:0; font-size:11.5px; }
       .bl-empty { max-width:1180px; margin:40px auto; color:var(--muted); }
       .bl-sentinel { height:1px; }
+      .bl-link { border:0; background:none; padding:0; color:inherit; font:inherit; cursor:pointer; text-align:left; }
+      .bl-link:hover b, .bl-link:hover { text-decoration:underline; text-underline-offset:3px; }
+      .bl-boards { max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+      .bl-weekbar { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px 10px; }
+      .bl-weekbar button { width:36px; height:36px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:20px; line-height:1; cursor:pointer; }
+      .bl-weekbar button:disabled { opacity:.35; cursor:default; }
+      .bl-weekbar input { width:100%; accent-color:var(--gold); }
+      .bl-weeklabel { grid-column:1 / -1; color:var(--muted); font-size:13.5px; }
+      .bl-weeklabel b { color:var(--gold); font:500 15px/1 Oswald, sans-serif; letter-spacing:.04em; }
+      .bl-announce { border:1px solid var(--gold); border-radius:12px; background:linear-gradient(180deg, #2a2412, var(--panel)); padding:14px 16px; }
+      .bl-announce-t { font:500 13px/1.2 Oswald, sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); }
+      .bl-announce p { margin:6px 0 10px; color:var(--muted); font-size:13.5px; }
+      .bl-announce p b { color:var(--text); }
+      .bl-announce ol { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:6px 16px; }
+      .bl-announce li { display:flex; align-items:baseline; gap:8px; min-width:0; }
+      .bl-announce li .seed { color:var(--gold); font:500 14px/1 Oswald, sans-serif; width:24px; flex:none; }
+      .bl-announce li i { color:var(--muted); font-style:normal; font-size:12px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .bl-announce li .runs { font:500 13px/1 Oswald, sans-serif; flex:none; }
+      .bl-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; align-items:start; }
+      @media (max-width:900px) { .bl-grid { grid-template-columns:minmax(0, 1fr); } }
+      .bl-board { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; min-width:0; }
+      .bl-board-h { padding:10px 12px; background:var(--panel2); border-bottom:1px solid var(--line); font:500 15px/1.2 Oswald, sans-serif; letter-spacing:.04em; }
+      .bl-board-h span { color:var(--muted); font-size:13px; margin-left:6px; }
+      .bl-board table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+      .bl-board th, .bl-board td { padding:6px 6px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+      .bl-board thead th { color:var(--muted); font:500 11px/1 Oswald, sans-serif; letter-spacing:.05em; }
+      .bl-board .rk { width:28px; text-align:right; color:var(--muted); }
+      .bl-board .nm { text-align:left; max-width:0; width:100%; overflow:hidden; text-overflow:ellipsis; }
+      .bl-board .nm .bl-star { font-size:15px; margin-right:2px; }
+      .bl-board td.r { color:var(--text); font-weight:700; }
+      .bl-board td.pos { color:var(--win); }
+      .bl-board td.neg { color:var(--loss); }
+      .bl-board .st { text-align:left; font-size:11.5px; }
+      .bl-board td.st.alive { color:var(--text); }
+      .bl-board td.st.out { color:var(--muted); }
+      .bl-board td.st.champ { color:var(--gold); }
+      .bl-board tr.lead td { background:rgba(255,210,74,.08); }
+      .bl-board tr.lead .nm .bl-link { color:var(--gold); font-weight:600; }
+      .bl-board tr.extra td { border-top:1px dashed var(--line); }
+      .bl-board em.q { margin-left:6px; font-style:normal; font:600 10px/1 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; color:#000; background:var(--gold); padding:2px 5px; border-radius:3px; }
+      .bl-board td.none { text-align:left; color:var(--muted); font-style:italic; }
+      @media (max-width:520px) { .bl-board .st { display:none; } }
+      .bl-more { display:block; width:100%; padding:9px; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; }
+      .bl-school { max-width:1180px; margin:0 auto 18px; display:flex; flex-direction:column; gap:6px; }
+      .bl-backlink { align-self:flex-start; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; padding:0; }
+      .bl-school-t { font:400 clamp(28px,5vw,40px)/1 "Bebas Neue", Oswald, sans-serif; letter-spacing:.02em; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+      .bl-school-t i { font:400 14px/1 system-ui, sans-serif; color:var(--muted); font-style:normal; }
+      .bl-school-t .bl-star { font-size:22px; }
+      .bl-school-s { color:var(--muted); font-size:13.5px; }
+      .bl-school-s b { color:var(--text); }
       .bl-foot { max-width:1180px; margin:32px auto 0; color:var(--muted); font-size:12.5px; border-top:1px solid var(--line); padding-top:12px; }
     `}</style>
   );

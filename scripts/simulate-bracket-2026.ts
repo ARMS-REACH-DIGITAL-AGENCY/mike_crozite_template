@@ -583,7 +583,10 @@ console.log(`Wrote ${OUT}`);
 //   index.json          - schools, and every series and game with its line
 //                         score (rounds 1-10, the leaderboard tournament and
 //                         the Grand Final)
-//   d-<round>-<region>.json, d-lbt.json, d-gf.json - each game's box score:
+//   lb.json             - the eliminated schools' weekly regional games
+//                         (line scores + region), for the leaderboards
+//   d-<round>-<region>.json, d-lb-<week>-<region>.json, d-lbt.json,
+//   d-gf.json           - each game's box score:
 //                         both schools' alumni with their weekly lines,
 //                         OPS+ and FIP-, the day-by-day team numbers behind
 //                         every run, and the clubs' W-L
@@ -650,6 +653,11 @@ function exportGallery(dir: string) {
   });
   const lbt = lbBracket.map((g) => ({ seeds: [lbSeed.get(g.home), lbSeed.get(g.away)], game: gameOut('d-lbt', g) }));
   const gf = grandFinalGames.map((g) => gameOut('d-gf', g));
+  // Eliminated schools' weekly regional games (+ region), for the leaderboards.
+  const lb = lbGames.map((g) => {
+    const region = schools.get(g.home)!.region;
+    return [...gameOut(`d-lb-${g.week}-${region}`, g), region];
+  });
 
   const index = {
     season: 2026,
@@ -660,10 +668,13 @@ function exportGallery(dir: string) {
     lbt,
     gf,
     champion,
+    // The Leaderboard 8 in seed order, announced after week 30.
+    lbLeaders,
     lbChampion,
     grandChampion,
   };
   fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify(index));
+  fs.writeFileSync(path.join(dir, 'lb.json'), JSON.stringify({ games: lb }));
   for (const [file, data] of details) fs.writeFileSync(path.join(dir, `${file}.json`), JSON.stringify(data));
   console.log(`Exported ${gid} games to ${dir} (${details.size} box-score files)`);
 }
