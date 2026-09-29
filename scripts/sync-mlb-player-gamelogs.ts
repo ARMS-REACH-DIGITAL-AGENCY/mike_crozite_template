@@ -19,13 +19,12 @@
 //
 // A player's level can change mid-season (call-ups/demotions) and the
 // gameLog endpoint only returns games for the sportId you ask it for, so
-// each player's current sportId is resolved once per run via their current
-// team, then used for both hitting and pitching gameLog requests. This
-// misses games played at a since-departed level within the same season;
-// re-running after a demotion/promotion backfills the new level's games,
-// but a player who was in AAA earlier this season and is in MLB now will
-// not get their AAA games until this script is extended to walk every
-// sportId a player touched this season.
+// each player's games are fetched for every level he was on this season:
+// his current team's sportId, plus the sportId of every team in his
+// player_team_stints for the season (scripts/build-player-team-stints.ts,
+// which knows his earlier teams from transactions and games). Without the
+// earlier levels, the Game Log would show "Did not play" for games he
+// played before a call-up or demotion.
 //
 // Usage:
 //   npx tsx scripts/sync-mlb-player-gamelogs.ts                  # all mapped players, current season
@@ -196,6 +195,39 @@ async function fetchCurrentSportId(personId: string): Promise<number> {
   }
 }
 
+// Every level (sportId) each player was on this season, from his team
+// stints and the teams' schedules.
+async function getStintSportIds(): Promise<Map<string, Set<number>>> {
+  const bySport = new Map<string, Set<number>>();
+  try {
+    const { rows } = await pool.query<{ playerid: string; sport_id: number }>(
+      `WITH team_sport AS (
+         SELECT DISTINCT team_id, sport_id FROM (
+           SELECT home_team_id AS team_id, sport_id FROM public.team_schedules
+            WHERE game_date >= make_date($1, 1, 1) AND game_date < make_date($1 + 1, 1, 1)
+           UNION ALL
+           SELECT away_team_id, sport_id FROM public.team_schedules
+            WHERE game_date >= make_date($1, 1, 1) AND game_date < make_date($1 + 1, 1, 1)) t
+         WHERE sport_id IS NOT NULL)
+       SELECT DISTINCT s.playerid, ts.sport_id
+         FROM public.player_team_stints s
+         JOIN public.team_id_map m ON m.tbc_teamid = s.teamid
+         JOIN team_sport ts ON ts.team_id = m.mlb_stats_api_id
+        WHERE s.season = $1`,
+      [SEASON]
+    );
+    for (const r of rows) {
+      const set = bySport.get(r.playerid) ?? new Set<number>();
+      set.add(Number(r.sport_id));
+      bySport.set(r.playerid, set);
+    }
+  } catch (err) {
+    // No stints (table missing or empty): current level only, as before.
+    console.warn("Could not read player_team_stints levels; current level only:", (err as Error).message);
+  }
+  return bySport;
+}
+
 async function fetchGameLog(
   personId: string,
   sportId: number,
@@ -319,25 +351,34 @@ async function main() {
   try {
     const players = await getMappedPlayers();
     console.log(`Found ${players.length} mlb_api-mapped players`);
+    const stintSports = await getStintSportIds();
+    console.log(`Players with team stints this season: ${stintSports.size}`);
     console.log("");
+    let extraLevelRows = 0;
 
     for (const { playerid, source_player_id: personId } of players) {
-      const sportId = await fetchCurrentSportId(personId);
+      const currentSportId = await fetchCurrentSportId(personId);
       await delay(DELAY_MS);
 
-      const [hitting, pitching] = await Promise.all([
-        fetchGameLog(personId, sportId, "hitting"),
-        fetchGameLog(personId, sportId, "pitching"),
-      ]);
-      await delay(DELAY_MS);
-
-      const rows = [
-        ...hitting.map((split) => toGameLogRow(playerid, split, "batting")),
-        ...pitching.map((split) => toGameLogRow(playerid, split, "pitching")),
-      ].filter((row): row is GameLogRow => row !== null);
+      // His current level first, then any other level he was on this season.
+      const sportIds = [currentSportId, ...[...(stintSports.get(playerid) ?? [])].filter((id) => id !== currentSportId)];
+      const rows: GameLogRow[] = [];
+      for (const sportId of sportIds) {
+        const [hitting, pitching] = await Promise.all([
+          fetchGameLog(personId, sportId, "hitting"),
+          fetchGameLog(personId, sportId, "pitching"),
+        ]);
+        await delay(DELAY_MS);
+        const levelRows = [
+          ...hitting.map((split) => toGameLogRow(playerid, split, "batting")),
+          ...pitching.map((split) => toGameLogRow(playerid, split, "pitching")),
+        ].filter((row): row is GameLogRow => row !== null);
+        if (sportId !== currentSportId) extraLevelRows += levelRows.length;
+        rows.push(...levelRows);
+      }
 
       if (rows.length > 0) {
-        console.log(`  playerid=${playerid} mlbId=${personId} sportId=${sportId} -> ${rows.length} games`);
+        console.log(`  playerid=${playerid} mlbId=${personId} sportIds=${sportIds.join(",")} -> ${rows.length} games`);
       }
 
       if (!dryRun) {
@@ -355,6 +396,7 @@ async function main() {
     console.log("");
     console.log("=== MLB Player Game Log Sync Complete ===");
     console.log(`Players processed: ${playersProcessed}`);
+    console.log(`Game log rows from earlier levels this season: ${extraLevelRows}`);
     console.log(`Game log rows ${dryRun ? "would upsert" : "upserted"}: ${rowsUpserted}`);
   } catch (err) {
     console.error("ERROR during MLB player game log sync:", err);
