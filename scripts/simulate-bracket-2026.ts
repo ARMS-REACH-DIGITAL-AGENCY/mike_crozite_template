@@ -21,10 +21,10 @@
 //
 // The tournament:
 //   Weeks 1-30 (Feb 2 - Aug 30): the 1,024-school bracket, 10 rounds of
-//     best-of-3 (the schedule in master_bracket_schedule_2026). Rounds 1-7
-//     inside each region (standard seeded order, 1 v 128 ...); the 8 regional
-//     champions are reseeded for Round 8 (region seed, then run
-//     differential): 1v8, 4v5, 2v7, 3v6.
+//     best-of-3. Rounds 1-7 stay inside each 128-school region (standard
+//     seeded order, 1 v 128 ...). The 8 regional champions then enter the
+//     fixed national bracket in their regional slots for Rounds 8-10; the
+//     main bracket is NOT reseeded by school seed or run differential.
 //   Regional leaderboards: every school, all 30 weeks, ranked on total
 //     runs. Schools still in the bracket score in their bracket games;
 //     eliminated schools play a weekly game, paired at random inside their
@@ -405,7 +405,6 @@ function game(week: number, home: number, away: number, allowTie = false): GameR
 
 type SeriesRow = { round: number; region: number | null; home: number; away: number; homeSeed: number; awaySeed: number; games: GameRow[]; winner: number; loser: number; wins: [number, number]; lastWeek: number };
 const series: SeriesRow[] = [];
-const runDiff = new Map<number, number>();
 const eliminatedAfterWeek = new Map<number, number>(); // hsid -> last week played in the bracket
 
 function playBracketSeries(round: number, region: number | null, a: number, b: number, seedA: number, seedB: number): SeriesRow {
@@ -419,10 +418,6 @@ function playBracketSeries(round: number, region: number | null, a: number, b: n
   const winner = s.winner === 'home' ? home : away;
   const loser = winner === home ? away : home;
   const wins: [number, number] = [s.games.filter((g) => g.winner === home).length, s.games.filter((g) => g.winner === away).length];
-  for (const g of s.games) {
-    runDiff.set(home, (runDiff.get(home) || 0) + g.score[0] - g.score[1]);
-    runDiff.set(away, (runDiff.get(away) || 0) + g.score[1] - g.score[0]);
-  }
   const lastWeek = s.games[s.games.length - 1].week;
   eliminatedAfterWeek.set(loser, lastWeek);
   const row = { round, region, home, away, homeSeed: hSeed, awaySeed: aSeed, games: s.games, winner, loser, wins, lastWeek };
@@ -445,14 +440,16 @@ for (let region = 1; region <= 8; region++) {
   }
   regionChamps.push(alive[0]);
 }
-// Round 8: reseeded by region seed, then run differential.
-const reseeded = [...regionChamps].sort((a, b) => schools.get(a)!.seed - schools.get(b)!.seed || (runDiff.get(b) || 0) - (runDiff.get(a) || 0));
-const nationalSeed = new Map(reseeded.map((h, i) => [h, i + 1]));
-let alive = bracketOrder(8).map((s) => reseeded[s - 1]);
+// Rounds 8-10: fixed national bracket by regional slot.
+// regionChamps is [Region 1 champ, ..., Region 8 champ]. bracketOrder(8)
+// gives the permanent national bracket: R1vR8, R4vR5, R2vR7, R3vR6.
+// Do not reseed these eight schools by school seed, runs, or run differential.
+const nationalSlot = new Map(regionChamps.map((h, i) => [h, i + 1]));
+let alive = bracketOrder(8).map((regionSlot) => regionChamps[regionSlot - 1]);
 for (let round = 8; round <= 10; round++) {
   const next: number[] = [];
   for (let i = 0; i < alive.length; i += 2) {
-    next.push(playBracketSeries(round, null, alive[i], alive[i + 1], nationalSeed.get(alive[i])!, nationalSeed.get(alive[i + 1])!).winner);
+    next.push(playBracketSeries(round, null, alive[i], alive[i + 1], nationalSlot.get(alive[i])!, nationalSlot.get(alive[i + 1])!).winner);
   }
   alive = next;
 }
