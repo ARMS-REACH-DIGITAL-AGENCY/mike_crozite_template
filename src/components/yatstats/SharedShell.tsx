@@ -14,7 +14,7 @@ import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
 import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
-import BracketRow3 from '../bracket/BracketRow3';
+import FantasyTimeline from '../bracket/FantasyTimeline';
 import BracketTicker from '../bracket/BracketTicker';
 
 type StripPlayer = {
@@ -147,9 +147,9 @@ export default function SharedShell({
           {row3Content
             ? row3Content
             : activeSection === 'fantasy' && !isPlayerProfile
-              // The Fantasy Bracket Tourney tab: Round and Region filters
-              // in place of the alumni headshots.
-              ? <BracketRow3 />
+              // The Fantasy Bracket Tourney tab: the school's season, a
+              // slide per week, where a profile has its Career Path Timeline.
+              ? <FantasyTimeline />
               : profilePlayerId
               ? (
                   <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">

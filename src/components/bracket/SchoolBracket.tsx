@@ -1,132 +1,212 @@
 'use client';
 
 // src/components/bracket/SchoolBracket.tsx
-// The Fantasy Bracket Tourney tab (the 2026 simulation). Every school's
-// page is the same page: the tournament in sections, the round in progress
-// on top and each finished round underneath (the history). Row 3's school
-// tile swaps it for this school's whole season, newest round first (its
-// bracket series, or its weekly region leaderboard games once it's out). Each series is one row: game 1, game 2, game 3. The single
-// games (Season Championship Tournament, Fantasy World Series) pack three to a row. Row 3's tiles
-// (BracketRow3) also filter by region, or show the regional leaderboards.
+// A school's fantasy page (the Fantasy Bracket Tourney tab), laid out like a
+// player profile: where a profile has its stories, this has the school's
+// weeks - one horizontal card per game with just the matchup, the nine-inning
+// line and the score - and where a profile lists teammates, the narrow
+// column is the region's Most Runs Scored Leaderboard. Row 3's timeline
+// (FantasyTimeline) has a slide per week.
 //
-// "Current" follows the calendar. ?asof=YYYY-MM-DD previews any date: only
-// games final by then show.
+// The cards: this round's on top, then the results (newest first), then the
+// weeks still to play. All 30 weeks are there from the start; Round 1's
+// opponent is known, each later round's fills in when the round before ends.
+//
+// How each player did is one tap away: a school's name or logo opens its week
+// in a drawer - the home team's from the right, the visitor's from the left.
+//
+// "Now" follows the calendar; ?asof=YYYY-MM-DD previews any date.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  type Index, type LbGame, type Row, type Stage,
-  LAST_WEEK, LBT_ROUNDS, REGIONS, SCT, WORLD_SERIES, WORLD_SERIES_FULL, type GameRow, Leaderboards, SeriesRowView, Styles,
-  buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, previewDate, schoolStageRows, seriesInRound, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
+  type GameBox, type Index, type LbGame,
+  LAST_WEEK, REGIONS, Face, Styles,
+  abbr, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings, tieNote,
 } from './gallery';
+import { DAY_NAMES, type WeekCard, calendar, runsThrough, schoolSeason } from './schoolSeason';
 import { useBracketNav } from './bracketNav';
+import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
 
-// Round 1 · 512 series ... Round 10 · 1 series.
-const STAGE_NAME = (s: Stage) =>
-  s.kind === 'round' ? `Round ${s.r} · ${seriesInRound(s.r)} series` : s.kind === 'lbt' ? SCT : s.kind === 'gf' ? WORLD_SERIES : 'Leaderboards';
-
-
-// The page is a list: a heading per round, then its rows.
-type Item = { kind: 'head'; key: string; title: string; dates: string } | { kind: 'row'; key: string; row: Row };
-
-function stageDates(index: Index, s: Stage) {
-  const [a, b] = stageWeeks(s);
-  const first = index.weeks[a - 1], last = index.weeks[b - 1];
-  return first && last ? `${a === b ? `Week ${a}` : `Weeks ${a}–${b}`} · ${fmtRange(first[0], last[1])}` : '';
+function Crest({ h }: { h: number }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="yfp-crest" src={getSchoolCrestUrl(h)} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }} />;
 }
 
-// Weeks 31-34, newest first, each week its own section:
-//   Week 34 - the Fantasy World Series: a card per school (front its box
-//             score, back its fans in the World Series Tickets Raffle), and
-//             a card still to come.
-//   Week 33 - the Season Championship Game, and the Bracket Champ waiting.
-//   Week 32 - the 2 games and their fan picks card.
-//   Week 31 - 2 rows: 2 games and their fan picks card.
-// keep: whether a game shows (a region, a school).
-function postseasonItems(index: Index, final: number, keep: (g: GameRow) => boolean): Item[] {
-  const items: Item[] = [];
-  const W = LAST_WEEK;
-  const dates = (w: number) => (index.weeks[w - 1] ? `Week ${w} · ${fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1])}` : '');
-  const row = (key: string, games: GameRow[], extra: Partial<Row> = {}): Item => ({
-    kind: 'row', key,
-    row: {
-      key, roundLabel: '', title: '', week: games[0]?.[1] ?? 0, region: 0, home: 0, away: 0, homeSeed: 0, awaySeed: 0, result: '',
-      bare: true, games, files: games.map((g) => (g[1] === W + 4 ? 'd-gf' : 'd-lbt')), gameLabels: games.map(label), ...extra,
-    },
-  });
-  function label(g: GameRow) {
-    return g[1] === W + 4 ? WORLD_SERIES : g[1] === W + 3 ? 'Season Championship Game' : `Season Championship ${LBT_ROUNDS[g[1]]}`;
-  }
-  const lbt = (w: number) => index.lbt.map((x) => x.game).filter((g) => g[1] === w);
+const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
 
-  const ws = index.gf.filter((g) => g[1] <= final && keep(g));
-  if (ws.length) {
-    items.push({ kind: 'head', key: 'h-w34', title: WORLD_SERIES_FULL, dates: dates(W + 4) });
-    const g = ws[0];
-    items.push(row('w34', [g, g], { fronts: ['h', 'a'], fansBack: true, extras: [{ kind: 'tbd' }] }));
-  }
-  const champ = lbt(W + 3).filter((g) => g[1] <= final);
-  // The Bracket Champ's own page shows it waiting here too.
-  const champIn = keep([0, W + 3, index.champion, index.champion, '', [], null]);
-  if (champ.length && (champ.some(keep) || champIn)) {
-    items.push({ kind: 'head', key: 'h-w33', title: 'Season Championship Game', dates: dates(W + 3) });
-    items.push(row('w33', champ, { extras: [{ kind: 'wait', h: index.champion }] }));
-  }
-  for (const [w, name] of [[W + 2, 'Round 2'], [W + 1, 'Round 1']] as const) {
-    const games = lbt(w).filter((g) => g[1] <= final);
-    const pairs: GameRow[][] = [];
-    for (let i = 0; i < games.length; i += 2) pairs.push(games.slice(i, i + 2));
-    const shown = pairs.filter((pair) => pair.some(keep));
-    if (!shown.length) continue;
-    items.push({ kind: 'head', key: `h-w${w}`, title: `${SCT} · ${name}`, dates: dates(w) });
-    shown.forEach((pair, i) => items.push(row(`w${w}-${i}`, pair, { extras: [{ kind: 'fans', games: pair }] })));
-  }
-  return items;
+type Open = { card: WeekCard; side: 'h' | 'a' };
+
+// One week: the matchup, the line and the score. Visitor on the left, home
+// on the right (and in the line, visitor on top).
+function WeekCardView({ index, card, me, focused, onOpen }: { index: Index; card: WeekCard; me: number; focused: boolean; onOpen: (o: Open) => void }) {
+  const g = card.game;
+  const S = index.schools;
+  const status = card.state === 'final' ? 'Final' : card.state === 'live' ? (card.days ? `Thru ${DAY_NAMES[card.days - 1]}` : 'Starts Mon') : card.state === 'next' ? 'Upcoming' : card.state === 'bye' ? 'Bye' : 'TBD';
+  let result = '';
+  if (g && card.state === 'final') result = g[6] === null ? 'T' : g[6] === me ? 'W' : 'L';
+  const [hr, ar] = g ? runsThrough(g, card.days) : [0, 0];
+  const played = card.state === 'final' || card.state === 'live';
+  const canOpen = played;
+  const team = (side: 'h' | 'a') => {
+    const h = side === 'h' ? g![2] : g![3];
+    return (
+      <button type="button" className={`yfp-team ${side}${h === me ? ' me' : ''}`} disabled={!canOpen}
+        onClick={() => onOpen({ card, side })} aria-label={canOpen ? `${shortName(S[h]?.[0] || '')}: this week's players` : undefined}>
+        <Crest h={h} />
+        <b>{shortName(S[h]?.[0] || '')}</b>
+      </button>
+    );
+  };
+  return (
+    <article className={`yfp-card ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
+      <div className="yfp-eye">
+        <span>Week {card.week} · {card.stage}</span>
+        <span>{dates(index, card.week)} · {status}{result && <em className={result}>{result}</em>}</span>
+      </div>
+      {g ? (
+        <>
+          <div className="yfp-score">
+            {team('a')}
+            <div className="yfp-runs">{played ? ar : ''}</div>
+            <div className="yfp-dash">{played ? '–' : 'vs'}</div>
+            <div className="yfp-runs">{played ? hr : ''}</div>
+            {team('h')}
+          </div>
+          <table className="yfp-line">
+            <thead><tr><th />{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <th key={n}>{n}</th>)}<th className="r">R</th></tr></thead>
+            <tbody>
+              {(['a', 'h'] as const).map((side) => {
+                const h = side === 'h' ? g[2] : g[3];
+                const off = side === 'h' ? 0 : 1;
+                return (
+                  <tr key={side} className={h === me ? 'me' : ''}>
+                    <th><button type="button" disabled={!canOpen} onClick={() => onOpen({ card, side })}>{abbr(shortName(S[h]?.[0] || ''))}</button></th>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+                      const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
+                      const v = g[5][i * 2 + off];
+                      return <td key={i} className={shown && v ? 'hit' : ''}>{shown ? v : ''}</td>;
+                    })}
+                    <td className="r">{played ? (side === 'h' ? hr : ar) : ''}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {card.state === 'final' && tieNote(g[4]) && <div className="yfp-note">{tieNote(g[4])}</div>}
+          {card.state === 'final' && g[4] === 'tie' && <div className="yfp-note">Tie · half a win each</div>}
+        </>
+      ) : (
+        <div className="yfp-tbd">
+          <span className="yfp-q">?</span>
+          <span>{card.state === 'bye' ? 'No game' : 'Opponent TBD'}{card.note ? <small>{card.note}</small> : null}</span>
+        </div>
+      )}
+    </article>
+  );
 }
 
-// Row 3's school tile: this school's whole season, newest round first - its
-// Fantasy World Series / Season Championship Tournament games, then each round's three games (its
-// bracket series while it's alive, its weekly region leaderboard games once
-// it's out).
-function teamItems(index: Index, lb: LbGame[], h: number, final: number): Item[] {
-  if (!index.schools[h]) return [];
-  const items: Item[] = postseasonItems(index, final, (g) => g[2] === h || g[3] === h);
-  for (let r = 10; r >= 1; r--) {
-    const s: Stage = { kind: 'round', r };
-    const rows = schoolStageRows(index, lb, h, s, final);
-    if (!rows.length) continue;
-    items.push({ kind: 'head', key: `h-t-r${r}`, title: STAGE_NAME(s), dates: stageDates(index, s) });
-    for (const row of rows) items.push({ kind: 'row', key: `t-${row.key}`, row });
-  }
-  return items;
+// A school's week in a drawer: every player's line, OPS+ and FIP-, and how
+// each run was scored. Home from the right, visitor from the left.
+function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+  const { card, side } = open;
+  const g = card.game!;
+  const [box, setBox] = useState<Record<string, GameBox> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
+    return () => { cancelled = true; };
+  }, [card.file]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const S = index.schools;
+  const h = side === 'h' ? g[2] : g[3];
+  const [hr, ar] = runsThrough(g, 7);
+  return createPortal(
+    <div className="yfp-drawer-wrap" role="presentation" onClick={onClose}>
+      <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
+        aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
+        <div className="yfp-drawer-head">
+          <Crest h={h} />
+          <div><b>{shortName(S[h]?.[0] || '')}</b><span>Week {card.week} · {card.stage} · {side === 'h' ? 'Home' : 'Visitor'}</span></div>
+          <button type="button" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        {card.state === 'live' ? (
+          <p className="yfp-drawer-wait">The players&apos; lines post when the week is final.</p>
+        ) : (
+          <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={g[2]} away={g[3]}
+            names={[shortName(S[g[2]]?.[0] || ''), shortName(S[g[3]]?.[0] || '')]} score={[hr, ar]} innings={g[5]} winner={g[6]}
+            decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!box} />
+        )}
+      </aside>
+    </div>,
+    document.body,
+  );
 }
 
-function tournamentItems(index: Index, lb: LbGame[], final: number, region: number): Item[] {
-  const regionOf = (h: number) => index.schools[h]?.[1];
-  const keep = (r: Row) => !region || r.region === region || (!r.region && (regionOf(r.home) === region || regionOf(r.away) === region));
-  const dates = (s: Stage) => stageDates(index, s);
-  // Weeks 31-34 on top, then the bracket rounds.
-  const items: Item[] = postseasonItems(index, final, (g) => !region || regionOf(g[2]) === region || regionOf(g[3]) === region);
-  // The bracket rounds, newest first: the round in progress on top.
-  for (let r = 10; r >= 1; r--) {
-    const s: Stage = { kind: 'round', r };
-    const rows = buildRows(index, lb, s, final).filter(keep);
-    if (!rows.length) continue;
-    items.push({ kind: 'head', key: `h-r${r}`, title: STAGE_NAME(s), dates: dates(s) });
-    for (const row of rows) items.push({ kind: 'row', key: row.key, row });
-  }
-  return items;
+// The rules, in a drawer from the right.
+function RulesDrawer({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="yfp-drawer-wrap" role="presentation" onClick={onClose}>
+      <aside className="bl bl-embed yfp-drawer right" role="dialog" aria-modal="true" aria-label="Rules" onClick={(e) => e.stopPropagation()}>
+        <div className="yfp-drawer-head"><div><b>Rules</b><span>How it&apos;s played and scored</span></div><button type="button" onClick={onClose} aria-label="Close">✕</button></div>
+        <BracketRules />
+      </aside>
+    </div>,
+    document.body,
+  );
+}
+
+// The narrow column (a profile's teammates): a region's Most Runs Scored
+// Leaderboard through the last final week, this school's region first.
+function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbGame[]; me: number; final: number; onRules: () => void }) {
+  const [region, setRegion] = useState(index.schools[me]?.[1] || 1);
+  const through = Math.min(final, LAST_WEEK);
+  const ranked = useMemo(() => rankRegion(index, standings(index, lb, through), region), [index, lb, through, region]);
+  return (
+    <aside className="yfp-lb" aria-label="Region leaderboard">
+      <div className="yfp-lb-title">Region {region} · {REGIONS[region]}</div>
+      <div className="yfp-lb-sub">Most runs scored{through ? ` · thru wk ${through}` : ' · starts week 1'}</div>
+      <div className="yfp-lb-regions" role="group" aria-label="Region">
+        {Object.keys(REGIONS).map((k) => (
+          <button key={k} type="button" className={Number(k) === region ? 'on' : ''} aria-pressed={Number(k) === region} title={`Region ${k} · ${REGIONS[Number(k)]}`} onClick={() => setRegion(Number(k))}>{k}</button>
+        ))}
+      </div>
+      <ol>
+        {ranked.map((s, i) => (
+          <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · ${s.rf} runs (${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra})`}>
+            <span className="rk">{i + 1}</span>
+            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}</a>
+            <span className="rf">{s.rf}</span>
+          </li>
+        ))}
+      </ol>
+      <button type="button" className="yfp-lb-rules" onClick={onRules}>Rules · how it&apos;s scored</button>
+      <p className="yfp-lb-note">Ranked by runs; run differential breaks ties. After week 30 each region&apos;s leader plays in the Season Championship Tournament.</p>
+    </aside>
+  );
 }
 
 export default function SchoolBracket({ hsid }: { hsid: string }) {
-  const home = Number(hsid);
+  const me = Number(hsid);
   const sentinel = useRef<HTMLDivElement | null>(null);
-  const [open, setOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [index, setIndex] = useState<Index | null>(null);
   const [lb, setLb] = useState<LbGame[] | null>(null);
   const [error, setError] = useState('');
   const [asof, setAsof] = useState('');
-  const [boardWeek, setBoardWeek] = useState<number | null>(null);
+  const [open, setOpen] = useState<Open | null>(null);
+  const [rules, setRules] = useState(false);
+  const [focused, setFocused] = useState(0);
   const nav = useBracketNav();
 
   // Load only once the tab is on screen (the section is hidden until then).
@@ -134,85 +214,192 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     const el = sentinel.current;
     if (!el) return;
     const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) { io.disconnect(); setOpen(true); }
+      if (entries.some((e) => e.isIntersecting)) { io.disconnect(); setVisible(true); }
     });
     io.observe(el);
     return () => io.disconnect();
   }, []);
   useEffect(() => {
-    if (!open) return;
+    if (!visible) return;
     Promise.all([loadIndex(), loadLb()])
       .then(([i, g]) => { setAsof(previewDate()); setIndex(i); setLb(g); })
       .catch((e) => setError(String(e)));
-  }, [open]);
+  }, [visible]);
 
-  const cal = useMemo(() => {
-    if (!index || !asof) return null;
-    const week = weekOfDate(index, asof);
-    const final = lastFinalWeek(index, asof);
-    const current = week === 0 ? ({ kind: 'round', r: 1 } as Stage) : stageOfWeek(Math.min(week, index.weeks.length));
-    return { week, final, current };
-  }, [index, asof]);
+  const cards = useMemo(() => (index && lb && asof ? schoolSeason(index, lb, me, asof) : []), [index, lb, asof, me]);
+  const cal = useMemo(() => (index && asof ? calendar(index, asof) : null), [index, asof]);
 
-  // The tournament (the same on every school's page), or with row 3's
-  // school tile this school's whole season.
-  const region = nav.region;
-  const items = useMemo(() => {
-    if (!index || !lb || !cal || nav.boards || nav.rules) return [];
-    return nav.team ? teamItems(index, lb, home, cal.final) : tournamentItems(index, lb, cal.final, region);
-  }, [index, lb, cal, nav.boards, nav.rules, nav.team, home, region]);
-  const { shown, sentinel: more } = useReveal(items.length, 16);
+  // This round on top, then the results (newest first), then what's to come.
+  const groups = useMemo(() => {
+    if (!cal) return [];
+    const w = cal.week;
+    const inRound = (c: WeekCard) => (w >= 1 && w <= LAST_WEEK ? Math.ceil(c.week / 3) === Math.ceil(w / 3) && c.week <= LAST_WEEK : c.week === Math.max(1, w));
+    const now = cards.filter(inRound);
+    const done = cards.filter((c) => !inRound(c) && c.week <= cal.final).reverse();
+    const later = cards.filter((c) => !inRound(c) && c.week > cal.final);
+    const r = Math.ceil(Math.max(1, Math.min(w, LAST_WEEK)) / 3);
+    const nowTitle = w >= 1 && w <= LAST_WEEK ? `This round · Round ${r} · weeks ${r * 3 - 2}–${r * 3}` : `This week · week ${Math.max(1, w)}`;
+    return [
+      { key: 'now', title: nowTitle, list: now },
+      { key: 'done', title: 'Results', list: done },
+      { key: 'later', title: 'Still to play', list: later },
+    ].filter((x) => x.list.length);
+  }, [cards, cal]);
 
+  // Row 3's timeline: a slide scrolls to its week's card.
+  useEffect(() => {
+    if (!nav.focusSeq || !nav.focusWeek) return;
+    const el = document.getElementById(`fweek-${nav.focusWeek}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const on = window.setTimeout(() => setFocused(nav.focusWeek), 0);
+    const off = window.setTimeout(() => setFocused(0), 2200);
+    return () => { window.clearTimeout(on); window.clearTimeout(off); };
+  }, [nav.focusSeq, nav.focusWeek]);
+
+  const school = index?.schools[me];
   return (
-    <div className="bl bl-embed ysb">
-      <div ref={sentinel} className="ysb-top" />
-      {error && <p className="bl-empty">Could not load the bracket ({error}).</p>}
-      {!error && (!index || !lb || !cal) && <p className="bl-empty">Loading the 2026 bracket…</p>}
+    <div className="yfp">
+      <div ref={sentinel} className="yfp-top" />
+      {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
+      {!error && (!index || !lb || !cal) && <p className="yfp-empty">Loading the 2026 season…</p>}
       {index && lb && cal && (
-        <>
-          <div className="bl-kick ysb-kick">
-            2026 National Alumni Bracket · simulation · as of {asof}{region ? ` · Region ${region} · ${REGIONS[region]}` : ''}
-          </div>
-
-          {nav.rules ? (
-            // Row 3's Rules tile: how everything is figured.
-            <section className="ysb-block">
-              <h3>Rules · how it&apos;s scored</h3>
-              <BracketRules />
-            </section>
-          ) : nav.boards ? (
-            <section className="ysb-block">
-              <h3>Regional leaderboards</h3>
-              <Leaderboards index={index} lb={lb} week={boardWeek ?? Math.max(1, Math.min(cal.final, LAST_WEEK))} setWeek={setBoardWeek}
-                region={region} query="" onlyFavs={false} maxWeek={cal.final} />
-            </section>
-          ) : (
-            <div className="bl-rows ysb-list">
-              {nav.team && (
-                <h3 className="ysb-team">
-                  {index.schools[home] ? `${shortName(index.schools[home][0])} · 2026 season` : 'This school isn\u2019t in the 2026 bracket field.'}
-                </h3>
-              )}
-              {items.slice(0, shown).map((it) => (it.kind === 'head'
-                ? <h3 key={it.key} className="ysb-sec">{it.title}<span>{it.dates}</span></h3>
-                : <SeriesRowView key={it.key} row={it.row} index={index} />))}
-              {items.length === 0 && index.schools[home] && <p className="bl-muted">{cal.week === 0 ? `The 2026 bracket starts ${index.weeks[0][0]}.` : 'No games final yet.'}</p>}
-              <div ref={more} className="bl-sentinel" aria-hidden="true" />
+        <div className="yfp-layout">
+          <div className="yfp-main">
+            <div className="yfp-kick">
+              {school ? <>2026 · Region {school[1]} · {REGIONS[school[1]]} · #{school[2]} seed</> : 'Not in the 2026 bracket field'}
+              <span>simulation · as of {asof}</span>
             </div>
-          )}
-          <p className="ysb-foot">Tap a tile above for your school&apos;s season, the leaderboards or one region; tap it again to show everything. Simulated on 2026 stats: pros are real box scores; college lines marked * are simulated from season totals.</p>
-        </>
+            {groups.map((grp) => (
+              <section key={grp.key} className="yfp-group">
+                <h3>{grp.title}</h3>
+                <div className="yfp-feed">
+                  {grp.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} focused={focused === c.week} onOpen={setOpen} />)}
+                </div>
+              </section>
+            ))}
+            {!school && <p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
+          </div>
+          <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={() => setRules(true)} />
+        </div>
       )}
+      {index && open && <TeamDrawer index={index} open={open} onClose={() => setOpen(null)} />}
+      {rules && <RulesDrawer onClose={() => setRules(false)} />}
       <Styles />
-      <style jsx>{`
-        .ysb-top { height:1px; }
-        .ysb-kick { max-width:1180px; margin:0 auto 14px; }
-        .ysb-block { max-width:1180px; margin:0 auto 28px; }
-        .ysb-block h3, .ysb-sec, .ysb-team { margin:0 0 12px; font:500 14px/1.2 Oswald, sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:8px; }
-        .ysb-list { margin-bottom:28px; }
-        .ysb-sec { display:flex; justify-content:space-between; gap:12px; margin-top:12px; }
-        .ysb-sec span { color:var(--muted); letter-spacing:.06em; }
-        .ysb-foot { max-width:1180px; margin:0 auto; color:var(--muted); font-size:12px; }
+      <style jsx global>{`
+        .yfp {
+          --yfp-card-bg: rgba(255,255,255,.055);
+          --yfp-card-border: rgba(255,255,255,.14);
+          --yfp-text: rgba(255,255,255,.88);
+          --yfp-muted: rgba(255,255,255,.55);
+          --yfp-faint: rgba(255,255,255,.3);
+          --yfp-strong: rgba(255,255,255,.95);
+          --yfp-gold: var(--gold, #ffc107);
+          --yfp-win: #7fd18b; --yfp-loss: #e2786a;
+          padding: 10px 10px 20px; color: var(--yfp-text);
+        }
+        body.light-theme .yfp {
+          --yfp-card-bg: rgba(255,255,255,.52);
+          --yfp-card-border: rgba(53,43,30,.18);
+          --yfp-text: rgba(31,25,18,.86);
+          --yfp-muted: rgba(31,25,18,.55);
+          --yfp-faint: rgba(31,25,18,.3);
+          --yfp-strong: rgba(31,25,18,.94);
+          --yfp-gold: #b78600;
+          --yfp-win: #2e8b45; --yfp-loss: #b8472f;
+        }
+        .yfp-top { height: 1px; }
+        .yfp-empty { padding: 40px 12px; text-align: center; color: var(--yfp-muted); font: 400 14px/1.45 system-ui, sans-serif; }
+        .yfp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 16px; align-items: start; max-width: 1000px; margin: 0 auto; }
+        .yfp-main { min-width: 0; }
+        .yfp-kick { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 10px; color: var(--yfp-gold); font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+        .yfp-kick span { color: var(--yfp-muted); }
+        .yfp-group { margin: 0 0 16px; }
+        .yfp-group h3 { margin: 0 0 8px; color: var(--yfp-gold); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+        .yfp-feed { display: flex; flex-direction: column; gap: 8px; }
+
+        /* A week: like a story card - thin border, date eyebrow on top. */
+        .yfp-card { border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); padding: 7px 8px 8px; transition: border-color .15s ease, box-shadow .15s ease; scroll-margin: 90px; }
+        .yfp-card.focus { border-color: var(--yfp-gold); box-shadow: 0 0 0 2px var(--yfp-gold); }
+        .yfp-card.tbd, .yfp-card.bye { opacity: .72; }
+        .yfp-eye { display: flex; justify-content: space-between; gap: 8px; color: var(--yfp-gold); font: 700 8px/1.2 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+        .yfp-eye span:last-child { color: var(--yfp-muted); white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; }
+        .yfp-eye em { font-style: normal; padding: 1px 4px; border-radius: 3px; font-size: 9px; }
+        .yfp-eye em.W { color: var(--yfp-win); background: rgba(127,209,139,.15); }
+        .yfp-eye em.L { color: var(--yfp-loss); background: rgba(226,120,106,.15); }
+        .yfp-eye em.T { color: var(--yfp-muted); background: rgba(128,128,128,.15); }
+        .yfp-score { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto minmax(0,1fr); align-items: center; gap: 8px; margin: 6px 0 4px; }
+        .yfp-team { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--yfp-muted); font: inherit; cursor: pointer; text-align: left; }
+        .yfp-team.h { flex-direction: row-reverse; text-align: right; }
+        .yfp-team:disabled { cursor: default; }
+        .yfp-team b { min-width: 0; font: 500 13px/1.15 Oswald, sans-serif; letter-spacing: .02em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .yfp-team.me b { color: var(--yfp-gold); }
+        .yfp-team:not(:disabled):hover b { text-decoration: underline; }
+        .yfp-crest { width: 34px; height: 34px; object-fit: contain; flex: 0 0 auto; }
+        .yfp-runs { font: 400 32px/1 "Bebas Neue", Oswald, sans-serif; color: var(--yfp-strong); min-width: 16px; text-align: center; }
+        .yfp-dash { color: var(--yfp-muted); font: 600 10px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+        .yfp-line { width: 100%; border-collapse: collapse; table-layout: fixed; font: 500 11px/1 Oswald, sans-serif; color: var(--yfp-muted); }
+        .yfp-line th, .yfp-line td { padding: 3px 0; text-align: center; border-top: 1px solid var(--yfp-card-border); }
+        .yfp-line thead th { border-top: 0; color: var(--yfp-faint); font-size: 9px; font-weight: 500; }
+        .yfp-line th:first-child { width: 44px; text-align: left; }
+        .yfp-line tbody th button { padding: 0; border: 0; background: transparent; color: inherit; font: 600 11px/1 Oswald, sans-serif; letter-spacing: .04em; cursor: pointer; }
+        .yfp-line tbody th button:disabled { cursor: default; }
+        .yfp-line tbody th button:not(:disabled):hover { color: var(--yfp-gold); text-decoration: underline; }
+        .yfp-line tr.me th button, .yfp-line tr.me td.r { color: var(--yfp-gold); }
+        .yfp-line td.hit { color: var(--yfp-strong); font-weight: 700; }
+        .yfp-line .r { width: 26px; border-left: 1px solid var(--yfp-card-border); color: var(--yfp-strong); font-weight: 700; }
+        .yfp-note { margin-top: 5px; color: var(--yfp-gold); font: 400 11px/1.35 system-ui, sans-serif; }
+        .yfp-tbd { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--yfp-muted); font: 500 13px/1.2 Oswald, sans-serif; letter-spacing: .03em; }
+        .yfp-tbd small { display: block; margin-top: 2px; font: 400 11px/1.3 system-ui, sans-serif; letter-spacing: 0; }
+        .yfp-q { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px dashed var(--yfp-card-border); border-radius: 50%; font: 400 20px/1 "Bebas Neue", Oswald, sans-serif; }
+
+        /* The leaderboard column (a profile's teammates). */
+        .yfp-lb { min-width: 0; position: sticky; top: 8px; max-height: calc(100vh - 140px); overflow-y: auto; font: 400 10px/1.35 system-ui, sans-serif; }
+        .yfp-lb-title { color: var(--yfp-gold); font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+        .yfp-lb-sub { margin: 3px 0 6px; color: var(--yfp-muted); font-size: 9px; }
+        .yfp-lb-regions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin: 0 0 8px; }
+        .yfp-lb-regions button { min-height: 22px; padding: 0; border: 1px solid var(--yfp-card-border); border-radius: 4px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 600 10px/1 Oswald, sans-serif; cursor: pointer; }
+        .yfp-lb-regions button.on { border-color: var(--yfp-gold); color: var(--yfp-gold); }
+        .yfp-lb ol { margin: 0; padding: 0; list-style: none; }
+        .yfp-lb li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 4px; padding: 1px 0; }
+        .yfp-lb li .rk { color: var(--yfp-faint); text-align: right; }
+        .yfp-lb li a { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .yfp-lb li a:hover { color: var(--yfp-gold); text-decoration: underline; }
+        .yfp-lb li .rf { color: var(--yfp-muted); font-variant-numeric: tabular-nums; }
+        .yfp-lb li.me, .yfp-lb li.me .rf, .yfp-lb li.me .rk { color: var(--yfp-gold); font-weight: 700; }
+        .yfp-lb-rules { display: block; width: 100%; margin: 10px 0 0; min-height: 26px; border: 1px solid var(--yfp-gold); border-radius: 4px; background: transparent; color: var(--yfp-gold); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+        .yfp-lb-note { margin: 8px 0 0; color: var(--yfp-muted); font-size: 7.5px; line-height: 1.35; }
+
+        /* The drawers: home from the right, visitor from the left. */
+        .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.45); }
+        .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
+        .bl.bl-embed.yfp-drawer.right { right: 0; }
+        .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }
+        @keyframes yfp-in-r { from { transform: translateX(100%); } to { transform: none; } }
+        @keyframes yfp-in-l { from { transform: translateX(-100%); } to { transform: none; } }
+        @media (prefers-reduced-motion: reduce) { .bl.bl-embed.yfp-drawer { animation: none; } }
+        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .yfp-drawer-head b { font: 500 18px/1.1 Oswald, sans-serif; letter-spacing: .03em; color: var(--gold); }
+        .yfp-drawer-head span { color: var(--muted); font: 500 11px/1.2 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+        .yfp-drawer-head button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
+        .yfp-drawer .ybr-rules { padding: 14px; }
+        .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
+
+        @media (max-width: 899px) {
+          .yfp { padding: 8px 8px 16px; }
+          .yfp-layout { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; }
+          .yfp-lb { font-size: 9px; }
+          .yfp-lb li { grid-template-columns: 16px minmax(0,1fr) auto; gap: 3px; }
+          .yfp-crest { width: 26px; height: 26px; }
+          .yfp-runs { font-size: 26px; }
+          .yfp-team b { font-size: 11.5px; }
+          .yfp-score { gap: 5px; }
+          .yfp-line { font-size: 10px; }
+          .yfp-line th:first-child { width: 34px; }
+          .yfp-line tbody th button { font-size: 10px; }
+          .yfp-line .r { width: 20px; }
+        }
       `}</style>
     </div>
   );

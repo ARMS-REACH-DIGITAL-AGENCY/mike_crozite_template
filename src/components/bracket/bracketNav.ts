@@ -13,9 +13,13 @@ export type BracketNav = {
   rules: boolean; // show the rules and how everything is figured
   flipAll: boolean; // row 2's flip-all: every card to its back
   flipSeq: number; // bumps on each flip-all, so it overrides single flips
+  // A school's fantasy page: row 3's timeline slide picks a week, row 5
+  // scrolls to its card (focusSeq bumps so the same week can be picked again).
+  focusWeek: number;
+  focusSeq: number;
 };
 
-let state: BracketNav = { team: false, region: 0, boards: false, rules: false, flipAll: false, flipSeq: 0 };
+let state: BracketNav = { team: false, region: 0, boards: false, rules: false, flipAll: false, flipSeq: 0, focusWeek: 0, focusSeq: 0 };
 const listeners = new Set<() => void>();
 
 export function setBracketNav(patch: Partial<BracketNav>) {
@@ -30,6 +34,10 @@ function subscribe(l: () => void) {
 
 export function toggleFlipAll() {
   setBracketNav({ flipAll: !state.flipAll, flipSeq: state.flipSeq + 1 });
+}
+
+export function focusWeek(week: number) {
+  setBracketNav({ focusWeek: week, focusSeq: state.focusSeq + 1 });
 }
 
 export function useBracketNav() {

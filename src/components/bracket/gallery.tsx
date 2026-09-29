@@ -786,7 +786,7 @@ export function FlipCard({ game, label, index, box, loading, front = 'h', back }
 
 export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string];
-  score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip: () => void;
+  score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
 }) {
   const me = side === 'h' ? 0 : 1;
@@ -814,8 +814,10 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
   return (
     // A tap anywhere on the card flips it, like the player gallery.
-    <div className="bl-f" role="button" tabIndex={0} aria-label={`${myName} box score · tap to flip to ${flipTo || names[them]}`} onClick={onFlip}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } }}>
+    // (No onFlip: a drawer showing one school's week.)
+    <div className={`bl-f${onFlip ? '' : ' still'}`} role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined}
+      aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
+      onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
       <div className="bl-top">
         <div className="bl-meta"><span>{label} · Week {week}</span><span>{dates}</span></div>
         <div className="bl-score">
@@ -853,7 +855,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
       <div className="bl-tabs">
         <span className="on">{myName}</span>
-        <span className="flip">{flipTo || names[them]} ⟳</span>
+        {onFlip && <span className="flip">{flipTo || names[them]} ⟳</span>}
         <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
 
@@ -1066,6 +1068,7 @@ export function Styles() {
       .bl-back { transform:rotateY(180deg); }
       @media (prefers-reduced-motion: reduce) { .bl-inner { transition:none; } }
       .bl-f { display:flex; flex-direction:column; min-width:0; cursor:pointer; }
+      .bl-f.still, .bl-f.still .bl-top { cursor:default; }
       .bl-top { display:block; width:100%; border:0; padding:10px 12px 12px; background:var(--panel2); color:inherit; text-align:left; cursor:pointer; }
       .bl-meta { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.08em; text-transform:uppercase; }
       .bl-score { display:grid; grid-template-columns:1fr auto auto auto 1fr; align-items:center; gap:10px; margin-top:8px; }

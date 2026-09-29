@@ -9,7 +9,6 @@ import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
-import { toggleFlipAll, useBracketNav } from '@/components/bracket/bracketNav';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -102,7 +101,6 @@ export default function SchoolContextBar({
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
   const [allCardsFlipped, setAllCardsFlipped] = useState(false);
-  const bracketNav = useBracketNav();
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const slugDerivedName = playerRouteMatch?.[2]
@@ -202,14 +200,6 @@ export default function SchoolContextBar({
         )}
         {isPlayerProfile && profilePlayerId && (
           <FavoriteButton playerId={profilePlayerId} playerName={resolvedPlayerName} playerHsid={resolvedPlayerHsid} />
-        )}
-        {!isPlayerProfile && activeSection === 'fantasy' && (
-          // The Fantasy Bracket Tourney tab: flip every game card at once.
-          <button type="button" className="yat-icon-btn" aria-label={bracketNav.flipAll ? 'Flip all games to front' : 'Flip all games'} aria-pressed={bracketNav.flipAll}
-            title={bracketNav.flipAll ? 'Flip all games to front' : 'Flip all games'} onClick={toggleFlipAll}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
-            <img src="/img/flip-all-icon.review.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block', transform: bracketNav.flipAll ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }} />
-          </button>
         )}
         {isGallery && (
           <>
