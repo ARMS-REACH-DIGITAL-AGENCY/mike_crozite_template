@@ -1299,7 +1299,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // How much of the landing slide is showing (1 when it's fully in view),
   // so its row of team logos on the rail fades with it.
   const anchorRailOpacity = ready ? clamp(1 - 4 * Math.abs(scrollProgress - model.anchorIndex), 0, 1) : 0;
-  const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' ? activeSlide.year : null;
+  // The draft slide keeps the years too: it's one day, not a year.
+  const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft' ? activeSlide.year : null;
 
   // Every time he was drafted: its own draft slide (see the model above),
   // a gold pennant on that slide's rail tick, and one on the draft month
