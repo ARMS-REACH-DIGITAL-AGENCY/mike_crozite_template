@@ -106,7 +106,7 @@ type BigStat = { label: string; value: string };
 // 'hsyear' is the grad year itself (senior year of high school). The anchor
 // (graduation, the opening screen) comes right after it, at the end of that
 // year; the first college/pro season follows the anchor.
-type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future';
+type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future' | 'draft';
 
 type MomentComment = {
   id: string;
@@ -144,6 +144,8 @@ type Slide = {
   // kicker/title can skip the age-keyed LIFE_YEAR_QUOTES lookup that age
   // isn't in and render as a plain headline instead of a quote.
   isEarly?: boolean;
+  // draft-kind only -- the pick this slide is about
+  draft?: DraftPick;
   // upload-kind only
   momentDbId?: string;
   contributorName?: string;
@@ -631,8 +633,8 @@ type DraftPick = {
   draft_overall_pick: number | null;
   draft_team_name: string | null;
   drafted_from: string | null;
+  teamid: string | null;
 };
-const PRO_SEASON_LEVELS = new Set(['Rookie', 'A Ball', 'High-A', 'Double-A', 'Triple-A', 'MLB']);
 // The draft moved from June to July in 2021; the month rail's pennant sits
 // on the draft month (0-based).
 function draftMonthIndex(year: number) {
@@ -1184,12 +1186,46 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     // graduation that same year.
     const gradYearUploads = postHsUploaded.filter((s) => s.year === hsYear);
     const laterUploads = postHsUploaded.filter((s) => s.year !== hsYear);
-    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
-      .sort((a, b) => a.year - b.year);
+
+    // Draft day gets a slide of its own, always after the anchor -- a
+    // player drafted out of high school is drafted after graduation, so
+    // his grad year reads: senior year, graduation, then the draft. In a
+    // later year it follows that year's college season and comes before
+    // his first pro season.
+    const draftSlides: Slide[] = (identityMeta?.draftPicks || [])
+      .filter((pick) => pick?.draft_year)
+      .map((pick) => ({
+        id: `draft-${pick.draft_year}`,
+        kind: 'draft' as const,
+        year: Math.max(Number(pick.draft_year), hsYear),
+        title: pick.draft_team_name ? `Drafted by the ${pick.draft_team_name}` : 'Drafted',
+        draft: pick,
+        teamLogoSrcs: pick.teamid ? teamLogoCandidates({ teamid: pick.teamid } as StatRow) : [],
+        seasonCutoutSrc: seasonCutoutCandidates(playerId, Number(pick.draft_year))[0],
+        yatiFallback: yatiPlaceholderFor(Number(pick.draft_year)),
+      }));
+
+    // Order within one year: senior year and its moments, graduation, then
+    // amateur seasons, the draft, pro seasons, later moments, Today and the
+    // next-year invite.
+    const orderInYear = (slide: Slide) => {
+      switch (slide.kind) {
+        case 'hsyear': return 1;
+        case 'anchor': return 3;
+        case 'season': return seasonOrderRank(slide.level || '') === 0 ? 4 : 6;
+        case 'draft': return 5;
+        case 'upload': return gradYearUploads.includes(slide) ? 2 : 7;
+        case 'today': return 8;
+        case 'future': return 9;
+        default: return 0;
+      }
+    };
+    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...draftSlides, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+      .sort((a, b) => a.year - b.year || orderInYear(a) - orderInYear(b));
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName]);
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks]);
 
   const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
@@ -1265,24 +1301,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const anchorRailOpacity = ready ? clamp(1 - 4 * Math.abs(scrollProgress - model.anchorIndex), 0, 1) : 0;
   const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' ? activeSlide.year : null;
 
-  // Every time he was drafted: a "DRAFTED" line on that year's first pro
-  // season slide (the draft ends a college career, so not the college
-  // season's), else the year's first slide; a gold pennant on that slide's
-  // rail tick and on the draft month of the month rail.
+  // Every time he was drafted: its own draft slide (see the model above),
+  // a gold pennant on that slide's rail tick, and one on the draft month
+  // of the month rail.
   const draftByYear = useMemo(() => {
     const byYear = new Map<number, DraftPick>();
     for (const pick of identityMeta?.draftPicks || []) if (pick?.draft_year) byYear.set(Number(pick.draft_year), pick);
     return byYear;
   }, [identityMeta?.draftPicks]);
-  const draftBySlideId = useMemo(() => {
-    const bySlide = new Map<string, DraftPick>();
-    for (const [year, pick] of draftByYear) {
-      const sameYear = model.slides.filter((slide) => slide.year === year && slide.kind !== 'anchor' && slide.kind !== 'upload');
-      const target = sameYear.find((slide) => slide.kind === 'season' && PRO_SEASON_LEVELS.has(slide.level || '')) || sameYear[0];
-      if (target) bySlide.set(target.id, pick);
-    }
-    return bySlide;
-  }, [draftByYear, model.slides]);
   const monthRailDraft = monthRailYear ? draftByYear.get(monthRailYear) : undefined;
 
   // The first time the timeline is ready it may not scroll at all (already
@@ -1692,7 +1718,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
-              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future') ? (
+              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future' || slide.kind === 'draft') ? (
                 <StoryMontage photos={storyPhotosByYear[slide.year].map((p) => p.web)} />
               ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
@@ -1701,7 +1727,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <SmartImage srcs={slide.kind === 'lifeyear' && varsityYears.has(slide.year) ? hsCrestSrcs : []} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
-              {slide.kind === 'season' && (
+              {(slide.kind === 'season' || slide.kind === 'draft') && (
                 <span className="zt-logo-layer" aria-hidden="true">
                   <SmartImage srcs={slide.teamLogoSrcs} src={YS_CREST_FALLBACK} alt="" />
                 </span>
@@ -1780,7 +1806,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               </Fragment>
             );
           }
-          const storyPhotos = slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future' ? storyPhotosByYear[slide.year] : undefined;
+          const storyPhotos = slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future' || slide.kind === 'draft' ? storyPhotosByYear[slide.year] : undefined;
           if (storyPhotos?.length) {
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
@@ -1793,9 +1819,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
             );
           }
-          if (slide.kind === 'season') {
+          if (slide.kind === 'season' || slide.kind === 'draft') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.kind === 'draft' ? `drafted ${slide.draft?.draft_year}` : slide.year}`} />
             );
           }
           if (slide.kind === 'lifeyear') {
@@ -1824,12 +1850,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         {ready && model.slides.map((slide) => (
           <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
             <span className="zt-copy">
-              {draftBySlideId.has(slide.id) && (
-                <span className="zt-drafted">
-                  <span className="zt-pennant zt-pennant-inline" aria-hidden="true" />
-                  {draftLine(draftBySlideId.get(slide.id)!)}
-                </span>
-              )}
               {slide.kind === 'anchor' && (
                 <>
                   <span className="zt-kick">His hometown never stopped caring</span>
@@ -1860,6 +1880,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-kick">{slide.year} · High School</span>
                   <span className="zt-title">{slide.title}</span>
                   <span className="zt-bodycopy">Class of {slide.year}</span>
+                </>
+              )}
+              {slide.kind === 'draft' && slide.draft && (
+                <>
+                  <span className="zt-kick zt-drafted">
+                    <span className="zt-pennant zt-pennant-inline" aria-hidden="true" />
+                    {slide.draft.draft_year} · MLB Draft
+                  </span>
+                  <span className="zt-title">{slide.title}</span>
+                  <span className="zt-bodycopy">
+                    {[
+                      slide.draft.draft_round ? `Round ${slide.draft.draft_round}` : '',
+                      slide.draft.draft_overall_pick ? `#${slide.draft.draft_overall_pick} Overall` : '',
+                      slide.draft.drafted_from ? `from ${slide.draft.drafted_from}` : '',
+                    ].filter(Boolean).join(' · ')}
+                  </span>
                 </>
               )}
               {slide.kind === 'today' && (
@@ -1987,10 +2023,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
                 style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
                 onClick={() => scrollToIndex(i)}
-                aria-label={`Slide ${i + 1}: ${slide.year}${draftBySlideId.has(slide.id) ? ` · ${draftLine(draftBySlideId.get(slide.id)!)}` : ''}`}
+                aria-label={`Slide ${i + 1}: ${slide.year}${slide.draft ? ` · ${draftLine(slide.draft)}` : ''}`}
               >
                 {slide.kind !== 'anchor' && <span className="zt-rail-tick-year" aria-hidden="true">{String(slide.year).slice(-2)}</span>}
-                {draftBySlideId.has(slide.id) && <span className="zt-pennant" aria-hidden="true" />}
+                {slide.kind === 'draft' && <span className="zt-pennant" aria-hidden="true" />}
               </button>
             ))}
             <span
@@ -2340,7 +2376,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            headline, not their own italic style, and pre-line was forcing
            a source-text line break to render literally instead of letting
            the sentence just flow and wrap naturally. */
-        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title, .zt-draft .zt-title { white-space:normal; overflow-wrap:anywhere; }
         /* Thin black outline around every headline, per direct feedback --
            same 8-direction text-shadow technique as .zt-polaroid-caption,
            at 1px instead of 1.5px. */

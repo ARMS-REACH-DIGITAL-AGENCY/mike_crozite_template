@@ -2286,6 +2286,10 @@ export type PlayerDraftPick = {
   draft_overall_pick: number | null;
   draft_team_name: string | null;
   drafted_from: string | null;
+  // Our teamid for the drafting club (for its logo), matched by its current
+  // name only - a pick under a former name (e.g. Montreal Expos) has none,
+  // so the draft slide never shows today's logo for yesterday's club.
+  teamid: string | null;
 };
 
 // The single source of truth for "this player's identity/status facts,
@@ -2350,10 +2354,13 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
         [playerId]
       ).catch(() => ({ rows: [] as any[] })),
       query<PlayerDraftPick>(
-        `select draft_year, draft_round, draft_round_pick, draft_overall_pick, draft_team_name, drafted_from
-           from player_draft_picks
-          where playerid = $1
-          order by draft_year asc`,
+        `select d.draft_year, d.draft_round, d.draft_round_pick, d.draft_overall_pick, d.draft_team_name, d.drafted_from,
+                u.teamid
+           from player_draft_picks d
+           left join teamid_universe_mapping u
+             on u.level_label = 'MLB' and lower(u.current_team_name) = lower(d.draft_team_name)
+          where d.playerid = $1
+          order by d.draft_year asc`,
         [playerId]
       ).catch(() => ({ rows: [] as PlayerDraftPick[] })),
     ]);
@@ -2401,6 +2408,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
         draft_overall_pick: d.draft_overall_pick == null ? null : Number(d.draft_overall_pick),
         draft_team_name: d.draft_team_name,
         drafted_from: d.drafted_from,
+        teamid: d.teamid ? String(d.teamid) : null,
       })),
     };
   } catch {
