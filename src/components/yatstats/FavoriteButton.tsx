@@ -168,7 +168,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(false);
-          track('favorite_remove', { favorite_player_id: playerId, source: 'profile' });
+          track('favorite_remove', { favorite_playerid: playerId, favorite_from: 'profile' });
           showToast(`${displayName} removed from favorites`, 'info');
           window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {
@@ -191,7 +191,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(true);
-          track('favorite_add', { favorite_player_id: playerId, source: 'profile', favorite_type: type });
+          track('favorite_add', { favorite_playerid: playerId, favorite_from: 'profile', favorite_type: type });
           showToast(`${displayName} added to your favorites`);
           window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {

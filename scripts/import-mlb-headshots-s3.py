@@ -77,7 +77,7 @@ def players(conn) -> list[dict]:
         return [
             {
                 "playerid": str(r[0]),
-                "mlb_id": str(r[1]),
+                "mlb_player_id": str(r[1]),
                 "name": (r[3] or r[2] or "").strip(),
                 "level": (r[4] or "").strip().upper(),
                 "hsid": str(r[5] or ""),
@@ -152,7 +152,7 @@ def main() -> int:
     rows = []
     counts: dict[str, int] = {}
     for p in roster:
-        jpeg, source = fetch_headshot(p["mlb_id"], p["level"])
+        jpeg, source = fetch_headshot(p["mlb_player_id"], p["level"])
         now_key = f"players/now/{p['playerid']}.jpg"
         had_now = exists(now_key)
         if not jpeg:
@@ -177,12 +177,12 @@ def main() -> int:
         counts[status] = counts.get(status, 0) + 1
         if now_status:
             counts[f"now_{now_status}"] = counts.get(f"now_{now_status}", 0) + 1
-        rows.append({**p, "source": source, "season": SEASON, "status": status, "now": now_status})
-        print(f"{p['playerid']:>10}  {p['mlb_id']:>7}  {p['level']:<10} {p['name'][:28]:<28} {source:<5} {status}  {now_status}")
+        rows.append({**p, "headshot_origin": source, "season": SEASON, "status": status, "now": now_status})
+        print(f"{p['playerid']:>10}  {p['mlb_player_id']:>7}  {p['level']:<10} {p['name'][:28]:<28} {source:<5} {status}  {now_status}")
         time.sleep(0.15)
 
     with open(REPORT_PATH, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["playerid", "mlb_id", "name", "level", "hsid", "source", "season", "status", "now"])
+        writer = csv.DictWriter(fh, fieldnames=["playerid", "mlb_player_id", "name", "level", "hsid", "headshot_origin", "season", "status", "now"])
         writer.writeheader()
         writer.writerows(rows)
     print("\nSummary: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))

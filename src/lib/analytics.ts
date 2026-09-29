@@ -4,11 +4,17 @@
 // counted the same way everywhere.
 //
 // Google Analytics only loads on the live yatstats.com sites (see
-// AnalyticsTags), never on Vercel preview links or localhost, so testing
-// doesn't count as traffic. Page views are sent here, not by GA itself, so
-// each one carries the school, page type, player and tab it was about.
+// GA_BOOTSTRAP in app/layout.tsx), never on Vercel preview links or
+// localhost, so testing doesn't count as traffic. Page views are sent here,
+// not by GA itself, so each one carries the school, page type, player and
+// tab it was about.
 //
 // No names, emails or other personal details are sent: ids and labels only.
+//
+// Parameter names match our own column names wherever the value is the same
+// thing (playerid, hsid, hsname, moment_id, uuid, search_query), so a field
+// never has two spellings. Don't add a look-alike such as player_id or
+// school_id.
 
 export const GA_MEASUREMENT_ID = 'G-WQHT9SNHLC';
 
@@ -37,15 +43,15 @@ function clean(params: Params): Record<string, string | number | boolean> {
 
 // The school the current page belongs to (set by AnalyticsSchool inside the
 // school layout; cleared on pages that aren't a school's).
-let school: { school_id: string; school_name: string } | null = null;
+let school: { hsid: string; hsname: string } | null = null;
 
-export function setAnalyticsSchool(next: { id: string; name: string } | null) {
-  school = next ? { school_id: next.id, school_name: next.name } : null;
+export function setAnalyticsSchool(next: { hsid: string; hsname: string } | null) {
+  school = next;
 }
 
 export type PageContext = {
   page_type: string;
-  player_id?: string;
+  playerid?: string;
   profile_tab?: string;
 };
 
@@ -55,7 +61,7 @@ export function pageContext(pathname: string, hash = ''): PageContext {
   const player = pathname.match(/\/player\/([^/?#]+)/);
   if (player) {
     const tab = hash.startsWith('#ppTab-') ? hash.slice('#ppTab-'.length) : 'upload';
-    return { page_type: 'player_profile', player_id: decodeURIComponent(player[1]), profile_tab: tabName(tab) };
+    return { page_type: 'player_profile', playerid: decodeURIComponent(player[1]), profile_tab: tabName(tab) };
   }
   if (/\/news(\/|$)/.test(pathname)) return { page_type: 'news' };
   if (/^\/superfan/.test(pathname)) return { page_type: 'superfan' };

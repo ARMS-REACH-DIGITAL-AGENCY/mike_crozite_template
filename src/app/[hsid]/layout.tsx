@@ -338,7 +338,7 @@ export default async function HsidLayout({
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
-      <AnalyticsSchool id={String(resolvedHsid)} name={schoolName || ''} />
+      <AnalyticsSchool hsid={String(resolvedHsid)} hsname={schoolName || ''} />
       <YatStyles />
 
       <SharedShell

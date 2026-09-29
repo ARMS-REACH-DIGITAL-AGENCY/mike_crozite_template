@@ -411,7 +411,7 @@ async function handleFavoriteButtonClick(button: HTMLElement) {
       const data = await res.json();
       if (data?.success) {
         setFavButtonState(button, false);
-        track('favorite_remove', { favorite_player_id: playerId, source: 'search' });
+        track('favorite_remove', { favorite_playerid: playerId, favorite_from: 'search' });
         showSearchFavToast(`${playerName} removed from favorites`, 'info');
         window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       } else {
@@ -433,7 +433,7 @@ async function handleFavoriteButtonClick(button: HTMLElement) {
       const data = await res.json();
       if (data?.success) {
         setFavButtonState(button, true);
-        track('favorite_add', { favorite_player_id: playerId, source: 'search', favorite_type: isSuperfan ? 'superfan' : 'fan' });
+        track('favorite_add', { favorite_playerid: playerId, favorite_from: 'search', favorite_type: isSuperfan ? 'superfan' : 'fan' });
         showSearchFavToast(`${playerName} added to your favorites`);
         window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       } else {
