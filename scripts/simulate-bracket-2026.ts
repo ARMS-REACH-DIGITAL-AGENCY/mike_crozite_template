@@ -625,12 +625,36 @@ function exportGallery(dir: string) {
 
   let gid = 0;
   const details = new Map<string, Record<number, unknown>>();
+
+  // Alumni of the Week: each school's player who beat league average by the
+  // most that week - a hitter's OPS+ over 100 (8+ plate appearances) or a
+  // pitcher's FIP- under 100 (3+ innings). Ties go to more PA / innings.
+  // stars-<region>.json: hsid -> week -> [name, level, 'bat' | 'pit', OPS+ or FIP-, simulated].
+  const stars = new Map<number, Record<number, Record<number, unknown[]>>>();
+  function award(hsid: number, week: number, players: ReturnType<typeof side>['p']) {
+    let best: { edge: number; vol: number; row: unknown[] } | null = null;
+    for (const p of players) {
+      const [, name, level, sim, bat, pit, opsPlus, fipMinus] = p as [string, string, string, number, number[] | 0, number[] | 0, number | null, number | null];
+      const cands: { edge: number; vol: number; row: unknown[] }[] = [];
+      if (bat && bat[0] >= 8 && opsPlus !== null) cands.push({ edge: opsPlus - 100, vol: bat[0], row: [name, level, 'bat', opsPlus, sim] });
+      if (pit && pit[0] >= 9 && fipMinus !== null) cands.push({ edge: 100 - fipMinus, vol: pit[0], row: [name, level, 'pit', fipMinus, sim] });
+      for (const c of cands) if (c.edge > 0 && (!best || c.edge > best.edge || (c.edge === best.edge && c.vol > best.vol))) best = c;
+    }
+    if (!best) return;
+    const region = schools.get(hsid)!.region;
+    if (!stars.has(region)) stars.set(region, {});
+    const r = stars.get(region)!;
+    (r[hsid] ||= {})[week] = best.row;
+  }
   function gameOut(file: string, g: GameRow) {
     const id = ++gid;
     const r = playGame(sideWeek(g.home, g.week), sideWeek(g.away, g.week), baselines, RULES, g.winner === null);
     const days = r.innings.slice(0, 8).map((i) => [round1(i.homeOffense), round1(i.awayOffense), round1(i.homePitching), round1(i.awayPitching)]);
     if (!details.has(file)) details.set(file, {});
-    details.get(file)![id] = { d: days, h: side(g.home, g.week), a: side(g.away, g.week) };
+    const hs = side(g.home, g.week), as = side(g.away, g.week);
+    details.get(file)![id] = { d: days, h: hs, a: as };
+    award(g.home, g.week, hs.p);
+    award(g.away, g.week, as.p);
     // 'players-2' = the tie went to the #2 hitters/pitchers
     return [id, g.week, g.home, g.away, g.decidedBy === 'players' ? `players-${g.tieRank}` : g.decidedBy, g.innings.flat(), g.winner];
   }
@@ -698,5 +722,6 @@ function exportGallery(dir: string) {
   fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify(index));
   fs.writeFileSync(path.join(dir, 'lb.json'), JSON.stringify({ games: lb }));
   for (const [file, data] of details) fs.writeFileSync(path.join(dir, `${file}.json`), JSON.stringify(data));
+  for (const [region, data] of stars) fs.writeFileSync(path.join(dir, `stars-${region}.json`), JSON.stringify(data));
   console.log(`Exported ${gid} games to ${dir} (${details.size} box-score files)`);
 }

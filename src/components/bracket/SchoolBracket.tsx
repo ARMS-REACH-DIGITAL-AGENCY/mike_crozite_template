@@ -26,7 +26,7 @@ import {
   LAST_WEEK, REGIONS, Face, Styles,
   abbr, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings, tieNote,
 } from './gallery';
-import { DAY_NAMES, type WeekCard, calendar, runsThrough, schoolSeason } from './schoolSeason';
+import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { useBracketNav } from './bracketNav';
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
@@ -42,7 +42,7 @@ type Open = { card: WeekCard; side: 'h' | 'a' };
 
 // One week: the matchup, the line and the score. Visitor on the left, home
 // on the right (and in the line, visitor on top).
-function WeekCardView({ index, card, me, focused, onOpen }: { index: Index; card: WeekCard; me: number; focused: boolean; onOpen: (o: Open) => void }) {
+function WeekCardView({ index, card, me, star, focused, onOpen }: { index: Index; card: WeekCard; me: number; star?: Star; focused: boolean; onOpen: (o: Open) => void }) {
   const g = card.game;
   const S = index.schools;
   const status = card.state === 'final' ? 'Final' : card.state === 'live' ? (card.days ? `Thru ${DAY_NAMES[card.days - 1]}` : 'Starts Mon') : card.state === 'next' ? 'Upcoming' : card.state === 'bye' ? 'Bye' : 'TBD';
@@ -98,6 +98,7 @@ function WeekCardView({ index, card, me, focused, onOpen }: { index: Index; card
           </table>
           {card.state === 'final' && tieNote(g[4]) && <div className="yfp-note">{tieNote(g[4])}</div>}
           {card.state === 'final' && g[4] === 'tie' && <div className="yfp-note">Tie · half a win each</div>}
+          {card.state === 'final' && star && <div className="yfp-star"><b>★ Alumni of the Week</b> {starLine(star)}</div>}
         </>
       ) : (
         <div className="yfp-tbd">
@@ -168,32 +169,53 @@ function RulesDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-// The narrow column (a profile's teammates): a region's Most Runs Scored
-// Leaderboard through the last final week, this school's region first.
+// The narrow column (a profile's teammates): the Most Runs Scored
+// Leaderboards through the last final week - all 8 regions, or every school
+// A-Z (like the teammates' A-Z / Year). Opens on this school.
 function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbGame[]; me: number; final: number; onRules: () => void }) {
-  const [region, setRegion] = useState(index.schools[me]?.[1] || 1);
+  const [order, setOrder] = useState<'region' | 'az'>('region');
   const through = Math.min(final, LAST_WEEK);
-  const ranked = useMemo(() => rankRegion(index, standings(index, lb, through), region), [index, lb, through, region]);
+  const boards = useMemo(() => {
+    const st = standings(index, lb, through);
+    return Object.keys(REGIONS).map((k) => ({ region: Number(k), ranked: rankRegion(index, st, Number(k)) }));
+  }, [index, lb, through]);
+  const az = useMemo(() => {
+    const rows = boards.flatMap((b) => b.ranked.map((s, i) => ({ s, region: b.region, rank: i + 1, name: shortName(index.schools[s.h]?.[0] || '') })));
+    return rows.sort((x, y) => x.name.localeCompare(y.name));
+  }, [boards, index]);
+  const ref = useRef<HTMLElement | null>(null);
+  // Bring this school's line into view (inside the column only).
+  useEffect(() => {
+    const col = ref.current;
+    const row = col?.querySelector<HTMLElement>('li.me');
+    if (col && row) col.scrollTop = row.offsetTop - col.clientHeight / 3;
+  }, [order]);
+  const line = (s: { h: number; rf: number; ra: number }, rk: string, title: string) => (
+    <li key={s.h} className={s.h === me ? 'me' : ''} title={title}>
+      <span className="rk">{rk}</span>
+      <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}</a>
+      <span className="rf">{s.rf}</span>
+    </li>
+  );
+  const diff = (s: { rf: number; ra: number }) => `${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra}`;
   return (
-    <aside className="yfp-lb" aria-label="Region leaderboard">
-      <div className="yfp-lb-title">Region {region} · {REGIONS[region]}</div>
-      <div className="yfp-lb-sub">Most runs scored{through ? ` · thru wk ${through}` : ' · starts week 1'}</div>
-      <div className="yfp-lb-regions" role="group" aria-label="Region">
-        {Object.keys(REGIONS).map((k) => (
-          <button key={k} type="button" className={Number(k) === region ? 'on' : ''} aria-pressed={Number(k) === region} title={`Region ${k} · ${REGIONS[Number(k)]}`} onClick={() => setRegion(Number(k))}>{k}</button>
-        ))}
+    <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards" ref={ref}>
+      <div className="yfp-lb-title">Most Runs Scored</div>
+      <div className="yfp-lb-sub">{through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential</div>
+      <div className="yfp-lb-sort" role="group" aria-label="Order">
+        <button type="button" className={order === 'region' ? 'on' : ''} aria-pressed={order === 'region'} onClick={() => setOrder('region')}>Region</button>
+        <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
       </div>
-      <ol>
-        {ranked.map((s, i) => (
-          <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · ${s.rf} runs (${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra})`}>
-            <span className="rk">{i + 1}</span>
-            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}</a>
-            <span className="rf">{s.rf}</span>
-          </li>
-        ))}
-      </ol>
+      {order === 'region' ? boards.map((b) => (
+        <section key={b.region} className="yfp-lb-group">
+          <div className="yfp-lb-head"><span>{b.region}</span> {REGIONS[b.region]}</div>
+          <ol>{b.ranked.map((s, i) => line(s, String(i + 1), `${index.schools[s.h]?.[0]} · #${i + 1} in Region ${b.region} · ${s.rf} runs (${diff(s)})`))}</ol>
+        </section>
+      )) : (
+        <ol>{az.map((x) => line(x.s, `R${x.region}`, `${index.schools[x.s.h]?.[0]} · #${x.rank} in Region ${x.region} · ${x.s.rf} runs (${diff(x.s)})`))}</ol>
+      )}
       <button type="button" className="yfp-lb-rules" onClick={onRules}>Rules · how it&apos;s scored</button>
-      <p className="yfp-lb-note">Ranked by runs; run differential breaks ties. After week 30 each region&apos;s leader plays in the Season Championship Tournament.</p>
+      <p className="yfp-lb-note">After week 30 each region&apos;s leader plays in the Season Championship Tournament.</p>
     </aside>
   );
 }
@@ -209,6 +231,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const [open, setOpen] = useState<Open | null>(null);
   const [rules, setRules] = useState(false);
   const [focused, setFocused] = useState(0);
+  const [stars, setStars] = useState<Record<number, Star> | null>(null);
   const nav = useBracketNav();
 
   // Load only once the tab is on screen (the section is hidden until then).
@@ -229,6 +252,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   }, [visible]);
 
   const cards = useMemo(() => (index && lb && asof ? schoolSeason(index, lb, me, asof) : []), [index, lb, asof, me]);
+  const region = index?.schools[me]?.[1];
+  useEffect(() => {
+    if (!region) return;
+    let cancelled = false;
+    loadStars(region).then((all) => { if (!cancelled) setStars(all[me] || {}); });
+    return () => { cancelled = true; };
+  }, [region, me]);
   const cal = useMemo(() => (index && asof ? calendar(index, asof) : null), [index, asof]);
 
   // Week order, under a heading per round (and the postseason).
@@ -258,13 +288,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     const top = el.getBoundingClientRect().top + window.scrollY - (pinned ? Math.max(0, pinned.bottom) : 0) - 30;
     window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
   };
-  // Open on the current round, once.
+  // Open on the current round, once (after the awards are in, so nothing
+  // moves the cards afterwards).
   const opened = useRef(false);
   useEffect(() => {
-    if (opened.current || !startWeek) return;
+    if (opened.current || !startWeek || (region && !stars)) return;
     opened.current = true;
     requestAnimationFrame(() => scrollToWeek(startWeek, false));
-  }, [startWeek]);
+  }, [startWeek, region, stars]);
 
   // Row 3's timeline: a slide scrolls to its week's card.
   useEffect(() => {
@@ -293,7 +324,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
               <section key={grp.key} className="yfp-group">
                 <h3 className={cal.week <= index.weeks.length && grp.list.some((c) => c.week === startWeek) ? 'now' : ''}>{grp.title}</h3>
                 <div className="yfp-feed">
-                  {grp.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} focused={focused === c.week} onOpen={setOpen} />)}
+                  {grp.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} focused={focused === c.week} onOpen={setOpen} />)}
                 </div>
               </section>
             ))}
@@ -368,6 +399,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-line tr.me th button, .yfp-line tr.me td.r { color: var(--yfp-gold); }
         .yfp-line td.hit { color: var(--yfp-strong); font-weight: 700; }
         .yfp-line .r { width: 26px; border-left: 1px solid var(--yfp-card-border); color: var(--yfp-strong); font-weight: 700; }
+        .yfp-star { margin-top: 5px; color: var(--yfp-text); font: 400 11px/1.35 system-ui, sans-serif; }
+        .yfp-star b { color: var(--yfp-gold); font: 600 10px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; margin-right: 4px; }
         .yfp-note { margin-top: 5px; color: var(--yfp-gold); font: 400 11px/1.35 system-ui, sans-serif; }
         .yfp-tbd { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--yfp-muted); font: 500 13px/1.2 Oswald, sans-serif; letter-spacing: .03em; }
         .yfp-tbd small { display: block; margin-top: 2px; font: 400 11px/1.3 system-ui, sans-serif; letter-spacing: 0; }
@@ -378,12 +411,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-lb { min-width: 0; position: sticky; top: calc(var(--row1-h, 36px) + var(--row2-h, 54px) + var(--row3-h, 100px) + 8px); max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--footerH, 66px) - 16px); overflow-y: auto; font: 400 10px/1.35 system-ui, sans-serif; }
         .yfp-lb-title { color: var(--yfp-gold); font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .yfp-lb-sub { margin: 3px 0 6px; color: var(--yfp-muted); font-size: 9px; }
-        .yfp-lb-regions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin: 0 0 8px; }
-        .yfp-lb-regions button { min-height: 22px; padding: 0; border: 1px solid var(--yfp-card-border); border-radius: 4px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 600 10px/1 Oswald, sans-serif; cursor: pointer; }
-        .yfp-lb-regions button.on { border-color: var(--yfp-gold); color: var(--yfp-gold); }
+        .yfp-lb-sort { position: sticky; top: 0; z-index: 1; display: flex; gap: 2px; margin: 0 0 8px; padding: 2px 0; background: var(--bg, #070707); }
+        body.light-theme .yfp-lb-sort { background: var(--bg, #f4efe6); }
+        .yfp-lb-sort button { flex: 1; min-height: 22px; padding: 0 4px; border: 1px solid var(--yfp-card-border); border-radius: 4px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+        .yfp-lb-sort button.on { border-color: var(--yfp-gold); color: var(--yfp-gold); }
+        .yfp-lb-group { margin: 0 0 9px; }
+        .yfp-lb-head { color: var(--yfp-strong); font: 600 9px/1.25 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        .yfp-lb-head span { color: var(--yfp-gold); }
         .yfp-lb ol { margin: 0; padding: 0; list-style: none; }
         .yfp-lb li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 4px; padding: 1px 0; }
-        .yfp-lb li .rk { color: var(--yfp-faint); text-align: right; }
+        .yfp-lb li .rk { color: var(--yfp-faint); text-align: right; font-size: .9em; }
         .yfp-lb li a { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .yfp-lb li a:hover { color: var(--yfp-gold); text-decoration: underline; }
         .yfp-lb li .rf { color: var(--yfp-muted); font-variant-numeric: tabular-nums; }

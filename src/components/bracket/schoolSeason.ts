@@ -8,7 +8,7 @@
 //   Weeks 31-34: its Season Championship Tournament and Fantasy World Series
 //   games, only once it's in them; the Bracket Champ's bye weeks.
 
-import { type GameRow, type Index, type LbGame, LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, eliminations, lastFinalWeek, weekOfDate } from './gallery';
+import { type GameRow, type Index, type LbGame, BASE, LAST_WEEK, lvl, LBT_ROUNDS, REGIONS, WORLD_SERIES, eliminations, lastFinalWeek, weekOfDate } from './gallery';
 
 export type WeekState = 'final' | 'live' | 'next' | 'tbd' | 'bye';
 export type WeekCard = {
@@ -98,3 +98,16 @@ export function runsThrough(g: GameRow, days: number): [number, number] {
   });
   return [hr, ar];
 }
+
+// Alumni of the Week (stars-<region>.json, from the simulator): each school's
+// player who beat league average by the most that week.
+export type Star = [name: string, level: string, kind: 'bat' | 'pit', value: number, simulated: 0 | 1];
+const starCache = new Map<number, Promise<Record<number, Record<number, Star>>>>();
+export function loadStars(region: number) {
+  if (!starCache.has(region)) {
+    starCache.set(region, fetch(`${BASE}/stars-${region}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+  }
+  return starCache.get(region)!;
+}
+export const starLine = (s: Star) => `${s[0]}${s[4] ? '*' : ''} (${lvl(s[1])}) · ${s[3]} ${s[2] === 'bat' ? 'OPS+' : 'FIP-'}`;
+export const lastName = (name: string) => name.split(' ').slice(1).join(' ') || name;
