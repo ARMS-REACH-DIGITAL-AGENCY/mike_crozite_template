@@ -94,7 +94,7 @@ test('nine innings: 7 days, the week, then W-L%', () => {
   assert.equal(g.innings[8].kind, 'wl');
 });
 
-test('ties: week OPS+, then week FIP-, then W-L%, then seed; leaderboard games may tie', () => {
+test('ties: W-L% inning, then the week\'s combined edge, then seed; leaderboard games may tie', () => {
   const same = Array(7).fill(null).map(() => off());
   // W-L inning gives home the only run - no tie at all
   const a = playGame(week(same, 3, 1, 5), week(same, 1, 3, 2), baselines, AVG);
@@ -107,14 +107,29 @@ test('ties: week OPS+, then week FIP-, then W-L%, then seed; leaderboard games m
   const c = playGame(week(same, 0, 0, 5), week(same, 0, 0, 2), baselines, AVG, true);
   assert.equal(c.winner, null);
   assert.equal(c.decidedBy, 'tie');
-  // 1-1 after 9 (home wins the week's OPS+, away the week's FIP-, days split the same way):
-  // the week's OPS+ decides it, however many alumni either side has
-  const homeBat = day('MLB', { pa: 4, ab: 4, h: 2, hr: 1 });
-  const awayPit = day('MLB', {}, { outs: 27, so: 12 });
-  const d = playGame(week([homeBat, off(), off(), off(), off(), off(), off()]), week([awayPit, off(), off(), off(), off(), off(), off()]), baselines, HOLD);
-  assert.equal(d.home, d.away);
-  assert.equal(d.decidedBy, 'ops');
-  assert.equal(d.winner, 'home');
+  // 3-3: home's hitters win two days and the week, away's pitchers win day 1 and the
+  // week, away's clubs (3-1) win inning 9 - the W-L% inning breaks the tie
+  const homeBat = day('MLB', { pa: 4, ab: 4, h: 2, hr: 1 }); // OPS+ 367
+  const awayPit = day('MLB', {}, { outs: 27, so: 12 }); // FIP- 11
+  const d = playGame(week([homeBat, homeBat, off(), off(), off(), off(), off()]), week([awayPit, off(), off(), off(), off(), off(), off()], 3, 1), baselines, HOLD);
+  assert.deepEqual([d.home, d.away], [3, 3]);
+  assert.equal(d.decidedBy, 'wl');
+  assert.equal(d.winner, 'away');
+});
+
+test("combined edge: batting and pitching count the same (OPS+ over 100 vs FIP- under 100)", () => {
+  const awayPit = day('MLB', {}, { outs: 27, so: 12 }); // FIP- 11: 89 better than average
+  const idleDays = [off(), off(), off(), off(), off(), off()];
+  // OPS+ 367 (267 over) beats FIP- 11 (89 under)
+  const big = playGame(week([day('MLB', { pa: 4, ab: 4, h: 2, hr: 1 }), ...idleDays]), week([awayPit, ...idleDays]), baselines, HOLD);
+  assert.deepEqual([big.home, big.away], [2, 2]);
+  assert.equal(big.decidedBy, 'edge');
+  assert.equal(big.winner, 'home');
+  // OPS+ 150 (50 over) loses to FIP- 11 (89 under)
+  const small = playGame(week([day('MLB', { pa: 10, ab: 10, h: 4, d2: 1 }), ...idleDays]), week([awayPit, ...idleDays]), baselines, HOLD);
+  assert.deepEqual([small.home, small.away], [2, 2]);
+  assert.equal(small.decidedBy, 'edge');
+  assert.equal(small.winner, 'away');
 });
 
 test("a school with nobody playing can't win a tie against one that played", () => {
@@ -124,7 +139,7 @@ test("a school with nobody playing can't win a tie against one that played", () 
   const g = playGame(cold, idle, baselines, HOLD);
   assert.deepEqual([g.home, g.away], [0, 0]);
   assert.equal(g.winner, 'home');
-  assert.equal(g.decidedBy, 'ops');
+  assert.equal(g.decidedBy, 'edge');
 });
 
 test('bracket order keeps top seeds apart', () => {

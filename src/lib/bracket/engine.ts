@@ -177,7 +177,7 @@ export type GameResult = {
   home: number;
   away: number;
   winner: Side | null; // null = tie (leaderboard games only)
-  decidedBy: 'runs' | 'ops' | 'fip' | 'wl' | 'seed' | 'tie';
+  decidedBy: 'runs' | 'wl' | 'edge' | 'seed' | 'tie';
 };
 
 function compareHigher(a: number, b: number): [number, number] {
@@ -221,6 +221,31 @@ function breakTie(h: number | null, a: number | null, average: number, higherIsB
   return (higherIsBetter ? x > y : x < y) ? 'home' : 'away';
 }
 
+// The week's combined edge: how far the hitters were above average plus how
+// far the pitchers were below it, in points of OPS+ / FIP- (equal weight, so
+// neither side of the ball outranks the other). Averages only, so more
+// alumni never helps. A missing part counts as average; under 'hold' /
+// 'forfeit' a part the opponent didn't post can't count against a school
+// (as in the innings: below average vs nobody is no run either way).
+function weekEdge(week: Inning, mode: Mode, absent: Absent): [number | null, number | null] {
+  const o = (v: number | null | undefined) => (v == null ? null : 100 * (v / averageOffense(mode) - 1));
+  const p = (v: number | null | undefined) => (v == null ? null : 100 * (1 - v / averagePitching(mode)));
+  const parts: [number | null, number | null][] = [
+    [o(week.homeOffense), o(week.awayOffense)],
+    [p(week.homePitching), p(week.awayPitching)],
+  ];
+  const hPlayed = parts.some(([h]) => h !== null);
+  const aPlayed = parts.some(([, a]) => a !== null);
+  if (!hPlayed && !aPlayed) return [null, null];
+  let h = 0, a = 0;
+  for (const [x, y] of parts) {
+    const clamp = absent !== 'average' && (x === null || y === null);
+    h += clamp ? Math.max(0, x ?? 0) : x ?? 0;
+    a += clamp ? Math.max(0, y ?? 0) : y ?? 0;
+  }
+  return [hPlayed ? h : null, aPlayed ? a : null];
+}
+
 export function volume(buckets: LevelBuckets) {
   let v = 0;
   for (const { bat, pit } of buckets.values()) v += bat.pa + pit.outs / 3;
@@ -243,13 +268,12 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   const ar = innings.reduce((s, i) => s + i.away, 0);
   const base = { innings, home: hr, away: ar };
   if (hr !== ar) return { ...base, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
-  const week = innings[7];
-  const ops = breakTie(week.homeOffense ?? null, week.awayOffense ?? null, averageOffense(rules.mode), true, rules.absent);
-  if (ops) return { ...base, winner: ops, decidedBy: 'ops' };
-  const fip = breakTie(week.homePitching ?? null, week.awayPitching ?? null, averagePitching(rules.mode), false, rules.absent);
-  if (fip) return { ...base, winner: fip, decidedBy: 'fip' };
-  const wl = breakTie(hw, aw, 0.5, true, rules.absent);
-  if (wl) return { ...base, winner: wl, decidedBy: 'wl' };
+  // Ties: W-L% (the 1-run tiebreaker inning), then the week's combined edge.
+  // (whoever won inning 9; a school with no pro clubs counts as .500 there)
+  if (x !== y) return { ...base, winner: x > y ? 'home' : 'away', decidedBy: 'wl' };
+  const [he, ae] = weekEdge(innings[7], rules.mode, rules.absent);
+  const edge = breakTie(he, ae, 0, true, rules.absent);
+  if (edge) return { ...base, winner: edge, decidedBy: 'edge' };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
   return { ...base, winner: home.seed <= away.seed ? 'home' : 'away', decidedBy: 'seed' };
 }

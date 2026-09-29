@@ -505,7 +505,7 @@ const summary = {
   bracketGames: series.reduce((s, x) => s + x.games.length, 0),
   leaderboardGames: lbGames.length,
   scorelessDayInnings: dayInnings.filter(([h, a]) => h + a === 0).length / dayInnings.length,
-  decidedBy: Object.fromEntries(['runs', 'ops', 'fip', 'wl', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
+  decidedBy: Object.fromEntries(['runs', 'wl', 'edge', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
   averageRuns: allGames.reduce((s, g) => s + g.score[0] + g.score[1], 0) / (2 * allGames.length),
   champion,
   runnerUp: series.find((s) => s.round === 10)!.loser,

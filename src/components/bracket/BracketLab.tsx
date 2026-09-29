@@ -39,9 +39,8 @@ const REGIONS: Record<number, string> = {
 };
 const LBT_ROUNDS: Record<number, string> = { 28: 'Quarterfinal', 29: 'Semifinal', 30: 'Final' };
 const TIE_NOTE: Record<string, string> = {
-  ops: "Tied after 9 · won on the week's OPS+",
-  fip: "Tied after 9 · won on the week's FIP-",
-  wl: 'Tied after 9 · won on W-L%',
+  wl: 'Tied after 9 · won on W-L% (inning 9)',
+  edge: "Tied after 9 · won on the week's combined edge (OPS+ over 100 + FIP- under 100)",
   seed: 'Tied after 9 · won on seed',
 };
 
