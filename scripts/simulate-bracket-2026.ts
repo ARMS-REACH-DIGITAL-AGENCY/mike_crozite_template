@@ -20,11 +20,12 @@
 //              counts as .500.
 //
 // The tournament:
-//   Weeks 1-30 (Feb 2 - Aug 30): the 1,024-school bracket, 10 rounds of
-//     best-of-3. Rounds 1-7 stay inside each 128-school region (standard
-//     seeded order, 1 v 128 ...). The 8 regional champions then enter the
-//     fixed national bracket in their regional slots for Rounds 8-10; the
-//     main bracket is NOT reseeded by school seed or run differential.
+//   Weeks 1-30 (Feb 2 - Aug 30): one continuous 1,024-school bracket,
+//     10 rounds of best-of-3. The 8 regions are simply sections of that
+//     bracket. Nothing special happens after Round 7: winners keep advancing
+//     through Rounds 8, 9 and 10 exactly as they do in every earlier round.
+//     No regional championship is awarded after Round 7 and there is no
+//     reseeding inside the main bracket.
 //   Regional leaderboards: every school, all 30 weeks, ranked on total
 //     runs. Schools still in the bracket score in their bracket games;
 //     eliminated schools play a weekly game, paired at random inside their
@@ -55,7 +56,6 @@ import {
   type SideWeek,
   addToBuckets,
   bracketOrder,
-  nationalBracketOrder,
   emptyBat,
   emptyPit,
   fipCore,
@@ -426,31 +426,30 @@ function playBracketSeries(round: number, region: number | null, a: number, b: n
   return row;
 }
 
-// Rounds 1-7, inside each region.
-const regionChamps: number[] = [];
-for (let region = 1; region <= 8; region++) {
-  const bySeed = new Map([...schools.values()].filter((s) => s.region === region).map((s) => [s.seed, s.hsid]));
-  let alive = bracketOrder(128).map((seed) => bySeed.get(seed)!);
-  for (let round = 1; round <= 7; round++) {
-    const next: number[] = [];
-    for (let i = 0; i < alive.length; i += 2) {
-      const [a, b] = [alive[i], alive[i + 1]];
-      next.push(playBracketSeries(round, region, a, b, schools.get(a)!.seed, schools.get(b)!.seed).winner);
-    }
-    alive = next;
-  }
-  regionChamps.push(alive[0]);
-}
-// Rounds 8-10: fixed national bracket by regional slot.
-// regionChamps is [Region 1 champ, ..., Region 8 champ]. bracketOrder(8)
-// gives the permanent national bracket: R1vR8, R4vR5, R2vR7, R3vR6.
-// Do not reseed these eight schools by school seed, runs, or run differential.
-const nationalSlot = new Map(regionChamps.map((h, i) => [h, i + 1]));
-let alive = nationalBracketOrder(regionChamps);
-for (let round = 8; round <= 10; round++) {
+// One continuous 1,024-school bracket for all ten rounds.
+//
+// The eight regions are fixed 128-school sections of the original bracket.
+// Region order determines where those sections sit in the 1,024-team field;
+// after that, advancement is identical in every round. There is no special
+// Round-8 stage, no regional champion designation after Round 7, and no
+// reseeding of the main bracket.
+const byRegionSeed = new Map([...schools.values()].map((s) => [`${s.region}:${s.seed}`, s.hsid]));
+const regionOrder = bracketOrder(8);
+let alive = regionOrder.flatMap((region) =>
+  bracketOrder(128).map((seed) => byRegionSeed.get(`${region}:${seed}`)!)
+);
+
+for (let round = 1; round <= 10; round++) {
   const next: number[] = [];
   for (let i = 0; i < alive.length; i += 2) {
-    next.push(playBracketSeries(round, null, alive[i], alive[i + 1], nationalSlot.get(alive[i])!, nationalSlot.get(alive[i + 1])!).winner);
+    const a = alive[i], b = alive[i + 1];
+    // Rounds 1-7 are still inside one regional section because of the
+    // original bracket layout. Rounds 8-10 simply continue the same tree.
+    const region = round <= 7 ? schools.get(a)!.region : null;
+    if (round <= 7 && schools.get(b)!.region !== region) {
+      throw new Error(`Round ${round} crossed regional sections before Round 8: ${a} vs ${b}`);
+    }
+    next.push(playBracketSeries(round, region, a, b, schools.get(a)!.seed, schools.get(b)!.seed).winner);
   }
   alive = next;
 }
@@ -542,7 +541,7 @@ const summary = {
   averageRuns: allGames.reduce((s, g) => s + g.score[0] + g.score[1], 0) / (2 * allGames.length),
   champion,
   runnerUp: series.find((s) => s.round === 10)!.loser,
-  regionChamps,
+
   lbLeaders,
   lbChampion,
   grandFinal: { week: GRAND_FINAL_WEEK, dates: `${iso(weekStart(GRAND_FINAL_WEEK))} to ${iso(weekStart(GRAND_FINAL_WEEK) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, winner: grandChampion },
