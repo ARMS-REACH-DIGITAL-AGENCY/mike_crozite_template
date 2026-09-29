@@ -35,6 +35,9 @@ export type Index = {
   gf: GameRow[];
   champion: number;
   lbLeaders: number[]; // the Season Championship Tournament's 8, seed order
+  // The postseason schools' alumni [name, level], best level first: each
+  // nominates one fan for the World Series Tickets Raffle.
+  alumni?: Record<string, [string, string][]>;
   lbChampion: number;
   grandChampion: number;
 };
@@ -205,7 +208,16 @@ export type Row = {
   school?: number;
   // Cards only, no heading (single games packed three across).
   bare?: boolean;
+  // Each game card's front side (default: the home school, or row.school's).
+  fronts?: ('h' | 'a')[];
+  // The Fantasy World Series: each card's back is its school's raffle fans
+  // instead of the other school's box score.
+  fansBack?: boolean;
+  // Cards after the games: the raffle fan card, the Bracket Champ waiting
+  // for week 34, a card still to come.
+  extras?: Extra[];
 };
+export type Extra = { kind: 'fans'; games: GameRow[] } | { kind: 'wait'; h: number } | { kind: 'tbd' };
 
 // Builders for the gallery's rows.
 export function rowMakers(index: Index) {
@@ -620,20 +632,117 @@ export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; i
         <div className="bl-result">{row.result}</div>
       </div>}
       <div className={`bl-cards n${row.games.length}`}>
-        {row.games.map((g, i) => (
-          <FlipCard key={g[0]} game={g} label={row.gameLabels[i]} index={index} box={boxes ? boxes[String(g[0])] : undefined} loading={!boxes}
-            front={row.school !== undefined && g[3] === row.school ? 'a' : 'h'} />
-        ))}
+        {row.games.map((g, i) => {
+          const front = row.fronts?.[i] ?? (row.school !== undefined && g[3] === row.school ? 'a' : 'h');
+          return (
+            <FlipCard key={`${g[0]}-${i}`} game={g} label={row.gameLabels[i]} index={index} box={boxes ? boxes[String(g[0])] : undefined} loading={!boxes}
+              front={front}
+              back={row.fansBack ? <RaffleFans index={index} h={front === 'h' ? g[2] : g[3]} registered={(front === 'h' ? g[2] : g[3]) === index.champion} /> : undefined} />
+          );
+        })}
+        {row.extras?.map((x, i) => <ExtraCard key={`x${i}`} extra={x} index={index} />)}
       </div>
     </div>
   );
 }
 
-export function FlipCard({ game, label, index, box, loading, front = 'h' }: { game: GameRow; label: string; index: Index; box?: GameBox; loading: boolean; front?: 'h' | 'a' }) {
-  // Row 2's flip-all sets every card; a tap then flips just this one.
+// Row 2's flip-all sets every card; a tap then flips just this one.
+function useFlip(): [boolean, () => void] {
   const nav = useBracketNav();
   const [own, setOwn] = useState<{ seq: number; flipped: boolean } | null>(null);
   const flipped = own && own.seq === nav.flipSeq ? own.flipped : nav.flipAll;
+  return [flipped, () => setOwn({ seq: nav.flipSeq, flipped: !flipped })];
+}
+
+// A card that isn't a game: a tap anywhere flips it (if it has a back).
+function Pane({ label, dates, onFlip, children }: { label: string; dates?: string; onFlip?: () => void; children: ReactNode }) {
+  return (
+    <div className="bl-f" role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined} onClick={onFlip}
+      onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
+      <div className="bl-top"><div className="bl-meta"><span>{label}</span><span>{dates}</span></div></div>
+      {children}
+    </div>
+  );
+}
+
+function CardShell({ front, back, flipped }: { front: ReactNode; back?: ReactNode; flipped: boolean }) {
+  return (
+    <div className={`bl-card${flipped && back ? ' flipped' : ''}`}>
+      <div className="bl-inner">
+        <div className="bl-face bl-front">{front}</div>
+        {back && <div className="bl-face bl-back">{back}</div>}
+      </div>
+    </div>
+  );
+}
+
+// One school's fans in the World Series Tickets Raffle. The Bracket Champ's
+// are its registered fans; the Season Championship Tournament schools' are
+// the fans their alumni nominate (one each). No fans are in the simulation
+// yet, so the slots are empty.
+function RaffleFans({ index, h, registered }: { index: Index; h: number; registered: boolean }) {
+  const alumni = index.alumni?.[h] || [];
+  return (
+    <div className="bl-fans">
+      <div className="bl-fans-h"><b>{shortName(index.schools[h]?.[0] || '')}</b><span>{registered ? 'Registered fans' : `${alumni.length} alumni · 1 fan each`}</span></div>
+      {registered ? (
+        <p className="bl-fans-none">The Bracket Champ&apos;s registered fans are entered: one entry for each round they&apos;ve been registered, 3× for SuperFans. No fans are registered in the simulation.</p>
+      ) : (
+        <ol className="bl-fans-list">
+          {alumni.map(([nm, lv]) => (
+            <li key={nm}><span className="p">{nm} <small>{lvl(lv)}</small></span><span className="f">Fan not picked yet</span></li>
+          ))}
+          {alumni.length === 0 && <li className="none">No active alumni.</li>}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function ExtraCard({ extra, index }: { extra: Extra; index: Index }) {
+  const [flipped, flip] = useFlip();
+  const S = index.schools;
+  const dates = (w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
+  if (extra.kind === 'fans') {
+    // One side per game in the row: both schools' fan picks.
+    const side = (g: GameRow | undefined) => g && (
+      <Pane label={`World Series Tickets Raffle · Week ${g[1]}`} dates={dates(g[1])} onFlip={extra.games.length > 1 ? flip : undefined}>
+        <div className="bl-fans-kick">Fan picks · {shortName(S[g[2]]?.[0] || '')} vs {shortName(S[g[3]]?.[0] || '')}{extra.games.length > 1 ? ' ⟳' : ''}</div>
+        <div className="bl-scroll-y">
+          <RaffleFans index={index} h={g[2]} registered={false} />
+          <RaffleFans index={index} h={g[3]} registered={false} />
+        </div>
+      </Pane>
+    );
+    return <CardShell flipped={flipped} front={side(extra.games[0])} back={side(extra.games[1])} />;
+  }
+  if (extra.kind === 'wait') {
+    const [nm, region, seed] = S[extra.h] || ['', 0, 0];
+    const w = LAST_WEEK + 4;
+    return (
+      <CardShell flipped={false} front={
+        <Pane label={`${WORLD_SERIES} · Week ${w}`} dates={dates(w)}>
+          <div className="bl-wait">
+            <div className="k">Bracket Champ</div>
+            <div className="n">{shortName(nm)}</div>
+            <div className="s">{place(nm)} · Region {region} · {REGIONS[region]} · #{seed} seed</div>
+            <p>Won the 10-round bracket. On a 3-week bye, waiting to play the winner of the Season Championship Game in week {w}.</p>
+          </div>
+        </Pane>
+      } />
+    );
+  }
+  return (
+    <CardShell flipped={false} front={
+      <Pane label={WORLD_SERIES}>
+        <div className="bl-wait"><div className="k">Coming soon</div></div>
+      </Pane>
+    } />
+  );
+}
+
+export function FlipCard({ game, label, index, box, loading, front = 'h', back }: { game: GameRow; label: string; index: Index; box?: GameBox; loading: boolean; front?: 'h' | 'a'; back?: ReactNode }) {
+  const [flipped, flip] = useFlip();
   const [id, week, home, away, decidedBy, innings, winner] = game;
   const S = index.schools;
   const [ws, we] = index.weeks[week - 1] || ['', ''];
@@ -654,22 +763,31 @@ export function FlipCard({ game, label, index, box, loading, front = 'h' }: { ga
       decidedBy={decidedBy}
       box={box}
       loading={loading}
-      onFlip={() => setOwn({ seq: nav.flipSeq, flipped: !flipped })}
+      flipTo={back ? 'Fans' : undefined}
+      onFlip={flip}
     />
   );
   return (
     <div className={`bl-card${flipped ? ' flipped' : ''}`} data-game={id}>
       <div className="bl-inner">
         <div className="bl-face bl-front">{face(front)}</div>
-        <div className="bl-face bl-back">{face(front === 'h' ? 'a' : 'h')}</div>
+        <div className="bl-face bl-back">
+          {back ? (
+            <Pane label={`World Series Tickets Raffle · Week ${week}`} dates={ws ? fmtRange(ws, we) : ''} onFlip={flip}>
+              <div className="bl-fans-kick">Fans hoping to win a trip to the World Series ⟳</div>
+              <div className="bl-scroll-y">{back}</div>
+            </Pane>
+          ) : face(front === 'h' ? 'a' : 'h')}
+        </div>
       </div>
     </div>
   );
 }
 
-export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip }: {
+export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip: () => void;
+  flipTo?: string; // the back isn't the other school's box score
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
@@ -696,7 +814,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
   return (
     // A tap anywhere on the card flips it, like the player gallery.
-    <div className="bl-f" role="button" tabIndex={0} aria-label={`${myName} box score · tap to flip to ${names[them]}`} onClick={onFlip}
+    <div className="bl-f" role="button" tabIndex={0} aria-label={`${myName} box score · tap to flip to ${flipTo || names[them]}`} onClick={onFlip}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } }}>
       <div className="bl-top">
         <div className="bl-meta"><span>{label} · Week {week}</span><span>{dates}</span></div>
@@ -735,7 +853,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
       <div className="bl-tabs">
         <span className="on">{myName}</span>
-        <span className="flip">{names[them]} ⟳</span>
+        <span className="flip">{flipTo || names[them]} ⟳</span>
         <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
 
@@ -996,6 +1114,23 @@ export function Styles() {
       .bl-wl em { color:var(--gold); font-style:normal; }
       .bl-legend { margin-top:4px; font-size:11px; color:var(--faint); }
       .bl-muted { padding:10px 12px; color:var(--muted); font-size:13px; }
+      .bl-fans-kick { padding:8px 12px 2px; color:var(--gold); font:500 11px/1.3 Oswald, sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+      .bl-fans { padding:6px 12px 8px; }
+      .bl-fans-h { display:flex; justify-content:space-between; align-items:baseline; gap:8px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+      .bl-fans-h b { font:500 14px/1.2 Oswald, sans-serif; letter-spacing:.03em; }
+      .bl-fans-h span { color:var(--muted); font-size:11px; white-space:nowrap; }
+      .bl-fans-list { list-style:none; margin:0; padding:0; font-size:12px; }
+      .bl-fans-list li { display:flex; justify-content:space-between; gap:8px; padding:3px 0; border-bottom:1px solid var(--line); }
+      .bl-fans-list .p { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .bl-fans-list .p small { color:var(--muted); font-size:10px; }
+      .bl-fans-list .f { color:var(--faint, var(--muted)); font-style:italic; white-space:nowrap; font-size:11px; }
+      .bl-fans-list .none, .bl-fans-none { color:var(--muted); font-size:12px; }
+      .bl-fans-none { margin:6px 0 0; line-height:1.45; }
+      .bl-wait { padding:18px 14px; text-align:center; }
+      .bl-wait .k { color:var(--gold); font:500 12px/1.2 Oswald, sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+      .bl-wait .n { margin-top:10px; font:400 30px/1.05 "Bebas Neue", Oswald, sans-serif; letter-spacing:.02em; }
+      .bl-wait .s { margin-top:6px; color:var(--muted); font-size:12px; }
+      .bl-wait p { margin:14px 0 0; color:var(--text); font-size:13px; line-height:1.5; }
       .bl-muted.small { padding-top:0; font-size:11.5px; }
       .bl-empty { max-width:1180px; margin:40px auto; color:var(--muted); }
       .bl-sentinel { height:1px; }

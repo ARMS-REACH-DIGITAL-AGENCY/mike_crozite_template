@@ -650,6 +650,28 @@ function exportGallery(dir: string) {
     };
   });
   const lbt = lbBracket.map((g) => ({ seeds: [lbSeed.get(g.home), lbSeed.get(g.away)], game: gameOut('d-lbt', g) }));
+  // The postseason schools' 2026 alumni (a line through week 30, or on a
+  // club's roster by then), best level first: each nominates one fan for the
+  // World Series Tickets Raffle.
+  const LEVELS = ['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'JUCO'];
+  const seasonEnd = iso(weekStart(BRACKET_LAST_WEEK) + 6 * DAY);
+  const stintRows = rows('stints.csv', ',');
+  function alumniOf(hsid: number) {
+    const last = new Map<string, { date: string; level: string }>();
+    for (const [date, pds] of daily.get(hsid) || []) {
+      if (date > seasonEnd) continue;
+      for (const pd of pds) {
+        const cur = last.get(pd.playerid);
+        if (!cur || date > cur.date) last.set(pd.playerid, { date, level: levelOf(pd.level) });
+      }
+    }
+    for (const r of stintRows) if (num(r.hsid) === hsid && r.start <= seasonEnd && !last.has(r.playerid)) last.set(r.playerid, { date: r.start, level: r.level });
+    const rank = (l: string) => (LEVELS.indexOf(l) + 1 || LEVELS.length + 1);
+    return [...last.entries()]
+      .map(([pid, v]) => [names.get(pid) || `Player ${pid}`, v.level === 'SPRING' ? 'MLB' : v.level])
+      .sort((x, y) => rank(x[1]) - rank(y[1]) || x[0].localeCompare(y[0]));
+  }
+  const alumni = Object.fromEntries([champion, ...lbLeaders].map((h) => [h, alumniOf(h)]));
   const gf = grandFinalGames.map((g) => gameOut('d-gf', g));
   // Eliminated schools' weekly regional games (+ region), for the leaderboards.
   const lb = lbGames.map((g) => {
@@ -668,6 +690,8 @@ function exportGallery(dir: string) {
     champion,
     // The Season Championship Tournament field in seed order, announced after week 30.
     lbLeaders,
+    // The postseason schools' alumni, for the raffle fan cards.
+    alumni,
     lbChampion,
     grandChampion,
   };

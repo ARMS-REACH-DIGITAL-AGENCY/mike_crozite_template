@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Index, type LbGame, type Row, type Stage,
-  LAST_WEEK, REGIONS, SCT, WORLD_SERIES, Leaderboards, SeriesRowView, Styles,
+  LAST_WEEK, LBT_ROUNDS, REGIONS, SCT, WORLD_SERIES, WORLD_SERIES_FULL, type GameRow, Leaderboards, SeriesRowView, Styles,
   buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, previewDate, schoolStageRows, seriesInRound, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
 } from './gallery';
 import { useBracketNav } from './bracketNav';
@@ -24,9 +24,7 @@ import BracketRules from './BracketRules';
 // Round 1 · 512 series ... Round 10 · 1 series.
 const STAGE_NAME = (s: Stage) =>
   s.kind === 'round' ? `Round ${s.r} · ${seriesInRound(s.r)} series` : s.kind === 'lbt' ? SCT : s.kind === 'gf' ? WORLD_SERIES : 'Leaderboards';
-// The single games' heading: the Fantasy World Series (week 34) and the
-// Season Championship Tournament (weeks 31-33).
-const singlesTitle = (rows: Row[]) => (rows.some((r) => r.key.startsWith('gf-')) ? `${WORLD_SERIES} · ${SCT}` : SCT);
+
 
 // The page is a list: a heading per round, then its rows.
 type Item = { kind: 'head'; key: string; title: string; dates: string } | { kind: 'row'; key: string; row: Row };
@@ -37,21 +35,62 @@ function stageDates(index: Index, s: Stage) {
   return first && last ? `${a === b ? `Week ${a}` : `Weeks ${a}–${b}`} · ${fmtRange(first[0], last[1])}` : '';
 }
 
+// Weeks 31-34, newest first, each week its own section:
+//   Week 34 - the Fantasy World Series: a card per school (front its box
+//             score, back its fans in the World Series Tickets Raffle), and
+//             a card still to come.
+//   Week 33 - the Season Championship Game, and the Bracket Champ waiting.
+//   Week 32 - the 2 games and their fan picks card.
+//   Week 31 - 2 rows: 2 games and their fan picks card.
+// keep: whether a game shows (a region, a school).
+function postseasonItems(index: Index, final: number, keep: (g: GameRow) => boolean): Item[] {
+  const items: Item[] = [];
+  const W = LAST_WEEK;
+  const dates = (w: number) => (index.weeks[w - 1] ? `Week ${w} · ${fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1])}` : '');
+  const row = (key: string, games: GameRow[], extra: Partial<Row> = {}): Item => ({
+    kind: 'row', key,
+    row: {
+      key, roundLabel: '', title: '', week: games[0]?.[1] ?? 0, region: 0, home: 0, away: 0, homeSeed: 0, awaySeed: 0, result: '',
+      bare: true, games, files: games.map((g) => (g[1] === W + 4 ? 'd-gf' : 'd-lbt')), gameLabels: games.map(label), ...extra,
+    },
+  });
+  function label(g: GameRow) {
+    return g[1] === W + 4 ? WORLD_SERIES : g[1] === W + 3 ? 'Season Championship Game' : `Season Championship ${LBT_ROUNDS[g[1]]}`;
+  }
+  const lbt = (w: number) => index.lbt.map((x) => x.game).filter((g) => g[1] === w);
+
+  const ws = index.gf.filter((g) => g[1] <= final && keep(g));
+  if (ws.length) {
+    items.push({ kind: 'head', key: 'h-w34', title: WORLD_SERIES_FULL, dates: dates(W + 4) });
+    const g = ws[0];
+    items.push(row('w34', [g, g], { fronts: ['h', 'a'], fansBack: true, extras: [{ kind: 'tbd' }] }));
+  }
+  const champ = lbt(W + 3).filter((g) => g[1] <= final);
+  // The Bracket Champ's own page shows it waiting here too.
+  const champIn = keep([0, W + 3, index.champion, index.champion, '', [], null]);
+  if (champ.length && (champ.some(keep) || champIn)) {
+    items.push({ kind: 'head', key: 'h-w33', title: 'Season Championship Game', dates: dates(W + 3) });
+    items.push(row('w33', champ, { extras: [{ kind: 'wait', h: index.champion }] }));
+  }
+  for (const [w, name] of [[W + 2, 'Round 2'], [W + 1, 'Round 1']] as const) {
+    const games = lbt(w).filter((g) => g[1] <= final);
+    const pairs: GameRow[][] = [];
+    for (let i = 0; i < games.length; i += 2) pairs.push(games.slice(i, i + 2));
+    const shown = pairs.filter((pair) => pair.some(keep));
+    if (!shown.length) continue;
+    items.push({ kind: 'head', key: `h-w${w}`, title: `${SCT} · ${name}`, dates: dates(w) });
+    shown.forEach((pair, i) => items.push(row(`w${w}-${i}`, pair, { extras: [{ kind: 'fans', games: pair }] })));
+  }
+  return items;
+}
+
 // Row 3's school tile: this school's whole season, newest round first - its
 // Fantasy World Series / Season Championship Tournament games, then each round's three games (its
 // bracket series while it's alive, its weekly region leaderboard games once
 // it's out).
 function teamItems(index: Index, lb: LbGame[], h: number, final: number): Item[] {
   if (!index.schools[h]) return [];
-  const items: Item[] = [];
-  const singles = [
-    ...schoolStageRows(index, lb, h, { kind: 'gf' }, final),
-    ...schoolStageRows(index, lb, h, { kind: 'lbt' }, final).sort((a, b) => b.week - a.week),
-  ];
-  if (singles.length) {
-    items.push({ kind: 'head', key: 'h-t-singles', title: singlesTitle(singles), dates: '' });
-    items.push({ kind: 'row', key: 't-singles', row: { ...singles[0], key: 't-singles', bare: true, games: singles.flatMap((r) => r.games), files: singles.flatMap((r) => r.files), gameLabels: singles.flatMap((r) => r.gameLabels) } });
-  }
+  const items: Item[] = postseasonItems(index, final, (g) => g[2] === h || g[3] === h);
   for (let r = 10; r >= 1; r--) {
     const s: Stage = { kind: 'round', r };
     const rows = schoolStageRows(index, lb, h, s, final);
@@ -66,38 +105,8 @@ function tournamentItems(index: Index, lb: LbGame[], final: number, region: numb
   const regionOf = (h: number) => index.schools[h]?.[1];
   const keep = (r: Row) => !region || r.region === region || (!r.region && (regionOf(r.home) === region || regionOf(r.away) === region));
   const dates = (s: Stage) => stageDates(index, s);
-  const items: Item[] = [];
-  // The single games: the Fantasy World Series, then the Season Championship
-  // Tournament (its championship game first),
-  // packed three to a row.
-  const singles = [
-    ...buildRows(index, lb, { kind: 'gf' }, final),
-    ...buildRows(index, lb, { kind: 'lbt' }, final).sort((a, b) => b.week - a.week),
-  ].filter(keep);
-  if (singles.length) {
-    const hasGf = singles.some((r) => r.key.startsWith('gf-'));
-    const a = stageWeeks({ kind: 'lbt' })[0], b = stageWeeks(hasGf ? { kind: 'gf' } : { kind: 'lbt' })[1];
-    items.push({
-      kind: 'head', key: 'h-singles',
-      title: singlesTitle(singles),
-      dates: index.weeks[a - 1] && index.weeks[b - 1] ? `Weeks ${a}–${b} · ${fmtRange(index.weeks[a - 1][0], index.weeks[b - 1][1])}` : '',
-    });
-    for (let i = 0; i < singles.length; i += 3) {
-      const chunk = singles.slice(i, i + 3);
-      items.push({
-        kind: 'row',
-        key: `singles-${i}`,
-        row: {
-          ...chunk[0],
-          key: `singles-${i}`,
-          bare: true,
-          games: chunk.flatMap((r) => r.games),
-          files: chunk.flatMap((r) => r.files),
-          gameLabels: chunk.flatMap((r) => r.gameLabels),
-        },
-      });
-    }
-  }
+  // Weeks 31-34 on top, then the bracket rounds.
+  const items: Item[] = postseasonItems(index, final, (g) => !region || regionOf(g[2]) === region || regionOf(g[3]) === region);
   // The bracket rounds, newest first: the round in progress on top.
   for (let r = 10; r >= 1; r--) {
     const s: Stage = { kind: 'round', r };
