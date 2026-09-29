@@ -301,7 +301,7 @@ function sideWeek(hsid: number, week: number, seed: number): SideWeek {
 }
 function weekSource(hsid: number, week: number) {
   let real = 0, sim = 0;
-  for (const d of weekDates(week)) for (const pd of daily.get(hsid)?.get(d) || []) (pd.simulated ? sim++ : real++);
+  for (const d of weekDates(week)) for (const pd of daily.get(hsid)?.get(d) || []) { if (pd.simulated) sim++; else real++; }
   return { real, sim };
 }
 
