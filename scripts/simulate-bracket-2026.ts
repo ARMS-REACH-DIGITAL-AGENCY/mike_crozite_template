@@ -9,10 +9,11 @@
 //              Opening Day (Mar 25) on, plus MLB spring training games
 //              (Feb 20 - Mar 24) as their own level (--no-spring leaves
 //              them out).
-//   College  - 2026 season totals only (The Baseball Cube), so each player's
-//              games are simulated: placed on a standard college calendar for
-//              his level, each game's line drawn from his own 2026 rates with
-//              a fixed random seed (same result every run). Marked simulated.
+//   College  - 2026 totals only (The Baseball Cube, a partial season), so
+//              each player's games are simulated: a full season's share of
+//              games on a standard college calendar for his level, each
+//              game's line drawn from his own 2026 rates with a fixed random
+//              seed (same result every run). Marked simulated.
 //   Inning 9 - real W-L of every pro alumnus's club that week, from the
 //              team stints (on the roster counts, played or not); college
 //              results aren't loaded, so a school with only college alumni
@@ -214,6 +215,37 @@ function calendarFor(level: string, games: number): string[] {
   }
   return slots;
 }
+// The Baseball Cube's 2026 college totals are a partial season (captured
+// around early April: UCLA's regulars show ~24 games of ~56). Each player
+// keeps his rates, but plays a full season's share: his games so far
+// scaled by (the level's regular-season games / games played so far),
+// where "so far" is the level's 90th-percentile games among our alumni
+// (a regular's count). A regular plays ~4 games a week; part-timers keep
+// their share.
+function regularSeasonSlots(level: string) {
+  const c = COLLEGE[level] || COLLEGE['NCAA-D1'];
+  let n = 0;
+  for (let t = Date.parse(c.start); iso(t) <= c.end; t += DAY) if (c.days.includes(new Date(t).getUTCDay())) n++;
+  return n;
+}
+const snapshotGames = new Map<string, number>();
+{
+  const byLevel = new Map<string, number[]>();
+  for (const r of colBat) {
+    const l = levelOf(r.level);
+    if (!byLevel.has(l)) byLevel.set(l, []);
+    byLevel.get(l)!.push(num(r.g));
+  }
+  for (const [l, g] of byLevel) {
+    g.sort((a, b) => a - b);
+    snapshotGames.set(l, Math.max(1, g[Math.floor(0.9 * (g.length - 1))]));
+  }
+}
+function fullSeasonGames(level: string, g: number) {
+  const slots = regularSeasonSlots(level);
+  return Math.min(slots, Math.max(1, Math.round((g * slots) / (snapshotGames.get(level) || g))));
+}
+
 function pickGameDates(level: string, games: number, rand: () => number) {
   const slots = calendarFor(level, games);
   const idx = slots.map((_, i) => i);
@@ -247,7 +279,7 @@ for (const r of colBat) {
   const known = outcomes.reduce((s, [, n]) => s + n, 0);
   outcomes.push(['out', Math.max(0, t.pa - known)]);
   const total = outcomes.reduce((s, [, n]) => s + n, 0) || 1;
-  for (const date of pickGameDates(level, g, rand)) {
+  for (const date of pickGameDates(level, fullSeasonGames(level, g), rand)) {
     const line = emptyBat();
     const pas = spread(t.pa / g, rand);
     for (let i = 0; i < pas; i++) {
@@ -269,7 +301,7 @@ for (const r of colPit) {
   if (!g || !t.outs) continue;
   const level = levelOf(r.level);
   const rand = mulberry32(hashString(`${SEED}:pit:${r.playerid}:${r.teamid}`));
-  for (const date of pickGameDates(level, g, rand)) {
+  for (const date of pickGameDates(level, fullSeasonGames(level, g), rand)) {
     const outs = spread(t.outs / g, rand);
     const per = (n: number) => poisson((n / t.outs) * outs, rand);
     addDay(num(r.hsid), date, { playerid: r.playerid, level, simulated: true, pit: { outs, hr: per(t.hr), bb: per(t.bb), hbp: per(t.hbp), so: per(t.so) } });
