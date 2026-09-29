@@ -19,9 +19,8 @@
 //     open (stint_end NULL). A roster team that differs from his latest stint
 //     opens a new stint and is reported.
 // College players: one stint per college team from The Baseball Cube's
-//   season stats, dated by that team's first and last game in
-//   college_schedule_games_raw (Feb 1 - Jun 30 when we don't have its
-//   schedule), ending the day before his first pro stint that season.
+//   season stats, Feb 1 - Jun 30 (wider when college_schedule_games_raw has
+//   games outside it), ending the day before his first pro stint that season.
 //
 // Team ids: stints use our (TBC) teamid. MLB Stats API team ids are mapped
 // with team_id_map; a team missing there is matched by its exact name to one
@@ -164,7 +163,7 @@ async function main() {
     `SELECT DISTINCT g.playerid, g.game_date::text, g.source_team_id, g.team_name
        FROM player_game_logs g JOIN flip_card_front_stage f ON f.playerid = g.playerid
       WHERE ${inSeason("g.game_date")} ${onlyPlayer}
-      ORDER BY g.playerid, g.game_date`,
+      ORDER BY 1, 2`,
     params
   );
   const txs = await pool.query<{ playerid: string; d: string; transaction_type: string; to_team_name: string | null }>(
@@ -467,8 +466,12 @@ function buildCollegeStints(
   return [...new Set(teamids)]
     .map((teamid) => {
       const w = windows.get(teamid);
-      let start = w?.first_game || `${SEASON}-02-01`;
-      let end: string | null = w?.last_game || `${SEASON}-06-30`;
+      // Our college schedules are often partial, so the season is at least
+      // Feb 1 - Jun 30, wider when the schedule shows games outside it.
+      const seasonStart = `${SEASON}-02-01`;
+      const seasonEnd = `${SEASON}-06-30`;
+      let start = w?.first_game && w.first_game < seasonStart ? w.first_game : seasonStart;
+      let end: string | null = w?.last_game && w.last_game > seasonEnd ? w.last_game : seasonEnd;
       if (firstPro && end >= firstPro) end = addDays(firstPro, -1);
       if (end < start) start = end;
       // Still in college (no pro stint this season): his college team is current.

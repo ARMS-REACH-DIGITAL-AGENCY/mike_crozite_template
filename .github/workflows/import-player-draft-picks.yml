@@ -1,0 +1,64 @@
+name: Import Player Draft Picks
+
+# Fills player_draft_picks (every time a player on the platform was drafted)
+# from the MLB Stats API, with The Baseball Cube's draft_info as the
+# fallback. Weekly, so newly linked players and a new draft are picked up;
+# a pull request that changes the job gets a dry run (nothing written).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and report only, write nothing."
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    # Mondays 10:40 UTC.
+    - cron: "40 10 * * 1"
+  pull_request:
+    paths:
+      - scripts/import-player-draft-picks.ts
+      - .github/workflows/import-player-draft-picks.yml
+
+jobs:
+  import-player-draft-picks:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'Easter-NEWS' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Confirm branch
+        run: git rev-parse --short HEAD
+
+      - name: Sample players (dry run)
+        if: github.event_name == 'pull_request'
+        run: |
+          # Roch Cholowsky (2026 #1 overall), Cody Bellinger (2013, round 4)
+          for p in 317316 180827; do
+            npx tsx ./scripts/import-player-draft-picks.ts --player "$p" --dry-run
+          done
+
+      - name: Import draft picks
+        env:
+          DRY_RUN: ${{ github.event_name == 'pull_request' || github.event.inputs.dry_run == 'true' }}
+        run: |
+          ARGS=()
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          npx tsx ./scripts/import-player-draft-picks.ts "${ARGS[@]}"
