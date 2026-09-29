@@ -2029,7 +2029,7 @@ export async function getDesignatedPlayerImage(
     const { rows } = await query(
       `SELECT *
          FROM player_photos
-        WHERE player_id::text = $1
+        WHERE playerid::text = $1
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
@@ -2074,7 +2074,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
     const { rows } = await query(
       `SELECT *
          FROM player_photos
-        WHERE player_id::text = $1
+        WHERE playerid::text = $1
           AND (
             (show_on_pp_timeline = TRUE AND approval_status = 'APPROVED')
           )
@@ -2087,7 +2087,7 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
   } catch {
     try {
       const { rows } = await query(
-        `SELECT * FROM player_photos WHERE player_id::text = $1
+        `SELECT * FROM player_photos WHERE playerid::text = $1
          ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
         [imageId]
       );
