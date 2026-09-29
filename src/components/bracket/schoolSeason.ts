@@ -101,7 +101,7 @@ export function runsThrough(g: GameRow, days: number): [number, number] {
 
 // Alumni of the Week (stars-<region>.json, from the simulator): each school's
 // player who beat league average by the most that week.
-export type Star = [name: string, level: string, kind: 'bat' | 'pit', value: number, simulated: 0 | 1];
+export type Star = [name: string, level: string, kind: 'bat' | 'pit', value: number, simulated: 0 | 1, playerId: string];
 const starCache = new Map<number, Promise<Record<number, Record<number, Star>>>>();
 export function loadStars(region: number) {
   if (!starCache.has(region)) {
@@ -111,3 +111,27 @@ export function loadStars(region: number) {
 }
 export const starLine = (s: Star) => `${s[0]}${s[4] ? '*' : ''} (${lvl(s[1])}) · ${s[3]} ${s[2] === 'bat' ? 'OPS+' : 'FIP-'}`;
 export const lastName = (name: string) => name.split(' ').slice(1).join(' ') || name;
+
+// Each school's record (W-L, and ties) through a week, from every game it
+// played: bracket, leaderboard and postseason.
+export function records(index: Index, lb: LbGame[]) {
+  const games = new Map<number, [number, number | null][]>(); // hsid -> [week, winner]
+  const add = (g: GameRow | LbGame) => {
+    for (const h of [g[2], g[3]]) {
+      if (!games.has(h)) games.set(h, []);
+      games.get(h)!.push([g[1], g[6]]);
+    }
+  };
+  for (const r of index.rounds) for (const s of r.series) for (const g of s[7]) add(g);
+  for (const g of lb) add(g);
+  for (const { game } of index.lbt) add(game);
+  for (const g of index.gf) add(g);
+  return (h: number, week: number) => {
+    let w = 0, l = 0, t = 0;
+    for (const [wk, winner] of games.get(h) || []) {
+      if (wk > week) continue;
+      if (winner === null) t++; else if (winner === h) w++; else l++;
+    }
+    return `${w}-${l}${t ? `-${t}` : ''}`;
+  };
+}

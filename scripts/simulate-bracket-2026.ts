@@ -629,15 +629,15 @@ function exportGallery(dir: string) {
   // Alumni of the Week: each school's player who beat league average by the
   // most that week - a hitter's OPS+ over 100 (8+ plate appearances) or a
   // pitcher's FIP- under 100 (3+ innings). Ties go to more PA / innings.
-  // stars-<region>.json: hsid -> week -> [name, level, 'bat' | 'pit', OPS+ or FIP-, simulated].
+  // stars-<region>.json: hsid -> week -> [name, level, 'bat' | 'pit', OPS+ or FIP-, simulated, playerid].
   const stars = new Map<number, Record<number, Record<number, unknown[]>>>();
   function award(hsid: number, week: number, players: ReturnType<typeof side>['p']) {
     let best: { edge: number; vol: number; row: unknown[] } | null = null;
     for (const p of players) {
-      const [, name, level, sim, bat, pit, opsPlus, fipMinus] = p as [string, string, string, number, number[] | 0, number[] | 0, number | null, number | null];
+      const [pid, name, level, sim, bat, pit, opsPlus, fipMinus] = p as [string, string, string, number, number[] | 0, number[] | 0, number | null, number | null];
       const cands: { edge: number; vol: number; row: unknown[] }[] = [];
-      if (bat && bat[0] >= 8 && opsPlus !== null) cands.push({ edge: opsPlus - 100, vol: bat[0], row: [name, level, 'bat', opsPlus, sim] });
-      if (pit && pit[0] >= 9 && fipMinus !== null) cands.push({ edge: 100 - fipMinus, vol: pit[0], row: [name, level, 'pit', fipMinus, sim] });
+      if (bat && bat[0] >= 8 && opsPlus !== null) cands.push({ edge: opsPlus - 100, vol: bat[0], row: [name, level, 'bat', opsPlus, sim, pid] });
+      if (pit && pit[0] >= 9 && fipMinus !== null) cands.push({ edge: 100 - fipMinus, vol: pit[0], row: [name, level, 'pit', fipMinus, sim, pid] });
       for (const c of cands) if (c.edge > 0 && (!best || c.edge > best.edge || (c.edge === best.edge && c.vol > best.vol))) best = c;
     }
     if (!best) return;
