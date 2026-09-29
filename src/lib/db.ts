@@ -1675,6 +1675,8 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
 // `range` limits it to game dates from/to (inclusive, 'YYYY-MM-DD', either
 // optional) - e.g. one stint on a team, or a week around today - so a team
 // with more than one season loaded never runs past `limit` into the wrong one.
+// Real games only: no spring training or exhibitions. game_type says which
+// games are postseason.
 // ---------------------------------------------------------------------------
 export async function getTeamSchedule(
   teamId: string,
@@ -1704,7 +1706,8 @@ export async function getTeamSchedule(
            away_score,
            game_pk,
            home_team_id,
-           away_team_id
+           away_team_id,
+           (SELECT ts.game_type FROM team_schedules ts WHERE ts.game_pk = v_team_schedule_feed.game_pk) AS game_type
          FROM v_team_schedule_feed
          WHERE tbc_teamid::text = $1
 
@@ -1725,7 +1728,8 @@ export async function getTeamSchedule(
            g.away_score,
            NULL::bigint AS game_pk,
            NULL::integer AS home_team_id,
-           NULL::integer AS away_team_id
+           NULL::integer AS away_team_id,
+           NULL::text AS game_type
          FROM college_schedule_games_raw g
          WHERE g.teamid::text = $1
        )
@@ -1755,6 +1759,9 @@ export async function getTeamSchedule(
        FROM combined
        WHERE ($3::date IS NULL OR game_date::date >= $3::date)
          AND ($4::date IS NULL OR game_date::date <= $4::date)
+         -- Spring training, exhibitions and intrasquad games aren't real
+         -- games (game_type: see migrations/20260929_team_schedules_game_type.sql).
+         AND coalesce(game_type, 'R') NOT IN ('S', 'E', 'I')
        ORDER BY game_date ASC
        LIMIT $2`,
       [teamId, limit, range.from || null, range.to || null]
@@ -1820,7 +1827,8 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
          line_summary,
          stats,
          raw_payload->'opponent'->>'id' AS opponent_mlb_id,
-         raw_payload->>'isWin' AS is_win
+         raw_payload->>'isWin' AS is_win,
+         raw_payload->>'gameType' AS raw_game_type
        FROM public.player_game_logs
        WHERE playerid::text = $1
        ORDER BY game_date ASC`,

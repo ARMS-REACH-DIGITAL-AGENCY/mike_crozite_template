@@ -25,6 +25,8 @@
 //   begin ("Joined Winston-Salem Dash"); shown only in date order, since it
 //   marks a point in time. A game his team played without him says
 //   "Did not play".
+// - Postseason games carry a small "Postseason" label; spring training and
+//   exhibitions never reach this table (getTeamSchedule leaves them out).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -39,6 +41,7 @@ export type ScheduleTableRow = {
   resultClass: string;
   stats: string[]; // aligned to statHeaders, "-" for not-yet-played games
   didNotPlay?: boolean; // his team played, he didn't
+  postseason?: boolean; // a playoff game (labeled)
   note?: string; // the marker's text
 };
 
@@ -210,6 +213,7 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {row.logoUrl && <img src={row.logoUrl} alt="" className="pst-opponent-logo" />}
                     <span className="pst-opponent-name">{row.opponent || "--"}</span>
+                    {row.postseason && <span className="pst-tag">Postseason</span>}
                   </span>
                 </td>
                 <td className="pst-res">{row.resultLetter && <span className={row.resultClass}>{row.resultLetter}</span>}</td>
@@ -296,6 +300,7 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
         .pst-table tbody tr:nth-child(even) td.pst-date{ background: linear-gradient(var(--psi-cell-bg-alt, rgba(255,255,255,.065)), var(--psi-cell-bg-alt, rgba(255,255,255,.065))), var(--psi-panel-bg, #080808); }
         .pst-row-today td{ background: rgba(214,178,83,.22) !important; }
         .pst-opponent{ display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .pst-tag{ padding: 1px 3px; border: 1px solid rgba(214,178,83,.7); color: #d6b253; font: 700 7px/1 Oswald, Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .pst-table td.pst-dnp{ text-align: left; font-style: italic; color: var(--psi-muted-text, rgba(255,255,255,.84)); opacity: .7; }
         .pst-table tr.pst-row-move td{
           padding: 4px 3px;

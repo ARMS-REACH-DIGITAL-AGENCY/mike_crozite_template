@@ -646,6 +646,9 @@ export default async function ProfilePage({ params }: Props) {
   const statHeaders = isPitcher ? PITCHING_LOG_HEADERS : BATTING_LOG_HEADERS;
 
   const preferredType = isPitcher ? "pitching" : "batting";
+  // MLB gameType codes for playoff games (wild card through World Series,
+  // MiLB playoffs and the Triple-A championship).
+  const POSTSEASON_TYPES = new Set(["F", "D", "L", "W", "C", "P"]);
   function statCells(log: any): string[] | null {
     return log?.stats && typeof log.stats === "object" && log.stat_type === preferredType
       ? isPitcher
@@ -699,6 +702,7 @@ export default async function ProfilePage({ params }: Props) {
         resultLetter: badge?.letter ?? null,
         resultClass: badge?.className ?? "",
         stats: stats ?? statHeaders.map(() => "-"),
+        postseason: POSTSEASON_TYPES.has(String(g.game_type || "")),
         // A finished game (before today, so the 4-hourly game log sync has
         // caught up) with no line of his.
         didNotPlay: !log && st.tracksLines && Boolean(badge) && d < todayIso,
@@ -727,6 +731,7 @@ export default async function ProfilePage({ params }: Props) {
       resultLetter: letter,
       resultClass: letter === "W" ? "pp-result-w" : letter === "L" ? "pp-result-l" : "",
       stats: statCells(pick) ?? statHeaders.map(() => "-"),
+      postseason: POSTSEASON_TYPES.has(String(pick.raw_game_type || "")),
     });
   }
   scheduleTableRows.sort((a, b) => a.iso.localeCompare(b.iso) || (a.kind === "move" ? -1 : b.kind === "move" ? 1 : 0));
