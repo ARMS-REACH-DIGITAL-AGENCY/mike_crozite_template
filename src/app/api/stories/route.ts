@@ -1,7 +1,11 @@
 // src/app/api/stories/route.ts
 // Fan Stories.
 //   GET  /api/stories?playerId=  - a player's live stories, newest first
-//                                  (public fields only: never emails or phones)
+//                                  (public fields only: never emails or phones).
+//                                  Draft Day stories (made by the draft job,
+//                                  one per pick) come back as kind 'draft',
+//                                  their photo the club's logo - or the
+//                                  YAT?STATS crest when the club has none.
 //   POST /api/stories            - post a story (multipart form, signed-in fans)
 //
 // Tables are created by migration, never here: the site's database login
@@ -28,8 +32,13 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+// Posted by YAT?STATS for every draft pick (scripts/import-player-draft-picks.ts).
+const DRAFT_STAGE = 'Draft Day';
+const CREST = '/img/ys-crest.png';
+
 type StoryRow = {
   id: string;
+  stage: string;
   story: string | null;
   contributor_name: string | null;
   photo_taken_date: string | null;
@@ -38,6 +47,7 @@ type StoryRow = {
   posted_on_playerid: string;
   photos: { web: string; thumb: string; full: string; width: number | null; height: number | null }[] | null;
   players: { playerid: string; hsid: string | null; first_name: string | null; last_name: string | null; is_primary: boolean }[] | null;
+  comment_photos: { web: string; thumb: string; full: string; width: number | null; height: number | null }[] | null;
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
@@ -51,6 +61,7 @@ export async function GET(req: NextRequest) {
   try {
     const { rows } = await query<StoryRow>(
       `SELECT m.id::text AS id,
+              m.stage,
               m.caption AS story,
               m.contributor_name,
               m.photo_taken_date::text AS photo_taken_date,
@@ -66,6 +77,11 @@ export async function GET(req: NextRequest) {
                  FROM player_moment_players mp
                  LEFT JOIN flip_card_front_stage f ON f.playerid::text = mp.playerid
                 WHERE mp.moment_id = m.id) AS players,
+              (SELECT json_agg(json_build_object('web', cp.web_s3_key, 'thumb', cp.thumb_s3_key, 'full', cp.s3_key,
+                                                 'width', cp.width, 'height', cp.height) ORDER BY c.created_at, c.id, cp.sort_order)
+                 FROM player_moment_comments c
+                 JOIN player_moment_comment_photos cp ON cp.comment_id = c.id
+                WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_photos,
               (SELECT count(*)::int FROM player_moment_likes l WHERE l.moment_id = m.id) AS like_count,
               (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count,
               EXISTS (SELECT 1 FROM player_moment_likes l WHERE l.moment_id = m.id AND l.firebase_uid = $3) AS liked_by_me,
@@ -79,36 +95,55 @@ export async function GET(req: NextRequest) {
       [playerId, viewerUid(req), likerKey(req)]
     );
 
-    const stories = rows.map((r) => ({
-      id: r.id,
-      story: r.story || '',
-      author: r.contributor_name || 'A YAT?STATS fan',
-      date: r.photo_taken_date,
-      year: r.photo_taken_year,
-      postedAt: r.created_at,
-      postedOnPlayerId: r.posted_on_playerid,
-      photos: (r.photos || []).map((p) => ({
+    const stories = rows.map((r) => {
+      const draft = r.stage === DRAFT_STAGE;
+      const photos = (r.photos || []).map((p) => ({
         // Timeline hero cutout (may not exist yet - the timeline falls back
-        // to the whole photo and asks /api/stories/cutout to make it).
-        cutout: p.full ? storyAssetUrl(cutoutKeyFor(p.full)) : null,
-        source: p.full,
+        // to the whole photo and asks /api/stories/cutout to make it). A
+        // club logo is never cut out.
+        cutout: p.full && !draft ? storyAssetUrl(cutoutKeyFor(p.full)) : null,
+        source: draft ? null : p.full,
         web: storyAssetUrl(p.web),
         thumb: storyAssetUrl(p.thumb),
         full: storyAssetUrl(p.full),
         width: p.width,
         height: p.height,
-      })),
-      players: (r.players || []).map((p) => ({
-        playerId: p.playerid,
-        hsid: p.hsid,
-        name: [p.first_name, p.last_name].filter(Boolean).join(' ').trim(),
-        isPrimary: p.is_primary,
-      })),
-      likeCount: r.like_count,
-      commentCount: r.comment_count,
-      likedByMe: r.liked_by_me,
-      isMine: r.is_mine,
-    }));
+        ...(draft ? { logo: true } : {}),
+      }));
+      if (draft && photos.length === 0) {
+        photos.push({ cutout: null, source: null, web: CREST, thumb: CREST, full: CREST, width: null, height: null, logo: true });
+      }
+      return {
+        id: r.id,
+        kind: draft ? ('draft' as const) : ('story' as const),
+        story: r.story || '',
+        author: r.contributor_name || 'A YAT?STATS fan',
+        date: r.photo_taken_date,
+        year: r.photo_taken_year,
+        postedAt: r.created_at,
+        postedOnPlayerId: r.posted_on_playerid,
+        photos,
+        // Photos fans added in the comments (the timeline shows a Draft Day
+        // thread's photos on that draft slide).
+        commentPhotos: (r.comment_photos || []).map((p) => ({
+          web: storyAssetUrl(p.web),
+          thumb: storyAssetUrl(p.thumb),
+          full: storyAssetUrl(p.full),
+          width: p.width,
+          height: p.height,
+        })),
+        players: (r.players || []).map((p) => ({
+          playerId: p.playerid,
+          hsid: p.hsid,
+          name: [p.first_name, p.last_name].filter(Boolean).join(' ').trim(),
+          isPrimary: p.is_primary,
+        })),
+        likeCount: r.like_count,
+        commentCount: r.comment_count,
+        likedByMe: r.liked_by_me,
+        isMine: r.is_mine,
+      };
+    });
 
     return NextResponse.json({ stories }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {

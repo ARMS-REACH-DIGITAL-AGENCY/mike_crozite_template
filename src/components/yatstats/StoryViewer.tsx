@@ -18,16 +18,22 @@ import FanConfirm from '@/components/yatstats/FanConfirm';
 import { track } from '@/lib/analytics';
 import { jpegName, shrinkPhoto } from '@/lib/shrinkPhoto';
 
-export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null };
+// logo: a Draft Day story's club logo (or the YAT?STATS crest) - shown
+// whole on a light panel, never cropped or cut out.
+export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null; logo?: boolean };
 export type StoryPlayer = { playerId: string; hsid: string | null; name: string; isPrimary: boolean };
 export type Story = {
   id: string;
+  // 'draft': the Draft Day story YAT?STATS posts for every draft pick.
+  kind?: 'story' | 'draft';
   story: string;
   author: string;
   date: string | null;
   year: number | null;
   postedAt: string;
   photos: StoryPhoto[];
+  // Photos fans added in the comments.
+  commentPhotos?: StoryPhoto[];
   players: StoryPlayer[];
   likeCount: number;
   commentCount: number;
@@ -409,7 +415,12 @@ export function StoryThread({
 
   const header = (
     <div className="ysv-head">
-      <span className="ysv-avatar" aria-hidden="true">{initials(story.author)}</span>
+      {story.kind === 'draft' ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="ysv-avatar ysv-avatar-crest" src="/img/ys-crest.png" alt="" aria-hidden="true" />
+      ) : (
+        <span className="ysv-avatar" aria-hidden="true">{initials(story.author)}</span>
+      )}
       <div className="ysv-who">
         <div className="ysv-byline">
           <strong>{story.author}</strong>
@@ -686,7 +697,7 @@ export default function StoryViewer({
     <div className="ysv" role="dialog" aria-modal="true" aria-label="Story" onClick={onClose}>
       <div className="ysv-card" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="ysv-close" onClick={onClose} aria-label="Close"><i className="ri-close-line" /></button>
-        <div className="ysv-photo">
+        <div className={`ysv-photo${photo?.logo ? ' ysv-photo-logo' : ''}`}>
           {photo?.full ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photo.full} alt="" />
@@ -729,6 +740,9 @@ export function StoryStyles() {
       .ysv-close { position: absolute; top: 8px; right: 8px; z-index: 3; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; }
       .ysv-photo { position: relative; display: flex; align-items: center; justify-content: center; background: #000; min-height: 0; }
       .ysv-photo img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+      .ysv-photo-logo { background: #f4f1ea; }
+      .ysv-photo-logo img { max-width: min(70%, 420px); max-height: 70%; }
+      .ysv-avatar-crest { object-fit: contain; background: #111; padding: 3px; }
       .ysv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
       .ysv-nav:disabled { opacity: .25; cursor: default; }
       .ysv-nav-prev { left: 8px; }
