@@ -20,6 +20,7 @@
 // when its cards come on screen.
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useBracketNav } from './bracketNav';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -611,7 +612,10 @@ export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; i
 }
 
 export function FlipCard({ game, label, index, box, loading, front = 'h' }: { game: GameRow; label: string; index: Index; box?: GameBox; loading: boolean; front?: 'h' | 'a' }) {
-  const [flipped, setFlipped] = useState(false);
+  // Row 2's flip-all sets every card; a tap then flips just this one.
+  const nav = useBracketNav();
+  const [own, setOwn] = useState<{ seq: number; flipped: boolean } | null>(null);
+  const flipped = own && own.seq === nav.flipSeq ? own.flipped : nav.flipAll;
   const [id, week, home, away, decidedBy, innings, winner] = game;
   const S = index.schools;
   const [ws, we] = index.weeks[week - 1] || ['', ''];
@@ -632,7 +636,7 @@ export function FlipCard({ game, label, index, box, loading, front = 'h' }: { ga
       decidedBy={decidedBy}
       box={box}
       loading={loading}
-      onFlip={() => setFlipped((f) => !f)}
+      onFlip={() => setOwn({ seq: nav.flipSeq, flipped: !flipped })}
     />
   );
   return (
@@ -673,8 +677,10 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const sim = (mine?.p || []).some((p) => p[3]);
 
   return (
-    <div className="bl-f">
-      <button type="button" className="bl-top" onClick={onFlip} aria-label={`Flip to ${names[them]}`}>
+    // A tap anywhere on the card flips it, like the player gallery.
+    <div className="bl-f" role="button" tabIndex={0} aria-label={`${myName} box score · tap to flip to ${names[them]}`} onClick={onFlip}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } }}>
+      <div className="bl-top">
         <div className="bl-meta"><span>{label} · Week {week}</span><span>{dates}</span></div>
         <div className="bl-score">
           <div className={`bl-team${me === 0 ? ' me' : ''}`}><b>{names[0]}</b></div>
@@ -683,7 +689,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
           <div className="bl-runs">{score[1]}</div>
           <div className={`bl-team r${me === 1 ? ' me' : ''}`}><b>{names[1]}</b></div>
         </div>
-      </button>
+      </div>
 
       <div className="bl-scroll">
         <table className="bl-ls">
@@ -711,7 +717,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
       <div className="bl-tabs">
         <span className="on">{myName}</span>
-        <button type="button" onClick={onFlip}>{names[them]} ⟳</button>
+        <span className="flip">{names[them]} ⟳</span>
         <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
 
@@ -864,7 +870,7 @@ export function Styles() {
       .bl.bl-embed .bl-note { padding:5px 8px; font-size:10.5px; }
       .bl.bl-embed .bl-tabs { padding:8px 8px 4px; gap:8px; }
       .bl.bl-embed .bl-tabs span.on { font-size:13px; }
-      .bl.bl-embed .bl-tabs button { font-size:11px; }
+      .bl.bl-embed .bl-tabs .flip { font-size:11px; }
       .bl.bl-embed .bl-box { font-size:10px; }
       .bl.bl-embed .bl-box th, .bl.bl-embed .bl-box td { padding:4px 2px; }
       .bl.bl-embed .bl-box thead th { font-size:9px; }
@@ -923,7 +929,7 @@ export function Styles() {
       .bl-face { grid-area:1/1; backface-visibility:hidden; -webkit-backface-visibility:hidden; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; min-width:0; }
       .bl-back { transform:rotateY(180deg); }
       @media (prefers-reduced-motion: reduce) { .bl-inner { transition:none; } }
-      .bl-f { display:flex; flex-direction:column; min-width:0; }
+      .bl-f { display:flex; flex-direction:column; min-width:0; cursor:pointer; }
       .bl-top { display:block; width:100%; border:0; padding:10px 12px 12px; background:var(--panel2); color:inherit; text-align:left; cursor:pointer; }
       .bl-meta { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.08em; text-transform:uppercase; }
       .bl-score { display:grid; grid-template-columns:1fr auto auto auto 1fr; align-items:center; gap:10px; margin-top:8px; }
@@ -946,7 +952,7 @@ export function Styles() {
       .bl-note { padding:6px 12px; color:var(--gold); font-size:12px; border-bottom:1px solid var(--line); }
       .bl-tabs { display:flex; align-items:center; gap:14px; padding:10px 12px 6px; }
       .bl-tabs span.on { font:500 16px/1.1 Oswald, sans-serif; letter-spacing:.03em; }
-      .bl-tabs button { border:0; background:none; color:var(--muted); font:500 13px/1.1 Oswald, sans-serif; cursor:pointer; padding:0; }
+      .bl-tabs .flip { color:var(--muted); font:500 13px/1.1 Oswald, sans-serif; }
       .bl-tabs em { margin-left:auto; font-style:normal; font:600 13px/1 Oswald, sans-serif; padding:3px 7px; border-radius:4px; }
       .bl-tabs em.me { background:rgba(127,209,139,.15); color:var(--win); }
       .bl-tabs em.them { background:rgba(226,120,106,.15); color:var(--loss); }
