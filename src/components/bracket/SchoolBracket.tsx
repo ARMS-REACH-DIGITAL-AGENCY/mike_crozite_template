@@ -360,7 +360,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         }
         .yfp-top { height: 1px; }
         .yfp-empty { padding: 40px 12px; text-align: center; color: var(--yfp-muted); font: 400 14px/1.45 system-ui, sans-serif; }
-        .yfp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 16px; align-items: start; max-width: 1000px; margin: 0 auto; }
+        .yfp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 16px; align-items: start; }
         .yfp-main { min-width: 0; }
         .yfp-kick { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 10px; color: var(--yfp-gold); font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         .yfp-kick span { color: var(--yfp-muted); }
