@@ -23,10 +23,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type GameBox, type Index, type LbGame,
-  LAST_WEEK, REGIONS, Face, Styles,
+  LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   abbr, fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings, tieNote,
 } from './gallery';
-import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { useBracketNav } from './bracketNav';
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
@@ -219,6 +219,78 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
   );
 }
 
+// Every bracket game in the tournament by master game # (#1-#3,069), then the
+// postseason. A game shows its schools once its round is set, its score once
+// it's played; this school's games in gold. Opens on this week's games.
+function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: { week: number; final: number; days: number }; onOpen: (o: Open) => void }) {
+  const S = index.schools;
+  const rows = useMemo(() => {
+    const list: { key: string; no: string; stage: string; region: number; card: WeekCard; set: boolean }[] = masterGames(index).map((m) => {
+      const w = m.game[1];
+      const state = w <= cal.final ? 'final' : w === cal.week ? 'live' : 'next';
+      return {
+        key: `m${m.no}`, no: String(m.no), stage: `R${m.round} G${m.gameNo}`, region: m.region,
+        card: { week: w, stage: `Round ${m.round} · Game ${m.gameNo}`, state, game: m.game, file: `d-${m.round}-${m.region}`, days: w <= cal.final ? 7 : w === cal.week ? cal.days : 0 } as WeekCard,
+        set: m.round === 1 || cal.final >= (m.round - 1) * 3,
+      };
+    });
+    for (const { game: g } of index.lbt) {
+      if (cal.final < g[1] - 1) continue;
+      const state = g[1] <= cal.final ? 'final' : g[1] === cal.week ? 'live' : 'next';
+      const stage = g[1] === LAST_WEEK + 3 ? 'SC Game' : `SC ${LBT_ROUNDS[g[1]].replace('Round ', 'R')}`;
+      list.push({ key: `t${g[0]}`, no: '–', stage, region: 0, set: true, card: { week: g[1], stage: g[1] === LAST_WEEK + 3 ? 'Season Championship Game' : `Season Championship ${LBT_ROUNDS[g[1]]}`, state, game: g, file: 'd-lbt', days: g[1] <= cal.final ? 7 : g[1] === cal.week ? cal.days : 0 } as WeekCard });
+    }
+    for (const g of index.gf) {
+      if (cal.final < g[1] - 1) continue;
+      const state = g[1] <= cal.final ? 'final' : g[1] === cal.week ? 'live' : 'next';
+      list.push({ key: `g${g[0]}`, no: '–', stage: 'World Series', region: 0, set: true, card: { week: g[1], stage: WORLD_SERIES, state, game: g, file: 'd-gf', days: g[1] <= cal.final ? 7 : g[1] === cal.week ? cal.days : 0 } as WeekCard });
+    }
+    return list;
+  }, [index, cal]);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const box = ref.current;
+    const first = box?.querySelector<HTMLElement>(`tr[data-week="${Math.max(1, Math.min(cal.week, index.weeks.length))}"]`);
+    const head = box?.querySelector('thead')?.getBoundingClientRect().height || 0;
+    if (box && first) box.scrollTop = first.offsetTop - head;
+  }, [cal.week, index.weeks.length]);
+  const name = (h: number) => shortName(S[h]?.[0] || '');
+  return (
+    <div className="yfz-all" ref={ref}>
+      <table>
+        <thead><tr><th>#</th><th>Wk</th><th>Game</th><th className="t">Visitor</th><th>R</th><th>R</th><th className="t">Home</th></tr></thead>
+        <tbody>
+          {rows.map((r) => {
+            const g = r.card.game!;
+            const mine = g[2] === me || g[3] === me;
+            const played = r.set && (r.card.state === 'final' || r.card.state === 'live');
+            const [hr, ar] = played ? runsThrough(g, r.card.days) : [0, 0];
+            const team = (side: 'h' | 'a') => {
+              const h = side === 'h' ? g[2] : g[3];
+              if (!r.set) return <span className="tbd">TBD</span>;
+              const won = r.card.state === 'final' && g[6] === h;
+              return (
+                <button type="button" className={`${h === me ? 'me' : ''}${won ? ' won' : ''}`} disabled={!played} onClick={() => onOpen({ card: r.card, side })}>{name(h)}</button>
+              );
+            };
+            return (
+              <tr key={r.key} data-week={r.card.week} className={`${mine ? 'mine' : ''}${r.card.state === 'live' ? ' live' : ''}`}>
+                <td className="no">{r.no}</td>
+                <td>{r.card.week}</td>
+                <td className="st">{r.stage}{r.region ? <small> · {r.region}</small> : null}</td>
+                <td className="t">{team('a')}</td>
+                <td className="r">{played ? ar : ''}</td>
+                <td className="r">{played ? hr : ''}</td>
+                <td className="t">{team('h')}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function SchoolBracket({ hsid }: { hsid: string }) {
   const me = Number(hsid);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -261,76 +333,84 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const cal = useMemo(() => (index && asof ? calendar(index, asof) : null), [index, asof]);
   const rec = useMemo(() => (index && lb ? records(index, lb) : () => ''), [index, lb]);
 
-  // Week order, under a heading per round (and the postseason).
-  const groups = useMemo(() => {
-    const out: { key: string; title: string; list: WeekCard[] }[] = [];
-    for (const c of cards) {
-      const r = c.week <= LAST_WEEK ? Math.ceil(c.week / 3) : 0;
-      const key = r ? `r${r}` : 'post';
-      if (out[out.length - 1]?.key !== key) out.push({ key, title: r ? `Round ${r} · weeks ${r * 3 - 2}–${r * 3}` : 'Postseason', list: [] });
-      out[out.length - 1].list.push(c);
+  // The FunZone: a tab per round (its three weeks stacked, one screen, no
+  // scrolling), the postseason when the school is in it, and every game in
+  // the tournament by master game #.
+  const tabs = useMemo(() => {
+    const t: { key: string; label: string; sub: string; list: WeekCard[] }[] = [];
+    for (let r = 1; r <= 10; r++) t.push({ key: `r${r}`, label: `R${r}`, sub: '', list: cards.filter((c) => c.week <= LAST_WEEK && Math.ceil(c.week / 3) === r) });
+    const post = cards.filter((c) => c.week > LAST_WEEK);
+    if (post.length) t.push({ key: 'post', label: 'Post', sub: '', list: post });
+    for (const x of t) {
+      const done = x.list.filter((c) => c.state === 'final' && c.game);
+      const w = done.filter((c) => c.game![6] === me).length;
+      const l = done.filter((c) => c.game![6] !== null && c.game![6] !== me).length;
+      x.sub = done.length ? `${w}-${l}` : '';
     }
-    return out;
-  }, [cards]);
-  // The week to open on: the current round's first week (the current week
-  // after week 30; the last week once the season's over).
-  const startWeek = useMemo(() => {
-    if (!cal || cal.week < 1 || !cards.length) return 0;
-    if (cal.week <= LAST_WEEK) return Math.ceil(cal.week / 3) * 3 - 2;
-    return cards.find((c) => c.week === cal.week)?.week ?? cards[cards.length - 1].week;
+    t.push({ key: 'all', label: 'All', sub: 'Game #', list: [] });
+    return t;
+  }, [cards, me]);
+  const tabOfWeek = (w: number) => (w > LAST_WEEK ? 'post' : `r${Math.max(1, Math.ceil(w / 3))}`);
+  const nowTab = useMemo(() => {
+    if (!cal || cal.week < 1) return 'r1';
+    if (cal.week <= LAST_WEEK) return tabOfWeek(cal.week);
+    return cards.some((c) => c.week > LAST_WEEK) ? 'post' : 'r10';
   }, [cal, cards]);
+  const [picked, setPicked] = useState('');
+  const tab = picked || nowTab;
 
-  // Scroll a week's card to just under rows 1-3 (they stay pinned at the top).
-  const scrollToWeek = (week: number, smooth: boolean) => {
-    const el = document.getElementById(`fweek-${week}`);
-    if (!el) return;
-    const pinned = document.querySelector('.yat-row3-shell')?.getBoundingClientRect();
-    const top = el.getBoundingClientRect().top + window.scrollY - (pinned ? Math.max(0, pinned.bottom) : 0) - 30;
-    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
-  };
-  // Open on the current round, once (after the awards are in, so nothing
-  // moves the cards afterwards).
-  const opened = useRef(false);
-  useEffect(() => {
-    if (opened.current || !startWeek || (region && !stars)) return;
-    opened.current = true;
-    requestAnimationFrame(() => scrollToWeek(startWeek, false));
-  }, [startWeek, region, stars]);
-
-  // Row 3's timeline: a slide scrolls to its week's card.
+  // Row 3's timeline: a slide opens its week's round and marks the card.
   useEffect(() => {
     if (!nav.focusSeq || !nav.focusWeek) return;
-    if (!document.getElementById(`fweek-${nav.focusWeek}`)) return;
-    scrollToWeek(nav.focusWeek, true);
-    const on = window.setTimeout(() => setFocused(nav.focusWeek), 0);
+    const on = window.setTimeout(() => { setPicked(tabOfWeek(nav.focusWeek)); setFocused(nav.focusWeek); }, 0);
     const off = window.setTimeout(() => setFocused(0), 2200);
     return () => { window.clearTimeout(on); window.clearTimeout(off); };
   }, [nav.focusSeq, nav.focusWeek]);
 
   const school = index?.schools[me];
+  const cur = tabs.find((t) => t.key === tab);
+  const roundTitle = (key: string) => {
+    if (key === 'post') return 'Postseason';
+    const r = Number(key.slice(1));
+    const a = index?.weeks[r * 3 - 3], b = index?.weeks[r * 3 - 1];
+    return `Round ${r} · weeks ${r * 3 - 2}–${r * 3}${a && b ? ` · ${fmtRange(a[0], b[1])}` : ''}`;
+  };
   return (
     <div className="yfp">
       <div ref={sentinel} className="yfp-top" />
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {!error && (!index || !lb || !cal) && <p className="yfp-empty">Loading the 2026 season…</p>}
       {index && lb && cal && (
-        <div className="yfp-layout">
-          <div className="yfp-main">
-            <div className="yfp-kick">
-              {school ? <>2026 · Region {school[1]} · {REGIONS[school[1]]} · #{school[2]} seed</> : 'Not in the 2026 bracket field'}
-              <span>simulation · as of {asof}</span>
-            </div>
-            {groups.map((grp) => (
-              <section key={grp.key} className="yfp-group">
-                <h3 className={cal.week <= index.weeks.length && grp.list.some((c) => c.week === startWeek) ? 'now' : ''}>{grp.title}</h3>
-                <div className="yfp-feed">
-                  {grp.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} rec={rec} focused={focused === c.week} onOpen={setOpen} />)}
+        <div className="yfz">
+          <div className={`yfz-panel${tab === 'all' ? ' all' : ''}`}>
+            {tab === 'all' ? (
+              <AllGames index={index} me={me} cal={cal} onOpen={setOpen} />
+            ) : (
+              <div className="yfz-round">
+                <div className="yfz-title">
+                  <span>{roundTitle(tab)}</span>
+                  <i>{school ? `Region ${school[1]} · #${school[2]} seed · ` : ''}as of {asof}</i>
                 </div>
-              </section>
-            ))}
-            {!school && <p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
+                <div className="yfz-cards">
+                  {cur?.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} rec={rec} focused={focused === c.week} onOpen={setOpen} />)}
+                  {!school && <p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
+                </div>
+              </div>
+            )}
+            {tab !== 'all' && <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={() => setRules(true)} />}
           </div>
-          <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={() => setRules(true)} />
+          {/* The FunZone's icon row, pinned above the footer ad. */}
+          <nav className="yfz-dock" aria-label="Rounds">
+            <div className="yfz-dock-tabs" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+              {tabs.map((t) => (
+                <button key={t.key} type="button" className={`yfz-tab${t.key === tab ? ' on' : ''}${t.key === nowTab && cal.week >= 1 && cal.week <= index.weeks.length ? ' now' : ''}`}
+                  aria-pressed={t.key === tab} onClick={() => setPicked(t.key)} title={t.key === 'all' ? 'Every game by master game #' : roundTitle(t.key)}>
+                  <b>{t.label}</b>
+                  <span>{t.sub || (t.key === nowTab && cal.week >= 1 && cal.week <= index.weeks.length ? 'Now' : '\u00a0')}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
         </div>
       )}
       {index && open && <TeamDrawer index={index} open={open} onClose={() => setOpen(null)} />}
@@ -425,6 +505,80 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-lb li.me, .yfp-lb li.me .rf, .yfp-lb li.me .rk { color: var(--yfp-gold); font-weight: 700; }
         .yfp-lb-rules { display: block; width: 100%; margin: 10px 0 0; min-height: 26px; border: 1px solid var(--yfp-gold); border-radius: 4px; background: transparent; color: var(--yfp-gold); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
         .yfp-lb-note { margin: 8px 0 0; color: var(--yfp-muted); font-size: 7.5px; line-height: 1.35; }
+
+        /* The FunZone: exactly the screen under rows 1-4, above the footer
+           ad and the pinned round buttons - one round at a time, no page
+           scrolling (like the profile's FunZone). */
+        .yfp:has(.yfz) { padding: 0; }
+        .yfz { --yfz-dock-h: 58px; position: relative; height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--row4-h, 56px) - var(--footerH, 66px)); min-height: 300px; overflow: hidden; }
+        .yfz-panel { position: absolute; inset: 0 0 var(--yfz-dock-h) 0; display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 12px; padding: 8px 10px; }
+        .yfz-panel.all { grid-template-columns: minmax(0, 1fr); }
+        .yfz-panel > .yfp-lb { position: static; max-height: none; height: 100%; overflow-y: auto; }
+        .yfz-round { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+        .yfz-title { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; color: var(--yfp-gold); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+        .yfz-title span { overflow: hidden; text-overflow: ellipsis; }
+        .yfz-title i { font: 500 9px/1.4 Oswald, sans-serif; font-style: normal; letter-spacing: .06em; color: var(--yfp-muted); overflow: hidden; text-overflow: ellipsis; }
+        .yfz-cards { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+        .yfz-cards .yfp-card { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 6px 10px; }
+        .yfz-cards .yfp-head { margin-bottom: 4px; }
+        .yfz-cards .yfp-team { padding: 1px 0; }
+        .yfz-cards .yfp-team b { font-size: 17px; }
+        .yfz-cards .yfp-crest { width: 24px; height: 24px; }
+        .yfz-cards .yfp-runs { font-size: 21px; }
+        .yfz-cards .yfp-star { margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+        .yfz-cards .yfp-note { display: none; }
+        .yfz-cards .yfp-line { margin-top: 3px; font-size: 11px; }
+        .yfz-cards .yfp-line th, .yfz-cards .yfp-line td { padding: 2px 0; }
+        .yfz-cards .yfp-line thead th { font-size: 10px; }
+        .yfz-cards .yfp-tbd { margin-top: 0; }
+        /* Wide screens: the line score beside the two schools. */
+        @media (min-width: 900px) {
+          .yfz-cards .yfp-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-rows: auto auto auto 1fr; column-gap: 20px; align-content: center; }
+          .yfz-cards .yfp-card > .yfp-head, .yfz-cards .yfp-card > .yfp-team, .yfz-cards .yfp-card > .yfp-star, .yfz-cards .yfp-card > .yfp-tbd { grid-column: 1; }
+          .yfz-cards .yfp-card > .yfp-line { grid-column: 2; grid-row: 1 / span 4; align-self: center; margin: 0; }
+          .yfz-cards .yfp-team b { font-size: 19px; }
+          .yfz-cards .yfp-line { font-size: 12px; }
+          .yfz-cards .yfp-line th, .yfz-cards .yfp-line td { padding: 4px 0; }
+        }
+
+        /* Every game by master game #: a scrolling table inside the panel. */
+        .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
+        .yfz-all table { width: 100%; border-collapse: collapse; font: 500 12px/1.2 Oswald, sans-serif; color: var(--yfp-text); }
+        .yfz-all thead th { position: sticky; top: 0; z-index: 1; padding: 6px 6px; background: var(--bg, #0c0c0c); color: var(--yfp-gold); font: 700 10px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; text-align: center; border-bottom: 1px solid var(--yfp-card-border); }
+        body.light-theme .yfz-all thead th { background: #f4efe6; }
+        .yfz-all td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--yfp-card-border); white-space: nowrap; }
+        .yfz-all .t { text-align: left; max-width: 0; width: 34%; overflow: hidden; text-overflow: ellipsis; }
+        .yfz-all th.t { text-align: left; }
+        .yfz-all .no { color: var(--yfp-muted); font-variant-numeric: tabular-nums; }
+        .yfz-all .st small { color: var(--yfp-muted); }
+        .yfz-all .r { width: 26px; font-weight: 700; color: var(--yfp-strong); }
+        .yfz-all td button { max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--yfp-muted); font: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .yfz-all td button:disabled { cursor: default; }
+        .yfz-all td button.won { color: var(--yfp-strong); }
+        .yfz-all td button.me { color: var(--yfp-gold); font-weight: 700; }
+        .yfz-all td button:not(:disabled):hover { text-decoration: underline; }
+        .yfz-all tr.mine td { background: rgba(255,193,7,.08); }
+        .yfz-all tr.live .no { color: var(--yfp-gold); }
+        .yfz-all .tbd { color: var(--yfp-faint); }
+
+        /* The round buttons, pinned above the footer ad like the profile's. */
+        .yfz-dock { position: fixed; left: 0; right: 0; bottom: var(--footerH, 66px); height: var(--yfz-dock-h); z-index: 60; background: rgba(7,7,7,.98); border-top: 1px solid rgba(255,255,255,.12); box-shadow: 0 -6px 16px rgba(0,0,0,.42); }
+        .yfz-dock-tabs { box-sizing: border-box; height: 100%; max-width: 900px; margin: 0 auto; padding: 0 4px; display: grid; }
+        .yfz-tab { position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px 1px; border: 0; background: transparent; color: rgba(255,255,255,.66); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .yfz-tab b { font: 700 clamp(15px, 4.2vw, 20px)/1 Oswald, sans-serif; letter-spacing: .02em; }
+        .yfz-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 clamp(8px, 2.2vw, 10px)/1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+        .yfz-tab:hover, .yfz-tab.on { color: #fff; }
+        .yfz-tab.on b { color: #d2b45c; }
+        .yfz-tab.on::before { content: ''; position: absolute; left: 20%; right: 20%; top: 0; height: 3px; border-radius: 0 0 2px 2px; background: #d2b45c; }
+        .yfz-tab.now span { color: var(--gold, #ffc107); }
+        @media (max-width: 899px) {
+          .yfz { --yfz-dock-h: 56px; }
+          .yfz-panel { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; padding: 6px 8px; }
+          .yfz-title i { display: none; }
+          .yfz-all table { font-size: 11px; }
+          .yfz-all td { padding: 4px 3px; }
+          .yfz-all th:nth-child(3), .yfz-all td:nth-child(3) { display: none; }
+        }
 
         /* The drawers: home from the right, visitor from the left. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.45); }

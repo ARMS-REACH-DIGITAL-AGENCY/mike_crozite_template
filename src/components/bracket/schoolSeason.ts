@@ -135,3 +135,27 @@ export function records(index: Index, lb: LbGame[]) {
     return `${w}-${l}${t ? `-${t}` : ''}`;
   };
 }
+
+// The whole tournament's bracket games by master game # - the numbering of
+// master_bracket_schedule_2026: round by round, then game 1, 2, 3 of the
+// series, then region 1-8, then bracket position (game 1 and 3 by the better
+// seed, 1 v 128 first; game 2 by its home seed, the old visitor, #65 first).
+// Rounds 8-10 have no region. #1-#3,069.
+export type MasterGame = { no: number; round: number; gameNo: number; region: number; game: GameRow; seeds: [number, number] };
+export function masterGames(index: Index): MasterGame[] {
+  const out: MasterGame[] = [];
+  let no = 0;
+  for (const round of index.rounds) {
+    for (let k = 0; k < 3; k++) {
+      const list = round.series
+        .map((s) => ({ s, top: Math.min(s[3], s[4]), low: Math.max(s[3], s[4]) }))
+        .sort((a, b) => a.s[0] - b.s[0] || (k === 1 ? a.low - b.low : a.top - b.top));
+      for (const { s } of list) {
+        const g = s[7][k];
+        if (!g) continue;
+        out.push({ no: ++no, round: round.r, gameNo: k + 1, region: s[0], game: g, seeds: g[2] === s[1] ? [s[3], s[4]] : [s[4], s[3]] });
+      }
+    }
+  }
+  return out;
+}
