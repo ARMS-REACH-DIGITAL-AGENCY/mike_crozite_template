@@ -343,15 +343,6 @@ export function bracketOrder(size: number): number[] {
   return order;
 }
 
-// After Round 7 there is exactly one champion from each of the 8 regions.
-// Their places in the national bracket are fixed by regional slot, not
-// reseeded by school seed, runs, or run differential.
-// Input order: [Region 1 champ, ..., Region 8 champ].
-// Output Round-8 order: R1vR8, R4vR5, R2vR7, R3vR6.
-export function nationalBracketOrder<T>(regionChampions: T[]): T[] {
-  if (regionChampions.length !== 8) throw new Error('national bracket requires exactly 8 regional champions');
-  return bracketOrder(8).map((regionSlot) => regionChampions[regionSlot - 1]);
-}
 
 // Best of 3, all three games always played; the side with more wins
 // advances (bracket games never tie, so 2 or 3 wins decides it).
