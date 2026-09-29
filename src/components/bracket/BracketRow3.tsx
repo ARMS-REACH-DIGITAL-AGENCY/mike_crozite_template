@@ -2,16 +2,20 @@
 
 // src/components/bracket/BracketRow3.tsx
 // Row 3 on the Fantasy Bracket Tourney tab. It works like the News tab's
-// headshot strip: the same tiles, one per region (plus the regional
-// leaderboards). A tile filters the tournament below; the same tile again
-// shows everything.
+// headshot strip: the same tiles - this school (its current round), the
+// regional leaderboards, then one per region. A tile filters the tournament
+// below; the same tile again shows everything.
 
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { SchoolContext } from '@/context/SchoolContext';
+import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import { REGIONS } from './gallery';
 import { setBracketNav, useBracketNav } from './bracketNav';
 
 export default function BracketRow3() {
   const nav = useBracketNav();
+  const school = useContext(SchoolContext);
+  const schoolName = (school?.hsName || 'My team').replace(/\s+high school$/i, '');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
 
@@ -33,9 +37,16 @@ export default function BracketRow3() {
     <div className="gallery-strip ybr3" data-active-section="fantasy">
       <button type="button" className={`gallery-strip-arrow left ${edges.left ? '' : 'hidden'}`} onClick={() => scroll(-1)} aria-label="Scroll left">‹</button>
       <div ref={scrollRef} className="gallery-strip-inner" role="group" aria-label="Filter the tournament by region">
+        <button type="button" title={`${schoolName}: this round`} aria-pressed={nav.team}
+          className={`gallery-slot ybr3-tile team${nav.team ? ' is-active on' : ''}`}
+          onClick={() => setBracketNav(nav.team ? { team: false } : { team: true, region: 0, boards: false })}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="ybr3-crest" src={school?.crestUrl || CREST_FALLBACK_PATH} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }} />
+          <span className="ybr3-name">{schoolName}</span>
+        </button>
         <button type="button" title="Regional leaderboards" aria-pressed={nav.boards}
           className={`gallery-slot ybr3-tile${nav.boards ? ' is-active on' : ''}`}
-          onClick={() => setBracketNav({ boards: !nav.boards })}>
+          onClick={() => setBracketNav({ boards: !nav.boards, team: false })}>
           <span className="ybr3-big">LB</span>
           <span className="ybr3-name">Leaderboards</span>
         </button>
@@ -46,7 +57,7 @@ export default function BracketRow3() {
           return (
             <button key={k} type="button" title={`Region ${r} · ${v}`} aria-pressed={on}
               className={`gallery-slot ybr3-tile region${on ? ' is-active on' : ''}`}
-              onClick={() => setBracketNav({ region: on ? 0 : r })}>
+              onClick={() => setBracketNav({ region: on ? 0 : r, team: false })}>
               <span className="ybr3-kick">Region</span>
               <span className="ybr3-big">{r}</span>
               <span className="ybr3-name">{v}</span>
@@ -68,6 +79,7 @@ export default function BracketRow3() {
         .ybr3-tile.on::after { display:none; }
         .ybr3-tile.on .ybr3-name, .ybr3-tile.on .ybr3-kick { color:#000; }
         .ybr3-gap { flex:0 0 10px; }
+        .ybr3-crest { width:52px; height:52px; object-fit:contain; margin-top:-14px; }
       `}</style>
     </div>
   );

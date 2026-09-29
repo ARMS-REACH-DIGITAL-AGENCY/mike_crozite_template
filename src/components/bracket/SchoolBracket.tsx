@@ -2,13 +2,12 @@
 
 // src/components/bracket/SchoolBracket.tsx
 // The Fantasy Bracket Tourney tab (the 2026 simulation). Every school's
-// page is the same page: row one is this school's cards for the current
-// round (its bracket series, or its weekly region leaderboard games once
-// it's out); below it the tournament in sections, the round in progress on
-// top and each finished round underneath (the history), the same on every
-// subdomain. Each series is one row: game 1, game 2, game 3. The single
+// page is the same page: the tournament in sections, the round in progress
+// on top and each finished round underneath (the history). Row 3's school
+// tile swaps it for this school's cards for the current round (its bracket
+// series, or its weekly region leaderboard games once it's out). Each series is one row: game 1, game 2, game 3. The single
 // games (Leaderboard 8, Grand Final) pack three to a row. Row 3's tiles
-// (BracketRow3) filter by region, or show the regional leaderboards.
+// (BracketRow3) also filter by region, or show the regional leaderboards.
 //
 // "Current" follows the calendar. ?asof=YYYY-MM-DD previews any date: only
 // games final by then show.
@@ -138,12 +137,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return { week, final, current };
   }, [index, asof]);
 
-  // Row one: this school's current round.
+  // Row 3's school tile: this school's current round.
   const mine = useMemo(() => (index && lb && cal ? ownGames(index, lb, home, cal.current, cal.final) : NO_GAMES), [index, lb, cal, home]);
 
-  // Everything below, the same on every school's page.
+  // The tournament, the same on every school's page.
   const region = nav.region;
-  const items = useMemo(() => (index && lb && cal && !nav.boards ? tournamentItems(index, lb, cal.final, region) : []), [index, lb, cal, nav.boards, region]);
+  const items = useMemo(() => (index && lb && cal && !nav.boards && !nav.team ? tournamentItems(index, lb, cal.final, region) : []), [index, lb, cal, nav.boards, nav.team, region]);
   const { shown, sentinel: more } = useReveal(items.length, 16);
 
   return (
@@ -157,20 +156,20 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             2026 National Alumni Bracket · simulation · as of {asof}{region ? ` · Region ${region} · ${REGIONS[region]}` : ''}
           </div>
 
-          {index.schools[home] && (
+          {nav.team ? (
+            // Row 3's school tile: this school's current round only.
             <section className="ysb-block">
               <h3>
-                {shortName(index.schools[home][0])} · {mine.stage ? `${mine.latest ? 'latest games' : 'this round'} · ${STAGE_NAME(mine.stage)}` : 'this round'}
+                {shortName(index.schools[home]?.[0] || '')} · {mine.stage ? `${mine.latest ? 'latest games' : 'this round'} · ${STAGE_NAME(mine.stage)}` : 'this round'}
               </h3>
               {cal.week === 0 && <p className="bl-muted">The 2026 bracket starts {index.weeks[0][0]}.</p>}
               {cal.week > 0 && !mine.rows.length && <p className="bl-muted">No games final yet this round.</p>}
+              {!index.schools[home] && <p className="bl-muted">This school isn&apos;t in the 2026 bracket field.</p>}
               <div className="bl-rows">
                 {mine.rows.map((row) => <SeriesRowView key={`mine-${row.key}`} row={row} index={index} />)}
               </div>
             </section>
-          )}
-
-          {nav.boards ? (
+          ) : nav.boards ? (
             <section className="ysb-block">
               <h3>Regional leaderboards</h3>
               <Leaderboards index={index} lb={lb} week={boardWeek ?? Math.max(1, Math.min(cal.final, LAST_WEEK))} setWeek={setBoardWeek}
@@ -185,7 +184,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
               <div ref={more} className="bl-sentinel" aria-hidden="true" />
             </div>
           )}
-          <p className="ysb-foot">Filter by region with the tiles above (tap a tile again to show every region). Simulated on 2026 stats: pros are real box scores; college lines marked * are simulated from season totals.</p>
+          <p className="ysb-foot">Tap a tile above for your school&apos;s current round, the leaderboards or one region; tap it again to show everything. Simulated on 2026 stats: pros are real box scores; college lines marked * are simulated from season totals.</p>
         </>
       )}
       <Styles />
