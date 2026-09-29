@@ -68,7 +68,7 @@ function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard;
         ? <Fallback className="yft-person" srcs={[...cutouts(star[5]), SILHOUETTE]} alt={star[0]} />
         : <span className="yft-mark" aria-hidden="true">{opp ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(opp), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
       <span className="yft-copy">
-        <span className="yft-kick">Week {card.week} · {card.stage} · {dates}</span>
+        <span className="yft-kick">Week {card.week} · {card.stage.replace(/ leaderboard game$/, ' game')} · {dates}</span>
         <span className={`yft-title ${res}`}>{title}</span>
         {star && card.state === 'final'
           ? <span className="yft-body"><b>★ Alumni of the Week</b><a className="yft-plink" href={`/${me}/player/${encodeURIComponent(star[5])}`} onClick={(e) => e.stopPropagation()}>{starLine(star)}</a></span>

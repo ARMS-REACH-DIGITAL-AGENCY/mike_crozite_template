@@ -24,12 +24,16 @@ import { createPortal } from 'react-dom';
 import {
   type GameBox, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  abbr, fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings, tieNote,
+  fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { useBracketNav } from './bracketNav';
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
+import { Roboto_Condensed } from 'next/font/google';
+
+// The scoreboard type (the game cards), condensed like the MLB and ESPN apps.
+const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-sb', display: 'swap' });
 
 function Crest({ h }: { h: number }) {
   // eslint-disable-next-line @next/next/no-img-element
@@ -40,70 +44,67 @@ const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.
 
 type Open = { card: WeekCard; side: 'h' | 'a' };
 
-// One week, stacked like a scoreboard app's game: a status pill, the two
-// schools (crest, name, record, runs) visitor over home, the Alumni of the
-// Week, then the nine-inning line.
+// One week, like a scoreboard app's box: a status pill and the week, then
+// the two schools (visitor over home) as the line score itself - crest,
+// name, record, innings 1-9, runs, a marker on the winner - then the Alumni
+// of the Week. The round is the tab, so it isn't repeated here.
+export const shortStage = (stage: string) => stage.replace(/^Round \d+ · /, '').replace(/ leaderboard game$/, ' game');
 function WeekCardView({ index, card, me, star, rec, focused, onOpen }: {
   index: Index; card: WeekCard; me: number; star?: Star; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void;
 }) {
   const g = card.game;
   const S = index.schools;
-  const pill = card.state === 'final' ? 'Final' : card.state === 'live' ? (card.days ? `Thru ${DAY_NAMES[card.days - 1]}` : 'Starts Mon') : card.state === 'next' ? `Starts ${fmtDate(index.weeks[card.week - 1][0])}` : card.state === 'bye' ? 'Bye' : 'TBD';
+  const pill = card.state === 'final' ? 'Final' : card.state === 'live' ? (card.days ? `Thru ${DAY_NAMES[card.days - 1]}` : 'Mon') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'Bye' : 'TBD';
   const [hr, ar] = g ? runsThrough(g, card.days) : [0, 0];
   const played = card.state === 'final' || card.state === 'live';
-  const canOpen = played;
-  const row = (side: 'h' | 'a') => {
-    const h = side === 'h' ? g![2] : g![3];
-    const runs = side === 'h' ? hr : ar;
-    const lost = card.state === 'final' && g![6] !== null && g![6] !== h;
+  const head = (
+    <div className="yfp-head">
+      <span className={`yfp-pill ${card.state}`}>{pill}</span>
+      <span className="yfp-eye">Week {card.week} · {shortStage(card.stage)}</span>
+      <i className="yfp-dates">{dates(index, card.week)}</i>
+    </div>
+  );
+  if (!g) {
     return (
-      <button type="button" className={`yfp-team${h === me ? ' me' : ''}${lost ? ' lost' : ''}`} disabled={!canOpen}
-        onClick={() => onOpen({ card, side })} aria-label={canOpen ? `${shortName(S[h]?.[0] || '')}: this week's players` : undefined}>
-        <Crest h={h} />
-        <b>{shortName(S[h]?.[0] || '')}</b>
-        <small>{rec(h, card.state === 'final' ? card.week : card.week - 1)}</small>
-        <span className="yfp-runs">{played ? runs : ''}</span>
-      </button>
+      <article className={`yfp-card ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
+        {head}
+        <div className="yfp-tbd"><span className="yfp-q">?</span><span>{card.state === 'bye' ? 'No game this week' : 'Opponent TBD'}{card.note ? <small>{card.note}</small> : null}</span></div>
+      </article>
     );
-  };
+  }
   return (
     <article className={`yfp-card ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
-      <div className="yfp-head">
-        <span className={`yfp-pill ${card.state}`}>{pill}</span>
-        <span className="yfp-eye">Week {card.week} · {card.stage}<i>{dates(index, card.week)}</i></span>
-      </div>
-      {g ? (
-        <>
-          {row('a')}
-          {row('h')}
-          {card.state === 'final' && star && <div className="yfp-star"><b>★ Alumni of the Week:</b> <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star)}</a></div>}
-          {card.state === 'final' && tieNote(g[4]) && <div className="yfp-note">{tieNote(g[4])}</div>}
-          {card.state === 'final' && g[4] === 'tie' && <div className="yfp-note">Tie · half a win each</div>}
-          <table className="yfp-line">
-            <thead><tr><th />{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <th key={n}>{n}</th>)}<th className="r">R</th></tr></thead>
-            <tbody>
-              {(['a', 'h'] as const).map((side) => {
-                const h = side === 'h' ? g[2] : g[3];
-                const off = side === 'h' ? 0 : 1;
-                return (
-                  <tr key={side} className={h === me ? 'me' : ''}>
-                    <th><button type="button" disabled={!canOpen} onClick={() => onOpen({ card, side })}>{abbr(shortName(S[h]?.[0] || ''))}</button></th>
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-                      const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
-                      return <td key={i}>{shown ? g[5][i * 2 + off] : ''}</td>;
-                    })}
-                    <td className="r">{played ? (side === 'h' ? hr : ar) : ''}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      ) : (
-        <div className="yfp-tbd">
-          <span className="yfp-q">?</span>
-          <span>{card.state === 'bye' ? 'No game' : 'Opponent TBD'}{card.note ? <small>{card.note}</small> : null}</span>
-        </div>
+      {head}
+      <table className="yfp-box">
+        <thead><tr><th className="tm" />{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <th key={n}>{n}</th>)}<th className="r">R</th></tr></thead>
+        <tbody>
+          {(['a', 'h'] as const).map((side) => {
+            const h = side === 'h' ? g[2] : g[3];
+            const off = side === 'h' ? 0 : 1;
+            const won = card.state === 'final' && g[6] === h;
+            const lost = card.state === 'final' && g[6] !== null && g[6] !== h;
+            return (
+              <tr key={side} className={`${h === me ? 'me' : ''}${lost ? ' lost' : ''}`}>
+                <th className="tm">
+                  <button type="button" disabled={!played} onClick={() => onOpen({ card, side })} aria-label={played ? `${shortName(S[h]?.[0] || '')}: this week's players` : undefined}>
+                    <Crest h={h} />
+                    <b>{shortName(S[h]?.[0] || '')}</b>
+                    <small>{rec(h, card.state === 'final' ? card.week : card.week - 1)}</small>
+                  </button>
+                </th>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+                  const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
+                  const v = g[5][i * 2 + off];
+                  return <td key={i} className={shown && v ? 'hit' : ''}>{shown ? v : ''}</td>;
+                })}
+                <td className="r">{played ? (side === 'h' ? hr : ar) : ''}{won && <span className="yfp-won" aria-label="winner">◀</span>}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {card.state === 'final' && star && (
+        <div className="yfp-star">★ <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star)}</a></div>
       )}
     </article>
   );
@@ -391,7 +392,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return `Round ${r} · weeks ${r * 3 - 2}–${r * 3}${a && b ? ` · ${fmtRange(a[0], b[1])}` : ''}`;
   };
   return (
-    <div className="yfp">
+    <div className={`yfp ${scoreboardFont.variable}`}>
       <div ref={sentinel} className="yfp-top" />
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {!error && (!index || !lb || !cal) && <p className="yfp-empty">Loading the 2026 season…</p>}
@@ -402,10 +403,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
               <AllGames index={index} me={me} cal={cal} onOpen={setOpen} />
             ) : (
               <div className="yfz-round">
-                <div className="yfz-title">
-                  <span>{roundTitle(tab)}</span>
-                  <i>{school ? `Region ${school[1]} · #${school[2]} seed · ` : ''}as of {asof}</i>
-                </div>
                 <div className="yfz-cards">
                   {cur?.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} rec={rec} focused={focused === c.week} onOpen={setOpen} />)}
                   {!school && <p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
@@ -464,37 +461,36 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-group h3 { margin: 0 0 8px; color: var(--yfp-gold); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
         .yfp-feed { display: flex; flex-direction: column; gap: 8px; }
 
-        /* A week, stacked like a scoreboard app's game. */
-        .yfp-card { border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); padding: 10px 12px 8px; transition: border-color .15s ease, box-shadow .15s ease; }
+        /* A week, like a scoreboard app's box. */
+        .yfp-card { border: 1px solid var(--yfp-card-border); border-radius: 6px; background: var(--yfp-card-bg); padding: 7px 10px 6px; transition: border-color .15s ease, box-shadow .15s ease; }
         .yfp-card.focus { border-color: var(--yfp-gold); box-shadow: 0 0 0 2px var(--yfp-gold); }
-        .yfp-card.tbd, .yfp-card.bye { opacity: .72; }
-        .yfp-head { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; min-width: 0; }
-        .yfp-pill { flex: 0 0 auto; padding: 3px 6px 2px; border-radius: 4px; background: var(--yfp-strong); color: #0b0b0b; font: 800 11px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-        .yfp-pill.live { background: var(--yfp-gold); }
+        .yfp-card.tbd, .yfp-card.bye { opacity: .7; }
+        .yfp-head { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 3px; }
+        .yfp-pill { flex: 0 0 auto; padding: 2px 5px 1px; border-radius: 3px; background: var(--yfp-strong); color: #0b0b0b; font: 700 10px/1.1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .yfp-pill.live { background: #d32f2f; color: #fff; }
         .yfp-pill.next, .yfp-pill.tbd, .yfp-pill.bye { background: transparent; color: var(--yfp-muted); box-shadow: inset 0 0 0 1px var(--yfp-card-border); }
-        .yfp-eye { min-width: 0; display: flex; justify-content: space-between; gap: 8px; flex: 1; color: var(--yfp-gold); font: 700 9px/1.2 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
-        .yfp-eye i { font-style: normal; color: var(--yfp-muted); white-space: nowrap; }
-        .yfp-team { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; padding: 3px 0; border: 0; background: transparent; color: var(--yfp-strong); font: inherit; text-align: left; cursor: pointer; }
-        .yfp-team:disabled { cursor: default; }
-        .yfp-team b { min-width: 0; font: 700 21px/1.1 Oswald, sans-serif; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .yfp-team small { color: var(--yfp-muted); font: 500 13px/1 Oswald, sans-serif; white-space: nowrap; }
-        .yfp-team.me b { color: var(--yfp-gold); }
-        .yfp-team.lost b, .yfp-team.lost .yfp-runs { opacity: .62; }
-        .yfp-team:not(:disabled):hover b { text-decoration: underline; }
-        .yfp-crest { width: 32px; height: 32px; object-fit: contain; }
-        .yfp-runs { font: 700 26px/1 Oswald, sans-serif; color: var(--yfp-strong); text-align: right; min-width: 20px; }
-        .yfp-line { width: 100%; margin-top: 8px; border-collapse: collapse; table-layout: fixed; font: 700 13px/1 Oswald, sans-serif; color: var(--yfp-strong); }
-        .yfp-line th, .yfp-line td { padding: 6px 0; text-align: center; }
-        .yfp-line thead th { color: var(--yfp-strong); font-size: 12px; }
-        .yfp-line th:first-child { width: 48px; text-align: left; }
-        .yfp-line tbody th button { padding: 0; border: 0; background: transparent; color: inherit; font: 700 13px/1 Oswald, sans-serif; letter-spacing: .04em; cursor: pointer; }
-        .yfp-line tbody th button:disabled { cursor: default; }
-        .yfp-line tbody th button:not(:disabled):hover { color: var(--yfp-gold); text-decoration: underline; }
-        .yfp-line tr.me th button { color: var(--yfp-gold); }
-        .yfp-line .r { width: 34px; border-left: 1px solid var(--yfp-card-border); }
-        .yfp-star { margin-top: 6px; color: var(--yfp-text); font: 500 12px/1.35 Oswald, sans-serif; letter-spacing: .02em; }
-        .yfp-star b { color: var(--yfp-gold); font-weight: 600; }
-        .yfp-star a { color: inherit; text-decoration: none; }
+        .yfp-eye { flex: 1; min-width: 0; color: var(--yfp-text); font: 700 11px/1.1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .yfp-dates { flex: 0 0 auto; font-style: normal; color: var(--yfp-muted); font: 500 10px/1.1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        .yfp-box { width: 100%; border-collapse: collapse; table-layout: fixed; font: 500 13px/1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; font-variant-numeric: tabular-nums; color: var(--yfp-muted); }
+        .yfp-box thead th { padding: 0 0 2px; color: var(--yfp-faint); font-size: 10px; font-weight: 700; text-align: center; }
+        .yfp-box td { padding: 3px 0; text-align: center; }
+        .yfp-box td.hit { color: var(--yfp-strong); font-weight: 700; }
+        .yfp-box th.tm { text-align: left; padding: 2px 6px 2px 0; font-weight: 400; }
+        /* Innings are narrow fixed columns grouped at the right, like an MLB line score; the school takes the rest. */
+        .yfp-box thead th:not(.tm):not(.r) { width: 24px; }
+        .yfp-box .r { width: 34px; text-align: right; padding-right: 12px; position: relative; color: var(--yfp-strong); font: 800 19px/1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; }
+        .yfp-box thead .r { font-size: 10px; color: var(--yfp-faint); }
+        .yfp-box tr.lost .r, .yfp-box tr.lost .tm b { color: var(--yfp-muted); }
+        .yfp-won { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 9px; color: var(--yfp-strong); }
+        .yfp-box .tm button { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+        .yfp-box .tm button:disabled { cursor: default; }
+        .yfp-box .tm b { min-width: 0; color: var(--yfp-strong); font: 700 15px/1.1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .yfp-box .tm small { flex: 0 0 auto; color: var(--yfp-muted); font: 500 11px/1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; }
+        .yfp-box tr.me .tm b { color: var(--yfp-gold); }
+        .yfp-box .tm button:not(:disabled):hover b { text-decoration: underline; }
+        .yfp-crest { width: 22px; height: 22px; object-fit: contain; flex: 0 0 auto; }
+        .yfp-star { margin-top: 3px; color: var(--yfp-gold); font: 500 11px/1.25 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .yfp-star a { color: var(--yfp-text); text-decoration: none; }
         .yfp-star a:hover { color: var(--yfp-gold); text-decoration: underline; }
         .yfp-note { margin-top: 4px; color: var(--yfp-muted); font: 400 11px/1.35 system-ui, sans-serif; }
         .yfp-tbd { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--yfp-muted); font: 500 13px/1.2 Oswald, sans-serif; letter-spacing: .03em; }
@@ -532,21 +528,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel.all { grid-template-columns: minmax(0, 1fr); }
         .yfz-panel > .yfp-lb { position: static; max-height: none; height: 100%; overflow-y: auto; }
         .yfz-round { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-        .yfz-title { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; color: var(--yfp-gold); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
-        .yfz-title span { overflow: hidden; text-overflow: ellipsis; }
-        .yfz-title i { font: 500 9px/1.4 Oswald, sans-serif; font-style: normal; letter-spacing: .06em; color: var(--yfp-muted); overflow: hidden; text-overflow: ellipsis; }
-        .yfz-cards { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
-        .yfz-cards .yfp-card { flex: 0 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 6px 10px; }
-        .yfz-cards .yfp-head { margin-bottom: 4px; }
-        .yfz-cards .yfp-team { padding: 1px 0; }
-        .yfz-cards .yfp-team b { font-size: 17px; }
-        .yfz-cards .yfp-crest { width: 24px; height: 24px; }
-        .yfz-cards .yfp-runs { font-size: 21px; }
-        .yfz-cards .yfp-star { margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
-        .yfz-cards .yfp-note { display: none; }
-        .yfz-cards .yfp-line { margin-top: 3px; font-size: 11px; }
-        .yfz-cards .yfp-line th, .yfz-cards .yfp-line td { padding: 2px 0; }
-        .yfz-cards .yfp-line thead th { font-size: 10px; }
+        .yfz-cards { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; }
+        .yfz-cards .yfp-card { flex: 0 0 auto; }
         .yfz-cards .yfp-tbd { margin-top: 0; }
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
@@ -581,14 +564,20 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @media (max-width: 899px) {
           .yfz { --yfz-dock-h: 56px; }
           .yfz-panel { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; padding: 6px 8px; }
-          .yfz-title i { display: none; }
           .yfz-all table { font-size: 11px; }
           .yfz-all td { padding: 4px 3px; }
           .yfz-all th:nth-child(3), .yfz-all td:nth-child(3) { display: none; }
         }
 
+        /* Phones: no scoreboard ticker (row 4) - the room goes to the games. */
+        @media (max-width: 760px) {
+          body:has(.yfz) { --row4-h: 0px; }
+          body:has(.yfz) .yat-row4-shell { display: none; }
+        }
+
         /* The drawers: home from the right, visitor from the left. */
-        .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.45); }
+        /* Above the site's floating buttons, so nothing covers the close button. */
+        .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
         .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: rgba(0,0,0,.3); }
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
@@ -609,18 +598,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-layout { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; }
           .yfp-lb { font-size: 9px; }
           .yfp-lb li { grid-template-columns: 16px minmax(0,1fr) auto; gap: 3px; }
-          .yfp-card { padding: 9px 9px 6px; }
-          .yfp-crest { width: 26px; height: 26px; }
-          .yfp-team { gap: 6px; }
-          .yfp-team b { font-size: 17px; }
-          .yfp-team small { font-size: 11px; }
-          .yfp-runs { font-size: 22px; }
-          .yfp-line { font-size: 11px; }
-          .yfp-line thead th { font-size: 10px; }
-          .yfp-line th:first-child { width: 36px; }
-          .yfp-line tbody th button { font-size: 11px; }
-          .yfp-line .r { width: 24px; }
-          .yfp-eye { flex-direction: column; gap: 2px; }
+          .yfp-card { padding: 6px 8px 5px; }
+          .yfp-box thead th:not(.tm):not(.r) { width: 13px; }
+          .yfp-box { font-size: 12px; }
+          .yfp-box .tm b { font-size: 13.5px; }
+          .yfp-box .tm small { display: none; }
+          .yfp-box .r { width: 28px; padding-right: 10px; font-size: 17px; }
+          .yfp-crest { width: 20px; height: 20px; }
+          .yfp-box .tm button { gap: 4px; }
         }
       `}</style>
     </div>
