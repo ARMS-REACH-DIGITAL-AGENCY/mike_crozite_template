@@ -49,7 +49,7 @@ export default function BracketRow3() {
               onClick={() => setBracketNav({ region: on ? 0 : r })}>
               <span className="ybr3-kick">Region</span>
               <span className="ybr3-big">{r}</span>
-              <span className="ybr3-name">{v.replace(/^The /, '')}</span>
+              <span className="ybr3-name">{v}</span>
             </button>
           );
         })}

@@ -48,7 +48,8 @@ export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
 export const BASE = '/bracket-lab/2026';
 export const FAV_KEY = 'yat-bracket-lab-favs';
 export const REGIONS: Record<number, string> = {
-  1: 'The Giants', 2: 'The Frontier', 3: 'The Heat', 4: 'Rivals', 5: 'Grinders', 6: 'Corridor', 7: 'Prep Elite', 8: 'Talent Factory',
+  // By geography (the states in each region's field).
+  1: 'Pacific', 2: 'West', 3: 'Southwest', 4: 'Central', 5: 'Midwest', 6: 'Northeast', 7: 'Atlantic', 8: 'Southeast',
 };
 export const LBT_ROUNDS: Record<number, string> = { 31: 'Quarterfinal', 32: 'Semifinal', 33: 'Final' };
 export const TIE_NOTE: Record<string, string> = {
