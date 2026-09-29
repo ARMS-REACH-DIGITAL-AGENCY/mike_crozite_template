@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { track } from '@/lib/analytics';
 
 type SearchMode = 'name' | 'school' | 'team';
 
@@ -410,6 +411,7 @@ async function handleFavoriteButtonClick(button: HTMLElement) {
       const data = await res.json();
       if (data?.success) {
         setFavButtonState(button, false);
+        track('favorite_remove', { favorite_player_id: playerId, source: 'search' });
         showSearchFavToast(`${playerName} removed from favorites`, 'info');
         window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       } else {
@@ -431,6 +433,7 @@ async function handleFavoriteButtonClick(button: HTMLElement) {
       const data = await res.json();
       if (data?.success) {
         setFavButtonState(button, true);
+        track('favorite_add', { favorite_player_id: playerId, source: 'search', favorite_type: isSuperfan ? 'superfan' : 'fan' });
         showSearchFavToast(`${playerName} added to your favorites`);
         window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       } else {

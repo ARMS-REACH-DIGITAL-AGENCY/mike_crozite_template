@@ -4,6 +4,7 @@ import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent,
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { SchoolContext } from '@/context/SchoolContext';
+import { track } from '@/lib/analytics';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -638,6 +639,7 @@ function useIsPhone() {
 
 // A month-rail thumbnail: opens the Stories tab on that story.
 function showStoryInStoriesTab(id: string) {
+  track('timeline_story_open', { story_id: id });
   history.replaceState(null, '', `${window.location.pathname}${window.location.search}#ppTab-upload`);
   window.dispatchEvent(new HashChangeEvent('hashchange'));
   window.dispatchEvent(new CustomEvent('yat:story-focus', { detail: { id } }));

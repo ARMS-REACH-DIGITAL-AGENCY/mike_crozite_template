@@ -6,6 +6,7 @@ import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
+import { track } from "@/lib/analytics";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -92,7 +93,7 @@ export default function ProfileNewsList({
             type="button"
             key={story.uuid}
             className="pp-news-teaser"
-            onClick={() => setOpenUuid(story.uuid)}
+            onClick={() => { setOpenUuid(story.uuid); track("news_open", { news_id: story.uuid, news_source: story.source || "" }); }}
           >
             <div className="pp-news-label">
               {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}

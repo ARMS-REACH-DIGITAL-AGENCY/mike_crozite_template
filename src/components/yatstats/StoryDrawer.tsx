@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
+import { track } from '@/lib/analytics';
 
 export const STORY_DRAWER_OPEN_EVENT = 'yat:story-drawer-open';
 export const STORY_POSTED_EVENT = 'yat:story-posted';
@@ -245,6 +246,7 @@ export default function StoryDrawer() {
       if (!res.ok) throw new Error(data?.error || 'Your story could not be posted. Please try again.');
 
       setStatus({ kind: 'done', storyId: data?.id });
+      track('story_post', { story_id: data?.id, story_year: year, photo_count: photos.length, tagged_count: tags.length });
       window.dispatchEvent(new CustomEvent(STORY_POSTED_EVENT, { detail: { id: data?.id, playerIds: [playerId, ...tags.map((t) => t.playerId)] } }));
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Your story could not be posted.' });

@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
 import FanConfirm from '@/components/yatstats/FanConfirm';
+import { track } from '@/lib/analytics';
 
 export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null };
 export type StoryPlayer = { playerId: string; hsid: string | null; name: string; isPrimary: boolean };
@@ -88,6 +89,7 @@ export async function toggleStoryLike(storyId: string): Promise<{ liked: boolean
     const res = await fetch(`/api/stories/${storyId}/like`, { method: 'POST', headers: await authHeaders(), credentials: 'include' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return null;
+    track(data.liked ? 'story_like' : 'story_unlike', { story_id: storyId });
     return { liked: Boolean(data.liked), likeCount: Number(data.likeCount) || 0 };
   } catch {
     return null;
@@ -118,6 +120,7 @@ export async function shareStory(story: Story): Promise<string | null> {
       window.prompt('Copy this link to share the story:', url);
     }
   }
+  track('story_share', { story_id: story.id, method });
   fetch(`/api/stories/${story.id}/share`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
@@ -284,6 +287,7 @@ export function StoryThread({
       const { res, data } = await call(`/api/stories/${story.id}/comments`, { method: 'POST', body: JSON.stringify({ text }) });
       if (res.status === 401) return needConfirm(postComment);
       if (!res.ok) throw new Error(data?.error || 'Your comment could not be posted.');
+      track('story_comment', { story_id: story.id });
       setComments((list) => [...(list || []), data.comment]);
       setShowAll(true);
       setDraft('');

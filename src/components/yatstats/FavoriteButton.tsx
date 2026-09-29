@@ -19,6 +19,7 @@
 
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
+import { track } from '@/lib/analytics';
 
 interface YatUser {
   uid: string;
@@ -167,6 +168,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(false);
+          track('favorite_remove', { favorite_player_id: playerId, source: 'profile' });
           showToast(`${displayName} removed from favorites`, 'info');
           window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {
@@ -189,6 +191,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(true);
+          track('favorite_add', { favorite_player_id: playerId, source: 'profile', favorite_type: type });
           showToast(`${displayName} added to your favorites`);
           window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {

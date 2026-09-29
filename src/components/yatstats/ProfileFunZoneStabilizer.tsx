@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { tabName, track } from '@/lib/analytics';
 
 const TAB_IDS = ['ppTab-schedule', 'ppTab-stats', 'ppTab-news', 'ppTab-social', 'ppTab-connect', 'ppTab-upload'];
 
@@ -47,11 +48,17 @@ function normalizeHash(value?: string | null) {
 // form this file used to inject there is gone: stories are added only from
 // the Polaroid on the Career Path Timeline (StoryDrawer).
 
+// The tab last shown, so switching tabs is reported once (the page view
+// already carries the tab the profile opened on).
+let shownTab: string | null = null;
+
 function activate(hashValue?: string | null) {
   const zone = document.getElementById('playerFunZone');
   if (!zone) return;
   const hash = normalizeHash(hashValue);
   const activeId = hash.replace('#', '');
+  if (shownTab && shownTab !== activeId) track('profile_tab_view', { profile_tab: tabName(activeId.replace('ppTab-', '')) });
+  shownTab = activeId;
 
   TAB_IDS.forEach((id) => {
     const panel = document.getElementById(id) as HTMLElement | null;

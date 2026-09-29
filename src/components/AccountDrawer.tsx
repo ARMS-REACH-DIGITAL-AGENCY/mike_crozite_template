@@ -10,6 +10,7 @@ import {
   onAuthStateChanged,
 } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
+import { track } from '@/lib/analytics';
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -502,6 +503,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
+      track('login', { method: 'email' });
 
       try {
         const loginRes = await fetch('/api/auth/login', {
@@ -588,6 +590,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
+      track('sign_up', { method: 'email' });
 
       if (auth.currentUser) {
         try {

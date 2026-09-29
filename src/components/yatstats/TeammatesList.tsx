@@ -9,12 +9,15 @@
 // Every name links to that teammate's profile when he has one.
 
 import { useEffect, useMemo, useState } from 'react';
+import { track } from '@/lib/analytics';
 
 type TeammateSeason = { playerId: string; name: string; sortName: string; href: string | null; year: number; team: string };
 type Order = 'az' | 'year';
 
 function Name({ t }: { t: TeammateSeason }) {
-  return t.href ? <a href={t.href}>{t.name}</a> : <span className="ytm-plain">{t.name}</span>;
+  return t.href
+    ? <a href={t.href} onClick={() => track('teammate_click', { teammate_id: t.playerId, teammate_year: t.year })}>{t.name}</a>
+    : <span className="ytm-plain">{t.name}</span>;
 }
 
 export default function TeammatesList({ playerId }: { playerId: string }) {
