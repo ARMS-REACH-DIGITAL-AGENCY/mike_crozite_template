@@ -18,10 +18,21 @@
 // One row per (playerid, draft_year). An MLB row always replaces a TBC row
 // for the same year; a TBC row never replaces an MLB row.
 //
+// Then every pick gets a Draft Day story in the player's Stories tab
+// (player_moment_submissions, stage 'Draft Day', posted by YAT?STATS):
+// "Drafted by the X · Round N · #N Overall · from School", dated the draft
+// month, with the drafting club's logo as its photo (teams/{teamid}.png;
+// clubs matched by current name only - a former name like the Montreal
+// Expos gets no logo and the site shows the YAT?STATS crest). Fans comment
+// and add photos to it like any story. Stories are only added or have
+// their wording / logo brought up to date - never removed, so fans'
+// comments are never lost.
+//
 // Usage:
 //   npx tsx scripts/import-player-draft-picks.ts              # everyone
 //   npx tsx scripts/import-player-draft-picks.ts --player 317316
 //   npx tsx scripts/import-player-draft-picks.ts --dry-run
+//   npx tsx scripts/import-player-draft-picks.ts --stories-only   # skip the fetch
 //
 // Env: DATABASE_URL.
 
@@ -40,6 +51,7 @@ const argValue = (name: string) => {
 };
 const ONLY_PLAYER = argValue("--player");
 const DRY_RUN = args.includes("--dry-run");
+const STORIES_ONLY = args.includes("--stories-only");
 
 const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
 const BATCH = 100;
@@ -139,7 +151,135 @@ async function fetchMlbDrafts(personIds: string[]): Promise<Map<string, Record<s
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Draft Day stories
+// ---------------------------------------------------------------------------
+const DRAFT_STAGE = "Draft Day";
+
+// One row per pick: the story it should have. The draft moved from June to
+// July in 2021 (same as the timeline's pennant); stories keep the month.
+const WANT = `
+  SELECT d.playerid, d.draft_year,
+         make_date(d.draft_year, CASE WHEN d.draft_year >= 2021 THEN 7 ELSE 6 END, 1) AS taken,
+         concat_ws(' · ',
+           CASE WHEN nullif(trim(d.draft_team_name), '') IS NOT NULL THEN 'Drafted by the ' || trim(d.draft_team_name) ELSE 'Drafted' END,
+           CASE WHEN nullif(trim(d.draft_round), '') IS NOT NULL THEN 'Round ' || trim(d.draft_round) END,
+           CASE WHEN d.draft_overall_pick IS NOT NULL THEN '#' || d.draft_overall_pick || ' Overall' END,
+           CASE WHEN nullif(trim(d.drafted_from), '') IS NOT NULL THEN 'from ' || trim(d.drafted_from) END
+         ) AS caption,
+         t.teamid, f.hsid, f.player_name
+    FROM player_draft_picks d
+    LEFT JOIN LATERAL (
+      SELECT u.teamid::text AS teamid FROM teamid_universe_mapping u
+       WHERE u.level_label = 'MLB' AND lower(u.current_team_name) = lower(d.draft_team_name)
+       ORDER BY u.teamid LIMIT 1
+    ) t ON true
+    LEFT JOIN LATERAL (
+      SELECT f.hsid::text AS hsid, nullif(trim(coalesce(f.first_name, '') || ' ' || coalesce(f.last_name, '')), '') AS player_name
+        FROM flip_card_front_stage f WHERE f.playerid::text = d.playerid
+       ORDER BY f.updated_at DESC NULLS LAST LIMIT 1
+    ) f ON true
+   WHERE ($1::text IS NULL OR d.playerid = $1)`;
+
+// The Draft Day story already made for a pick.
+const HAVE = `
+  SELECT DISTINCT ON (m.playerid, m.photo_taken_year) m.id, m.playerid, m.photo_taken_year, m.caption
+    FROM player_moment_submissions m
+   WHERE m.stage = '${DRAFT_STAGE}' AND m.contributor_firebase_uid IS NULL
+   ORDER BY m.playerid, m.photo_taken_year, m.id`;
+
+async function syncDraftDayStories() {
+  const player = ONLY_PLAYER || null;
+  const { rows: plan } = await pool.query<{ to_add: number; add_with_logo: number; captions: number; logos: number }>(
+    `WITH want AS (${WANT}), have AS (${HAVE})
+     SELECT count(*) FILTER (WHERE h.id IS NULL)::int AS to_add,
+            count(*) FILTER (WHERE h.id IS NULL AND w.teamid IS NOT NULL)::int AS add_with_logo,
+            count(*) FILTER (WHERE h.id IS NOT NULL AND h.caption IS DISTINCT FROM w.caption)::int AS captions,
+            count(*) FILTER (WHERE h.id IS NOT NULL AND w.teamid IS NOT NULL AND NOT EXISTS (
+              SELECT 1 FROM player_moment_photos p WHERE p.moment_id = h.id AND p.s3_key = 'teams/' || w.teamid || '.png'))::int AS logos
+       FROM want w LEFT JOIN have h ON h.playerid = w.playerid AND h.photo_taken_year = w.draft_year`,
+    [player]
+  );
+  const p = plan[0];
+  console.log(`Draft Day stories: ${p.to_add} to add (${p.add_with_logo} with a club logo), ${p.captions} to reword, ${p.logos} logos to set`);
+  if (ONLY_PLAYER || DRY_RUN) {
+    const { rows: sample } = await pool.query<{ playerid: string; draft_year: number; caption: string; teamid: string | null }>(
+      `WITH want AS (${WANT}) SELECT playerid, draft_year, caption, teamid FROM want ORDER BY draft_year DESC, playerid LIMIT ${ONLY_PLAYER ? 50 : 5}`,
+      [player]
+    );
+    for (const r of sample) console.log(`  ${r.playerid} ${r.draft_year}: ${r.caption} [logo ${r.teamid ? `teams/${r.teamid}.png` : "none - crest"}]`);
+  }
+  if (DRY_RUN) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // New picks: the story, its player and its logo, together.
+    const added = await client.query(
+      `WITH want AS (${WANT}), have AS (${HAVE}),
+       todo AS (
+         SELECT w.* FROM want w
+          WHERE NOT EXISTS (SELECT 1 FROM have h WHERE h.playerid = w.playerid AND h.photo_taken_year = w.draft_year)
+       ), story AS (
+         INSERT INTO player_moment_submissions (
+           playerid, hsid, stage, caption, contributor_name, status, player_name,
+           photo_taken_date, photo_taken_year, sort_date, visibility, is_private, arms_sync_status
+         )
+         SELECT playerid, hsid, '${DRAFT_STAGE}', caption, 'YAT?STATS', 'live', player_name,
+                taken, draft_year, taken, 'public', false, 'system'
+           FROM todo
+         RETURNING id, playerid, photo_taken_year
+       ), players AS (
+         INSERT INTO player_moment_players (moment_id, playerid, is_primary)
+         SELECT id, playerid, true FROM story
+       ), logo AS (
+         INSERT INTO player_moment_photos (moment_id, sort_order, s3_key, web_s3_key, thumb_s3_key, mime_type)
+         SELECT s.id, 0, 'teams/' || t.teamid || '.png', 'teams-web/' || t.teamid || '.webp', 'teams-web/' || t.teamid || '.webp', 'image/png'
+           FROM story s JOIN todo t ON t.playerid = s.playerid AND t.draft_year = s.photo_taken_year
+          WHERE t.teamid IS NOT NULL
+       )
+       SELECT count(*)::int AS n FROM story`,
+      [player]
+    );
+    // Picks that changed (e.g. a TBC pick replaced by MLB's): new wording.
+    const reworded = await client.query(
+      `WITH want AS (${WANT}), have AS (${HAVE})
+       UPDATE player_moment_submissions m SET caption = w.caption, hsid = coalesce(m.hsid, w.hsid), player_name = coalesce(m.player_name, w.player_name)
+         FROM want w JOIN have h ON h.playerid = w.playerid AND h.photo_taken_year = w.draft_year
+        WHERE m.id = h.id AND m.caption IS DISTINCT FROM w.caption`,
+      [player]
+    );
+    // A club matched since (or a different club now): its logo, in place of
+    // any earlier logo. Fans' comment photos live elsewhere and are untouched.
+    const relogoed = await client.query(
+      `WITH want AS (${WANT}), have AS (${HAVE}),
+       fix AS (
+         SELECT h.id, w.teamid FROM want w JOIN have h ON h.playerid = w.playerid AND h.photo_taken_year = w.draft_year
+          WHERE w.teamid IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM player_moment_photos p WHERE p.moment_id = h.id AND p.s3_key = 'teams/' || w.teamid || '.png')
+       ), gone AS (
+         DELETE FROM player_moment_photos p USING fix WHERE p.moment_id = fix.id AND p.s3_key LIKE 'teams/%'
+       )
+       INSERT INTO player_moment_photos (moment_id, sort_order, s3_key, web_s3_key, thumb_s3_key, mime_type)
+       SELECT id, 0, 'teams/' || teamid || '.png', 'teams-web/' || teamid || '.webp', 'teams-web/' || teamid || '.webp', 'image/png' FROM fix`,
+      [player]
+    );
+    await client.query("COMMIT");
+    console.log(`Draft Day stories written: ${added.rows[0]?.n ?? 0} added, ${reworded.rowCount || 0} reworded, ${relogoed.rowCount || 0} logos set`);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function main() {
+  if (STORIES_ONLY) {
+    await syncDraftDayStories();
+    await pool.end();
+    return;
+  }
   console.log(`Draft picks${ONLY_PLAYER ? ` for ${ONLY_PLAYER}` : ""}${DRY_RUN ? " (dry run)" : ""}`);
   const picks = new Map<string, Pick>(); // `${playerid}:${year}`
   const key = (p: Pick) => `${p.playerid}:${p.draft_year}`;
@@ -254,6 +394,7 @@ async function main() {
     }
   }
   if (DRY_RUN) {
+    await syncDraftDayStories();
     await pool.end();
     return;
   }
@@ -279,6 +420,7 @@ async function main() {
     written += res.rowCount || 0;
   }
   console.log(`Written: ${written}`);
+  await syncDraftDayStories();
   await pool.end();
 }
 

@@ -41,7 +41,7 @@ function StoryPhotos({ story, onOpen }: { story: Story; onOpen: (index: number) 
   const photos = story.photos.slice(0, 4);
   if (!photos.length) return null;
   return (
-    <div className={`ysf-photos ysf-photos-${photos.length}`}>
+    <div className={`ysf-photos ysf-photos-${photos.length}${photos[0]?.logo ? ' ysf-photos-logo' : ''}`}>
       {photos.map((p, i) => (
         <button type="button" key={i} className="ysf-photos-item" onClick={() => onOpen(i)} aria-label={`Open photo ${i + 1}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -250,7 +250,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                   <button type="button" className="ysf-card-open" onClick={() => show(s)} aria-label={`Open ${s.author}'s story from ${fullWhenLabel(s)}`}>
                     <span className="ysf-card-when">{fullWhenLabel(s)}</span>
                     <span className="ysf-card-row">
-                      <span className="ysf-card-photo">
+                      <span className={`ysf-card-photo${cover?.logo ? ' ysf-card-photo-logo' : ''}`}>
                         {cover?.thumb || cover?.web ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
@@ -343,6 +343,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .ysf-photos-1 .ysf-photos-item img { height: auto; max-height: 560px; object-fit: contain; margin: 0 auto; }
+        /* A Draft Day story's club logo: whole, on a light panel. */
+        .ysf-photos-logo .ysf-photos-item { background: #f4f1ea; padding: 28px 0; }
+        .ysf-photos-logo .ysf-photos-item img { max-height: 200px; }
         .ysf-photos-2 { grid-template-columns: 1fr 1fr; }
         .ysf-photos-2 .ysf-photos-item { aspect-ratio: 1; }
         .ysf-photos-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 260px 200px; }
@@ -369,6 +372,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         /* Same size and frame as the News thumbnail (.pp-news-thumb). */
         .ysf-card-photo { position: relative; flex: 0 0 auto; display: block; width: 68px; height: 88px; overflow: hidden; border-radius: 8px; border: 1px solid var(--ysf-thumb-border); box-shadow: 0 1px 3px rgba(0,0,0,.16); background: var(--ysf-thumb-bg); }
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
+        .ysf-card-photo-logo { background: #f4f1ea; }
+        .ysf-card-photo-logo img { object-fit: contain; object-position: center; padding: 8px; box-sizing: border-box; }
         .ysf-card-count { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 2px 0; text-align: center; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
         .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
         .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }

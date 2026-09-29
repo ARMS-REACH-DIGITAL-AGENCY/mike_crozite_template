@@ -2,8 +2,9 @@ name: Import Player Draft Picks
 
 # Fills player_draft_picks (every time a player on the platform was drafted)
 # from the MLB Stats API, with The Baseball Cube's draft_info as the
-# fallback. Weekly, so newly linked players and a new draft are picked up;
-# a pull request that changes the job gets a dry run (nothing written).
+# fallback, then gives every pick its Draft Day story in the Stories tab.
+# Weekly, so newly linked players and a new draft are picked up; a pull
+# request that changes the job gets a dry run (nothing written).
 
 on:
   workflow_dispatch:
@@ -20,6 +21,11 @@ on:
     paths:
       - scripts/import-player-draft-picks.ts
       - .github/workflows/import-player-draft-picks.yml
+
+# One run at a time, so two runs never add the same Draft Day story.
+concurrency:
+  group: import-player-draft-picks
+  cancel-in-progress: false
 
 jobs:
   import-player-draft-picks:

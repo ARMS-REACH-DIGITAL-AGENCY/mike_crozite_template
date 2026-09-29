@@ -906,31 +906,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     return () => { cancelled = true; };
   }, [playerId]);
 
+  // The old fan-upload slides came from /api/player-moments, which fails
+  // on every request (it tries to create its tables, and the site's
+  // database login can't) - so there were never any. Fan photos come from
+  // Stories now (below); the timeline no longer asks the old route or
+  // waits on it.
   useEffect(() => {
-    let cancelled = false;
     setUploads([]);
-    setUploadsLoaded(false);
     setLocalOverrides({});
     setOpenMomentId(null);
     initializedRef.current = false;
-    fetch(`/api/player-moments?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`player-moments ${res.status} for playerId=${playerId}`);
-        return res.json();
-      })
-      .then((data) => { if (!cancelled) setUploads(Array.isArray(data?.moments) ? data.moments : []); })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error('[ZoomableCareerTimeline] moments fetch failed:', error);
-        setUploads([]);
-      })
-      .finally(() => { if (!cancelled) setUploadsLoaded(true); });
-    return () => { cancelled = true; };
+    setUploadsLoaded(true);
   }, [playerId]);
 
   // Fan Stories (/api/stories, newest first): each year's photos become
-  // that year's hero image, in place of the YaTi cartoon. Reloaded when a
-  // fan posts from the drawer.
+  // that year's hero image, in place of the YaTi cartoon. A Draft Day
+  // story's club logo isn't a hero (the draft slide already shows the
+  // logo behind him); photos fans add in its comments are. Reloaded when a
+  // fan posts from the drawer or adds photos in a comment.
   const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
   // year -> month (1-12) -> that month's stories (for the month rail).
   const [storiesByMonth, setStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
@@ -946,15 +939,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (cancelled || !Array.isArray(data?.stories)) return;
           const byYear: Record<number, HeroPhoto[]> = {};
           const byMonth: Record<number, Record<number, RailStory[]>> = {};
-          type ApiPhoto = { web: string | null; thumb?: string | null; cutout?: string | null; source?: string | null };
-          for (const story of data.stories as { id: string; year: number | null; date?: string | null; photos?: ApiPhoto[] }[]) {
+          type ApiPhoto = { web: string | null; thumb?: string | null; cutout?: string | null; source?: string | null; logo?: boolean };
+          type ApiStory = { id: string; kind?: string; year: number | null; date?: string | null; photos?: ApiPhoto[]; commentPhotos?: ApiPhoto[] };
+          for (const story of data.stories as ApiStory[]) {
             if (!story.year) continue;
             const month = story.date ? Number(story.date.slice(5, 7)) : 0;
             if (month >= 1 && month <= 12) {
               ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
             }
-            for (const photo of story.photos || []) {
-              if (photo.web) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
+            const heroes = [...(story.photos || []), ...(story.kind === 'draft' ? story.commentPhotos || [] : [])];
+            for (const photo of heroes) {
+              if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
             }
           }
           setStoryPhotosByYear(byYear);
@@ -964,7 +959,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     };
     load();
     window.addEventListener('yat:story-posted', load);
-    return () => { cancelled = true; window.removeEventListener('yat:story-posted', load); };
+    window.addEventListener('yat:story-comment-photos', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('yat:story-posted', load);
+      window.removeEventListener('yat:story-comment-photos', load);
+    };
   }, [playerId]);
 
   // When a year has more than one fan photo they take turns (StoryHeroStrip).

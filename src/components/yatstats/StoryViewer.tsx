@@ -3,8 +3,8 @@
 // src/components/yatstats/StoryViewer.tsx
 // A story as a Facebook-style post: who posted it and who's in it, the
 // story, like / comment counts, a Like · Comment · Share bar, the comments
-// and "Comment as ...". The fan who posted it gets a ⋯ menu to edit or
-// delete it.
+// and "Comment as ..." (a comment can carry up to 4 photos). The fan who
+// posted it gets a ⋯ menu to edit or delete it.
 //   StoryThread - that post; used inline in the Stories tab on desktop and
 //                 inside the big view.
 //   StoryViewer - the big view (photo + thread), opened from a card on a
@@ -16,17 +16,24 @@ import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import { track } from '@/lib/analytics';
+import { jpegName, shrinkPhoto } from '@/lib/shrinkPhoto';
 
-export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null };
+// logo: a Draft Day story's club logo (or the YAT?STATS crest) - shown
+// whole on a light panel, never cropped or cut out.
+export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null; logo?: boolean };
 export type StoryPlayer = { playerId: string; hsid: string | null; name: string; isPrimary: boolean };
 export type Story = {
   id: string;
+  // 'draft': the Draft Day story YAT?STATS posts for every draft pick.
+  kind?: 'story' | 'draft';
   story: string;
   author: string;
   date: string | null;
   year: number | null;
   postedAt: string;
   photos: StoryPhoto[];
+  // Photos fans added in the comments.
+  commentPhotos?: StoryPhoto[];
   players: StoryPlayer[];
   likeCount: number;
   commentCount: number;
@@ -34,7 +41,9 @@ export type Story = {
   isMine?: boolean;
 };
 
-type StoryComment = { id: string; text: string; author: string; createdAt: string; isMine: boolean; canDelete: boolean };
+type StoryComment = { id: string; text: string; author: string; createdAt: string; isMine: boolean; canDelete: boolean; photos?: StoryPhoto[] };
+type PickedPhoto = { id: string; file: File; preview: string };
+const COMMENT_MAX_PHOTOS = 4;
 export type Me = { firstName: string; lastName: string; email: string } | null;
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -218,6 +227,13 @@ export function StoryThread({
   // once they've confirmed it's them (FanConfirm).
   const [retry, setRetry] = useState<null | (() => void)>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Photos picked for the next comment, and a comment photo opened large.
+  const [picked, setPicked] = useState<PickedPhoto[]>([]);
+  const [lightbox, setLightbox] = useState<{ photos: StoryPhoto[]; index: number } | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const pickedRef = useRef<PickedPhoto[]>([]);
+  pickedRef.current = picked;
+  useEffect(() => () => pickedRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), []);
 
   const others = story.players.filter((p) => p.playerId !== playerId);
   const hasComments = story.commentCount > 0;
@@ -256,7 +272,8 @@ export function StoryThread({
   };
 
   const call = async (url: string, init: RequestInit = {}) => {
-    const headers = { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(await authHeaders()) };
+    // A form (comment photos) sets its own Content-Type.
+    const headers = { ...(typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {}), ...(await authHeaders()) };
     const res = await fetch(url, { ...init, headers, credentials: 'include' });
     const data = await res.json().catch(() => ({}));
     return { res, data };
@@ -278,20 +295,50 @@ export function StoryThread({
     setBusy('');
   };
 
+  const pickPhotos = (files: FileList | null) => {
+    const room = COMMENT_MAX_PHOTOS - picked.length;
+    const chosen = Array.from(files || []).filter((f) => f.type.startsWith('image/')).slice(0, Math.max(0, room));
+    if (files && files.length > room) flash(`Up to ${COMMENT_MAX_PHOTOS} photos per comment.`);
+    if (chosen.length) {
+      setPicked((list) => [...list, ...chosen.map((file) => ({ id: Math.random().toString(36).slice(2), file, preview: URL.createObjectURL(file) }))]);
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const unpick = (id: string) => {
+    setPicked((list) => {
+      const gone = list.find((p) => p.id === id);
+      if (gone) URL.revokeObjectURL(gone.preview);
+      return list.filter((p) => p.id !== id);
+    });
+  };
+
   const postComment = async () => {
     const text = draft.trim();
-    if (!text || busy) return;
+    const photos = pickedRef.current;
+    if ((!text && photos.length === 0) || busy) return;
     if (!me) return openSignIn();
     setBusy('comment');
     try {
-      const { res, data } = await call(`/api/stories/${story.id}/comments`, { method: 'POST', body: JSON.stringify({ text }) });
+      let body: string | FormData = JSON.stringify({ text });
+      if (photos.length) {
+        const form = new FormData();
+        form.append('text', text);
+        for (const p of photos) form.append('photos', await shrinkPhoto(p.file), jpegName(p.file));
+        body = form;
+      }
+      const { res, data } = await call(`/api/stories/${story.id}/comments`, { method: 'POST', body });
       if (res.status === 401) return needConfirm(postComment);
       if (!res.ok) throw new Error(data?.error || 'Your comment could not be posted.');
-      track('story_comment', { moment_id: story.id });
+      track('story_comment', { moment_id: story.id, photos: photos.length });
       setComments((list) => [...(list || []), data.comment]);
       setShowAll(true);
       setDraft('');
+      photos.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPicked([]);
       onChange({ ...story, commentCount: story.commentCount + 1 });
+      // The timeline shows photos from a story's thread on that year's slide.
+      if (photos.length) window.dispatchEvent(new CustomEvent('yat:story-comment-photos', { detail: { id: story.id } }));
     } catch (error) {
       flash(error instanceof Error ? error.message : 'Your comment could not be posted.');
     } finally {
@@ -368,7 +415,12 @@ export function StoryThread({
 
   const header = (
     <div className="ysv-head">
-      <span className="ysv-avatar" aria-hidden="true">{initials(story.author)}</span>
+      {story.kind === 'draft' ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="ysv-avatar ysv-avatar-crest" src="/img/ys-crest.png" alt="" aria-hidden="true" />
+      ) : (
+        <span className="ysv-avatar" aria-hidden="true">{initials(story.author)}</span>
+      )}
       <div className="ysv-who">
         <div className="ysv-byline">
           <strong>{story.author}</strong>
@@ -463,8 +515,18 @@ export function StoryThread({
             <div className="ysv-comment-main">
               <div className="ysv-bubble">
                 <strong>{c.author}</strong>
-                <span>{c.text}</span>
+                {c.text && <span>{c.text}</span>}
               </div>
+              {c.photos && c.photos.length > 0 && (
+                <div className="ysv-comment-photos">
+                  {c.photos.map((p, i) => (
+                    <button type="button" key={i} onClick={() => setLightbox({ photos: c.photos || [], index: i })} aria-label="Open photo">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.thumb || p.web || p.full || ''} alt="" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="ysv-comment-meta">
                 <span>{ago(c.createdAt)}</span>
                 {c.canDelete && <button type="button" onClick={() => removeComment(c)}>Delete</button>}
@@ -489,22 +551,47 @@ export function StoryThread({
         {me ? (
           <>
             <span className="ysv-avatar ysv-avatar-sm" aria-hidden="true">{initials(myName)}</span>
-            <textarea
-              ref={composerRef}
-              rows={1}
-              value={draft}
-              placeholder={`Comment as ${myName || 'you'}`}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); } }}
-            />
-            <button type="button" onClick={postComment} disabled={!draft.trim() || busy === 'comment'} aria-label="Post comment">
-              <i className="ri-send-plane-2-fill" />
+            <div className="ysv-compose-box">
+              {picked.length > 0 && (
+                <div className="ysv-picked">
+                  {picked.map((p) => (
+                    <span key={p.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.preview} alt="" />
+                      <button type="button" onClick={() => unpick(p.id)} aria-label="Remove photo" disabled={busy === 'comment'}><i className="ri-close-line" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <textarea
+                ref={composerRef}
+                rows={1}
+                value={draft}
+                placeholder={`Comment as ${myName || 'you'}`}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); } }}
+              />
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => pickPhotos(e.target.files)} />
+            <button
+              type="button"
+              className="ysv-photo-btn"
+              onClick={() => fileRef.current?.click()}
+              disabled={picked.length >= COMMENT_MAX_PHOTOS || busy === 'comment'}
+              aria-label="Add photos"
+              title="Add photos"
+            >
+              <i className="ri-image-add-line" />
+            </button>
+            <button type="button" onClick={postComment} disabled={(!draft.trim() && picked.length === 0) || busy === 'comment'} aria-label="Post comment">
+              <i className={busy === 'comment' ? 'ri-loader-4-line ysv-spin' : 'ri-send-plane-2-fill'} />
             </button>
           </>
         ) : (
           <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to comment</button>
         )}
       </div>
+      {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} onClose={() => setLightbox(null)} />}
     </>
   );
 
@@ -535,6 +622,43 @@ export function StoryThread({
       </div>
       {footer}
     </article>
+  );
+}
+
+// A comment photo opened large, over everything (the big view included).
+// Escape closes this, not the story underneath.
+function PhotoLightbox({ photos, start, onClose }: { photos: StoryPhoto[]; start: number; onClose: () => void }) {
+  const [index, setIndex] = useState(start);
+  const photo = photos[index];
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!['Escape', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.stopPropagation();
+      if (event.key === 'Escape') onClose();
+      if (event.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, photos.length - 1));
+      if (event.key === 'ArrowLeft') setIndex((i) => Math.max(i - 1, 0));
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose, photos.length]);
+
+  return createPortal(
+    <div className="ysv-lightbox" role="dialog" aria-modal="true" aria-label="Photo" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+      <button type="button" className="ysv-close" onClick={onClose} aria-label="Close"><i className="ri-close-line" /></button>
+      {photo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photo.full || photo.web || photo.thumb || ''} alt="" onClick={(e) => e.stopPropagation()} />
+      )}
+      {photos.length > 1 && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="ysv-nav ysv-nav-prev" disabled={index === 0} onClick={() => setIndex((i) => i - 1)} aria-label="Previous photo">‹</button>
+          <button type="button" className="ysv-nav ysv-nav-next" disabled={index === photos.length - 1} onClick={() => setIndex((i) => i + 1)} aria-label="Next photo">›</button>
+          <span className="ysv-count">{index + 1}/{photos.length}</span>
+        </div>
+      )}
+    </div>,
+    document.body
   );
 }
 
@@ -573,7 +697,7 @@ export default function StoryViewer({
     <div className="ysv" role="dialog" aria-modal="true" aria-label="Story" onClick={onClose}>
       <div className="ysv-card" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="ysv-close" onClick={onClose} aria-label="Close"><i className="ri-close-line" /></button>
-        <div className="ysv-photo">
+        <div className={`ysv-photo${photo?.logo ? ' ysv-photo-logo' : ''}`}>
           {photo?.full ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photo.full} alt="" />
@@ -616,6 +740,9 @@ export function StoryStyles() {
       .ysv-close { position: absolute; top: 8px; right: 8px; z-index: 3; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; }
       .ysv-photo { position: relative; display: flex; align-items: center; justify-content: center; background: #000; min-height: 0; }
       .ysv-photo img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+      .ysv-photo-logo { background: #f4f1ea; }
+      .ysv-photo-logo img { max-width: min(70%, 420px); max-height: 70%; }
+      .ysv-avatar-crest { object-fit: contain; background: #111; padding: 3px; }
       .ysv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
       .ysv-nav:disabled { opacity: .25; cursor: default; }
       .ysv-nav-prev { left: 8px; }
@@ -665,6 +792,12 @@ export function StoryStyles() {
       .ysv-comment-main { min-width: 0; }
       .ysv-bubble { display: inline-flex; flex-direction: column; gap: 2px; max-width: 100%; padding: 8px 12px; border-radius: 16px; background: var(--ysv-bubble); color: var(--ysv-fg); font: 400 14px/1.35 system-ui, sans-serif; overflow-wrap: anywhere; white-space: pre-line; }
       .ysv-bubble strong { font-size: 13px; }
+      .ysv-comment-photos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+      .ysv-comment-photos button { padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--ysv-bubble); cursor: zoom-in; }
+      .ysv-comment-photos img { display: block; width: 96px; height: 96px; object-fit: cover; }
+      .ysv-comment-photos button:only-child img { width: 200px; height: auto; max-height: 220px; }
+      .ysv-lightbox { position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.9); }
+      .ysv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
       .ysv-comment-meta { display: flex; gap: 12px; padding: 3px 12px 0; color: var(--ysv-muted); font: 700 12px/1 system-ui, sans-serif; }
       .ysv-comment-meta button { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
       .ysv-comment-meta button:hover { color: #e05252; }
@@ -672,9 +805,18 @@ export function StoryStyles() {
       .ysv-note { margin: 0 16px 6px; padding: 8px 12px; border-radius: 8px; background: rgba(255,215,0,.14); color: var(--ysv-gold-text); font: 400 13px/1.3 system-ui, sans-serif; }
       .ysv-composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ysv-line); }
       .ysv-composer .ysv-avatar-sm { align-self: center; }
+      .ysv-compose-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
       .ysv-composer textarea { flex: 1; resize: none; max-height: 120px; border-radius: 20px; padding: 10px 14px; }
+      .ysv-picked { display: flex; flex-wrap: wrap; gap: 6px; }
+      .ysv-picked span { position: relative; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: var(--ysv-bubble); }
+      .ysv-picked img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .ysv-picked button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.7); color: #fff; font-size: 13px; line-height: 20px; cursor: pointer; }
       .ysv-composer > button:not(.ysv-signin) { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--ysv-gold); color: #000; font-size: 18px; cursor: pointer; }
+      .ysv-composer > button.ysv-photo-btn { background: transparent; color: var(--ysv-text); font-size: 22px; }
+      .ysv-composer > button.ysv-photo-btn:hover:not(:disabled) { background: var(--ysv-hover); }
       .ysv-composer > button:disabled { opacity: .4; cursor: default; }
+      .ysv-spin { display: inline-block; animation: ysv-spin 0.9s linear infinite; }
+      @keyframes ysv-spin { to { transform: rotate(360deg); } }
       .ysv-signin { flex: 1; min-height: 42px; border-radius: 20px; border: 1px solid var(--ysv-gold); background: transparent; color: var(--ysv-gold-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; cursor: pointer; }
       /* A full post in the Stories tab (desktop). */
       .ysv-post { color: var(--ysv-fg); border: 1px solid var(--ysf-card-border, var(--ysv-line)); border-radius: 10px; background: var(--ysf-card-bg, rgba(255,255,255,.04)); box-shadow: var(--ysf-card-shadow, none); overflow: hidden; }
