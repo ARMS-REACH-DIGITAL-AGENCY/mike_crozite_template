@@ -1,0 +1,105 @@
+name: Build Player Team Stints
+
+# Rebuilds player_team_stints (which team each player was on, from when to
+# when) from his games, transactions and the roster sync, and writes the
+# accuracy report. Runs after the game log sync; a pull request that changes
+# the job gets a dry run (nothing written).
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year (defaults to current year)."
+        required: false
+        type: string
+      dry_run:
+        description: "Build and report only, write nothing."
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    # Every 4 hours, 30 minutes after the game log sync (20 */4).
+    - cron: "50 */4 * * *"
+  pull_request:
+    paths:
+      - scripts/build-player-team-stints.ts
+      - .github/workflows/build-player-team-stints.yml
+
+jobs:
+  build-player-team-stints:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Scheduled and manual runs use the production branch; a pull
+          # request dry-runs its own version of the job.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'Easter-NEWS' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Confirm branch
+        run: git rev-parse --short HEAD
+
+      - name: Sample players (dry run)
+        if: github.event_name == 'pull_request'
+        run: |
+          # Roch Cholowsky (college -> draft -> two pro teams), John Brebbia (three pro teams)
+          for p in 317316 151911; do
+            npx tsx ./scripts/build-player-team-stints.ts --player "$p"
+          done
+
+      - name: Build stints
+        env:
+          SEASON_INPUT: ${{ github.event.inputs.season }}
+          DRY_RUN: ${{ github.event_name == 'pull_request' || github.event.inputs.dry_run == 'true' }}
+          REPORT_PATH: stint-report.csv
+        run: |
+          ARGS=()
+          if [ -n "$SEASON_INPUT" ]; then
+            if ! [[ "$SEASON_INPUT" =~ ^[0-9]{4}$ ]]; then
+              echo "::error::season must be a 4-digit year, got: $SEASON_INPUT"
+              exit 1
+            fi
+            ARGS+=(--season "$SEASON_INPUT")
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          npx tsx ./scripts/build-player-team-stints.ts "${ARGS[@]}" | tee stint-run.log
+
+      - name: Accuracy report summary
+        if: always()
+        run: |
+          {
+            echo "## Player team stints"
+            echo '```'
+            grep -E "^(Season|Players|Report|Teams added|MLB teams|Removed)" stint-run.log || true
+            echo '```'
+            if [ -f stint-report.csv ]; then
+              echo "### Report rows by issue"
+              echo '```'
+              tail -n +2 stint-report.csv | cut -d, -f2 | sort | uniq -c | sort -rn
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stint-report
+          path: |
+            stint-report.csv
+            stint-run.log
+          if-no-files-found: ignore
