@@ -110,6 +110,11 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// MLB gameType codes: R regular season; F wild card, D division, L league
+// championship, W World Series / MiLB finals, C Triple-A championship,
+// P playoffs. Each row keeps its gameType in raw_payload.
+const GAME_TYPES = "R,F,D,L,W,C,P";
+
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 async function getMappedPlayers(): Promise<SourceMapRow[]> {
@@ -235,7 +240,10 @@ async function fetchGameLog(
 ): Promise<MlbGameLogSplit[]> {
   const url =
     `${MLB_API_BASE}/people/${personId}/stats` +
-    `?stats=gameLog&group=${group}&season=${SEASON}&sportId=${sportId}`;
+    `?stats=gameLog&group=${group}&season=${SEASON}&sportId=${sportId}` +
+    // Regular season and postseason (the API's default is regular season
+    // only). Spring training and exhibitions aren't real games: left out.
+    `&gameType=${GAME_TYPES}`;
 
   try {
     const res = await fetch(url);

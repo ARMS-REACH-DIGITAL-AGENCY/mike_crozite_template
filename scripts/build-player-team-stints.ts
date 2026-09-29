@@ -84,6 +84,10 @@ const COLLEGE_LEVELS = "NCAA|NAIA|NJCAA|CCCAA|NWAC";
 // A signing/trade to an MLB club that isn't followed by an assignment or a
 // game within this many days is a stint with the MLB club itself.
 const ORG_HOLD_DAYS = 14;
+// Spring training (S), exhibitions (E) and intrasquad games (I) aren't real
+// games: a team's season starts at its first real one. Rows the schedule
+// sync hasn't typed yet count as real.
+const REAL_GAME = "coalesce(game_type, 'R') NOT IN ('S', 'E', 'I')";
 
 type Stint = { teamid: string; start: string; end: string | null; source: string };
 type Move = { date: string; teamid: string; org: boolean };
@@ -187,8 +191,8 @@ async function main() {
   );
   const teamFirstGame = await pool.query<{ team_id: string; first_game: string }>(
     `SELECT team_id, min(game_date)::text AS first_game FROM (
-       SELECT home_team_id::text AS team_id, game_date FROM team_schedules WHERE ${inSeason("game_date")}
-       UNION ALL SELECT away_team_id::text, game_date FROM team_schedules WHERE ${inSeason("game_date")}) s
+       SELECT home_team_id::text AS team_id, game_date FROM team_schedules WHERE ${inSeason("game_date")} AND ${REAL_GAME}
+       UNION ALL SELECT away_team_id::text, game_date FROM team_schedules WHERE ${inSeason("game_date")} AND ${REAL_GAME}) s
      GROUP BY 1`,
     [SEASON]
   );
