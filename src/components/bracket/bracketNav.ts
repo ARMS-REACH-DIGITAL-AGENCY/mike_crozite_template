@@ -17,9 +17,12 @@ export type BracketNav = {
   // scrolls to its card (focusSeq bumps so the same week can be picked again).
   focusWeek: number;
   focusSeq: number;
+  // ... and row 5's round buttons slide row 3's timeline to a week.
+  slideWeek: number;
+  slideSeq: number;
 };
 
-let state: BracketNav = { team: false, region: 0, boards: false, rules: false, flipAll: false, flipSeq: 0, focusWeek: 0, focusSeq: 0 };
+let state: BracketNav = { team: false, region: 0, boards: false, rules: false, flipAll: false, flipSeq: 0, focusWeek: 0, focusSeq: 0, slideWeek: 0, slideSeq: 0 };
 const listeners = new Set<() => void>();
 
 export function setBracketNav(patch: Partial<BracketNav>) {
@@ -38,6 +41,10 @@ export function toggleFlipAll() {
 
 export function focusWeek(week: number) {
   setBracketNav({ focusWeek: week, focusSeq: state.focusSeq + 1 });
+}
+
+export function slideToWeek(week: number) {
+  setBracketNav({ slideWeek: week, slideSeq: state.slideSeq + 1 });
 }
 
 export function useBracketNav() {

@@ -15,9 +15,9 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { type Index, type LbGame, LAST_WEEK, fmtDate, fmtRange, loadIndex, loadLb, previewDate, shortName } from './gallery';
-import { type Star, type WeekCard, calendar, loadStars, runsThrough, schoolSeason, starLine } from './schoolSeason';
-import { focusWeek } from './bracketNav';
+import { type Index, type LbGame, LAST_WEEK, abbr, fmtDate, fmtRange, loadIndex, loadLb, previewDate, shortName } from './gallery';
+import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { focusWeek, useBracketNav } from './bracketNav';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
@@ -39,6 +39,42 @@ function Fallback({ srcs, className, alt }: { srcs: string[]; className: string;
   return <img className={className} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onError={() => setI(i + 1)} />;
 }
 
+// The week's game as a ballpark scoreboard - the green manual kind, every
+// number in its own slot: the status, innings 1-9 and R across the top, the
+// visitor over the home school, this school's name in gold, the winner's
+// runs lit. Before the game: the two schools and empty slots.
+function Board({ index, card, me }: { index: Index; card: WeekCard; me: number }) {
+  const S = index.schools;
+  const g = card.game;
+  const status = card.state === 'final' ? 'Final' : card.state === 'live' ? (card.days ? `Thru ${DAY_NAMES[card.days - 1]}` : 'Mon') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'Bye' : 'TBD';
+  const [hr, ar] = g ? runsThrough(g, card.days) : [0, 0];
+  const played = card.state === 'final' || card.state === 'live';
+  const row = (h: number, off: 0 | 1, runs: number) => {
+    const name = h ? shortName(S[h]?.[0] || '') : 'TBD';
+    const won = card.state === 'final' && g && g[6] === h;
+    return (
+      <div className={`yft-brow${h === me ? ' me' : ''}${won ? ' won' : ''}`}>
+        <span className="yft-bname"><span className="full">{name}</span><span className="ab">{h ? abbr(name) : 'TBD'}</span></span>
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+          const shown = g && (card.state === 'final' || (card.state === 'live' && i < card.days));
+          return <span key={i} className="yft-slot">{shown ? g[5][i * 2 + off] : ''}</span>;
+        })}
+        <span className="yft-slot r">{played ? runs : ''}</span>
+      </div>
+    );
+  };
+  return (
+    <div className="yft-board" aria-hidden="true">
+      <div className="yft-brow head">
+        <span className={`yft-bname yft-status ${card.state}`}>{status}</span>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <span key={n} className="yft-n">{n}</span>)}
+        <span className="yft-n r">R</span>
+      </div>
+      {g ? <>{row(g[3], 1, ar)}{row(g[2], 0, hr)}</> : <>{row(0, 1, 0)}{row(me, 0, 0)}</>}
+    </div>
+  );
+}
+
 function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard; me: number; star?: Star; onTap: () => void }) {
   const S = index.schools;
   const g = card.game;
@@ -55,6 +91,7 @@ function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard;
     : `${where} ${oppName}`;
   const body = card.state === 'final' ? null
     : card.state === 'live' ? 'In progress · final Sunday night'
+    : card.state === 'bye' ? card.note || 'No game this week'
     : card.state === 'next' ? `Starts ${fmtDate(index.weeks[card.week - 1][0])}`
     : card.note || '';
   const dates = index.weeks[card.week - 1] ? fmtRange(index.weeks[card.week - 1][0], index.weeks[card.week - 1][1]) : '';
@@ -69,7 +106,7 @@ function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard;
         : <span className="yft-mark" aria-hidden="true">{opp ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(opp), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
       <span className="yft-copy">
         <span className="yft-kick">Week {card.week} · {card.stage.replace(/ leaderboard game$/, ' game')} · {dates}</span>
-        <span className={`yft-title ${res}`}>{title}</span>
+        <Board index={index} card={card} me={me} />
         {star && card.state === 'final'
           ? <span className="yft-body"><b>★ Alumni of the Week</b><a className="yft-plink" href={`/${me}/player/${encodeURIComponent(star[5])}`} onClick={(e) => e.stopPropagation()}>{starLine(star)}</a></span>
           : body ? <span className="yft-body">{body}</span> : null}
@@ -113,6 +150,13 @@ export default function FantasyTimeline() {
     if (i < 0) i = week > (data?.index.weeks.length ?? 0) ? cards.length - 1 : 0;
     requestAnimationFrame(() => { go(i, false); setActive(i); });
   }, [cards, week, data, go]);
+  // Row 5's round buttons slide the timeline to their round.
+  const nav = useBracketNav();
+  useEffect(() => {
+    if (!nav.slideSeq) return;
+    const i = cards.findIndex((c) => c.week === nav.slideWeek);
+    if (i >= 0) go(i);
+  }, [nav.slideSeq, nav.slideWeek, cards, go]);
   const onScroll = () => {
     const el = trackRef.current;
     if (el) setActive(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
@@ -157,6 +201,21 @@ export default function FantasyTimeline() {
         .yft-mark-crest { width: 100%; height: 100%; object-fit: contain; }
         .yft-copy { position: absolute; left: min(34%, 476px); right: 5%; top: 0; bottom: 30px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; }
         .yft-kick { color: var(--gold, #ffc107); font: 700 11px/1.2 Oswald, sans-serif; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* The scoreboard: a green ballpark board, every number in a slot. */
+        .yft-board { display: inline-grid; gap: 3px; width: max-content; max-width: 100%; margin: 4px 0 2px; padding: 6px 8px 7px; border-radius: 6px; background: linear-gradient(180deg, #1f5b3f, #164730); border: 2px solid #0e3222; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 16px rgba(0,0,0,.45); }
+        .yft-brow { display: grid; grid-template-columns: minmax(96px, 150px) repeat(9, 22px) 30px; gap: 3px; align-items: center; }
+        .yft-brow.head { margin-bottom: 1px; }
+        .yft-n { text-align: center; color: #e8f0ea; font: 700 11px/1 Oswald, sans-serif; }
+        .yft-n.r { color: #ffd54a; }
+        .yft-bname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f4f7f4; font: 700 15px/1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; padding-right: 4px; }
+        .yft-bname .ab { display: none; }
+        .yft-brow.me .yft-bname { color: #ffd54a; }
+        .yft-status { font-size: 10px; letter-spacing: .12em; color: #0e3222; background: #e8f0ea; border-radius: 2px; padding: 2px 5px; justify-self: start; }
+        .yft-status.live { background: #e53935; color: #fff; }
+        .yft-status.next, .yft-status.tbd, .yft-status.bye { background: transparent; color: #cfe0d4; box-shadow: inset 0 0 0 1px rgba(232,240,234,.5); }
+        .yft-slot { height: 22px; display: grid; place-items: center; background: #0b2418; border-radius: 2px; box-shadow: inset 0 1px 2px rgba(0,0,0,.6); color: #f4f7f4; font: 700 14px/1 Oswald, sans-serif; font-variant-numeric: tabular-nums; }
+        .yft-slot.r { color: #ffd54a; font-size: 16px; }
+        .yft-brow.won .yft-slot.r { background: #ffd54a; color: #0b2418; box-shadow: none; }
         .yft-title { font: 700 30px/1.05 Oswald, sans-serif; text-transform: uppercase; color: #f7f7f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .yft-title.W { color: #7fd18b; }
         .yft-title.L { color: #e2786a; }
@@ -187,6 +246,15 @@ export default function FantasyTimeline() {
           .yft-copy { left: 37%; right: 3%; bottom: 26px; gap: 2px; }
           .yft-kick { font-size: 9px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
           .yft-title { font-size: 20px; }
+          .yft-board { gap: 2px; padding: 4px 5px 5px; margin: 2px 0 1px; border-width: 1px; }
+          .yft-brow { grid-template-columns: 44px repeat(9, 14px) 20px; gap: 2px; }
+          .yft-bname { font-size: 11px; padding-right: 2px; }
+          .yft-bname .full { display: none; }
+          .yft-bname .ab { display: inline; }
+          .yft-status { font-size: 7.5px; padding: 1px 3px; letter-spacing: .06em; }
+          .yft-n { font-size: 8px; }
+          .yft-slot { height: 15px; font-size: 10px; }
+          .yft-slot.r { font-size: 11px; }
           .yft-body { font-size: 11.5px; }
           .yft-body b { font-size: 9px; }
           .yft-nav { display: none; }

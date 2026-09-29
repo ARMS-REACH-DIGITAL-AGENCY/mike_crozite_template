@@ -27,7 +27,7 @@ import {
   fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
-import { useBracketNav } from './bracketNav';
+import { slideToWeek, useBracketNav } from './bracketNav';
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
 import { Roboto_Condensed } from 'next/font/google';
@@ -374,6 +374,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   }, [cal, cards]);
   const [picked, setPicked] = useState('');
   const tab = picked || nowTab;
+  // A round button also slides row 3's timeline to that round: its current
+  // week, or its latest finished week, or its first.
+  const pickTab = (key: string) => {
+    setPicked(key);
+    const list = tabs.find((t) => t.key === key)?.list || [];
+    const target = list.find((c) => c.week === cal?.week) || [...list].reverse().find((c) => c.state === 'final') || list[0];
+    if (target) slideToWeek(target.week);
+  };
 
   // Row 3's timeline: a slide opens its week's round and marks the card.
   useEffect(() => {
@@ -416,7 +424,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             <div className="yfz-dock-tabs" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
               {tabs.map((t) => (
                 <button key={t.key} type="button" className={`yfz-tab${t.key === tab ? ' on' : ''}${t.key === nowTab && cal.week >= 1 && cal.week <= index.weeks.length ? ' now' : ''}`}
-                  aria-pressed={t.key === tab} onClick={() => setPicked(t.key)} title={t.key === 'all' ? 'Every game by master game #' : roundTitle(t.key)}>
+                  aria-pressed={t.key === tab} onClick={() => pickTab(t.key)} title={t.key === 'all' ? 'Every game by master game #' : roundTitle(t.key)}>
                   <b>{t.label}</b>
                   <span>{t.sub || (t.key === nowTab && cal.week >= 1 && cal.week <= index.weeks.length ? 'Now' : '\u00a0')}</span>
                 </button>
