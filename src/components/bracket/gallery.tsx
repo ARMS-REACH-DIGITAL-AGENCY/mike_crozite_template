@@ -193,6 +193,8 @@ export type Row = {
   gameLabels: string[];
   // On a school's page every card opens on that school's box score.
   school?: number;
+  // Cards only, no heading (single games packed three across).
+  bare?: boolean;
 };
 
 // Builders for the gallery's rows.
@@ -583,7 +585,7 @@ export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; i
 
   return (
     <div className="bl-row" ref={ref}>
-      <div className="bl-rowhead">
+      {!row.bare && <div className="bl-rowhead">
         <div className="bl-round">{row.roundLabel}</div>
         <div className="bl-title">
           {row.plain ? (
@@ -597,7 +599,7 @@ export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; i
           )}
         </div>
         <div className="bl-result">{row.result}</div>
-      </div>
+      </div>}
       <div className={`bl-cards n${row.games.length}`}>
         {row.games.map((g, i) => (
           <FlipCard key={g[0]} game={g} label={row.gameLabels[i]} index={index} box={boxes ? boxes[String(g[0])] : undefined} loading={!boxes}
