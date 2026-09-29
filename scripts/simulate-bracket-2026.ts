@@ -55,6 +55,7 @@ import {
   type SideWeek,
   addToBuckets,
   bracketOrder,
+  nationalBracketOrder,
   emptyBat,
   emptyPit,
   fipCore,
@@ -445,7 +446,7 @@ for (let region = 1; region <= 8; region++) {
 // gives the permanent national bracket: R1vR8, R4vR5, R2vR7, R3vR6.
 // Do not reseed these eight schools by school seed, runs, or run differential.
 const nationalSlot = new Map(regionChamps.map((h, i) => [h, i + 1]));
-let alive = bracketOrder(8).map((regionSlot) => regionChamps[regionSlot - 1]);
+let alive = nationalBracketOrder(regionChamps);
 for (let round = 8; round <= 10; round++) {
   const next: number[] = [];
   for (let i = 0; i < alive.length; i += 2) {
