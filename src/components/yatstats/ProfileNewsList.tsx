@@ -93,7 +93,7 @@ export default function ProfileNewsList({
             type="button"
             key={story.uuid}
             className="pp-news-teaser"
-            onClick={() => { setOpenUuid(story.uuid); track("news_open", { news_id: story.uuid, news_source: story.source || "" }); }}
+            onClick={() => { setOpenUuid(story.uuid); track("news_open", { uuid: story.uuid }); }}
           >
             <div className="pp-news-label">
               {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}

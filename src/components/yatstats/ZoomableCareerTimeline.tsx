@@ -639,7 +639,7 @@ function useIsPhone() {
 
 // A month-rail thumbnail: opens the Stories tab on that story.
 function showStoryInStoriesTab(id: string) {
-  track('timeline_story_open', { story_id: id });
+  track('timeline_story_open', { moment_id: id });
   history.replaceState(null, '', `${window.location.pathname}${window.location.search}#ppTab-upload`);
   window.dispatchEvent(new HashChangeEvent('hashchange'));
   window.dispatchEvent(new CustomEvent('yat:story-focus', { detail: { id } }));

@@ -246,7 +246,7 @@ export default function StoryDrawer() {
       if (!res.ok) throw new Error(data?.error || 'Your story could not be posted. Please try again.');
 
       setStatus({ kind: 'done', storyId: data?.id });
-      track('story_post', { story_id: data?.id, story_year: year, photo_count: photos.length, tagged_count: tags.length });
+      track('story_post', { moment_id: data?.id, moment_year: year, photo_count: photos.length, tagged_count: tags.length });
       window.dispatchEvent(new CustomEvent(STORY_POSTED_EVENT, { detail: { id: data?.id, playerIds: [playerId, ...tags.map((t) => t.playerId)] } }));
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'Your story could not be posted.' });

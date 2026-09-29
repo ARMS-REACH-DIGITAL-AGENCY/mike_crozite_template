@@ -19,18 +19,18 @@ function onClick(event: MouseEvent) {
   const result = target.closest('.yat-gs-result');
   if (result) {
     const term = (document.getElementById('gsInput') as HTMLInputElement | null)?.value || '';
-    track('search_select', { result_type: result.classList.contains('yat-gs-player') ? 'player' : 'school', search_term: term.trim().slice(0, 60) });
+    track('search_select', { result_type: result.classList.contains('yat-gs-player') ? 'player' : 'school', search_query: term.trim().slice(0, 60) });
     return;
   }
   const source = target.closest<HTMLAnchorElement>('.pp-news-modal-source, .news-full-story-btn, .yat-news-back-source');
   if (source) {
     let host = '';
     try { host = new URL(source.href).hostname; } catch {}
-    track('news_source_click', { news_host: host });
+    track('news_outbound_click', { news_host: host });
     return;
   }
   const card = target.closest<HTMLElement>('.yat-card');
-  if (card && !target.closest('a, button')) track('flip_card', { card_player_id: card.dataset.playerid || '' });
+  if (card && !target.closest('a, button')) track('flip_card', { card_playerid: card.dataset.playerid || '' });
 }
 
 export function AnalyticsPageViews() {
@@ -45,10 +45,10 @@ export function AnalyticsPageViews() {
   return null;
 }
 
-export function AnalyticsSchool({ id, name }: { id: string; name: string }) {
+export function AnalyticsSchool({ hsid, hsname }: { hsid: string; hsname: string }) {
   useEffect(() => {
-    setAnalyticsSchool({ id, name });
+    setAnalyticsSchool({ hsid, hsname });
     return () => setAnalyticsSchool(null);
-  }, [id, name]);
+  }, [hsid, hsname]);
   return null;
 }

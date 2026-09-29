@@ -84,7 +84,7 @@ def pro_teams(conn) -> list[dict]:
       )
       SELECT u.teamid, m.current_team_name, m.level_label,
              (SELECT x.mlb_stats_api_id FROM tbc_to_mlb_team_map x
-               WHERE x.tbc_teamid::text = u.teamid AND x.match_score >= 1 LIMIT 1) AS mapped_id
+               WHERE x.tbc_teamid::text = u.teamid AND x.match_score >= 1 LIMIT 1) AS mlb_stats_api_id
         FROM used u
         JOIN teamid_universe_mapping m ON m.teamid = u.teamid
        WHERE m.level_label = ANY(%s)
@@ -93,7 +93,7 @@ def pro_teams(conn) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(sql, (list(PRO_LEVELS),))
         return [
-            {"teamid": str(r[0]), "name": (r[1] or "").strip(), "level": r[2] or "", "mapped_id": r[3]}
+            {"teamid": str(r[0]), "name": (r[1] or "").strip(), "level": r[2] or "", "mlb_stats_api_id": r[3]}
             for r in cur.fetchall()
         ]
 
@@ -196,8 +196,8 @@ def main() -> int:
     for team in teams:
         status, mlb_id, method, source = "", None, "", ""
         existing = existing_logos(team["teamid"])
-        if team["mapped_id"]:
-            mlb_id, method = int(team["mapped_id"]), "team_map_exact"
+        if team["mlb_stats_api_id"]:
+            mlb_id, method = int(team["mlb_stats_api_id"]), "team_map_exact"
         elif names.get(norm(team["name"])):
             mlb_id, method = names[norm(team["name"])], "stats_api_name"
         if not mlb_id:
@@ -223,11 +223,11 @@ def main() -> int:
                 status = "replaced" if existing else "uploaded"
             time.sleep(0.2)
         counts[status] = counts.get(status, 0) + 1
-        rows.append({**team, "had_logo": "yes" if existing else "", "mlb_id": mlb_id or "", "match": method, "source": source, "status": status})
+        rows.append({**team, "had_logo": "yes" if existing else "", "matched_mlb_stats_api_id": mlb_id or "", "match": method, "logo_origin": source, "status": status})
         print(f"{team['teamid']:>7}  {team['level']:<9} {team['name'][:34]:<34} {str(mlb_id or ''):>6}  {status}")
 
     with open(REPORT_PATH, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["teamid", "name", "level", "mapped_id", "had_logo", "mlb_id", "match", "source", "status"])
+        writer = csv.DictWriter(fh, fieldnames=["teamid", "name", "level", "mlb_stats_api_id", "had_logo", "matched_mlb_stats_api_id", "match", "logo_origin", "status"])
         writer.writeheader()
         writer.writerows(rows)
     print("\nSummary: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
