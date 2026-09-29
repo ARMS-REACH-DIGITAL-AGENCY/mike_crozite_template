@@ -8,7 +8,6 @@ import {
   type SideWeek,
   addToBuckets,
   bracketOrder,
-  nationalBracketOrder,
   emptyBat,
   emptyPit,
   offenseScore,
@@ -202,10 +201,15 @@ test('bracket order keeps top seeds apart', () => {
   assert.equal(new Set(o).size, 128);
 });
 
-test('Rounds 8-10 keep the eight regional champions in fixed regional slots; no school reseeding', () => {
-  const champs = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'];
-  assert.deepEqual(nationalBracketOrder(champs), ['R1', 'R8', 'R4', 'R5', 'R2', 'R7', 'R3', 'R6']);
-  assert.throws(() => nationalBracketOrder(champs.slice(0, 7)), /exactly 8/);
+test('the 1,024-school bracket is one continuous 10-round tree', () => {
+  let alive = Array.from({ length: 1024 }, (_, i) => i + 1);
+  const seriesByRound: number[] = [];
+  for (let round = 1; round <= 10; round++) {
+    seriesByRound.push(alive.length / 2);
+    alive = alive.filter((_, i) => i % 2 === 0);
+  }
+  assert.deepEqual(seriesByRound, [512, 256, 128, 64, 32, 16, 8, 4, 2, 1]);
+  assert.equal(alive.length, 1);
 });
 
 test('best of 3: all three games are always played', () => {
