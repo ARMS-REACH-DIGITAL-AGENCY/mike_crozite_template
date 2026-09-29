@@ -40,6 +40,7 @@ INSERT INTO team_schedules (
     level,
     home_score,
     away_score,
+    game_type,
     created_at,
     updated_at
 )
@@ -57,6 +58,7 @@ VALUES (
     %(level)s,
     %(home_score)s,
     %(away_score)s,
+    %(game_type)s,
     NOW(),
     NOW()
 )
@@ -73,6 +75,7 @@ ON CONFLICT (game_pk) DO UPDATE SET
     level = EXCLUDED.level,
     home_score = EXCLUDED.home_score,
     away_score = EXCLUDED.away_score,
+    game_type = COALESCE(EXCLUDED.game_type, team_schedules.game_type),
     updated_at = NOW();
 """
 
@@ -135,6 +138,10 @@ def parse_schedule_payload(payload: dict[str, Any], requested_sport_id: int) -> 
                     "level": SPORT_LEVELS.get(int(resolved_sport_id), SPORT_LEVELS.get(requested_sport_id)),
                     "home_score": home.get("score"),
                     "away_score": away.get("score"),
+                    # MLB's gameType: R regular season; F/D/L/W/C/P postseason;
+                    # S spring training, E exhibition (not real games - the
+                    # Game Log leaves them out); A All-Star.
+                    "game_type": game.get("gameType"),
                 }
             )
 
