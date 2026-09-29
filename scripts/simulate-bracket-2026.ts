@@ -352,7 +352,7 @@ function dayBuckets(hsid: number, date: string): LevelBuckets {
   for (const pd of daily.get(hsid)?.get(date) || []) addToBuckets(b, pd.level, pd.bat, pd.pit);
   return b;
 }
-function sideWeek(hsid: number, week: number, seed: number): SideWeek {
+function sideWeek(hsid: number, week: number): SideWeek {
   const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
   const players = new Map<string, LevelBuckets>();
   for (const d of weekDates(week)) {
@@ -361,8 +361,11 @@ function sideWeek(hsid: number, week: number, seed: number): SideWeek {
       addToBuckets(players.get(pd.playerid)!, pd.level, pd.bat, pd.pit);
     }
   }
-  return { days: weekDates(week).map((d) => dayBuckets(hsid, d)), wins: wl.w, losses: wl.l, seed, players };
+  return { days: weekDates(week).map((d) => dayBuckets(hsid, d)), wins: wl.w, losses: wl.l, players };
 }
+// The commissioner's coin flip, fixed per game so every rerun agrees.
+const coinFlip = (week: number, home: number, away: number) => () =>
+  mulberry32(hashString(`${SEED}:coin:${week}:${home}:${away}`))() < 0.5 ? ('home' as const) : ('away' as const);
 function weekSource(hsid: number, week: number) {
   let real = 0, sim = 0;
   for (const d of weekDates(week)) for (const pd of daily.get(hsid)?.get(d) || []) { if (pd.simulated) sim++; else real++; }
@@ -370,8 +373,8 @@ function weekSource(hsid: number, week: number) {
 }
 
 type GameRow = { week: number; home: number; away: number; score: [number, number]; winner: number | null; decidedBy: GameResult['decidedBy']; tieRank?: number; innings: [number, number][]; real: [number, number]; simulated: [number, number] };
-function game(week: number, home: number, away: number, homeSeed: number, awaySeed: number, allowTie = false): GameRow {
-  const r = playGame(sideWeek(home, week, homeSeed), sideWeek(away, week, awaySeed), baselines, RULES, allowTie);
+function game(week: number, home: number, away: number, allowTie = false): GameRow {
+  const r = playGame(sideWeek(home, week), sideWeek(away, week), baselines, RULES, allowTie, coinFlip(week, home, away));
   const hs = weekSource(home, week), as = weekSource(away, week);
   return {
     week, home, away,
@@ -394,7 +397,7 @@ function playBracketSeries(round: number, region: number | null, a: number, b: n
   const [home, away, hSeed, aSeed] = seedA <= seedB ? [a, b, seedA, seedB] : [b, a, seedB, seedA];
   const firstWeek = (round - 1) * 3 + 1;
   const played = playSeries((g) => {
-    const row = game(firstWeek + g - 1, home, away, hSeed, aSeed);
+    const row = game(firstWeek + g - 1, home, away);
     return { row, winner: row.winner === home ? ('home' as const) : row.winner === away ? ('away' as const) : null };
   });
   const s = { winner: played.winner, games: played.games.map((g) => g.row) };
@@ -453,7 +456,7 @@ for (let week = 2; week <= LB_LAST_WEEK; week++) {
     const played = new Map([...board.entries()].map(([h, b]) => [h, b.games]));
     const { pairs } = pairEliminated(pool, played, `${SEED}:lb:${week}:${region}`);
     for (const [a, b] of pairs) {
-      const g = game(week, a, b, schools.get(a)!.seed, schools.get(b)!.seed, true);
+      const g = game(week, a, b, true);
       lbGames.push(g);
       for (const [h, rf, ra] of [[a, g.score[0], g.score[1]], [b, g.score[1], g.score[0]]] as const) {
         const cur = board.get(h) || { games: 0, w: 0, l: 0, t: 0, rf: 0, ra: 0 };
@@ -481,7 +484,7 @@ for (let week = LB_LAST_WEEK + 1; week <= LB_LAST_WEEK + 3; week++) {
   const next: number[] = [];
   for (let i = 0; i < lbAlive.length; i += 2) {
     const [a, b] = lbSeed.get(lbAlive[i])! <= lbSeed.get(lbAlive[i + 1])! ? [lbAlive[i], lbAlive[i + 1]] : [lbAlive[i + 1], lbAlive[i]];
-    const g = game(week, a, b, lbSeed.get(a)!, lbSeed.get(b)!);
+    const g = game(week, a, b);
     lbBracket.push(g);
     next.push(g.winner!);
   }
@@ -489,9 +492,8 @@ for (let week = LB_LAST_WEEK + 1; week <= LB_LAST_WEEK + 3; week++) {
 }
 const lbChampion = lbAlive[0];
 
-// Week 31: the Grand Final, one game; the bracket champion is home (and
-// the better seed if it comes to that tiebreak).
-const grandFinalGames = [game(31, champion, lbChampion, 1, 2)];
+// Week 31: the Grand Final, one game; the bracket champion is home.
+const grandFinalGames = [game(31, champion, lbChampion)];
 const grandChampion = grandFinalGames[0].winner!;
 
 // ---------------------------------------------------------------------------
@@ -513,7 +515,7 @@ const summary = {
   bracketGames: series.reduce((s, x) => s + x.games.length, 0),
   leaderboardGames: lbGames.length,
   scorelessDayInnings: dayInnings.filter(([h, a]) => h + a === 0).length / dayInnings.length,
-  decidedBy: Object.fromEntries(['runs', 'players', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
+  decidedBy: Object.fromEntries(['runs', 'players', 'coin', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
   averageRuns: allGames.reduce((s, g) => s + g.score[0] + g.score[1], 0) / (2 * allGames.length),
   champion,
   runnerUp: series.find((s) => s.round === 10)!.loser,
@@ -606,9 +608,9 @@ function exportGallery(dir: string) {
 
   let gid = 0;
   const details = new Map<string, Record<number, unknown>>();
-  function gameOut(file: string, g: GameRow, homeSeed: number, awaySeed: number) {
+  function gameOut(file: string, g: GameRow) {
     const id = ++gid;
-    const r = playGame(sideWeek(g.home, g.week, homeSeed), sideWeek(g.away, g.week, awaySeed), baselines, RULES, g.winner === null);
+    const r = playGame(sideWeek(g.home, g.week), sideWeek(g.away, g.week), baselines, RULES, g.winner === null);
     const days = r.innings.slice(0, 8).map((i) => [round1(i.homeOffense), round1(i.awayOffense), round1(i.homePitching), round1(i.awayPitching)]);
     if (!details.has(file)) details.set(file, {});
     details.get(file)![id] = { d: days, h: side(g.home, g.week), a: side(g.away, g.week) };
@@ -626,12 +628,12 @@ function exportGallery(dir: string) {
       end: iso(weekStart(round * 3) + 6 * DAY),
       series: series.filter((s) => s.round === round).map((s) => {
         const file = `d-${round}-${s.region ?? 0}`;
-        return [s.region ?? 0, s.home, s.away, s.homeSeed, s.awaySeed, s.winner, s.wins, s.games.map((g) => gameOut(file, g, s.homeSeed, s.awaySeed))];
+        return [s.region ?? 0, s.home, s.away, s.homeSeed, s.awaySeed, s.winner, s.wins, s.games.map((g) => gameOut(file, g))];
       }),
     };
   });
-  const lbt = lbBracket.map((g) => ({ seeds: [lbSeed.get(g.home), lbSeed.get(g.away)], game: gameOut('d-lbt', g, lbSeed.get(g.home)!, lbSeed.get(g.away)!) }));
-  const gf = grandFinalGames.map((g) => gameOut('d-gf', g, 1, 2));
+  const lbt = lbBracket.map((g) => ({ seeds: [lbSeed.get(g.home), lbSeed.get(g.away)], game: gameOut('d-lbt', g) }));
+  const gf = grandFinalGames.map((g) => gameOut('d-gf', g));
 
   const index = {
     season: 2026,

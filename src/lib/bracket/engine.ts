@@ -30,7 +30,7 @@
 // (OPS+) against the other's, and best pitcher (FIP-) against the other's,
 // one run each; the school that takes more wins. 1-1 goes to the #2
 // hitters and pitchers, and on down the rosters. Still tied when the
-// rosters run out: the better seed in the bracket; a tie (half a win
+// rosters run out: the commissioner's coin flip in the bracket; a tie (half a win
 // each) on the leaderboard.
 //
 // W-L% counts every alumnus on a club's roster that week, game or no game:
@@ -155,7 +155,6 @@ export type SideWeek = {
   // Real clubs' results that week, summed over the school's alumni.
   wins: number;
   losses: number;
-  seed: number; // lower is better; only used as the last tiebreak
   // Each alumnus's week (playerid -> his lines by level), for the tiebreak.
   players?: Map<string, LevelBuckets>;
 };
@@ -179,7 +178,8 @@ export type GameResult = {
   home: number;
   away: number;
   winner: Side | null; // null = tie (leaderboard games only)
-  decidedBy: 'runs' | 'players' | 'seed' | 'tie';
+  // 'coin' with winner null: the commissioner's coin flip is still to come
+  decidedBy: 'runs' | 'players' | 'coin' | 'tie';
   tieRank?: number; // 'players': which pair decided it (1 = each school's best)
 };
 
@@ -257,7 +257,10 @@ export function volume(buckets: LevelBuckets) {
   return v;
 }
 
-export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false): GameResult {
+// coinFlip: the commissioner's flip, used only when the rosters run out
+// level in a game that must have a winner. Without it such a game comes
+// back with winner null and decidedBy 'coin' (flip still to come).
+export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false, coinFlip?: () => Side): GameResult {
   const innings: Inning[] = [];
   for (let d = 0; d < 7; d++) innings.push(scoreInning(d + 1, 'day', home.days[d] || new Map(), away.days[d] || new Map(), baselines, rules));
   const homeWeek = mergeBuckets(home.days);
@@ -273,11 +276,12 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   const ar = innings.reduce((s, i) => s + i.away, 0);
   const base = { innings, home: hr, away: ar };
   if (hr !== ar) return { ...base, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
-  // Ties after 9: player vs player, then seed (bracket) or a tie (leaderboard).
+  // Ties after 9: player vs player, then a tie (leaderboard) or the
+  // commissioner's coin flip.
   const pt = playerTiebreak(home, away, baselines, rules);
   if (pt) return { ...base, winner: pt.winner, decidedBy: 'players', tieRank: pt.rank };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
-  return { ...base, winner: home.seed <= away.seed ? 'home' : 'away', decidedBy: 'seed' };
+  return { ...base, winner: coinFlip ? coinFlip() : null, decidedBy: 'coin' };
 }
 
 // ---------------------------------------------------------------------------

@@ -39,7 +39,7 @@ const REGIONS: Record<number, string> = {
 };
 const LBT_ROUNDS: Record<number, string> = { 28: 'Quarterfinal', 29: 'Semifinal', 30: 'Final' };
 const TIE_NOTE: Record<string, string> = {
-  seed: 'Tied after 9 · won on seed',
+  coin: "Tied after 9 · won on the commissioner's coin flip",
 };
 // 'players-2': the tie went down to each school's #2 hitter and #2 pitcher
 function tieNote(decidedBy: string) {

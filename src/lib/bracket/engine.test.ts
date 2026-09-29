@@ -32,7 +32,7 @@ const off = (): LevelBuckets => new Map();
 const AVG = { mode: 'adjusted', absent: 'average' } as const;
 const FORFEIT = { mode: 'adjusted', absent: 'forfeit' } as const;
 const HOLD = { mode: 'adjusted', absent: 'hold' } as const;
-const week = (days: LevelBuckets[], wins = 0, losses = 0, seed = 1): SideWeek => ({ days, wins, losses, seed });
+const week = (days: LevelBuckets[], wins = 0, losses = 0): SideWeek => ({ days, wins, losses });
 
 test('OPS+ measures each level against its own average', () => {
   // .300/.400 at MLB (OPS .700) beats .380/.480 at juco (OPS .860) once adjusted
@@ -100,18 +100,23 @@ const hitter = (h: number, hr = 0) => day('MLB', { pa: 10, ab: 10, h, hr }); // 
 const pitcher = (so: number) => day('MLB', {}, { outs: 18, so }); // more K = lower FIP-
 const idleWeek = () => Array(7).fill(null).map(() => off());
 // A 0-0 game after 9 (no day stats), with the players' weeks given separately.
-const tied = (players: Map<string, LevelBuckets>, seed = 1): SideWeek => ({ ...week(idleWeek(), 0, 0, seed), players });
+const tied = (players: Map<string, LevelBuckets>): SideWeek => ({ ...week(idleWeek()), players });
 
-test('ties: no players to compare - seed in the bracket, a tie on the leaderboard', () => {
+test("ties: no players to compare - the commissioner's coin flip, or a tie on the leaderboard", () => {
   const same = idleWeek();
   // W-L inning gives home the only run - no tie at all
-  const a = playGame(week(same, 3, 1, 5), week(same, 1, 3, 2), baselines, AVG);
+  const a = playGame(week(same, 3, 1), week(same, 1, 3), baselines, AVG);
   assert.equal(a.winner, 'home');
   assert.equal(a.decidedBy, 'runs');
-  const b = playGame(week(same, 0, 0, 5), week(same, 0, 0, 2), baselines, AVG);
+  // the flip decides it
+  const b = playGame(week(same), week(same), baselines, AVG, false, () => 'away');
   assert.equal(b.winner, 'away');
-  assert.equal(b.decidedBy, 'seed');
-  const c = playGame(week(same, 0, 0, 5), week(same, 0, 0, 2), baselines, AVG, true);
+  assert.equal(b.decidedBy, 'coin');
+  // no flip given yet: no winner until the commissioner flips
+  const pending = playGame(week(same), week(same), baselines, AVG);
+  assert.equal(pending.winner, null);
+  assert.equal(pending.decidedBy, 'coin');
+  const c = playGame(week(same), week(same), baselines, AVG, true);
   assert.equal(c.winner, null);
   assert.equal(c.decidedBy, 'tie');
 });
@@ -139,12 +144,12 @@ test("tiebreak: a player with no one left to face counts only by beating league 
   // #1 split 1-1; home has a #2 hitter, away doesn't
   const top = [hitter(5), pitcher(10)];
   const awayTop = roster(hitter(4), pitcher(12));
-  // 1-for-10 is below average: no run, rosters run out level -> seed
-  const cold = playGame(tied(roster(...top, hitter(1)), 5), tied(awayTop, 2), baselines, HOLD);
-  assert.equal(cold.decidedBy, 'seed');
+  // 1-for-10 is below average: no run, rosters run out level -> coin flip
+  const cold = playGame(tied(roster(...top, hitter(1))), tied(awayTop), baselines, HOLD, false, () => 'away');
+  assert.equal(cold.decidedBy, 'coin');
   assert.equal(cold.winner, 'away');
   // 4-for-10 with a homer is above average: home takes it at #2
-  const hot = playGame(tied(roster(...top, hitter(4, 1)), 5), tied(awayTop, 2), baselines, HOLD);
+  const hot = playGame(tied(roster(...top, hitter(4, 1))), tied(awayTop), baselines, HOLD);
   assert.equal(hot.decidedBy, 'players');
   assert.equal(hot.tieRank, 2);
   assert.equal(hot.winner, 'home');
@@ -153,8 +158,8 @@ test("tiebreak: a player with no one left to face counts only by beating league 
 test("a school with nobody playing can't win a tie against one that played", () => {
   // Hamilton plays below average all week (no runs); Basha has nobody: 0-0
   const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
-  const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()], 0, 0, 5), players: roster(coldDay) };
-  const idle = tied(new Map(), 1);
+  const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()]), players: roster(coldDay) };
+  const idle = tied(new Map());
   const g = playGame(cold, idle, baselines, HOLD);
   assert.deepEqual([g.home, g.away], [0, 0]);
   assert.equal(g.winner, 'home');
