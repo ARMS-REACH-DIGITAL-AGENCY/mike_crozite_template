@@ -18,6 +18,14 @@ export function toISODate(value: unknown): string {
   return String(value).slice(0, 10);
 }
 
+// "YYYY-MM-DD" moved by a number of days, in UTC (never shifted by the
+// runtime's timezone).
+export function shiftIsoDate(iso: string, days: number): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function fmt(key: string, value: unknown): string {
   if (value === null || value === undefined || value === "" || value === "--") return "--";
   const DECIMAL = ["AVG","OBP","SLG","OPS","ERA","WHIP","H9","BB9","K9","KBB","K/9","K/BB"];

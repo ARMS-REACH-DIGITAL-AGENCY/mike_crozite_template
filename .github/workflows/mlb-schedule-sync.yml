@@ -2,6 +2,11 @@ name: MLB/MiLB Full Schedule Sync
 
 on:
   workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year to sync (default: this year, plus next year from September on)."
+        required: false
+        type: string
   schedule:
     # 2:00 AM Arizona time = 09:00 UTC
     - cron: "0 9 * * *"
@@ -33,4 +38,24 @@ jobs:
           git rev-parse --short HEAD
 
       - name: Run full MLB/MiLB schedule sync
-        run: python scripts/sync_mlb_schedules.py
+        env:
+          SEASON_INPUT: ${{ github.event.inputs.season }}
+        run: |
+          if [ -n "$SEASON_INPUT" ]; then
+            if ! [[ "$SEASON_INPUT" =~ ^[0-9]{4}$ ]]; then
+              echo "::error::season must be a 4-digit year, got: $SEASON_INPUT"
+              exit 1
+            fi
+            SEASONS="$SEASON_INPUT"
+          else
+            # This season, plus next season once MLB publishes it (fall).
+            YEAR=$(date -u +%Y)
+            SEASONS="$YEAR"
+            if [ "$(date -u +%-m)" -ge 9 ]; then
+              SEASONS="$YEAR $((YEAR + 1))"
+            fi
+          fi
+          for SEASON in $SEASONS; do
+            echo "=== Season $SEASON ==="
+            SCHEDULE_SEASON="$SEASON" python scripts/sync_mlb_schedules.py
+          done

@@ -19,17 +19,30 @@
 //   today is an off day) so a fan lands on "now," not buried in the
 //   season - future games are still there, just a scroll up away, rather
 //   than dumped above today's game by default.
+// - One season at a time, with a season picker when there's more than one
+//   (e.g. this season's games plus next season's schedule).
+// - A player who changed teams gets a marker row where each team's games
+//   begin ("Joined Winston-Salem Dash"); shown only in date order, since it
+//   marks a point in time. A game his team played without him says
+//   "Did not play".
+// - Postseason games carry a small "Postseason" label; spring training and
+//   exhibitions never reach this table (getTeamSchedule leaves them out).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type ScheduleTableRow = {
+  kind: "game" | "move"; // "move" = the marker where a new team's games begin
   iso: string; // "2026-09-17"
+  season: number;
   dateLabel: string; // "Sep 17, 2026"
   opponent: string;
   logoUrl: string | null;
   resultLetter: "W" | "L" | "T" | null;
   resultClass: string;
   stats: string[]; // aligned to statHeaders, "-" for not-yet-played games
+  didNotPlay?: boolean; // his team played, he didn't
+  postseason?: boolean; // a playoff game (labeled)
+  note?: string; // the marker's text
 };
 
 type SortKey = "date" | "opponent" | "result" | number; // number = stats[] index
@@ -38,11 +51,15 @@ interface Props {
   rows: ScheduleTableRow[];
   statHeaders: string[];
   todayIso: string;
+  defaultSeason: number;
 }
 
 function compareRows(a: ScheduleTableRow, b: ScheduleTableRow, sortKey: SortKey, sortDir: 1 | -1): number {
   if (sortKey === "date") {
-    return a.iso < b.iso ? -sortDir : a.iso > b.iso ? sortDir : 0;
+    if (a.iso !== b.iso) return a.iso < b.iso ? -sortDir : sortDir;
+    // A marker sits just before its first day's games, in either direction.
+    if (a.kind !== b.kind) return (a.kind === "move" ? -1 : 1) * sortDir;
+    return 0;
   }
 
   if (sortKey === "opponent") {
@@ -77,18 +94,25 @@ function compareRows(a: ScheduleTableRow, b: ScheduleTableRow, sortKey: SortKey,
   return av < bv ? -sortDir : av > bv ? sortDir : 0;
 }
 
-export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Props) {
+export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defaultSeason }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const seasons = useMemo(() => [...new Set(rows.map((r) => r.season))].sort((a, b) => b - a), [rows]);
+  const [season, setSeason] = useState<number>(defaultSeason);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const theadRef = useRef<HTMLTableSectionElement | null>(null);
 
+  // This season's rows, still in the server's ascending date order.
+  const seasonRows = useMemo(() => rows.filter((r) => r.season === season), [rows, season]);
+
   const sortedRows = useMemo(() => {
     const dir = sortDir;
+    // Markers only make sense in date order.
+    const shown = sortKey === "date" ? seasonRows : seasonRows.filter((r) => r.kind === "game");
     // Ties (e.g. every 0-HR game when sorting by HR) go newest game first.
-    return [...rows].sort((a, b) => compareRows(a, b, sortKey, dir) || (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0));
-  }, [rows, sortKey, sortDir]);
+    return [...shown].sort((a, b) => compareRows(a, b, sortKey, dir) || (a.iso < b.iso ? 1 : a.iso > b.iso ? -1 : 0));
+  }, [seasonRows, sortKey, sortDir]);
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -116,15 +140,17 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
     );
   }
 
-  // Scroll to today's date on first load - the target is computed from the
-  // server-ordered `rows` prop (always ascending), not the current sort
-  // state, since this only runs once on mount before any user interaction.
+  // Scroll to today's date on first load and on a season change - the
+  // target is computed from the season's rows in the server's ascending
+  // order (today's game, or the next one; the season's last game when it's
+  // over), not the current sort state.
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || rows.length === 0) return;
+    const games = seasonRows.filter((r) => r.kind === "game");
+    if (!container || games.length === 0) return;
 
-    const target = rows.find((r) => r.iso >= todayIso) || rows[rows.length - 1];
-    const el = container.querySelector<HTMLElement>(`[data-iso="${target.iso}"]`);
+    const target = games.find((r) => r.iso >= todayIso) || games[games.length - 1];
+    const el = container.querySelector<HTMLElement>(`tr[data-kind="game"][data-iso="${target.iso}"]`);
     if (!el) return;
 
     const headerHeight = theadRef.current?.getBoundingClientRect().height || 0;
@@ -132,9 +158,27 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
     const elTop = el.getBoundingClientRect().top;
     container.scrollTop += elTop - containerTop - headerHeight;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [season]);
+
+  const columnCount = 3 + statHeaders.length;
 
   return (
+    <>
+    {seasons.length > 1 && (
+      <div className="pst-seasons" role="group" aria-label="Season">
+        {seasons.map((y) => (
+          <button
+            key={y}
+            type="button"
+            className={y === season ? "pst-season is-active" : "pst-season"}
+            aria-pressed={y === season}
+            onClick={() => setSeason(y)}
+          >
+            {y}
+          </button>
+        ))}
+      </div>
+    )}
     <div className="pst-wrap" ref={containerRef}>
       <table className="pst-table">
         <thead ref={theadRef}>
@@ -146,22 +190,43 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((row, i) => (
-            <tr key={`${row.iso}-${i}`} data-iso={row.iso} className={row.iso === todayIso ? "pst-row-today" : undefined}>
-              <td className="pst-date">{row.dateLabel}</td>
-              <td className="pst-opp">
-                <span className="pst-opponent">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {row.logoUrl && <img src={row.logoUrl} alt="" className="pst-opponent-logo" />}
-                  <span className="pst-opponent-name">{row.opponent || "--"}</span>
-                </span>
-              </td>
-              <td className="pst-res">{row.resultLetter && <span className={row.resultClass}>{row.resultLetter}</span>}</td>
-              {row.stats.map((v, si) => (
-                <td key={si}>{v}</td>
-              ))}
-            </tr>
-          ))}
+          {sortedRows.map((row, i) =>
+            row.kind === "move" ? (
+              <tr key={`move-${row.iso}-${i}`} data-kind="move" data-iso={row.iso} className="pst-row-move">
+                <td colSpan={columnCount}>
+                  <span className="pst-move">
+                    <span className="pst-move-date">{row.dateLabel}</span>
+                    {row.note}
+                  </span>
+                </td>
+              </tr>
+            ) : (
+              <tr
+                key={`${row.iso}-${i}`}
+                data-kind="game"
+                data-iso={row.iso}
+                className={row.iso === todayIso ? "pst-row-today" : undefined}
+              >
+                <td className="pst-date">{row.dateLabel}</td>
+                <td className="pst-opp">
+                  <span className="pst-opponent">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {row.logoUrl && <img src={row.logoUrl} alt="" className="pst-opponent-logo" />}
+                    <span className="pst-opponent-name">{row.opponent || "--"}</span>
+                    {row.postseason && <span className="pst-tag">Postseason</span>}
+                  </span>
+                </td>
+                <td className="pst-res">{row.resultLetter && <span className={row.resultClass}>{row.resultLetter}</span>}</td>
+                {row.didNotPlay ? (
+                  <td className="pst-dnp" colSpan={statHeaders.length}>
+                    Did not play
+                  </td>
+                ) : (
+                  row.stats.map((v, si) => <td key={si}>{v}</td>)
+                )}
+              </tr>
+            )
+          )}
         </tbody>
       </table>
 
@@ -235,6 +300,32 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
         .pst-table tbody tr:nth-child(even) td.pst-date{ background: linear-gradient(var(--psi-cell-bg-alt, rgba(255,255,255,.065)), var(--psi-cell-bg-alt, rgba(255,255,255,.065))), var(--psi-panel-bg, #080808); }
         .pst-row-today td{ background: rgba(214,178,83,.22) !important; }
         .pst-opponent{ display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .pst-tag{ padding: 1px 3px; border: 1px solid rgba(214,178,83,.7); color: #d6b253; font: 700 7px/1 Oswald, Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .pst-table td.pst-dnp{ text-align: left; font-style: italic; color: var(--psi-muted-text, rgba(255,255,255,.84)); opacity: .7; }
+        .pst-table tr.pst-row-move td{
+          padding: 4px 3px;
+          text-align: left;
+          background: rgba(214,178,83,.14);
+          border-bottom: 1px solid rgba(214,178,83,.45);
+          color: var(--psi-text, #f4f0e6);
+        }
+        .pst-move{ position: sticky; left: 3px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+        .pst-move-date{ font-weight: 500; opacity: .75; }
+        .pst-seasons{ display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
+        .pst-season{
+          border: 1px solid var(--psi-border, rgba(255,255,255,.18));
+          background: var(--psi-cell-bg, rgba(255,255,255,.035));
+          color: var(--psi-muted-text, rgba(255,255,255,.84));
+          padding: 3px 8px;
+          font: 700 10px/1 Oswald, Arial, sans-serif;
+          letter-spacing: .04em;
+          cursor: pointer;
+        }
+        .pst-season.is-active{
+          background: linear-gradient(180deg, var(--psi-head-bg-a, #202020), var(--psi-head-bg-b, #101010));
+          color: var(--psi-text, #f4f0e6);
+          border-color: rgba(214,178,83,.7);
+        }
         .pst-opponent-logo{ width: 11px; height: 11px; object-fit: contain; flex-shrink: 0; }
         .pp-result-w{ color: #2ecc71; font-weight: 700; }
         .pp-result-l{ color: #e74c3c; font-weight: 700; }
@@ -246,5 +337,6 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso }: Pro
         }
       `}</style>
     </div>
+    </>
   );
 }
