@@ -17,13 +17,13 @@ import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import { track } from '@/lib/analytics';
+import { shrinkPhoto } from '@/lib/shrinkPhoto';
 
 export const STORY_DRAWER_OPEN_EVENT = 'yat:story-drawer-open';
 export const STORY_POSTED_EVENT = 'yat:story-posted';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_PHOTOS = 4;
-const MAX_EDGE = 2048;
 
 type FanSession = {
   uid?: string;
@@ -43,24 +43,6 @@ function openAccountDrawer(tab: 'signin' | 'register') {
   document.body.classList.remove('drawer-story-open');
   document.body.classList.add('drawer-account-open', 'drawer-open');
   window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: tab }));
-}
-
-// Shrinks a phone photo in the browser so a normal photo never hits the
-// upload size limit. Keeps the original if the browser can't read it.
-async function shrinkPhoto(file: File): Promise<Blob> {
-  try {
-    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions);
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close?.();
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
-    return blob || file;
-  } catch {
-    return file;
-  }
 }
 
 export default function StoryDrawer() {
