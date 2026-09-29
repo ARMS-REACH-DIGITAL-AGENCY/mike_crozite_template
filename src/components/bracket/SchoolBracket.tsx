@@ -4,8 +4,8 @@
 // The Fantasy Bracket Tourney tab (the 2026 simulation). Every school's
 // page is the same page: the tournament in sections, the round in progress
 // on top and each finished round underneath (the history). Row 3's school
-// tile swaps it for this school's cards for the current round (its bracket
-// series, or its weekly region leaderboard games once it's out). Each series is one row: game 1, game 2, game 3. The single
+// tile swaps it for this school's whole season, newest round first (its
+// bracket series, or its weekly region leaderboard games once it's out). Each series is one row: game 1, game 2, game 3. The single
 // games (Leaderboard 8, Grand Final) pack three to a row. Row 3's tiles
 // (BracketRow3) also filter by region, or show the regional leaderboards.
 //
@@ -25,34 +25,45 @@ const STAGE_NAME = (s: Stage) =>
   s.kind === 'round' ? ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Round 6', 'Regional Final', 'Elite Eight', 'Final Four', 'Championship'][s.r - 1]
     : s.kind === 'lbt' ? 'Leaderboard 8' : s.kind === 'gf' ? 'Grand Final' : 'Leaderboards';
 
-// A school's cards for the current stage, or its latest games when it has
-// none there (not in the Leaderboard 8, say).
-type OwnGames = { rows: Row[]; stage: Stage | null; latest: boolean };
-const NO_GAMES: OwnGames = { rows: [], stage: null, latest: false };
-function ownGames(index: Index, lb: LbGame[], h: number, current: Stage, final: number): OwnGames {
-  if (!index.schools[h]) return NO_GAMES;
-  const now = schoolStageRows(index, lb, h, current, final);
-  if (now.length) return { rows: now, stage: current, latest: false };
-  let w = Math.min(final, LAST_WEEK + 4);
-  while (w >= 1) {
-    const s = stageOfWeek(w);
-    const rows = schoolStageRows(index, lb, h, s, final);
-    if (rows.length) return { rows, stage: s, latest: true };
-    w = stageWeeks(s)[0] - 1;
-  }
-  return NO_GAMES;
+// The page is a list: a heading per round, then its rows.
+type Item = { kind: 'head'; key: string; title: string; dates: string } | { kind: 'row'; key: string; row: Row };
+
+function stageDates(index: Index, s: Stage) {
+  const [a, b] = stageWeeks(s);
+  const first = index.weeks[a - 1], last = index.weeks[b - 1];
+  return first && last ? fmtRange(first[0], last[1]) : '';
 }
 
-// The tournament below row one: a heading per section, then its rows.
-type Item = { kind: 'head'; key: string; title: string; dates: string } | { kind: 'row'; key: string; row: Row };
+// Row 3's school tile: this school's whole season, newest round first - its
+// Leaderboard 8 / Grand Final games, then each round's three games (its
+// bracket series while it's alive, its weekly region leaderboard games once
+// it's out).
+function teamItems(index: Index, lb: LbGame[], h: number, final: number): Item[] {
+  if (!index.schools[h]) return [];
+  const items: Item[] = [];
+  const singles = [
+    ...schoolStageRows(index, lb, h, { kind: 'gf' }, final),
+    ...schoolStageRows(index, lb, h, { kind: 'lbt' }, final).sort((a, b) => b.week - a.week),
+  ];
+  if (singles.length) {
+    const hasGf = singles.some((r) => r.roundLabel === 'Grand Final');
+    items.push({ kind: 'head', key: 'h-t-singles', title: hasGf ? 'Grand Final · Leaderboard 8' : 'Leaderboard 8', dates: '' });
+    items.push({ kind: 'row', key: 't-singles', row: { ...singles[0], key: 't-singles', bare: true, games: singles.flatMap((r) => r.games), files: singles.flatMap((r) => r.files), gameLabels: singles.flatMap((r) => r.gameLabels) } });
+  }
+  for (let r = 10; r >= 1; r--) {
+    const s: Stage = { kind: 'round', r };
+    const rows = schoolStageRows(index, lb, h, s, final);
+    if (!rows.length) continue;
+    items.push({ kind: 'head', key: `h-t-r${r}`, title: STAGE_NAME(s), dates: stageDates(index, s) });
+    for (const row of rows) items.push({ kind: 'row', key: `t-${row.key}`, row });
+  }
+  return items;
+}
+
 function tournamentItems(index: Index, lb: LbGame[], final: number, region: number): Item[] {
   const regionOf = (h: number) => index.schools[h]?.[1];
   const keep = (r: Row) => !region || r.region === region || (!r.region && (regionOf(r.home) === region || regionOf(r.away) === region));
-  const dates = (s: Stage) => {
-    const [a, b] = stageWeeks(s);
-    const first = index.weeks[a - 1], last = index.weeks[b - 1];
-    return first && last ? fmtRange(first[0], last[1]) : '';
-  };
+  const dates = (s: Stage) => stageDates(index, s);
   const items: Item[] = [];
   // The single games: the Grand Final, then the Leaderboard 8 (final first),
   // packed three to a row.
@@ -131,12 +142,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return { week, final, current };
   }, [index, asof]);
 
-  // Row 3's school tile: this school's current round.
-  const mine = useMemo(() => (index && lb && cal ? ownGames(index, lb, home, cal.current, cal.final) : NO_GAMES), [index, lb, cal, home]);
-
-  // The tournament, the same on every school's page.
+  // The tournament (the same on every school's page), or with row 3's
+  // school tile this school's whole season.
   const region = nav.region;
-  const items = useMemo(() => (index && lb && cal && !nav.boards && !nav.team && !nav.rules ? tournamentItems(index, lb, cal.final, region) : []), [index, lb, cal, nav.boards, nav.team, nav.rules, region]);
+  const items = useMemo(() => {
+    if (!index || !lb || !cal || nav.boards || nav.rules) return [];
+    return nav.team ? teamItems(index, lb, home, cal.final) : tournamentItems(index, lb, cal.final, region);
+  }, [index, lb, cal, nav.boards, nav.rules, nav.team, home, region]);
   const { shown, sentinel: more } = useReveal(items.length, 16);
 
   return (
@@ -156,19 +168,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
               <h3>Rules · how it&apos;s scored</h3>
               <BracketRules />
             </section>
-          ) : nav.team ? (
-            // Row 3's school tile: this school's current round only.
-            <section className="ysb-block">
-              <h3>
-                {shortName(index.schools[home]?.[0] || '')} · {mine.stage ? `${mine.latest ? 'latest games' : 'this round'} · ${STAGE_NAME(mine.stage)}` : 'this round'}
-              </h3>
-              {cal.week === 0 && <p className="bl-muted">The 2026 bracket starts {index.weeks[0][0]}.</p>}
-              {cal.week > 0 && !mine.rows.length && <p className="bl-muted">No games final yet this round.</p>}
-              {!index.schools[home] && <p className="bl-muted">This school isn&apos;t in the 2026 bracket field.</p>}
-              <div className="bl-rows">
-                {mine.rows.map((row) => <SeriesRowView key={`mine-${row.key}`} row={row} index={index} />)}
-              </div>
-            </section>
           ) : nav.boards ? (
             <section className="ysb-block">
               <h3>Regional leaderboards</h3>
@@ -177,14 +176,19 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             </section>
           ) : (
             <div className="bl-rows ysb-list">
+              {nav.team && (
+                <h3 className="ysb-team">
+                  {index.schools[home] ? `${shortName(index.schools[home][0])} · 2026 season` : 'This school isn\u2019t in the 2026 bracket field.'}
+                </h3>
+              )}
               {items.slice(0, shown).map((it) => (it.kind === 'head'
                 ? <h3 key={it.key} className="ysb-sec">{it.title}<span>{it.dates}</span></h3>
                 : <SeriesRowView key={it.key} row={it.row} index={index} />))}
-              {items.length === 0 && <p className="bl-muted">No games final yet.</p>}
+              {items.length === 0 && index.schools[home] && <p className="bl-muted">{cal.week === 0 ? `The 2026 bracket starts ${index.weeks[0][0]}.` : 'No games final yet.'}</p>}
               <div ref={more} className="bl-sentinel" aria-hidden="true" />
             </div>
           )}
-          <p className="ysb-foot">Tap a tile above for your school&apos;s current round, the leaderboards or one region; tap it again to show everything. Simulated on 2026 stats: pros are real box scores; college lines marked * are simulated from season totals.</p>
+          <p className="ysb-foot">Tap a tile above for your school&apos;s season, the leaderboards or one region; tap it again to show everything. Simulated on 2026 stats: pros are real box scores; college lines marked * are simulated from season totals.</p>
         </>
       )}
       <Styles />
@@ -192,7 +196,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .ysb-top { height:1px; }
         .ysb-kick { max-width:1180px; margin:0 auto 14px; }
         .ysb-block { max-width:1180px; margin:0 auto 28px; }
-        .ysb-block h3, .ysb-sec { margin:0 0 12px; font:500 14px/1.2 Oswald, sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:8px; }
+        .ysb-block h3, .ysb-sec, .ysb-team { margin:0 0 12px; font:500 14px/1.2 Oswald, sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:8px; }
         .ysb-list { margin-bottom:28px; }
         .ysb-sec { display:flex; justify-content:space-between; gap:12px; margin-top:12px; }
         .ysb-sec span { color:var(--muted); letter-spacing:.06em; }
