@@ -26,9 +26,18 @@
 // JUCO), so a juco hitter's .900 OPS and a big leaguer's .750 are compared
 // fairly. 'raw' mode compares plain OPS and FIP, as the first prototype did.
 //
-// Ties after 9 in an elimination game: better week W-L%, then more
-// plate appearances + innings pitched that week, then the better seed.
-// Leaderboard games can end tied (half a win each).
+// Ties after 9 (the deck: "ties are broken by cumulative OPS+ then
+// FIP-"): the week's OPS+, then the week's FIP-, then the week's W-L% -
+// all averages, so nothing favors the school with more alumni. Still tied:
+// the better seed in the bracket; a tie (half a win each) on the
+// leaderboard.
+//
+// W-L% counts every alumnus on a club's roster that week, game or no game:
+// a pitcher who throws once a week for a winning club helps his school; a
+// bench player on a losing club doesn't.
+//
+// A series is best of 3 and all three games are always played (every run
+// counts); the school that wins 2 advances.
 
 export type Level = string;
 
@@ -167,9 +176,7 @@ export type GameResult = {
   home: number;
   away: number;
   winner: Side | null; // null = tie (leaderboard games only)
-  decidedBy: 'runs' | 'wl' | 'volume' | 'seed' | 'tie';
-  homeVolume: number; // PA + IP
-  awayVolume: number;
+  decidedBy: 'runs' | 'ops' | 'fip' | 'wl' | 'seed' | 'tie';
 };
 
 function compareHigher(a: number, b: number): [number, number] {
@@ -202,6 +209,15 @@ function scoreInning(inning: number, kind: 'day' | 'week', home: LevelBuckets, a
 
 export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : null);
 
+// Tiebreak: [homeBetter, awayBetter] for one measure, the absent side
+// counting as league average.
+function breakTie(h: number | null, a: number | null, average: number, higherIsBetter: boolean): Side | null {
+  if (h === null && a === null) return null;
+  const x = h ?? average, y = a ?? average;
+  if (x === y) return null;
+  return (higherIsBetter ? x > y : x < y) ? 'home' : 'away';
+}
+
 export function volume(buckets: LevelBuckets) {
   let v = 0;
   for (const { bat, pit } of buckets.values()) v += bat.pa + pit.outs / 3;
@@ -222,13 +238,16 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
 
   const hr = innings.reduce((s, i) => s + i.home, 0);
   const ar = innings.reduce((s, i) => s + i.away, 0);
-  const homeVolume = volume(homeWeek);
-  const awayVolume = volume(awayWeek);
-  const base = { innings, home: hr, away: ar, homeVolume, awayVolume };
+  const base = { innings, home: hr, away: ar };
   if (hr !== ar) return { ...base, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
+  const week = innings[7];
+  const ops = breakTie(week.homeOffense ?? null, week.awayOffense ?? null, averageOffense(rules.mode), true);
+  if (ops) return { ...base, winner: ops, decidedBy: 'ops' };
+  const fip = breakTie(week.homePitching ?? null, week.awayPitching ?? null, averagePitching(rules.mode), false);
+  if (fip) return { ...base, winner: fip, decidedBy: 'fip' };
+  const wl = breakTie(hw, aw, 0.5, true);
+  if (wl) return { ...base, winner: wl, decidedBy: 'wl' };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
-  if ((hw ?? 0.5) !== (aw ?? 0.5)) return { ...base, winner: (hw ?? 0.5) > (aw ?? 0.5) ? 'home' : 'away', decidedBy: 'wl' };
-  if (homeVolume !== awayVolume) return { ...base, winner: homeVolume > awayVolume ? 'home' : 'away', decidedBy: 'volume' };
   return { ...base, winner: home.seed <= away.seed ? 'home' : 'away', decidedBy: 'seed' };
 }
 
@@ -248,11 +267,12 @@ export function bracketOrder(size: number): number[] {
   return order;
 }
 
-// Best of 3: stops as soon as a side has 2 wins.
+// Best of 3, all three games always played; the side with more wins
+// advances (bracket games never tie, so 2 or 3 wins decides it).
 export function playSeries<T>(playWeek: (gameNumber: number) => T & { winner: Side | null }): { games: (T & { winner: Side | null })[]; winner: Side } {
   const games: (T & { winner: Side | null })[] = [];
   let h = 0, a = 0;
-  for (let g = 1; g <= 3 && h < 2 && a < 2; g++) {
+  for (let g = 1; g <= 3; g++) {
     const r = playWeek(g);
     games.push(r);
     if (r.winner === 'home') h++;

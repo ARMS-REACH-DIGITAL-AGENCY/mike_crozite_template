@@ -13,9 +13,10 @@
 //              games are simulated: placed on a standard college calendar for
 //              his level, each game's line drawn from his own 2026 rates with
 //              a fixed random seed (same result every run). Marked simulated.
-//   Inning 9 - real W-L of each pro alumnus's club in the weeks he played;
-//              college results aren't loaded, so a school with only college
-//              alumni counts as .500.
+//   Inning 9 - real W-L of every pro alumnus's club that week, from the
+//              team stints (on the roster counts, played or not); college
+//              results aren't loaded, so a school with only college alumni
+//              counts as .500.
 //
 // The tournament:
 //   Weeks 1-30 (Feb 9 - Sep 6): the 1,024-school bracket, 10 rounds of
@@ -34,7 +35,7 @@
 // Usage:
 //   npx tsx scripts/simulate-bracket-2026.ts --data <dir> --out results.json [--mode adjusted|raw] [--absent hold|forfeit|average] [--no-spring]
 // <dir> holds seeds.psv, pro_bat.csv, pro_pit.csv, col_bat.psv, col_pit.psv,
-// team_results.csv, spring_bat.csv, spring_pit.csv and spring_results.csv
+// team_results.csv, stints.csv, spring_bat.csv, spring_pit.csv and spring_results.csv
 // (exported read-only from production and the MLB Stats API).
 
 import fs from 'node:fs';
@@ -276,26 +277,38 @@ for (const r of colPit) {
   }
 }
 
-// Real club results: each pro alumnus's club(s) that week, every game.
+// Real club results (inning 9 and the last tiebreak). Every alumnus on a
+// club's roster counts, played or not - from player_team_stints (which club
+// he was on, from when to when; stints.csv). Each player adds his club's
+// wins and losses, so W-L% is an average over the school's alumni, not a
+// total. Spring training has no rosters: there, alumni who appeared in a
+// spring game that week count with their club's spring games that week.
 const clubResults = new Map<string, { w: number; l: number }>();
 for (const r of [...rows('team_results.csv', ','), ...(SPRING ? rows('spring_results.csv', ',') : [])]) clubResults.set(`${r.teamid}|${r.date}`, { w: num(r.w), l: num(r.l) });
 const weeklyWL = new Map<string, { w: number; l: number }>(); // `${hsid}|${week}`
-{
-  const clubsByPlayerWeek = new Map<string, { hsid: number; clubs: Set<string> }>();
+function addWL(hsid: number, date: string, club: string) {
+  const res = clubResults.get(`${club}|${date}`);
+  if (!res || !schools.has(hsid)) return;
+  const key = `${hsid}|${weekOf(date)}`;
+  const wl = weeklyWL.get(key) || { w: 0, l: 0 };
+  wl.w += res.w; wl.l += res.l;
+  weeklyWL.set(key, wl);
+}
+for (const r of rows('stints.csv', ',')) {
+  for (let t = Date.parse(r.start); iso(t) <= r.end && iso(t) <= LAST_DATA_DAY; t += DAY) addWL(num(r.hsid), iso(t), r.teamid);
+}
+if (SPRING) {
+  const springClubs = new Map<string, { hsid: number; clubs: Set<string> }>(); // `${playerid}|${week}`
   for (const r of [...proBat, ...proPit]) {
+    if (r.level !== 'SPRING') continue;
     const key = `${r.playerid}|${weekOf(r.date)}`;
-    const cur = clubsByPlayerWeek.get(key) || { hsid: num(r.hsid), clubs: new Set<string>() };
+    const cur = springClubs.get(key) || { hsid: num(r.hsid), clubs: new Set<string>() };
     cur.clubs.add(r.teamid);
-    clubsByPlayerWeek.set(key, cur);
+    springClubs.set(key, cur);
   }
-  for (const [key, { hsid, clubs }] of clubsByPlayerWeek) {
+  for (const [key, { hsid, clubs }] of springClubs) {
     const week = Number(key.split('|')[1]);
-    const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
-    for (const club of clubs) for (const date of weekDates(week)) {
-      const res = clubResults.get(`${club}|${date}`);
-      if (res) { wl.w += res.w; wl.l += res.l; }
-    }
-    weeklyWL.set(`${hsid}|${week}`, wl);
+    for (const club of clubs) for (const date of weekDates(week)) if (date < '2026-03-25') addWL(hsid, date, club);
   }
 }
 
@@ -460,7 +473,7 @@ const summary = {
   bracketGames: series.reduce((s, x) => s + x.games.length, 0),
   leaderboardGames: lbGames.length,
   scorelessDayInnings: dayInnings.filter(([h, a]) => h + a === 0).length / dayInnings.length,
-  decidedBy: Object.fromEntries(['runs', 'wl', 'volume', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
+  decidedBy: Object.fromEntries(['runs', 'ops', 'fip', 'wl', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
   averageRuns: allGames.reduce((s, g) => s + g.score[0] + g.score[1], 0) / (2 * allGames.length),
   champion,
   runnerUp: series.find((s) => s.round === 10)!.loser,
