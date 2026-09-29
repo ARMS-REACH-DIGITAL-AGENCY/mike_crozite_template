@@ -6,7 +6,9 @@
 //
 // Stats:
 //   Pros     - their real day-by-day lines (player_game_logs, MLB Stats API),
-//              Opening Day (Mar 25) on; spring training never counts.
+//              Opening Day (Mar 25) on, plus MLB spring training games
+//              (Feb 20 - Mar 24) as their own level (--no-spring leaves
+//              them out).
 //   College  - 2026 season totals only (The Baseball Cube), so each player's
 //              games are simulated: placed on a standard college calendar for
 //              his level, each game's line drawn from his own 2026 rates with
@@ -21,16 +23,19 @@
 //     inside each region (standard seeded order, 1 v 128 ...); the 8 regional
 //     champions are reseeded for the Elite Eight (region seed, then run
 //     differential): 1v8, 4v5, 2v7, 3v6.
-//   Eliminated schools play on every week, paired at random inside their
-//     region; each region's leaderboard is ranked on total runs.
-//   Weeks 31-33 (Sep 7-27): the 8 regional leaderboard leaders play a
-//     single-game, 8-team bracket.
-//   Week 34 (Sep 28 - Oct 4): its winner plays the bracket champion.
+//   Eliminated schools play on every week through the Final Four (week 27,
+//     Aug 16), paired at random inside their region; each region's
+//     leaderboard is ranked on total runs.
+//   Weeks 28-30 (Aug 17 - Sep 6, alongside the Championship): the 8
+//     regional leaderboard leaders play a single-game, 8-team bracket.
+//   Weeks 31-33 (Sep 7-27): the Grand Final, best of 3, bracket champion
+//     v leaderboard champion.
 //
 // Usage:
-//   npx tsx scripts/simulate-bracket-2026.ts --data <dir> --out results.json [--mode adjusted|raw] [--absent hold|forfeit|average]
+//   npx tsx scripts/simulate-bracket-2026.ts --data <dir> --out results.json [--mode adjusted|raw] [--absent hold|forfeit|average] [--no-spring]
 // <dir> holds seeds.psv, pro_bat.csv, pro_pit.csv, col_bat.psv, col_pit.psv,
-// team_results.csv and names.psv (exported read-only from production).
+// team_results.csv, spring_bat.csv, spring_pit.csv and spring_results.csv
+// (exported read-only from production and the MLB Stats API).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -67,7 +72,14 @@ const OUT = arg('--out', 'bracket-sim-2026.json')!;
 const MODE = (arg('--mode', 'adjusted') as Mode);
 const ABSENT = (arg('--absent', 'hold') as Absent);
 const RULES = { mode: MODE, absent: ABSENT };
+// MLB spring training counts for the bracket (lines from
+// export-spring-training-2026.ts, measured against the spring training
+// average; clubs' spring results count in inning 9). --no-spring leaves it
+// out. It stays off the Game Log either way.
+const SPRING = !args.includes('--no-spring');
 const SEED = 'yatstats-2026';
+// Last week of leaderboard play (the Final Four ends Aug 16).
+const LB_LAST_WEEK = 27;
 
 // ---------------------------------------------------------------------------
 // Calendar
@@ -108,8 +120,8 @@ for (const r of rows('seeds.psv', '|')) {
 // College levels: the three juco associations share one baseline.
 const levelOf = (l: string) => (['NJCAA', 'CCCAA', 'NWAC'].includes(l) ? 'JUCO' : l);
 
-const proBat = rows('pro_bat.csv', ',');
-const proPit = rows('pro_pit.csv', ',');
+const proBat = [...rows('pro_bat.csv', ','), ...(SPRING ? rows('spring_bat.csv', ',') : [])];
+const proPit = [...rows('pro_pit.csv', ','), ...(SPRING ? rows('spring_pit.csv', ',') : [])];
 const colBat = rows('col_bat.psv', '|').filter((r) => schools.has(num(r.hsid)) && !['?', 'UNKNOWN'].includes(r.level));
 const colPit = rows('col_pit.psv', '|').filter((r) => schools.has(num(r.hsid)) && !['?', 'UNKNOWN'].includes(r.level));
 
@@ -117,7 +129,7 @@ const colPit = rows('col_pit.psv', '|').filter((r) => schools.has(num(r.hsid)) &
 // level the player played most at.
 const proLevelByPlayer = new Map<string, Map<string, number>>();
 for (const r of [...proBat, ...proPit]) {
-  if (r.level === '?') continue;
+  if (r.level === '?' || r.level === 'SPRING') continue;
   const m = proLevelByPlayer.get(r.playerid) || new Map();
   m.set(r.level, (m.get(r.level) || 0) + 1);
   proLevelByPlayer.set(r.playerid, m);
@@ -266,7 +278,7 @@ for (const r of colPit) {
 
 // Real club results: each pro alumnus's club(s) that week, every game.
 const clubResults = new Map<string, { w: number; l: number }>();
-for (const r of rows('team_results.csv', ',')) clubResults.set(`${r.teamid}|${r.date}`, { w: num(r.w), l: num(r.l) });
+for (const r of [...rows('team_results.csv', ','), ...(SPRING ? rows('spring_results.csv', ',') : [])]) clubResults.set(`${r.teamid}|${r.date}`, { w: num(r.w), l: num(r.l) });
 const weeklyWL = new Map<string, { w: number; l: number }>(); // `${hsid}|${week}`
 {
   const clubsByPlayerWeek = new Map<string, { hsid: number; clubs: Set<string> }>();
@@ -381,7 +393,7 @@ const champion = alive[0];
 type Board = { games: number; w: number; l: number; t: number; rf: number; ra: number };
 const board = new Map<number, Board>();
 const lbGames: GameRow[] = [];
-for (let week = 2; week <= 30; week++) {
+for (let week = 2; week <= LB_LAST_WEEK; week++) {
   for (let region = 1; region <= 8; region++) {
     const pool = [...eliminatedAfterWeek.entries()].filter(([h, w]) => w < week && schools.get(h)!.region === region).map(([h]) => h).sort((a, b) => a - b);
     if (pool.length < 2) continue;
@@ -408,11 +420,11 @@ const leaderboards = Array.from({ length: 8 }, (_, i) => i + 1).map((region) =>
 );
 const lbLeaders = leaderboards.map((l) => l[0]).sort(rankBoard);
 
-// Weeks 31-33: the leaders' single-game bracket.
+// Weeks 28-30: the leaders' single-game bracket.
 const lbSeed = new Map(lbLeaders.map((h, i) => [h, i + 1]));
 const lbBracket: GameRow[] = [];
 let lbAlive = bracketOrder(8).map((s) => lbLeaders[s - 1]);
-for (let week = 31; week <= 33; week++) {
+for (let week = LB_LAST_WEEK + 1; week <= LB_LAST_WEEK + 3; week++) {
   const next: number[] = [];
   for (let i = 0; i < lbAlive.length; i += 2) {
     const [a, b] = lbSeed.get(lbAlive[i])! <= lbSeed.get(lbAlive[i + 1])! ? [lbAlive[i], lbAlive[i + 1]] : [lbAlive[i + 1], lbAlive[i]];
@@ -424,14 +436,23 @@ for (let week = 31; week <= 33; week++) {
 }
 const lbChampion = lbAlive[0];
 
+// Weeks 31-33: the Grand Final, best of 3; the bracket champion is home.
+const grandFinalSeries = playSeries((g) => {
+  const row = game(30 + g, champion, lbChampion, 1, 2);
+  return { row, winner: row.winner === champion ? ('home' as const) : row.winner === lbChampion ? ('away' as const) : null };
+});
+const grandFinalGames = grandFinalSeries.games.map((g) => g.row);
+const grandChampion = grandFinalSeries.winner === 'home' ? champion : lbChampion;
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
-const allGames = [...series.flatMap((s) => s.games), ...lbGames, ...lbBracket];
+const allGames = [...series.flatMap((s) => s.games), ...lbGames, ...lbBracket, ...grandFinalGames];
 const dayInnings = allGames.flatMap((g) => g.innings.slice(0, 7));
 const summary = {
   mode: MODE,
   absent: ABSENT,
+  spring: SPRING,
   seed: SEED,
   lastDataDay: LAST_DATA_DAY,
   baselines: baselineReport,
@@ -449,7 +470,7 @@ const summary = {
   regionChamps,
   lbLeaders,
   lbChampion,
-  grandFinal: { week: 34, dates: `${iso(weekStart(34))} to ${iso(weekStart(34) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, status: 'scheduled - after the last data day' },
+  grandFinal: { weeks: [31, 33], dates: `${iso(weekStart(31))} to ${iso(weekStart(33) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, winner: grandChampion },
 };
 
 // Each school's whole bracket season (weeks 1-30) on the same scale, to
@@ -479,11 +500,12 @@ for (const s of schools.values()) {
 const schoolOut = Object.fromEntries([...schools.values()].map((s) => [s.hsid, { ...s, season: season.get(s.hsid) }]));
 fs.writeFileSync(
   OUT,
-  JSON.stringify({ summary, schools: schoolOut, series, leaderboards: leaderboards.map((l) => l.map((h) => ({ hsid: h, ...board.get(h)! }))), lbBracket, lbGamesCount: lbGames.length })
+  JSON.stringify({ summary, schools: schoolOut, series, leaderboards: leaderboards.map((l) => l.map((h) => ({ hsid: h, ...board.get(h)! }))), lbBracket, grandFinalGames, lbGamesCount: lbGames.length })
 );
 const nm = (h: number) => `${schools.get(h)!.name} (R${schools.get(h)!.region} #${schools.get(h)!.seed})`;
-console.log(`Mode: ${MODE}, absent: ${ABSENT}`);
+console.log(`Mode: ${MODE}, absent: ${ABSENT}, spring training: ${SPRING ? 'counts' : 'no'}`);
 console.log(`Lines: ${proBat.length + proPit.length} real, ${simulatedBatLines + simulatedPitLines} simulated`);
 console.log(`Champion: ${nm(champion)}; runner-up ${nm(summary.runnerUp)}`);
 console.log(`Leaderboard champion (8-team bracket): ${nm(lbChampion)}`);
+console.log(`Grand Final: ${nm(grandChampion)} (${grandFinalGames.map((g) => g.score.join('-')).join(', ')}, bracket champion's score first)`);
 console.log(`Wrote ${OUT}`);
