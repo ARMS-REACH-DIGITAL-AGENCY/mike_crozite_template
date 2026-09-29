@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import StyledJsxRegistry from "./registry";
+import { AnalyticsPageViews } from "@/components/analytics/Analytics";
+import { GA_MEASUREMENT_ID } from "@/lib/analytics";
+
+// Google Analytics, on the live yatstats.com sites only (not Vercel
+// previews or localhost). Page views are sent by AnalyticsPageViews so each
+// carries the school, player and tab, so GA's own automatic one is off.
+const GA_BOOTSTRAP = `(function(){var h=location.hostname.toLowerCase();if(h!=='yatstats.com'&&!/\\.yatstats\\.com$/.test(h))return;window.dataLayer=window.dataLayer||[];window.gtag=function(){window.dataLayer.push(arguments);};window.gtag('js',new Date());window.gtag('config','${GA_MEASUREMENT_ID}',{send_page_view:false});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}';document.head.appendChild(s);})();`;
 
 export const metadata: Metadata = {
   title: {
@@ -20,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             the browser first reaches a card -- with font-display:block in
             YatStyles, names wait for it (14KB) rather than drawing in the
             fallback font and then visibly swapping. */}
+        <script dangerouslySetInnerHTML={{ __html: GA_BOOTSTRAP }} />
         <link rel="preload" href="/fonts/Indigo.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -46,18 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <StyledJsxRegistry>{children}</StyledJsxRegistry>
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-WQHT9SNHLC"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-WQHT9SNHLC');
-          `}
-        </Script>
+        <AnalyticsPageViews />
       </body>
     </html>
   );

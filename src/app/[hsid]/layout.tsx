@@ -6,6 +6,7 @@
 
 import { ReactNode } from 'react';
 import Script from 'next/script';
+import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
   getSchoolByUrl,
@@ -337,6 +338,7 @@ export default async function HsidLayout({
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
+      <AnalyticsSchool id={String(resolvedHsid)} name={schoolName || ''} />
       <YatStyles />
 
       <SharedShell
