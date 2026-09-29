@@ -1,12 +1,12 @@
 // src/components/bracket/BracketRules.tsx
-// The Fantasy Bracket Tourney tab's rules page (row 3's Rules tile): how the
+// The Fantasy Bracket Tourney tab's rules drawer: how the
 // tournament runs and how every run is figured - the fine print, on demand.
 
 export default function BracketRules() {
   return (
     <div className="ybr-rules">
       <section>
-        <h4>The tournament</h4>
+        <h4>Bracket Tournament (weeks 1–30)</h4>
         <ul>
           <li>1,024 high schools in 8 regions of 128, seeded 1–128 in each region.</li>
           <li>The season runs 34 weeks, Feb 2 – Sep 27: the bracket is weeks 1–30 (Feb 2 – Aug 30). Weeks run Monday–Sunday.</li>
@@ -15,35 +15,32 @@ export default function BracketRules() {
         <table className="ybr-sched">
           <tbody>
             {[512, 256, 128, 64, 32, 16, 8, 4, 2, 1].map((n, i) => (
-              <tr key={n}><td>Round {i + 1}</td><td>{n} series (3-game)</td><td>Weeks {i * 3 + 1}–{i * 3 + 3}</td></tr>
+              <tr key={n}><td>Round {i + 1}</td><td>{n} 3-game series</td><td>Weeks {i * 3 + 1}–{i * 3 + 3}</td></tr>
             ))}
           </tbody>
         </table>
         <ul>
-          <li>Rounds 1–7 are played inside each region; the 8 region champions are reseeded for Round 8 (by region seed, then run differential).</li>
-          <li>After week 30 the Bracket Champion is announced and gets a 3-week bye during the Season Championship Tournament.</li>
+          <li>After week 30 the Bracket Champion is announced and gets a 3-week bye during the single-elimination Season Championship Tournament (weeks 31–33).</li>
         </ul>
       </section>
 
       <section>
         <h4>Season Championship Tournament (weeks 31–33)</h4>
         <ul>
-          <li>The Most Runs Scored Leaderboard ends after week 30. The top team in each of the 8 regions is reseeded into a single-elimination tournament. (If a region&apos;s top team is the Bracket Champion, the region sends its next school.)</li>
+          <li>The Most Runs Scored Leaderboard ends after week 30. The top team in each of the 8 regions is reseeded into a 3-week single-elimination tournament. (If a region&apos;s top team is the Bracket Champion, the region sends its next school.)</li>
         </ul>
         <table className="ybr-sched">
           <tbody>
             <tr><td>Round 1</td><td>4 elimination games</td><td>Week 31</td></tr>
             <tr><td>Round 2</td><td>2 elimination games</td><td>Week 32</td></tr>
-            <tr><td>Season Championship Game</td><td>Winner advances to the YSWS</td><td>Week 33</td></tr>
+            <tr><td>Season Championship Game</td><td>Winner advances to YSWS</td><td>Week 33</td></tr>
           </tbody>
         </table>
       </section>
 
-      <section>
-        <h4>YAT?STATS High School Alumni Fantasy World Series (week 34)</h4>
-        <ul>
-          <li>Bracket Champ vs. Season Champ: one game, the final week of the season.</li>
-        </ul>
+      <section className="ybr-world-series">
+        <h4>YAT?STATS<br />High School Alumni<br />Fantasy World Series</h4>
+        <p>Bracket Champ vs. Season Champ<br />Week #34</p>
       </section>
 
       <section>
@@ -122,6 +119,8 @@ export default function BracketRules() {
         .ybr-rules { max-width:900px; margin:0 auto; display:grid; gap:14px; }
         .ybr-rules section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 16px 6px; }
         .ybr-rules h4 { margin:0 0 6px; font:500 14px/1.2 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); }
+        .ybr-rules .ybr-world-series { text-align:center; }
+        .ybr-world-series p { margin:0 0 8px; color:var(--text); font-size:14px; line-height:1.5; }
         .ybr-rules ul, .ybr-rules ol { margin:0 0 8px; padding-left:20px; color:var(--text); font-size:14px; line-height:1.5; }
         .ybr-rules li { margin:0 0 5px; }
         .ybr-rules b { color:var(--gold); font-weight:600; }
