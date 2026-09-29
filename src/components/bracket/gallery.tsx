@@ -19,7 +19,7 @@
 // per round + region (d-lb-<week>-<region> for leaderboard games), fetched
 // when its cards come on screen.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -376,6 +376,13 @@ export function loadLb() {
   return lbPromise;
 }
 
+// A school's name: a button that opens its season where there is one
+// (the lab), plain text elsewhere.
+export function SchoolName({ h, onOpen, children }: { h: number; onOpen?: (h: number) => void; children: ReactNode }) {
+  if (!onOpen) return <span className="bl-name">{children}</span>;
+  return <button type="button" className="bl-link" onClick={() => onOpen(h)}>{children}</button>;
+}
+
 // No star where favorites aren't kept (a school's own page).
 export function Star({ h, index, favs, onFav }: { h: number; index: Index; favs?: Set<number>; onFav?: (h: number) => void }) {
   if (!favs || !onFav) return null;
@@ -392,7 +399,7 @@ export function Star({ h, index, favs, onFav }: { h: number; index: Index; favs?
 // Leaderboard 8 (the bracket champion sits out; its region sends the next).
 export function Leaderboards({ index, lb, week, setWeek, region, query, onlyFavs, favs, onFav, onOpen, maxWeek = LAST_WEEK }: {
   index: Index; lb: LbGame[]; week: number; setWeek: (w: number) => void; region: number; query: string;
-  onlyFavs: boolean; favs?: Set<number>; onFav?: (h: number) => void; onOpen: (h: number) => void;
+  onlyFavs: boolean; favs?: Set<number>; onFav?: (h: number) => void; onOpen?: (h: number) => void;
   maxWeek?: number; // the last week with results (a school's page, mid-season)
 }) {
   const st = useMemo(() => standings(index, lb, week), [index, lb, week]);
@@ -429,7 +436,7 @@ export function Leaderboards({ index, lb, week, setWeek, region, query, onlyFavs
               return (
                 <li key={h}>
                   <span className="seed">#{lbSeed.get(h)}</span>
-                  <button type="button" className="bl-link" onClick={() => onOpen(h)}><b>{shortName(name(h))}</b></button>
+                  <SchoolName h={h} onOpen={onOpen}><b>{shortName(name(h))}</b></SchoolName>
                   <i>Region {index.schools[h][1]} · {REGIONS[index.schools[h][1]]}</i>
                   <span className="runs">{s.rf} R</span>
                 </li>
@@ -451,7 +458,7 @@ export function Leaderboards({ index, lb, week, setWeek, region, query, onlyFavs
 
 export function RegionBoard({ region, ranked, index, final, query, onlyFavs, favs, onFav, onOpen, status }: {
   region: number; ranked: Stand[]; index: Index; final: boolean; query: string; onlyFavs: boolean;
-  favs?: Set<number>; onFav?: (h: number) => void; onOpen: (h: number) => void; status: (h: number) => { text: string; cls: string };
+  favs?: Set<number>; onFav?: (h: number) => void; onOpen?: (h: number) => void; status: (h: number) => { text: string; cls: string };
 }) {
   const [all, setAll] = useState(false);
   const TOP = 10;
@@ -487,7 +494,7 @@ export function RegionBoard({ region, ranked, index, final, query, onlyFavs, fav
                 <td className="rk">{rank}</td>
                 <td className="nm">
                   <Star h={s.h} index={index} favs={favs} onFav={onFav} />
-                  <button type="button" className="bl-link" onClick={() => onOpen(s.h)}>{shortName(name(s.h))}</button>
+                  <SchoolName h={s.h} onOpen={onOpen}>{shortName(name(s.h))}</SchoolName>
                   {isQ && <em className="q">{final ? 'Qualified' : 'Leads'}</em>}
                 </td>
                 <td className="r">{s.rf}</td>
@@ -546,7 +553,7 @@ export function ordinal(n: number) {
   return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
 }
 
-export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; index: Index; favs?: Set<number>; onFav?: (h: number) => void; onOpen: (h: number) => void }) {
+export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; index: Index; favs?: Set<number>; onFav?: (h: number) => void; onOpen?: (h: number) => void }) {
   const S = index.schools;
   const [boxes, setBoxes] = useState<Record<string, GameBox> | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -570,7 +577,7 @@ export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; i
   const team = (h: number, seed: number) => (
     <span>
       {seed ? `#${seed} ` : ''}
-      <button type="button" className="bl-link" onClick={() => onOpen(h)}><b>{shortName(S[h]?.[0] || '')}</b></button> <i>{place(S[h]?.[0] || '')}</i>
+      <SchoolName h={h} onOpen={onOpen}><b>{shortName(S[h]?.[0] || '')}</b></SchoolName> <i>{place(S[h]?.[0] || '')}</i>
     </span>
   );
 
