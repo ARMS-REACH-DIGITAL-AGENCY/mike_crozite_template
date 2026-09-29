@@ -10,7 +10,9 @@
 //      round, overall pick, pick in the round, team, school and bonus.
 //   2. The Baseball Cube's draft_info (source 'tbc') in tbc_batting_raw /
 //      tbc_pitching_raw, formatted YEAR-ROUND-OVERALL-TEAMCODE (e.g.
-//      2013-4-124-LAN). Used for any draft year MLB doesn't list for him.
+//      2013-4-124-LAN). Used only for players MLB has no draft record for
+//      (MLB lists every time a player was drafted, signed or not, so a TBC
+//      year that MLB doesn't have would be a mismatch, not another draft).
 //      Anything else in that field (e.g. "2018-2025", a span of years) is
 //      not a draft and is skipped.
 // One row per (playerid, draft_year). An MLB row always replaces a TBC row
@@ -202,10 +204,16 @@ async function main() {
       WHERE coalesce(trim(r.draft_info), '') <> '' ${ONLY_PLAYER ? "AND r.playerid = $1" : ""}`,
     ONLY_PLAYER ? [ONLY_PLAYER] : []
   );
+  const mlbPlayers = new Set([...picks.values()].map((p) => p.playerid));
   let tbcAdded = 0;
   let tbcSkipped = 0;
+  let tbcMlbHas = 0;
   const unknownCodes = new Map<string, number>();
   for (const r of tbc.rows) {
+    if (mlbPlayers.has(r.playerid)) {
+      tbcMlbHas += 1;
+      continue;
+    }
     const m = TBC_DRAFT.exec(r.draft_info);
     if (!m) {
       tbcSkipped += 1;
@@ -227,13 +235,14 @@ async function main() {
       source: "tbc",
     };
     const had = picks.get(key(pick));
-    if (had?.source === "mlb_api") continue;
     if (!had || (pick.draft_overall_pick ?? 1e9) < (had.draft_overall_pick ?? 1e9)) {
       if (!had) tbcAdded += 1;
       picks.set(key(pick), pick);
     }
   }
-  console.log(`TBC: ${tbc.rows.length} draft_info values, ${tbcAdded} picks MLB doesn't list, ${tbcSkipped} not a draft (skipped)`);
+  console.log(
+    `TBC: ${tbc.rows.length} draft_info values, ${tbcMlbHas} for players MLB already has, ${tbcAdded} picks added, ${tbcSkipped} not a draft (skipped)`
+  );
   if (unknownCodes.size) console.log(`TBC team codes with no name: ${[...unknownCodes].map(([c, n]) => `${c} ${n}`).join(", ")}`);
 
   const all = [...picks.values()];

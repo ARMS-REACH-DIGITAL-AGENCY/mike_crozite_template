@@ -7,7 +7,8 @@
 --   the Game Log tab (every game his team played during each stint), and
 --   meant as the one shared answer to "which team was he on that day".
 --   teamid is our (TBC) team id; stint_end NULL = still on that team.
---   start_source: 'transaction', 'first_game', 'college_season' or 'roster'.
+--   start_source: 'transaction', 'first_game', 'season_start' (his first team's
+--   first game, when no move is on record), 'college_season' or 'roster'.
 --
 -- player_draft_picks: every time a player was drafted. Written by
 --   scripts/import-player-draft-picks.ts from the MLB Stats API (source

@@ -15,6 +15,9 @@
 //   - A release (or declared free agency, retirement) ends a stint.
 //   - A game for a team he isn't on yet means a move the transactions
 //     missed: his games are the hard evidence and always win.
+//   - His first team of the season, with no move on record before it (our
+//     transactions only go back so far) and no college season, starts at
+//     that team's first game, not his.
 //   - The roster sync (every 3 hours) says whether his latest stint is still
 //     open (stint_end NULL). A roster team that differs from his latest stint
 //     opens a new stint and is reported.
@@ -24,7 +27,7 @@
 //
 // Team ids: stints use our (TBC) teamid. MLB Stats API team ids are mapped
 // with team_id_map; a team missing there is matched by its exact name to one
-// pro team in teamid_universe_mapping (never a partial or fuzzy match), and
+// MLB/affiliate team in teamid_universe_mapping (never a partial or fuzzy match), and
 // the pair is added to team_id_map (source 'exact_name_match') so the Game
 // Log can load that team's schedule. Names that match no team, or more than
 // one, are reported, not guessed.
@@ -74,7 +77,9 @@ const IGNORE_TYPES = /status change|number change|designated for assignment/i;
 const END_TYPES = /released|retired|free agency|contract terminated/i;
 // Moves that usually name the MLB club before an assignment to an affiliate.
 const ORG_TYPES = /signed|trade|claimed|purchased|acquired/i;
-const SCHOOL_LEVELS = /HIGH SCHOOL|NCAA|NAIA|NJCAA|CCCAA|NWAC/i;
+// Levels a team must have to be matched by name: MLB and its affiliates
+// (not generic "PRO" teams, which include national and foreign-league teams).
+const AFFILIATE_LEVELS = new Set(["MLB", "TRIPLE-A", "DOUBLE-A", "HIGH-A", "LOW-A", "ROOKIE", "AAA", "AA", "A+", "RK"]);
 const COLLEGE_LEVELS = "NCAA|NAIA|NJCAA|CCCAA|NWAC";
 // A signing/trade to an MLB club that isn't followed by an assignment or a
 // game within this many days is a stint with the MLB club itself.
@@ -108,10 +113,10 @@ async function main() {
     `SELECT teamid, current_team_name AS name, level_label AS level FROM teamid_universe_mapping`
   );
   const teamInfo = new Map(universe.rows.map((r) => [r.teamid, r]));
-  // Exact team name -> the one pro (non-school) teamid with that name.
+  // Exact team name -> the one MLB/affiliate teamid with that name.
   const proByName = new Map<string, string | null>();
   for (const r of universe.rows) {
-    if (!r.name || SCHOOL_LEVELS.test(r.level || "")) continue;
+    if (!r.name || !AFFILIATE_LEVELS.has((r.level || "").toUpperCase())) continue;
     const key = r.name.trim().toLowerCase();
     proByName.set(key, proByName.has(key) ? null : r.teamid); // null = more than one
   }
@@ -258,7 +263,9 @@ async function main() {
       movesBy.get(pid) || [],
       endsBy.get(pid) || [],
       IS_CURRENT_SEASON ? rosterBy.get(pid) : undefined,
-      firstGameByMlb
+      firstGameByMlb,
+      byMlbId,
+      collegeBy.has(pid)
     );
     const stints = [...buildCollegeStints(collegeBy.get(pid) || [], collegeWindow, pro), ...pro];
     if (stints.length) rows.push({ playerid: pid, stints });
@@ -366,8 +373,16 @@ function buildProStints(
   moves: Move[],
   ends: string[],
   roster: { teamid: string | null; mlbId: string; name: string | null } | undefined,
-  firstGameByMlb: Map<string, string>
+  firstGameByMlb: Map<string, string>,
+  byMlbId: Map<string, string>,
+  hasCollege: boolean
 ): Stint[] {
+  // Opening day per team (our teamid).
+  const openingDay = new Map<string, string>();
+  for (const [mlbId, date] of firstGameByMlb) {
+    const teamid = byMlbId.get(mlbId);
+    if (teamid && (!openingDay.has(teamid) || date < openingDay.get(teamid)!)) openingDay.set(teamid, date);
+  }
   const stints: Stint[] = [];
   let cur: Stint | null = null; // the open stint
   let pending: Move | null = null; // a signing/trade to an MLB club, waiting for its assignment
@@ -425,7 +440,12 @@ function buildProStints(
         open(g.teamid, from, "transaction");
       } else {
         if (cur) note(pid, "game_without_transaction", `${day} game for ${g.teamid} while on ${(cur as Stint).teamid}`);
-        open(g.teamid, day, "first_game");
+        // His first team of the season, with no move on record (our
+        // transactions only go back so far) and no college season before
+        // it: he was with them from their first game.
+        const opener = openingDay.get(g.teamid);
+        if (!stints.length && !hasCollege && opener && opener < day) open(g.teamid, opener, "season_start");
+        else open(g.teamid, day, "first_game");
       }
     }
   }
