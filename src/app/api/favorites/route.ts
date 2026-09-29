@@ -65,11 +65,11 @@ async function saveFavoriteWithoutSequence(
            id,
            firebase_uid,
            arms_contact_id,
-           player_id,
-           school_id
+           playerid,
+           hsid
          )
          VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (firebase_uid, player_id) DO NOTHING
+         ON CONFLICT (firebase_uid, playerid) DO NOTHING
          RETURNING id`,
         [fallbackId, firebaseUid, contactId, playerId, schoolId]
       );
@@ -92,16 +92,16 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
     `
     with favorite_rows as (
       select
-        uf.player_id::text as player_id,
-        uf.school_id::text as favorite_school_id,
+        uf.playerid::text as playerid,
+        uf.hsid::text as favorite_hsid,
         uf.created_at
       from public.user_favorites uf
       where uf.firebase_uid = $1
-        and uf.player_id = any($2::text[])
+        and uf.playerid = any($2::text[])
     ),
     stage_one as (
       select distinct on (f.playerid::text)
-        f.playerid::text as player_id,
+        f.playerid::text as playerid,
         f.hsid::text as stage_hsid,
         coalesce(
           nullif(trim(f.display_name), ''),
@@ -119,7 +119,7 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
     ),
     tbc_one as (
       select
-        p.playerid::text as player_id,
+        p.playerid::text as playerid,
         nullif(trim(concat_ws(' ', p.firstname, p.lastname)), '') as tbc_display_name,
         nullif(trim(p.lastname), '') as tbc_last_name
       from public.tbc_players_raw p
@@ -127,9 +127,9 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
     ),
     resolved as (
       select
-        fr.player_id,
-        coalesce(fr.favorite_school_id, s.stage_hsid) as school_id,
-        coalesce(s.display_name, t.tbc_display_name, fr.player_id) as display_name,
+        fr.playerid,
+        coalesce(fr.favorite_hsid, s.stage_hsid) as hsid,
+        coalesce(s.display_name, t.tbc_display_name, fr.playerid) as display_name,
         coalesce(s.last_name, t.tbc_last_name) as last_name,
         s.current_team_name,
         s.current_org_or_conference_name,
@@ -137,15 +137,15 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
         s.status_label,
         fr.created_at
       from favorite_rows fr
-      left join stage_one s on s.player_id = fr.player_id
-      left join tbc_one t on t.player_id = fr.player_id
+      left join stage_one s on s.playerid = fr.playerid
+      left join tbc_one t on t.playerid = fr.playerid
     )
     select
       r.*,
       ss.microsite_url
     from resolved r
-    left join public.school_success ss on ss.hsid::text = r.school_id
-    order by coalesce(r.display_name, r.player_id)
+    left join public.school_success ss on ss.hsid::text = r.hsid
+    order by coalesce(r.display_name, r.playerid)
     `,
     [firebaseUid, playerIds]
   );
@@ -258,7 +258,7 @@ export async function GET(req: NextRequest) {
     const homeHsid = profile?.home_hsid ? String(profile.home_hsid) : null;
 
     const favorites = await getFavorites(firebaseUid);
-    const allPlayerIds = favorites.map((f) => String(f.player_id));
+    const allPlayerIds = favorites.map((f) => String(f.playerid));
     const allFavoritePlayers = await getFavoriteDetails(firebaseUid, allPlayerIds);
 
     let favoritePlayers = allFavoritePlayers;
@@ -282,10 +282,10 @@ export async function GET(req: NextRequest) {
     } else {
       favoritePlayers = isSuperfan
         ? []
-        : allFavoritePlayers.filter((p) => String(p.school_id || "") === homeHsid);
+        : allFavoritePlayers.filter((p) => String(p.hsid || "") === homeHsid);
     }
 
-    const playerIds = favoritePlayers.map((p) => String(p.player_id));
+    const playerIds = favoritePlayers.map((p) => String(p.playerid));
 
     return NextResponse.json({
       success: true,

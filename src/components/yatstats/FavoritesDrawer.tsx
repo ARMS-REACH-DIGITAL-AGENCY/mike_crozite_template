@@ -12,8 +12,8 @@ type YatUser = {
 };
 
 type FavoritePlayer = {
-  player_id: string;
-  school_id?: string | null;
+  playerid: string;
+  hsid?: string | null;
   display_name?: string | null;
   last_name?: string | null;
   current_team_name?: string | null;
@@ -171,7 +171,7 @@ function stripTrailingNameSuffix(parts: string[]): string[] {
 }
 
 function favoriteSortKey(player: FavoritePlayer, byLastName: boolean): string {
-  const name = String(player.display_name || player.player_id).trim();
+  const name = String(player.display_name || player.playerid).trim();
   if (!byLastName) return name;
 
   // Prefer the stored last_name column (api/favorites now returns it). The
@@ -449,7 +449,7 @@ function syncInteractionStrip(players: FavoritePlayer[], enabled: boolean) {
   });
 
   players.forEach((player) => {
-    const playerId = String(player.player_id);
+    const playerId = String(player.playerid);
     const existing = slotByPlayerId.get(playerId);
     if (existing) {
       existing.style.display = '';
@@ -515,7 +515,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   const missingIds: string[] = [];
 
   players.forEach((player) => {
-    const playerId = String(player.player_id);
+    const playerId = String(player.playerid);
     const existing = itemByPlayerId.get(playerId);
     if (existing) {
       existing.style.display = '';
@@ -527,7 +527,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   });
 
   syncInteractionStrip(players, true);
-  const playerIds = players.map((p) => String(p.player_id));
+  const playerIds = players.map((p) => String(p.playerid));
   setFavoritesGalleryRestriction(grid, true, playerIds);
   window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled, playerIds } }));
   return missingIds;
@@ -551,8 +551,8 @@ function FavoriteLinks({
   return (
     <div className="yat-favorite-link-list">
       {players.map((player) => {
-        const playerId = String(player.player_id);
-        const schoolId = String(player.school_id || currentHsid);
+        const playerId = String(player.playerid);
+        const schoolId = String(player.hsid || currentHsid);
         const name = String(player.display_name || playerId);
         const slug = playerSlug(name);
         const profileHref = `/${schoolId}/player/${playerId}/${slug}`;
@@ -627,7 +627,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   }, [homePlayers, isSuperfan, superfanPlayers, sortByLastName]);
 
   const handleUnfavorite = useCallback(async (player: FavoritePlayer) => {
-    const playerId = String(player.player_id);
+    const playerId = String(player.playerid);
     const user = readYatUser();
     if (!user?.uid || removingId) return;
 
@@ -640,8 +640,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       });
       const data = await res.json();
       if (data?.success) {
-        setHomePlayers((prev) => prev.filter((p) => String(p.player_id) !== playerId));
-        setSuperfanPlayers((prev) => prev.filter((p) => String(p.player_id) !== playerId));
+        setHomePlayers((prev) => prev.filter((p) => String(p.playerid) !== playerId));
+        setSuperfanPlayers((prev) => prev.filter((p) => String(p.playerid) !== playerId));
         window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       }
     } catch {
@@ -772,7 +772,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     // SortFilterDrawerControls' favorite-scoped stat sort still caches
     // detail.playerIds directly off this same event, and an empty array
     // silently emptied that cache on every one of these nudges.
-    const currentPlayerIds = displayedPlayers.map((p) => String(p.player_id));
+    const currentPlayerIds = displayedPlayers.map((p) => String(p.playerid));
     const nudgeFavoritesFilter = () => {
       window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled: showGalleryView, playerIds: currentPlayerIds } }));
     };
@@ -792,9 +792,9 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         cardFetchStatusRef.current.set(playerId, 'done');
         const c = crossSchoolContainersRef.current.get(playerId);
         if (!c) return;
-        const fallbackPlayer = displayedPlayers.find((p) => String(p.player_id) === playerId);
+        const fallbackPlayer = displayedPlayers.find((p) => String(p.playerid) === playerId);
         const name = String(fallbackPlayer?.display_name || playerId);
-        const schoolId = String(fallbackPlayer?.school_id || currentHsid);
+        const schoolId = String(fallbackPlayer?.hsid || currentHsid);
         c.innerHTML = renderCardErrorFallback(name, schoolId, playerId);
         nudgeFavoritesFilter();
       };

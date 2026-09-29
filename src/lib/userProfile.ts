@@ -34,8 +34,8 @@ export interface UserFavorite {
   id: number;
   firebase_uid: string;
   arms_contact_id: string | null;
-  player_id: string;
-  school_id: string | null;
+  playerid: string;
+  hsid: string | null;
   created_at: Date;
 }
 
@@ -43,8 +43,8 @@ export interface UserRole {
   id: number;
   firebase_uid: string;
   role: string;
-  school_id: number | null;
-  player_id: number | null;
+  hsid: string | null;
+  playerid: string | null;
   source: string;
   created_at: Date;
 }
@@ -218,9 +218,9 @@ export async function saveFavorite(
   opts: { armsContactId?: string | null; schoolId?: string | null } = {}
 ): Promise<{ created: boolean }> {
   const res = await query<{ id: number }>(
-    `INSERT INTO user_favorites (firebase_uid, arms_contact_id, player_id, school_id)
+    `INSERT INTO user_favorites (firebase_uid, arms_contact_id, playerid, hsid)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (firebase_uid, player_id) DO NOTHING
+     ON CONFLICT (firebase_uid, playerid) DO NOTHING
      RETURNING id`,
     [firebaseUid, opts.armsContactId ?? null, playerId, opts.schoolId ?? null]
   );
@@ -242,7 +242,7 @@ export async function removeFavorite(
   playerId: string
 ): Promise<{ deleted: boolean }> {
   const res = await query(
-    'DELETE FROM user_favorites WHERE firebase_uid = $1 AND player_id = $2',
+    'DELETE FROM user_favorites WHERE firebase_uid = $1 AND playerid = $2',
     [firebaseUid, playerId]
   );
   return { deleted: (res.rowCount ?? 0) > 0 };
@@ -256,12 +256,12 @@ export async function removeFavorite(
 export async function addUserRole(
   firebaseUid: string,
   role: string,
-  opts: { schoolId?: number | null; playerId?: number | null; source?: string } = {}
+  opts: { schoolId?: string | null; playerId?: string | null; source?: string } = {}
 ): Promise<void> {
   await query(
-    `INSERT INTO user_roles (firebase_uid, role, school_id, player_id, source)
+    `INSERT INTO user_roles (firebase_uid, role, hsid, playerid, source)
      VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (firebase_uid, role, school_id, player_id) DO NOTHING`,
+     ON CONFLICT (firebase_uid, role, hsid, playerid) DO NOTHING`,
     [firebaseUid, role, opts.schoolId ?? null, opts.playerId ?? null, opts.source ?? 'manual']
   );
 }
