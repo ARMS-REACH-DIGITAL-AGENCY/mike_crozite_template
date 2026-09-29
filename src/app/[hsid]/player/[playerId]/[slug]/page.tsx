@@ -649,6 +649,7 @@ export default async function ProfilePage({ params }: Props) {
   // MLB gameType codes for playoff games (wild card through World Series,
   // MiLB playoffs and the Triple-A championship).
   const POSTSEASON_TYPES = new Set(["F", "D", "L", "W", "C", "P"]);
+  const NEVER_PLAYED_STATUS = /^(scheduled|pre-game|warmup)$/i;
   function statCells(log: any): string[] | null {
     return log?.stats && typeof log.stats === "object" && log.stat_type === preferredType
       ? isPitcher
@@ -688,6 +689,10 @@ export default async function ProfilePage({ params }: Props) {
     for (const g of games) {
       const d = toISODate(g.game_date);
       if (!d) continue;
+      // A past game still "Scheduled" was never played (e.g. an if-necessary
+      // playoff game that wasn't needed, still in team_schedules after MLB
+      // dropped it): kept in the table, left off the Game Log.
+      if (d < todayIso && NEVER_PLAYED_STATUS.test(String(g.status || "").trim())) continue;
       const log = takeGameLog(g.game_pk, d, preferredType);
       const badge = resultBadge(g.result);
       const opponentMlbId = g.is_home ? g.away_team_id : g.home_team_id;
