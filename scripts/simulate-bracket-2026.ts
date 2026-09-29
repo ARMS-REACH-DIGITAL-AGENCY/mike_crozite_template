@@ -20,7 +20,7 @@
 //              counts as .500.
 //
 // The tournament:
-//   Weeks 1-30 (Feb 9 - Sep 6): the 1,024-school bracket, 10 rounds of
+//   Weeks 1-30 (Feb 2 - Aug 30): the 1,024-school bracket, 10 rounds of
 //     best-of-3 (the schedule in master_bracket_schedule_2026). Rounds 1-7
 //     inside each region (standard seeded order, 1 v 128 ...); the 8 regional
 //     champions are reseeded for the Elite Eight (region seed, then run
@@ -29,10 +29,10 @@
 //     runs. Schools still in the bracket score in their bracket games;
 //     eliminated schools play a weekly game, paired at random inside their
 //     region.
-//   Weeks 31-33 (Sep 7-27): each region's leaderboard leader plays a
+//   Weeks 31-33 (Aug 31 - Sep 20): each region's leaderboard leader plays a
 //     single-game, 8-team bracket. The bracket champion sits out (its
 //     region sends the next school).
-//   Week 34 (Sep 28 - Oct 4): the Grand Final, one game, bracket champion v
+//   Week 34 (Sep 21-27): the Grand Final, one game, bracket champion v
 //     leaderboard champion.
 //
 // Usage:
@@ -82,16 +82,17 @@ const RULES = { mode: MODE, absent: ABSENT };
 // out. It stays off the Game Log either way.
 const SPRING = !args.includes('--no-spring');
 const SEED = 'yatstats-2026';
-// The bracket's 10 rounds end Sep 6 (week 30); the leaderboard runs the
-// same 30 weeks. Then the 8-team tournament (weeks 31-33, Sep 7-27; the
-// bracket champion sits out) and the Grand Final (week 34, Sep 28 - Oct 4).
+// The bracket's 10 rounds end Aug 30 (week 30); the leaderboard runs the
+// same 30 weeks. Then the 8-team tournament (weeks 31-33, Aug 31 - Sep 20;
+// the bracket champion sits out) and the Grand Final (week 34, Sep 21-27,
+// the last week of the MLB regular season).
 const BRACKET_LAST_WEEK = 30;
 const GRAND_FINAL_WEEK = 34;
 
 // ---------------------------------------------------------------------------
 // Calendar
 // ---------------------------------------------------------------------------
-const WEEK1 = Date.UTC(2026, 1, 9); // Monday, Feb 9 2026
+const WEEK1 = Date.UTC(2026, 1, 2); // Monday, Feb 2 2026
 const DAY = 86400000;
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 const weekStart = (w: number) => WEEK1 + (w - 1) * 7 * DAY;

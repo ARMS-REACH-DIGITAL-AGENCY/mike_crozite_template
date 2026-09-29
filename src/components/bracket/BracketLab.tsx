@@ -245,10 +245,10 @@ export default function BracketLab() {
             </button>
           ))}
           <button type="button" className={viewKey === 'lbt' ? 'on' : ''} onClick={() => pick({ kind: 'lbt' })}>
-            <b>Leaderboard 8</b><span>Sep 7 – 27</span>
+            <b>Leaderboard 8</b><span>Aug 31 – Sep 20</span>
           </button>
           <button type="button" className={viewKey === 'gf' ? 'on' : ''} onClick={() => pick({ kind: 'gf' })}>
-            <b>Grand Final</b><span>Sep 28 – Oct 4</span>
+            <b>Grand Final</b><span>Sep 21 – 27</span>
           </button>
           <button type="button" className={viewKey === 'season' ? 'on' : ''} onClick={() => pick({ kind: 'season' })}>
             <b>Whole season</b><span>every game</span>
