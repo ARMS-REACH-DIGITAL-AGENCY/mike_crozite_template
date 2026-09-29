@@ -94,52 +94,78 @@ test('nine innings: 7 days, the week, then W-L%', () => {
   assert.equal(g.innings[8].kind, 'wl');
 });
 
-test('ties: W-L% inning, then the week\'s combined edge, then seed; leaderboard games may tie', () => {
-  const same = Array(7).fill(null).map(() => off());
+// Each alumnus's week for the player-vs-player tiebreak.
+const roster = (...weeks: LevelBuckets[]) => new Map(weeks.map((w, i) => [`p${i}`, w]));
+const hitter = (h: number, hr = 0) => day('MLB', { pa: 10, ab: 10, h, hr }); // more hits = higher OPS+
+const pitcher = (so: number) => day('MLB', {}, { outs: 18, so }); // more K = lower FIP-
+const idleWeek = () => Array(7).fill(null).map(() => off());
+// A 0-0 game after 9 (no day stats), with the players' weeks given separately.
+const tied = (players: Map<string, LevelBuckets>, seed = 1): SideWeek => ({ ...week(idleWeek(), 0, 0, seed), players });
+
+test('ties: no players to compare - seed in the bracket, a tie on the leaderboard', () => {
+  const same = idleWeek();
   // W-L inning gives home the only run - no tie at all
   const a = playGame(week(same, 3, 1, 5), week(same, 1, 3, 2), baselines, AVG);
   assert.equal(a.winner, 'home');
   assert.equal(a.decidedBy, 'runs');
-  // identical weeks: nothing to break it but the seed
   const b = playGame(week(same, 0, 0, 5), week(same, 0, 0, 2), baselines, AVG);
   assert.equal(b.winner, 'away');
   assert.equal(b.decidedBy, 'seed');
   const c = playGame(week(same, 0, 0, 5), week(same, 0, 0, 2), baselines, AVG, true);
   assert.equal(c.winner, null);
   assert.equal(c.decidedBy, 'tie');
-  // 3-3: home's hitters win two days and the week, away's pitchers win day 1 and the
-  // week, away's clubs (3-1) win inning 9 - the W-L% inning breaks the tie
-  const homeBat = day('MLB', { pa: 4, ab: 4, h: 2, hr: 1 }); // OPS+ 367
-  const awayPit = day('MLB', {}, { outs: 27, so: 12 }); // FIP- 11
-  const d = playGame(week([homeBat, homeBat, off(), off(), off(), off(), off()]), week([awayPit, off(), off(), off(), off(), off(), off()], 3, 1), baselines, HOLD);
-  assert.deepEqual([d.home, d.away], [3, 3]);
-  assert.equal(d.decidedBy, 'wl');
-  assert.equal(d.winner, 'away');
 });
 
-test("combined edge: batting and pitching count the same (OPS+ over 100 vs FIP- under 100)", () => {
-  const awayPit = day('MLB', {}, { outs: 27, so: 12 }); // FIP- 11: 89 better than average
-  const idleDays = [off(), off(), off(), off(), off(), off()];
-  // OPS+ 367 (267 over) beats FIP- 11 (89 under)
-  const big = playGame(week([day('MLB', { pa: 4, ab: 4, h: 2, hr: 1 }), ...idleDays]), week([awayPit, ...idleDays]), baselines, HOLD);
-  assert.deepEqual([big.home, big.away], [2, 2]);
-  assert.equal(big.decidedBy, 'edge');
-  assert.equal(big.winner, 'home');
-  // OPS+ 150 (50 over) loses to FIP- 11 (89 under)
-  const small = playGame(week([day('MLB', { pa: 10, ab: 10, h: 4, d2: 1 }), ...idleDays]), week([awayPit, ...idleDays]), baselines, HOLD);
-  assert.deepEqual([small.home, small.away], [2, 2]);
-  assert.equal(small.decidedBy, 'edge');
-  assert.equal(small.winner, 'away');
+test("tiebreak: best hitter vs best hitter and best pitcher vs best pitcher; winning both takes it", () => {
+  const g = playGame(tied(roster(hitter(5), hitter(1), pitcher(10))), tied(roster(hitter(4), pitcher(6), pitcher(9))), baselines, HOLD);
+  assert.deepEqual([g.home, g.away], [0, 0]);
+  assert.equal(g.decidedBy, 'players');
+  assert.equal(g.tieRank, 1);
+  assert.equal(g.winner, 'home');
+});
+
+test('tiebreak: 1-1 on the best pair goes down to the #2 hitters and #2 pitchers', () => {
+  // #1: home's hitter better (5 hits vs 4), away's pitcher better (12 K vs 10) -> 1-1
+  // #2: away's hitter better (3 vs 2) and away's pitcher better (9 K vs 7) -> away 2-0
+  const home = roster(hitter(5), hitter(2), pitcher(10), pitcher(7));
+  const away = roster(hitter(4), hitter(3), pitcher(12), pitcher(9));
+  const g = playGame(tied(home), tied(away), baselines, HOLD);
+  assert.equal(g.decidedBy, 'players');
+  assert.equal(g.tieRank, 2);
+  assert.equal(g.winner, 'away');
+});
+
+test("tiebreak: a player with no one left to face counts only by beating league average", () => {
+  // #1 split 1-1; home has a #2 hitter, away doesn't
+  const top = [hitter(5), pitcher(10)];
+  const awayTop = roster(hitter(4), pitcher(12));
+  // 1-for-10 is below average: no run, rosters run out level -> seed
+  const cold = playGame(tied(roster(...top, hitter(1)), 5), tied(awayTop, 2), baselines, HOLD);
+  assert.equal(cold.decidedBy, 'seed');
+  assert.equal(cold.winner, 'away');
+  // 4-for-10 with a homer is above average: home takes it at #2
+  const hot = playGame(tied(roster(...top, hitter(4, 1)), 5), tied(awayTop, 2), baselines, HOLD);
+  assert.equal(hot.decidedBy, 'players');
+  assert.equal(hot.tieRank, 2);
+  assert.equal(hot.winner, 'home');
 });
 
 test("a school with nobody playing can't win a tie against one that played", () => {
   // Hamilton plays below average all week (no runs); Basha has nobody: 0-0
-  const cold = week([day('MLB', { pa: 12, ab: 12, h: 1 }), off(), off(), off(), off(), off(), off()], 0, 0, 5);
-  const idle = week([off(), off(), off(), off(), off(), off(), off()], 0, 0, 1);
+  const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
+  const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()], 0, 0, 5), players: roster(coldDay) };
+  const idle = tied(new Map(), 1);
   const g = playGame(cold, idle, baselines, HOLD);
   assert.deepEqual([g.home, g.away], [0, 0]);
   assert.equal(g.winner, 'home');
-  assert.equal(g.decidedBy, 'edge');
+  assert.equal(g.decidedBy, 'players');
+});
+
+test("inning 9: every alumnus's real team record for the week, college or pro, summed", () => {
+  // 10 players whose teams each went 3-4 = 30-40 (.429) vs 31-39 (.443): away gets the run
+  const same = Array(7).fill(null).map(() => off());
+  const g = playGame(week(same, 30, 40), week(same, 31, 39), baselines, HOLD);
+  assert.deepEqual([g.innings[8].home, g.innings[8].away], [0, 1]);
 });
 
 test('bracket order keeps top seeds apart', () => {

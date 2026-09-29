@@ -309,7 +309,7 @@ for (const r of colPit) {
   }
 }
 
-// Real club results (inning 9 and the last tiebreak). Every alumnus on a
+// Real club results (inning 9). Every alumnus on a
 // club's roster counts, played or not - from player_team_stints (which club
 // he was on, from when to when; stints.csv). Each player adds his club's
 // wins and losses, so W-L% is an average over the school's alumni, not a
@@ -354,7 +354,14 @@ function dayBuckets(hsid: number, date: string): LevelBuckets {
 }
 function sideWeek(hsid: number, week: number, seed: number): SideWeek {
   const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
-  return { days: weekDates(week).map((d) => dayBuckets(hsid, d)), wins: wl.w, losses: wl.l, seed };
+  const players = new Map<string, LevelBuckets>();
+  for (const d of weekDates(week)) {
+    for (const pd of daily.get(hsid)?.get(d) || []) {
+      if (!players.has(pd.playerid)) players.set(pd.playerid, new Map());
+      addToBuckets(players.get(pd.playerid)!, pd.level, pd.bat, pd.pit);
+    }
+  }
+  return { days: weekDates(week).map((d) => dayBuckets(hsid, d)), wins: wl.w, losses: wl.l, seed, players };
 }
 function weekSource(hsid: number, week: number) {
   let real = 0, sim = 0;
@@ -362,7 +369,7 @@ function weekSource(hsid: number, week: number) {
   return { real, sim };
 }
 
-type GameRow = { week: number; home: number; away: number; score: [number, number]; winner: number | null; decidedBy: GameResult['decidedBy']; innings: [number, number][]; real: [number, number]; simulated: [number, number] };
+type GameRow = { week: number; home: number; away: number; score: [number, number]; winner: number | null; decidedBy: GameResult['decidedBy']; tieRank?: number; innings: [number, number][]; real: [number, number]; simulated: [number, number] };
 function game(week: number, home: number, away: number, homeSeed: number, awaySeed: number, allowTie = false): GameRow {
   const r = playGame(sideWeek(home, week, homeSeed), sideWeek(away, week, awaySeed), baselines, RULES, allowTie);
   const hs = weekSource(home, week), as = weekSource(away, week);
@@ -371,6 +378,7 @@ function game(week: number, home: number, away: number, homeSeed: number, awaySe
     score: [r.home, r.away],
     winner: r.winner === 'home' ? home : r.winner === 'away' ? away : null,
     decidedBy: r.decidedBy,
+    tieRank: r.tieRank,
     innings: r.innings.map((i) => [i.home, i.away]),
     real: [hs.real, as.real],
     simulated: [hs.sim, as.sim],
@@ -505,7 +513,7 @@ const summary = {
   bracketGames: series.reduce((s, x) => s + x.games.length, 0),
   leaderboardGames: lbGames.length,
   scorelessDayInnings: dayInnings.filter(([h, a]) => h + a === 0).length / dayInnings.length,
-  decidedBy: Object.fromEntries(['runs', 'wl', 'edge', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
+  decidedBy: Object.fromEntries(['runs', 'players', 'seed', 'tie'].map((k) => [k, allGames.filter((g) => g.decidedBy === k).length])),
   averageRuns: allGames.reduce((s, g) => s + g.score[0] + g.score[1], 0) / (2 * allGames.length),
   champion,
   runnerUp: series.find((s) => s.round === 10)!.loser,
@@ -604,7 +612,8 @@ function exportGallery(dir: string) {
     const days = r.innings.slice(0, 8).map((i) => [round1(i.homeOffense), round1(i.awayOffense), round1(i.homePitching), round1(i.awayPitching)]);
     if (!details.has(file)) details.set(file, {});
     details.get(file)![id] = { d: days, h: side(g.home, g.week), a: side(g.away, g.week) };
-    return [id, g.week, g.home, g.away, g.decidedBy, g.innings.flat(), g.winner];
+    // 'players-2' = the tie went to the #2 hitters/pitchers
+    return [id, g.week, g.home, g.away, g.decidedBy === 'players' ? `players-${g.tieRank}` : g.decidedBy, g.innings.flat(), g.winner];
   }
 
   const ROUND_NAMES = ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Round 6', 'Regional Final', 'Elite Eight', 'Final Four', 'Championship'];

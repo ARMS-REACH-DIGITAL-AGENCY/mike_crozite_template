@@ -26,12 +26,12 @@
 // JUCO), so a juco hitter's .900 OPS and a big leaguer's .750 are compared
 // fairly. 'raw' mode compares plain OPS and FIP, as the first prototype did.
 //
-// Ties after 9 ("ties are broken by cumulative OPS+ then FIP-"): the
-// week's OPS+, then the week's FIP-, then the week's W-L% - all averages,
-// so nothing favors the school with more alumni. A school with nobody
-// playing can't win a tiebreak against one that played. Still tied:
-// the better seed in the bracket; a tie (half a win each) on the
-// leaderboard.
+// Ties after 9: player vs player. Each school's best hitter of the week
+// (OPS+) against the other's, and best pitcher (FIP-) against the other's,
+// one run each; the school that takes more wins. 1-1 goes to the #2
+// hitters and pitchers, and on down the rosters. Still tied when the
+// rosters run out: the better seed in the bracket; a tie (half a win
+// each) on the leaderboard.
 //
 // W-L% counts every alumnus on a club's roster that week, game or no game:
 // a pitcher who throws once a week for a winning club helps his school; a
@@ -156,6 +156,8 @@ export type SideWeek = {
   wins: number;
   losses: number;
   seed: number; // lower is better; only used as the last tiebreak
+  // Each alumnus's week (playerid -> his lines by level), for the tiebreak.
+  players?: Map<string, LevelBuckets>;
 };
 
 export type Inning = {
@@ -177,7 +179,8 @@ export type GameResult = {
   home: number;
   away: number;
   winner: Side | null; // null = tie (leaderboard games only)
-  decidedBy: 'runs' | 'wl' | 'edge' | 'seed' | 'tie';
+  decidedBy: 'runs' | 'players' | 'seed' | 'tie';
+  tieRank?: number; // 'players': which pair decided it (1 = each school's best)
 };
 
 function compareHigher(a: number, b: number): [number, number] {
@@ -210,40 +213,42 @@ function scoreInning(inning: number, kind: 'day' | 'week', home: LevelBuckets, a
 
 export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : null);
 
-// Tiebreak on one measure. A school with nobody playing can never win a
-// tie against one that played ('hold' / 'forfeit'); under 'average' the
-// absent side counts as league average.
-function breakTie(h: number | null, a: number | null, average: number, higherIsBetter: boolean, absent: Absent): Side | null {
-  if (h === null && a === null) return null;
-  if (absent !== 'average' && (h === null || a === null)) return h === null ? 'away' : 'home';
-  const x = h ?? average, y = a ?? average;
-  if (x === y) return null;
-  return (higherIsBetter ? x > y : x < y) ? 'home' : 'away';
+// A school's alumni ranked on the week: hitters by OPS+ (best first),
+// pitchers by FIP- (best = lowest first). Each player's week is measured
+// against his own level's average.
+export function rankPlayers(players: Map<string, LevelBuckets> | undefined, baselines: Baselines, mode: Mode) {
+  const hitters: number[] = [], pitchers: number[] = [];
+  for (const week of players?.values() || []) {
+    const o = offenseScore(week, baselines, mode);
+    const p = pitchingScore(week, baselines, mode);
+    if (o !== null) hitters.push(o);
+    if (p !== null) pitchers.push(p);
+  }
+  hitters.sort((a, b) => b - a);
+  pitchers.sort((a, b) => a - b);
+  return { hitters, pitchers };
 }
 
-// The week's combined edge: how far the hitters were above average plus how
-// far the pitchers were below it, in points of OPS+ / FIP- (equal weight, so
-// neither side of the ball outranks the other). Averages only, so more
-// alumni never helps. A missing part counts as average; under 'hold' /
-// 'forfeit' a part the opponent didn't post can't count against a school
-// (as in the innings: below average vs nobody is no run either way).
-function weekEdge(week: Inning, mode: Mode, absent: Absent): [number | null, number | null] {
-  const o = (v: number | null | undefined) => (v == null ? null : 100 * (v / averageOffense(mode) - 1));
-  const p = (v: number | null | undefined) => (v == null ? null : 100 * (1 - v / averagePitching(mode)));
-  const parts: [number | null, number | null][] = [
-    [o(week.homeOffense), o(week.awayOffense)],
-    [p(week.homePitching), p(week.awayPitching)],
-  ];
-  const hPlayed = parts.some(([h]) => h !== null);
-  const aPlayed = parts.some(([, a]) => a !== null);
-  if (!hPlayed && !aPlayed) return [null, null];
-  let h = 0, a = 0;
-  for (const [x, y] of parts) {
-    const clamp = absent !== 'average' && (x === null || y === null);
-    h += clamp ? Math.max(0, x ?? 0) : x ?? 0;
-    a += clamp ? Math.max(0, y ?? 0) : y ?? 0;
+// Tied after 9: player vs player. Each school's best hitter (OPS+) against
+// the other's best, and best pitcher (FIP-) against the other's best - one
+// run each. The school that takes more of the two wins; 1-1 (or 0-0) goes
+// to the #2 hitters and #2 pitchers, and so on down the rosters. A player
+// with no one left to face counts only by beating league average, the same
+// as in the innings. Returns null when both rosters run out still level.
+function playerTiebreak(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules): { winner: Side; rank: number } | null {
+  const h = rankPlayers(home.players, baselines, rules.mode);
+  const a = rankPlayers(away.players, baselines, rules.mode);
+  const depth = Math.max(h.hitters.length, a.hitters.length, h.pitchers.length, a.pitchers.length);
+  for (let k = 0; k < depth; k++) {
+    const [bx, by] = compareSides(h.hitters[k] ?? null, a.hitters[k] ?? null, averageOffense(rules.mode), true, rules.absent);
+    const [px, py] = compareSides(h.pitchers[k] ?? null, a.pitchers[k] ?? null, averagePitching(rules.mode), false, rules.absent);
+    if (bx + px !== by + py) return { winner: bx + px > by + py ? 'home' : 'away', rank: k + 1 };
   }
-  return [hPlayed ? h : null, aPlayed ? a : null];
+  // A school with nobody playing all week can't win the tiebreak against one that played.
+  const hPlayed = h.hitters.length + h.pitchers.length > 0;
+  const aPlayed = a.hitters.length + a.pitchers.length > 0;
+  if (rules.absent !== 'average' && hPlayed !== aPlayed) return { winner: hPlayed ? 'home' : 'away', rank: depth };
+  return null;
 }
 
 export function volume(buckets: LevelBuckets) {
@@ -268,12 +273,9 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   const ar = innings.reduce((s, i) => s + i.away, 0);
   const base = { innings, home: hr, away: ar };
   if (hr !== ar) return { ...base, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
-  // Ties: W-L% (the 1-run tiebreaker inning), then the week's combined edge.
-  // (whoever won inning 9; a school with no pro clubs counts as .500 there)
-  if (x !== y) return { ...base, winner: x > y ? 'home' : 'away', decidedBy: 'wl' };
-  const [he, ae] = weekEdge(innings[7], rules.mode, rules.absent);
-  const edge = breakTie(he, ae, 0, true, rules.absent);
-  if (edge) return { ...base, winner: edge, decidedBy: 'edge' };
+  // Ties after 9: player vs player, then seed (bracket) or a tie (leaderboard).
+  const pt = playerTiebreak(home, away, baselines, rules);
+  if (pt) return { ...base, winner: pt.winner, decidedBy: 'players', tieRank: pt.rank };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
   return { ...base, winner: home.seed <= away.seed ? 'home' : 'away', decidedBy: 'seed' };
 }

@@ -39,10 +39,16 @@ const REGIONS: Record<number, string> = {
 };
 const LBT_ROUNDS: Record<number, string> = { 28: 'Quarterfinal', 29: 'Semifinal', 30: 'Final' };
 const TIE_NOTE: Record<string, string> = {
-  wl: 'Tied after 9 · won on W-L% (inning 9)',
-  edge: "Tied after 9 · won on the week's combined edge (OPS+ over 100 + FIP- under 100)",
   seed: 'Tied after 9 · won on seed',
 };
+// 'players-2': the tie went down to each school's #2 hitter and #2 pitcher
+function tieNote(decidedBy: string) {
+  const m = /^players-(\d+)$/.exec(decidedBy);
+  if (!m) return TIE_NOTE[decidedBy];
+  return m[1] === '1'
+    ? 'Tied after 9 · won on the best hitter (OPS+) and best pitcher (FIP-) matchups'
+    : `Tied after 9 · won on the #${m[1]} hitter (OPS+) and #${m[1]} pitcher (FIP-) matchups`;
+}
 
 // Box scores are shared by every card of a round + region: one fetch each.
 const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
@@ -420,7 +426,7 @@ function Face({ side, label, week, dates, home, away, names, score, innings, win
           </tbody>
         </table>
       </div>
-      {TIE_NOTE[decidedBy] && <div className="bl-note">{TIE_NOTE[decidedBy]}</div>}
+      {tieNote(decidedBy) && <div className="bl-note">{tieNote(decidedBy)}</div>}
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
       <div className="bl-tabs">
