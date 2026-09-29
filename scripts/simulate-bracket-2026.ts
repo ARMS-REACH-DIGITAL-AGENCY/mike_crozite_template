@@ -25,12 +25,14 @@
 //     inside each region (standard seeded order, 1 v 128 ...); the 8 regional
 //     champions are reseeded for the Elite Eight (region seed, then run
 //     differential): 1v8, 4v5, 2v7, 3v6.
-//   Eliminated schools play on every week through the Final Four (week 27,
-//     Aug 16), paired at random inside their region; each region's
-//     leaderboard is ranked on total runs.
-//   Weeks 28-30 (Aug 17 - Sep 6, alongside the Championship): the 8
-//     regional leaderboard leaders play a single-game, 8-team bracket.
-//   Week 31 (Sep 7-13): the Grand Final, one game, bracket champion v
+//   Regional leaderboards: every school, all 30 weeks, ranked on total
+//     runs. Schools still in the bracket score in their bracket games;
+//     eliminated schools play a weekly game, paired at random inside their
+//     region.
+//   Weeks 31-33 (Sep 7-27): each region's leaderboard leader plays a
+//     single-game, 8-team bracket. The bracket champion sits out (its
+//     region sends the next school).
+//   Week 34 (Sep 28 - Oct 4): the Grand Final, one game, bracket champion v
 //     leaderboard champion.
 //
 // Usage:
@@ -80,8 +82,11 @@ const RULES = { mode: MODE, absent: ABSENT };
 // out. It stays off the Game Log either way.
 const SPRING = !args.includes('--no-spring');
 const SEED = 'yatstats-2026';
-// Last week of leaderboard play (the Final Four ends Aug 16).
-const LB_LAST_WEEK = 27;
+// The bracket's 10 rounds end Sep 6 (week 30); the leaderboard runs the
+// same 30 weeks. Then the 8-team tournament (weeks 31-33, Sep 7-27; the
+// bracket champion sits out) and the Grand Final (week 34, Sep 28 - Oct 4).
+const BRACKET_LAST_WEEK = 30;
+const GRAND_FINAL_WEEK = 34;
 
 // ---------------------------------------------------------------------------
 // Calendar
@@ -444,29 +449,37 @@ for (let round = 8; round <= 10; round++) {
 const champion = alive[0];
 
 // ---------------------------------------------------------------------------
-// Eliminated schools: weekly games inside the region, ranked on total runs
+// Regional leaderboards: every school, all season (weeks 1-30), ranked on
+// total runs. Schools still in the bracket score in their bracket games;
+// eliminated schools play a weekly game inside their region.
 // ---------------------------------------------------------------------------
 type Board = { games: number; w: number; l: number; t: number; rf: number; ra: number };
 const board = new Map<number, Board>();
+function addToBoard(g: GameRow) {
+  for (const [h, rf, ra] of [[g.home, g.score[0], g.score[1]], [g.away, g.score[1], g.score[0]]] as const) {
+    const cur = board.get(h) || { games: 0, w: 0, l: 0, t: 0, rf: 0, ra: 0 };
+    cur.games++; cur.rf += rf; cur.ra += ra;
+    if (g.winner === h) cur.w++; else if (g.winner === null) cur.t++; else cur.l++;
+    board.set(h, cur);
+  }
+}
 const lbGames: GameRow[] = [];
-for (let week = 2; week <= LB_LAST_WEEK; week++) {
+// Weekly games of eliminated schools; byes go by leaderboard games played.
+const lbPlayed = new Map<number, number>();
+for (let week = 2; week <= BRACKET_LAST_WEEK; week++) {
   for (let region = 1; region <= 8; region++) {
     const pool = [...eliminatedAfterWeek.entries()].filter(([h, w]) => w < week && schools.get(h)!.region === region).map(([h]) => h).sort((a, b) => a - b);
     if (pool.length < 2) continue;
-    const played = new Map([...board.entries()].map(([h, b]) => [h, b.games]));
-    const { pairs } = pairEliminated(pool, played, `${SEED}:lb:${week}:${region}`);
+    const { pairs } = pairEliminated(pool, lbPlayed, `${SEED}:lb:${week}:${region}`);
     for (const [a, b] of pairs) {
       const g = game(week, a, b, true);
       lbGames.push(g);
-      for (const [h, rf, ra] of [[a, g.score[0], g.score[1]], [b, g.score[1], g.score[0]]] as const) {
-        const cur = board.get(h) || { games: 0, w: 0, l: 0, t: 0, rf: 0, ra: 0 };
-        cur.games++; cur.rf += rf; cur.ra += ra;
-        if (g.winner === h) cur.w++; else if (g.winner === null) cur.t++; else cur.l++;
-        board.set(h, cur);
-      }
+      for (const h of [a, b]) lbPlayed.set(h, (lbPlayed.get(h) || 0) + 1);
     }
   }
 }
+for (const g of [...series.flatMap((s) => s.games), ...lbGames]) addToBoard(g);
+// Most runs; then run differential, wins.
 const rankBoard = (a: number, b: number) => {
   const x = board.get(a)!, y = board.get(b)!;
   return y.rf - x.rf || (y.rf - y.ra) - (x.rf - x.ra) || y.w - x.w || schools.get(a)!.seed - schools.get(b)!.seed;
@@ -474,13 +487,15 @@ const rankBoard = (a: number, b: number) => {
 const leaderboards = Array.from({ length: 8 }, (_, i) => i + 1).map((region) =>
   [...board.keys()].filter((h) => schools.get(h)!.region === region).sort(rankBoard)
 );
-const lbLeaders = leaderboards.map((l) => l[0]).sort(rankBoard);
+// Each region's leader goes to the 8-team tournament; the bracket champion
+// sits it out, so its region sends the next school.
+const lbLeaders = leaderboards.map((l) => l.find((h) => h !== champion)!).sort(rankBoard);
 
-// Weeks 28-30: the leaders' single-game bracket.
+// Weeks 31-33: the leaders' single-game bracket (8 -> 4 -> 2 -> 1).
 const lbSeed = new Map(lbLeaders.map((h, i) => [h, i + 1]));
 const lbBracket: GameRow[] = [];
 let lbAlive = bracketOrder(8).map((s) => lbLeaders[s - 1]);
-for (let week = LB_LAST_WEEK + 1; week <= LB_LAST_WEEK + 3; week++) {
+for (let week = BRACKET_LAST_WEEK + 1; week <= BRACKET_LAST_WEEK + 3; week++) {
   const next: number[] = [];
   for (let i = 0; i < lbAlive.length; i += 2) {
     const [a, b] = lbSeed.get(lbAlive[i])! <= lbSeed.get(lbAlive[i + 1])! ? [lbAlive[i], lbAlive[i + 1]] : [lbAlive[i + 1], lbAlive[i]];
@@ -492,8 +507,8 @@ for (let week = LB_LAST_WEEK + 1; week <= LB_LAST_WEEK + 3; week++) {
 }
 const lbChampion = lbAlive[0];
 
-// Week 31: the Grand Final, one game; the bracket champion is home.
-const grandFinalGames = [game(31, champion, lbChampion)];
+// Week 34: the Grand Final, one game; the bracket champion is home.
+const grandFinalGames = [game(GRAND_FINAL_WEEK, champion, lbChampion)];
 const grandChampion = grandFinalGames[0].winner!;
 
 // ---------------------------------------------------------------------------
@@ -522,7 +537,7 @@ const summary = {
   regionChamps,
   lbLeaders,
   lbChampion,
-  grandFinal: { week: 31, dates: `${iso(weekStart(31))} to ${iso(weekStart(31) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, winner: grandChampion },
+  grandFinal: { week: GRAND_FINAL_WEEK, dates: `${iso(weekStart(GRAND_FINAL_WEEK))} to ${iso(weekStart(GRAND_FINAL_WEEK) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, winner: grandChampion },
 };
 
 // Each school's whole bracket season (weeks 1-30) on the same scale, to
@@ -638,7 +653,7 @@ function exportGallery(dir: string) {
   const index = {
     season: 2026,
     rules: { mode: MODE, absent: ABSENT, spring: SPRING },
-    weeks: Array.from({ length: 31 }, (_, i) => [iso(weekStart(i + 1)), iso(weekStart(i + 1) + 6 * DAY)]),
+    weeks: Array.from({ length: GRAND_FINAL_WEEK },(_, i) => [iso(weekStart(i + 1)), iso(weekStart(i + 1) + 6 * DAY)]),
     schools: Object.fromEntries([...schools.values()].map((s) => [s.hsid, [s.name, s.region, s.seed]])),
     rounds,
     lbt,

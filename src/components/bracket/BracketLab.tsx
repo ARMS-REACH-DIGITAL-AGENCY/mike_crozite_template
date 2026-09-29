@@ -37,7 +37,7 @@ const FAV_KEY = 'yat-bracket-lab-favs';
 const REGIONS: Record<number, string> = {
   1: 'The Giants', 2: 'The Frontier', 3: 'The Heat', 4: 'Rivals', 5: 'Grinders', 6: 'Corridor', 7: 'Prep Elite', 8: 'Talent Factory',
 };
-const LBT_ROUNDS: Record<number, string> = { 28: 'Quarterfinal', 29: 'Semifinal', 30: 'Final' };
+const LBT_ROUNDS: Record<number, string> = { 31: 'Quarterfinal', 32: 'Semifinal', 33: 'Final' };
 const TIE_NOTE: Record<string, string> = {
   coin: "Tied after 9 · won on the commissioner's coin flip",
 };
@@ -245,10 +245,10 @@ export default function BracketLab() {
             </button>
           ))}
           <button type="button" className={viewKey === 'lbt' ? 'on' : ''} onClick={() => pick({ kind: 'lbt' })}>
-            <b>Leaderboard 8</b><span>Aug 17 – Sep 6</span>
+            <b>Leaderboard 8</b><span>Sep 7 – 27</span>
           </button>
           <button type="button" className={viewKey === 'gf' ? 'on' : ''} onClick={() => pick({ kind: 'gf' })}>
-            <b>Grand Final</b><span>Sep 7 – 13</span>
+            <b>Grand Final</b><span>Sep 28 – Oct 4</span>
           </button>
           <button type="button" className={viewKey === 'season' ? 'on' : ''} onClick={() => pick({ kind: 'season' })}>
             <b>Whole season</b><span>every game</span>
