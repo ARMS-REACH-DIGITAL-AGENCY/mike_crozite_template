@@ -519,3 +519,92 @@ console.log(`Champion: ${nm(champion)}; runner-up ${nm(summary.runnerUp)}`);
 console.log(`Leaderboard champion (8-team bracket): ${nm(lbChampion)}`);
 console.log(`Grand Final: ${nm(grandChampion)} (${grandFinalGames.map((g) => g.score.join('-')).join(', ')}, bracket champion's score first)`);
 console.log(`Wrote ${OUT}`);
+
+// ---------------------------------------------------------------------------
+// --export <dir>: the data behind the flip-card gallery (/bracket-lab).
+//   index.json          - schools, and every series and game with its line
+//                         score (rounds 1-10, the leaderboard tournament and
+//                         the Grand Final)
+//   d-<round>-<region>.json, d-lbt.json, d-gf.json - each game's box score:
+//                         both schools' alumni with their weekly lines,
+//                         OPS+ and FIP-, the day-by-day team numbers behind
+//                         every run, and the clubs' W-L
+// ---------------------------------------------------------------------------
+const EXPORT = arg('--export');
+if (EXPORT) exportGallery(EXPORT);
+
+function exportGallery(dir: string) {
+  fs.mkdirSync(dir, { recursive: true });
+  const names = new Map(rows('names.psv', '|').map((r) => [r.playerid, r.name]));
+  const round1 = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v));
+  const batArr = (b: BatTotals) => [b.pa, b.ab, b.h, b.d2, b.d3, b.hr, b.bb, b.hbp, b.sf];
+  const pitArr = (p: PitTotals) => [p.outs, p.hr, p.bb, p.hbp, p.so];
+
+  function side(hsid: number, week: number) {
+    const byPlayer = new Map<string, { levels: Set<string>; sim: boolean; bat: BatTotals | null; pit: PitTotals | null; buckets: LevelBuckets }>();
+    for (const d of weekDates(week)) for (const pd of daily.get(hsid)?.get(d) || []) {
+      const cur = byPlayer.get(pd.playerid) || { levels: new Set<string>(), sim: pd.simulated, bat: null, pit: null, buckets: new Map() };
+      cur.levels.add(pd.level);
+      if (pd.bat) cur.bat = cur.bat ? { ...cur.bat, ...Object.fromEntries(Object.keys(pd.bat).map((k) => [k, cur.bat![k as keyof BatTotals] + pd.bat![k as keyof BatTotals]])) } as BatTotals : { ...pd.bat };
+      if (pd.pit) cur.pit = cur.pit ? { ...cur.pit, ...Object.fromEntries(Object.keys(pd.pit).map((k) => [k, cur.pit![k as keyof PitTotals] + pd.pit![k as keyof PitTotals]])) } as PitTotals : { ...pd.pit };
+      addToBuckets(cur.buckets, pd.level, pd.bat, pd.pit);
+      byPlayer.set(pd.playerid, cur);
+    }
+    const players = [...byPlayer.entries()].map(([pid, p]) => [
+      pid,
+      names.get(pid) || `Player ${pid}`,
+      [...p.levels].join('/'),
+      p.sim ? 1 : 0,
+      p.bat && p.bat.pa ? batArr(p.bat) : 0,
+      p.pit && p.pit.outs ? pitArr(p.pit) : 0,
+      p.bat && p.bat.pa ? round1(offenseScore(p.buckets, baselines, MODE)) : null,
+      p.pit && p.pit.outs ? round1(pitchingScore(p.buckets, baselines, MODE)) : null,
+    ]);
+    const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
+    return { p: players, wl: [wl.w, wl.l] };
+  }
+
+  let gid = 0;
+  const details = new Map<string, Record<number, unknown>>();
+  function gameOut(file: string, g: GameRow, homeSeed: number, awaySeed: number) {
+    const id = ++gid;
+    const r = playGame(sideWeek(g.home, g.week, homeSeed), sideWeek(g.away, g.week, awaySeed), baselines, RULES, g.winner === null);
+    const days = r.innings.slice(0, 8).map((i) => [round1(i.homeOffense), round1(i.awayOffense), round1(i.homePitching), round1(i.awayPitching)]);
+    if (!details.has(file)) details.set(file, {});
+    details.get(file)![id] = { d: days, h: side(g.home, g.week), a: side(g.away, g.week) };
+    return [id, g.week, g.home, g.away, g.decidedBy, g.innings.flat(), g.winner];
+  }
+
+  const ROUND_NAMES = ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Round 6', 'Regional Final', 'Elite Eight', 'Final Four', 'Championship'];
+  const rounds = ROUND_NAMES.map((name, i) => {
+    const round = i + 1;
+    return {
+      r: round,
+      name,
+      start: iso(weekStart((round - 1) * 3 + 1)),
+      end: iso(weekStart(round * 3) + 6 * DAY),
+      series: series.filter((s) => s.round === round).map((s) => {
+        const file = `d-${round}-${s.region ?? 0}`;
+        return [s.region ?? 0, s.home, s.away, s.homeSeed, s.awaySeed, s.winner, s.wins, s.games.map((g) => gameOut(file, g, s.homeSeed, s.awaySeed))];
+      }),
+    };
+  });
+  const lbt = lbBracket.map((g) => ({ seeds: [lbSeed.get(g.home), lbSeed.get(g.away)], game: gameOut('d-lbt', g, lbSeed.get(g.home)!, lbSeed.get(g.away)!) }));
+  const gf = grandFinalGames.map((g) => gameOut('d-gf', g, 1, 2));
+
+  const index = {
+    season: 2026,
+    rules: { mode: MODE, absent: ABSENT, spring: SPRING },
+    weeks: Array.from({ length: 31 }, (_, i) => [iso(weekStart(i + 1)), iso(weekStart(i + 1) + 6 * DAY)]),
+    schools: Object.fromEntries([...schools.values()].map((s) => [s.hsid, [s.name, s.region, s.seed]])),
+    rounds,
+    lbt,
+    gf,
+    champion,
+    lbChampion,
+    grandChampion,
+  };
+  fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify(index));
+  for (const [file, data] of details) fs.writeFileSync(path.join(dir, `${file}.json`), JSON.stringify(data));
+  console.log(`Exported ${gid} games to ${dir} (${details.size} box-score files)`);
+}

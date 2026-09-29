@@ -26,9 +26,10 @@
 // JUCO), so a juco hitter's .900 OPS and a big leaguer's .750 are compared
 // fairly. 'raw' mode compares plain OPS and FIP, as the first prototype did.
 //
-// Ties after 9 (the deck: "ties are broken by cumulative OPS+ then
-// FIP-"): the week's OPS+, then the week's FIP-, then the week's W-L% -
-// all averages, so nothing favors the school with more alumni. Still tied:
+// Ties after 9 ("ties are broken by cumulative OPS+ then FIP-"): the
+// week's OPS+, then the week's FIP-, then the week's W-L% - all averages,
+// so nothing favors the school with more alumni. A school with nobody
+// playing can't win a tiebreak against one that played. Still tied:
 // the better seed in the bracket; a tie (half a win each) on the
 // leaderboard.
 //
@@ -209,10 +210,12 @@ function scoreInning(inning: number, kind: 'day' | 'week', home: LevelBuckets, a
 
 export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : null);
 
-// Tiebreak: [homeBetter, awayBetter] for one measure, the absent side
-// counting as league average.
-function breakTie(h: number | null, a: number | null, average: number, higherIsBetter: boolean): Side | null {
+// Tiebreak on one measure. A school with nobody playing can never win a
+// tie against one that played ('hold' / 'forfeit'); under 'average' the
+// absent side counts as league average.
+function breakTie(h: number | null, a: number | null, average: number, higherIsBetter: boolean, absent: Absent): Side | null {
   if (h === null && a === null) return null;
+  if (absent !== 'average' && (h === null || a === null)) return h === null ? 'away' : 'home';
   const x = h ?? average, y = a ?? average;
   if (x === y) return null;
   return (higherIsBetter ? x > y : x < y) ? 'home' : 'away';
@@ -241,11 +244,11 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   const base = { innings, home: hr, away: ar };
   if (hr !== ar) return { ...base, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
   const week = innings[7];
-  const ops = breakTie(week.homeOffense ?? null, week.awayOffense ?? null, averageOffense(rules.mode), true);
+  const ops = breakTie(week.homeOffense ?? null, week.awayOffense ?? null, averageOffense(rules.mode), true, rules.absent);
   if (ops) return { ...base, winner: ops, decidedBy: 'ops' };
-  const fip = breakTie(week.homePitching ?? null, week.awayPitching ?? null, averagePitching(rules.mode), false);
+  const fip = breakTie(week.homePitching ?? null, week.awayPitching ?? null, averagePitching(rules.mode), false, rules.absent);
   if (fip) return { ...base, winner: fip, decidedBy: 'fip' };
-  const wl = breakTie(hw, aw, 0.5, true);
+  const wl = breakTie(hw, aw, 0.5, true, rules.absent);
   if (wl) return { ...base, winner: wl, decidedBy: 'wl' };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
   return { ...base, winner: home.seed <= away.seed ? 'home' : 'away', decidedBy: 'seed' };

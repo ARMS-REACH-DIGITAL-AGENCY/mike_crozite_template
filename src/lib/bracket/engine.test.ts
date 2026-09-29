@@ -117,6 +117,16 @@ test('ties: week OPS+, then week FIP-, then W-L%, then seed; leaderboard games m
   assert.equal(d.winner, 'home');
 });
 
+test("a school with nobody playing can't win a tie against one that played", () => {
+  // Hamilton plays below average all week (no runs); Basha has nobody: 0-0
+  const cold = week([day('MLB', { pa: 12, ab: 12, h: 1 }), off(), off(), off(), off(), off(), off()], 0, 0, 5);
+  const idle = week([off(), off(), off(), off(), off(), off(), off()], 0, 0, 1);
+  const g = playGame(cold, idle, baselines, HOLD);
+  assert.deepEqual([g.home, g.away], [0, 0]);
+  assert.equal(g.winner, 'home');
+  assert.equal(g.decidedBy, 'ops');
+});
+
 test('bracket order keeps top seeds apart', () => {
   assert.deepEqual(bracketOrder(8), [1, 8, 4, 5, 2, 7, 3, 6]);
   const o = bracketOrder(128);
