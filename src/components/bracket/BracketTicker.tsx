@@ -11,7 +11,7 @@ import { Doto } from 'next/font/google';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
 
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
-const ROUND_TAG = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'REG FINAL', 'ELITE 8', 'FINAL 4', 'CHAMPIONSHIP'];
+const ROUND_TAG = Array.from({ length: 10 }, (_, i) => `ROUND ${i + 1}`);
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 type Item = { key: string; tag: string; home: string; away: string; h: number; a: number; status: string; lead: 0 | 1 | 2 };
@@ -20,7 +20,7 @@ function tickerItems(index: Index, asof: string): Item[] {
   const week = weekOfDate(index, asof);
   if (week === 0) return [];
   const last = index.weeks.length;
-  const w = Math.min(week, last); // after the season: the Grand Final
+  const w = Math.min(week, last); // after the season: the Fantasy World Series
   // Days of the week with stats in: those before today (all 7 once it's over).
   const done = week > last ? 7 : Array.from({ length: 7 }, (_, d) => {
     const t = Date.parse(`${index.weeks[w - 1][0]}T00:00:00Z`) + d * 86400000;
@@ -49,8 +49,8 @@ function tickerItems(index: Index, asof: string): Item[] {
       s[7].forEach((g, i) => { if (g[1] === w) add(g, `${ROUND_TAG[r.r - 1]}${s[0] ? ` · REG ${s[0]}` : ''} · G${i + 1}`); });
     }
   }
-  for (const { game } of index.lbt) if (game[1] === w) add(game, `LB8 ${(LBT_ROUNDS[game[1]] || '').toUpperCase()}`);
-  for (const g of index.gf) if (g[1] === w) add(g, 'GRAND FINAL');
+  for (const { game } of index.lbt) if (game[1] === w) add(game, game[1] === 33 ? 'SEASON CHAMPIONSHIP GAME' : `SEASON CHAMPIONSHIP ${(LBT_ROUNDS[game[1]] || '').toUpperCase()}`);
+  for (const g of index.gf) if (g[1] === w) add(g, 'FANTASY WORLD SERIES');
   return out;
 }
 

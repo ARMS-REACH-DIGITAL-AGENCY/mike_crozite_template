@@ -34,7 +34,7 @@ export type Index = {
   lbt: { seeds: [number, number]; game: GameRow }[];
   gf: GameRow[];
   champion: number;
-  lbLeaders: number[]; // the Leaderboard 8, seed order
+  lbLeaders: number[]; // the Season Championship Tournament's 8, seed order
   lbChampion: number;
   grandChampion: number;
 };
@@ -51,7 +51,13 @@ export const REGIONS: Record<number, string> = {
   // By geography (the states in each region's field).
   1: 'Pacific', 2: 'West', 3: 'Southwest', 4: 'Central', 5: 'Midwest', 6: 'Northeast', 7: 'Atlantic', 8: 'Southeast',
 };
-export const LBT_ROUNDS: Record<number, string> = { 31: 'Quarterfinal', 32: 'Semifinal', 33: 'Final' };
+// The Season Championship Tournament (weeks 31-33): the 8 region leaders,
+// single elimination.
+export const LBT_ROUNDS: Record<number, string> = { 31: 'Round 1', 32: 'Round 2', 33: 'Season Championship Game' };
+export const SCT = 'Season Championship Tournament';
+// Week 34: the bracket champ vs the season champ.
+export const WORLD_SERIES = 'Fantasy World Series';
+export const WORLD_SERIES_FULL = 'YAT?STATS High School Alumni Fantasy World Series';
 export const TIE_NOTE: Record<string, string> = {
   coin: "Tied after 9 · won on the commissioner's coin flip",
 };
@@ -86,7 +92,9 @@ export function fmtDate(iso: string) {
 }
 export const fmtRange = (a: string, b: string) => `${fmtDate(a)} – ${fmtDate(b)}`;
 export const LAST_WEEK = 30; // the bracket and the leaderboards end with week 30
-export const ROUND_SHORT = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'Regional Final', 'Elite 8', 'Final 4', 'Championship'];
+export const ROUND_SHORT = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9', 'R10'];
+// Round 1 has 512 series (1,024 schools) ... Round 10 has 1.
+export const seriesInRound = (r: number) => 512 >> (r - 1);
 export const runsOf = (inn: number[]) => {
   let h = 0, a = 0;
   inn.forEach((v, i) => { if (i % 2 === 0) h += v; else a += v; });
@@ -220,7 +228,7 @@ export function rowMakers(index: Index) {
     }
     return {
       key: `r${round.r}-${home}-${away}`,
-      roundLabel: `${round.name}${reg ? ` · Region ${reg}` : ''}`,
+      roundLabel: `Round ${round.r}${reg ? ` · Region ${reg}` : ''}`,
       title: `#${hs} ${shortName(name(home))} vs #${as} ${shortName(name(away))}`,
       week: s[7][0][1],
       region: reg,
@@ -235,30 +243,30 @@ export function rowMakers(index: Index) {
     const [, wk, home, away, , , winner] = game;
     return {
       key: `lbt-${game[0]}`,
-      roundLabel: `Leaderboard Tournament · ${LBT_ROUNDS[wk] || ''}`,
+      roundLabel: `${SCT} · ${LBT_ROUNDS[wk] || ''}`,
       title: `#${seeds[0]} ${shortName(name(home))} vs #${seeds[1]} ${shortName(name(away))}`,
       week: wk,
       region: 0,
       home, away, homeSeed: seeds[0], awaySeed: seeds[1],
-      result: `${shortName(name(winner!))} advances`,
+      result: wk === LAST_WEEK + 3 ? `${shortName(name(winner!))} wins the Season Championship and advances to the ${WORLD_SERIES}` : `${shortName(name(winner!))} advances`,
       files: ['d-lbt'],
       games: [game],
-      gameLabels: [LBT_ROUNDS[wk] || 'Game'],
+      gameLabels: [wk === LAST_WEEK + 3 ? 'Season Championship Game' : `Season Championship ${LBT_ROUNDS[wk] || ''}`],
     };
   };
   const gfRow = (game: GameRow): Row => {
     const [, wk, home, away, , , winner] = game;
     return {
       key: `gf-${game[0]}`,
-      roundLabel: 'Grand Final',
-      title: `${shortName(name(home))} (bracket champion) vs ${shortName(name(away))} (leaderboard champion)`,
+      roundLabel: WORLD_SERIES_FULL,
+      title: `${shortName(name(home))} (Bracket Champ) vs ${shortName(name(away))} (Season Champ)`,
       week: wk,
       region: 0,
       home, away, homeSeed: 1, awaySeed: 2,
-      result: `${shortName(name(winner!))} wins the Grand Final`,
+      result: winner ? `${shortName(name(winner))} wins the ${WORLD_SERIES}` : 'Tied',
       files: ['d-gf'],
       games: [game],
-      gameLabels: ['Grand Final'],
+      gameLabels: [WORLD_SERIES],
     };
   };
   // Up to three of one school's weekly leaderboard games in one row.
@@ -294,7 +302,8 @@ export function buildRows(index: Index, lb: LbGame[] | null, view: View, maxWeek
   const { seriesRow, lbtRow, gfRow, lbRow } = rowMakers(index);
   const out: Row[] = [];
   // One school's whole season: its bracket series, its leaderboard games
-  // (three weeks to a row), then the tournament and the Grand Final.
+  // (three weeks to a row), then the Season Championship Tournament and the
+  // Fantasy World Series.
   if (view.kind === 'school') {
     const h = view.h;
     for (const round of index.rounds) for (const s of round.series) if (s[1] === h || s[2] === h) out.push(seriesRow(round, s));
@@ -313,8 +322,8 @@ export function buildRows(index: Index, lb: LbGame[] | null, view: View, maxWeek
 }
 
 // ---------------------------------------------------------------------------
-// The calendar: stages (a bracket round, the leaderboards, the Leaderboard 8
-// tournament, the Grand Final) and which one a date falls in.
+// The calendar: stages (a bracket round, the leaderboards, the Season
+// Championship Tournament, the Fantasy World Series) and which one a date falls in.
 // ---------------------------------------------------------------------------
 export type Stage = { kind: 'round'; r: number } | { kind: 'boards' } | { kind: 'lbt' } | { kind: 'gf' };
 export const stageKey = (s: Stage) => (s.kind === 'round' ? `r${s.r}` : s.kind);
@@ -408,7 +417,7 @@ export function Star({ h, index, favs, onFav }: { h: number; index: Index; favs?
 
 // The 8 regional leaderboards through a chosen week: every school, most runs
 // first, then run differential. After week 30 each region's leader is in the
-// Leaderboard 8 (the bracket champion sits out; its region sends the next).
+// Season Championship Tournament (the bracket champion sits out; its region sends the next).
 export function Leaderboards({ index, lb, week, setWeek, region, query, onlyFavs, favs, onFav, onOpen, maxWeek = LAST_WEEK }: {
   index: Index; lb: LbGame[]; week: number; setWeek: (w: number) => void; region: number; query: string;
   onlyFavs: boolean; favs?: Set<number>; onFav?: (h: number) => void; onOpen?: (h: number) => void;
@@ -440,8 +449,8 @@ export function Leaderboards({ index, lb, week, setWeek, region, query, onlyFavs
 
       {final && (
         <div className="bl-announce">
-          <div className="bl-announce-t">The Leaderboard 8 · announced before Week 31</div>
-          <p>Each region&apos;s leader in total runs (run differential breaks ties) plays a single-game tournament, {fmtRange(index.weeks[LAST_WEEK][0], index.weeks[LAST_WEEK + 2][1])}. The winner meets bracket champion <b>{shortName(name(index.champion))}</b> in the Grand Final, which sits out until then.</p>
+          <div className="bl-announce-t">The Season Championship Tournament · announced before Week 31</div>
+          <p>The top team in each region on the Most Runs Scored Leaderboard (run differential breaks ties) is reseeded into a 3-week single-elimination tournament, {fmtRange(index.weeks[LAST_WEEK][0], index.weeks[LAST_WEEK + 2][1])}. The winner, the Season Champ, plays Bracket Champ <b>{shortName(name(index.champion))}</b> in the YAT?STATS High School Alumni Fantasy World Series in week 34; the Bracket Champ has a bye until then.</p>
           <ol>
             {index.lbLeaders.map((h) => {
               const s = st.get(h)!;
@@ -475,7 +484,7 @@ export function RegionBoard({ region, ranked, index, final, query, onlyFavs, fav
   const [all, setAll] = useState(false);
   const TOP = 10;
   const name = (h: number) => index.schools[h]?.[0] || String(h);
-  // The region's spot in the Leaderboard 8: its leader, or the next school
+  // The region's spot in the Season Championship Tournament: its leader, or the next school
   // when the leader is the bracket champion.
   const qualifier = ranked.find((s) => !final || s.h !== index.champion)?.h;
   const q = query.trim().toLowerCase();
@@ -538,11 +547,11 @@ export function SchoolHead({ index, lb, h, favs, onFav, onBack }: { index: Index
   const rank = ranked.findIndex((s) => s.h === h) + 1;
   const s = st.get(h)!;
   const e = elim.get(h);
-  const bracket = h === index.champion ? 'Won the bracket' : e ? `Out of the bracket in ${ROUND_SHORT[e.round - 1]} (week ${e.week})` : '';
+  const bracket = h === index.champion ? 'Won the bracket' : e ? `Out of the bracket in Round ${e.round} (week ${e.week})` : '';
   const extra = [
-    index.lbLeaders.includes(h) ? 'In the Leaderboard 8' : '',
-    h === index.lbChampion ? 'won the Leaderboard 8' : '',
-    h === index.grandChampion ? 'won the Grand Final' : '',
+    index.lbLeaders.includes(h) ? `In the ${SCT}` : '',
+    h === index.lbChampion ? 'won the Season Championship' : '',
+    h === index.grandChampion ? `won the ${WORLD_SERIES}` : '',
   ].filter(Boolean).join(' · ');
   return (
     <div className="bl-school">

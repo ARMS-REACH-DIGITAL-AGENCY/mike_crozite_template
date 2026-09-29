@@ -23,7 +23,7 @@
 //   Weeks 1-30 (Feb 2 - Aug 30): the 1,024-school bracket, 10 rounds of
 //     best-of-3 (the schedule in master_bracket_schedule_2026). Rounds 1-7
 //     inside each region (standard seeded order, 1 v 128 ...); the 8 regional
-//     champions are reseeded for the Elite Eight (region seed, then run
+//     champions are reseeded for Round 8 (region seed, then run
 //     differential): 1v8, 4v5, 2v7, 3v6.
 //   Regional leaderboards: every school, all 30 weeks, ranked on total
 //     runs. Schools still in the bracket score in their bracket games;
@@ -32,7 +32,7 @@
 //   Weeks 31-33 (Aug 31 - Sep 20): each region's leaderboard leader plays a
 //     single-game, 8-team bracket. The bracket champion sits out (its
 //     region sends the next school).
-//   Week 34 (Sep 21-27): the Grand Final, one game, bracket champion v
+//   Week 34 (Sep 21-27): the Fantasy World Series, one game, bracket champion v
 //     leaderboard champion.
 //
 // Usage:
@@ -85,7 +85,7 @@ const SPRING = !args.includes('--no-spring');
 const SEED = 'yatstats-2026';
 // The bracket's 10 rounds end Aug 30 (week 30); the leaderboard runs the
 // same 30 weeks. Then the 8-team tournament (weeks 31-33, Aug 31 - Sep 20;
-// the bracket champion sits out) and the Grand Final (week 34, Sep 21-27,
+// the bracket champion sits out) and the Fantasy World Series (week 34, Sep 21-27,
 // the last week of the MLB regular season).
 const BRACKET_LAST_WEEK = 30;
 const GRAND_FINAL_WEEK = 34;
@@ -434,7 +434,7 @@ for (let region = 1; region <= 8; region++) {
   }
   regionChamps.push(alive[0]);
 }
-// Elite Eight: reseeded by region seed, then run differential.
+// Round 8: reseeded by region seed, then run differential.
 const reseeded = [...regionChamps].sort((a, b) => schools.get(a)!.seed - schools.get(b)!.seed || (runDiff.get(b) || 0) - (runDiff.get(a) || 0));
 const nationalSeed = new Map(reseeded.map((h, i) => [h, i + 1]));
 let alive = bracketOrder(8).map((s) => reseeded[s - 1]);
@@ -506,7 +506,7 @@ for (let week = BRACKET_LAST_WEEK + 1; week <= BRACKET_LAST_WEEK + 3; week++) {
 }
 const lbChampion = lbAlive[0];
 
-// Week 34: the Grand Final, one game; the bracket champion is home.
+// Week 34: the Fantasy World Series, one game; the bracket champion is home.
 const grandFinalGames = [game(GRAND_FINAL_WEEK, champion, lbChampion)];
 const grandChampion = grandFinalGames[0].winner!;
 
@@ -573,14 +573,14 @@ console.log(`Mode: ${MODE}, absent: ${ABSENT}, spring training: ${SPRING ? 'coun
 console.log(`Lines: ${proBat.length + proPit.length} real, ${simulatedBatLines + simulatedPitLines} simulated`);
 console.log(`Champion: ${nm(champion)}; runner-up ${nm(summary.runnerUp)}`);
 console.log(`Leaderboard champion (8-team bracket): ${nm(lbChampion)}`);
-console.log(`Grand Final: ${nm(grandChampion)} (${grandFinalGames.map((g) => g.score.join('-')).join(', ')}, bracket champion's score first)`);
+console.log(`Fantasy World Series: ${nm(grandChampion)} (${grandFinalGames.map((g) => g.score.join('-')).join(', ')}, bracket champion's score first)`);
 console.log(`Wrote ${OUT}`);
 
 // ---------------------------------------------------------------------------
 // --export <dir>: the data behind the flip-card gallery (/bracket-lab).
 //   index.json          - schools, and every series and game with its line
 //                         score (rounds 1-10, the leaderboard tournament and
-//                         the Grand Final)
+//                         the Fantasy World Series)
 //   lb.json             - the eliminated schools' weekly regional games
 //                         (line scores + region), for the leaderboards
 //   d-<round>-<region>.json, d-lb-<week>-<region>.json, d-lbt.json,
@@ -635,7 +635,7 @@ function exportGallery(dir: string) {
     return [id, g.week, g.home, g.away, g.decidedBy === 'players' ? `players-${g.tieRank}` : g.decidedBy, g.innings.flat(), g.winner];
   }
 
-  const ROUND_NAMES = ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Round 6', 'Regional Final', 'Elite Eight', 'Final Four', 'Championship'];
+  const ROUND_NAMES = Array.from({ length: 10 }, (_, i) => `Round ${i + 1}`);
   const rounds = ROUND_NAMES.map((name, i) => {
     const round = i + 1;
     return {
@@ -666,7 +666,7 @@ function exportGallery(dir: string) {
     lbt,
     gf,
     champion,
-    // The Leaderboard 8 in seed order, announced after week 30.
+    // The Season Championship Tournament field in seed order, announced after week 30.
     lbLeaders,
     lbChampion,
     grandChampion,

@@ -73,7 +73,7 @@ export default function BracketLab() {
         <div className="bl-kick">YAT?STATS National Alumni Bracket · 2026 · simulation · private preview</div>
         <h1>The 2026 season, game by game</h1>
         <p className="bl-sum">
-          Bracket champion <b>{nm(index.champion)}</b> · Leaderboard champion <b>{nm(index.lbChampion)}</b> · Grand Final <b>{nm(index.grandChampion)}</b>
+          Bracket champion <b>{nm(index.champion)}</b> · Season champion <b>{nm(index.lbChampion)}</b> · Fantasy World Series <b>{nm(index.grandChampion)}</b>
         </p>
       </header>
 
@@ -84,15 +84,15 @@ export default function BracketLab() {
           </button>
           {index.rounds.map((r) => (
             <button key={r.r} type="button" className={viewKey === `r${r.r}` ? 'on' : ''} onClick={() => pick({ kind: 'round', r: r.r })}>
-              <b>{r.r <= 6 ? `R${r.r}` : r.name}</b>
+              <b>{`Round ${r.r}`}</b>
               <span>{fmtRange(r.start, r.end)}</span>
             </button>
           ))}
           <button type="button" className={viewKey === 'lbt' ? 'on' : ''} onClick={() => pick({ kind: 'lbt' })}>
-            <b>Leaderboard 8</b><span>Aug 31 – Sep 20</span>
+            <b>Season Championship</b><span>Aug 31 – Sep 20</span>
           </button>
           <button type="button" className={viewKey === 'gf' ? 'on' : ''} onClick={() => pick({ kind: 'gf' })}>
-            <b>Grand Final</b><span>Sep 21 – 27</span>
+            <b>Fantasy World Series</b><span>Sep 21 – 27</span>
           </button>
           <button type="button" className={viewKey === 'season' ? 'on' : ''} onClick={() => pick({ kind: 'season' })}>
             <b>Whole season</b><span>every game</span>

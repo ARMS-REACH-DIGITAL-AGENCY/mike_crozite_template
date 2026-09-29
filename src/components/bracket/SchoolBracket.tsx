@@ -6,7 +6,7 @@
 // on top and each finished round underneath (the history). Row 3's school
 // tile swaps it for this school's whole season, newest round first (its
 // bracket series, or its weekly region leaderboard games once it's out). Each series is one row: game 1, game 2, game 3. The single
-// games (Leaderboard 8, Grand Final) pack three to a row. Row 3's tiles
+// games (Season Championship Tournament, Fantasy World Series) pack three to a row. Row 3's tiles
 // (BracketRow3) also filter by region, or show the regional leaderboards.
 //
 // "Current" follows the calendar. ?asof=YYYY-MM-DD previews any date: only
@@ -15,15 +15,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Index, type LbGame, type Row, type Stage,
-  LAST_WEEK, REGIONS, Leaderboards, SeriesRowView, Styles,
-  buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, previewDate, schoolStageRows, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
+  LAST_WEEK, REGIONS, SCT, WORLD_SERIES, Leaderboards, SeriesRowView, Styles,
+  buildRows, fmtRange, lastFinalWeek, loadIndex, loadLb, previewDate, schoolStageRows, seriesInRound, shortName, stageOfWeek, stageWeeks, useReveal, weekOfDate,
 } from './gallery';
 import { useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 
+// Round 1 · 512 series ... Round 10 · 1 series.
 const STAGE_NAME = (s: Stage) =>
-  s.kind === 'round' ? ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Round 6', 'Regional Final', 'Elite Eight', 'Final Four', 'Championship'][s.r - 1]
-    : s.kind === 'lbt' ? 'Leaderboard 8' : s.kind === 'gf' ? 'Grand Final' : 'Leaderboards';
+  s.kind === 'round' ? `Round ${s.r} · ${seriesInRound(s.r)} series` : s.kind === 'lbt' ? SCT : s.kind === 'gf' ? WORLD_SERIES : 'Leaderboards';
+// The single games' heading: the Fantasy World Series (week 34) and the
+// Season Championship Tournament (weeks 31-33).
+const singlesTitle = (rows: Row[]) => (rows.some((r) => r.key.startsWith('gf-')) ? `${WORLD_SERIES} · ${SCT}` : SCT);
 
 // The page is a list: a heading per round, then its rows.
 type Item = { kind: 'head'; key: string; title: string; dates: string } | { kind: 'row'; key: string; row: Row };
@@ -31,11 +34,11 @@ type Item = { kind: 'head'; key: string; title: string; dates: string } | { kind
 function stageDates(index: Index, s: Stage) {
   const [a, b] = stageWeeks(s);
   const first = index.weeks[a - 1], last = index.weeks[b - 1];
-  return first && last ? fmtRange(first[0], last[1]) : '';
+  return first && last ? `${a === b ? `Week ${a}` : `Weeks ${a}–${b}`} · ${fmtRange(first[0], last[1])}` : '';
 }
 
 // Row 3's school tile: this school's whole season, newest round first - its
-// Leaderboard 8 / Grand Final games, then each round's three games (its
+// Fantasy World Series / Season Championship Tournament games, then each round's three games (its
 // bracket series while it's alive, its weekly region leaderboard games once
 // it's out).
 function teamItems(index: Index, lb: LbGame[], h: number, final: number): Item[] {
@@ -46,8 +49,7 @@ function teamItems(index: Index, lb: LbGame[], h: number, final: number): Item[]
     ...schoolStageRows(index, lb, h, { kind: 'lbt' }, final).sort((a, b) => b.week - a.week),
   ];
   if (singles.length) {
-    const hasGf = singles.some((r) => r.roundLabel === 'Grand Final');
-    items.push({ kind: 'head', key: 'h-t-singles', title: hasGf ? 'Grand Final · Leaderboard 8' : 'Leaderboard 8', dates: '' });
+    items.push({ kind: 'head', key: 'h-t-singles', title: singlesTitle(singles), dates: '' });
     items.push({ kind: 'row', key: 't-singles', row: { ...singles[0], key: 't-singles', bare: true, games: singles.flatMap((r) => r.games), files: singles.flatMap((r) => r.files), gameLabels: singles.flatMap((r) => r.gameLabels) } });
   }
   for (let r = 10; r >= 1; r--) {
@@ -65,19 +67,20 @@ function tournamentItems(index: Index, lb: LbGame[], final: number, region: numb
   const keep = (r: Row) => !region || r.region === region || (!r.region && (regionOf(r.home) === region || regionOf(r.away) === region));
   const dates = (s: Stage) => stageDates(index, s);
   const items: Item[] = [];
-  // The single games: the Grand Final, then the Leaderboard 8 (final first),
+  // The single games: the Fantasy World Series, then the Season Championship
+  // Tournament (its championship game first),
   // packed three to a row.
   const singles = [
     ...buildRows(index, lb, { kind: 'gf' }, final),
     ...buildRows(index, lb, { kind: 'lbt' }, final).sort((a, b) => b.week - a.week),
   ].filter(keep);
   if (singles.length) {
-    const hasGf = singles.some((r) => r.roundLabel === 'Grand Final');
+    const hasGf = singles.some((r) => r.key.startsWith('gf-'));
     const a = stageWeeks({ kind: 'lbt' })[0], b = stageWeeks(hasGf ? { kind: 'gf' } : { kind: 'lbt' })[1];
     items.push({
       kind: 'head', key: 'h-singles',
-      title: hasGf ? 'Grand Final · Leaderboard 8' : 'Leaderboard 8',
-      dates: index.weeks[a - 1] && index.weeks[b - 1] ? fmtRange(index.weeks[a - 1][0], index.weeks[b - 1][1]) : '',
+      title: singlesTitle(singles),
+      dates: index.weeks[a - 1] && index.weeks[b - 1] ? `Weeks ${a}–${b} · ${fmtRange(index.weeks[a - 1][0], index.weeks[b - 1][1])}` : '',
     });
     for (let i = 0; i < singles.length; i += 3) {
       const chunk = singles.slice(i, i + 3);

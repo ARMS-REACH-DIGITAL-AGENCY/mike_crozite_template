@@ -9,11 +9,40 @@ export default function BracketRules() {
         <h4>The tournament</h4>
         <ul>
           <li>1,024 high schools in 8 regions of 128, seeded 1–128 in each region.</li>
-          <li>The season runs 30 weeks, Feb 2 – Aug 30. Weeks run Monday–Sunday.</li>
+          <li>The season runs 34 weeks, Feb 2 – Sep 27: the bracket is weeks 1–30 (Feb 2 – Aug 30). Weeks run Monday–Sunday.</li>
           <li>10 bracket rounds of 3 weeks each. Every matchup is a best-of-3 series, one game per week, and all three games are always played. Win 2 to advance.</li>
-          <li>Rounds 1–7 are played inside each region; the 8 region champions are reseeded for the Elite Eight (by region seed, then run differential).</li>
-          <li>The Leaderboard 8 (Aug 31 – Sep 20): each region&apos;s leaderboard leader plays a single-game bracket, 8 → 4 → 2 → 1. The bracket champion sits this out.</li>
-          <li>The Grand Final (Sep 21 – 27): one game, the bracket champion against the Leaderboard 8 winner.</li>
+        </ul>
+        <table className="ybr-sched">
+          <tbody>
+            {[512, 256, 128, 64, 32, 16, 8, 4, 2, 1].map((n, i) => (
+              <tr key={n}><td>Round {i + 1}</td><td>{n} series (3-game)</td><td>Weeks {i * 3 + 1}–{i * 3 + 3}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <ul>
+          <li>Rounds 1–7 are played inside each region; the 8 region champions are reseeded for Round 8 (by region seed, then run differential).</li>
+          <li>After week 30 the Bracket Champion is announced and gets a 3-week bye during the Season Championship Tournament.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Season Championship Tournament (weeks 31–33)</h4>
+        <ul>
+          <li>The Most Runs Scored Leaderboard ends after week 30. The top team in each of the 8 regions is reseeded into a single-elimination tournament. (If a region&apos;s top team is the Bracket Champion, the region sends its next school.)</li>
+        </ul>
+        <table className="ybr-sched">
+          <tbody>
+            <tr><td>Round 1</td><td>4 elimination games</td><td>Week 31</td></tr>
+            <tr><td>Round 2</td><td>2 elimination games</td><td>Week 32</td></tr>
+            <tr><td>Season Championship Game</td><td>Winner advances to the YSWS</td><td>Week 33</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h4>YAT?STATS High School Alumni Fantasy World Series (week 34)</h4>
+        <ul>
+          <li>Bracket Champ vs. Season Champ: one game, the final week of the season.</li>
         </ul>
       </section>
 
@@ -63,11 +92,11 @@ export default function BracketRules() {
       </section>
 
       <section>
-        <h4>Regional leaderboards</h4>
+        <h4>Most Runs Scored Leaderboard</h4>
         <ul>
           <li>Every school is on its region&apos;s leaderboard all season (weeks 1–30), ranked on total runs scored. Run differential breaks ties.</li>
           <li>Schools score in their bracket games while they&apos;re alive; once eliminated they play a weekly game against another eliminated school in their region.</li>
-          <li>After week 30 each region&apos;s leader goes to the Leaderboard 8. If the leader is the bracket champion, the region sends its next school.</li>
+          <li>After week 30 each region&apos;s top team goes to the Season Championship Tournament. If it&apos;s the Bracket Champion, the region sends its next school.</li>
         </ul>
       </section>
 
@@ -76,7 +105,7 @@ export default function BracketRules() {
         <ul>
           <li>The bracket champion&apos;s registered fans are entered: one entry for each round they&apos;ve been registered (a fan since Round 1 has 10; one who joined before Round 10 has 1).</li>
           <li>SuperFans get 3× the entries.</li>
-          <li>Before the Leaderboard 8 starts, each active alumnus of those 8 schools nominates one fan (one entry each).</li>
+          <li>Before the Season Championship Tournament starts, each active alumnus of those 8 schools nominates one fan (one entry each).</li>
         </ul>
       </section>
 
@@ -96,6 +125,10 @@ export default function BracketRules() {
         .ybr-rules ul, .ybr-rules ol { margin:0 0 8px; padding-left:20px; color:var(--text); font-size:14px; line-height:1.5; }
         .ybr-rules li { margin:0 0 5px; }
         .ybr-rules b { color:var(--gold); font-weight:600; }
+        .ybr-sched { width:100%; border-collapse:collapse; margin:0 0 10px; font-size:13.5px; color:var(--text); }
+        .ybr-sched td { padding:4px 8px; border-top:1px solid var(--line); }
+        .ybr-sched td:first-child { color:var(--gold); font:500 13.5px/1.3 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; }
+        .ybr-sched td:last-child { color:var(--muted); white-space:nowrap; text-align:right; }
       `}</style>
     </div>
   );
