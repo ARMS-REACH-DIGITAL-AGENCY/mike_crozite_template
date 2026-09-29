@@ -28,8 +28,8 @@
 //     leaderboard is ranked on total runs.
 //   Weeks 28-30 (Aug 17 - Sep 6, alongside the Championship): the 8
 //     regional leaderboard leaders play a single-game, 8-team bracket.
-//   Weeks 31-33 (Sep 7-27): the Grand Final, best of 3, bracket champion
-//     v leaderboard champion.
+//   Week 31 (Sep 7-13): the Grand Final, one game, bracket champion v
+//     leaderboard champion.
 //
 // Usage:
 //   npx tsx scripts/simulate-bracket-2026.ts --data <dir> --out results.json [--mode adjusted|raw] [--absent hold|forfeit|average] [--no-spring]
@@ -436,13 +436,10 @@ for (let week = LB_LAST_WEEK + 1; week <= LB_LAST_WEEK + 3; week++) {
 }
 const lbChampion = lbAlive[0];
 
-// Weeks 31-33: the Grand Final, best of 3; the bracket champion is home.
-const grandFinalSeries = playSeries((g) => {
-  const row = game(30 + g, champion, lbChampion, 1, 2);
-  return { row, winner: row.winner === champion ? ('home' as const) : row.winner === lbChampion ? ('away' as const) : null };
-});
-const grandFinalGames = grandFinalSeries.games.map((g) => g.row);
-const grandChampion = grandFinalSeries.winner === 'home' ? champion : lbChampion;
+// Week 31: the Grand Final, one game; the bracket champion is home (and
+// the better seed if it comes to that tiebreak).
+const grandFinalGames = [game(31, champion, lbChampion, 1, 2)];
+const grandChampion = grandFinalGames[0].winner!;
 
 // ---------------------------------------------------------------------------
 // Summary
@@ -470,7 +467,7 @@ const summary = {
   regionChamps,
   lbLeaders,
   lbChampion,
-  grandFinal: { weeks: [31, 33], dates: `${iso(weekStart(31))} to ${iso(weekStart(33) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, winner: grandChampion },
+  grandFinal: { week: 31, dates: `${iso(weekStart(31))} to ${iso(weekStart(31) + 6 * DAY)}`, bracketChampion: champion, leaderboardChampion: lbChampion, winner: grandChampion },
 };
 
 // Each school's whole bracket season (weeks 1-30) on the same scale, to
