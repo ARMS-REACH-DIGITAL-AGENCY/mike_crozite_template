@@ -823,9 +823,15 @@ export function Styles() {
   return (
     <style jsx global>{`
       .bl { --bg:#0b0d10; --panel:#141820; --panel2:#1b2029; --line:#262c37; --text:#e9ecf1; --muted:#8b93a1; --gold:#ffd24a; --win:#7fd18b; --loss:#e2786a;
+        --dim:#5d6573; --faint:#6a7280; --gold-bg:#2a2412; --tint:rgba(255,255,255,.08); --tint2:rgba(255,255,255,.02); --gold-tint:rgba(255,210,74,.08);
         min-height:100vh; background:var(--bg); color:var(--text); font:400 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding:24px 16px 80px; }
       .bl * { box-sizing:border-box; }
       .bl.bl-embed { min-height:0; padding:16px 16px 48px; }
+      /* On a school's page the cards follow the site's light / dark toggle. */
+      body.light-theme .bl.bl-embed { --bg:#f4f4f4; --panel:#fff; --panel2:#f3f4f6; --line:#e1e4e8; --text:#121212; --muted:#5f6670; --gold:#b07d00;
+        --win:#1e8e3e; --loss:#c62828; --dim:#a0a6ae; --faint:#80868e; --gold-bg:#fff4d6; --tint:rgba(0,0,0,.06); --tint2:rgba(0,0,0,.02); --gold-tint:rgba(255,193,7,.14); }
+      body.light-theme .bl.bl-embed .bl-days td.won { color:#000; background:#ffc107; }
+      body.light-theme .bl.bl-embed .bl-board em.q { background:#ffc107; }
       .bl-head { max-width:1180px; margin:0 auto 16px; display:flex; flex-direction:column; gap:6px; }
       .bl-kick { font:500 11px/1.3 Oswald, sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); }
       .bl-head h1 { margin:0; font:400 clamp(34px,6vw,56px)/1 "Bebas Neue", Oswald, sans-serif; letter-spacing:.02em; }
@@ -837,7 +843,7 @@ export function Styles() {
       .bl-pills button { flex:none; display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text); cursor:pointer; }
       .bl-pills button b { font:500 13px/1.1 Oswald, sans-serif; letter-spacing:.04em; }
       .bl-pills button span { font-size:11px; color:var(--muted); white-space:nowrap; }
-      .bl-pills button.on { border-color:var(--gold); background:#2a2412; }
+      .bl-pills button.on { border-color:var(--gold); background:var(--gold-bg); }
       .bl-pills button.on b { color:var(--gold); }
       .bl-filters { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
       .bl-search { flex:1 1 220px; }
@@ -885,7 +891,7 @@ export function Styles() {
       .bl-ls thead th { color:var(--muted); font-weight:400; font-size:11.5px; }
       .bl-ls tbody th { text-align:left; padding-left:12px; font-weight:500; color:var(--muted); }
       .bl-ls tr.me th { color:var(--gold); }
-      .bl-ls td { color:#5d6573; }
+      .bl-ls td { color:var(--dim); }
       .bl-ls td.hit { color:var(--text); }
       .bl-ls .sep { border-left:1px solid var(--line); }
       .bl-ls td.r { color:var(--text); font-size:15px; }
@@ -896,7 +902,7 @@ export function Styles() {
       .bl-tabs em { margin-left:auto; font-style:normal; font:600 13px/1 Oswald, sans-serif; padding:3px 7px; border-radius:4px; }
       .bl-tabs em.me { background:rgba(127,209,139,.15); color:var(--win); }
       .bl-tabs em.them { background:rgba(226,120,106,.15); color:var(--loss); }
-      .bl-tabs em.tie { background:rgba(255,255,255,.08); color:var(--muted); }
+      .bl-tabs em.tie { background:var(--tint); color:var(--muted); }
       .bl-box { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
       .bl-box th, .bl-box td { padding:5px 3px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
       .bl-box thead th { color:var(--muted); font:500 11px/1 Oswald, sans-serif; letter-spacing:.04em; }
@@ -905,7 +911,7 @@ export function Styles() {
       .bl-box .none { color:var(--muted); font-style:italic; }
       .bl-box .plus { color:var(--gold); font-weight:600; padding-right:10px; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
-      .bl-how { margin:10px 12px 12px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.02); }
+      .bl-how { margin:10px 12px 12px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--tint2); }
       .bl-howt { font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
       .bl-days { width:100%; border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums; }
       .bl-days th, .bl-days td { padding:3px 2px; text-align:center; }
@@ -916,7 +922,7 @@ export function Styles() {
       .bl-wl { margin-top:6px; font-size:12px; color:var(--muted); }
       .bl-wl b { color:var(--text); }
       .bl-wl em { color:var(--gold); font-style:normal; }
-      .bl-legend { margin-top:4px; font-size:11px; color:#6a7280; }
+      .bl-legend { margin-top:4px; font-size:11px; color:var(--faint); }
       .bl-muted { padding:10px 12px; color:var(--muted); font-size:13px; }
       .bl-muted.small { padding-top:0; font-size:11.5px; }
       .bl-empty { max-width:1180px; margin:40px auto; color:var(--muted); }
@@ -930,7 +936,7 @@ export function Styles() {
       .bl-weekbar input { width:100%; accent-color:var(--gold); }
       .bl-weeklabel { grid-column:1 / -1; color:var(--muted); font-size:13.5px; }
       .bl-weeklabel b { color:var(--gold); font:500 15px/1 Oswald, sans-serif; letter-spacing:.04em; }
-      .bl-announce { border:1px solid var(--gold); border-radius:12px; background:linear-gradient(180deg, #2a2412, var(--panel)); padding:14px 16px; }
+      .bl-announce { border:1px solid var(--gold); border-radius:12px; background:linear-gradient(180deg, var(--gold-bg), var(--panel)); padding:14px 16px; }
       .bl-announce-t { font:500 13px/1.2 Oswald, sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); }
       .bl-announce p { margin:6px 0 10px; color:var(--muted); font-size:13.5px; }
       .bl-announce p b { color:var(--text); }
@@ -957,7 +963,7 @@ export function Styles() {
       .bl-board td.st.alive { color:var(--text); }
       .bl-board td.st.out { color:var(--muted); }
       .bl-board td.st.champ { color:var(--gold); }
-      .bl-board tr.lead td { background:rgba(255,210,74,.08); }
+      .bl-board tr.lead td { background:var(--gold-tint); }
       .bl-board tr.lead .nm .bl-link { color:var(--gold); font-weight:600; }
       .bl-board tr.extra td { border-top:1px dashed var(--line); }
       .bl-board em.q { margin-left:6px; font-style:normal; font:600 10px/1 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; color:#000; background:var(--gold); padding:2px 5px; border-radius:3px; }
