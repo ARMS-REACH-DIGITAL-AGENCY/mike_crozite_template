@@ -44,7 +44,8 @@ export type Index = {
 // A leaderboard game: the same as a GameRow plus the region.
 export type LbGame = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null, region: number];
 // [playerid, name, level, simulated, bat [PA AB H 2B 3B HR BB HBP SF] | 0, pit [outs HR BB HBP K] | 0, OPS+, FIP-]
-export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null];
+// ... then his real club's W-L that week (inning 9), when he was on a roster.
+export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?];
 export type SideBox = { p: PlayerRow[]; wl: [number, number] };
 export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
 
@@ -784,6 +785,73 @@ export function FlipCard({ game, label, index, box, loading, front = 'h', back }
   );
 }
 
+// Box-score names: last name only, with the first initial when two players
+// on the same side share it (B. Smith, R. Smith). Jr./Sr./II stay on.
+export function shortNames(players: PlayerRow[]) {
+  const last = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    const tail = parts[parts.length - 1];
+    return parts.length > 2 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(tail) ? `${parts[parts.length - 2]} ${tail}` : tail;
+  };
+  const count = new Map<string, number>();
+  for (const p of players) count.set(last(p[1]), (count.get(last(p[1])) || 0) + 1);
+  return new Map(players.map((p) => [p[0], (count.get(last(p[1])) || 0) > 1 ? `${p[1].trim()[0]}. ${last(p[1])}` : last(p[1])]));
+}
+
+type SortCol = { key: string; label: string; cls?: string; val: (p: PlayerRow) => number | null; show: (p: PlayerRow) => ReactNode };
+// A box-score table whose headers sort it: a tap sorts high to low, a
+// second tap low to high (the name sorts A-Z). The Team row stays last.
+function SortTable({ title, rows, cols, player, labels, total, empty }: {
+  title: string; rows: PlayerRow[]; cols: SortCol[]; player: (p: PlayerRow) => ReactNode; labels: Map<string, string>; total: ReactNode[]; empty: string;
+}) {
+  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
+  const sorted = useMemo(() => {
+    if (!sort) return rows;
+    const col = cols.find((c) => c.key === sort.key);
+    if (sort.key === 'name') return [...rows].sort((a, b) => sort.dir * (labels.get(a[0]) || '').localeCompare(labels.get(b[0]) || ''));
+    if (!col) return rows;
+    return [...rows].sort((a, b) => {
+      const va = col.val(a), vb = col.val(b);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      return sort.dir * (vb - va);
+    });
+  }, [rows, cols, sort, labels]);
+  const click = (key: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSort((s) => (s && s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === 'name' ? -1 : 1 }));
+  };
+  const arrow = (key: string) => (sort?.key === key ? (sort.dir === 1 ? (key === 'name' ? ' ▲' : ' ▼') : (key === 'name' ? ' ▼' : ' ▲')) : '');
+  return (
+    <div className="bl-scroll">
+      <table className="bl-box">
+        <thead>
+          <tr>
+            <th className="nm"><button type="button" className="bl-sort" onClick={click('name')}>{title}{arrow('name')}</button></th>
+            {cols.map((c) => <th key={c.key} className={c.cls}><button type="button" className="bl-sort" onClick={click(c.key)}>{c.label}{arrow(c.key)}</button></th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && empty && <tr><td className="nm none" colSpan={cols.length + 1}>{empty}</td></tr>}
+          {sorted.map((p) => (
+            <tr key={p[0]}>
+              <td className="nm">{player(p)}</td>
+              {cols.map((c) => <td key={c.key} className={c.cls}>{c.show(p)}</td>)}
+            </tr>
+          ))}
+          {rows.length > 0 && (
+            <tr className="tot">
+              <td className="nm">Team</td>
+              {total.map((v, i) => <td key={i} className={cols[i]?.cls}>{v}</td>)}
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
@@ -799,6 +867,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
   const batters = (mine?.p || []).filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = (mine?.p || []).filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
+  const benched = (mine?.p || []).filter((p) => !p[4] && !p[5] && p[8]);
   const teamBat = batters.reduce((t, p) => (p[4] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const teamPit = pitchers.reduce((t, p) => (p[5] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const obpSlg = (b: number[]) => {
@@ -811,11 +880,34 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const owl = theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '—');
   const sim = (mine?.p || []).some((p) => p[3]);
+  // Last names only; an initial when two share one (B. Smith, R. Smith).
+  const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
   const player = (p: PlayerRow) => (
-    <><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()}>{p[1]}{p[3] ? '*' : ''}</a> <small>{lvl(p[2])}</small></>
+    <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}{p[3] ? '*' : ''}</a>
   );
+  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}` : '—');
+  const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
+  const bat = (p: PlayerRow) => p[4] as number[];
+  const batCols: SortCol[] = [
+    { key: 'ops+', label: 'OPS+', cls: 'plus', val: (p) => p[6] ?? null, show: (p) => p[6] ?? '—' },
+    { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
+    ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((label, i): SortCol => ({ key: label, label, val: (p) => bat(p)[i + 1], show: (p) => bat(p)[i + 1] })),
+    { key: 'ops', label: 'OPS', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
+  ];
+  const pit = (p: PlayerRow) => p[5] as number[];
+  const pitCols: SortCol[] = [
+    { key: 'fip-', label: 'FIP-', cls: 'plus', val: (p) => p[7] ?? null, show: (p) => p[7] ?? '—' },
+    { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
+    { key: 'ip', label: 'IP', val: (p) => pit(p)[0], show: (p) => ip(pit(p)[0]) },
+    { key: 'k', label: 'K', val: (p) => pit(p)[4], show: (p) => pit(p)[4] },
+    { key: 'bb', label: 'BB', val: (p) => pit(p)[2], show: (p) => pit(p)[2] },
+    { key: 'hbp', label: 'HBP', val: (p) => pit(p)[3], show: (p) => pit(p)[3] },
+    { key: 'hr', label: 'HR', val: (p) => pit(p)[1], show: (p) => pit(p)[1] },
+  ];
+  const benchCols: SortCol[] = [{ key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell }];
+  const teamWl = `${wl[0]}-${wl[1]}`;
 
   return (
     // A tap anywhere on the card flips it, like the player gallery.
@@ -868,62 +960,13 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
       {!loading && !mine && <div className="bl-muted">No box score.</div>}
       {mine && (
         <>
-          <div className="bl-scroll">
-            <table className="bl-box">
-              <thead>
-                <tr><th className="nm">Batters</th><th className="plus">OPS+</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>BB</th><th>HBP</th><th>SF</th><th>OPS</th></tr>
-              </thead>
-              <tbody>
-                {batters.length === 0 && <tr><td className="nm none" colSpan={11}>No hitters played this week</td></tr>}
-                {batters.map((p) => {
-                  const b = p[4] as number[];
-                  return (
-                    <tr key={p[0]}>
-                      <td className="nm">{player(p)}</td>
-                      <td className="plus">{p[6] ?? '—'}</td>
-                      {b.slice(1).map((v, i) => <td key={i}>{v}</td>)}
-                      <td>{rate(obpSlg(b))}</td>
-                    </tr>
-                  );
-                })}
-                {batters.length > 0 && (
-                  <tr className="tot">
-                    <td className="nm">Team</td>
-                    <td className="plus">{weekVals ? fmtStat(weekVals[me]) : '—'}</td>
-                    {teamBat.slice(1).map((v, i) => <td key={i}>{v}</td>)}
-                    <td>{rate(obpSlg(teamBat))}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="bl-scroll">
-            <table className="bl-box">
-              <thead>
-                <tr><th className="nm">Pitchers</th><th className="plus">FIP-</th><th>IP</th><th>K</th><th>BB</th><th>HBP</th><th>HR</th></tr>
-              </thead>
-              <tbody>
-                {pitchers.length === 0 && <tr><td className="nm none" colSpan={7}>No pitchers pitched this week</td></tr>}
-                {pitchers.map((p) => {
-                  const [outs, hr, bb, hbp, so] = p[5] as number[];
-                  return (
-                    <tr key={p[0]}>
-                      <td className="nm">{player(p)}</td>
-                      <td className="plus">{p[7] ?? '—'}</td>
-                      <td>{ip(outs)}</td><td>{so}</td><td>{bb}</td><td>{hbp}</td><td>{hr}</td>
-                    </tr>
-                  );
-                })}
-                {pitchers.length > 0 && (
-                  <tr className="tot">
-                    <td className="nm">Team</td>
-                    <td className="plus">{weekVals ? fmtStat(weekVals[2 + me]) : '—'}</td>
-                    <td>{ip(teamPit[0])}</td><td>{teamPit[4]}</td><td>{teamPit[2]}</td><td>{teamPit[3]}</td><td>{teamPit[1]}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No hitters played this week"
+            total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obpSlg(teamBat))]} />
+          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers pitched this week"
+            total={[weekVals ? fmtStat(weekVals[2 + me]) : '—', teamWl, ip(teamPit[0]), teamPit[4], teamPit[2], teamPit[3], teamPit[1]]} />
+          {benched.length > 0 && (
+            <SortTable title="On a roster, didn't play" rows={benched} cols={benchCols} player={player} labels={labels} empty="" total={[teamWl]} />
+          )}
 
           <div className="bl-how">
             <div className="bl-howt">How the runs were scored</div>
@@ -1111,6 +1154,9 @@ export function Styles() {
       .bl-box .plus { color:var(--gold); font-weight:700; padding-left:6px; padding-right:8px; text-align:center; }
       .bl-box th:last-child, .bl-box td:last-child { padding-right:14px; }
       .bl-plink { color:inherit; text-decoration:none; }
+      .bl-box .wl { color:var(--text); padding-left:4px; padding-right:6px; }
+      .bl-sort { padding:0; border:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; cursor:pointer; white-space:nowrap; }
+      .bl-sort:hover { color:var(--gold); }
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
       .bl-how { margin:10px 12px 12px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--tint2); }

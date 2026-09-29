@@ -325,16 +325,26 @@ for (const r of colPit) {
 const clubResults = new Map<string, { w: number; l: number }>();
 for (const r of [...rows('team_results.csv', ','), ...(SPRING ? rows('spring_results.csv', ',') : [])]) clubResults.set(`${r.teamid}|${r.date}`, { w: num(r.w), l: num(r.l) });
 const weeklyWL = new Map<string, { w: number; l: number }>(); // `${hsid}|${week}`
-function addWL(hsid: number, date: string, club: string) {
+// Each alumnus's own share (his club's record that week), for the box score:
+// `${hsid}|${week}` -> playerid -> W-L.
+const playerWL = new Map<string, Map<string, { w: number; l: number }>>();
+function addWL(hsid: number, date: string, club: string, playerid: string) {
   const res = clubResults.get(`${club}|${date}`);
   if (!res || !schools.has(hsid)) return;
   const key = `${hsid}|${weekOf(date)}`;
   const wl = weeklyWL.get(key) || { w: 0, l: 0 };
   wl.w += res.w; wl.l += res.l;
   weeklyWL.set(key, wl);
+  if (!playerWL.has(key)) playerWL.set(key, new Map());
+  const pw = playerWL.get(key)!.get(playerid) || { w: 0, l: 0 };
+  pw.w += res.w; pw.l += res.l;
+  playerWL.get(key)!.set(playerid, pw);
 }
+// A rostered alumnus's level (for the ones who didn't play that week).
+const stintLevel = new Map<string, string>();
 for (const r of rows('stints.csv', ',')) {
-  for (let t = Date.parse(r.start); iso(t) <= r.end && iso(t) <= LAST_DATA_DAY; t += DAY) addWL(num(r.hsid), iso(t), r.teamid);
+  stintLevel.set(r.playerid, r.level);
+  for (let t = Date.parse(r.start); iso(t) <= r.end && iso(t) <= LAST_DATA_DAY; t += DAY) addWL(num(r.hsid), iso(t), r.teamid, r.playerid);
 }
 if (SPRING) {
   const springClubs = new Map<string, { hsid: number; clubs: Set<string> }>(); // `${playerid}|${week}`
@@ -346,8 +356,9 @@ if (SPRING) {
     springClubs.set(key, cur);
   }
   for (const [key, { hsid, clubs }] of springClubs) {
-    const week = Number(key.split('|')[1]);
-    for (const club of clubs) for (const date of weekDates(week)) if (date < '2026-03-25') addWL(hsid, date, club);
+    const [playerid, wk] = key.split('|');
+    const week = Number(wk);
+    for (const club of clubs) for (const date of weekDates(week)) if (date < '2026-03-25') addWL(hsid, date, club, playerid);
   }
 }
 
@@ -609,7 +620,8 @@ function exportGallery(dir: string) {
       addToBuckets(cur.buckets, pd.level, pd.bat, pd.pit);
       byPlayer.set(pd.playerid, cur);
     }
-    const players = [...byPlayer.entries()].map(([pid, p]) => [
+    const wlOf = playerWL.get(`${hsid}|${week}`) || new Map<string, { w: number; l: number }>();
+    const players: unknown[][] = [...byPlayer.entries()].map(([pid, p]) => [
       pid,
       names.get(pid) || `Player ${pid}`,
       [...p.levels].join('/'),
@@ -618,7 +630,14 @@ function exportGallery(dir: string) {
       p.pit && p.pit.outs ? pitArr(p.pit) : 0,
       p.bat && p.bat.pa ? round1(offenseScore(p.buckets, baselines, MODE)) : null,
       p.pit && p.pit.outs ? round1(pitchingScore(p.buckets, baselines, MODE)) : null,
+      // his club's W-L that week (inning 9); none when he wasn't on a club's roster
+      wlOf.has(pid) ? [wlOf.get(pid)!.w, wlOf.get(pid)!.l] : null,
     ]);
+    // Alumni on a roster who didn't play still count their club's W-L.
+    for (const [pid, wl] of wlOf) {
+      if (byPlayer.has(pid)) continue;
+      players.push([pid, names.get(pid) || `Player ${pid}`, stintLevel.get(pid) || '', 0, 0, 0, null, null, [wl.w, wl.l]]);
+    }
     const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
     return { p: players, wl: [wl.w, wl.l] };
   }
