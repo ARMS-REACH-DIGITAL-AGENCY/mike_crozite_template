@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  abbr, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
+  abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -52,10 +52,28 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 }) {
   const g = card.game;
   const S = index.schools;
+  const [previewData, setPreviewData] = useState<{ box?: GameBox; homeRoster: ActiveRosterPlayer[]; awayRoster: ActiveRosterPlayer[] } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!g) { setPreviewData(null); return () => { cancelled = true; }; }
+    const boxPromise = card.file ? loadBoxes(card.file).then((all) => all[String(g[0])]).catch(() => undefined) : Promise.resolve(undefined);
+    Promise.all([boxPromise, loadActiveRoster(g[2]), loadActiveRoster(g[3])])
+      .then(([box, homeRoster, awayRoster]) => { if (!cancelled) setPreviewData({ box, homeRoster, awayRoster }); })
+      .catch(() => { if (!cancelled) setPreviewData({ box: undefined, homeRoster: [], awayRoster: [] }); });
+    return () => { cancelled = true; };
+  }, [g, card.file]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
   const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
-  const [hr, ar] = g ? runsThrough(g, card.days) : [0, 0];
+  const corrected = g && previewData?.box
+    ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
+    : null;
+  const shownInnings = corrected?.innings || g?.[5] || [];
+  const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
+  const [hr, ar] = corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr];
+  const correctedWinner = g && corrected && card.state === 'final'
+    ? (corrected.score[0] === corrected.score[1] ? g[6] : corrected.score[0] > corrected.score[1] ? g[2] : g[3])
+    : g?.[6] ?? null;
   const played = card.state === 'final' || card.state === 'live';
 
   if (!g) {
@@ -74,7 +92,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     const h = side === 'h' ? g[2] : g[3];
     const off = side === 'h' ? 0 : 1;
     const runs = side === 'h' ? hr : ar;
-    const won = card.state === 'final' && g[6] === h;
+    const won = card.state === 'final' && correctedWinner === h;
     const name = shortName(S[h]?.[0] || '');
     return (
       <div className={`yfp-green-row${h === me ? ' me' : ''}${won ? ' won' : ''}`}>
@@ -85,7 +103,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         </button>
         {[0,1,2,3,4,5,6,7,8].map((i) => {
           const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
-          return <span key={i} className={`yfp-green-slot${shown && g[5][i * 2 + off] ? ' scored' : ''}`}>{shown ? g[5][i * 2 + off] : ''}</span>;
+          const value = shownInnings[i * 2 + off];
+          return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
         <span className="yfp-green-run">{played ? runs : ''}{won ? <i aria-label="winner">◀</i> : null}</span>
       </div>
