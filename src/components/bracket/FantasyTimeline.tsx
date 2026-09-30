@@ -16,20 +16,10 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type Index, type LbGame, LAST_WEEK, abbr, fmtDate, fmtRange, loadIndex, loadLb, previewDate, shortName } from './gallery';
-import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { focusWeek, useBracketNav } from './bracketNav';
 
-const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
-// The same cutouts the Career Path Timeline uses: the trimmed WebP on S3,
-// then /api/cutout (which trims one on the fly); his current photo first.
-const cutouts = (id: string) => [
-  `${S3_BASE}/players/now-web/${encodeURIComponent(id)}.webp`,
-  `/api/cutout?kind=now&id=${encodeURIComponent(id)}`,
-  `${S3_BASE}/players/back-web/${encodeURIComponent(id)}.webp`,
-  `${S3_BASE}/players/then-web/${encodeURIComponent(id)}.webp`,
-  `/api/cutout?kind=then&id=${encodeURIComponent(id)}`,
-];
 
 // An image that works down a list of sources until one loads.
 function Fallback({ srcs, className, alt }: { srcs: string[]; className: string; alt: string }) {
@@ -75,7 +65,7 @@ function Board({ index, card, me }: { index: Index; card: WeekCard; me: number }
   );
 }
 
-function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard; me: number; star?: Star; onTap: () => void }) {
+function Slide({ index, card, me, star, identity, onTap }: { index: Index; card: WeekCard; me: number; star?: Star; identity?: CurrentPlayerIdentity; onTap: () => void }) {
   const S = index.schools;
   const g = card.game;
   const opp = g ? (g[2] === me ? g[3] : g[2]) : 0;
@@ -102,13 +92,13 @@ function Slide({ index, card, me, star, onTap }: { index: Index; card: WeekCard;
       {opp ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(opp), CREST_FALLBACK_PATH]} alt="" /> : null}
       <span className="yft-grad" aria-hidden="true" />
       {star
-        ? <Fallback className="yft-person" srcs={[...cutouts(star[5]), SILHOUETTE]} alt={star[0]} />
+        ? <Fallback className="yft-person" srcs={identity?.headshotUrl ? [identity.headshotUrl, SILHOUETTE] : [SILHOUETTE]} alt={star[0]} />
         : <span className="yft-mark" aria-hidden="true">{opp ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(opp), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
       <span className="yft-copy">
         <span className="yft-kick">Week {card.week} · {card.stage.replace(/ leaderboard game$/, ' game')} · {dates}</span>
         <Board index={index} card={card} me={me} />
         {star && card.state === 'final'
-          ? <span className="yft-body"><b>★ Alumni of the Week</b><a className="yft-plink" href={`/${me}/player/${encodeURIComponent(star[5])}`} onClick={(e) => e.stopPropagation()}>{starLine(star)}</a></span>
+          ? <span className="yft-body"><b>★ Alumni of the Week</b><a className="yft-plink" href={`/${me}/player/${encodeURIComponent(star[5])}`} onClick={(e) => e.stopPropagation()}>{starLine(star, identity)}</a></span>
           : body ? <span className="yft-body">{body}</span> : null}
       </span>
     </div>
@@ -120,6 +110,7 @@ export default function FantasyTimeline() {
   const me = Number(school?.hsid || 0);
   const [data, setData] = useState<{ index: Index; lb: LbGame[]; asof: string } | null>(null);
   const [stars, setStars] = useState<Record<number, Star>>({});
+  const [identities, setIdentities] = useState<Record<string, CurrentPlayerIdentity>>({});
   const [active, setActive] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,6 +128,13 @@ export default function FantasyTimeline() {
     loadStars(region).then((all) => { if (!cancelled) setStars(all[me] || {}); });
     return () => { cancelled = true; };
   }, [region, me]);
+  useEffect(() => {
+    const ids = Object.values(stars).map((s) => s[5]);
+    if (!ids.length) { setIdentities({}); return; }
+    let cancelled = false;
+    loadCurrentPlayerIdentities(ids).then((rows) => { if (!cancelled) setIdentities(rows); });
+    return () => { cancelled = true; };
+  }, [stars]);
 
   const go = useCallback((i: number, smooth = true) => {
     const el = trackRef.current;
@@ -167,7 +165,7 @@ export default function FantasyTimeline() {
     <section className="yft-hero" aria-label="The season, week by week">
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {cards.map((c) => (
-          <Slide key={c.week} index={data.index} card={c} me={me} star={c.state === 'final' ? stars[c.week] : undefined} onTap={() => focusWeek(c.week)} />
+          <Slide key={c.week} index={data.index} card={c} me={me} star={c.state === 'final' ? stars[c.week] : undefined} identity={c.state === 'final' && stars[c.week] ? identities[stars[c.week][5]] : undefined} onTap={() => focusWeek(c.week)} />
         ))}
       </div>
       <button type="button" className="yft-nav prev" onClick={() => go(Math.max(0, active - 1))} disabled={active === 0} aria-label="Previous week">‹</button>
