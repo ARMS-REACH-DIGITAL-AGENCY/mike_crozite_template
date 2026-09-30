@@ -150,6 +150,25 @@ const proLevel = (r: Record<string, string>) => {
   return m ? [...m.entries()].sort((a, b) => b[1] - a[1])[0][0] : 'ROOKIE';
 };
 
+// Canonical season roster: membership comes from 2026 source rows, never
+// from whether a player happened to appear in a particular tournament week
+// or whether a club W-L result exists for him that week.
+type CanonicalRosterEntry = { levels: Set<string>; simulated: boolean };
+const seasonRoster = new Map<number, Map<string, CanonicalRosterEntry>>();
+function addSeasonRoster(hsid: number, playerid: string, level: string, simulated: boolean) {
+  if (!schools.has(hsid) || !playerid) return;
+  if (!seasonRoster.has(hsid)) seasonRoster.set(hsid, new Map());
+  const roster = seasonRoster.get(hsid)!;
+  const cur = roster.get(playerid) || { levels: new Set<string>(), simulated };
+  cur.levels.add(level === 'SPRING' ? 'MLB' : level);
+  cur.simulated = cur.simulated && simulated;
+  roster.set(playerid, cur);
+}
+for (const r of proBat) addSeasonRoster(num(r.hsid), r.playerid, proLevel(r), false);
+for (const r of proPit) addSeasonRoster(num(r.hsid), r.playerid, proLevel(r), false);
+for (const r of colBat) addSeasonRoster(num(r.hsid), r.playerid, levelOf(r.level), true);
+for (const r of colPit) addSeasonRoster(num(r.hsid), r.playerid, levelOf(r.level), true);
+
 // ---------------------------------------------------------------------------
 // Level baselines (2026 averages of the alumni in the bracket)
 // ---------------------------------------------------------------------------
@@ -627,23 +646,47 @@ function exportGallery(dir: string) {
       byPlayer.set(pd.playerid, cur);
     }
     const wlOf = playerWL.get(`${hsid}|${week}`) || new Map<string, { w: number; l: number }>();
-    const players: unknown[][] = [...byPlayer.entries()].map(([pid, p]) => [
-      pid,
-      names.get(pid) || `Player ${pid}`,
-      [...p.levels].join('/'),
-      p.sim ? 1 : 0,
-      p.bat && p.bat.pa ? batArr(p.bat) : 0,
-      p.pit && p.pit.outs ? pitArr(p.pit) : 0,
-      p.bat && p.bat.pa ? round1(offenseScore(p.buckets, baselines, MODE)) : null,
-      p.pit && p.pit.outs ? round1(pitchingScore(p.buckets, baselines, MODE)) : null,
-      // his club's W-L that week (inning 9); none when he wasn't on a club's roster
-      wlOf.has(pid) ? [wlOf.get(pid)!.w, wlOf.get(pid)!.l] : null,
-    ]);
-    // Alumni on a roster who didn't play still count their club's W-L.
-    for (const [pid, wl] of wlOf) {
+    const hasPitchingAppearance = (pit: PitTotals | null) =>
+      Boolean(pit && (pit.outs || pit.hr || pit.bb || pit.hbp || pit.so));
+    const players: unknown[][] = [...byPlayer.entries()].map(([pid, p]) => {
+      const pitched = hasPitchingAppearance(p.pit);
+      return [
+        pid,
+        names.get(pid) || `Player ${pid}`,
+        [...p.levels].join('/'),
+        p.sim ? 1 : 0,
+        p.bat && p.bat.pa ? batArr(p.bat) : 0,
+        pitched ? pitArr(p.pit!) : 0,
+        p.bat && p.bat.pa ? round1(offenseScore(p.buckets, baselines, MODE)) : null,
+        pitched ? round1(pitchingScore(p.buckets, baselines, MODE)) : null,
+        // his club's W-L that week (inning 9); null is an honest unavailable state
+        wlOf.has(pid) ? [wlOf.get(pid)!.w, wlOf.get(pid)!.l] : null,
+      ];
+    });
+    // Start every scorecard from the full season-eligible roster. Weekly
+    // production and W-L availability decorate roster membership; neither
+    // is allowed to decide whether an alumnus exists on the card.
+    const canonical = seasonRoster.get(hsid) || new Map<string, CanonicalRosterEntry>();
+    for (const [pid, r] of canonical) {
       if (byPlayer.has(pid)) continue;
+      const wl = wlOf.get(pid);
+      players.push([
+        pid,
+        names.get(pid) || `Player ${pid}`,
+        [...r.levels].join('/') || stintLevel.get(pid) || '',
+        r.simulated ? 1 : 0,
+        0, 0, null, null,
+        wl ? [wl.w, wl.l] : null,
+      ]);
+    }
+    // A stint-only alumnus can still contribute to inning 9 even if the
+    // season source feed lacks a batting/pitching row. Keep that contribution
+    // visible, but do not let it replace the canonical source roster.
+    for (const [pid, wl] of wlOf) {
+      if (byPlayer.has(pid) || canonical.has(pid)) continue;
       players.push([pid, names.get(pid) || `Player ${pid}`, stintLevel.get(pid) || '', 0, 0, 0, null, null, [wl.w, wl.l]]);
     }
+    players.sort((a, b) => String(a[1]).localeCompare(String(b[1])) || String(a[0]).localeCompare(String(b[0])));
     const wl = weeklyWL.get(`${hsid}|${week}`) || { w: 0, l: 0 };
     return { p: players, wl: [wl.w, wl.l] };
   }
@@ -728,9 +771,17 @@ function exportGallery(dir: string) {
     return [...gameOut(`d-lb-${g.week}-${region}`, g), region];
   });
 
+  const rosters = Object.fromEntries([...schools.values()].map((s) => {
+    const rows = [...(seasonRoster.get(s.hsid) || new Map<string, CanonicalRosterEntry>()).entries()]
+      .map(([pid, r]) => [pid, names.get(pid) || `Player ${pid}`, [...r.levels].join('/'), r.simulated ? 1 : 0])
+      .sort((a, b) => String(a[1]).localeCompare(String(b[1])) || String(a[0]).localeCompare(String(b[0])));
+    return [s.hsid, rows];
+  }));
   const index = {
     season: 2026,
+    snapshot: { id: 'sim-2026-v2', schema: 2, seed: SEED, generator: 'scripts/simulate-bracket-2026.ts' },
     rules: { mode: MODE, absent: ABSENT, spring: SPRING },
+    rosters,
     weeks: Array.from({ length: GRAND_FINAL_WEEK },(_, i) => [iso(weekStart(i + 1)), iso(weekStart(i + 1) + 6 * DAY)]),
     schools: Object.fromEntries([...schools.values()].map((s) => [s.hsid, [s.name, s.region, s.seed]])),
     rounds,
