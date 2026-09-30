@@ -867,7 +867,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
   const batters = (mine?.p || []).filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = (mine?.p || []).filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
-  const benched = (mine?.p || []).filter((p) => !p[4] && !p[5] && p[8]);
+  const benched = (mine?.p || []).filter((p) => !p[4] && !p[5]);
   const teamBat = batters.reduce((t, p) => (p[4] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const teamPit = pitchers.reduce((t, p) => (p[5] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const obpSlg = (b: number[]) => {
@@ -965,7 +965,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers pitched this week"
             total={[weekVals ? fmtStat(weekVals[2 + me]) : '—', teamWl, ip(teamPit[0]), teamPit[4], teamPit[2], teamPit[3], teamPit[1]]} />
           {benched.length > 0 && (
-            <SortTable title="On a roster, didn't play" rows={benched} cols={benchCols} player={player} labels={labels} empty="" total={[teamWl]} />
+            <SortTable title="Did not play / result unavailable" rows={benched} cols={benchCols} player={player} labels={labels} empty="" total={[teamWl]} />
           )}
 
           <div className="bl-how">
