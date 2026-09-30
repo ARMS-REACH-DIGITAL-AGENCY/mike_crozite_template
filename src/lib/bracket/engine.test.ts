@@ -57,6 +57,17 @@ test('FIP- is 100 for a league-average line and lower is better', () => {
   assert.equal(pitchingScore(off(), baselines, 'adjusted'), null);
 });
 
+test('zero-out pitching appearances with BB/HBP/HR are scored as bad outings, not absences', () => {
+  const disaster = day('MLB', {}, { outs: 0, hr: 1, bb: 2, hbp: 1, so: 0 });
+  const v = pitchingScore(disaster, baselines, 'adjusted');
+  assert.notEqual(v, null);
+  assert.ok(v! > 100, `zero-out disaster should be worse than league average, got ${v}`);
+
+  const team = teamPitching(new Map([['p', disaster]]), baselines, 'adjusted');
+  assert.notEqual(team, null);
+  assert.ok(team! > 100, `team score should retain the zero-out appearance, got ${team}`);
+});
+
 test("the school's OPS+ and FIP- are its players' own, weighted by playing time", () => {
   // MLB, 20 PA, .400 / .600 -> OPS+ 175; juco, 10 PA, .300 / .300 -> OPS+ 35
   const mlb = day('MLB', { pa: 20, ab: 20, h: 8, d2: 4 });
