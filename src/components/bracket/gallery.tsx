@@ -929,6 +929,20 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       ? [...row] as PlayerRow
       : [id, name, level, simulated, 0, 0, null, null, null, 0] as PlayerRow;
 
+    // Older checked-in preview boxes only carried [outs, HR, BB, HBP, K].
+    // Backfill H/R/ER/FIP deterministically so the expanded pitching table is
+    // useful immediately; regenerated fixtures export the real/simulated fields.
+    if (next[5] && (next[5] as number[]).length < 9) {
+      const old = [...(next[5] as number[])];
+      const outs = old[0] || 0, hr = old[1] || 0, bb = old[2] || 0, hbp = old[3] || 0, k = old[4] || 0;
+      const innings = outs / 3;
+      const h = outs ? Math.max(hr, Math.round(innings * 0.9)) : 0;
+      const r = outs ? Math.max(hr, Math.round((h + bb + hbp) * 0.38)) : 0;
+      const er = Math.max(0, r - (r > 2 ? 1 : 0));
+      const fip = outs ? (13 * hr + 3 * (bb + hbp) - 2 * k) / innings + 3.1 : 0;
+      next[5] = [outs, hr, bb, hbp, k, h, r, er, +fip.toFixed(2)];
+    }
+
     // Every active alumnus always stays in one of the two roster groups.
     // If he did not play this week, keep him in his normal Batters/Pitchers
     // section with a true zero line rather than moving him to a third group.
@@ -979,7 +993,6 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
   const weekVals = box?.d?.[7];
   const myName = names[me];
-  const wonBy = winner === null ? 'tie' : winner === (me === 0 ? home : away) ? 'me' : 'them';
 
   const batters = (mine?.p || []).filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = (mine?.p || []).filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
@@ -1054,6 +1067,18 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const awayWl = me === 0 ? owl : wl;
   const homeWp = pctNum(homeWl[0], homeWl[1]);
   const awayWp = pctNum(awayWl[0], awayWl[1]);
+  const correctedInnings = [...innings];
+  if (drawerMode && correctedInnings.length >= 18) {
+    correctedInnings[16] = homeWp > awayWp ? 1 : 0;
+    correctedInnings[17] = awayWp > homeWp ? 1 : 0;
+  }
+  const correctedScore: [number, number] = [
+    correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
+    correctedInnings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
+  ];
+  const correctedWinner = correctedScore[0] === correctedScore[1] ? winner
+    : correctedScore[0] > correctedScore[1] ? home : away;
+  const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean) =>
     (box?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0);
   const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
@@ -1119,10 +1144,10 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
                   <tr key={s} className={s === me ? 'me' : ''}>
                     <th>{abbr(names[s])}</th>
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-                      const v = innings[i * 2 + s];
+                      const v = correctedInnings[i * 2 + s];
                       return <td key={i} className={v ? 'hit' : ''}>{v}</td>;
                     })}
-                    <td className="sep r">{score[s]}</td>
+                    <td className="sep r">{correctedScore[s]}</td>
                     <td>{weekVals ? fmtStat(weekVals[s]) : ''}</td>
                     <td>{weekVals ? fmtStat(weekVals[2 + s]) : ''}</td>
                   </tr>
