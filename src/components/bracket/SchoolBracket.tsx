@@ -49,6 +49,92 @@ type Open = { card: WeekCard; side: 'h' | 'a' };
 // name, record, innings 1-9, runs, a marker on the winner - then the Alumni
 // of the Week. The round is the tab, so it isn't repeated here.
 export const shortStage = (stage: string) => stage.replace(/^Round \d+ · /, '').replace(/ leaderboard game$/, ' game');
+
+// UX prototype for game-level social actions. The UI contract intentionally
+// mirrors Player Moments (Like / Comment / Share). For now likes/comments are
+// kept in this browser so the redesign can be exercised without pretending
+// the 2026 simulation is production content. The component is isolated so
+// the 2027 live tournament can swap these reads/writes to the permanent
+// game-social API without changing the card layout.
+function GameSocialActions({ card, me }: { card: WeekCard; me: number }) {
+  const gameId = card.game?.[0];
+  const key = gameId ? `yat-fantasy-game-social:${gameId}` : '';
+  const [liked, setLiked] = useState(false);
+  const [comments, setComments] = useState<string[]>([]);
+  const [showComment, setShowComment] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [flash, setFlash] = useState('');
+
+  useEffect(() => {
+    if (!key) return;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      setLiked(Boolean(parsed?.liked));
+      setComments(Array.isArray(parsed?.comments) ? parsed.comments.map(String) : []);
+    } catch {}
+  }, [key]);
+
+  const persist = (nextLiked: boolean, nextComments: string[]) => {
+    if (!key) return;
+    try { localStorage.setItem(key, JSON.stringify({ liked: nextLiked, comments: nextComments })); } catch {}
+  };
+
+  const toggleLike = () => {
+    const next = !liked;
+    setLiked(next);
+    persist(next, comments);
+  };
+
+  const addComment = () => {
+    const text = draft.trim();
+    if (!text) return;
+    const next = [...comments, text].slice(-20);
+    setComments(next);
+    setDraft('');
+    persist(liked, next);
+  };
+
+  const share = async () => {
+    if (!card.game) return;
+    const round = Math.ceil(card.week / 3);
+    const url = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?round=${round}#fweek-${card.week}`;
+    const title = `YAT?STATS Fantasy Bracket · Round ${round} · Game ${((card.week - 1) % 3) + 1}`;
+    try {
+      if (navigator.share) await navigator.share({ title, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        setFlash('Link copied');
+        window.setTimeout(() => setFlash(''), 1600);
+      }
+    } catch {}
+  };
+
+  if (!gameId) return null;
+  return (
+    <div className="yfp-social" onClick={(e) => e.stopPropagation()}>
+      <div className="yfp-social-actions">
+        <button type="button" className={liked ? 'on' : ''} onClick={toggleLike} aria-pressed={liked}>
+          <i className={liked ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
+        </button>
+        <button type="button" onClick={() => setShowComment((v) => !v)}>
+          <i className="ri-chat-3-line" /> Comment{comments.length ? ` (${comments.length})` : ''}
+        </button>
+        <button type="button" onClick={share}>
+          <i className="ri-share-forward-line" /> Share
+        </button>
+        {flash ? <span className="yfp-social-flash">{flash}</span> : null}
+      </div>
+      {showComment ? (
+        <div className="yfp-social-comment">
+          {comments.length ? <small>{comments[comments.length - 1]}</small> : null}
+          <div><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addComment(); }} placeholder="Write a comment" /><button type="button" onClick={addComment}>Post</button></div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpen }: {
   index: Index; card: WeekCard; me: number; star?: Star; starIdentity?: CurrentPlayerIdentity; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void;
 }) {
@@ -106,6 +192,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       {card.state === 'final' && star && (
         <div className="yfp-star">★ <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star, starIdentity)}</a></div>
       )}
+      {card.state === 'final' ? <GameSocialActions card={card} me={me} /> : null}
     </article>
   );
 }
@@ -382,13 +469,18 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   }, [cal, cards]);
   const [picked, setPicked] = useState('');
   const tab = picked || nowTab;
-  // A round button also slides row 3's timeline to that round: its current
-  // week, or its latest finished week, or its first.
+  // One dock button = one hero slide. The timeline groups the three weeks
+  // into a single round history slide, so always address that slide by the
+  // round's first week instead of whichever weekly game happened most recently.
   const pickTab = (key: string) => {
     setPicked(key);
+    if (/^r\\d+$/.test(key)) {
+      const r = Number(key.slice(1));
+      slideToWeek((r - 1) * 3 + 1);
+      return;
+    }
     const list = tabs.find((t) => t.key === key)?.list || [];
-    const target = list.find((c) => c.week === cal?.week) || [...list].reverse().find((c) => c.state === 'final') || list[0];
-    if (target) slideToWeek(target.week);
+    if (list[0]) slideToWeek(list[0].week);
   };
 
   // Row 3's timeline: a slide opens its week's round and marks the card.
@@ -508,6 +600,17 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-star { margin-top: 3px; color: var(--yfp-gold); font: 500 11px/1.25 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .yfp-star a { color: var(--yfp-text); text-decoration: none; }
         .yfp-star a:hover { color: var(--yfp-gold); text-decoration: underline; }
+        .yfp-social { margin-top:5px; padding-top:4px; border-top:1px solid var(--yfp-card-border); }
+        .yfp-social-actions { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:center; }
+        .yfp-social-actions button { min-width:0; min-height:24px; padding:0 2px; border:0; background:transparent; color:var(--yfp-muted); font:600 9px/1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
+        .yfp-social-actions button i { margin-right:3px; font-size:11px; vertical-align:-1px; }
+        .yfp-social-actions button.on { color:var(--yfp-gold); }
+        .yfp-social-flash { position:absolute; right:2px; bottom:100%; padding:2px 5px; background:#111; color:#fff; font-size:8px; }
+        .yfp-social-comment { padding:4px 2px 1px; }
+        .yfp-social-comment>small { display:block; margin:0 0 4px; color:var(--yfp-muted); font:400 9px/1.25 system-ui,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-social-comment>div { display:flex; gap:4px; }
+        .yfp-social-comment input { min-width:0; flex:1; height:24px; padding:0 6px; border:1px solid var(--yfp-card-border); border-radius:3px; background:rgba(255,255,255,.04); color:var(--yfp-text); font-size:10px; }
+        .yfp-social-comment button { width:38px; border:0; border-radius:3px; background:var(--yfp-gold); color:#111; font:700 8px/1 Oswald,sans-serif; text-transform:uppercase; }
         .yfp-note { margin-top: 4px; color: var(--yfp-muted); font: 400 11px/1.35 system-ui, sans-serif; }
         .yfp-tbd { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--yfp-muted); font: 500 13px/1.2 Oswald, sans-serif; letter-spacing: .03em; }
         .yfp-tbd small { display: block; margin-top: 2px; font: 400 11px/1.3 system-ui, sans-serif; letter-spacing: 0; }
@@ -515,15 +618,15 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* The leaderboard column (a profile's teammates). */
         /* Pinned just under rows 1-3 while the weeks scroll. */
-        .yfp-lb { min-width: 0; position: sticky; top: calc(var(--row1-h, 36px) + var(--row2-h, 54px) + var(--row3-h, 100px) + 8px); max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--footerH, 66px) - 16px); overflow-y: auto; font: 400 10px/1.35 system-ui, sans-serif; }
-        .yfp-lb-title { color: var(--yfp-gold); font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
-        .yfp-lb-sub { margin: 3px 0 6px; color: var(--yfp-muted); font-size: 9px; }
+        .yfp-lb { min-width: 0; position: sticky; top: calc(var(--row1-h, 36px) + var(--row2-h, 54px) + var(--row3-h, 100px) + 8px); max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--footerH, 66px) - 16px); overflow-y: auto; font: 400 9px/1.28 system-ui, sans-serif; }
+        .yfp-lb-title { color: var(--yfp-gold); font: 700 9px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+        .yfp-lb-sub { margin: 2px 0 4px; color: var(--yfp-muted); font-size: 7px; line-height:1.15; }
         .yfp-lb-sort { position: sticky; top: 0; z-index: 1; display: flex; gap: 2px; margin: 0 0 8px; padding: 2px 0; background: var(--bg, #070707); }
         body.light-theme .yfp-lb-sort { background: var(--bg, #f4efe6); }
-        .yfp-lb-sort button { flex: 1; min-height: 22px; padding: 0 4px; border: 1px solid var(--yfp-card-border); border-radius: 4px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+        .yfp-lb-sort button { flex: 1; min-height: 18px; padding: 0 2px; border: 1px solid var(--yfp-card-border); border-radius: 2px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 700 7px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
         .yfp-lb-sort button.on { border-color: var(--yfp-gold); color: var(--yfp-gold); }
         .yfp-lb-group { margin: 0 0 9px; }
-        .yfp-lb-head { color: var(--yfp-strong); font: 600 9px/1.25 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        .yfp-lb-head { color: var(--yfp-strong); font: 700 7.5px/1.2 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
         .yfp-lb-head span { color: var(--yfp-gold); }
         .yfp-lb ol { margin: 0; padding: 0; list-style: none; }
         .yfp-lb li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 4px; padding: 1px 0; }
@@ -579,7 +682,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-tab.now span { color: var(--gold, #ffc107); }
         @media (max-width: 899px) {
           .yfz { --yfz-dock-h: 56px; }
-          .yfz-panel { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; padding: 6px 8px; }
+          .yfz-panel { grid-template-columns: minmax(0, 1fr) minmax(122px, 34vw); gap: 5px; padding: 5px 5px; }
           .yfz-all table { font-size: 11px; }
           .yfz-all td { padding: 4px 3px; }
           .yfz-all th:nth-child(3), .yfz-all td:nth-child(3) { display: none; }
@@ -611,8 +714,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         @media (max-width: 899px) {
           .yfp { padding: 8px 8px 16px; }
-          .yfp-layout { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; }
-          .yfp-lb { font-size: 9px; }
+          .yfp-layout { grid-template-columns: minmax(0, 1fr) minmax(122px, 34vw); gap: 5px; }
+          .yfp-lb { font-size: 8px; }
           .yfp-lb li { grid-template-columns: 16px minmax(0,1fr) auto; gap: 3px; }
           .yfp-card { padding: 6px 8px 5px; }
           .yfp-box thead th:not(.tm):not(.r) { width: 13px; }
