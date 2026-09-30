@@ -90,6 +90,12 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     );
   };
 
+  const scoreboard = (
+    <>
+      {scoreboard}
+    </>
+  );
+
   return (
     <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
       <div className="yfp-score-head">
@@ -111,6 +117,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           title={`Round ${round} · Game ${gameNo}`}
           subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
           shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?round=${round}#fweek-${card.week}`}
+          preview={<div className="yfp-scorecard">{scoreboard}</div>}
         />
       ) : null}
     </article>
