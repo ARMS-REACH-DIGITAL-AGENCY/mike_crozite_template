@@ -613,8 +613,35 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-tab.on::before { content: ''; position: absolute; left: 20%; right: 20%; top: 0; height: 3px; border-radius: 0 0 2px 2px; background: #d2b45c; }
         .yfz-tab.now span { color: var(--gold, #ffc107); }
         @media (max-width: 899px) {
-          .yfz { --yfz-dock-h: 56px; }
-          .yfz-panel { grid-template-columns:minmax(0,1fr) 92px; gap:16px; padding:8px; }
+          .yfz { --yfz-dock-h: 38px; }
+          .yfz-panel { grid-template-columns:minmax(0,1fr) 88px; gap:7px; padding:5px 4px 4px 5px; }
+          .yfz-dock-tabs { padding:0 2px; }
+          .yfz-tab { gap:0; padding:2px 0; }
+          .yfz-tab b { font-size:14px; line-height:1; }
+          .yfz-tab span { display:none; }
+          .yfz-tab.on::before { left:18%; right:18%; height:2px; }
+          .yfz-cards { gap:4px; }
+          .yfp-scorecard { border-radius:5px; }
+          .yfp-score-head { font-size:5.6px; padding:2px 4px 1px; }
+          .yfp-green-board { padding:4px 4px 3px; }
+          .yfp-green-row { grid-template-columns:34px repeat(9,minmax(9px,1fr)) 22px; gap:1px; margin-top:1px; }
+          .yfp-green-row.head { font-size:5.8px; }
+          .yfp-green-abbr { display:block; font-size:10px; }
+          .yfp-green-full { display:none; }
+          .yfp-green-slot,.yfp-green-run { height:17px; font-size:9px; border-radius:2px; }
+          .yfp-green-status { font-size:5.5px; padding:1px 2px; }
+          .fgs-inline .ysv-actions button { min-height:28px !important; font-size:11px !important; gap:3px !important; }
+          .fgs-inline .ysv-actions button i { font-size:13px !important; }
+          .fgs-inline .ysv-actions { border-bottom:0; }
+          .yfp-lb { font-size:7.5px; line-height:1.16; }
+          .yfp-lb-sort { gap:1px; margin-bottom:4px; padding:0; }
+          .yfp-lb-sort button { min-height:16px; font-size:6px; padding:0 1px; }
+          .yfp-lb-group { margin-bottom:5px; }
+          .yfp-lb-head { font-size:6.7px; }
+          .yfp-lb li { grid-template-columns:11px minmax(0,1fr) auto; gap:2px; padding:.5px 0; }
+          .yfp-lb li .rk { text-align:left; font-size:.8em; }
+          .yfp-lb-note { display:none; }
+          .yfp-lb-rules { min-height:20px; margin-top:6px; font-size:7px; }
           .yfz-all table { font-size: 11px; }
           .yfz-all td { padding: 4px 3px; }
           .yfz-all th:nth-child(3), .yfz-all td:nth-child(3) { display: none; }
@@ -623,8 +650,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* Same as the player profile: Row 4 is visually absent, but its
            established height budget is NOT reassigned to Row 5. */
         @media (max-width:760px) {
+          body:has(.yfz) { --row4-h:0px; }
           body:has(.yfz) .yat-row4-shell { display:none; }
-          .yfz { min-height:320px; }
+          .yfz { min-height:0; }
         }
 
         /* The drawers: home from the right, visitor from the left. */
