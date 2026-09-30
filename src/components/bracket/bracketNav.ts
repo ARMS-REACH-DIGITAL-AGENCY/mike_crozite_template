@@ -20,9 +20,13 @@ export type BracketNav = {
   // ... and row 5's round buttons slide row 3's timeline to a week.
   slideWeek: number;
   slideSeq: number;
+  // Canonical Fantasy stage selection. Row 3 hero, Row 5 cards and the
+  // bottom dock all subscribe to this single value so they can never drift.
+  stageKey: string; // r1-r10, c1, c2, cg, yws
+  stageSeq: number;
 };
 
-let state: BracketNav = { team: false, region: 0, boards: false, rules: false, flipAll: false, flipSeq: 0, focusWeek: 0, focusSeq: 0, slideWeek: 0, slideSeq: 0 };
+let state: BracketNav = { team: false, region: 0, boards: false, rules: false, flipAll: false, flipSeq: 0, focusWeek: 0, focusSeq: 0, slideWeek: 0, slideSeq: 0, stageKey: '', stageSeq: 0 };
 const listeners = new Set<() => void>();
 
 export function setBracketNav(patch: Partial<BracketNav>) {
@@ -45,6 +49,11 @@ export function focusWeek(week: number) {
 
 export function slideToWeek(week: number) {
   setBracketNav({ slideWeek: week, slideSeq: state.slideSeq + 1 });
+}
+
+export function selectStage(stageKey: string) {
+  if (!stageKey) return;
+  setBracketNav({ stageKey, stageSeq: state.stageSeq + 1 });
 }
 
 export function useBracketNav() {
