@@ -44,10 +44,19 @@ export type Index = {
 // A leaderboard game: the same as a GameRow plus the region.
 export type LbGame = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null, region: number];
 // [playerid, name, level, simulated, bat [PA AB H 2B 3B HR BB HBP SF] | 0, pit [outs HR BB HBP K] | 0, OPS+, FIP-]
-// ... then his real club's W-L that week (inning 9), when he was on a roster.
-export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?];
+// ... then his club's W-L that week (inning 9). The final optional flag marks
+// a deterministic simulated W-L used only when the 2026 source record is absent.
+export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
 export type SideBox = { p: PlayerRow[]; wl: [number, number] };
 export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
+export type ActiveRosterPlayer = {
+  playerid: string | number;
+  display_name?: string | null;
+  firstname?: string | null;
+  lastname?: string | null;
+  level?: string | null;
+  is_pitcher?: boolean | null;
+};
 
 export const BASE = '/bracket-lab/2026';
 export const FAV_KEY = 'yat-bracket-lab-favs';
@@ -81,6 +90,20 @@ export function loadBoxes(file: string) {
     boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
   }
   return boxCache.get(file)!;
+}
+
+const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
+export function loadActiveRoster(hsid: number) {
+  if (!activeRosterCache.has(hsid)) {
+    activeRosterCache.set(
+      hsid,
+      fetch(`/api/players/${hsid}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows) => Array.isArray(rows) ? rows : [])
+        .catch(() => []),
+    );
+  }
+  return activeRosterCache.get(hsid)!;
 }
 
 export const shortName = (name: string) => name.split(' (')[0];
@@ -826,6 +849,10 @@ function SortTable({ title, rows, cols, player, labels, total, empty }: {
   return (
     <div className="bl-scroll">
       <table className="bl-box">
+        <colgroup>
+          <col style={{ width: 136 }} />
+          {cols.map((c) => <col key={c.key} style={{ width: c.cls === 'plus' ? 58 : c.cls === 'wl' ? 56 : 44 }} />)}
+        </colgroup>
         <thead>
           <tr>
             <th className="nm"><button type="button" className="bl-sort" onClick={click('name')}>{title}{arrow('name')}</button></th>
@@ -852,15 +879,76 @@ function SortTable({ title, rows, cols, player, labels, total, empty }: {
   );
 }
 
-export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo }: {
+function hashRosterKey(value: string) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function simulatedWeeklyWl(playerid: string, week: number, level: string): [number, number] {
+  const college = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level);
+  const games = college ? 4 : 6;
+  const seed = hashRosterKey(`yatstats-2026-wl:${playerid}:${week}:${level}`);
+  // Keep the prototype plausible and deterministic; every player receives
+  // a non-empty record, while real exported club results still win whenever present.
+  const wins = seed % (games + 1);
+  return [wins, games - wins];
+}
+
+function rosterName(p: ActiveRosterPlayer) {
+  return String(p.display_name || `${p.firstname || ''} ${p.lastname || ''}`.trim() || `Player ${p.playerid}`);
+}
+
+function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined, week: number): PlayerRow[] {
+  const current = new Map(existing.map((p) => [String(p[0]), p] as const));
+  const source = roster && roster.length
+    ? roster.map((r) => ({ id: String(r.playerid), name: rosterName(r), level: String(r.level || '') }))
+    : existing.map((p) => ({ id: String(p[0]), name: String(p[1]), level: String(p[2] || '') }));
+
+  return source.map(({ id, name, level }) => {
+    const row = current.get(id);
+    if (row) {
+      if (row[8]) return row;
+      const next = [...row] as PlayerRow;
+      next[8] = simulatedWeeklyWl(id, week, String(row[2] || level));
+      next[9] = 1;
+      return next;
+    }
+    const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
+    return [id, name, level, simulated, 0, 0, null, null, simulatedWeeklyWl(id, week, level), 1];
+  });
+}
+
+function sumRosterWl(players: PlayerRow[]): [number, number] {
+  return players.reduce<[number, number]>((sum, p) => {
+    if (p[8]) { sum[0] += p[8][0]; sum[1] += p[8][1]; }
+    return sum;
+  }, [0, 0]);
+}
+
+export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
+  homeRoster?: ActiveRosterPlayer[];
+  awayRoster?: ActiveRosterPlayer[];
+  drawerMode?: boolean;
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
-  const mine = box ? box[side] : undefined;
-  const theirs = box ? box[side === 'h' ? 'a' : 'h'] : undefined;
+  const rawMine = box ? box[side] : undefined;
+  const rawTheirs = box ? box[side === 'h' ? 'a' : 'h'] : undefined;
+  const mineRoster = me === 0 ? homeRoster : awayRoster;
+  const theirsRoster = me === 0 ? awayRoster : homeRoster;
+  const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster, week);
+  const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster, week);
+  const mine = rawMine || mineRoster ? { p: minePlayers, wl: sumRosterWl(minePlayers) } as SideBox : undefined;
+  const theirs = rawTheirs || theirsRoster ? { p: theirPlayers, wl: sumRosterWl(theirPlayers) } as SideBox : undefined;
+  if (mine) mine.wl = sumRosterWl(minePlayers);
+  if (theirs) theirs.wl = sumRosterWl(theirPlayers);
   const weekVals = box?.d?.[7];
   const myName = names[me];
   const wonBy = winner === null ? 'tie' : winner === (me === 0 ? home : away) ? 'me' : 'them';
@@ -870,12 +958,17 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const benched = (mine?.p || []).filter((p) => !p[4] && !p[5]);
   const teamBat = batters.reduce((t, p) => (p[4] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const teamPit = pitchers.reduce((t, p) => (p[5] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
-  const obpSlg = (b: number[]) => {
-    const [, ab, h, d2, d3, hr, bb, hbp, sf] = b;
+  const obp = (b: number[]) => {
+    const [, ab, h, , , , bb, hbp, sf] = b;
     const den = ab + bb + hbp + sf;
-    const tb = h + d2 + 2 * d3 + 3 * hr;
-    return (den ? (h + bb + hbp) / den : 0) + (ab ? tb / ab : 0);
+    return den ? (h + bb + hbp) / den : 0;
   };
+  const slg = (b: number[]) => {
+    const [, ab, h, d2, d3, hr] = b;
+    const tb = h + d2 + 2 * d3 + 3 * hr;
+    return ab ? tb / ab : 0;
+  };
+  const obpSlg = (b: number[]) => obp(b) + slg(b);
   const wl = mine?.wl || [0, 0];
   const owl = theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '—');
@@ -887,13 +980,15 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const player = (p: PlayerRow) => (
     <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}{p[3] ? '*' : ''}</a>
   );
-  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}` : '—');
+  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}${p[9] ? '†' : ''}` : '—');
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
   const batCols: SortCol[] = [
     { key: 'ops+', label: 'OPS+', cls: 'plus', val: (p) => p[6] ?? null, show: (p) => p[6] ?? '—' },
     { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
     ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((label, i): SortCol => ({ key: label, label, val: (p) => bat(p)[i + 1], show: (p) => bat(p)[i + 1] })),
+    { key: 'obp', label: 'OBP', val: (p) => obp(bat(p)), show: (p) => rate(obp(bat(p))) },
+    { key: 'slg', label: 'SLG', val: (p) => slg(bat(p)), show: (p) => rate(slg(bat(p))) },
     { key: 'ops', label: 'OPS', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
   ];
   const pit = (p: PlayerRow) => p[5] as number[];
@@ -915,38 +1010,66 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
     <div className={`bl-f${onFlip ? '' : ' still'}`} role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined}
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
-      <div className="bl-top">
-        <div className="bl-meta"><span>{label} · Week {week}</span><span>{dates}</span></div>
-        <div className="bl-score">
-          <div className={`bl-team${me === 0 ? ' me' : ''}`}><b>{names[0]}</b></div>
-          <div className="bl-runs">{score[0]}</div>
-          <div className="bl-final">FINAL</div>
-          <div className="bl-runs">{score[1]}</div>
-          <div className={`bl-team r${me === 1 ? ' me' : ''}`}><b>{names[1]}</b></div>
-        </div>
-      </div>
-
-      <div className="bl-scroll">
-        <table className="bl-ls">
-          <thead>
-            <tr><th />{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <th key={n}>{n}</th>)}<th className="sep">R</th><th>OPS+</th><th>FIP-</th></tr>
-          </thead>
-          <tbody>
-            {[0, 1].map((s) => (
-              <tr key={s} className={s === me ? 'me' : ''}>
-                <th>{abbr(names[s])}</th>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-                  const v = innings[i * 2 + s];
-                  return <td key={i} className={v ? 'hit' : ''}>{v}</td>;
+      {drawerMode ? (
+        box ? (
+          <div className="bl-metric-board" aria-label="Daily and weekly OPS+ and FIP- run determinants">
+            <div className="bl-metric-grid head">
+              <span>RUN METRIC</span>
+              {['M','T','W','T','F','S','S','WK'].map((d, i) => <span key={i}>{d}</span>)}
+            </div>
+            {[
+              { label: `${abbr(names[me])} OPS+`, idx: me, opp: them, higher: true },
+              { label: `${abbr(names[them])} OPS+`, idx: them, opp: me, higher: true },
+              { label: `${abbr(names[me])} FIP-`, idx: 2 + me, opp: 2 + them, higher: false },
+              { label: `${abbr(names[them])} FIP-`, idx: 2 + them, opp: 2 + me, higher: false },
+            ].map((row) => (
+              <div className={`bl-metric-grid metric ${row.idx === me || row.idx === 2 + me ? 'mine' : 'opp'}`} key={row.label}>
+                <span>{row.label}</span>
+                {(box.d || []).slice(0, 8).map((d, i) => {
+                  const value = d?.[row.idx];
+                  const other = d?.[row.opp];
+                  return <span key={i} className={wonCell(value, other, row.higher) ? 'won' : ''}>{fmtStat(value)}</span>;
                 })}
-                <td className="sep r">{score[s]}</td>
-                <td>{weekVals ? fmtStat(weekVals[s]) : ''}</td>
-                <td>{weekVals ? fmtStat(weekVals[2 + s]) : ''}</td>
-              </tr>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        ) : null
+      ) : (
+        <>
+          <div className="bl-top">
+            <div className="bl-meta"><span>{label} · Week {week}</span><span>{dates}</span></div>
+            <div className="bl-score">
+              <div className={`bl-team${me === 0 ? ' me' : ''}`}><b>{names[0]}</b></div>
+              <div className="bl-runs">{score[0]}</div>
+              <div className="bl-final">FINAL</div>
+              <div className="bl-runs">{score[1]}</div>
+              <div className={`bl-team r${me === 1 ? ' me' : ''}`}><b>{names[1]}</b></div>
+            </div>
+          </div>
+
+          <div className="bl-scroll">
+            <table className="bl-ls">
+              <thead>
+                <tr><th />{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <th key={n}>{n}</th>)}<th className="sep">R</th><th>OPS+</th><th>FIP-</th></tr>
+              </thead>
+              <tbody>
+                {[0, 1].map((s) => (
+                  <tr key={s} className={s === me ? 'me' : ''}>
+                    <th>{abbr(names[s])}</th>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+                      const v = innings[i * 2 + s];
+                      return <td key={i} className={v ? 'hit' : ''}>{v}</td>;
+                    })}
+                    <td className="sep r">{score[s]}</td>
+                    <td>{weekVals ? fmtStat(weekVals[s]) : ''}</td>
+                    <td>{weekVals ? fmtStat(weekVals[2 + s]) : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       {tieNote(decidedBy) && <div className="bl-note">{tieNote(decidedBy)}</div>}
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
@@ -961,32 +1084,41 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
       {mine && (
         <>
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No hitters played this week"
-            total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obpSlg(teamBat))]} />
+            total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers pitched this week"
             total={[weekVals ? fmtStat(weekVals[2 + me]) : '—', teamWl, ip(teamPit[0]), teamPit[4], teamPit[2], teamPit[3], teamPit[1]]} />
           {benched.length > 0 && (
             <SortTable title="Did not play / result unavailable" rows={benched} cols={benchCols} player={player} labels={labels} empty="" total={[teamWl]} />
           )}
 
-          <div className="bl-how">
-            <div className="bl-howt">How the runs were scored</div>
-            <div className="bl-scroll">
-              <table className="bl-days">
-                <thead><tr><th /><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th><th>Wk</th></tr></thead>
-                <tbody>
-                  <tr><th>OPS+</th>{box!.d.map((d, i) => <td key={i} className={wonCell(d[me], d[them], true)}>{fmtStat(d[me])}</td>)}</tr>
-                  <tr className="opp"><th>vs</th>{box!.d.map((d, i) => <td key={i}>{fmtStat(d[them])}</td>)}</tr>
-                  <tr><th>FIP-</th>{box!.d.map((d, i) => <td key={i} className={wonCell(d[2 + me], d[2 + them], false)}>{fmtStat(d[2 + me])}</td>)}</tr>
-                  <tr className="opp"><th>vs</th>{box!.d.map((d, i) => <td key={i}>{fmtStat(d[2 + them])}</td>)}</tr>
-                </tbody>
-              </table>
+          {drawerMode ? (
+            <div className="bl-drawer-explain">
+              <p><b>1–7</b> Each day: 1 run for the better OPS+ and 1 for the better FIP- (lower wins).</p>
+              <p><b>8th</b> Same two run comparisons, using each school&apos;s full-week composite OPS+ and FIP- instead of one day.</p>
+              <p><b>9th</b> 1 run for the better weekly W-L% across <b>all active alumni&apos;s real-world teams</b>, whether the alumnus played or not. {myName}: <b>{wl[0]}–{wl[1]}</b> ({pct(wl[0], wl[1])}) · {names[them]}: {owl[0]}–{owl[1]} ({pct(owl[0], owl[1])}).</p>
+              {(mine?.p || []).some((p) => p[9]) || (theirs?.p || []).some((p) => p[9]) ? <p><b>†</b> Missing 2026 weekly club records are filled with deterministic simulated W-L values for this prototype.</p> : null}
             </div>
-            <div className="bl-wl">
-              Inning 9 · alumni clubs&apos; W-L this week: <b>{wl[0]}–{wl[1]}</b> ({pct(wl[0], wl[1])}) vs {owl[0]}–{owl[1]} ({pct(owl[0], owl[1])})
-              {innings[16 + me] ? <em> · 1 run</em> : null}
+          ) : (
+            <div className="bl-how">
+              <div className="bl-howt">How the runs were scored</div>
+              <div className="bl-scroll">
+                <table className="bl-days">
+                  <thead><tr><th /><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th><th>Wk</th></tr></thead>
+                  <tbody>
+                    <tr><th>OPS+</th>{box!.d.map((d, i) => <td key={i} className={wonCell(d[me], d[them], true)}>{fmtStat(d[me])}</td>)}</tr>
+                    <tr className="opp"><th>vs</th>{box!.d.map((d, i) => <td key={i}>{fmtStat(d[them])}</td>)}</tr>
+                    <tr><th>FIP-</th>{box!.d.map((d, i) => <td key={i} className={wonCell(d[2 + me], d[2 + them], false)}>{fmtStat(d[2 + me])}</td>)}</tr>
+                    <tr className="opp"><th>vs</th>{box!.d.map((d, i) => <td key={i}>{fmtStat(d[2 + them])}</td>)}</tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="bl-wl">
+                Inning 9 · alumni clubs&apos; W-L this week: <b>{wl[0]}–{wl[1]}</b> ({pct(wl[0], wl[1])}) vs {owl[0]}–{owl[1]} ({pct(owl[0], owl[1])})
+                {innings[16 + me] ? <em> · 1 run</em> : null}
+              </div>
+              <div className="bl-legend">Gold = this school won that run. A run goes to the better OPS+ or FIP- (lower is better), and only for beating league average (100) when the other school had nobody play.</div>
             </div>
-            <div className="bl-legend">Gold = this school won that run. A run goes to the better OPS+ or FIP- (lower is better), and only for beating league average (100) when the other school had nobody play.</div>
-          </div>
+          )}
           {sim && <div className="bl-muted small">* simulated from his 2026 college season totals</div>}
         </>
       )}
@@ -1144,10 +1276,10 @@ export function Styles() {
       .bl-tabs em.me { background:rgba(127,209,139,.15); color:var(--win); }
       .bl-tabs em.them { background:rgba(226,120,106,.15); color:var(--loss); }
       .bl-tabs em.tie { background:var(--tint); color:var(--muted); }
-      .bl-box { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+      .bl-box { width:auto; min-width:100%; table-layout:fixed; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
       .bl-box th, .bl-box td { padding:5px 3px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
       .bl-box thead th { color:var(--muted); font:500 11px/1 Oswald, sans-serif; letter-spacing:.04em; }
-      .bl-box .nm { text-align:left; padding-left:10px; max-width:118px; overflow:hidden; text-overflow:ellipsis; }
+      .bl-box .nm { text-align:left; padding-left:10px; width:136px; max-width:136px; overflow:hidden; text-overflow:ellipsis; }
       .bl-box .nm small { color:var(--muted); font-size:10px; }
       .bl-box .none { color:var(--muted); font-style:italic; }
       /* OPS+ / FIP- first after the name; room after the last column so it isn't cut off. */
@@ -1159,6 +1291,18 @@ export function Styles() {
       .bl-sort:hover { color:var(--gold); }
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
+      .bl-metric-board { margin:10px 12px 8px; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow-x:auto; }
+      .bl-metric-grid { min-width:430px; display:grid; grid-template-columns:minmax(86px,1.35fr) repeat(8,minmax(38px,1fr)); gap:2px; align-items:center; }
+      .bl-metric-grid.head { margin-bottom:3px; color:#e9f3ec; font:700 9px/1 Oswald,sans-serif; text-align:center; letter-spacing:.04em; }
+      .bl-metric-grid.head span:first-child { text-align:left; color:#ffd34f; padding-left:4px; }
+      .bl-metric-grid.metric { margin-top:2px; }
+      .bl-metric-grid.metric>span { min-height:24px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
+      .bl-metric-grid.metric>span:first-child { justify-items:start; padding:0 5px; color:#eef7ef; font-size:9px; letter-spacing:.02em; }
+      .bl-metric-grid.metric.mine>span:first-child { color:#ffd34f; }
+      .bl-metric-grid.metric>span.won { background:#f3c735; color:#15251d; }
+      .bl-drawer-explain { margin:7px 12px 2px; padding-top:6px; border-top:1px solid var(--line); color:var(--faint); font-size:9.5px; line-height:1.35; }
+      .bl-drawer-explain p { margin:2px 0; }
+      .bl-drawer-explain b { color:var(--muted); font-weight:700; }
       .bl-how { margin:10px 12px 12px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--tint2); }
       .bl-howt { font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
       .bl-days { width:100%; border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums; }
@@ -1233,7 +1377,14 @@ export function Styles() {
       .bl-board tr.extra td { border-top:1px dashed var(--line); }
       .bl-board em.q { margin-left:6px; font-style:normal; font:600 10px/1 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; color:#000; background:var(--gold); padding:2px 5px; border-radius:3px; }
       .bl-board td.none { text-align:left; color:var(--muted); font-style:italic; }
-      @media (max-width:520px) { .bl-board .st { display:none; } }
+      @media (max-width:520px) {
+        .bl-board .st { display:none; }
+        .bl-metric-board { margin-left:8px; margin-right:8px; padding:5px; }
+        .bl-metric-grid { min-width:360px; grid-template-columns:72px repeat(8,36px); }
+        .bl-metric-grid.metric>span { min-height:22px; font-size:9px; }
+        .bl-metric-grid.metric>span:first-child { font-size:8px; }
+        .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
+      }
       .bl-more { display:block; width:100%; padding:9px; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; }
       .bl-school { max-width:1180px; margin:0 auto 18px; display:flex; flex-direction:column; gap:6px; }
       .bl-backlink { align-self:flex-start; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; padding:0; }
