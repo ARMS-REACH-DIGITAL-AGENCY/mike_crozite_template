@@ -6,6 +6,18 @@
 
 import { useSyncExternalStore } from 'react';
 
+export const FANTASY_STAGE_KEYS = ['r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','c1','c2','cg','yws'] as const;
+export type FantasyStageKey = typeof FANTASY_STAGE_KEYS[number];
+
+export function stageKeyForWeek(week:number):FantasyStageKey {
+  const w=Math.max(1,Math.min(34,Math.floor(week||1)));
+  if(w<=30)return `r${Math.ceil(w/3)}` as FantasyStageKey;
+  if(w===31)return 'c1';
+  if(w===32)return 'c2';
+  if(w===33)return 'cg';
+  return 'yws';
+}
+
 export type BracketNav = {
   team: boolean; // show this school's current round only
   region: number; // 0 = every region
