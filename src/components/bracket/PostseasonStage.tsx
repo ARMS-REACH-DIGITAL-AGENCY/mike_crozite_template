@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import FantasyGameSocial from './FantasyGameSocial';
 import { createPortal } from 'react-dom';
 import { abbr, fmtRange, type GameRow, type Index } from './gallery';
 import { runsThrough, type WeekCard } from './schoolSeason';
@@ -44,16 +45,6 @@ function cardFor(g: GameRow, stage: string, file: string, cal: Cal): WeekCard {
   const state = w <= cal.final ? 'final' : w === cal.week ? 'live' : 'next';
   return { week:w, stage, state, game:g, file, days:w <= cal.final ? 7 : w === cal.week ? cal.days : 0 };
 }
-function openRegistration() {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail:'register' }));
-  const drawer = document.getElementById('drawerAccount');
-  const mask = document.getElementById('drawerMask');
-  drawer?.classList.add('open','is-open','active');
-  drawer?.setAttribute('aria-hidden','false');
-  mask?.classList.add('open','is-open','active');
-}
-
 function InfoDrawer({ title, kicker, rows, note, onClose }:{
   title:string; kicker:string; rows:FanRow[]; note?:string; onClose:()=>void;
 }) {
@@ -128,13 +119,26 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         <strong>{card.state==='final'||card.state==='live' ? (side==='h'?hr:ar) : ''}</strong>
       </div>;
     };
-    return <article key={g[0]} className="yfp-card yfp-post-game" id={`postgame-${g[0]}`}>
+    const scoreboard = <>
       <div className="yfp-post-game-head"><span>Week {g[1]}</span><span>{label}{g[1] < 33 ? ` · Game ${gameNo}` : ''}</span></div>
       <div className="yfp-post-green-board">
         <div className="yfp-post-green-row head"><span>{card.state==='final'?'FINAL':card.state==='live'?'LIVE':'UPCOMING'}</span>{[1,2,3,4,5,6,7,8,9].map((n)=><span key={n}>{n}</span>)}<strong>R</strong></div>
         {row('a')}{row('h')}
       </div>
       <div className="yfp-post-game-date">{index.weeks[g[1]-1] ? fmtRange(index.weeks[g[1]-1][0],index.weeks[g[1]-1][1]) : ''}</div>
+    </>;
+    const awayName = shortName(index.schools[g[3]]?.[0] || '');
+    const homeName = shortName(index.schools[g[2]]?.[0] || '');
+    return <article key={g[0]} className="yfp-card yfp-post-game" id={`postgame-${g[0]}`}>
+      {scoreboard}
+      {(card.state==='final'||card.state==='live') ? <FantasyGameSocial
+        gameKey={`sim-2026:${g[0]}`}
+        title={label}
+        subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
+        shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${awayName} and ${homeName}.`}
+        shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`}
+        preview={<div className="yfp-post-game">{scoreboard}</div>}
+      /> : null}
     </article>;
   };
 
@@ -175,16 +179,6 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
 
   return <>
     <div className={`yfz-cards yfp-postseason-cards ${stage}`}>{cards}</div>
-    <aside className="yfp-raffle-cta">
-      <div><b>WORLD SERIES TICKETS RAFFLE</b><span>Register on your favorite high school alumni hub.</span></div>
-      <p>
-        Fans earn one entry for every regular-season round they are registered. Super Fans earn one additional entry
-        for every round they are a Super Fan. A Super Fan since Round 1 can have <strong>20 regular-season entries + 1 postseason entry</strong>.
-        Entries close <strong>11:59 PM September 26, 2027</strong>. The winner will be drawn on <strong>October 3, 2027</strong>,
-        with the drawing planned to stream LIVE on yatstats.com.
-      </p>
-      <button type="button" onClick={openRegistration}>Register / Super Fan</button>
-    </aside>
     {drawer ? <InfoDrawer {...drawer} onClose={()=>setDrawer(null)} /> : null}
     <style jsx global>{`
       .yfp-postseason-cards{align-items:stretch}
@@ -205,12 +199,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-preview b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--yfp-strong);font-weight:700}
       .yfp-post-preview span{color:var(--yfp-muted);text-align:right}
       .yfp-post-open{margin-top:7px;width:100%;min-height:30px;border:1px solid var(--yfp-gold);background:rgba(255,210,74,.08);color:var(--yfp-gold);font:800 9px/1 Oswald,sans-serif;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
-      .yfp-raffle-cta{margin:10px 0 2px;padding:10px 12px;border:1px solid rgba(255,210,74,.35);background:rgba(255,210,74,.055);display:grid;grid-template-columns:minmax(170px,.7fr) minmax(260px,1.6fr) auto;gap:12px;align-items:center}
-      .yfp-raffle-cta>div{display:flex;flex-direction:column;gap:3px}
-      .yfp-raffle-cta b{color:var(--yfp-gold);font:800 11px/1 Oswald,sans-serif;letter-spacing:.09em}
-      .yfp-raffle-cta span,.yfp-raffle-cta p{color:var(--yfp-muted);font:500 9.5px/1.35 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
-      .yfp-raffle-cta p{margin:0}.yfp-raffle-cta p strong{color:var(--yfp-strong)}
-      .yfp-raffle-cta button{min-height:34px;padding:0 10px;border:1px solid var(--yfp-gold);background:var(--yfp-gold);color:#111;font:800 9px/1 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+
       .yfp-post-mask{position:fixed;inset:0;z-index:2147483300;background:rgba(0,0,0,.5)}
       .yfp-post-drawer{position:absolute;top:0;bottom:0;right:0;width:min(520px,94vw);display:flex;flex-direction:column;overflow:hidden;background:#141820;color:#e9ecf1;box-shadow:0 0 30px rgba(0,0,0,.45)}
       .yfp-post-drawer-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #262c37}
