@@ -34,7 +34,7 @@ export type BracketNav = {
   slideSeq: number;
   // Canonical Fantasy stage selection. Row 3 hero, Row 5 cards and the
   // bottom dock all subscribe to this single value so they can never drift.
-  stageKey: string; // r1-r10, c1, c2, cg, yws
+  stageKey: FantasyStageKey | ''; // r1-r10, c1, c2, cg, yws
   stageSeq: number;
 };
 
@@ -63,7 +63,7 @@ export function slideToWeek(week: number) {
   setBracketNav({ slideWeek: week, slideSeq: state.slideSeq + 1 });
 }
 
-export function selectStage(stageKey: string) {
+export function selectStage(stageKey: FantasyStageKey) {
   if (!stageKey) return;
   setBracketNav({ stageKey, stageSeq: state.stageSeq + 1 });
 }
