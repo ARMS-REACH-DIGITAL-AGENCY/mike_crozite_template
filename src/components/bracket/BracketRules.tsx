@@ -2,6 +2,8 @@
 // The Fantasy Bracket Tourney tab's rules drawer: how the
 // tournament runs and how every run is figured - the fine print, on demand.
 
+import { TOURNAMENT_2027, bracketRoundWeeks } from '@/lib/bracket/tournamentCalendar';
+
 export default function BracketRules() {
   return (
     <div className="ybr-rules">
@@ -9,18 +11,19 @@ export default function BracketRules() {
         <h4>Bracket Tournament (weeks 1–30)</h4>
         <ul>
           <li>1,024 high schools in 8 regions of 128, seeded 1–128 in each region.</li>
-          <li>The season runs 34 weeks, Feb 2 – Sep 27: the bracket is weeks 1–30 (Feb 2 – Aug 30). Weeks run Monday–Sunday.</li>
+          <li>The 2027 season runs 34 weeks, Feb 1 – Sep 26. The bracket is weeks 1–30 (Feb 1 – Aug 29). Weeks run Monday–Sunday.</li>
           <li>10 bracket rounds of 3 weeks each. Every matchup is a best-of-3 series, one game per week, and all three games are always played. Win 2 to advance.</li>
         </ul>
         <table className="ybr-sched">
           <tbody>
-            {[512, 256, 128, 64, 32, 16, 8, 4, 2, 1].map((n, i) => (
-              <tr key={n}><td>Round {i + 1}</td><td>{n} 3-game series</td><td>Weeks {i * 3 + 1}–{i * 3 + 3}</td></tr>
-            ))}
+            {[512, 256, 128, 64, 32, 16, 8, 4, 2, 1].map((n, i) => {
+              const [a, b] = bracketRoundWeeks(i + 1);
+              return <tr key={n}><td>Round {i + 1}</td><td>{n} 3-game series</td><td>Weeks {a}–{b}</td></tr>;
+            })}
           </tbody>
         </table>
         <ul>
-          <li>After week 30 the Bracket Champion is announced and gets a 3-week bye during the single-elimination Season Championship Tournament (weeks 31–33).</li>
+          <li>After week {TOURNAMENT_2027.bracketLastWeek} the Bracket Champion is announced and gets a 3-week bye during the single-elimination Season Championship Tournament (weeks 31–33).</li>
         </ul>
       </section>
 
