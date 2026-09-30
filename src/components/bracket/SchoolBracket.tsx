@@ -22,13 +22,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
+  type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   abbr, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
+import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
 import { Roboto_Condensed } from 'next/font/google';
 
@@ -437,11 +438,15 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         <div className="yfz">
           <div className="yfz-panel">
             <div className="yfz-round">
-              <div className="yfz-cards">
-                {cur?.list.map((c)=><WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} starIdentity={stars?.[c.week]?identities[stars[c.week][5]]:undefined} rec={rec} focused={focused===c.week} onOpen={setOpen}/>)}
-                {cur&&cur.list.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
-                {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
-              </div>
+              {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
+                <PostseasonStage stage={tab} index={index} me={me} cal={cal} rec={rec} onOpen={setOpen} />
+              ) : (
+                <div className="yfz-cards">
+                  {cur?.list.map((c)=><WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} starIdentity={stars?.[c.week]?identities[stars[c.week][5]]:undefined} rec={rec} focused={focused===c.week} onOpen={setOpen}/>)}
+                  {cur&&cur.list.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
+                  {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
+                </div>
+              )}
             </div>
             <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={()=>setRules(true)}/>
           </div>
