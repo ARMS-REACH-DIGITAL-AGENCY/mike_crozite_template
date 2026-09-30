@@ -28,17 +28,11 @@ import {
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { slideToWeek, useBracketNav } from './bracketNav';
-import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
 import { Roboto_Condensed } from 'next/font/google';
 
 // The scoreboard type (the game cards), condensed like the MLB and ESPN apps.
 const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-sb', display: 'swap' });
-
-function Crest({ h }: { h: number }) {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img className="yfp-crest" src={getSchoolCrestUrl(h)} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = CREST_FALLBACK_PATH; }} />;
-}
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
 
@@ -249,7 +243,6 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
-          <Crest h={h} />
           <div><b>{shortName(S[h]?.[0] || '')}</b><span>Week {card.week} · {card.stage} · {side === 'h' ? 'Home' : 'Visitor'}</span></div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
