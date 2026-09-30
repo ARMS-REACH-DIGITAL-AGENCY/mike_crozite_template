@@ -158,6 +158,7 @@ function DrawerWrap({ onClose, children }: { onClose: () => void; children: Reac
 function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
   const { card, side } = open;
   const g = card.game!;
+  const homeId = g[2], awayId = g[3];
   const [box, setBox] = useState<Record<string, GameBox> | null>(null);
   const [rosters, setRosters] = useState<{ home: ActiveRosterPlayer[]; away: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
@@ -169,7 +170,6 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
     return () => { cancelled = true; };
   }, [card.file, homeId, awayId]);
   const S = index.schools;
-  const homeId = g[2], awayId = g[3];
   const h = side === 'h' ? homeId : awayId;
   const [hr, ar] = runsThrough(g, 7);
   return (
