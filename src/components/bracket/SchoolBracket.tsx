@@ -26,7 +26,7 @@ import {
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
-import { DAY_NAMES, type Star, type WeekCard, calendar, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { slideToWeek, useBracketNav } from './bracketNav';
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import BracketRules from './BracketRules';
@@ -49,8 +49,8 @@ type Open = { card: WeekCard; side: 'h' | 'a' };
 // name, record, innings 1-9, runs, a marker on the winner - then the Alumni
 // of the Week. The round is the tab, so it isn't repeated here.
 export const shortStage = (stage: string) => stage.replace(/^Round \d+ · /, '').replace(/ leaderboard game$/, ' game');
-function WeekCardView({ index, card, me, star, rec, focused, onOpen }: {
-  index: Index; card: WeekCard; me: number; star?: Star; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void;
+function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpen }: {
+  index: Index; card: WeekCard; me: number; star?: Star; starIdentity?: CurrentPlayerIdentity; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void;
 }) {
   const g = card.game;
   const S = index.schools;
@@ -104,7 +104,7 @@ function WeekCardView({ index, card, me, star, rec, focused, onOpen }: {
         </tbody>
       </table>
       {card.state === 'final' && star && (
-        <div className="yfp-star">★ <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star)}</a></div>
+        <div className="yfp-star">★ <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star, starIdentity)}</a></div>
       )}
     </article>
   );
@@ -319,6 +319,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const [rules, setRules] = useState(false);
   const [focused, setFocused] = useState(0);
   const [stars, setStars] = useState<Record<number, Star> | null>(null);
+  const [identities, setIdentities] = useState<Record<string, CurrentPlayerIdentity>>({});
   const nav = useBracketNav();
 
   // Load only once the tab is on screen (the section is hidden until then).
@@ -346,6 +347,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     loadStars(region).then((all) => { if (!cancelled) setStars(all[me] || {}); });
     return () => { cancelled = true; };
   }, [region, me]);
+  useEffect(() => {
+    const ids = Object.values(stars || {}).map((s) => s[5]);
+    if (!ids.length) { setIdentities({}); return; }
+    let cancelled = false;
+    loadCurrentPlayerIdentities(ids).then((rows) => { if (!cancelled) setIdentities(rows); });
+    return () => { cancelled = true; };
+  }, [stars]);
   const cal = useMemo(() => (index && asof ? calendar(index, asof) : null), [index, asof]);
   const rec = useMemo(() => (index && lb ? records(index, lb) : () => ''), [index, lb]);
 
@@ -412,7 +420,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             ) : (
               <div className="yfz-round">
                 <div className="yfz-cards">
-                  {cur?.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} rec={rec} focused={focused === c.week} onOpen={setOpen} />)}
+                  {cur?.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} starIdentity={stars?.[c.week] ? identities[stars[c.week][5]] : undefined} rec={rec} focused={focused === c.week} onOpen={setOpen} />)}
                   {!school && <p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
                 </div>
               </div>
