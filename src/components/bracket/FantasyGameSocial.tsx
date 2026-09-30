@@ -126,8 +126,9 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl}:Prop
   };
 
   const openComment=()=>{
+    if(!me){ openSignIn(); return; }
     if(window.matchMedia('(max-width:899px)').matches){setModal(true);setTimeout(()=>textareaRef.current?.focus(),80);}
-    else if(me) textareaRef.current?.focus(); else openSignIn();
+    else textareaRef.current?.focus();
   };
 
   const actions=(modalMode=false)=>(
