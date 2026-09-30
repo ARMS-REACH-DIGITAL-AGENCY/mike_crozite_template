@@ -189,9 +189,6 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         {row('a')}
         {row('h')}
       </div>
-      {card.state === 'final' && star ? (
-        <div className="yfp-star">★ Alumni of the Week: <a href={`/${me}/player/${encodeURIComponent(star[5])}`}>{starLine(star, starIdentity)}</a></div>
-      ) : null}
       {card.state === 'final' ? <GameSocialActions card={card} me={me} /> : null}
     </article>
   );
@@ -571,23 +568,23 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* A week as the green manual ballpark scoreboard from the approved mockup.
            School logos are intentionally omitted until all 1,024 schools have real crests. */
         .yfp-scorecard { padding:0; overflow:hidden; border-radius:7px; background:rgba(255,255,255,.035); }
-        .yfp-score-head { display:flex; justify-content:space-between; gap:8px; padding:5px 8px 4px; background:#9c7f22; color:#fff5cf; font:700 9px/1.1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; }
-        .yfp-green-board { margin:0; padding:8px 8px 7px; background:linear-gradient(180deg,#1f6546,#174c35); border-top:1px solid rgba(255,255,255,.14); border-bottom:1px solid #0d3022; box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 5px rgba(0,0,0,.24); }
-        .yfp-green-row { display:grid; grid-template-columns:minmax(72px,1fr) repeat(9,22px) 34px; gap:3px; align-items:center; margin-top:3px; }
-        .yfp-green-row.head { margin-top:0; color:#eef7ef; font:700 10px/1 Oswald,sans-serif; text-align:center; }
+        .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; background:#9c7f22; color:#fff5cf; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+        .yfp-green-board { margin:0; padding:5px 6px 5px; background:linear-gradient(180deg,#1f6546,#174c35); border-top:1px solid rgba(255,255,255,.14); border-bottom:1px solid #0d3022; box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 5px rgba(0,0,0,.24); }
+        .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1fr) repeat(9,18px) 28px; gap:2px; align-items:center; margin-top:2px; }
+        .yfp-green-row.head { margin-top:0; color:#eef7ef; font:700 8px/1 Oswald,sans-serif; text-align:center; }
         .yfp-green-row.head>span:not(:first-child) { display:grid; place-items:center; }
         .yfp-green-row.head .run { color:#ffd34f; }
-        .yfp-green-status { justify-self:start; padding:2px 5px 1px; border-radius:3px; background:#edf4ee; color:#173b2c; font:800 9px/1 Oswald,sans-serif; letter-spacing:.08em; }
+        .yfp-green-status { justify-self:start; padding:2px 4px 1px; border-radius:3px; background:#edf4ee; color:#173b2c; font:800 7px/1 Oswald,sans-serif; letter-spacing:.07em; }
         .yfp-green-status.live { background:#c83732; color:#fff; }
         .yfp-green-status.next,.yfp-green-status.tbd,.yfp-green-status.bye { background:rgba(255,255,255,.12); color:#fff; }
         .yfp-green-team { min-width:0; display:block; padding:0 5px 0 0; border:0; background:transparent; color:#fff; text-align:left; cursor:pointer; }
         .yfp-green-team:disabled { cursor:default; }
-        .yfp-green-abbr { display:none; font:800 16px/1 Oswald,sans-serif; letter-spacing:.03em; }
-        .yfp-green-full { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 15px/1 Oswald,sans-serif; }
+        .yfp-green-abbr { display:none; font:800 12px/1 Oswald,sans-serif; letter-spacing:.03em; }
+        .yfp-green-full { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 11px/1 Oswald,sans-serif; }
         .yfp-green-row.me .yfp-green-team { color:#ffd34f; }
-        .yfp-green-slot { height:26px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 15px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
+        .yfp-green-slot { height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 11px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
         .yfp-green-slot.scored { color:#fff; }
-        .yfp-green-run { position:relative; height:26px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 18px/1 Oswald,sans-serif; }
+        .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }
         .yfp-green-row.won .yfp-green-run { background:#f3c735; color:#15251d; }
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
@@ -620,15 +617,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-box .tm small { flex: 0 0 auto; color: var(--yfp-muted); font: 500 11px/1 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; }
         .yfp-box tr.me .tm b { color: var(--yfp-gold); }
         .yfp-box .tm button:not(:disabled):hover b { text-decoration: underline; }
-        .yfp-crest { width: 22px; height: 22px; object-fit: contain; flex: 0 0 auto; }
         .yfp-star { margin-top: 3px; color: var(--yfp-gold); font: 500 11px/1.25 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .yfp-star a { color: var(--yfp-text); text-decoration: none; }
         .yfp-star a:hover { color: var(--yfp-gold); text-decoration: underline; }
         .yfp-social { margin-top:5px; border-top:1px solid var(--yfp-card-border); }
         .yfp-social-actions { position:relative; display:grid; grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--yfp-card-border); }
-        .yfp-social-actions button { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:40px; padding:0 2px; border:0; border-radius:6px; background:transparent; color:var(--yfp-text); font:400 16px/1 "Bebas Neue",Oswald,sans-serif; letter-spacing:.06em; cursor:pointer; }
-        .yfp-social-actions button i { margin:0; font-size:18px; }
-        .yfp-social-actions button:hover { background:rgba(255,255,255,.06); }
+        .yfp-social-actions button { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:36px; padding:0 2px; border:0; background:transparent; color:var(--yfp-muted); font:400 14px/1 "Bebas Neue",Oswald,sans-serif; letter-spacing:.06em; cursor:pointer; }
+        .yfp-social-actions button i { margin:0; font-size:15px; }
+        .yfp-social-actions button:hover { color:var(--yfp-strong); }
         .yfp-social-actions button.on { color:var(--yfp-gold); }
         .yfp-social-flash { position:absolute; right:2px; bottom:100%; padding:2px 5px; background:#111; color:#fff; font-size:8px; }
         .yfp-social-comment { padding:4px 2px 1px; }
@@ -667,8 +663,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            ad and the pinned round buttons - one round at a time, no page
            scrolling (like the profile's FunZone). */
         .yfp:has(.yfz) { padding: 0; }
-        .yfz { --yfz-dock-h: 58px; position: relative; height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--row4-h, 56px) - var(--footerH, 66px)); min-height: 300px; overflow: hidden; }
-        .yfz-panel { position: absolute; inset: 0 0 var(--yfz-dock-h) 0; display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 12px; padding: 8px 10px; }
+        .yfz { --yfz-dock-h:58px; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px)); min-height:318px; max-height:none; overflow:hidden; }
+        .yfz-panel { position:absolute; inset:0 0 var(--yfz-dock-h) 0; display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:16px; padding:8px; }
         .yfz-panel.all { grid-template-columns: minmax(0, 1fr); }
         .yfz-panel > .yfp-lb { position: static; max-height: none; height: 100%; overflow-y: auto; }
         .yfz-round { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
@@ -707,16 +703,17 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-tab.now span { color: var(--gold, #ffc107); }
         @media (max-width: 899px) {
           .yfz { --yfz-dock-h: 56px; }
-          .yfz-panel { grid-template-columns: minmax(0, 1fr) minmax(122px, 34vw); gap: 5px; padding: 5px 5px; }
+          .yfz-panel { grid-template-columns:minmax(0,1fr) 92px; gap:16px; padding:8px; }
           .yfz-all table { font-size: 11px; }
           .yfz-all td { padding: 4px 3px; }
           .yfz-all th:nth-child(3), .yfz-all td:nth-child(3) { display: none; }
         }
 
-        /* Phones: no scoreboard ticker (row 4) - the room goes to the games. */
-        @media (max-width: 760px) {
-          body:has(.yfz) { --row4-h: 0px; }
-          body:has(.yfz) .yat-row4-shell { display: none; }
+        /* Same as the player profile: Row 4 is visually absent, but its
+           established height budget is NOT reassigned to Row 5. */
+        @media (max-width:760px) {
+          body:has(.yfz) .yat-row4-shell { display:none; }
+          .yfz { min-height:320px; }
         }
 
         /* The drawers: home from the right, visitor from the left. */
@@ -739,16 +736,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         @media (max-width: 899px) {
           .yfp { padding: 8px 8px 16px; }
-          .yfp-green-row { grid-template-columns:46px repeat(9,minmax(13px,1fr)) 28px; gap:2px; }
+          .yfp-green-row { grid-template-columns:38px repeat(9,minmax(10px,1fr)) 24px; gap:1px; }
           .yfp-green-full { display:none; }
           .yfp-green-abbr { display:block; }
-          .yfp-green-slot,.yfp-green-run { height:24px; font-size:14px; }
-          .yfp-green-row.head { font-size:8px; }
-          .yfp-green-status { font-size:7px; padding:2px 3px 1px; }
-          .yfp-score-head { font-size:7.5px; padding:4px 6px 3px; }
-          .yfp-social-actions button { min-height:34px; font-size:13px; }
+          .yfp-green-slot,.yfp-green-run { height:18px; font-size:10px; }
+          .yfp-green-row.head { font-size:6.5px; }
+          .yfp-green-status { font-size:6px; padding:1px 3px; }
+          .yfp-score-head { font-size:6px; padding:3px 4px 2px; }
+          .yfp-social-actions button { min-height:36px; font-size:14px; }
           .yfp-social-actions button i { font-size:15px; }
-          .yfp-layout { grid-template-columns: minmax(0, 1fr) minmax(122px, 34vw); gap: 5px; }
+          .yfp-layout { grid-template-columns:minmax(0,1fr) 92px; gap:16px; }
           .yfp-lb { font-size: 8px; }
           .yfp-lb li { grid-template-columns: 16px minmax(0,1fr) auto; gap: 3px; }
           .yfp-card { padding: 6px 8px 5px; }
@@ -757,7 +754,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-box .tm b { font-size: 13.5px; }
           .yfp-box .tm small { display: none; }
           .yfp-box .r { width: 28px; padding-right: 10px; font-size: 17px; }
-          .yfp-crest { width: 20px; height: 20px; }
           .yfp-box .tm button { gap: 4px; }
         }
       `}</style>
