@@ -77,11 +77,25 @@ function buildSummary(index: Index, slide: Omit<RoundSlide, 'summary' | 'title' 
   return `${schoolName} ${finalWord} Round ${slide.round} ${record}${oppName ? ` against ${oppName}` : ''}.${starText}`;
 }
 
+function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: string) {
+  if (!slide.done.length) return `ROUND ${slide.round}`;
+  if (slide.complete) {
+    if (slide.wins >= 2) return `${schoolName.toUpperCase()} ADVANCES`;
+    if (slide.losses >= 2) return `${opponentName.toUpperCase()} ADVANCES`;
+    return `SERIES COMPLETE ${slide.wins}-${slide.losses}`;
+  }
+  if (slide.wins === slide.losses) return `SERIES TIED ${slide.wins}-${slide.losses}`;
+  if (slide.wins > slide.losses) return `${schoolName.toUpperCase()} LEADS SERIES ${slide.wins}-${slide.losses}`;
+  return `${opponentName.toUpperCase()} LEADS SERIES ${slide.losses}-${slide.wins}`;
+}
+
 function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; me: number; onTap: () => void }) {
   const schoolName = shortName(index.schools[me]?.[0] || '');
   const dates = fmtRange(index.weeks[slide.firstWeek - 1]?.[0] || '', index.weeks[slide.lastWeek - 1]?.[1] || '');
   const wonRound = slide.complete && slide.wins >= 2;
   const seriesLabel = slide.done.length ? `${schoolName} ${wonRound ? 'Wins' : slide.complete ? 'Finishes' : 'Leads'} (${slide.wins}-${slide.losses})` : 'Series not started';
+  const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
+  const status = seriesStatus(slide, schoolName, oppLabel);
 
   return (
     <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
@@ -93,8 +107,13 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
         ? <Fallback className="yft-person" srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
         : <span className="yft-mark" aria-hidden="true">{slide.opponent ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
 
+      <div className="yft-left-meta">
+        <b>ROUND {slide.round}</b>
+        <span>{dates}</span>
+      </div>
+
       <div className="yft-story">
-        <span className="yft-dates">{dates}</span>
+        <span className="yft-status">{status}</span>
         <strong className="yft-title">{slide.title}</strong>
         <p>{slide.summary}</p>
         {slide.heroStar ? (
@@ -105,8 +124,6 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
       </div>
 
       <aside className="yft-series" aria-label={`Round ${slide.round} series`}>
-        <b>ROUND {slide.round}</b>
-        <span>{seriesLabel}</span>
         <div className="yft-series-games">
           {slide.cards.map((card, i) => {
             const score = scoreFor(card, me);
@@ -220,19 +237,24 @@ export default function FantasyTimeline() {
       <button type="button" className="yft-nav prev" onClick={() => go(Math.max(0, active - 1))} disabled={active === 0} aria-label="Previous round">‹</button>
       <button type="button" className="yft-nav next" onClick={() => go(Math.min(9, active + 1))} disabled={active === 9} aria-label="Next round">›</button>
 
-      <div className="yft-rail" aria-label="Rounds">
+      <div className="yft-rail" aria-label="Season timeline">
         <span className="yft-rail-track" aria-hidden="true" />
-        {rounds.map((r, i) => {
-          const now = cal?.week && cal.week >= r.firstWeek && cal.week <= r.lastWeek;
-          const won = r.complete && r.wins >= 2;
-          const lost = r.complete && r.losses >= 2;
-          return (
-            <button key={r.round} type="button" className={`yft-tick${won ? ' W' : lost ? ' L' : ''}${i === active ? ' on' : ''}${now ? ' now' : ''}`}
-              style={{ left: `${(i / 9) * 100}%` }} onClick={() => go(i)} aria-label={`Round ${r.round}`}>
-              <span className="yft-tick-label">R{r.round}</span>
-            </button>
-          );
-        })}
+        {[
+          ...rounds.map((r, i) => ({
+            key:`b${r.round}`, label:`R${r.round}`, onClick:()=>go(i),
+            cls:`${r.complete && r.wins >= 2 ? ' W' : r.complete && r.losses >= 2 ? ' L' : ''}${i === active ? ' on' : ''}${cal?.week && cal.week >= r.firstWeek && cal.week <= r.lastWeek ? ' now' : ''}`
+          })),
+          { key:'s1', label:'R1', onClick:undefined, cls:cal?.week===31?' now':'' },
+          { key:'s2', label:'R2', onClick:undefined, cls:cal?.week===32?' now':'' },
+          { key:'cs', label:'CS', onClick:undefined, cls:cal?.week===33?' now':'' },
+          { key:'ws', label:'WS', onClick:undefined, cls:cal?.week===34?' now':'' },
+        ].map((tick,i,all)=>(
+          <button key={tick.key} type="button" className={`yft-tick${tick.cls}`}
+            style={{left:`${(i/(all.length-1))*100}%`}} onClick={tick.onClick} disabled={!tick.onClick}
+            aria-label={tick.label}>
+            <span className="yft-tick-label">{tick.label}</span>
+          </button>
+        ))}
       </div>
 
       <style jsx global>{`
@@ -246,10 +268,14 @@ export default function FantasyTimeline() {
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.2) 26%,rgba(5,5,5,.82) 42%,#050505 72%); }
         .yft-person { position:absolute; left:1%; bottom:25px; width:27%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+        .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
+        .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
+        .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
         .yft-mark { position:absolute; left:7%; top:48%; transform:translateY(-50%); width:110px; height:110px; display:grid; place-items:center; color:#555; font:400 64px/1 "Bebas Neue",Oswald,sans-serif; }
         .yft-mark-crest { width:100%; height:100%; object-fit:contain; }
         .yft-story { position:absolute; left:28%; right:22%; top:18px; bottom:34px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
+        .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
         .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
@@ -267,6 +293,7 @@ export default function FantasyTimeline() {
         .yft-rail { position:absolute; left:29%; right:23%; bottom:10px; height:18px; z-index:4; }
         .yft-rail-track { position:absolute; left:0; right:0; top:8px; height:2px; background:rgba(255,255,255,.18); }
         .yft-tick { position:absolute; top:1px; width:14px; height:14px; margin-left:-7px; padding:0; border:0; background:transparent; cursor:pointer; }
+        .yft-tick:disabled { cursor:default; }
         .yft-tick::before { content:''; position:absolute; left:4px; top:3px; width:6px; height:8px; border-radius:1px; background:rgba(255,255,255,.42); }
         .yft-tick.W::before { background:#78c988; }
         .yft-tick.L::before { background:#d46f66; }
@@ -274,24 +301,29 @@ export default function FantasyTimeline() {
         .yft-tick-label { position:absolute; left:50%; top:-10px; transform:translateX(-50%); color:rgba(255,255,255,.48); font:700 7px/1 Oswald,sans-serif; }
 
         @media (max-width:760px) {
-          .yat-row3-shell:has(.yft-hero) { height:150px !important; min-height:150px !important; }
-          .yft-hero { height:150px; min-height:150px; }
-          .yft-person { left:0; width:29%; height:calc(100% - 16px); bottom:12px; }
-          .yft-ghost { left:0; width:34%; }
-          .yft-story { left:27%; right:24%; top:5px; bottom:24px; padding:5px 6px 0; justify-content:flex-start; }
-          .yft-dates { font-size:9px; }
-          .yft-title { margin:3px 0 3px; font-size:19px; line-height:.95; }
-          .yft-story p { font-size:7.5px; line-height:1.2; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
-          .yft-star { margin-top:5px; font-size:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1.5%; top:7px; bottom:24px; width:23%; min-width:0; justify-content:flex-start; }
-          .yft-series>b { font-size:13px; }
-          .yft-series>span { font-size:6.5px; }
-          .yft-series-games { margin-top:8px; gap:7px; }
-          .yft-series-game { grid-template-columns:13px 1fr; gap:2px; font-size:6.5px; line-height:1.08; }
-          .yft-series-game small { font-size:5.5px; }
+          body:has(.yft-hero) { --row3-h:118px; }
+          .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
+          .yft-hero { height:118px; min-height:118px; }
+          .yft-person { left:0; width:27%; height:calc(100% - 26px); bottom:13px; }
+          .yft-ghost { left:0; width:31%; }
+          .yft-left-meta { left:2.5%; top:5px; gap:1px; }
+          .yft-left-meta b { font-size:10px; }
+          .yft-left-meta span { font-size:6px; }
+          .yft-story { left:28%; right:24%; top:5px; bottom:20px; padding:0 5px; justify-content:flex-start; }
+          .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .yft-title { margin:2px 0 2px; font-size:14px; line-height:.94; }
+          .yft-story p { font-size:6.1px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+          .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .yft-series { right:1.2%; top:5px; bottom:20px; width:23%; min-width:0; justify-content:flex-start; }
+          .yft-series-games { margin-top:0; gap:4px; }
+          .yft-series-game { grid-template-columns:11px 1fr; gap:1px; font-size:5.4px; line-height:1.02; }
+          .yft-series-game small { font-size:4.8px; }
           .yft-nav { display:none; }
-          .yft-rail { left:31%; right:4%; bottom:6px; }
-          .yft-tick-label { display:none; }
+          .yft-rail { left:28%; right:2%; bottom:3px; height:14px; }
+          .yft-rail-track { top:6px; height:1px; }
+          .yft-tick { width:10px; height:10px; margin-left:-5px; top:1px; }
+          .yft-tick::before { left:3px; top:2px; width:4px; height:6px; }
+          .yft-tick-label { display:block; top:-7px; font-size:4.3px; color:rgba(255,255,255,.55); }
         }
       `}</style>
     </section>
