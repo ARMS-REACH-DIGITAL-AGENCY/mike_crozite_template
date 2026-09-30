@@ -7,6 +7,8 @@ on:
       - src/components/bracket/**
       - src/app/api/player-identities/**
       - src/lib/bracket/**
+      - package.json
+      - pnpm-lock.yaml
       - .github/workflows/bracket-ui-build.yml
   workflow_dispatch:
 
