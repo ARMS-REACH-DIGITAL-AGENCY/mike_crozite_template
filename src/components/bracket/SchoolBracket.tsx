@@ -29,6 +29,7 @@ import {
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { slideToWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
+import FantasyGameSocial from './FantasyGameSocial';
 import { Roboto_Condensed } from 'next/font/google';
 
 // The scoreboard type (the game cards), condensed like the MLB and ESPN apps.
@@ -44,91 +45,6 @@ type Open = { card: WeekCard; side: 'h' | 'a' };
 // of the Week. The round is the tab, so it isn't repeated here.
 export const shortStage = (stage: string) => stage.replace(/^Round \d+ · /, '').replace(/ leaderboard game$/, ' game');
 
-// UX prototype for game-level social actions. The UI contract intentionally
-// mirrors Player Moments (Like / Comment / Share). For now likes/comments are
-// kept in this browser so the redesign can be exercised without pretending
-// the 2026 simulation is production content. The component is isolated so
-// the 2027 live tournament can swap these reads/writes to the permanent
-// game-social API without changing the card layout.
-function GameSocialActions({ card, me }: { card: WeekCard; me: number }) {
-  const gameId = card.game?.[0];
-  const key = gameId ? `yat-fantasy-game-social:${gameId}` : '';
-  const [liked, setLiked] = useState(false);
-  const [comments, setComments] = useState<string[]>([]);
-  const [showComment, setShowComment] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [flash, setFlash] = useState('');
-
-  useEffect(() => {
-    if (!key) return;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      setLiked(Boolean(parsed?.liked));
-      setComments(Array.isArray(parsed?.comments) ? parsed.comments.map(String) : []);
-    } catch {}
-  }, [key]);
-
-  const persist = (nextLiked: boolean, nextComments: string[]) => {
-    if (!key) return;
-    try { localStorage.setItem(key, JSON.stringify({ liked: nextLiked, comments: nextComments })); } catch {}
-  };
-
-  const toggleLike = () => {
-    const next = !liked;
-    setLiked(next);
-    persist(next, comments);
-  };
-
-  const addComment = () => {
-    const text = draft.trim();
-    if (!text) return;
-    const next = [...comments, text].slice(-20);
-    setComments(next);
-    setDraft('');
-    persist(liked, next);
-  };
-
-  const share = async () => {
-    if (!card.game) return;
-    const round = Math.ceil(card.week / 3);
-    const url = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?round=${round}#fweek-${card.week}`;
-    const title = `YAT?STATS Fantasy Bracket · Round ${round} · Game ${((card.week - 1) % 3) + 1}`;
-    try {
-      if (navigator.share) await navigator.share({ title, url });
-      else {
-        await navigator.clipboard.writeText(url);
-        setFlash('Link copied');
-        window.setTimeout(() => setFlash(''), 1600);
-      }
-    } catch {}
-  };
-
-  if (!gameId) return null;
-  return (
-    <div className="yfp-social" onClick={(e) => e.stopPropagation()}>
-      <div className="yfp-social-actions">
-        <button type="button" className={liked ? 'on' : ''} onClick={toggleLike} aria-pressed={liked}>
-          <i className={liked ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
-        </button>
-        <button type="button" onClick={() => setShowComment((v) => !v)}>
-          <i className="ri-chat-3-line" /> Comment{comments.length ? ` (${comments.length})` : ''}
-        </button>
-        <button type="button" onClick={share}>
-          <i className="ri-share-forward-line" /> Share
-        </button>
-        {flash ? <span className="yfp-social-flash">{flash}</span> : null}
-      </div>
-      {showComment ? (
-        <div className="yfp-social-comment">
-          {comments.length ? <small>{comments[comments.length - 1]}</small> : null}
-          <div><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addComment(); }} placeholder="Write a comment" /><button type="button" onClick={addComment}>Post</button></div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
 function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpen }: {
   index: Index; card: WeekCard; me: number; star?: Star; starIdentity?: CurrentPlayerIdentity; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void;
 }) {
@@ -189,7 +105,14 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         {row('a')}
         {row('h')}
       </div>
-      {card.state === 'final' ? <GameSocialActions card={card} me={me} /> : null}
+      {card.state === 'final' && g ? (
+        <FantasyGameSocial
+          gameKey={`sim-2026:${g[0]}`}
+          title={`Round ${round} · Game ${gameNo}`}
+          subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
+          shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?round=${round}#fweek-${card.week}`}
+        />
+      ) : null}
     </article>
   );
 }
@@ -620,18 +543,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-star { margin-top: 3px; color: var(--yfp-gold); font: 500 11px/1.25 var(--yfp-sb), "Arial Narrow", Oswald, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .yfp-star a { color: var(--yfp-text); text-decoration: none; }
         .yfp-star a:hover { color: var(--yfp-gold); text-decoration: underline; }
-        .yfp-social { margin-top:5px; border-top:1px solid var(--yfp-card-border); }
-        .yfp-social-actions { position:relative; display:grid; grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--yfp-card-border); }
-        .yfp-social-actions button { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:36px; padding:0 2px; border:0; background:transparent; color:var(--yfp-muted); font:400 14px/1 "Bebas Neue",Oswald,sans-serif; letter-spacing:.06em; cursor:pointer; }
-        .yfp-social-actions button i { margin:0; font-size:15px; }
-        .yfp-social-actions button:hover { color:var(--yfp-strong); }
-        .yfp-social-actions button.on { color:var(--yfp-gold); }
-        .yfp-social-flash { position:absolute; right:2px; bottom:100%; padding:2px 5px; background:#111; color:#fff; font-size:8px; }
-        .yfp-social-comment { padding:4px 2px 1px; }
-        .yfp-social-comment>small { display:block; margin:0 0 4px; color:var(--yfp-muted); font:400 9px/1.25 system-ui,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .yfp-social-comment>div { display:flex; gap:4px; }
-        .yfp-social-comment input { min-width:0; flex:1; height:24px; padding:0 6px; border:1px solid var(--yfp-card-border); border-radius:3px; background:rgba(255,255,255,.04); color:var(--yfp-text); font-size:10px; }
-        .yfp-social-comment button { width:38px; border:0; border-radius:3px; background:var(--yfp-gold); color:#111; font:700 8px/1 Oswald,sans-serif; text-transform:uppercase; }
         .yfp-note { margin-top: 4px; color: var(--yfp-muted); font: 400 11px/1.35 system-ui, sans-serif; }
         .yfp-tbd { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--yfp-muted); font: 500 13px/1.2 Oswald, sans-serif; letter-spacing: .03em; }
         .yfp-tbd small { display: block; margin-top: 2px; font: 400 11px/1.3 system-ui, sans-serif; letter-spacing: 0; }
@@ -743,8 +654,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-row.head { font-size:6.5px; }
           .yfp-green-status { font-size:6px; padding:1px 3px; }
           .yfp-score-head { font-size:6px; padding:3px 4px 2px; }
-          .yfp-social-actions button { min-height:36px; font-size:14px; }
-          .yfp-social-actions button i { font-size:15px; }
           .yfp-layout { grid-template-columns:minmax(0,1fr) 92px; gap:16px; }
           .yfp-lb { font-size: 8px; }
           .yfp-lb li { grid-template-columns: 16px minmax(0,1fr) auto; gap: 3px; }
