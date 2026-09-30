@@ -11,7 +11,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type Index, type LbGame, fmtRange, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { focusWeek, selectStage, useBracketNav } from './bracketNav';
+import { FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
@@ -238,8 +238,7 @@ export default function FantasyTimeline() {
   }, []);
 
   const nav=useBracketNav();
-  const stageKeys=['r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','c1','c2','cg','yws'];
-  const stageOfWeek=(w:number)=>w<=30?`r${Math.max(1,Math.ceil(w/3))}`:w===31?'c1':w===32?'c2':w===33?'cg':'yws';
+  const stageKeys=[...FANTASY_STAGE_KEYS];
   const postStages=[
     {key:'c1',label:'C1',title:'CHAMPIONSHIP ROUND 1',week:31},
     {key:'c2',label:'C2',title:'CHAMPIONSHIP ROUND 2',week:32},
@@ -249,7 +248,7 @@ export default function FantasyTimeline() {
 
   useEffect(()=>{
     if(!rounds.length)return;
-    const initial=nav.stageKey||stageOfWeek(Math.max(1,Math.min(34,cal?.week||1)));
+    const initial=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?.week||1)));
     const i=Math.max(0,stageKeys.indexOf(initial));
     requestAnimationFrame(()=>{go(i,false);setActive(i);if(!nav.stageKey)selectStage(initial);});
   },[rounds.length,cal?.week,go]);
@@ -294,7 +293,7 @@ export default function FantasyTimeline() {
         {stageKeys.map((key,i)=>{
           const label=i<10?`R${i+1}`:i===10?'R1':i===11?'R2':i===12?'CS':'WS';
           const r=i<10?rounds[i]:null;
-          const cls=`${r?.complete&&r.wins>=2?' W':r?.complete&&r.losses>=2?' L':''}${i===active?' on':''}${key===stageOfWeek(cal?.week||1)?' now':''}`;
+          const cls=`${r?.complete&&r.wins>=2?' W':r?.complete&&r.losses>=2?' L':''}${i===active?' on':''}${key===stageKeyForWeek(cal?.week||1)?' now':''}`;
           return <button key={key} type="button" className={`yft-tick${cls}`} style={{left:`${(i/(stageKeys.length-1))*100}%`}}
             onClick={()=>{selectStage(key);go(i);}} aria-label={key}><span className="yft-tick-label">{label}</span></button>;
         })}
