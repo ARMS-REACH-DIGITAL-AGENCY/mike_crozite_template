@@ -4,7 +4,8 @@
 //
 //   Weeks 1-30: its bracket series (Round 1's opponent is known from the
 //   start; each later round's once the round before is final), then its
-//   weekly region leaderboard games once it's out (each drawn that week).
+//   regional leaderboard series once it's out. One opponent is drawn at
+//   the start of each three-week round and stays fixed for all three games.
 //   Weeks 31-34: its Season Championship Tournament and Fantasy World Series
 //   games, only once it's in them; the Bracket Champ's bye weeks.
 
@@ -57,13 +58,13 @@ export function schoolSeason(index: Index, lb: LbGame[], h: number, asof: string
         const g = s[7][i];
         out.push({ week: w, stage: `Round ${r} · Game ${i + 1}`, state: state(w), game: g, file: `d-${r}-${s[0]}`, days: daysIn(w) });
       } else if (!s && outKnown) {
-        // Out of the bracket: a weekly game against another school out of
-        // its region, drawn when the week starts.
+        // Out of the bracket: the same regional opponent for all three
+        // weeks in this round. A new opponent may be drawn next round.
         const g = myLb.get(w);
         const stage = `Region ${region} leaderboard game`;
         if (g && w <= Math.max(week, final)) out.push({ week: w, stage, state: state(w), game: g.slice(0, 7) as GameRow, file: `d-lb-${w}-${g[7]}`, days: daysIn(w) });
         else if (!g && w <= final) out.push({ week: w, stage, state: 'bye', days: 0, note: 'No game this week' });
-        else out.push({ week: w, stage, state: 'tbd', days: 0, note: `Opponent drawn from Region ${region} · ${REGIONS[region]} that week` });
+        else out.push({ week: w, stage, state: 'tbd', days: 0, note: `Round opponent drawn from Region ${region} · ${REGIONS[region]} and fixed for all three games` });
       } else {
         out.push({ week: w, stage: `Round ${r} · Game ${i + 1}`, state: 'tbd', days: 0, note: r === 1 ? '' : `Opponent set when Round ${r - 1} ends` });
       }
