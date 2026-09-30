@@ -457,8 +457,9 @@ const champion = alive[0];
 
 // ---------------------------------------------------------------------------
 // Regional leaderboards: every school, all season (weeks 1-30), ranked on
-// total runs. Schools still in the bracket score in their bracket games;
-// eliminated schools play a weekly game inside their region.
+// total runs. Schools still in the bracket score in their bracket games.
+// Once eliminated, a school is paired with ONE random regional opponent for
+// the next three-week round and plays that same school in all three games.
 // ---------------------------------------------------------------------------
 type Board = { games: number; w: number; l: number; t: number; rf: number; ra: number };
 const board = new Map<number, Board>();
@@ -471,17 +472,25 @@ function addToBoard(g: GameRow) {
   }
 }
 const lbGames: GameRow[] = [];
-// Weekly games of eliminated schools; byes go by leaderboard games played.
+// Leaderboard games keep the exact same three-game round grammar as the
+// bracket. Pair ONCE at the start of a round; that opponent is fixed for
+// all three weekly games. A fresh random regional opponent can be drawn in
+// the next round.
 const lbPlayed = new Map<number, number>();
-for (let week = 2; week <= BRACKET_LAST_WEEK; week++) {
+for (let round = 2; round <= 10; round++) {
+  const firstWeek = (round - 1) * 3 + 1;
   for (let region = 1; region <= 8; region++) {
-    const pool = [...eliminatedAfterWeek.entries()].filter(([h, w]) => w < week && schools.get(h)!.region === region).map(([h]) => h).sort((a, b) => a - b);
+    const pool = [...eliminatedAfterWeek.entries()]
+      .filter(([h, eliminatedWeek]) => eliminatedWeek < firstWeek && schools.get(h)!.region === region)
+      .map(([h]) => h)
+      .sort((a, b) => a - b);
     if (pool.length < 2) continue;
-    const { pairs } = pairEliminated(pool, lbPlayed, `${SEED}:lb:${week}:${region}`);
+    const { pairs } = pairEliminated(pool, lbPlayed, `${SEED}:lb:round:${round}:${region}`);
     for (const [a, b] of pairs) {
-      const g = game(week, a, b, true);
-      lbGames.push(g);
-      for (const h of [a, b]) lbPlayed.set(h, (lbPlayed.get(h) || 0) + 1);
+      for (let gameNo = 0; gameNo < 3; gameNo++) {
+        lbGames.push(game(firstWeek + gameNo, a, b, true));
+      }
+      for (const h of [a, b]) lbPlayed.set(h, (lbPlayed.get(h) || 0) + 3);
     }
   }
 }
