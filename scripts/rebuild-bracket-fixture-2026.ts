@@ -25,6 +25,7 @@ type School = [string, number, number];
 type Roster = { id:string; name:string; level:string; pitcher:boolean };
 type Metrics = { d: number[][]; source?: SideBox };
 
+async function main() {
 const index = JSON.parse(fs.readFileSync(INDEX_PATH,'utf8')) as any;
 const oldLbRaw = JSON.parse(fs.readFileSync(LB_PATH,'utf8')) as any;
 const oldLb: any[] = Array.isArray(oldLbRaw) ? oldLbRaw : oldLbRaw.games || [];
@@ -241,3 +242,10 @@ const outIndex={
 };
 fs.writeFileSync(INDEX_PATH,JSON.stringify(outIndex));
 console.log(JSON.stringify({schools:schools.size,rosters:rosters.size,games:gid,champion,lbChampion,grandChampion},null,2));
+
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
