@@ -163,13 +163,14 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   useEffect(() => {
     let cancelled = false;
     if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
-    Promise.all([loadActiveRoster(g[2]), loadActiveRoster(g[3])])
+    Promise.all([loadActiveRoster(homeId), loadActiveRoster(awayId)])
       .then(([home, away]) => { if (!cancelled) setRosters({ home, away }); })
       .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
     return () => { cancelled = true; };
-  }, [card.file, g]);
+  }, [card.file, homeId, awayId]);
   const S = index.schools;
-  const h = side === 'h' ? g[2] : g[3];
+  const homeId = g[2], awayId = g[3];
+  const h = side === 'h' ? homeId : awayId;
   const [hr, ar] = runsThrough(g, 7);
   return (
     <DrawerWrap onClose={onClose}>
@@ -179,14 +180,10 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
           <div><b>{shortName(S[h]?.[0] || '')}</b><span>Week {card.week} · {card.stage} · {side === 'h' ? 'Home' : 'Visitor'}</span></div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        {card.state === 'live' ? (
-          <p className="yfp-drawer-wait">The players&apos; lines post when the week is final.</p>
-        ) : (
-          <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={g[2]} away={g[3]}
-            names={[shortName(S[g[2]]?.[0] || ''), shortName(S[g[3]]?.[0] || '')]} score={[hr, ar]} innings={g[5]} winner={g[6]}
-            decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!box || !rosters}
-            homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode />
-        )}
+        <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
+          names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]} score={[hr, ar]} innings={g[5]} winner={g[6]}
+          decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!rosters}
+          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode />
       </aside>
     </DrawerWrap>
   );
