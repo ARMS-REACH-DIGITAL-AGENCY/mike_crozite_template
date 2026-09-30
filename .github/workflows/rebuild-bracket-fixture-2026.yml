@@ -31,7 +31,7 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Rebuild complete 2026 simulation
-        run: pnpm exec tsx scripts/rebuild-bracket-fixture-2026.ts
+        run: npx --yes tsx scripts/rebuild-bracket-fixture-2026.ts
       - name: Audit rebuilt fixture
         run: node scripts/bracket-integrity-2026.mjs audit --report bracket-integrity-report.json
       - name: Commit rebuilt fixture
