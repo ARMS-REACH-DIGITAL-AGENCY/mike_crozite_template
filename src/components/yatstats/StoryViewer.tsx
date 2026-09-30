@@ -74,7 +74,7 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 }
 
-function openSignIn() {
+export function openSignIn() {
   document.body.classList.remove('drawer-story-open');
   document.body.classList.add('drawer-account-open', 'drawer-open');
   window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'signin' }));
@@ -82,7 +82,7 @@ function openSignIn() {
 
 // A Firebase ID token when this site has a Firebase user; the server falls
 // back to the signed pass from sign-in otherwise (lib/fanIdentity.ts).
-async function authHeaders(): Promise<Record<string, string>> {
+export async function authHeaders(): Promise<Record<string, string>> {
   try {
     await auth.authStateReady?.();
     const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
