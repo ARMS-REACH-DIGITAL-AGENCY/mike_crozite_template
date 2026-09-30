@@ -13,6 +13,7 @@ type Props={
   title:string;
   subtitle:string;
   shareUrl:string;
+  preview?:React.ReactNode;
 };
 
 const MAX_PHOTOS=4;
@@ -27,7 +28,7 @@ function ago(iso:string){
   if(s<604800)return `${Math.floor(s/86400)}d`; return `${Math.floor(s/604800)}w`;
 }
 
-export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl}:Props){
+export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,preview}:Props){
   const me=useFanMe();
   const myName=me?[me.firstName,me.lastName].filter(Boolean).join(' '):'';
   const [liked,setLiked]=useState(false);
@@ -185,6 +186,7 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl}:Prop
       <div className="ysv fgs-modal" role="dialog" aria-modal="true" aria-label={title} onClick={()=>setModal(false)}>
         <div className="fgs-modal-card ysv-card" onClick={e=>e.stopPropagation()}>
           <button type="button" className="ysv-close" onClick={()=>setModal(false)} aria-label="Close"><i className="ri-close-line"/></button>
+          {preview ? <div className="fgs-modal-preview">{preview}</div> : null}
           <div className="fgs-modal-head">
             <strong>{title}</strong>
             <span>{subtitle}</span>
@@ -215,7 +217,16 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl}:Prop
       .fgs-inline .ysv-signin{min-height:32px;font-size:13px}
       .fgs-toast{position:fixed;left:50%;bottom:calc(var(--footerH,66px) + 70px);transform:translateX(-50%);z-index:10080;padding:8px 14px;border-radius:999px;background:#111;color:#ffd700;border:1px solid rgba(255,215,0,.5);font:12px/1.2 system-ui,sans-serif}
       .fgs-modal .fgs-modal-card{display:flex;flex-direction:column;width:min(620px,100%);height:min(720px,calc(100dvh - 32px));background:#0d0d0d}
-      .fgs-modal-head{padding:20px 52px 12px 20px;border-bottom:1px solid var(--ysv-line);display:flex;flex-direction:column;gap:4px}
+      .fgs-modal-preview{flex:none;padding:18px 20px 0;background:#0d0d0d}
+      .fgs-modal-preview .yfp-score-head{font-size:7px!important;padding:4px 6px 3px!important}
+      .fgs-modal-preview .yfp-green-board{padding:7px 7px 6px!important}
+      .fgs-modal-preview .yfp-green-row{grid-template-columns:46px repeat(9,minmax(16px,1fr)) 32px!important;gap:2px!important;margin-top:2px!important}
+      .fgs-modal-preview .yfp-green-row.head{font-size:8px!important}
+      .fgs-modal-preview .yfp-green-abbr{display:block!important;font-size:13px!important}
+      .fgs-modal-preview .yfp-green-full{display:none!important}
+      .fgs-modal-preview .yfp-green-slot,.fgs-modal-preview .yfp-green-run{height:26px!important;font-size:13px!important}
+      .fgs-modal-preview .yfp-green-status{font-size:7px!important;padding:2px 4px!important}
+      .fgs-modal-head{padding:14px 52px 10px 20px;border-bottom:1px solid var(--ysv-line);display:flex;flex-direction:column;gap:4px}
       .fgs-modal-head strong{font:700 20px/1 Oswald,sans-serif;color:#fff}
       .fgs-modal-head span{font:700 10px/1.2 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#ffd700}
       .fgs-modal-body{flex:1;min-height:0;overflow:auto;padding:0 20px}
@@ -226,7 +237,14 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl}:Prop
         .fgs-inline .ysv-counts{display:none}
         .fgs-modal{padding:0;align-items:stretch}
         .fgs-modal .fgs-modal-card{width:100%;height:100dvh;max-height:none;border-radius:0;border:0}
-        .fgs-modal-head{padding-top:18px}
+        .fgs-modal-preview{padding:14px 12px 0}
+        .fgs-modal-preview .yfp-score-head{font-size:6px!important;padding:3px 5px 2px!important}
+        .fgs-modal-preview .yfp-green-board{padding:5px!important}
+        .fgs-modal-preview .yfp-green-row{grid-template-columns:40px repeat(9,minmax(13px,1fr)) 28px!important;gap:1px!important}
+        .fgs-modal-preview .yfp-green-row.head{font-size:6.5px!important}
+        .fgs-modal-preview .yfp-green-abbr{font-size:11px!important}
+        .fgs-modal-preview .yfp-green-slot,.fgs-modal-preview .yfp-green-run{height:22px!important;font-size:11px!important}
+        .fgs-modal-head{padding-top:12px}
       }
       @media(min-width:900px){
         .fgs-modal{display:none}
