@@ -22,7 +22,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
+  type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   abbr, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
@@ -46,8 +46,8 @@ type Open = { card: WeekCard; side: 'h' | 'a' };
 // of the Week. The round is the tab, so it isn't repeated here.
 export const shortStage = (stage: string) => stage.replace(/^Round \d+ · /, '').replace(/ leaderboard game$/, ' game');
 
-function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpen }: {
-  index: Index; card: WeekCard; me: number; star?: Star; starIdentity?: CurrentPlayerIdentity; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void;
+function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpen, domId }: {
+  index: Index; card: WeekCard; me: number; star?: Star; starIdentity?: CurrentPlayerIdentity; rec: (h: number, week: number) => string; focused: boolean; onOpen: (o: Open) => void; domId?: string;
 }) {
   const g = card.game;
   const S = index.schools;
@@ -59,7 +59,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 
   if (!g) {
     return (
-      <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
+      <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
         <div className="yfp-score-head">
           <span>Week {card.week} | {dates(index, card.week)}</span>
           <span>Round {round} | Game {gameNo}</span>
@@ -110,7 +110,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   );
 
   return (
-    <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
+    <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
       {scoreboard}
       {card.state === 'final' && g ? (
         <FantasyGameSocial
