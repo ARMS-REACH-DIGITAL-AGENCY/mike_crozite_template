@@ -36,6 +36,7 @@ import { Roboto_Condensed } from 'next/font/google';
 const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-sb', display: 'swap' });
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
+const shareSchoolLabel=(raw:string)=>raw.replace(/,\s*/g,', ').trim();
 
 type Open = { card: WeekCard; side: 'h' | 'a' };
 
@@ -116,7 +117,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           gameKey={`sim-2026:${g[0]}`}
           title={`Round ${round} · Game ${gameNo}`}
           subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
-          shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?round=${round}#fweek-${card.week}`}
+          shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
+          shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}#sec-fantasy`}
           preview={<div className="yfp-scorecard">{scoreboard}</div>}
         />
       ) : null}
