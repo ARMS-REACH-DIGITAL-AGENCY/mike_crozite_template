@@ -27,7 +27,7 @@ import {
   abbr, fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
-import { selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
+import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import FantasyGameSocial from './FantasyGameSocial';
 import { Roboto_Condensed } from 'next/font/google';
@@ -375,7 +375,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   // One canonical 14-stage season navigation. Row 3, Row 5 and the dock
   // all read/write the same stage key so the page cannot show mismatched rounds.
   const tabs = useMemo(() => {
-    const t: { key:string; label:string; list:WeekCard[] }[] = [];
+    const t: { key:FantasyStageKey; label:string; list:WeekCard[] }[] = [];
     for (let r=1;r<=10;r++) t.push({key:`r${r}`,label:`R${r}`,list:cards.filter(c=>c.week<=30&&Math.ceil(c.week/3)===r)});
     t.push({key:'c1',label:'C1',list:cards.filter(c=>c.week===31)});
     t.push({key:'c2',label:'C2',list:cards.filter(c=>c.week===32)});
@@ -390,7 +390,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   },[cal]);
   const tab = nav.stageKey || nowTab;
 
-  const pickTab = (key:string) => {
+  const pickTab = (key:FantasyStageKey) => {
     selectStage(key);
     const list=tabs.find(t=>t.key===key)?.list||[];
     if(list[0]) setFocused(list[0].week);
@@ -418,7 +418,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
   const school = index?.schools[me];
   const cur = tabs.find((t) => t.key === tab);
-  const roundTitle=(key:string)=>{
+  const roundTitle=(key:FantasyStageKey)=>{
     if(key==='c1') return 'Championship Round 1 · Week 31';
     if(key==='c2') return 'Championship Round 2 · Week 32';
     if(key==='cg') return 'Championship Game · Week 33';
