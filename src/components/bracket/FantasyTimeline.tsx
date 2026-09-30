@@ -11,7 +11,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type Index, type LbGame, fmtRange, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { focusWeek, useBracketNav } from './bracketNav';
+import { focusWeek, selectStage, useBracketNav } from './bracketNav';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
@@ -131,11 +131,43 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
             const oppName = opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD';
             return (
               <div key={card.week} className="yft-series-game">
-                <small>G{i + 1}</small>
                 <span>{score ? <>{oppName} {score[1]}<br /><em>{schoolName} {score[0]}</em></> : <>Week {card.week}<br /><em>TBD</em></>}</span>
+                <small>G{i + 1}</small>
               </div>
             );
           })}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function PostSlide({ index, card, me, keyName, label, title, onTap }: {
+  index:Index; card?:WeekCard; me:number; keyName:string; label:string; title:string; onTap:()=>void;
+}) {
+  const schoolName=shortName(index.schools[me]?.[0]||'');
+  const dates=card ? fmtRange(index.weeks[card.week-1]?.[0]||'',index.weeks[card.week-1]?.[1]||'') : '';
+  const score=card ? scoreFor(card,me) : null;
+  const opp=card?.game ? (card.game[2]===me?card.game[3]:card.game[2]) : 0;
+  const oppName=opp?shortName(index.schools[opp]?.[0]||'Opponent'):'TBD';
+  const status=card?.state==='bye'?'BYE':card?.state==='final'&&score?(score[0]>score[1]?schoolName.toUpperCase()+' WINS':oppName.toUpperCase()+' WINS'):card?.state==='live'?'IN PROGRESS':'UPCOMING';
+  return (
+    <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
+      onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onTap();}}}
+      aria-label={title}>
+      <span className="yft-grad" aria-hidden="true"/>
+      <div className="yft-left-meta"><b>{label}</b><span>{dates}</span></div>
+      <div className="yft-story">
+        <span className="yft-status">{status}</span>
+        <strong className="yft-title">{title}</strong>
+        <p>{card?.note || (opp ? `${schoolName} vs ${oppName}.` : 'This stage is set when the prior stage is complete.')}</p>
+      </div>
+      <aside className="yft-series">
+        <div className="yft-series-games">
+          <div className="yft-series-game">
+            <span>{score?<>{oppName} {score[1]}<br/><em>{schoolName} {score[0]}</em></>:<>Week {card?.week||''}<br/><em>{card?.state==='bye'?'BYE':'TBD'}</em></>}</span>
+            <small>{label}</small>
+          </div>
         </div>
       </aside>
     </div>
@@ -205,22 +237,36 @@ export default function FantasyTimeline() {
     el.scrollTo({ left: i * el.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
-  useEffect(() => {
-    if (!rounds.length) return;
-    const currentRound = cal?.week && cal.week >= 1 && cal.week <= 30 ? Math.ceil(cal.week / 3) : cal?.week && cal.week > 30 ? 10 : 1;
-    const i = Math.max(0, Math.min(9, currentRound - 1));
-    requestAnimationFrame(() => { go(i, false); setActive(i); });
-  }, [rounds.length, cal?.week, go]);
+  const nav=useBracketNav();
+  const stageKeys=['r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','c1','c2','cg','yws'];
+  const stageOfWeek=(w:number)=>w<=30?`r${Math.max(1,Math.ceil(w/3))}`:w===31?'c1':w===32?'c2':w===33?'cg':'yws';
+  const postStages=[
+    {key:'c1',label:'C1',title:'CHAMPIONSHIP ROUND 1',week:31},
+    {key:'c2',label:'C2',title:'CHAMPIONSHIP ROUND 2',week:32},
+    {key:'cg',label:'CG',title:'CHAMPIONSHIP GAME',week:33},
+    {key:'yws',label:'YWS',title:'YAT?STATS WORLD SERIES',week:34},
+  ] as const;
 
-  const nav = useBracketNav();
-  useEffect(() => {
-    if (!nav.slideSeq || !nav.slideWeek) return;
-    go(Math.max(0, Math.min(9, Math.ceil(nav.slideWeek / 3) - 1)));
-  }, [nav.slideSeq, nav.slideWeek, go]);
+  useEffect(()=>{
+    if(!rounds.length)return;
+    const initial=nav.stageKey||stageOfWeek(Math.max(1,Math.min(34,cal?.week||1)));
+    const i=Math.max(0,stageKeys.indexOf(initial));
+    requestAnimationFrame(()=>{go(i,false);setActive(i);if(!nav.stageKey)selectStage(initial);});
+  },[rounds.length,cal?.week,go]);
 
-  const onScroll = () => {
-    const el = trackRef.current;
-    if (el) setActive(Math.max(0, Math.min(9, Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))));
+  useEffect(()=>{
+    if(!nav.stageKey)return;
+    const i=stageKeys.indexOf(nav.stageKey);
+    if(i>=0&&i!==active){go(i);setActive(i);}
+  },[nav.stageSeq,nav.stageKey,go]);
+
+  const onScroll=()=>{
+    const el=trackRef.current;
+    if(!el)return;
+    const i=Math.max(0,Math.min(stageKeys.length-1,Math.round(el.scrollLeft/Math.max(1,el.clientWidth))));
+    setActive(i);
+    const key=stageKeys[i];
+    if(key&&key!==nav.stageKey)selectStage(key);
   };
 
   if (!data || !rounds.length) return <section className="yft-hero" aria-label="The season, round by round" />;
@@ -228,35 +274,31 @@ export default function FantasyTimeline() {
   return (
     <section className="yft-hero" aria-label="The season, round by round">
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
-        {rounds.map((r) => {
-          const focus = r.cards.find((c) => c.week === cal?.week) || [...r.done].reverse()[0] || r.cards[0];
-          return <Slide key={r.round} index={data.index} slide={r} me={me} onTap={() => focus && focusWeek(focus.week)} />;
+        {rounds.map((r)=>{
+          const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
+          const key=`r${r.round}`;
+          return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
+        })}
+        {postStages.map((s)=>{
+          const card=cards.find(c=>c.week===s.week);
+          return <PostSlide key={s.key} index={data.index} card={card} me={me} keyName={s.key} label={s.label} title={s.title}
+            onTap={()=>{selectStage(s.key);if(card)focusWeek(card.week);}}/>;
         })}
       </div>
 
-      <button type="button" className="yft-nav prev" onClick={() => go(Math.max(0, active - 1))} disabled={active === 0} aria-label="Previous round">‹</button>
-      <button type="button" className="yft-nav next" onClick={() => go(Math.min(9, active + 1))} disabled={active === 9} aria-label="Next round">›</button>
+      <button type="button" className="yft-nav prev" onClick={()=>{const i=Math.max(0,active-1);selectStage(stageKeys[i]);go(i);}} disabled={active===0} aria-label="Previous stage">‹</button>
+      <button type="button" className="yft-nav next" onClick={()=>{const i=Math.min(stageKeys.length-1,active+1);selectStage(stageKeys[i]);go(i);}} disabled={active===stageKeys.length-1} aria-label="Next stage">›</button>
 
       <div className="yft-rail" aria-label="Season timeline">
-        <span className="yft-rail-track" aria-hidden="true" />
-        {[
-          ...rounds.map((r, i) => ({
-            key:`b${r.round}`, label:`R${r.round}`, onClick:()=>go(i),
-            cls:`${r.complete && r.wins >= 2 ? ' W' : r.complete && r.losses >= 2 ? ' L' : ''}${i === active ? ' on' : ''}${cal?.week && cal.week >= r.firstWeek && cal.week <= r.lastWeek ? ' now' : ''}`
-          })),
-          { key:'s1', label:'R1', onClick:undefined, cls:cal?.week===31?' now':'' },
-          { key:'s2', label:'R2', onClick:undefined, cls:cal?.week===32?' now':'' },
-          { key:'cs', label:'CS', onClick:undefined, cls:cal?.week===33?' now':'' },
-          { key:'ws', label:'WS', onClick:undefined, cls:cal?.week===34?' now':'' },
-        ].map((tick,i,all)=>(
-          <button key={tick.key} type="button" className={`yft-tick${tick.cls}`}
-            style={{left:`${(i/(all.length-1))*100}%`}} onClick={tick.onClick} disabled={!tick.onClick}
-            aria-label={tick.label}>
-            <span className="yft-tick-label">{tick.label}</span>
-          </button>
-        ))}
+        <span className="yft-rail-track" aria-hidden="true"/>
+        {stageKeys.map((key,i)=>{
+          const label=i<10?`R${i+1}`:i===10?'R1':i===11?'R2':i===12?'CS':'WS';
+          const r=i<10?rounds[i]:null;
+          const cls=`${r?.complete&&r.wins>=2?' W':r?.complete&&r.losses>=2?' L':''}${i===active?' on':''}${key===stageOfWeek(cal?.week||1)?' now':''}`;
+          return <button key={key} type="button" className={`yft-tick${cls}`} style={{left:`${(i/(stageKeys.length-1))*100}%`}}
+            onClick={()=>{selectStage(key);go(i);}} aria-label={key}><span className="yft-tick-label">{label}</span></button>;
+        })}
       </div>
-
       <style jsx global>{`
         /* Keep Fantasy in the exact player-profile Career Path Timeline box.
            We are swapping content, not changing the page geometry. */
@@ -283,8 +325,8 @@ export default function FantasyTimeline() {
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
         .yft-series-games { margin-top:11px; width:100%; display:grid; gap:6px; }
-        .yft-series-game { display:grid; grid-template-columns:22px 1fr; gap:5px; align-items:start; color:rgba(255,255,255,.72); font:500 10px/1.15 Oswald,sans-serif; }
-        .yft-series-game small { color:var(--gold,#d5b44a); font:700 8px/1.2 Oswald,sans-serif; }
+        .yft-series-game { display:grid; grid-template-columns:1fr 22px; gap:5px; align-items:start; color:rgba(255,255,255,.72); font:500 10px/1.15 Oswald,sans-serif; }
+        .yft-series-game small { color:var(--gold,#d5b44a); font:700 8px/1.2 Oswald,sans-serif; text-align:right; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
         .yft-nav { position:absolute; top:50%; transform:translateY(-50%); width:30px; height:46px; border:0; background:rgba(0,0,0,.35); color:#fff; font-size:26px; line-height:1; cursor:pointer; z-index:4; }
         .yft-nav:disabled { opacity:.2; cursor:default; }
@@ -311,13 +353,13 @@ export default function FantasyTimeline() {
           .yft-left-meta span { font-size:6px; }
           .yft-story { left:28%; right:24%; top:5px; bottom:20px; padding:0 5px; justify-content:flex-start; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-title { margin:2px 0 2px; font-size:14px; line-height:.94; }
-          .yft-story p { font-size:6.1px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+          .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
+          .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-series { right:1.2%; top:5px; bottom:20px; width:23%; min-width:0; justify-content:flex-start; }
           .yft-series-games { margin-top:0; gap:4px; }
-          .yft-series-game { grid-template-columns:11px 1fr; gap:1px; font-size:5.4px; line-height:1.02; }
-          .yft-series-game small { font-size:4.8px; }
+          .yft-series-game { grid-template-columns:1fr 13px; gap:2px; font-size:7px; line-height:1.02; }
+          .yft-series-game small { font-size:5.8px; text-align:right; }
           .yft-nav { display:none; }
           .yft-rail { left:28%; right:2%; bottom:3px; height:14px; }
           .yft-rail-track { top:6px; height:1px; }
