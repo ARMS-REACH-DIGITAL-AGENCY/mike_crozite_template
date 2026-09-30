@@ -22,9 +22,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  type GameBox, type Index, type LbGame,
+  type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  abbr, fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
+  abbr, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -159,11 +159,15 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   const { card, side } = open;
   const g = card.game!;
   const [box, setBox] = useState<Record<string, GameBox> | null>(null);
+  const [rosters, setRosters] = useState<{ home: ActiveRosterPlayer[]; away: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
+    Promise.all([loadActiveRoster(g[2]), loadActiveRoster(g[3])])
+      .then(([home, away]) => { if (!cancelled) setRosters({ home, away }); })
+      .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
     return () => { cancelled = true; };
-  }, [card.file]);
+  }, [card.file, g]);
   const S = index.schools;
   const h = side === 'h' ? g[2] : g[3];
   const [hr, ar] = runsThrough(g, 7);
@@ -180,7 +184,8 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         ) : (
           <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={g[2]} away={g[3]}
             names={[shortName(S[g[2]]?.[0] || ''), shortName(S[g[3]]?.[0] || '')]} score={[hr, ar]} innings={g[5]} winner={g[6]}
-            decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!box} />
+            decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!box || !rosters}
+            homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode />
         )}
       </aside>
     </DrawerWrap>
