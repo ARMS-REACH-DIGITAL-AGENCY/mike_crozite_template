@@ -180,6 +180,8 @@ const aggOf = (l: string) => {
 };
 const proBatLine = (r: Record<string, string>): BatTotals => ({ pa: num(r.pa), ab: num(r.ab), h: num(r.h), d2: num(r.d2), d3: num(r.d3), hr: num(r.hr), bb: num(r.bb), hbp: num(r.hbp), sf: num(r.sf) });
 const proPitLine = (r: Record<string, string>): PitTotals => ({ outs: num(r.outs), hr: num(r.hr), bb: num(r.bb), hbp: num(r.hbp), so: num(r.so) });
+type PitExtra = { h: number; r: number; er: number };
+const proPitExtraLine = (r: Record<string, string>): PitExtra => ({ h: num(r.h), r: num(r.r), er: num(r.er) });
 function addAgg(level: string, bat?: BatTotals, pit?: PitTotals, er = 0) {
   const a = aggOf(level);
   if (bat) for (const k of Object.keys(bat) as (keyof BatTotals)[]) a.bat[k] += bat[k];
@@ -192,6 +194,7 @@ for (const r of proBat) addAgg(proLevel(r), proBatLine(r));
 for (const r of proPit) addAgg(proLevel(r), undefined, proPitLine(r), num(r.er));
 const colBatTotals = (r: Record<string, string>): BatTotals => ({ pa: num(r.pa), ab: num(r.ab), h: num(r.h), d2: num(r.d2), d3: num(r.d3), hr: num(r.hr), bb: num(r.bb), hbp: num(r.hbp), sf: num(r.sf) });
 const colPitTotals = (r: Record<string, string>): PitTotals => ({ outs: ipToOuts(r.ip), hr: num(r.hr), bb: num(r.bb), hbp: num(r.hbp), so: num(r.so) });
+const colPitExtraTotals = (r: Record<string, string>): PitExtra => ({ h: num(r.h), r: num(r.r), er: num(r.er) });
 for (const r of colBat) addAgg(levelOf(r.level), colBatTotals(r));
 for (const r of colPit) addAgg(levelOf(r.level), undefined, colPitTotals(r), num(r.er));
 
@@ -211,7 +214,7 @@ for (const [level, { bat, pit }] of agg) {
 // ---------------------------------------------------------------------------
 // Daily production per school
 // ---------------------------------------------------------------------------
-type PlayerDay = { playerid: string; level: string; simulated: boolean; bat?: BatTotals; pit?: PitTotals };
+type PlayerDay = { playerid: string; level: string; simulated: boolean; bat?: BatTotals; pit?: PitTotals; pitExtra?: PitExtra };
 const daily = new Map<number, Map<string, PlayerDay[]>>();
 function addDay(hsid: number, date: string, pd: PlayerDay) {
   if (!schools.has(hsid)) return;
@@ -221,7 +224,7 @@ function addDay(hsid: number, date: string, pd: PlayerDay) {
   m.get(date)!.push(pd);
 }
 for (const r of proBat) addDay(num(r.hsid), r.date, { playerid: r.playerid, level: proLevel(r), simulated: false, bat: proBatLine(r) });
-for (const r of proPit) addDay(num(r.hsid), r.date, { playerid: r.playerid, level: proLevel(r), simulated: false, pit: proPitLine(r) });
+for (const r of proPit) addDay(num(r.hsid), r.date, { playerid: r.playerid, level: proLevel(r), simulated: false, pit: proPitLine(r), pitExtra: proPitExtraLine(r) });
 
 // College calendars: game days and season windows by level (2026).
 const COLLEGE: Record<string, { start: string; end: string; latest: string; days: number[] }> = {
@@ -324,6 +327,7 @@ for (const r of colBat) {
 }
 for (const r of colPit) {
   const t = colPitTotals(r);
+  const x = colPitExtraTotals(r);
   const g = num(r.g);
   if (!g || !t.outs) continue;
   const level = levelOf(r.level);
@@ -331,7 +335,15 @@ for (const r of colPit) {
   for (const date of pickGameDates(level, fullSeasonGames(level, g), rand)) {
     const outs = spread(t.outs / g, rand);
     const per = (n: number) => poisson((n / t.outs) * outs, rand);
-    addDay(num(r.hsid), date, { playerid: r.playerid, level, simulated: true, pit: { outs, hr: per(t.hr), bb: per(t.bb), hbp: per(t.hbp), so: per(t.so) } });
+    const er = per(x.er);
+    const unearned = per(Math.max(0, x.r - x.er));
+    addDay(num(r.hsid), date, {
+      playerid: r.playerid,
+      level,
+      simulated: true,
+      pit: { outs, hr: per(t.hr), bb: per(t.bb), hbp: per(t.hbp), so: per(t.so) },
+      pitExtra: { h: per(x.h), r: er + unearned, er },
+    });
     simulatedPitLines++;
   }
 }
@@ -379,6 +391,34 @@ if (SPRING) {
     const [playerid, wk] = key.split('|');
     const week = Number(wk);
     for (const club of clubs) for (const date of weekDates(week)) if (date < '2026-03-25') addWL(hsid, date, club, playerid);
+  }
+}
+
+// Every eligible alumnus must contribute a weekly club record to inning 9.
+// Real stint/team results win whenever they exist. Missing records are filled
+// deterministically so the simulation never drops an active alumnus from W-L%.
+function syntheticPlayerWL(playerid: string, week: number, level: string) {
+  const college = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level);
+  const games = college ? 4 : 6;
+  const rand = mulberry32(hashString(`yatstats-2026-wl:${playerid}:${week}:${level}`));
+  const wins = Math.floor(rand() * (games + 1));
+  return { w: wins, l: games - wins };
+}
+for (const [hsid, roster] of seasonRoster) {
+  for (let week = 1; week <= GRAND_FINAL_WEEK; week++) {
+    const key = `${hsid}|${week}`;
+    if (!playerWL.has(key)) playerWL.set(key, new Map());
+    const perPlayer = playerWL.get(key)!;
+    for (const [playerid, entry] of roster) {
+      if (perPlayer.has(playerid)) continue;
+      const level = [...entry.levels][0] || 'MLB';
+      const synthetic = syntheticPlayerWL(playerid, week, level);
+      perPlayer.set(playerid, synthetic);
+      const total = weeklyWL.get(key) || { w: 0, l: 0 };
+      total.w += synthetic.w;
+      total.l += synthetic.l;
+      weeklyWL.set(key, total);
+    }
   }
 }
 
@@ -633,15 +673,32 @@ function exportGallery(dir: string) {
   const names = new Map(rows('names.psv', '|').map((r) => [r.playerid, r.name]));
   const round1 = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v));
   const batArr = (b: BatTotals) => [b.pa, b.ab, b.h, b.d2, b.d3, b.hr, b.bb, b.hbp, b.sf];
-  const pitArr = (p: PitTotals) => [p.outs, p.hr, p.bb, p.hbp, p.so];
+  const pitcherFip = (buckets: LevelBuckets) => {
+    let weighted = 0, weight = 0;
+    for (const [level, { pit }] of buckets) {
+      const appearance = pit.outs > 0 || pit.hr > 0 || pit.bb > 0 || pit.hbp > 0 || pit.so > 0;
+      const outs = pit.outs > 0 ? pit.outs : appearance ? 1 : 0;
+      if (!outs) continue;
+      const base = baselines.get(level);
+      weighted += (fipCore(pit) + (base?.cfip ?? 3.1)) * outs;
+      weight += outs;
+    }
+    return weight ? weighted / weight : 0;
+  };
+  const pitArr = (p: PitTotals, x: PitExtra, fip: number) => [p.outs, p.hr, p.bb, p.hbp, p.so, x.h, x.r, x.er, +fip.toFixed(2)];
 
   function side(hsid: number, week: number) {
-    const byPlayer = new Map<string, { levels: Set<string>; sim: boolean; bat: BatTotals | null; pit: PitTotals | null; buckets: LevelBuckets }>();
+    const byPlayer = new Map<string, { levels: Set<string>; sim: boolean; bat: BatTotals | null; pit: PitTotals | null; pitExtra: PitExtra; buckets: LevelBuckets }>();
     for (const d of weekDates(week)) for (const pd of daily.get(hsid)?.get(d) || []) {
-      const cur = byPlayer.get(pd.playerid) || { levels: new Set<string>(), sim: pd.simulated, bat: null, pit: null, buckets: new Map() };
+      const cur = byPlayer.get(pd.playerid) || { levels: new Set<string>(), sim: pd.simulated, bat: null, pit: null, pitExtra: { h: 0, r: 0, er: 0 }, buckets: new Map() };
       cur.levels.add(pd.level);
       if (pd.bat) cur.bat = cur.bat ? { ...cur.bat, ...Object.fromEntries(Object.keys(pd.bat).map((k) => [k, cur.bat![k as keyof BatTotals] + pd.bat![k as keyof BatTotals]])) } as BatTotals : { ...pd.bat };
       if (pd.pit) cur.pit = cur.pit ? { ...cur.pit, ...Object.fromEntries(Object.keys(pd.pit).map((k) => [k, cur.pit![k as keyof PitTotals] + pd.pit![k as keyof PitTotals]])) } as PitTotals : { ...pd.pit };
+      if (pd.pitExtra) {
+        cur.pitExtra.h += pd.pitExtra.h;
+        cur.pitExtra.r += pd.pitExtra.r;
+        cur.pitExtra.er += pd.pitExtra.er;
+      }
       addToBuckets(cur.buckets, pd.level, pd.bat, pd.pit);
       byPlayer.set(pd.playerid, cur);
     }
@@ -656,7 +713,7 @@ function exportGallery(dir: string) {
         [...p.levels].join('/'),
         p.sim ? 1 : 0,
         p.bat && p.bat.pa ? batArr(p.bat) : 0,
-        pitched ? pitArr(p.pit!) : 0,
+        pitched ? pitArr(p.pit!, p.pitExtra, pitcherFip(p.buckets)) : 0,
         p.bat && p.bat.pa ? round1(offenseScore(p.buckets, baselines, MODE)) : null,
         pitched ? round1(pitchingScore(p.buckets, baselines, MODE)) : null,
         // his club's W-L that week (inning 9); null is an honest unavailable state
