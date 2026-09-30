@@ -905,20 +905,44 @@ function rosterName(p: ActiveRosterPlayer) {
 function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined, week: number): PlayerRow[] {
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
-    ? roster.map((r) => ({ id: String(r.playerid), name: rosterName(r), level: String(r.level || '') }))
-    : existing.map((p) => ({ id: String(p[0]), name: String(p[1]), level: String(p[2] || '') }));
+    ? roster.map((r) => ({
+        id: String(r.playerid),
+        name: rosterName(r),
+        level: String(r.level || ''),
+        isPitcher: Boolean(r.is_pitcher),
+      }))
+    : existing.map((p) => ({
+        id: String(p[0]),
+        name: String(p[1]),
+        level: String(p[2] || ''),
+        isPitcher: Boolean(p[5]) && !Boolean(p[4]),
+      }));
 
-  return source.map(({ id, name, level }) => {
+  return source.map(({ id, name, level, isPitcher }) => {
     const row = current.get(id);
-    if (row) {
-      if (row[8]) return row;
-      const next = [...row] as PlayerRow;
-      next[8] = simulatedWeeklyWl(id, week, String(row[2] || level));
-      next[9] = 1;
-      return next;
-    }
     const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
-    return [id, name, level, simulated, 0, 0, null, null, simulatedWeeklyWl(id, week, level), 1];
+    const next = row
+      ? [...row] as PlayerRow
+      : [id, name, level, simulated, 0, 0, null, null, null, 0] as PlayerRow;
+
+    // Every active alumnus always stays in one of the two roster groups.
+    // If he did not play this week, keep him in his normal Batters/Pitchers
+    // section with a true zero line rather than moving him to a third group.
+    if (!next[4] && !next[5]) {
+      if (isPitcher) {
+        next[5] = [0, 0, 0, 0, 0];
+        next[7] = 0;
+      } else {
+        next[4] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+        next[6] = 0;
+      }
+    }
+
+    if (!next[8]) {
+      next[8] = simulatedWeeklyWl(id, week, String(next[2] || level));
+      next[9] = 1;
+    }
+    return next;
   });
 }
 
@@ -955,7 +979,6 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
 
   const batters = (mine?.p || []).filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = (mine?.p || []).filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
-  const benched = (mine?.p || []).filter((p) => !p[4] && !p[5]);
   const teamBat = batters.reduce((t, p) => (p[4] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const teamPit = pitchers.reduce((t, p) => (p[5] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const obp = (b: number[]) => {
@@ -1001,8 +1024,35 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
     { key: 'hbp', label: 'HBP', val: (p) => pit(p)[3], show: (p) => pit(p)[3] },
     { key: 'hr', label: 'HR', val: (p) => pit(p)[1], show: (p) => pit(p)[1] },
   ];
-  const benchCols: SortCol[] = [{ key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell }];
   const teamWl = `${wl[0]}-${wl[1]}`;
+  const metricRunCount = (idx: number, opp: number, higher: boolean) =>
+    (box?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0);
+  const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
+    const rows = [
+      { role: 'VISITOR', name: names[1], idx: awayIdx, opp: homeIdx },
+      { role: 'HOME', name: names[0], idx: homeIdx, opp: awayIdx },
+    ];
+    return (
+      <div className="bl-metric-board" aria-label={`${labelText} by inning`}>
+        <div className="bl-metric-line head">
+          <span className="metric-name">{labelText}</span>
+          {[1,2,3,4,5,6,7,8,9].map((n) => <span key={n}>{n}</span>)}
+          <span>FINAL</span>
+        </div>
+        {rows.map((row) => (
+          <div className="bl-metric-line metric" key={row.role}>
+            <span className="metric-team" title={row.name}><small>{row.role}</small>{abbr(row.name)}</span>
+            {(box?.d || []).slice(0, 7).map((d, i) => (
+              <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>
+            ))}
+            <span className={wonCell(box?.d?.[7]?.[row.idx], box?.d?.[7]?.[row.opp], higher)}>{fmtStat(box?.d?.[7]?.[row.idx])}</span>
+            <span className="na">—</span>
+            <span className="final">{metricRunCount(row.idx, row.opp, higher)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     // A tap anywhere on the card flips it, like the player gallery.
@@ -1012,26 +1062,9 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
       {drawerMode ? (
         box ? (
-          <div className="bl-metric-board" aria-label="Daily and weekly OPS+ and FIP- run determinants">
-            <div className="bl-metric-grid head">
-              <span>RUN METRIC</span>
-              {['M','T','W','T','F','S','S','WK'].map((d, i) => <span key={i}>{d}</span>)}
-            </div>
-            {[
-              { label: `${abbr(names[me])} OPS+`, idx: me, opp: them, higher: true },
-              { label: `${abbr(names[them])} OPS+`, idx: them, opp: me, higher: true },
-              { label: `${abbr(names[me])} FIP-`, idx: 2 + me, opp: 2 + them, higher: false },
-              { label: `${abbr(names[them])} FIP-`, idx: 2 + them, opp: 2 + me, higher: false },
-            ].map((row) => (
-              <div className={`bl-metric-grid metric ${row.idx === me || row.idx === 2 + me ? 'mine' : 'opp'}`} key={row.label}>
-                <span>{row.label}</span>
-                {(box.d || []).slice(0, 8).map((d, i) => {
-                  const value = d?.[row.idx];
-                  const other = d?.[row.opp];
-                  return <span key={i} className={wonCell(value, other, row.higher) ? 'won' : ''}>{fmtStat(value)}</span>;
-                })}
-              </div>
-            ))}
+          <div className="bl-metric-scoreboards" aria-label="OPS+ and FIP- inning scoreboards">
+            {metricBoard('OPS+', 0, 1, true)}
+            {metricBoard('FIP-', 2, 3, false)}
           </div>
         ) : null
       ) : (
@@ -1083,19 +1116,17 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
       {!loading && !mine && <div className="bl-muted">No box score.</div>}
       {mine && (
         <>
-          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No hitters played this week"
+          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
             total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
-          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers pitched this week"
+          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
             total={[weekVals ? fmtStat(weekVals[2 + me]) : '—', teamWl, ip(teamPit[0]), teamPit[4], teamPit[2], teamPit[3], teamPit[1]]} />
-          {benched.length > 0 && (
-            <SortTable title="Did not play / result unavailable" rows={benched} cols={benchCols} player={player} labels={labels} empty="" total={[teamWl]} />
-          )}
 
           {drawerMode ? (
             <div className="bl-drawer-explain">
-              <p><b>1–7</b> Each day: 1 run for the better OPS+ and 1 for the better FIP- (lower wins).</p>
-              <p><b>8th</b> Same two run comparisons, using each school&apos;s full-week composite OPS+ and FIP- instead of one day.</p>
-              <p><b>9th</b> 1 run for the better weekly W-L% across <b>all active alumni&apos;s real-world teams</b>, whether the alumnus played or not. {myName}: <b>{wl[0]}–{wl[1]}</b> ({pct(wl[0], wl[1])}) · {names[them]}: {owl[0]}–{owl[1]} ({pct(owl[0], owl[1])}).</p>
+              <p><b>1–7</b> Daily OPS+ and FIP- determine the two available runs; lower FIP- wins.</p>
+              <p><b>8th</b> The same two comparisons use each school&apos;s full-week composite OPS+ and FIP-.</p>
+              <p><b>9th</b> OPS+/FIP- are not used. The run goes to the better weekly W-L% across <b>all active alumni&apos;s real-world teams</b>, whether each alumnus played or not. {myName}: <b>{wl[0]}–{wl[1]}</b> ({pct(wl[0], wl[1])}) · {names[them]}: {owl[0]}–{owl[1]} ({pct(owl[0], owl[1])}).</p>
+              <p><b>Final</b> on each green board is the number of runs that metric produced in innings 1–8.</p>
               {(mine?.p || []).some((p) => p[9]) || (theirs?.p || []).some((p) => p[9]) ? <p><b>†</b> Missing 2026 weekly club records are filled with deterministic simulated W-L values for this prototype.</p> : null}
             </div>
           ) : (
@@ -1291,15 +1322,19 @@ export function Styles() {
       .bl-sort:hover { color:var(--gold); }
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
-      .bl-metric-board { margin:10px 12px 8px; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow-x:auto; }
-      .bl-metric-grid { min-width:430px; display:grid; grid-template-columns:minmax(86px,1.35fr) repeat(8,minmax(38px,1fr)); gap:2px; align-items:center; }
-      .bl-metric-grid.head { margin-bottom:3px; color:#e9f3ec; font:700 9px/1 Oswald,sans-serif; text-align:center; letter-spacing:.04em; }
-      .bl-metric-grid.head span:first-child { text-align:left; color:#ffd34f; padding-left:4px; }
-      .bl-metric-grid.metric { margin-top:2px; }
-      .bl-metric-grid.metric>span { min-height:24px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
-      .bl-metric-grid.metric>span:first-child { justify-items:start; padding:0 5px; color:#eef7ef; font-size:9px; letter-spacing:.02em; }
-      .bl-metric-grid.metric.mine>span:first-child { color:#ffd34f; }
-      .bl-metric-grid.metric>span.won { background:#f3c735; color:#15251d; }
+      .bl-metric-scoreboards { margin:10px 12px 8px; display:grid; gap:7px; }
+      .bl-metric-board { margin:0; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow-x:auto; }
+      .bl-metric-line { min-width:520px; display:grid; grid-template-columns:96px repeat(9,minmax(34px,1fr)) 46px; gap:2px; align-items:center; }
+      .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 9px/1 Oswald,sans-serif; text-align:center; letter-spacing:.04em; }
+      .bl-metric-line.head span { display:grid; place-items:center; min-height:18px; }
+      .bl-metric-line.head .metric-name { justify-items:start; padding-left:5px; color:#ffd34f; font-size:11px; }
+      .bl-metric-line.metric { margin-top:2px; }
+      .bl-metric-line.metric>span { min-height:24px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
+      .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; padding:2px 5px; color:#eef7ef; overflow:hidden; }
+      .bl-metric-line.metric .metric-team small { display:block; color:#9eb2a7; font:600 6px/1 Oswald,sans-serif; letter-spacing:.08em; }
+      .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
+      .bl-metric-line.metric>span.na { color:#718379; }
+      .bl-metric-line.metric>span.final { color:#ffd34f; font-size:12px; }
       .bl-drawer-explain { margin:7px 12px 2px; padding-top:6px; border-top:1px solid var(--line); color:var(--faint); font-size:9.5px; line-height:1.35; }
       .bl-drawer-explain p { margin:2px 0; }
       .bl-drawer-explain b { color:var(--muted); font-weight:700; }
@@ -1379,10 +1414,11 @@ export function Styles() {
       .bl-board td.none { text-align:left; color:var(--muted); font-style:italic; }
       @media (max-width:520px) {
         .bl-board .st { display:none; }
-        .bl-metric-board { margin-left:8px; margin-right:8px; padding:5px; }
-        .bl-metric-grid { min-width:360px; grid-template-columns:72px repeat(8,36px); }
-        .bl-metric-grid.metric>span { min-height:22px; font-size:9px; }
-        .bl-metric-grid.metric>span:first-child { font-size:8px; }
+        .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:5px; }
+        .bl-metric-board { padding:5px; }
+        .bl-metric-line { min-width:448px; grid-template-columns:72px repeat(9,34px) 42px; }
+        .bl-metric-line.metric>span { min-height:22px; font-size:9px; }
+        .bl-metric-line.metric .metric-team { font-size:8px; }
         .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
       }
       .bl-more { display:block; width:100%; padding:9px; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; }
