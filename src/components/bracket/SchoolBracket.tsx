@@ -27,7 +27,7 @@ import {
   abbr, fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
-import { slideToWeek, useBracketNav } from './bracketNav';
+import { selectStage, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import FantasyGameSocial from './FantasyGameSocial';
 import { Roboto_Condensed } from 'next/font/google';
@@ -370,60 +370,60 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const cal = useMemo(() => (index && asof ? calendar(index, asof) : null), [index, asof]);
   const rec = useMemo(() => (index && lb ? records(index, lb) : () => ''), [index, lb]);
 
-  // The FunZone: a tab per round (its three weeks stacked, one screen, no
-  // scrolling), the postseason when the school is in it, and every game in
-  // the tournament by master game #.
+  // One canonical 14-stage season navigation. Row 3, Row 5 and the dock
+  // all read/write the same stage key so the page cannot show mismatched rounds.
   const tabs = useMemo(() => {
-    const t: { key: string; label: string; sub: string; list: WeekCard[] }[] = [];
-    for (let r = 1; r <= 10; r++) t.push({ key: `r${r}`, label: `R${r}`, sub: '', list: cards.filter((c) => c.week <= LAST_WEEK && Math.ceil(c.week / 3) === r) });
-    const post = cards.filter((c) => c.week > LAST_WEEK);
-    if (post.length) t.push({ key: 'post', label: 'Post', sub: '', list: post });
-    for (const x of t) {
-      const done = x.list.filter((c) => c.state === 'final' && c.game);
-      const w = done.filter((c) => c.game![6] === me).length;
-      const l = done.filter((c) => c.game![6] !== null && c.game![6] !== me).length;
-      x.sub = done.length ? `${w}-${l}` : '';
-    }
-    t.push({ key: 'all', label: 'All', sub: 'Game #', list: [] });
+    const t: { key:string; label:string; list:WeekCard[] }[] = [];
+    for (let r=1;r<=10;r++) t.push({key:`r${r}`,label:`R${r}`,list:cards.filter(c=>c.week<=30&&Math.ceil(c.week/3)===r)});
+    t.push({key:'c1',label:'C1',list:cards.filter(c=>c.week===31)});
+    t.push({key:'c2',label:'C2',list:cards.filter(c=>c.week===32)});
+    t.push({key:'cg',label:'CG',list:cards.filter(c=>c.week===33)});
+    t.push({key:'yws',label:'YWS',list:cards.filter(c=>c.week===34)});
     return t;
-  }, [cards, me]);
-  const tabOfWeek = (w: number) => (w > LAST_WEEK ? 'post' : `r${Math.max(1, Math.ceil(w / 3))}`);
-  const nowTab = useMemo(() => {
-    if (!cal || cal.week < 1) return 'r1';
-    if (cal.week <= LAST_WEEK) return tabOfWeek(cal.week);
-    return cards.some((c) => c.week > LAST_WEEK) ? 'post' : 'r10';
-  }, [cal, cards]);
-  const [picked, setPicked] = useState('');
-  const tab = picked || nowTab;
-  // One dock button = one hero slide. The timeline groups the three weeks
-  // into a single round history slide, so always address that slide by the
-  // round's first week instead of whichever weekly game happened most recently.
-  const pickTab = (key: string) => {
-    setPicked(key);
-    if (/^r\\d+$/.test(key)) {
-      const r = Number(key.slice(1));
-      slideToWeek((r - 1) * 3 + 1);
-      return;
-    }
-    const list = tabs.find((t) => t.key === key)?.list || [];
-    if (list[0]) slideToWeek(list[0].week);
-  };
+  },[cards]);
 
-  // Row 3's timeline: a slide opens its week's round and marks the card.
+  const stageOfWeek = (w:number) => w<=30 ? `r${Math.max(1,Math.ceil(w/3))}` : w===31?'c1':w===32?'c2':w===33?'cg':w===34?'yws':'r10';
+  const nowTab = useMemo(() => {
+    if(!cal||cal.week<1) return 'r1';
+    return stageOfWeek(Math.min(34,cal.week));
+  },[cal]);
+  const tab = nav.stageKey || nowTab;
+
+  const pickTab = (key:string) => {
+    selectStage(key);
+    const list=tabs.find(t=>t.key===key)?.list||[];
+    if(list[0]) setFocused(list[0].week);
+  };
+  // A hero click/focus also changes the canonical stage.
   useEffect(() => {
-    if (!nav.focusSeq || !nav.focusWeek) return;
-    const on = window.setTimeout(() => { setPicked(tabOfWeek(nav.focusWeek)); setFocused(nav.focusWeek); }, 0);
-    const off = window.setTimeout(() => setFocused(0), 2200);
-    return () => { window.clearTimeout(on); window.clearTimeout(off); };
-  }, [nav.focusSeq, nav.focusWeek]);
+    if(!nav.focusSeq||!nav.focusWeek) return;
+    const key=stageOfWeek(nav.focusWeek);
+    const on=window.setTimeout(()=>{selectStage(key);setFocused(nav.focusWeek);},0);
+    const off=window.setTimeout(()=>setFocused(0),2200);
+    return()=>{window.clearTimeout(on);window.clearTimeout(off);};
+  },[nav.focusSeq,nav.focusWeek]);
+
+  useEffect(()=>{
+    if(!cards.length) return;
+    const qs=new URLSearchParams(window.location.search);
+    const gid=Number(qs.get('fantasyGame')||0);
+    if(!gid) return;
+    const card=cards.find(c=>c.game?.[0]===gid);
+    if(!card) return;
+    selectStage(stageOfWeek(card.week));
+    setFocused(card.week);
+    requestAnimationFrame(()=>document.getElementById(`fweek-${card.week}`)?.scrollIntoView({block:'nearest'}));
+  },[cards]);
 
   const school = index?.schools[me];
   const cur = tabs.find((t) => t.key === tab);
-  const roundTitle = (key: string) => {
-    if (key === 'post') return 'Postseason';
-    const r = Number(key.slice(1));
-    const a = index?.weeks[r * 3 - 3], b = index?.weeks[r * 3 - 1];
-    return `Round ${r} · weeks ${r * 3 - 2}–${r * 3}${a && b ? ` · ${fmtRange(a[0], b[1])}` : ''}`;
+  const roundTitle=(key:string)=>{
+    if(key==='c1') return 'Championship Round 1 · Week 31';
+    if(key==='c2') return 'Championship Round 2 · Week 32';
+    if(key==='cg') return 'Championship Game · Week 33';
+    if(key==='yws') return 'YAT?STATS World Series · Week 34';
+    const r=Number(key.slice(1)); const a=index?.weeks[r*3-3],b=index?.weeks[r*3-1];
+    return `Round ${r} · weeks ${r*3-2}–${r*3}${a&&b?` · ${fmtRange(a[0],b[1])}`:''}`;
   };
   return (
     <div className={`yfp ${scoreboardFont.variable}`}>
@@ -432,27 +432,23 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
       {!error && (!index || !lb || !cal) && <p className="yfp-empty">Loading the 2026 season…</p>}
       {index && lb && cal && (
         <div className="yfz">
-          <div className={`yfz-panel${tab === 'all' ? ' all' : ''}`}>
-            {tab === 'all' ? (
-              <AllGames index={index} me={me} cal={cal} onOpen={setOpen} />
-            ) : (
-              <div className="yfz-round">
-                <div className="yfz-cards">
-                  {cur?.list.map((c) => <WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} starIdentity={stars?.[c.week] ? identities[stars[c.week][5]] : undefined} rec={rec} focused={focused === c.week} onOpen={setOpen} />)}
-                  {!school && <p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
-                </div>
+          <div className="yfz-panel">
+            <div className="yfz-round">
+              <div className="yfz-cards">
+                {cur?.list.map((c)=><WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} starIdentity={stars?.[c.week]?identities[stars[c.week][5]]:undefined} rec={rec} focused={focused===c.week} onOpen={setOpen}/>)}
+                {cur&&cur.list.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
+                {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
               </div>
-            )}
-            {tab !== 'all' && <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={() => setRules(true)} />}
+            </div>
+            <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={()=>setRules(true)}/>
           </div>
           {/* The FunZone's icon row, pinned above the footer ad. */}
           <nav className="yfz-dock" aria-label="Rounds">
             <div className="yfz-dock-tabs" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
               {tabs.map((t) => (
-                <button key={t.key} type="button" className={`yfz-tab${t.key === tab ? ' on' : ''}${t.key === nowTab && cal.week >= 1 && cal.week <= index.weeks.length ? ' now' : ''}`}
-                  aria-pressed={t.key === tab} onClick={() => pickTab(t.key)} title={t.key === 'all' ? 'Every game by master game #' : roundTitle(t.key)}>
+                <button key={t.key} type="button" className={`yfz-tab${t.key===tab?' on':''}${t.key===nowTab&&cal.week>=1&&cal.week<=index.weeks.length?' now':''}`}
+                  aria-pressed={t.key===tab} onClick={()=>pickTab(t.key)} title={roundTitle(t.key)}>
                   <b>{t.label}</b>
-                  <span>{t.sub || (t.key === nowTab && cal.week >= 1 && cal.week <= index.weeks.length ? 'Now' : '\u00a0')}</span>
                 </button>
               ))}
             </div>
