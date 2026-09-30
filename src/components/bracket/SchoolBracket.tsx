@@ -92,12 +92,6 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 
   const scoreboard = (
     <>
-      {scoreboard}
-    </>
-  );
-
-  return (
-    <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
       <div className="yfp-score-head">
         <span>Week {card.week} | {dates(index, card.week)}</span>
         <span>Round {round} | Game {gameNo}</span>
@@ -111,6 +105,12 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         {row('a')}
         {row('h')}
       </div>
+    </>
+  );
+
+  return (
+    <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={`fweek-${card.week}`}>
+      {scoreboard}
       {card.state === 'final' && g ? (
         <FantasyGameSocial
           gameKey={`sim-2026:${g[0]}`}
