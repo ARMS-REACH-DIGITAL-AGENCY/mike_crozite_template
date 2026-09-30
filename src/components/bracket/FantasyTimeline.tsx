@@ -275,7 +275,7 @@ export default function FantasyTimeline() {
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
           const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
-          const key=`r${r.round}`;
+          const key=`r${r.round}` as FantasyStageKey;
           return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
         })}
         {postStages.map((s)=>{
