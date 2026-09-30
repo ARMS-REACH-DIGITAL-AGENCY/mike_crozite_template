@@ -102,6 +102,13 @@ export function runsThrough(g: GameRow, days: number): [number, number] {
 // Alumni of the Week (stars-<region>.json, from the simulator): each school's
 // player who beat league average by the most that week.
 export type Star = [name: string, level: string, kind: 'bat' | 'pit', value: number, simulated: 0 | 1, playerId: string];
+export type CurrentPlayerIdentity = {
+  currentTeamName: string;
+  orgConferenceName: string;
+  levelLabel: string;
+  statusLabel: string;
+  headshotUrl: string | null;
+};
 const starCache = new Map<number, Promise<Record<number, Record<number, Star>>>>();
 export function loadStars(region: number) {
   if (!starCache.has(region)) {
@@ -109,7 +116,30 @@ export function loadStars(region: number) {
   }
   return starCache.get(region)!;
 }
-export const starLine = (s: Star) => `${s[0]}${s[4] ? '*' : ''} (${lvl(s[1])}) · ${s[3]} ${s[2] === 'bat' ? 'OPS+' : 'FIP-'}`;
+
+// A star's *performance* is historical (the week being scored), but his
+// displayed identity is current. Never infer current team/level/photo from
+// the simulator's old stat row; hydrate it from flip_card_front_stage via
+// /api/player-identities, the same truth used by flip cards and profiles.
+const identityCache = new Map<string, Promise<Record<string, CurrentPlayerIdentity>>>();
+export function loadCurrentPlayerIdentities(playerIds: string[]) {
+  const ids = [...new Set(playerIds.map(String).filter(Boolean))].sort();
+  if (!ids.length) return Promise.resolve({} as Record<string, CurrentPlayerIdentity>);
+  const key = ids.join(',');
+  if (!identityCache.has(key)) {
+    identityCache.set(key, fetch(`/api/player-identities?playerIds=${encodeURIComponent(key)}`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({})));
+  }
+  return identityCache.get(key)!;
+}
+export const starLine = (s: Star, identity?: CurrentPlayerIdentity) => {
+  // Prefer current reconciled level. If identity resolution fails, omit the
+  // level rather than presenting the simulator's historical level as current.
+  const currentLevel = identity?.levelLabel ? lvl(identity.levelLabel) : '';
+  const level = currentLevel ? ` (${currentLevel})` : '';
+  return `${s[0]}${s[4] ? '*' : ''}${level} · ${s[3]} ${s[2] === 'bat' ? 'OPS+' : 'FIP-'}`;
+};
 export const lastName = (name: string) => name.split(' ').slice(1).join(' ') || name;
 
 // Each school's record (W-L, and ties) through a week, from every game it
