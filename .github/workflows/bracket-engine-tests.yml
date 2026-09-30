@@ -6,6 +6,7 @@ on:
     paths:
       - src/lib/bracket/engine.ts
       - src/lib/bracket/engine.test.ts
+      - src/lib/bracket/tournamentCalendar.ts
       - scripts/simulate-bracket-2026.ts
       - .github/workflows/bracket-engine-tests.yml
 
