@@ -6,6 +6,10 @@ on:
     paths:
       - scripts/rebuild-bracket-fixture-2026.ts
       - .github/workflows/rebuild-bracket-fixture-2026.yml
+  pull_request:
+    paths:
+      - scripts/rebuild-bracket-fixture-2026.ts
+      - .github/workflows/rebuild-bracket-fixture-2026.yml
   workflow_dispatch:
 
 permissions:
@@ -31,6 +35,7 @@ jobs:
       - name: Audit rebuilt fixture
         run: node scripts/bracket-integrity-2026.mjs audit --report bracket-integrity-report.json
       - name: Commit rebuilt fixture
+        if: github.event_name == 'push'
         run: |
           git config user.name "yatstats-sim-bot"
           git config user.email "actions@users.noreply.github.com"
