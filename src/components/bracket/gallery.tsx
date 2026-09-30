@@ -43,7 +43,8 @@ export type Index = {
 };
 // A leaderboard game: the same as a GameRow plus the region.
 export type LbGame = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null, region: number];
-// [playerid, name, level, simulated, bat [PA AB H 2B 3B HR BB HBP SF] | 0, pit [outs HR BB HBP K] | 0, OPS+, FIP-]
+// [playerid, name, level, simulated, bat [PA AB H 2B 3B HR BB HBP SF] | 0,
+//  pit [outs HR BB HBP K H R ER FIP] | 0, OPS+, FIP-]
 // ... then his club's W-L that week (inning 9). The final optional flag marks
 // a deterministic simulated W-L used only when the 2026 source record is absent.
 export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
@@ -846,8 +847,10 @@ function SortTable({ title, rows, cols, player, labels, total, empty }: {
     setSort((s) => (s && s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === 'name' ? -1 : 1 }));
   };
   const arrow = (key: string) => (sort?.key === key ? (sort.dir === 1 ? (key === 'name' ? ' ▲' : ' ▼') : (key === 'name' ? ' ▼' : ' ▲')) : '');
+  const blockClass = title === 'Batters' ? 'offense' : 'defense';
   return (
-    <div className="bl-scroll">
+    <div className={`bl-stat-block ${blockClass}`}>
+      <div className="bl-scroll">
       <table className="bl-box">
         <colgroup>
           <col style={{ width: 136 }} />
@@ -875,6 +878,7 @@ function SortTable({ title, rows, cols, player, labels, total, empty }: {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -930,7 +934,7 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
     // section with a true zero line rather than moving him to a third group.
     if (!next[4] && !next[5]) {
       if (isPitcher) {
-        next[5] = [0, 0, 0, 0, 0];
+        next[5] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
         next[7] = 0;
       } else {
         next[4] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -994,16 +998,16 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
   const obpSlg = (b: number[]) => obp(b) + slg(b);
   const wl = mine?.wl || [0, 0];
   const owl = theirs?.wl || [0, 0];
-  const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '—');
-  const sim = (mine?.p || []).some((p) => p[3]);
+  const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '.000');
+  const pctNum = (w: number, l: number) => (w + l ? w / (w + l) : 0.5);
   // Last names only; an initial when two share one (B. Smith, R. Smith).
   const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
   const player = (p: PlayerRow) => (
-    <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}{p[3] ? '*' : ''}</a>
+    <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a>
   );
-  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}${p[9] ? '†' : ''}` : '—');
+  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0');
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
   const batCols: SortCol[] = [
@@ -1015,22 +1019,47 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
     { key: 'ops', label: 'OPS', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
   ];
   const pit = (p: PlayerRow) => p[5] as number[];
+  const whip = (p: PlayerRow) => {
+    const x = pit(p), outs = x[0] || 0;
+    return outs ? ((x[5] || 0) + (x[2] || 0)) / (outs / 3) : 0;
+  };
+  const kbb = (p: PlayerRow) => {
+    const x = pit(p), bb = x[2] || 0, k = x[4] || 0;
+    return bb ? k / bb : k;
+  };
+  const fipRaw = (p: PlayerRow) => Number(pit(p)[8] || 0);
   const pitCols: SortCol[] = [
-    { key: 'fip-', label: 'FIP-', cls: 'plus', val: (p) => p[7] ?? null, show: (p) => p[7] ?? '—' },
+    { key: 'fip-', label: 'FIP-', cls: 'plus', val: (p) => p[7] ?? 0, show: (p) => p[7] ?? 0 },
     { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
-    { key: 'ip', label: 'IP', val: (p) => pit(p)[0], show: (p) => ip(pit(p)[0]) },
-    { key: 'k', label: 'K', val: (p) => pit(p)[4], show: (p) => pit(p)[4] },
-    { key: 'bb', label: 'BB', val: (p) => pit(p)[2], show: (p) => pit(p)[2] },
-    { key: 'hbp', label: 'HBP', val: (p) => pit(p)[3], show: (p) => pit(p)[3] },
-    { key: 'hr', label: 'HR', val: (p) => pit(p)[1], show: (p) => pit(p)[1] },
+    { key: 'ip', label: 'IP', val: (p) => pit(p)[0] || 0, show: (p) => ip(pit(p)[0] || 0) },
+    { key: 'h', label: 'H', val: (p) => pit(p)[5] || 0, show: (p) => pit(p)[5] || 0 },
+    { key: 'r', label: 'R', val: (p) => pit(p)[6] || 0, show: (p) => pit(p)[6] || 0 },
+    { key: 'er', label: 'ER', val: (p) => pit(p)[7] || 0, show: (p) => pit(p)[7] || 0 },
+    { key: 'hr', label: 'HR', val: (p) => pit(p)[1] || 0, show: (p) => pit(p)[1] || 0 },
+    { key: 'bb', label: 'BB', val: (p) => pit(p)[2] || 0, show: (p) => pit(p)[2] || 0 },
+    { key: 'hbp', label: 'HBP', val: (p) => pit(p)[3] || 0, show: (p) => pit(p)[3] || 0 },
+    { key: 'k', label: 'K', val: (p) => pit(p)[4] || 0, show: (p) => pit(p)[4] || 0 },
+    { key: 'whip', label: 'WHIP', val: whip, show: (p) => rate(whip(p)) },
+    { key: 'kbb', label: 'K/BB', val: kbb, show: (p) => kbb(p).toFixed(2) },
+    { key: 'fip', label: 'FIP', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
   const teamWl = `${wl[0]}-${wl[1]}`;
+  const teamWhip = teamPit[0] ? ((teamPit[5] || 0) + (teamPit[2] || 0)) / (teamPit[0] / 3) : 0;
+  const teamKbb = teamPit[2] ? (teamPit[4] || 0) / teamPit[2] : (teamPit[4] || 0);
+  const teamFipWeight = pitchers.reduce((s, p) => s + (pit(p)[0] || 0), 0);
+  const teamFip = teamFipWeight
+    ? pitchers.reduce((s, p) => s + fipRaw(p) * (pit(p)[0] || 0), 0) / teamFipWeight
+    : 0;
+  const homeWl = me === 0 ? wl : owl;
+  const awayWl = me === 0 ? owl : wl;
+  const homeWp = pctNum(homeWl[0], homeWl[1]);
+  const awayWp = pctNum(awayWl[0], awayWl[1]);
   const metricRunCount = (idx: number, opp: number, higher: boolean) =>
     (box?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0);
   const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
     const rows = [
-      { role: 'VISITOR', name: names[1], idx: awayIdx, opp: homeIdx },
-      { role: 'HOME', name: names[0], idx: homeIdx, opp: awayIdx },
+      { role: 'VISITOR', name: names[1], idx: awayIdx, opp: homeIdx, wp: awayWp, oppWp: homeWp },
+      { role: 'HOME', name: names[0], idx: homeIdx, opp: awayIdx, wp: homeWp, oppWp: awayWp },
     ];
     return (
       <div className="bl-metric-board" aria-label={`${labelText} by inning`}>
@@ -1046,7 +1075,7 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
               <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>
             ))}
             <span className={wonCell(box?.d?.[7]?.[row.idx], box?.d?.[7]?.[row.opp], higher)}>{fmtStat(box?.d?.[7]?.[row.idx])}</span>
-            <span className="na">—</span>
+            <span className={row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>{row.wp.toFixed(3).replace(/^0/, '')}</span>
             <span className="final">{metricRunCount(row.idx, row.opp, higher)}</span>
           </div>
         ))}
@@ -1119,15 +1148,28 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
             total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
-            total={[weekVals ? fmtStat(weekVals[2 + me]) : '—', teamWl, ip(teamPit[0]), teamPit[4], teamPit[2], teamPit[3], teamPit[1]]} />
+            total={[
+              weekVals ? fmtStat(weekVals[2 + me]) : '0',
+              teamWl,
+              ip(teamPit[0] || 0),
+              teamPit[5] || 0,
+              teamPit[6] || 0,
+              teamPit[7] || 0,
+              teamPit[1] || 0,
+              teamPit[2] || 0,
+              teamPit[3] || 0,
+              teamPit[4] || 0,
+              rate(teamWhip),
+              teamKbb.toFixed(2),
+              teamFip.toFixed(2),
+            ]} />
 
           {drawerMode ? (
             <div className="bl-drawer-explain">
-              <p><b>1–7</b> Daily OPS+ and FIP- determine the two available runs; lower FIP- wins.</p>
-              <p><b>8th</b> The same two comparisons use each school&apos;s full-week composite OPS+ and FIP-.</p>
-              <p><b>9th</b> OPS+/FIP- are not used. The run goes to the better weekly W-L% across <b>all active alumni&apos;s real-world teams</b>, whether each alumnus played or not. {myName}: <b>{wl[0]}–{wl[1]}</b> ({pct(wl[0], wl[1])}) · {names[them]}: {owl[0]}–{owl[1]} ({pct(owl[0], owl[1])}).</p>
-              <p><b>Final</b> on each green board is the number of runs that metric produced in innings 1–8.</p>
-              {(mine?.p || []).some((p) => p[9]) || (theirs?.p || []).some((p) => p[9]) ? <p><b>†</b> Missing 2026 weekly club records are filled with deterministic simulated W-L values for this prototype.</p> : null}
+              <div className="bl-scoring-title">SCORING</div>
+              <p>For innings (days) 1–7, the run totals are based on a daily head-to-head team comparison between one alumni&apos;s team higher OPS+ (Offensive Stat) and lower FIP- (Defensive Stat). Each winning comparison is worth 1 run.</p>
+              <p>The 8th inning is computed the same way, but uses the two teams&apos; weekly OPS+ and FIP- comparisons.</p>
+              <p>The 9th inning does not use the OPS+/FIP- results. Instead the final frame is decided by the better weekly W-L% across all active alumni&apos;s real-world teams, whether each alumnus played or not.</p>
             </div>
           ) : (
             <div className="bl-how">
@@ -1150,7 +1192,6 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
               <div className="bl-legend">Gold = this school won that run. A run goes to the better OPS+ or FIP- (lower is better), and only for beating league average (100) when the other school had nobody play.</div>
             </div>
           )}
-          {sim && <div className="bl-muted small">* simulated from his 2026 college season totals</div>}
         </>
       )}
     </div>
@@ -1307,9 +1348,15 @@ export function Styles() {
       .bl-tabs em.me { background:rgba(127,209,139,.15); color:var(--win); }
       .bl-tabs em.them { background:rgba(226,120,106,.15); color:var(--loss); }
       .bl-tabs em.tie { background:var(--tint); color:var(--muted); }
+      .bl-stat-block { min-width:0; }
+      .bl-stat-block + .bl-stat-block { margin-top:18px; }
       .bl-box { width:auto; min-width:100%; table-layout:fixed; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
       .bl-box th, .bl-box td { padding:5px 3px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
-      .bl-box thead th { color:var(--muted); font:500 11px/1 Oswald, sans-serif; letter-spacing:.04em; }
+      .bl-box thead th { color:var(--muted); font:600 11px/1 Oswald, sans-serif; letter-spacing:.04em; }
+      .bl-stat-block.offense .bl-box thead th { background:#6c5317; color:#fff4c4; border-bottom-color:#8b6d20; }
+      .bl-stat-block.defense .bl-box thead th { background:#174c35; color:#edf7ef; border-bottom-color:#256b4c; }
+      .bl-stat-block .bl-box thead th:first-child { border-top-left-radius:4px; }
+      .bl-stat-block .bl-box thead th:last-child { border-top-right-radius:4px; }
       .bl-box .nm { text-align:left; padding-left:10px; width:136px; max-width:136px; overflow:hidden; text-overflow:ellipsis; }
       .bl-box .nm small { color:var(--muted); font-size:10px; }
       .bl-box .none { color:var(--muted); font-style:italic; }
@@ -1335,9 +1382,9 @@ export function Styles() {
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:12px; }
-      .bl-drawer-explain { margin:7px 12px 2px; padding-top:6px; border-top:1px solid var(--line); color:var(--faint); font-size:9.5px; line-height:1.35; }
-      .bl-drawer-explain p { margin:2px 0; }
-      .bl-drawer-explain b { color:var(--muted); font-weight:700; }
+      .bl-drawer-explain { margin:14px 12px 2px; padding-top:9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.42; }
+      .bl-drawer-explain p { margin:0 0 7px; }
+      .bl-scoring-title { margin-bottom:7px; color:var(--gold); font:800 11px/1 Oswald,sans-serif; letter-spacing:.11em; }
       .bl-how { margin:10px 12px 12px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--tint2); }
       .bl-howt { font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
       .bl-days { width:100%; border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums; }
