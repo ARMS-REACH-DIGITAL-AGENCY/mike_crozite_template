@@ -105,7 +105,16 @@ export const ops = (b: BatTotals) => {
   const { num, den } = obpParts(b);
   return (den ? num / den : 0) + (b.ab ? tb(b) / b.ab : 0);
 };
-export const fipCore = (p: PitTotals) => (p.outs ? (13 * p.hr + 3 * (p.bb + p.hbp) - 2 * p.so) / (p.outs / 3) : 0);
+const hasPitchingAppearance = (p: PitTotals) => p.outs > 0 || p.hr > 0 || p.bb > 0 || p.hbp > 0 || p.so > 0;
+// FIP is undefined when a pitcher records zero outs. If he nevertheless
+// allowed a BB/HBP/HR, that is a real (and very bad) appearance, not an
+// absence. Give it one surrogate out solely so it stays in the comparison
+// instead of being dropped; this intentionally produces a worst-case FIP.
+const effectivePitchingOuts = (p: PitTotals) => p.outs > 0 ? p.outs : hasPitchingAppearance(p) ? 1 : 0;
+export const fipCore = (p: PitTotals) => {
+  const outs = effectivePitchingOuts(p);
+  return outs ? (13 * p.hr + 3 * (p.bb + p.hbp) - 2 * p.so) / (outs / 3) : 0;
+};
 
 // One player's offense for a day/week: OPS+ (adjusted; against his level's
 // average) or OPS (raw). null when he didn't bat.
@@ -136,13 +145,14 @@ export function offenseScore(buckets: LevelBuckets, baselines: Baselines, mode: 
 export function pitchingScore(buckets: LevelBuckets, baselines: Baselines, mode: Mode): number | null {
   let outs = 0, core = 0, fipW = 0, lgW = 0;
   for (const [level, { pit }] of buckets) {
-    if (!pit.outs) continue;
-    outs += pit.outs;
+    const effOuts = effectivePitchingOuts(pit);
+    if (!effOuts) continue;
+    outs += effOuts;
     core += 13 * pit.hr + 3 * (pit.bb + pit.hbp) - 2 * pit.so;
     const base = baselines.get(level);
     if (mode === 'adjusted' && base) {
-      fipW += (fipCore(pit) + base.cfip) * pit.outs;
-      lgW += base.fip * pit.outs;
+      fipW += (fipCore(pit) + base.cfip) * effOuts;
+      lgW += base.fip * effOuts;
     }
   }
   if (!outs) return null;
@@ -189,7 +199,7 @@ export function teamPitching(lines: PlayerLines, baselines: Baselines, mode: Mod
     const v = pitchingScore(buckets, baselines, mode);
     if (v === null) continue;
     let outs = 0;
-    for (const { pit } of buckets.values()) outs += pit.outs;
+    for (const { pit } of buckets.values()) outs += effectivePitchingOuts(pit);
     sum += v * outs; weight += outs;
   }
   return weight ? sum / weight : null;
