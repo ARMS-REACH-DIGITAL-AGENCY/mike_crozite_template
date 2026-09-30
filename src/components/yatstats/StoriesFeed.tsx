@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList from '@/components/yatstats/TeammatesList';
-import StoryViewer, { StoryStyles, StoryThread, shareStory, storyWhen, toggleStoryLike, type Story } from '@/components/yatstats/StoryViewer';
+import StoryViewer, { StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
 function useIsDesktop() {
@@ -57,6 +57,7 @@ const fullWhenLabel = (story: Story) => storyWhen(story);
 
 export default function StoriesFeed({ playerId, playerName }: { playerId: string; playerName: string }) {
   const firstName = (playerName || '').split(' ')[0] || 'this player';
+  const me = useFanMe();
   const [stories, setStories] = useState<Story[] | null>(null);
   const [failed, setFailed] = useState(false);
   const isDesktop = useIsDesktop();
@@ -267,7 +268,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                     <button type="button" className={s.likedByMe ? 'ysf-liked' : ''} onClick={() => likeFromCard(s)} aria-pressed={Boolean(s.likedByMe)}>
                       <i className={s.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like{s.likeCount > 0 ? ` · ${s.likeCount}` : ''}
                     </button>
-                    <button type="button" onClick={() => show(s, 0, true)}>
+                    <button type="button" onClick={() => me ? show(s, 0, true) : openSignIn()}>
                       <i className="ri-chat-3-line" /> Comment{s.commentCount > 0 ? ` · ${s.commentCount}` : ''}
                     </button>
                     <button type="button" onClick={() => shareFromCard(s)}>
