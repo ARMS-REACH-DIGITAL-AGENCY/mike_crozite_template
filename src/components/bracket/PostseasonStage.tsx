@@ -156,7 +156,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="Registered fans of the Bracket Champion whose names will be entered in the World Series tickets raffle."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'Simulation names shown for layout testing. Live names will come from registered fan accounts.'})} />
+        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans})} />
     </>;
   } else {
     const g=index.gf.find((x)=>x[1]===34) || index.gf[0];
@@ -165,7 +165,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       <InfoCard kicker="REGIONAL TOP FANS" title="8 nominated Top Fans"
         body="One fan nominated by the players from each of the eight regional Season Championship teams."
         rows={topFans}
-        onOpen={()=>setDrawer({title:'Regional Top Fans',kicker:'8 Season Championship teams',rows:topFans,note:'Simulation names shown for layout testing. Live player nominations will replace them.'})} />
+        onOpen={()=>setDrawer({title:'Regional Top Fans',kicker:'8 Season Championship teams',rows:topFans})} />
       <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="The Bracket Champion fan list stays visible through the final World Series week."
         rows={bracketFans}
