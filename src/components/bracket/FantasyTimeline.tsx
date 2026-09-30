@@ -16,6 +16,32 @@ import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stage
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
 
+function openRaffleRegistration() {
+  if (typeof window === 'undefined') return;
+  document.body.classList.add('drawer-account-open', 'drawer-open');
+  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'register' }));
+  const drawer = document.getElementById('drawerAccount');
+  const mask = document.getElementById('drawerMask');
+  drawer?.classList.add('open', 'is-open', 'active');
+  drawer?.setAttribute('aria-hidden', 'false');
+  mask?.classList.add('open', 'is-open', 'active');
+}
+
+function RafflePolaroidCTA() {
+  return (
+    <button type="button" className="yft-raffle-cta" onClick={(e) => { e.stopPropagation(); openRaffleRegistration(); }}
+      aria-label="Register to win four tickets to the 2027 World Series">
+      <span className="yft-raffle-card" aria-hidden="true">
+        <span className="yft-raffle-ticket"><i className="ri-ticket-2-line" /></span>
+        <b>4 TICKETS</b>
+        <small>&apos;27 WORLD SERIES</small>
+      </span>
+      <span className="yft-raffle-note">Tickets to the<br />&apos;27 World Series!<br /><strong>Register to Win!</strong></span>
+    </button>
+  );
+}
+
 const currentPlayerImages = (id: string, designatedHeadshot?: string | null) => [
   `${S3_BASE}/players/back-web/${encodeURIComponent(id)}.webp`,
   `/api/cutout?kind=back&id=${encodeURIComponent(id)}`,
@@ -272,6 +298,7 @@ export default function FantasyTimeline() {
 
   return (
     <section className="yft-hero" aria-label="The season, round by round">
+      <RafflePolaroidCTA />
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
           const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
@@ -308,26 +335,35 @@ export default function FantasyTimeline() {
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.2) 26%,rgba(5,5,5,.82) 42%,#050505 72%); }
-        .yft-person { position:absolute; left:1%; bottom:25px; width:27%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+        .yft-person { position:absolute; z-index:1; left:58%; bottom:25px; width:20%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
         .yft-mark { position:absolute; left:7%; top:48%; transform:translateY(-50%); width:110px; height:110px; display:grid; place-items:center; color:#555; font:400 64px/1 "Bebas Neue",Oswald,sans-serif; }
         .yft-mark-crest { width:100%; height:100%; object-fit:contain; }
-        .yft-story { position:absolute; left:28%; right:22%; top:18px; bottom:34px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
+        .yft-story { position:absolute; z-index:2; left:27%; right:42%; top:18px; bottom:34px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
         .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        .yft-series { position:absolute; right:3%; top:18px; bottom:35px; width:19%; min-width:150px; display:flex; flex-direction:column; align-items:flex-end; justify-content:center; text-align:right; }
+        .yft-series { position:absolute; z-index:2; right:2%; top:18px; bottom:35px; width:19%; min-width:150px; display:flex; flex-direction:column; align-items:flex-end; justify-content:center; text-align:right; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
         .yft-series-games { margin-top:11px; width:100%; display:grid; gap:6px; }
         .yft-series-game { display:grid; grid-template-columns:1fr 22px; gap:5px; align-items:start; color:rgba(255,255,255,.72); font:500 10px/1.15 Oswald,sans-serif; }
         .yft-series-game small { color:var(--gold,#d5b44a); font:700 8px/1.2 Oswald,sans-serif; text-align:right; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
-        .yft-nav { position:absolute; top:50%; transform:translateY(-50%); width:30px; height:46px; border:0; background:rgba(0,0,0,.35); color:#fff; font-size:26px; line-height:1; cursor:pointer; z-index:4; }
+        .yft-raffle-cta { position:absolute; z-index:6; left:2.5%; top:70px; display:flex; align-items:flex-start; gap:5px; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
+        .yft-raffle-card { width:64px; aspect-ratio:6/7; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:7px 5px 14px; border-radius:2px; background:#f4f1e6; color:#111; box-shadow:0 6px 14px rgba(0,0,0,.45); transform:rotate(-4deg); }
+        .yft-raffle-ticket { display:grid; place-items:center; width:100%; flex:1; border-radius:1px; background:#0d0d0d; color:var(--gold,#d5b44a); font-size:25px; }
+        .yft-raffle-card b { font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
+        .yft-raffle-card small { font:700 5.5px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; }
+        .yft-raffle-note { max-width:118px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:15px; line-height:.96; text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
+        .yft-raffle-note strong { color:var(--gold,#d5b44a); font-weight:700; }
+        .yft-raffle-cta:hover .yft-raffle-card,.yft-raffle-cta:focus-visible .yft-raffle-card { box-shadow:0 7px 18px rgba(0,0,0,.6),0 0 0 2px rgba(213,180,74,.55); }
+        .yft-raffle-cta:focus-visible { outline:none; }
+        .yft-nav { position:absolute; top:50%; transform:translateY(-50%); width:30px; height:46px; border:0; background:rgba(0,0,0,.35); color:#fff; font-size:26px; line-height:1; cursor:pointer; z-index:7; }
         .yft-nav:disabled { opacity:.2; cursor:default; }
         .yft-nav.prev { left:0; }
         .yft-nav.next { right:0; }
@@ -345,20 +381,23 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:0; width:27%; height:calc(100% - 26px); bottom:13px; }
+          .yft-person { left:59%; width:18%; height:calc(100% - 22px); bottom:12px; object-position:bottom center; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
-          .yft-story { left:28%; right:24%; top:5px; bottom:20px; padding:0 5px; justify-content:flex-start; }
+          .yft-story { left:27%; right:43%; top:5px; bottom:20px; padding:0 4px; justify-content:flex-start; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
           .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1.2%; top:5px; bottom:20px; width:23%; min-width:0; justify-content:flex-start; }
+          .yft-series { right:1.2%; top:5px; bottom:20px; width:21.5%; min-width:0; justify-content:flex-start; }
           .yft-series-games { margin-top:0; gap:4px; }
           .yft-series-game { grid-template-columns:1fr 13px; gap:2px; font-size:7px; line-height:1.02; }
           .yft-series-game small { font-size:5.8px; text-align:right; }
+          .yft-raffle-cta { left:2.5%; top:43px; gap:2px; transform:scale(.72); transform-origin:left top; }
+          .yft-raffle-card { width:52px; }
+          .yft-raffle-note { max-width:94px; font-size:12px; }
           .yft-nav { display:none; }
           .yft-rail { left:28%; right:2%; bottom:3px; height:14px; }
           .yft-rail-track { top:6px; height:1px; }
