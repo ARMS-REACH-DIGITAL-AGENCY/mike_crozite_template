@@ -248,7 +248,7 @@ export default function FantasyTimeline() {
 
   useEffect(()=>{
     if(!rounds.length)return;
-    const initial=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?.week||1)));
+    const initial:FantasyStageKey=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?.week||1)));
     const i=Math.max(0,stageKeys.indexOf(initial));
     requestAnimationFrame(()=>{go(i,false);setActive(i);if(!nav.stageKey)selectStage(initial);});
   },[rounds.length,cal?.week,go]);

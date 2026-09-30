@@ -376,7 +376,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   // all read/write the same stage key so the page cannot show mismatched rounds.
   const tabs = useMemo(() => {
     const t: { key:FantasyStageKey; label:string; list:WeekCard[] }[] = [];
-    for (let r=1;r<=10;r++) t.push({key:`r${r}`,label:`R${r}`,list:cards.filter(c=>c.week<=30&&Math.ceil(c.week/3)===r)});
+    for (let r=1;r<=10;r++) t.push({key:stageKeyForWeek((r-1)*3+1),label:`R${r}`,list:cards.filter(c=>c.week<=30&&Math.ceil(c.week/3)===r)});
     t.push({key:'c1',label:'C1',list:cards.filter(c=>c.week===31)});
     t.push({key:'c2',label:'C2',list:cards.filter(c=>c.week===32)});
     t.push({key:'cg',label:'CG',list:cards.filter(c=>c.week===33)});
