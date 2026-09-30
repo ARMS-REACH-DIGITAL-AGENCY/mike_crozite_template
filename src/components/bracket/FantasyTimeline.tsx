@@ -236,9 +236,10 @@ export default function FantasyTimeline() {
       </div>
 
       <style jsx global>{`
-        .yat-row3-shell:has(.yft-hero) { height: 278px; min-height: 278px; overflow: hidden; }
-        body:has(.yft-hero) { --row3-h: 278px; }
-        .yft-hero { position: relative; height: 278px; overflow: hidden; background:#050505; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
+        /* Keep Fantasy in the exact player-profile Career Path Timeline box.
+           We are swapping content, not changing the page geometry. */
+        .yat-row3-shell:has(.yft-hero) { height:200px !important; min-height:200px !important; overflow:hidden !important; }
+        .yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:#050505; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
         .yft-track { display:flex; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
         .yft-track::-webkit-scrollbar { display:none; }
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
@@ -273,24 +274,23 @@ export default function FantasyTimeline() {
         .yft-tick-label { position:absolute; left:50%; top:-10px; transform:translateX(-50%); color:rgba(255,255,255,.48); font:700 7px/1 Oswald,sans-serif; }
 
         @media (max-width:760px) {
-          .yat-row3-shell:has(.yft-hero) { height:300px; min-height:300px; }
-          body:has(.yft-hero) { --row3-h:300px; }
-          .yft-hero { height:300px; }
-          .yft-person { left:0; width:29%; height:calc(100% - 28px); bottom:22px; }
+          .yat-row3-shell:has(.yft-hero) { height:150px !important; min-height:150px !important; }
+          .yft-hero { height:150px; min-height:150px; }
+          .yft-person { left:0; width:29%; height:calc(100% - 16px); bottom:12px; }
           .yft-ghost { left:0; width:34%; }
-          .yft-story { left:27%; right:24%; top:10px; bottom:38px; padding:0 7px; justify-content:flex-start; padding-top:10px; }
+          .yft-story { left:27%; right:24%; top:5px; bottom:24px; padding:5px 6px 0; justify-content:flex-start; }
           .yft-dates { font-size:9px; }
-          .yft-title { margin:5px 0 4px; font-size:24px; }
-          .yft-story p { font-size:9px; line-height:1.28; display:-webkit-box; -webkit-line-clamp:8; -webkit-box-orient:vertical; overflow:hidden; }
+          .yft-title { margin:3px 0 3px; font-size:19px; line-height:.95; }
+          .yft-story p { font-size:7.5px; line-height:1.2; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
           .yft-star { margin-top:5px; font-size:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1.5%; top:12px; bottom:38px; width:23%; min-width:0; justify-content:flex-start; }
-          .yft-series>b { font-size:16px; }
-          .yft-series>span { font-size:8px; }
+          .yft-series { right:1.5%; top:7px; bottom:24px; width:23%; min-width:0; justify-content:flex-start; }
+          .yft-series>b { font-size:13px; }
+          .yft-series>span { font-size:6.5px; }
           .yft-series-games { margin-top:8px; gap:7px; }
-          .yft-series-game { grid-template-columns:16px 1fr; gap:3px; font-size:8px; }
-          .yft-series-game small { font-size:6.5px; }
+          .yft-series-game { grid-template-columns:13px 1fr; gap:2px; font-size:6.5px; line-height:1.08; }
+          .yft-series-game small { font-size:5.5px; }
           .yft-nav { display:none; }
-          .yft-rail { left:31%; right:4%; bottom:10px; }
+          .yft-rail { left:31%; right:4%; bottom:6px; }
           .yft-tick-label { display:none; }
         }
       `}</style>
