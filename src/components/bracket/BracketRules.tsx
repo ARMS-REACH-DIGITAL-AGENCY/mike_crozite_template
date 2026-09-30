@@ -95,7 +95,7 @@ export default function BracketRules() {
         <h4>Most Runs Scored Leaderboard</h4>
         <ul>
           <li>Every school is on its region&apos;s leaderboard all season (weeks 1–30), ranked on total runs scored. Run differential breaks ties.</li>
-          <li>Schools score in their bracket games while they&apos;re alive; once eliminated they play a weekly game against another eliminated school in their region.</li>
+          <li>Schools score in their bracket games while they&apos;re alive. Once eliminated, a school is paired with another eliminated school in its region for the next round and plays that same opponent in all three weekly games. A new opponent may be drawn for the following round.</li>
           <li>After week 30 each region&apos;s top team goes to the Season Championship Tournament. If it&apos;s the Bracket Champion, the region sends its next school.</li>
         </ul>
       </section>
