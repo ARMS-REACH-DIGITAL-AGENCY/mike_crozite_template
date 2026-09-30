@@ -19,7 +19,22 @@ import { type Index, type LbGame, LAST_WEEK, abbr, fmtDate, fmtRange, loadIndex,
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { focusWeek, useBracketNav } from './bracketNav';
 
+const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
+
+// Use the same current-era image order as the player profile's "today"
+// presentation: the maintained flip-card-back/current action image first,
+// then the legacy NOW headshot only as a fallback. The old fantasy hero did
+// the reverse, which is how a stale college NOW image could hide a newer
+// affiliated-pro BACK image (Roch Cholowsky was the visible example).
+const currentPlayerImages = (id: string, designatedHeadshot?: string | null) => [
+  `${S3_BASE}/players/back-web/${encodeURIComponent(id)}.webp`,
+  `/api/cutout?kind=back&id=${encodeURIComponent(id)}`,
+  ...(designatedHeadshot ? [designatedHeadshot] : []),
+  `${S3_BASE}/players/now-web/${encodeURIComponent(id)}.webp`,
+  `/api/cutout?kind=now&id=${encodeURIComponent(id)}`,
+  SILHOUETTE,
+];
 
 // An image that works down a list of sources until one loads.
 function Fallback({ srcs, className, alt }: { srcs: string[]; className: string; alt: string }) {
@@ -92,7 +107,7 @@ function Slide({ index, card, me, star, identity, onTap }: { index: Index; card:
       {opp ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(opp), CREST_FALLBACK_PATH]} alt="" /> : null}
       <span className="yft-grad" aria-hidden="true" />
       {star
-        ? <Fallback className="yft-person" srcs={identity?.headshotUrl ? [identity.headshotUrl, SILHOUETTE] : [SILHOUETTE]} alt={star[0]} />
+        ? <Fallback className="yft-person" srcs={currentPlayerImages(star[5], identity?.headshotUrl)} alt={star[0]} />
         : <span className="yft-mark" aria-hidden="true">{opp ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(opp), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
       <span className="yft-copy">
         <span className="yft-kick">Week {card.week} · {card.stage.replace(/ leaderboard game$/, ' game')} · {dates}</span>
