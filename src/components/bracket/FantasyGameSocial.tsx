@@ -13,6 +13,7 @@ type Props={
   title:string;
   subtitle:string;
   shareUrl:string;
+  shareText?:string;
   preview?:React.ReactNode;
 };
 
@@ -28,7 +29,7 @@ function ago(iso:string){
   if(s<604800)return `${Math.floor(s/86400)}d`; return `${Math.floor(s/604800)}w`;
 }
 
-export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,preview}:Props){
+export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,shareText,preview}:Props){
   const me=useFanMe();
   const myName=me?[me.firstName,me.lastName].filter(Boolean).join(' '):'';
   const [liked,setLiked]=useState(false);
@@ -76,11 +77,11 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,previ
   const share=async()=>{
     let method='link';
     try{
-      if(navigator.share){await navigator.share({title,text:subtitle,url:shareUrl});method='native';}
-      else{await navigator.clipboard.writeText(shareUrl);flash('Link copied.');}
+      if(navigator.share){await navigator.share({title,text:shareText||subtitle,url:shareUrl});method='native';}
+      else{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareUrl}`);flash('Link copied.');}
     }catch(e:any){
       if(e?.name==='AbortError')return;
-      try{await navigator.clipboard.writeText(shareUrl);flash('Link copied.');}catch{}
+      try{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareUrl}`);flash('Link copied.');}catch{}
     }
     fetch(`/api/fantasy-games/${encodeURIComponent(gameKey)}/share`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({method})}).catch(()=>{});
   };
