@@ -27,7 +27,7 @@ import {
   abbr, fmtDate, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
-import { selectStage, useBracketNav } from './bracketNav';
+import { selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import FantasyGameSocial from './FantasyGameSocial';
 import { Roboto_Condensed } from 'next/font/google';
@@ -384,10 +384,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return t;
   },[cards]);
 
-  const stageOfWeek = (w:number) => w<=30 ? `r${Math.max(1,Math.ceil(w/3))}` : w===31?'c1':w===32?'c2':w===33?'cg':w===34?'yws':'r10';
   const nowTab = useMemo(() => {
     if(!cal||cal.week<1) return 'r1';
-    return stageOfWeek(Math.min(34,cal.week));
+    return stageKeyForWeek(Math.min(34,cal.week));
   },[cal]);
   const tab = nav.stageKey || nowTab;
 
@@ -399,7 +398,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   // A hero click/focus also changes the canonical stage.
   useEffect(() => {
     if(!nav.focusSeq||!nav.focusWeek) return;
-    const key=stageOfWeek(nav.focusWeek);
+    const key=stageKeyForWeek(nav.focusWeek);
     const on=window.setTimeout(()=>{selectStage(key);setFocused(nav.focusWeek);},0);
     const off=window.setTimeout(()=>setFocused(0),2200);
     return()=>{window.clearTimeout(on);window.clearTimeout(off);};
@@ -412,7 +411,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     if(!gid) return;
     const card=cards.find(c=>c.game?.[0]===gid);
     if(!card) return;
-    selectStage(stageOfWeek(card.week));
+    selectStage(stageKeyForWeek(card.week));
     setFocused(card.week);
     requestAnimationFrame(()=>document.getElementById(`fweek-${card.week}`)?.scrollIntoView({block:'nearest'}));
   },[cards]);
