@@ -11,7 +11,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type Index, type LbGame, fmtRange, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
+import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
@@ -238,7 +238,7 @@ export default function FantasyTimeline() {
   }, []);
 
   const nav=useBracketNav();
-  const stageKeys=[...FANTASY_STAGE_KEYS];
+  const stageKeys:FantasyStageKey[]=[...FANTASY_STAGE_KEYS];
   const postStages=[
     {key:'c1',label:'C1',title:'CHAMPIONSHIP ROUND 1',week:31},
     {key:'c2',label:'C2',title:'CHAMPIONSHIP ROUND 2',week:32},
