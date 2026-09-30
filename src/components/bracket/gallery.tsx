@@ -971,6 +971,32 @@ function sumRosterWl(players: PlayerRow[]): [number, number] {
   }, [0, 0]);
 }
 
+export function correctedRosterGame(
+  innings: number[],
+  week: number,
+  homeRows: PlayerRow[],
+  awayRows: PlayerRow[],
+  homeRoster?: ActiveRosterPlayer[],
+  awayRoster?: ActiveRosterPlayer[],
+) {
+  const homePlayers = completeRosterRows(homeRows, homeRoster, week);
+  const awayPlayers = completeRosterRows(awayRows, awayRoster, week);
+  const homeWl = sumRosterWl(homePlayers);
+  const awayWl = sumRosterWl(awayPlayers);
+  const wp = ([w, l]: [number, number]) => w + l ? w / (w + l) : 0.5;
+  const hw = wp(homeWl), aw = wp(awayWl);
+  const corrected = [...innings];
+  if (corrected.length >= 18) {
+    corrected[16] = hw > aw ? 1 : 0;
+    corrected[17] = aw > hw ? 1 : 0;
+  }
+  const score: [number, number] = [
+    corrected.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
+    corrected.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
+  ];
+  return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
+}
+
 export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
