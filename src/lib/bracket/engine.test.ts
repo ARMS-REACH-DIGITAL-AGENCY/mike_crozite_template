@@ -18,6 +18,7 @@ import {
   teamOffense,
   teamPitching,
 } from './engine';
+import { TOURNAMENT_2027, TOURNAMENT_2027_WEEKS, bracketRoundWeeks } from './tournamentCalendar';
 
 const baselines: Baselines = new Map([
   ['MLB', { obp: 0.315, slg: 0.405, fip: 4.1, cfip: 3.1 }],
@@ -231,4 +232,19 @@ test('eliminated pairings are fixed by the seed and give one bye when odd', () =
   assert.equal(a.bye, 3);
   assert.equal(a.pairs.length, 2);
   assert.equal(new Set(a.pairs.flat()).size, 4);
+});
+
+
+test('2027 master calendar is exactly Monday Feb 1 through Sunday Sep 26 across 34 weeks', () => {
+  assert.equal(TOURNAMENT_2027.start, '2027-02-01');
+  assert.equal(TOURNAMENT_2027.end, '2027-09-26');
+  assert.equal(TOURNAMENT_2027_WEEKS.length, 34);
+  assert.deepEqual(TOURNAMENT_2027_WEEKS[0], ['2027-02-01', '2027-02-07']);
+  assert.deepEqual(TOURNAMENT_2027_WEEKS[29], ['2027-08-23', '2027-08-29']);
+  assert.deepEqual(TOURNAMENT_2027_WEEKS[30], ['2027-08-30', '2027-09-05']);
+  assert.deepEqual(TOURNAMENT_2027_WEEKS[31], ['2027-09-06', '2027-09-12']);
+  assert.deepEqual(TOURNAMENT_2027_WEEKS[32], ['2027-09-13', '2027-09-19']);
+  assert.deepEqual(TOURNAMENT_2027_WEEKS[33], ['2027-09-20', '2027-09-26']);
+  assert.deepEqual(bracketRoundWeeks(1), [1, 3]);
+  assert.deepEqual(bracketRoundWeeks(10), [28, 30]);
 });
