@@ -184,16 +184,21 @@ function pairNational(teams:number[],seed:string,affinity:(a:number,b:number)=>n
   if(teams.length%2)throw new Error(`Eliminated-school pool must be even; got ${teams.length}. No byes are allowed.`);
   const pool=[...teams].sort((a,b)=>(hash(`${seed}:${a}`)-hash(`${seed}:${b}`))||a-b);
   const pairs:[number,number][]=[];
-  while(pool.length){
-    let bi=0,bj=1,best=0;
-    for(let i=0;i<pool.length-1;i++)for(let j=i+1;j<pool.length;j++){
-      const score=Number(affinity(pool[i],pool[j]))||0;
-      if(score>best){best=score;bi=i;bj=j;}
-    }
-    const a=pool[bi],b=pool[bj];
-    pairs.push([a,b]);
-    pool.splice(bj,1);pool.splice(bi,1);
+  const used=new Set<number>();
+  const candidates:{a:number;b:number;score:number;order:number}[]=[];
+  let order=0;
+  for(let i=0;i<pool.length-1;i++)for(let j=i+1;j<pool.length;j++){
+    const score=Number(affinity(pool[i],pool[j]))||0;
+    if(score>0)candidates.push({a:pool[i],b:pool[j],score,order});
+    order++;
   }
+  candidates.sort((x,y)=>y.score-x.score||x.order-y.order);
+  for(const c of candidates){
+    if(used.has(c.a)||used.has(c.b))continue;
+    pairs.push([c.a,c.b]);used.add(c.a);used.add(c.b);
+  }
+  const rest=pool.filter(h=>!used.has(h));
+  for(let i=0;i<rest.length;i+=2)pairs.push([rest[i],rest[i+1]]);
   return pairs;
 }
 
