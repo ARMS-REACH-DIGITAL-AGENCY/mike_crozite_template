@@ -55,20 +55,22 @@ function rankedPlayers(side) {
 
 function expectedPlayerTiebreak(box) {
   const h = rankedPlayers(box?.h), a = rankedPlayers(box?.a);
-  let home = 0, away = 0;
+  const innings = [];
   for (let k = 0; ; k++) {
     if (
       k >= h.hitters.length || k >= a.hitters.length ||
       k >= h.pitchers.length || k >= a.pitchers.length
-    ) return { kind: 'coin', rank: k + 1, score: [home, away] };
+    ) return { kind: 'coin', rank: k + 1, innings };
 
+    let home = 0, away = 0;
     if (h.hitters[k].value > a.hitters[k].value) home++;
     else if (a.hitters[k].value > h.hitters[k].value) away++;
 
     if (h.pitchers[k].value < a.pitchers[k].value) home++;
     else if (a.pitchers[k].value < h.pitchers[k].value) away++;
 
-    if (home !== away) return { kind: 'players', rank: k + 1, score: [home, away] };
+    innings.push([home, away]);
+    if (home !== away) return { kind: 'players', rank: k + 1, innings };
   }
 }
 
@@ -236,8 +238,9 @@ function auditFixture(fixture, options = {}) {
     if (ids.has(id)) rec.error('duplicate-game-id', `game ${id}`); else ids.add(id);
     const innings = Array.isArray(game[5]) ? game[5].map(Number) : [];
     const playerTie = /^players-(\d+)$/.exec(String(game[4] || ''));
-    const expectedLength = playerTie ? 20 : 18;
-    if (innings.length !== expectedLength) rec.error('inning-vector-length', `game ${id}: expected ${expectedLength} values, found ${innings.length}`);
+    if (innings.length < 18 || innings.length % 2 !== 0) {
+      rec.error('inning-vector-length', `game ${id}: expected an even vector of at least 18 values, found ${innings.length}`);
+    }
     for (let i = 0; i < Math.min(8, Math.floor(innings.length / 2)); i++) {
       const h = Number(innings[i * 2] || 0), a = Number(innings[i * 2 + 1] || 0);
       if (h < 0 || a < 0 || h + a > 2) rec.error('inning-run-limit', `game ${id} week ${week} inning ${i + 1}: ${h}-${a}`);
@@ -245,14 +248,6 @@ function auditFixture(fixture, options = {}) {
     if (innings.length >= 18) {
       const h = Number(innings[16] || 0), a = Number(innings[17] || 0);
       if (h < 0 || a < 0 || h + a > 1) rec.error('inning9-run-limit', `game ${id} week ${week}: ${h}-${a}`);
-    }
-
-    if (playerTie && innings.length >= 20) {
-      const rank = Number(playerTie[1]);
-      const h = Number(innings[18] || 0), a = Number(innings[19] || 0);
-      if (h < 0 || a < 0 || h === a || h + a > rank * 2) {
-        rec.error('player-tiebreak-run-invalid', `game ${id} week ${week}: rank ${rank}, tiebreak runs ${h}-${a}`);
-      }
     }
 
     const boxFile = detail(file);
@@ -284,21 +279,59 @@ function auditFixture(fixture, options = {}) {
 
     if (innings.length >= 18) {
       const regulation = score(innings.slice(0, 18));
+      const decidedBy = String(game[4] || '');
       if (regulation[0] === regulation[1]) {
         const expectedTb = expectedPlayerTiebreak(box);
-        const decidedBy = String(game[4] || '');
+        const expectedExtra = expectedTb.innings.length + (expectedTb.kind === 'coin' ? 1 : 0);
+        const expectedLength = 18 + expectedExtra * 2;
+        if (innings.length !== expectedLength) {
+          rec.error('inning-vector-length', `game ${id}: expected ${expectedLength} values (${expectedExtra} extra inning(s)), found ${innings.length}`);
+        }
+
+        expectedTb.innings.forEach((expected, i) => {
+          const off = 18 + i * 2;
+          const saved = [Number(innings[off] || 0), Number(innings[off + 1] || 0)];
+          if (!sameArray(saved, expected)) {
+            rec.error('player-tiebreak-score-disagreement', `game ${id} week ${week} inning ${10 + i}: saved ${saved.join('-')}, expected ${expected.join('-')}`);
+          }
+          if (saved[0] < 0 || saved[1] < 0 || saved[0] + saved[1] > 2) {
+            rec.error('player-tiebreak-run-invalid', `game ${id} week ${week} inning ${10 + i}: ${saved.join('-')}`);
+          }
+          if (i < expectedTb.innings.length - 1 && saved[0] !== saved[1]) {
+            rec.error('player-tiebreak-ended-late', `game ${id} week ${week}: inning ${10 + i} was already decisive at ${saved.join('-')}`);
+          }
+        });
+
         if (expectedTb.kind === 'players') {
           const expectedLabel = `players-${expectedTb.rank}`;
-          const savedTb = innings.length >= 20 ? [Number(innings[18] || 0), Number(innings[19] || 0)] : null;
           if (decidedBy !== expectedLabel) {
             rec.error('player-tiebreak-method-disagreement', `game ${id} week ${week}: stored ${decidedBy}, expected ${expectedLabel}`);
           }
-          if (!savedTb || !sameArray(savedTb, expectedTb.score)) {
-            rec.error('player-tiebreak-score-disagreement', `game ${id} week ${week}: saved ${JSON.stringify(savedTb)}, expected ${expectedTb.score.join('-')}`);
+          const last = expectedTb.innings[expectedTb.innings.length - 1];
+          if (!last || last[0] === last[1]) {
+            rec.error('player-tiebreak-run-invalid', `game ${id} week ${week}: deciding tiebreak inning did not break the tie`);
           }
-        } else if (decidedBy !== 'coin') {
-          rec.error('commissioner-flip-missed', `game ${id} week ${week}: roster exhausted at rank ${expectedTb.rank}, stored ${decidedBy}`);
+        } else {
+          if (decidedBy !== 'coin') {
+            rec.error('commissioner-flip-missed', `game ${id} week ${week}: roster exhausted at rank ${expectedTb.rank}, stored ${decidedBy}`);
+          }
+          const off = 18 + expectedTb.innings.length * 2;
+          const coin = [Number(innings[off] || 0), Number(innings[off + 1] || 0)];
+          if (!sameArray(coin, [1, 0]) && !sameArray(coin, [0, 1])) {
+            rec.error('commissioner-flip-run-invalid', `game ${id} week ${week}: coin-flip inning must award exactly one run, saved ${coin.join('-')}`);
+          }
         }
+      } else if (innings.length !== 18) {
+        rec.error('inning-vector-length', `game ${id}: regulation was not tied, so expected 18 values, found ${innings.length}`);
+      }
+
+      const finalScore = score(innings);
+      const storedWinner = game[6] == null ? null : Number(game[6]);
+      if (finalScore[0] === finalScore[1]) {
+        rec.error('final-score-tied', `game ${id} week ${week}: final score ${finalScore.join('-')}`);
+      } else {
+        const expectedWinner = finalScore[0] > finalScore[1] ? home : away;
+        if (storedWinner !== expectedWinner) rec.error('final-winner-score-disagreement', `game ${id} week ${week}: score ${finalScore.join('-')}, winner ${storedWinner}, expected ${expectedWinner}`);
       }
     }
 
