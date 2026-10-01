@@ -165,11 +165,12 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
             const score = scoreFor(card, me);
             const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
             const oppName = opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD';
+            const matchupKnown = Boolean(opp);
             return (
               <div key={card.week} className="yft-series-game">
-                <span>{score ? <span className="yft-scorelines">
-                    <span className="yft-scoreline"><b>{oppName}</b><i>{score[1]}</i></span>
-                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score[0]}</i></span>
+                <span>{score || matchupKnown ? <span className="yft-scorelines">
+                    <span className="yft-scoreline"><b>{oppName}</b><i>{score ? score[1] : ''}</i></span>
+                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score ? score[0] : ''}</i></span>
                   </span> : <>Week {card.week}<br /><em>TBD</em></>}</span>
                 <small>G{i + 1}</small>
               </div>
@@ -248,8 +249,8 @@ function PostSlide({ index, games, week, label, title, onTap }: {
             return (
               <div className="yft-series-game" key={g[0]}>
                 <span className="yft-scorelines">
-                  <span className="yft-scoreline"><b>{away}</b><i>{ar}</i></span>
-                  <span className="yft-scoreline home"><b>{home}</b><i>{hr}</i></span>
+                  <span className="yft-scoreline"><b>{away}</b><i>{showScores ? ar : ''}</i></span>
+                  <span className="yft-scoreline home"><b>{home}</b><i>{showScores ? hr : ''}</i></span>
                 </span>
                 <small>G{i+1}</small>
               </div>
@@ -369,11 +370,12 @@ export default function FantasyTimeline() {
           return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
         })}
         {postStages.map((s)=>{
+          const stageKnown=(cal?.final||0)>=s.week-1;
           const stageIsFinal=s.week<=(cal?.final||0);
-          const gamesForStage=!stageIsFinal ? [] : s.key==='yws'
+          const gamesForStage=!stageKnown ? [] : s.key==='yws'
             ? data.index.gf.filter((g)=>g[1]===s.week)
             : data.index.lbt.filter((x)=>x.game[1]===s.week).map((x)=>x.game);
-          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title}
+          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title} showScores={stageIsFinal}
             onTap={()=>{selectStage(s.key);focusWeek(s.week);}}/>;
         })}
       </div>
