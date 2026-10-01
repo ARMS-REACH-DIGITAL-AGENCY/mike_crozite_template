@@ -1457,12 +1457,13 @@ export function Styles() {
 
       .bl-metric-scoreboards { margin:8px 8px 6px; display:grid; gap:6px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
       .bl-metric-board { width:100%; min-width:300px; box-sizing:border-box; margin:0; padding:6px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { min-width:0; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(9,minmax(18px,1fr)) 24px; gap:1px; align-items:center; }
+      .bl-metric-line { --metric-cell:40px; min-width:max-content; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(10,var(--metric-cell)); gap:2px; align-items:center; }
       .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
       .bl-metric-line.head span { display:grid; place-items:center; min-height:17px; }
       .bl-metric-line.head .metric-name { justify-items:start; padding-left:4px; color:#ffd34f; font-size:11px; }
       .bl-metric-line.metric { margin-top:2px; }
-      .bl-metric-line.metric>span { min-height:23px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 9px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 9px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-metric-line.metric>.metric-team { width:auto; min-width:0; height:var(--metric-cell); }
       .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; }
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
@@ -1478,10 +1479,10 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box .nm { padding-left:4px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-metric-board { min-width:300px; padding:4px; }
-        .bl-metric-line { grid-template-columns:64px repeat(9,minmax(18px,1fr)) 22px; gap:1px; }
+        .bl-metric-line { --metric-cell:32px; grid-template-columns:64px repeat(10,var(--metric-cell)); gap:2px; }
         .bl-metric-line.head { font-size:6.8px; }
         .bl-metric-line.head .metric-name { font-size:9px; padding-left:3px; }
-        .bl-metric-line.metric>span { min-height:21px; font-size:7.5px; }
+        .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); font-size:7.5px; }
         .bl-metric-line.metric .metric-team { padding:2px 3px; }
         .bl-metric-line.metric .metric-team b { font-size:7.2px; letter-spacing:-.035em; }
         .bl-metric-line.metric>span.final { font-size:9px; }
