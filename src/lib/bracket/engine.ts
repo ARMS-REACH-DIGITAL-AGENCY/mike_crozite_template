@@ -365,8 +365,9 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
       tieScore: pt.score,
     };
   }
+  if (coinFlip) return { ...base, winner: coinFlip(), decidedBy: 'coin', tieScore: [0, 0] };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
-  return { ...base, winner: coinFlip ? coinFlip() : null, decidedBy: 'coin', tieScore: [0, 0] };
+  return { ...base, winner: null, decidedBy: 'coin', tieScore: [0, 0] };
 }
 
 // ---------------------------------------------------------------------------
