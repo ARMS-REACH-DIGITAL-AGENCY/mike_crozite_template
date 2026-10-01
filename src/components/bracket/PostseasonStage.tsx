@@ -125,6 +125,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
   );
   const blankScoreboard = (week:number, stageHead:string, gameNo?:number) => {
+    const slot = gameNo || 1;
     const blankRow = (key:string) => (
       <div className="yfp-green-row" key={key} aria-label="School to be determined">
         <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
@@ -132,8 +133,8 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         <span className="yfp-green-run" />
       </div>
     );
-    return (
-      <article key={`blank-${week}-${gameNo || 1}`} className="yfp-card yfp-scorecard yfp-post-game tbd">
+    const scoreboard = (
+      <>
         <div className="yfp-score-head">
           <span>Week {week} | {index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : ''}</span>
           <span>{stageHead}{gameNo ? ` | Game ${gameNo}` : ''}</span>
@@ -146,6 +147,24 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           </div>
           {blankRow('away')}
           {blankRow('home')}
+        </div>
+      </>
+    );
+    const social = (
+      <FantasyGameSocial
+        gameKey={`sim-2026:postseason-${week}-${slot}`}
+        title={gameNo ? `${stageHead} · Game ${gameNo}` : stageHead}
+        subtitle="Matchup to be determined"
+        shareText={`Follow the ${stageHead} in the YAT?STATS High School Alumni Fantasy Tournament.`}
+        shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?week=${week}#sec-fantasy`}
+        preview={<div className="yfp-scorecard">{scoreboard}</div>}
+      />
+    );
+    return (
+      <article key={`blank-${week}-${slot}`} className="yfp-card yfp-scorecard yfp-post-game tbd">
+        <div className="yfp-game-split">
+          <div className="yfp-game-scorepane">{scoreboard}</div>
+          <div className="yfp-game-socialpane">{social}</div>
         </div>
       </article>
     );
@@ -206,14 +225,14 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
 
     const awayName = shortName(index.schools[g[3]]?.[0] || '');
     const homeName = shortName(index.schools[g[2]]?.[0] || '');
-    const social = played ? <FantasyGameSocial
+    const social = <FantasyGameSocial
       gameKey={`sim-2026:${g[0]}`}
       title={label}
       subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${awayName} and ${homeName}.`}
       shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
-    /> : null;
+    />;
 
     return <article key={g[0]} className={`yfp-card yfp-scorecard yfp-post-game ${card.state}`} id={`postgame-${g[0]}`}>
       {social ? <div className="yfp-game-split">
