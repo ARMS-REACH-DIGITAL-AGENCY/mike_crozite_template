@@ -32,11 +32,7 @@ function RafflePolaroidCTA() {
   return (
     <button type="button" className="yft-raffle-cta" onClick={(e) => { e.stopPropagation(); openRaffleRegistration(); }}
       aria-label="Register to win four tickets to the 2027 World Series">
-      <span className="yft-raffle-card" aria-hidden="true">
-        <span className="yft-raffle-ticket"><i className="ri-ticket-2-line" /></span>
-        <b>4 TICKETS</b>
-        <small>&apos;27 WORLD SERIES</small>
-      </span>
+      <img className="yft-raffle-trophy" src="/img/world-series-trophy-cta.svg" alt="" aria-hidden="true" />
       <span className="yft-raffle-note">Tickets to the<br />&apos;27 World Series!<br /><strong>Register to Win!</strong></span>
     </button>
   );
@@ -355,19 +351,16 @@ export default function FantasyTimeline() {
         .yft-series-game small { color:var(--gold,#d5b44a); font:700 8px/1.2 Oswald,sans-serif; text-align:right; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
         .yft-raffle-cta { position:absolute; z-index:6; left:2.5%; top:70px; display:flex; align-items:flex-start; gap:5px; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
-        .yft-raffle-card { width:64px; aspect-ratio:6/7; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:7px 5px 14px; border-radius:2px; background:#f4f1e6; color:#111; box-shadow:0 6px 14px rgba(0,0,0,.45); transform:rotate(-4deg); }
-        .yft-raffle-ticket { display:grid; place-items:center; width:100%; flex:1; border-radius:1px; background:#0d0d0d; color:var(--gold,#d5b44a); font-size:25px; }
-        .yft-raffle-card b { font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
-        .yft-raffle-card small { font:700 5.5px/1 Oswald,sans-serif; letter-spacing:.03em; white-space:nowrap; }
+        .yft-raffle-trophy { width:64px; height:92px; flex:none; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 6px 8px rgba(0,0,0,.55)); transform:rotate(-3deg); }
         .yft-raffle-note { max-width:118px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:15px; line-height:.96; text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
         .yft-raffle-note strong { color:var(--gold,#d5b44a); font-weight:700; }
-        .yft-raffle-cta:hover .yft-raffle-card,.yft-raffle-cta:focus-visible .yft-raffle-card { box-shadow:0 7px 18px rgba(0,0,0,.6),0 0 0 2px rgba(213,180,74,.55); }
+        .yft-raffle-cta:hover .yft-raffle-trophy,.yft-raffle-cta:focus-visible .yft-raffle-trophy { filter:drop-shadow(0 7px 10px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(213,180,74,.6)); }
         .yft-raffle-cta:focus-visible { outline:none; }
         .yft-nav { position:absolute; top:50%; transform:translateY(-50%); width:30px; height:46px; border:0; background:rgba(0,0,0,.35); color:#fff; font-size:26px; line-height:1; cursor:pointer; z-index:7; }
         .yft-nav:disabled { opacity:.2; cursor:default; }
         .yft-nav.prev { left:0; }
         .yft-nav.next { right:0; }
-        .yft-rail { position:absolute; left:29%; right:23%; bottom:10px; height:18px; z-index:4; }
+        .yft-rail { position:absolute; left:29%; right:23%; bottom:6px; height:26px; z-index:4; }
         .yft-rail-track { position:absolute; left:0; right:0; top:8px; height:2px; background:rgba(255,255,255,.18); }
         .yft-tick { position:absolute; top:1px; width:14px; height:14px; margin-left:-7px; padding:0; border:0; background:transparent; cursor:pointer; }
         .yft-tick:disabled { cursor:default; }
@@ -375,7 +368,7 @@ export default function FantasyTimeline() {
         .yft-tick.W::before { background:#78c988; }
         .yft-tick.L::before { background:#d46f66; }
         .yft-tick.on::before,.yft-tick.now::before { box-shadow:0 0 0 2px rgba(213,180,74,.72); }
-        .yft-tick-label { position:absolute; left:50%; top:-10px; transform:translateX(-50%); color:rgba(255,255,255,.48); font:700 7px/1 Oswald,sans-serif; }
+        .yft-tick-label { position:absolute; left:50%; top:15px; transform:translateX(-50%); color:rgba(255,255,255,.58); font:700 7px/1 Oswald,sans-serif; }
 
         @media (max-width:760px) {
           body:has(.yft-hero) { --row3-h:118px; }
@@ -396,14 +389,14 @@ export default function FantasyTimeline() {
           .yft-series-game { grid-template-columns:1fr 13px; gap:2px; font-size:7px; line-height:1.02; }
           .yft-series-game small { font-size:5.8px; text-align:right; }
           .yft-raffle-cta { left:2.5%; top:43px; gap:2px; transform:scale(.72); transform-origin:left top; }
-          .yft-raffle-card { width:52px; }
+          .yft-raffle-trophy { width:48px; height:67px; }
           .yft-raffle-note { max-width:94px; font-size:12px; }
           .yft-nav { display:none; }
-          .yft-rail { left:28%; right:2%; bottom:3px; height:14px; }
+          .yft-rail { left:28%; right:2%; bottom:1px; height:20px; }
           .yft-rail-track { top:6px; height:1px; }
           .yft-tick { width:10px; height:10px; margin-left:-5px; top:1px; }
           .yft-tick::before { left:3px; top:2px; width:4px; height:6px; }
-          .yft-tick-label { display:block; top:-7px; font-size:4.3px; color:rgba(255,255,255,.55); }
+          .yft-tick-label { display:block; top:10px; font-size:4.3px; color:rgba(255,255,255,.62); }
         }
       `}</style>
     </section>
