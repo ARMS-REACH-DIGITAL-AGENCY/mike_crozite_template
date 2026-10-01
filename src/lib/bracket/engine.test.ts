@@ -243,15 +243,28 @@ test('best of 3: all three games are always played', () => {
   assert.equal(t.winner, 'away');
 });
 
-test('eliminated pairings are fixed by the seed and give one bye when odd', () => {
-  const teams = [1, 2, 3, 4, 5];
-  const played = new Map([[3, 4]]);
-  const a = pairEliminated(teams, played, 'w5-r1');
-  const b = pairEliminated(teams, played, 'w5-r1');
+test('eliminated pairings are deterministic, national, and never allow a bye', () => {
+  const teams = [1, 2, 3, 4, 5, 6];
+  const a = pairEliminated(teams, 'round-5');
+  const b = pairEliminated(teams, 'round-5');
   assert.deepEqual(a, b);
-  assert.equal(a.bye, 3);
-  assert.equal(a.pairs.length, 2);
-  assert.equal(new Set(a.pairs.flat()).size, 4);
+  assert.equal(a.pairs.length, 3);
+  assert.equal(new Set(a.pairs.flat()).size, 6);
+  assert.throws(() => pairEliminated([1, 2, 3], 'odd-pool'), /No byes are allowed/);
+});
+
+test('eliminated pairings prefer real-world teammate links before random fallback', () => {
+  const teams = [1, 2, 3, 4, 5, 6];
+  const links = new Map([
+    ['1:6', 2],
+    ['2:5', 1],
+  ]);
+  const affinity = (a: number, b: number) => links.get(`${Math.min(a, b)}:${Math.max(a, b)}`) || 0;
+  const { pairs } = pairEliminated(teams, 'teammate-links', affinity);
+  const normalized = pairs.map(([a, b]) => [Math.min(a, b), Math.max(a, b)]);
+  assert.ok(normalized.some(([a, b]) => a === 1 && b === 6));
+  assert.ok(normalized.some(([a, b]) => a === 2 && b === 5));
+  assert.equal(new Set(pairs.flat()).size, 6);
 });
 
 
