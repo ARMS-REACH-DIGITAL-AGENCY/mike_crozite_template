@@ -369,7 +369,8 @@ export default function FantasyTimeline() {
           return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
         })}
         {postStages.map((s)=>{
-          const gamesForStage=s.key==='yws'
+          const stageIsFinal=s.week<=(cal?.final||0);
+          const gamesForStage=!stageIsFinal ? [] : s.key==='yws'
             ? data.index.gf.filter((g)=>g[1]===s.week)
             : data.index.lbt.filter((x)=>x.game[1]===s.week).map((x)=>x.game);
           return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title}
