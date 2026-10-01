@@ -199,7 +199,9 @@ function auditFixture(fixture, options = {}) {
     const id = Number(game[0]), week = Number(game[1]), home = Number(game[2]), away = Number(game[3]);
     if (ids.has(id)) rec.error('duplicate-game-id', `game ${id}`); else ids.add(id);
     const innings = Array.isArray(game[5]) ? game[5].map(Number) : [];
-    if (innings.length !== 18) rec.error('inning-vector-length', `game ${id}: expected 18 values, found ${innings.length}`);
+    const playerTie = /^players-(\d+)$/.exec(String(game[4] || ''));
+    const expectedLength = playerTie ? 20 : 18;
+    if (innings.length !== expectedLength) rec.error('inning-vector-length', `game ${id}: expected ${expectedLength} values, found ${innings.length}`);
     for (let i = 0; i < Math.min(8, Math.floor(innings.length / 2)); i++) {
       const h = Number(innings[i * 2] || 0), a = Number(innings[i * 2 + 1] || 0);
       if (h < 0 || a < 0 || h + a > 2) rec.error('inning-run-limit', `game ${id} week ${week} inning ${i + 1}: ${h}-${a}`);
@@ -207,6 +209,14 @@ function auditFixture(fixture, options = {}) {
     if (innings.length >= 18) {
       const h = Number(innings[16] || 0), a = Number(innings[17] || 0);
       if (h < 0 || a < 0 || h + a > 1) rec.error('inning9-run-limit', `game ${id} week ${week}: ${h}-${a}`);
+    }
+
+    if (playerTie && innings.length >= 20) {
+      const rank = Number(playerTie[1]);
+      const h = Number(innings[18] || 0), a = Number(innings[19] || 0);
+      if (h < 0 || a < 0 || h === a || h + a > rank * 2) {
+        rec.error('player-tiebreak-run-invalid', `game ${id} week ${week}: rank ${rank}, tiebreak runs ${h}-${a}`);
+      }
     }
 
     const boxFile = detail(file);
