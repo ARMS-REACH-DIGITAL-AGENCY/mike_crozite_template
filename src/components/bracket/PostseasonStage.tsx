@@ -118,6 +118,12 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
   const bracketFans = useMemo(()=>raffleRows(index),[index]);
   const topFans = useMemo(()=>topFanRows(index),[index]);
   const championName = shortName(index.schools[index.champion]?.[0] || 'Bracket Champion');
+  const stageKnown = (week:number) => cal.final >= week - 1;
+  const bracketChampionKnown = cal.final >= 30;
+  const qualifiersKnown = cal.final >= 30;
+  const waitingCard = (title:string, body:string) => (
+    <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
+  );
 
   const games = (week:number) => index.lbt.filter((x)=>x.game[1]===week).map((x)=>x.game);
   const gameCard = (g:GameRow, label:string, file:string) => {
@@ -194,36 +200,42 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
 
   let cards: React.ReactNode;
   if(stage==='c1'){
-    cards = games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'));
+    cards = stageKnown(31)
+      ? games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'))
+      : waitingCard('Season Championship Round 1', 'The eight regional qualifiers will be set after Week 30 is complete.');
   } else if(stage==='c2'){
     cards = <>
-      {games(32).map((g,i)=>gameCard(g,`Season Championship Round 2 · Game ${i+1}`,'d-lbt'))}
-      <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
-        body="The 10-round Bracket Champion is waiting for the winner of the eight-team single-elimination Season Championship Tournament." />
+      {stageKnown(32)
+        ? games(32).map((g,i)=>gameCard(g,`Season Championship Round 2 · Game ${i+1}`,'d-lbt'))
+        : waitingCard('Season Championship Round 2', 'The semifinal field will be set after Championship Round 1 is complete.')}
+      {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
+        body="The 10-round Bracket Champion is waiting for the winner of the eight-team single-elimination Season Championship Tournament." /> : null}
     </>;
   } else if(stage==='cg'){
-    const g=games(33)[0];
+    const g=stageKnown(33) ? games(33)[0] : null;
     cards = <>
-      {g ? gameCard(g,'Season Championship Game','d-lbt') : null}
-      <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
-        body="Waiting for the winner of this Championship Game. The winner advances to the YAT?STATS World Series." />
-      <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
+      {g ? gameCard(g,'Season Championship Game','d-lbt')
+        : waitingCard('Season Championship Game', 'The finalists will be set after Championship Round 2 is complete.')}
+      {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
+        body="Waiting for the winner of this Championship Game. The winner advances to the YAT?STATS World Series." /> : null}
+      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="Registered fans of the Bracket Champion whose names will be entered in the World Series tickets raffle."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans})} />
+        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans})} /> : null}
     </>;
   } else {
-    const g=index.gf.find((x)=>x[1]===34) || index.gf[0];
+    const g=stageKnown(34) ? (index.gf.find((x)=>x[1]===34) || index.gf[0]) : null;
     cards = <>
-      {g ? gameCard(g,'YAT?STATS World Series','d-gf') : null}
-      <InfoCard kicker="REGIONAL TOP FANS" title="8 nominated Top Fans"
+      {g ? gameCard(g,'YAT?STATS World Series','d-gf')
+        : waitingCard('YAT?STATS World Series', 'The matchup will be set after the Season Championship Game is complete.')}
+      {qualifiersKnown ? <InfoCard kicker="REGIONAL TOP FANS" title="8 nominated Top Fans"
         body="One fan nominated by the players from each of the eight regional Season Championship teams."
         rows={topFans}
-        onOpen={()=>setDrawer({title:'Regional Top Fans',kicker:'8 Season Championship teams',rows:topFans})} />
-      <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
+        onOpen={()=>setDrawer({title:'Regional Top Fans',kicker:'8 Season Championship teams',rows:topFans})} /> : null}
+      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="The Bracket Champion fan list stays visible through the final World Series week."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'All entries must be submitted by 11:59 PM September 26, 2027.'})} />
+        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'All entries must be submitted by 11:59 PM September 26, 2027.'})} /> : null}
     </>;
   }
 
