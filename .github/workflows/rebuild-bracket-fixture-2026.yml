@@ -47,6 +47,11 @@ jobs:
             echo "No fixture changes."
           else
             git commit -m "Bracket: rebuild 2026 simulation with extra-inning tiebreak scoring"
+            # The branch can advance while the database-backed rebuild runs.
+            # Rebase this generated-fixture-only commit onto the latest head
+            # before pushing instead of losing the validated output.
+            git fetch origin bracket-simulation
+            git rebase origin/bracket-simulation
             git push origin HEAD:bracket-simulation
           fi
       - uses: actions/upload-artifact@v4
