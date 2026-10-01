@@ -141,6 +141,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
   const [favConfirm, setFavConfirm] = useState('');
   const [superfanLaunching, setSuperfanLaunching] = useState(false);
   const [isSuperfan, setIsSuperfan] = useState(false);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
 
   const effectiveEmail = firebaseUser?.email || sessionUser?.email || '';
   const effectiveUid = firebaseUser?.uid || sessionUser?.uid || '';
@@ -479,6 +482,39 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       setMessage('Network error starting checkout. Please try again.');
       setMessageType('error');
       setSuperfanLaunching(false);
+    }
+  };
+
+  const redeemPromo = async () => {
+    const code = promoCode.trim();
+    if (!code || !effectiveUid) return;
+    setPromoBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/promo/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid: effectiveUid, email: effectiveEmail, code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setIsSuperfan(true);
+        setPromoOpen(false);
+        setPromoCode('');
+        try {
+          localStorage.setItem('yat-plan', 'superfan');
+        } catch {}
+        setMessage('Promo applied — welcome, Superfan!');
+        setMessageType('success');
+      } else {
+        setMessage(data?.error || 'Could not apply the promo code.');
+        setMessageType('error');
+      }
+    } catch {
+      setMessage('Network error applying the promo code. Please try again.');
+      setMessageType('error');
+    } finally {
+      setPromoBusy(false);
     }
   };
 
@@ -872,27 +908,89 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           </div>
 
           {!isSuperfan && !superfanLaunching && (
-            <button
-              type="button"
-              onClick={() =>
-                effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)
-              }
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: '#FFD700',
-                color: '#000',
-                border: 'none',
-                borderRadius: '8px',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                fontSize: '14px',
-                letterSpacing: '.08em',
-                cursor: 'pointer',
-                marginBottom: '10px',
-              }}
-            >
-              ⭐ Become a Superfan — $2.99/mo
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  effectiveUid && effectiveEmail && launchSuperfanCheckout(effectiveUid, effectiveEmail)
+                }
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#FFD700',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '14px',
+                  letterSpacing: '.08em',
+                  cursor: 'pointer',
+                  marginBottom: '10px',
+                }}
+              >
+                ⭐ Become a Superfan — $2.99/mo
+              </button>
+              {!promoOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setPromoOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    background: 'transparent',
+                    color: 'var(--muted)',
+                    border: 'none',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    marginBottom: '10px',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Have a promo code?
+                </button>
+              ) : (
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      placeholder="Enter promo code"
+                      disabled={promoBusy}
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--muted)',
+                        background: 'var(--bg)',
+                        color: 'var(--fg)',
+                        fontSize: '13px',
+                        textTransform: 'uppercase',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={redeemPromo}
+                      disabled={promoBusy || !promoCode.trim()}
+                      style={{
+                        padding: '10px 16px',
+                        background: '#16a34a',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontSize: '13px',
+                        letterSpacing: '.06em',
+                        cursor: promoBusy ? 'not-allowed' : 'pointer',
+                        opacity: promoBusy || !promoCode.trim() ? 0.6 : 1,
+                      }}
+                    >
+                      {promoBusy ? 'Applying…' : 'Apply'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           <button
