@@ -216,7 +216,7 @@ export function mergeLines(list: PlayerLines[]): PlayerLines {
 
 export type Inning = {
   inning: number;
-  kind: 'day' | 'week' | 'wl';
+  kind: 'day' | 'week' | 'wl' | 'tiebreak' | 'coin';
   home: number;
   away: number;
   // what each side posted (null = no one played / no results)
@@ -296,11 +296,10 @@ function playerTiebreak(
   away: SideWeek,
   baselines: Baselines,
   rules: Rules,
-): { winner: Side; rank: number; score: [number, number] } | null {
+): { winner: Side | null; rank?: number; innings: [number, number][] } {
   const h = rankPlayers(home.players ?? mergeLines(home.days), baselines, rules.mode);
   const a = rankPlayers(away.players ?? mergeLines(away.days), baselines, rules.mode);
-  let homeRuns = 0;
-  let awayRuns = 0;
+  const innings: [number, number][] = [];
 
   for (let k = 0; ; k++) {
     const canContinue =
@@ -308,19 +307,21 @@ function playerTiebreak(
       k < a.hitters.length &&
       k < h.pitchers.length &&
       k < a.pitchers.length;
-    if (!canContinue) return null;
+    if (!canContinue) return { winner: null, innings };
 
     const [hx, ax] = compareHigher(h.hitters[k], a.hitters[k]);
     // Lower FIP- wins, so reverse the comparison.
     const [hp, ap] = compareHigher(-h.pitchers[k], -a.pitchers[k]);
-    homeRuns += hx + hp;
-    awayRuns += ax + ap;
+    const inning: [number, number] = [hx + hp, ax + ap];
+    innings.push(inning);
 
-    if (homeRuns !== awayRuns) {
+    // Every prior tiebreak inning was level, otherwise the game would
+    // already have ended. The first non-level tiebreak inning decides it.
+    if (inning[0] !== inning[1]) {
       return {
-        winner: homeRuns > awayRuns ? 'home' : 'away',
+        winner: inning[0] > inning[1] ? 'home' : 'away',
         rank: k + 1,
-        score: [homeRuns, awayRuns],
+        innings,
       };
     }
   }
@@ -347,27 +348,50 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   const [x, y] = hw === null && aw === null ? [0, 0] : compareHigher(hw ?? 0.5, aw ?? 0.5);
   innings.push({ inning: 9, kind: 'wl', home: x, away: y, homeWinPct: hw, awayWinPct: aw });
 
-  const hr = innings.reduce((s, i) => s + i.home, 0);
-  const ar = innings.reduce((s, i) => s + i.away, 0);
-  const base = { innings, home: hr, away: ar };
-  if (hr !== ar) return { ...base, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
-  // Ties after 9: player vs player, then a tie (leaderboard) or the
-  // commissioner's coin flip.
+  let hr = innings.reduce((sum, i) => sum + i.home, 0);
+  let ar = innings.reduce((sum, i) => sum + i.away, 0);
+  if (hr !== ar) return { innings, home: hr, away: ar, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
+
+  // Ties after 9 become visible extra innings. Tiebreak #1 is inning 10,
+  // #2 is inning 11, and so on. Each inning compares that rank's hitter
+  // (higher OPS+) and pitcher (lower FIP-), one run per comparison.
   const pt = playerTiebreak(home, away, baselines, rules);
-  if (pt) {
+  pt.innings.forEach(([h, a], i) => {
+    innings.push({ inning: 10 + i, kind: 'tiebreak', home: h, away: a });
+    hr += h;
+    ar += a;
+  });
+  const tieScore: [number, number] = [
+    pt.innings.reduce((sum, x) => sum + x[0], 0),
+    pt.innings.reduce((sum, x) => sum + x[1], 0),
+  ];
+
+  if (pt.winner) {
     return {
-      ...base,
-      home: hr + pt.score[0],
-      away: ar + pt.score[1],
+      innings,
+      home: hr,
+      away: ar,
       winner: pt.winner,
       decidedBy: 'players',
       tieRank: pt.rank,
-      tieScore: pt.score,
+      tieScore,
     };
   }
-  if (coinFlip) return { ...base, winner: coinFlip(), decidedBy: 'coin', tieScore: [0, 0] };
-  if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
-  return { ...base, winner: null, decidedBy: 'coin', tieScore: [0, 0] };
+
+  // Only after the next required hitter/pitcher pair is unavailable do we
+  // use the commissioner's deterministic coin flip. The flip is itself an
+  // extra inning and awards one run, so a completed game never ends tied.
+  if (coinFlip) {
+    const winner = coinFlip();
+    const coin: [number, number] = winner === 'home' ? [1, 0] : [0, 1];
+    innings.push({ inning: 10 + pt.innings.length, kind: 'coin', home: coin[0], away: coin[1] });
+    hr += coin[0];
+    ar += coin[1];
+    return { innings, home: hr, away: ar, winner, decidedBy: 'coin', tieScore: [tieScore[0] + coin[0], tieScore[1] + coin[1]] };
+  }
+
+  if (allowTie) return { innings, home: hr, away: ar, winner: null, decidedBy: 'tie', tieScore };
+  return { innings, home: hr, away: ar, winner: null, decidedBy: 'coin', tieScore };
 }
 
 // ---------------------------------------------------------------------------
