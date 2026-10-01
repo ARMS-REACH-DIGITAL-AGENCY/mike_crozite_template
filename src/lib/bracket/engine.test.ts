@@ -144,6 +144,9 @@ test("ties: no players to compare - the commissioner's coin flip, or a tie on th
   const b = playGame(week(same), week(same), baselines, AVG, false, () => 'away');
   assert.equal(b.winner, 'away');
   assert.equal(b.decidedBy, 'coin');
+  assert.deepEqual([b.home, b.away], [0, 1]);
+  assert.equal(b.innings.length, 10);
+  assert.deepEqual([b.innings[9].home, b.innings[9].away], [0, 1]);
   // no flip given yet: no winner until the commissioner flips
   const pending = playGame(week(same), week(same), baselines, AVG);
   assert.equal(pending.winner, null);
@@ -159,6 +162,8 @@ test("tiebreak: best hitter vs best hitter and best pitcher vs best pitcher; win
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 1);
   assert.deepEqual(g.tieScore, [2, 0]);
+  assert.equal(g.innings.length, 10);
+  assert.deepEqual([g.innings[9].home, g.innings[9].away], [2, 0]);
   assert.equal(g.winner, 'home');
 });
 
@@ -172,6 +177,9 @@ test('tiebreak: 1-1 on #1 advances to #2 and cumulative player runs decide it', 
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 2);
   assert.deepEqual(g.tieScore, [1, 3]);
+  assert.equal(g.innings.length, 11);
+  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 1]);
+  assert.deepEqual([g.innings[10].home, g.innings[10].away], [0, 2]);
   assert.equal(g.winner, 'away');
 });
 
@@ -183,6 +191,9 @@ test("tiebreak: as soon as either roster cannot supply the next hitter AND pitch
   const g = playGame(tied(home), tied(away), baselines, HOLD, false, () => 'away');
   assert.equal(g.decidedBy, 'coin');
   assert.equal(g.winner, 'away');
+  assert.equal(g.innings.length, 11);
+  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 1]);
+  assert.deepEqual([g.innings[10].home, g.innings[10].away], [0, 1]);
 });
 
 test("tiebreak: an empty roster goes directly to the commissioner's flip", () => {
@@ -190,9 +201,10 @@ test("tiebreak: an empty roster goes directly to the commissioner's flip", () =>
   const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()]), players: roster(coldDay) };
   const idle = tied(new Map());
   const g = playGame(cold, idle, baselines, HOLD, false, () => 'home');
-  assert.deepEqual([g.home, g.away], [0, 0]);
+  assert.deepEqual([g.home, g.away], [1, 0]);
   assert.equal(g.winner, 'home');
   assert.equal(g.decidedBy, 'coin');
+  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 0]);
 });
 
 test("inning 9: every alumnus's real team record for the week, college or pro, summed", () => {
