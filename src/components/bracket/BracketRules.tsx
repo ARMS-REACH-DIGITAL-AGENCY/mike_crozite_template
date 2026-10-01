@@ -83,11 +83,12 @@ export default function BracketRules() {
       </section>
 
       <section>
-        <h4>Tiebreakers</h4>
+        <h4>Tiebreakers · extra innings</h4>
         <ol>
-          <li>Player vs player: each school&apos;s best hitter of the week (OPS+) against the other&apos;s, and best pitcher (FIP-) against the other&apos;s, one run each. The school that takes more wins.</li>
-          <li>At 1–1, it goes to the #2 hitters and #2 pitchers, and on down the rosters. A player with no one left to face counts only by beating league average; a school with nobody playing can&apos;t win it.</li>
-          <li>Still level when the rosters run out: the commissioner&apos;s coin flip. (Leaderboard games can end in a tie: half a win each.)</li>
+          <li>If the score is tied after inning 9, <b>inning 10</b> is Tiebreaker #1: each school&apos;s #1 hitter (OPS+) and #1 pitcher (FIP-) are compared head-to-head, one run for each winning comparison.</li>
+          <li>If inning 10 is tied, <b>inning 11</b> is Tiebreaker #2 using the #2 hitter and #2 pitcher. Inning 12 uses the #3 pair, and so on. Every tiebreak is shown on the scoreboard as its own inning.</li>
+          <li>The ladder continues only while both schools can supply the next required hitter and pitcher. There is no league-average substitute in extra innings.</li>
+          <li>Only if the teams are still tied when the next complete player pair is unavailable does the commissioner&apos;s deterministic coin flip apply. The flip winner receives <b>one additional run</b>, so a completed game never displays a tied final score.</li>
         </ol>
       </section>
 
