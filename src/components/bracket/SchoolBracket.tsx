@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, previewDate, rankRegion, shortName, standings,
+  abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -101,13 +101,16 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     const off = side === 'h' ? 0 : 1;
     const runs = side === 'h' ? hr : ar;
     const won = card.state === 'final' && correctedWinner === h;
-    const name = shortName(S[h]?.[0] || '');
+    const rawName = S[h]?.[0] || '';
+    const name = shortName(rawName);
+    const location = place(rawName);
     return (
       <div className={`yfp-green-row${h === me ? ' me' : ''}${won ? ' won' : ''}`}>
         <button type="button" className="yfp-green-team" disabled={!played} onClick={() => onOpen({ card, side })}
           aria-label={played ? `${name}: this week's players` : undefined}>
           <span className="yfp-green-abbr">{abbr(name)}</span>
           <span className="yfp-green-full">{name}</span>
+          {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {[0,1,2,3,4,5,6,7,8].map((i) => {
           const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
@@ -214,7 +217,9 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
-          names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]} score={[hr, ar]} innings={g[5]} winner={g[6]}
+          names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]}
+          locations={[place(S[homeId]?.[0] || ''), place(S[awayId]?.[0] || '')]}
+          score={[hr, ar]} innings={g[5]} winner={g[6]}
           decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!rosters}
           homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode />
       </aside>
@@ -547,6 +552,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-team:disabled { cursor:default; }
         .yfp-green-abbr { display:none; font:800 12px/1 Oswald,sans-serif; letter-spacing:.03em; }
         .yfp-green-full { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 11px/1 Oswald,sans-serif; }
+        .yfp-green-place { display:block; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 6px/1 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-green-row.me .yfp-green-team { color:#ffd34f; }
         .yfp-green-slot { height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 11px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
         .yfp-green-slot.scored { color:#fff; }
@@ -726,6 +732,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp { padding: 8px 8px 16px; }
           .yfp-green-row { grid-template-columns:68px repeat(9,minmax(10px,1fr)) 24px; gap:1px; }
           .yfp-green-full { display:block; font:800 7.5px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
+          .yfp-green-place { font-size:5px; line-height:1; letter-spacing:.02em; }
           .yfp-green-abbr { display:none; }
           .yfp-green-slot,.yfp-green-run { height:18px; font-size:10px; }
           .yfp-green-row.head { font-size:6.5px; }
