@@ -478,13 +478,20 @@ const lbChampion=alive[0];
 const gfPlay=play(champion,lbChampion,34,++gid);saveBox('d-gf',gid,gfPlay.box);
 const gf=[gfPlay.g],grandChampion=gfPlay.g[6];
 
+// Raffle eligibility uses the exact same current Active Alumni roster as the
+// tournament. Each Regional Champion's Active Alumni gets one LuckyFan pick.
+const alumni=Object.fromEntries([champion,...leaders].map((h)=>[
+  h,
+  (rosters.get(h)||[]).map((r)=>[r.name,r.level]),
+]));
+
 for(const file of fs.readdirSync(DIR)) if(/^d-.*\.json$/.test(file)) fs.rmSync(path.join(DIR,file));
 for(const [file,obj] of outDetails) fs.writeFileSync(path.join(DIR,`${file}.json`),JSON.stringify(obj));
 fs.writeFileSync(LB_PATH,JSON.stringify({games:lbGames}));
 const outIndex={
   ...index,
   snapshot:{id:'sim-2026-v3',schema:3,source:'fixture-metrics+neon-roster',seed:'yatstats-2026-v3'},
-  rounds,lbt,gf,champion,lbLeaders:leaders,lbChampion,grandChampion,
+  rounds,lbt,gf,champion,lbLeaders:leaders,alumni,lbChampion,grandChampion,
   rosters:Object.fromEntries([...rosters.entries()].map(([h,rs])=>[h,rs.map(r=>[r.id,r.name,r.level,r.pitcher?1:0])])),
 };
 fs.writeFileSync(INDEX_PATH,JSON.stringify(outIndex));
