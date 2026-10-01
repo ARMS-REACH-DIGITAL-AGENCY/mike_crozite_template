@@ -426,10 +426,10 @@ export default function FantasyTimeline() {
         .yft-scoreline b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.78); font-weight:500; }
         .yft-scoreline.home b { color:#fff; font-weight:700; }
         .yft-scoreline i { font-style:normal; text-align:right; color:#fff; font-variant-numeric:tabular-nums; }
-        .yft-raffle-cta { position:absolute; z-index:6; left:0; bottom:0; width:190px; height:126px; display:block; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
-        .yft-raffle-trophy { position:absolute; left:0; bottom:0; width:92px; height:126px; flex:none; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 6px 8px rgba(0,0,0,.55)); transform:rotate(-3deg); transform-origin:center bottom; }
-        .yft-raffle-note { position:absolute; left:47px; bottom:8px; z-index:1; width:108px; color:#fff; font-family:"Caveat",cursive; font-weight:700; font-size:17px; line-height:.88; text-align:left; -webkit-text-stroke:1px #000; text-shadow:0 2px 4px rgba(0,0,0,.75); transform:none; }
-        .yft-raffle-note strong { color:#fff; font-weight:700; }
+        .yft-raffle-cta { position:absolute; z-index:6; left:0; bottom:0; width:232px; height:146px; display:block; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
+        .yft-raffle-trophy { position:absolute; left:0; bottom:0; width:124px; height:146px; flex:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 6px 8px rgba(0,0,0,.55)); transform:none; transform-origin:left bottom; }
+        .yft-raffle-note { position:absolute; left:74px; bottom:12px; z-index:1; width:154px; color:#fff; font-family:Arial Black,Arial,Helvetica,sans-serif; font-weight:900; font-size:23px; line-height:.90; letter-spacing:-.05em; text-align:left; -webkit-text-stroke:1.25px #000; paint-order:stroke fill; text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 3px 4px rgba(0,0,0,.85); transform:none; }
+        .yft-raffle-note strong { color:#fff; font-weight:900; }
         .yft-raffle-cta:hover .yft-raffle-trophy,.yft-raffle-cta:focus-visible .yft-raffle-trophy { filter:drop-shadow(0 7px 10px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(213,180,74,.6)); }
         .yft-raffle-cta:focus-visible { outline:none; }
         .yft-nav { position:absolute; top:50%; transform:translateY(-50%); width:30px; height:46px; border:0; background:rgba(0,0,0,.35); color:#fff; font-size:26px; line-height:1; cursor:pointer; z-index:7; }
@@ -467,9 +467,9 @@ export default function FantasyTimeline() {
           .yft-post-scores .yft-series-games { gap:4px; }
           .yft-post-scores .yft-series-game { font-size:7.2px; line-height:1.08; }
           .yft-series-game small { font-size:6.4px; line-height:1.05; text-align:right; padding-top:1px; }
-          .yft-raffle-cta { left:0; bottom:0; top:auto; width:142px; height:82px; transform:none; }
-          .yft-raffle-trophy { width:60px; height:82px; }
-          .yft-raffle-note { left:31px; bottom:4px; width:82px; font-size:12px; line-height:.86; -webkit-text-stroke:.7px #000; }
+          .yft-raffle-cta { left:0; bottom:0; top:auto; width:165px; height:102px; transform:none; }
+          .yft-raffle-trophy { left:0; bottom:0; width:88px; height:102px; object-position:left bottom; }
+          .yft-raffle-note { left:53px; bottom:7px; width:108px; font-size:16px; line-height:.90; letter-spacing:-.05em; -webkit-text-stroke:.9px #000; }
           .yft-nav { display:none; }
           .yft-rail { left:28%; right:2%; bottom:1px; height:20px; }
           .yft-rail-track { top:6px; height:1px; }
