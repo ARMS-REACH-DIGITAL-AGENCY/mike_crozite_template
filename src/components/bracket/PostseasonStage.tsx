@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import FantasyGameSocial from './FantasyGameSocial';
 import { createPortal } from 'react-dom';
-import { abbr, fmtRange, place, type GameRow, type Index } from './gallery';
+import { abbr, fmtRange, loadBoxes, place, shortName, type GameBox, type GameRow, type Index, type PlayerRow } from './gallery';
 import { runsThrough, type WeekCard } from './schoolSeason';
 import type { FantasyStageKey } from './bracketNav';
 
@@ -14,9 +14,6 @@ type FanRow = { name: string; meta: string };
 const FIRST = ['Alex','Jordan','Taylor','Morgan','Casey','Drew','Cameron','Reese','Parker','Riley','Quinn','Avery','Logan','Emerson','Skyler','Hayden','Blake','Jamie','Bailey','Reagan','Charlie','Dakota','Sydney','Kendall'];
 const LAST = ['Reed','Martinez','Collins','Bennett','Foster','Ramirez','Murphy','Brooks','Price','Kelly','Cooper','Richardson','Ward','Peterson','Gray','Morgan','Bailey','Howard','Cox','Bell','Rivera','Wood','James','Watson'];
 
-function shortName(name: string) {
-  return name.split(' (')[0];
-}
 function fanName(seed: number, i: number) {
   return `${FIRST[Math.abs(seed * 31 + i * 17) % FIRST.length]} ${LAST[Math.abs(seed * 13 + i * 29 + 7) % LAST.length]}`;
 }
@@ -44,6 +41,31 @@ function cardFor(g: GameRow, stage: string, file: string, cal: Cal): WeekCard {
   const w = g[1];
   const state = w <= cal.final ? 'final' : w === cal.week ? 'live' : 'next';
   return { week:w, stage, state, game:g, file, days:w <= cal.final ? 7 : w === cal.week ? cal.days : 0 };
+}
+
+function PostGameRecap({ index, game, file }:{ index:Index; game:GameRow; file:string }) {
+  const [box, setBox] = useState<GameBox | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadBoxes(file).then((all) => { if (!cancelled) setBox(all[String(game[0])] || null); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [file, game]);
+
+  if (!box) return null;
+  const candidates = (side:'h'|'a', rows:PlayerRow[]) => rows.map((p) => ({
+    p, side,
+    school: shortName(index.schools[side === 'h' ? game[2] : game[3]]?.[0] || ''),
+  }));
+  const all = [...candidates('h', box.h?.p || []), ...candidates('a', box.a?.p || [])];
+  const hitters = all.filter((x) => Number.isFinite(Number(x.p[6]))).sort((a,b) => Number(b.p[6]) - Number(a.p[6]));
+  const pitchers = all.filter((x) => Number.isFinite(Number(x.p[7]))).sort((a,b) => Number(a.p[7]) - Number(b.p[7]));
+  const hitter = hitters[0], pitcher = pitchers[0];
+  if (!hitter && !pitcher) return null;
+
+  const parts:string[] = [];
+  if (hitter) parts.push(`${hitter.p[1]} led ${hitter.school} with a ${Math.round(Number(hitter.p[6]))} OPS+`);
+  if (pitcher) parts.push(`${pitcher.p[1]} paced ${pitcher.school}'s pitching at ${Math.round(Number(pitcher.p[7]))} FIP-`);
+  return <div className="yfp-post-recap"><b>GAME RECAP</b><span>{parts.join('. ')}.</span></div>;
 }
 function InfoDrawer({ title, kicker, rows, note, onClose }:{
   title:string; kicker:string; rows:FanRow[]; note?:string; onClose:()=>void;
@@ -110,6 +132,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       : g[1] === 33 ? 'Championship Game'
       : 'YAT?STATS World Series';
 
+    const inningCount = Math.max(9, Math.floor(g[5].length / 2));
     const row = (side:'a'|'h') => {
       const h = side === 'h' ? g[2] : g[3];
       const off = side === 'h' ? 0 : 1;
@@ -125,9 +148,9 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           <span className="yfp-green-full">{name}</span>
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
-        {[0,1,2,3,4,5,6,7,8].map((i)=>{
-          const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
-          const value = g[5][i*2+off];
+        {Array.from({ length: inningCount }, (_, i) => i).map((i)=>{
+          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(card.days, 9));
+          const value = g[5][i*2+off] || 0;
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
         <span className="yfp-green-run">{played ? runs : ''}{won ? <i aria-label="winner">◀</i> : null}</span>
@@ -139,10 +162,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         <span>Week {g[1]} | {index.weeks[g[1]-1] ? fmtRange(index.weeks[g[1]-1][0],index.weeks[g[1]-1][1]) : ''}</span>
         <span>{stageHead}{g[1] < 33 ? ` | Game ${gameNo}` : ''}</span>
       </div>
-      <div className="yfp-green-board">
+      <div className="yfp-green-board" style={{ '--inning-count': inningCount } as React.CSSProperties}>
         <div className="yfp-green-row head">
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
-          {[1,2,3,4,5,6,7,8,9].map((n)=><span key={n}>{n}</span>)}
+          {Array.from({ length: inningCount }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
           <span className="run">R</span>
         </div>
         {row('a')}{row('h')}
@@ -165,6 +188,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         <div className="yfp-game-scorepane">{scoreboard}</div>
         <div className="yfp-game-socialpane">{social}</div>
       </div> : scoreboard}
+      {played ? <PostGameRecap index={index} game={g} file={file} /> : null}
     </article>;
   };
 
@@ -218,6 +242,9 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-preview b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--yfp-strong);font-weight:700}
       .yfp-post-preview span{color:var(--yfp-muted);text-align:right}
       .yfp-post-open{margin-top:7px;width:100%;min-height:30px;border:1px solid var(--yfp-gold);background:rgba(255,210,74,.08);color:var(--yfp-gold);font:800 9px/1 Oswald,sans-serif;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
+      .yfp-post-recap{display:flex;gap:7px;align-items:baseline;padding:5px 7px 6px;border-top:1px solid var(--yfp-card-border);background:rgba(0,0,0,.12);font:500 8.5px/1.25 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
+      .yfp-post-recap b{flex:none;color:var(--yfp-gold);font-size:7.5px;letter-spacing:.08em}
+      .yfp-post-recap span{color:var(--yfp-muted)}
 
       .yfp-post-mask{position:fixed;inset:0;z-index:2147483300;background:rgba(0,0,0,.5)}
       .yfp-post-drawer{position:absolute;top:0;bottom:0;right:0;width:min(520px,94vw);display:flex;flex-direction:column;overflow:hidden;background:#141820;color:#e9ecf1;box-shadow:0 0 30px rgba(0,0,0,.45)}
