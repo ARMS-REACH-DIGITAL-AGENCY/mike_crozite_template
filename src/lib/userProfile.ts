@@ -26,6 +26,7 @@ export interface UserProfile {
   plan: 'fan' | 'superfan';
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  promo_code: string | null;
   promo_expires_at: Date | null;
   created_at: Date;
   updated_at: Date;
