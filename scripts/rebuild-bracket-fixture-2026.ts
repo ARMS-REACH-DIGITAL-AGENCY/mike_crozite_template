@@ -215,6 +215,33 @@ function sideBox(h:number,w:number):SideBox{
   return {p:players,wl};
 }
 
+function rankedTiebreak(side:SideBox){
+  const hitters=side.p
+    .filter(p=>Array.isArray(p[4]) && Number((p[4] as number[])[0]||0)>0 && Number.isFinite(Number(p[6])))
+    .map(p=>({id:String(p[0]),v:Number(p[6])}))
+    .sort((a,b)=>b.v-a.v||a.id.localeCompare(b.id));
+  const pitchers=side.p
+    .filter(p=>{
+      if(!Array.isArray(p[5]) || !Number.isFinite(Number(p[7]))) return false;
+      const x=p[5] as number[];
+      return Number(x[0]||0)>0 || Number(x[1]||0)>0 || Number(x[2]||0)>0 || Number(x[3]||0)>0 || Number(x[4]||0)>0;
+    })
+    .map(p=>({id:String(p[0]),v:Number(p[7])}))
+    .sort((a,b)=>a.v-b.v||a.id.localeCompare(b.id));
+  return {hitters,pitchers};
+}
+
+function playerTiebreak(home:SideBox,away:SideBox){
+  const h=rankedTiebreak(home), a=rankedTiebreak(away);
+  let hr=0, ar=0;
+  for(let k=0;;k++){
+    if(k>=h.hitters.length || k>=a.hitters.length || k>=h.pitchers.length || k>=a.pitchers.length) return null;
+    if(h.hitters[k].v>a.hitters[k].v) hr++; else if(a.hitters[k].v>h.hitters[k].v) ar++;
+    if(h.pitchers[k].v<a.pitchers[k].v) hr++; else if(a.pitchers[k].v<h.pitchers[k].v) ar++;
+    if(hr!==ar) return {winner:hr>ar?'home' as const:'away' as const,rank:k+1,score:[hr,ar] as [number,number]};
+  }
+}
+
 function play(home:number,away:number,week:number,id:number){
   const hm=metrics(home,week), am=metrics(away,week);
   const d:number[][]=[]; const inn:number[]=[];
@@ -227,9 +254,22 @@ function play(home:number,away:number,week:number,id:number){
   const hb=sideBox(home,week), ab=sideBox(away,week);
   const hwp=pct(hb.wl), awp=pct(ab.wl);
   inn.push(hwp>awp?1:0,awp>hwp?1:0);
-  const [hs,as]=scoreFlat(inn);
-  const winner=hs===as?deterministicWinner(home,away,week):hs>as?home:away;
-  const g:Game=[id,week,home,away,hs===as?'coin':'runs',inn,winner];
+  let [hs,as]=scoreFlat(inn);
+  let decidedBy='runs';
+  let winner:number;
+  if(hs===as){
+    const tb=playerTiebreak(hb,ab);
+    if(tb){
+      inn.push(...tb.score);
+      hs+=tb.score[0]; as+=tb.score[1];
+      winner=tb.winner==='home'?home:away;
+      decidedBy=`players-${tb.rank}`;
+    }else{
+      winner=deterministicWinner(home,away,week);
+      decidedBy='coin';
+    }
+  }else winner=hs>as?home:away;
+  const g:Game=[id,week,home,away,decidedBy,inn,winner];
   return {g,box:{d,h:hb,a:ab} as Box};
 }
 
