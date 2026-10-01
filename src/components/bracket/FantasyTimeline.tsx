@@ -210,8 +210,8 @@ function postStory(index:Index, games:GameRow[], boxes:Record<string,GameBox>):P
   return {headline,summary:parts.join('. ')+'.'};
 }
 
-function PostSlide({ index, games, week, label, title, onTap }: {
-  index:Index; games:GameRow[]; week:number; label:string; title:string; onTap:()=>void;
+function PostSlide({ index, games, week, label, title, showScores, onTap }: {
+  index:Index; games:GameRow[]; week:number; label:string; title:string; showScores:boolean; onTap:()=>void;
 }) {
   const dates=index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : '';
   const displayDates=dates.replace(/\bSep\b/g,'Sept').replace(' – ',' - ');
