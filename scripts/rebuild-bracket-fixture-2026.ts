@@ -133,6 +133,21 @@ const rosterRows=(await pool.query(`
    WHERE COALESCE(upper(trim(f.status_label)),'') <> 'RETIRED'
      AND COALESCE(upper(trim(f.level_label)),'') NOT IN ('HIGH SCHOOL','HS')
 `)).rows as any[];
+
+const teamStintRows=(await pool.query(`
+  SELECT DISTINCT
+         f.hsid,
+         pts.playerid::text AS playerid,
+         pts.teamid::text AS teamid,
+         pts.stint_start::text AS stint_start,
+         COALESCE(pts.stint_end, DATE '2026-09-27')::text AS stint_end
+    FROM player_team_stints pts
+    JOIN flip_card_front_stage f ON f.playerid::text=pts.playerid::text
+   WHERE pts.season=2026
+     AND pts.teamid IS NOT NULL
+     AND pts.stint_start <= DATE '2026-08-30'
+     AND COALESCE(pts.stint_end, DATE '2026-09-27') >= DATE '2026-02-02'
+`)).rows as any[];
 await pool.end();
 
 const rosters=new Map<number,Roster[]>();
@@ -143,6 +158,44 @@ for(const r of rosterRows){
   rosters.get(h)!.push(row);
 }
 for(const [h,rows] of rosters) rows.sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
+
+function teammateAffinityForRound(firstWeek:number){
+  const start=index.weeks[firstWeek-1]?.[0] || '';
+  const end=index.weeks[firstWeek+1]?.[1] || '';
+  const clubsBySchool=new Map<number,Map<string,number>>();
+  for(const r of teamStintRows){
+    const h=Number(r.hsid);
+    if(!schoolIds.has(h) || !r.teamid) continue;
+    if(String(r.stint_start)>end || String(r.stint_end)<start) continue;
+    if(!clubsBySchool.has(h)) clubsBySchool.set(h,new Map());
+    const clubs=clubsBySchool.get(h)!;
+    const club=String(r.teamid);
+    clubs.set(club,(clubs.get(club)||0)+1);
+  }
+  return (a:number,b:number)=>{
+    const aa=clubsBySchool.get(a),bb=clubsBySchool.get(b);
+    if(!aa||!bb)return 0;
+    let score=0;
+    for(const [club,ac] of aa){const bc=bb.get(club)||0;if(bc)score+=ac*bc;}
+    return score;
+  };
+}
+function pairNational(teams:number[],seed:string,affinity:(a:number,b:number)=>number){
+  if(teams.length%2)throw new Error(`Eliminated-school pool must be even; got ${teams.length}. No byes are allowed.`);
+  const pool=[...teams].sort((a,b)=>(hash(`${seed}:${a}`)-hash(`${seed}:${b}`))||a-b);
+  const pairs:[number,number][]=[];
+  while(pool.length){
+    let bi=0,bj=1,best=0;
+    for(let i=0;i<pool.length-1;i++)for(let j=i+1;j<pool.length;j++){
+      const score=Number(affinity(pool[i],pool[j]))||0;
+      if(score>best){best=score;bi=i;bj=j;}
+    }
+    const a=pool[bi],b=pool[bj];
+    pairs.push([a,b]);
+    pool.splice(bj,1);pool.splice(bi,1);
+  }
+  return pairs;
+}
 
 function extendPit(x:number[]){ if(x.length>=9)return x; const [outs=0,hr=0,bb=0,hbp=0,k=0]=x; const ip=outs/3; const hits=outs?Math.max(hr,Math.round(ip*.9)):0; const runs=outs?Math.max(hr,Math.round((hits+bb+hbp)*.38)):0; const er=Math.max(0,runs-(runs>2?1:0)); const fip=outs?(13*hr+3*(bb+hbp)-2*k)/ip+3.1:0; return [outs,hr,bb,hbp,k,hits,runs,er,+fip.toFixed(2)]; }
 
@@ -312,12 +365,15 @@ for(const r of rounds) for(const s of r.series) for(const g of s[7]) addBoard(g)
 
 for(let r=2;r<=10;r++){
   const first=(r-1)*3+1;
-  for(let region=1;region<=8;region++){
-    const pool=[...elimWeek.entries()].filter(([h,w])=>w<first&&schools.get(h)?.[1]===region).map(([h])=>h);
-    pool.sort((a,b)=>(hash(`lb:${r}:${region}:${a}`)-hash(`lb:${r}:${region}:${b}`))||a-b);
-    for(let i=0;i+1<pool.length;i+=2){
-      const a=pool[i],b=pool[i+1];
-      for(let k=0;k<3;k++){const w=first+k,p=play(a,b,w,++gid);const row=[...p.g,region];lbGames.push(row);saveBox(`d-lb-${w}-${region}`,gid,p.box);addBoard(p.g);}
+  const pool=[...elimWeek.entries()].filter(([,w])=>w<first).map(([h])=>h).sort((a,b)=>a-b);
+  if(!pool.length)continue;
+  const pairs=pairNational(pool,`yatstats-2026-v3:lb:round:${r}`,teammateAffinityForRound(first));
+  for(const [a,b] of pairs){
+    const region=schools.get(a)?.[1]||0;
+    for(let k=0;k<3;k++){
+      const w=first+k,p=play(a,b,w,++gid);
+      const row=[...p.g,region];
+      lbGames.push(row);saveBox(`d-lb-${w}-${region}`,gid,p.box);addBoard(p.g);
     }
   }
 }
