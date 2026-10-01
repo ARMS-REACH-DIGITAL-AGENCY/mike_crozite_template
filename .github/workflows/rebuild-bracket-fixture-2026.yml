@@ -2,7 +2,7 @@ name: Rebuild 2026 Bracket Fixture
 
 on:
   push:
-    branches: [bracket-simulation, Easter-NEWS]
+    branches: [bracket-simulation, Easter-NEWS, bracket-weekly-simulation]
     paths:
       - scripts/rebuild-bracket-fixture-2026.ts
       - .github/workflows/rebuild-bracket-fixture-2026.yml
