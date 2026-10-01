@@ -204,7 +204,7 @@ function postStory(index:Index, games:GameRow[], boxes:Record<string,GameBox>):P
   const surname=(lead?.p[1]||'').trim().split(/\s+/).pop()?.toUpperCase()||'POSTSEASON';
   const headline=lead===p?`${surname} DEALS`:`${surname} POWERS THE WEEK`;
   const parts:string[]=[];
-  if(h)parts.push(`${h.p[1]} (${h.school}) posted the week&apos;s top OPS+ at ${Math.round(Number(h.p[6]))}`);
+  if(h)parts.push(`${h.p[1]} (${h.school}) posted the week's top OPS+ at ${Math.round(Number(h.p[6]))}`);
   if(p)parts.push(`${p.p[1]} (${p.school}) led the pitching side at ${Math.round(Number(p.p[7]))} FIP-`);
   return {headline,summary:parts.join('. ')+'.'};
 }
