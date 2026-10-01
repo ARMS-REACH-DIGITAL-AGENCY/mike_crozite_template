@@ -476,31 +476,34 @@ export function pairEliminated(teams: number[], seed: string, affinity?: PairAff
 
   const pool = shuffle(teams, mulberry32(hashString(seed)));
   const pairs: [number, number][] = [];
+  const used = new Set<number>();
 
-  while (pool.length) {
-    let bestI = 0;
-    let bestJ = 1;
-    let bestScore = 0;
-
-    if (affinity) {
-      for (let i = 0; i < pool.length - 1; i++) {
-        for (let j = i + 1; j < pool.length; j++) {
-          const score = Number(affinity(pool[i], pool[j])) || 0;
-          if (score > bestScore) {
-            bestScore = score;
-            bestI = i;
-            bestJ = j;
-          }
-        }
+  // Evaluate affinity once per possible pair (O(n^2)), not once per greedy
+  // iteration. The original iterative scan became cubic at ~1,000 schools.
+  if (affinity) {
+    const candidates: { a: number; b: number; score: number; order: number }[] = [];
+    let order = 0;
+    for (let i = 0; i < pool.length - 1; i++) {
+      for (let j = i + 1; j < pool.length; j++) {
+        const score = Number(affinity(pool[i], pool[j])) || 0;
+        if (score > 0) candidates.push({ a: pool[i], b: pool[j], score, order });
+        order++;
       }
     }
-
-    const a = pool[bestI];
-    const b = pool[bestJ];
-    pairs.push([a, b]);
-    pool.splice(bestJ, 1);
-    pool.splice(bestI, 1);
+    candidates.sort((x, y) => y.score - x.score || x.order - y.order);
+    for (const c of candidates) {
+      if (used.has(c.a) || used.has(c.b)) continue;
+      pairs.push([c.a, c.b]);
+      used.add(c.a);
+      used.add(c.b);
+    }
   }
+
+  // Everyone without a preferred teammate-linked opponent falls back to the
+  // deterministic shuffled order. Because the input count is even and linked
+  // matches consume two schools at a time, this remainder is also even.
+  const rest = pool.filter((h) => !used.has(h));
+  for (let i = 0; i < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]);
 
   return { pairs };
 }
