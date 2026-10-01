@@ -17,24 +17,16 @@ const LAST = ['Reed','Martinez','Collins','Bennett','Foster','Ramirez','Murphy',
 function fanName(seed: number, i: number) {
   return `${FIRST[Math.abs(seed * 31 + i * 17) % FIRST.length]} ${LAST[Math.abs(seed * 13 + i * 29 + 7) % LAST.length]}`;
 }
-function raffleRows(index: Index): FanRow[] {
-  const seed = index.champion || 1;
-  return Array.from({ length: 36 }, (_, i) => {
-    const registeredRounds = 1 + Math.abs((seed + i * 7) % 10);
-    const superFan = i % 3 === 0;
-    const regular = registeredRounds;
-    const bonus = superFan ? registeredRounds : 0;
-    const entries = regular + bonus + 1;
-    return {
-      name: fanName(seed, i),
-      meta: `${superFan ? 'Super Fan' : 'Fan'} · ${entries} entries`,
-    };
-  });
+function raffleRows(_index: Index): FanRow[] {
+  // Real entrant names are intentionally not simulated. This drawer is the
+  // destination for the live list once registration data exists.
+  return [];
 }
 function topFanRows(index: Index): FanRow[] {
-  return index.lbLeaders.map((h, i) => ({
-    name: fanName(h, i + 60),
-    meta: `${shortName(index.schools[h]?.[0] || '')} · nominated Top Fan`,
+  // Keep the eight LuckyFan slots visible without inventing future people.
+  return index.lbLeaders.map((h) => ({
+    name: '_______________',
+    meta: `${shortName(index.schools[h]?.[0] || '_______________')} · LuckyFan selection pending`,
   }));
 }
 function cardFor(g: GameRow, stage: string, file: string, cal: Cal): WeekCard {
@@ -91,13 +83,13 @@ function InfoDrawer({ title, kicker, rows, note, onClose }:{
 }
 
 function InfoCard({ kicker, title, body, rows, onOpen }:{
-  kicker:string; title:string; body:string; rows?:FanRow[]; onOpen?:()=>void;
+  kicker:string; title:string; body:React.ReactNode; rows?:FanRow[]; onOpen?:()=>void;
 }) {
   return (
     <article className="yfp-card yfp-post-card">
       <div className="yfp-post-kicker">{kicker}</div>
       <div className="yfp-post-title">{title}</div>
-      <p>{body}</p>
+      <div className="yfp-post-body">{body}</div>
       {rows?.length ? <div className="yfp-post-preview">
         {rows.slice(0,8).map((row,i)=><div key={`${row.name}-${i}`}><b>{row.name}</b><span>{row.meta}</span></div>)}
       </div> : null}
@@ -117,12 +109,33 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
   const [drawer, setDrawer] = useState<null | {title:string;kicker:string;rows:FanRow[];note?:string}>(null);
   const bracketFans = useMemo(()=>raffleRows(index),[index]);
   const topFans = useMemo(()=>topFanRows(index),[index]);
-  const championName = shortName(index.schools[index.champion]?.[0] || 'Bracket Champion');
-  const stageKnown = (week:number) => cal.final >= week - 1;
   const bracketChampionKnown = cal.final >= 30;
+  const championRaw = bracketChampionKnown ? (index.schools[index.champion]?.[0] || '') : '';
+  const championName = championRaw ? shortName(championRaw) : '_______________';
+  const championLocation = championRaw ? place(championRaw) : '_______________';
+  const stageKnown = (week:number) => cal.final >= week - 1;
   const qualifiersKnown = cal.final >= 30;
   const waitingCard = (title:string, body:string) => (
     <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
+  );
+  const week31Announcement = (
+    <InfoCard
+      kicker="BRACKET CHAMPION · WORLD SERIES TICKETS"
+      title={`Bracket Champion: ${championName}`}
+      body={<>
+        <p>Congratulations to our 30 Week - Ten Round - Undefeated YAT?STATS Alumni Fantasy Bracket Champion, <b>{championName}</b>! Which of these 8 Regional Champions will they play in Week 34&apos;s YAT?STATS WORLD SERIES?</p>
+        <p>More importantly, which lucky fan will win 4 tickets to this year&apos;s MLB World Series?</p>
+        <p>Congratulations to these fans of <b>{championName}</b> High School from <b>{championLocation}</b>. They have all earned the right to have their name entered (some more than once) into the drawing that will take place on October 3, 2027, the last day of the MLB Regular Season.</p>
+        <p className="yfp-madlib-line">_______________</p>
+        <p>But don&apos;t fret if your favorite Active Alumni didn&apos;t win the bracket tournament. If you are a current fan of the 8 Regional Champions listed above, you may possibly still have a chance to win. Every Active Alumni from the 8 Regional Winners will each be personally selecting 1 <b>LuckyFan</b> that will have their name added to the pool of potential winners. Good Luck!</p>
+      </>}
+      onOpen={()=>setDrawer({
+        title:'World Series raffle entries',
+        kicker:`${championName} High School · ${championLocation}`,
+        rows:bracketFans,
+        note:'Eligible fan entries will appear here as they are earned and verified.'
+      })}
+    />
   );
   const blankScoreboard = (week:number, stageHead:string, gameNo?:number) => {
     const slot = gameNo || 1;
@@ -245,12 +258,12 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
 
   let cards: React.ReactNode;
   if(stage==='c1'){
-    cards = stageKnown(31)
-      ? games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'))
-      : <>
-          {Array.from({ length: 4 }, (_, i) => blankScoreboard(31,'Championship Round 1',i+1))}
-          {waitingCard('Season Championship Round 1', 'The eight regional qualifiers will be set after Week 30 is complete.')}
-        </>;
+    cards = <>
+      {stageKnown(31)
+        ? games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'))
+        : Array.from({ length: 4 }, (_, i) => blankScoreboard(31,'Championship Round 1',i+1))}
+      {week31Announcement}
+    </>;
   } else if(stage==='c2'){
     cards = <>
       {stageKnown(32)
@@ -305,7 +318,11 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-card{min-height:230px;display:flex;flex-direction:column;overflow:hidden;border-color:rgba(255,210,74,.28);background:linear-gradient(180deg,rgba(255,210,74,.075),rgba(255,255,255,.025))}
       .yfp-post-kicker{color:var(--yfp-gold);font:800 9px/1 Oswald,sans-serif;letter-spacing:.11em;text-transform:uppercase;margin-bottom:7px}
       .yfp-post-title{color:var(--yfp-strong);font:700 22px/.95 "Bebas Neue",Oswald,sans-serif;letter-spacing:.025em;text-transform:uppercase}
-      .yfp-post-card>p{margin:8px 0;color:var(--yfp-muted);font:500 11px/1.35 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
+      .yfp-post-body{margin:8px 0;color:var(--yfp-muted);font:500 11px/1.35 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
+      .yfp-post-body p{margin:0 0 9px}
+      .yfp-post-body p:last-child{margin-bottom:0}
+      .yfp-post-body b{color:var(--yfp-strong)}
+      .yfp-madlib-line{color:var(--yfp-gold);font-weight:800;letter-spacing:.08em}
       .yfp-post-preview{flex:1;min-height:0;max-height:125px;overflow-y:auto;overscroll-behavior:contain;border-top:1px solid var(--yfp-card-border);margin-top:4px;padding-top:4px;scrollbar-width:thin}
       .yfp-post-preview>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;padding:3px 1px;border-bottom:1px solid var(--yfp-card-border);font:500 9px/1.2 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
       .yfp-post-preview b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--yfp-strong);font-weight:700}
