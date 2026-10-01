@@ -88,8 +88,8 @@ function PasswordInput({
 
 function normalizeMicrositeUrl(value?: string | null) {
   const raw = String(value || '').trim();
-  if (!raw || !/^https?:\/\//i.test(raw)) return null;
-  return raw.replace(/\/+$/, '');
+  if (!raw || !/^https?:///i.test(raw)) return null;
+  return raw.replace(//+$/, '');
 }
 
 function buildMicrositeUrl(
@@ -678,6 +678,41 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         plan,
       });
 
+      // Promo code entered on the join form? Redeem it now so the new fan
+      // lands as a Superfan immediately — no Stripe checkout needed.
+      const enteredPromo = promoCode.trim();
+      if (enteredPromo && uid) {
+        try {
+          const promoRes = await fetch('/api/promo/redeem', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ firebaseUid: uid, email, code: enteredPromo }),
+          });
+          const promoData = await promoRes.json().catch(() => ({}));
+          if (promoRes.ok && promoData?.ok) {
+            sessionStorage.removeItem('pending_superfan');
+            setIsSuperfan(true);
+            setPromoCode('');
+            setPromoOpen(false);
+            try {
+              localStorage.setItem('yat-plan', 'superfan');
+            } catch {}
+            setMessage('Promo applied — welcome, Superfan!');
+            setMessageType('success');
+            setTimeout(() => setMessage(''), 2500);
+            return;
+          }
+          setMessage(
+            (promoData?.error || 'That promo code is not valid.') +
+              ' Continuing as a Fan — you can try another code in your account.'
+          );
+          setMessageType('error');
+        } catch {
+          setMessage('Could not apply the promo code. Continuing as a Fan.');
+          setMessageType('error');
+        }
+      }
+
       if (sessionStorage.getItem('pending_fav_pid') && uid) {
         await resumePendingFavorite(uid, regData?.contactId);
       } else if (sessionStorage.getItem('pending_superfan') && uid) {
@@ -1149,6 +1184,44 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
               <div style={{ marginBottom: '10px' }}>
                 <PasswordInput name="registerPassword" placeholder="Password" />
+              </div>
+
+              <div style={{ marginBottom: '10px' }}>
+                {!promoOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setPromoOpen(true)}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      background: 'transparent',
+                      color: 'var(--muted)',
+                      border: 'none',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    Have a promo code?
+                  </button>
+                ) : (
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    placeholder="Enter promo code (optional)"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--line)',
+                      background: 'rgba(255, 255, 255, .06)',
+                      color: 'var(--ink)',
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                    }}
+                  />
+                )}
               </div>
 
               <button
