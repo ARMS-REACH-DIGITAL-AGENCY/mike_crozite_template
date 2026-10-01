@@ -400,7 +400,7 @@ export default function FantasyTimeline() {
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.2) 26%,rgba(5,5,5,.82) 42%,#050505 72%); }
-        .yft-person { position:absolute; z-index:1; left:53%; bottom:25px; width:18%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+        .yft-person { position:absolute; z-index:1; left:64%; bottom:25px; width:18%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
