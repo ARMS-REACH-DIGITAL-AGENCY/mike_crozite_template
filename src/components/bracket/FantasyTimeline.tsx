@@ -210,8 +210,8 @@ function postStory(index:Index, games:GameRow[], boxes:Record<string,GameBox>):P
   return {headline,summary:parts.join('. ')+'.'};
 }
 
-function PostSlide({ index, games, week, label, title, showScores, onTap }: {
-  index:Index; games:GameRow[]; week:number; label:string; title:string; showScores:boolean; onTap:()=>void;
+function PostSlide({ index, games, week, label, title, showScores, championName, onTap }: {
+  index:Index; games:GameRow[]; week:number; label:string; title:string; showScores:boolean; championName:string; onTap:()=>void;
 }) {
   const dates=index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : '';
   const displayDates=dates.replace(/\bSep\b/g,'Sept').replace(' – ',' - ');
@@ -223,7 +223,7 @@ function PostSlide({ index, games, week, label, title, showScores, onTap }: {
     loadBoxes(file).then((boxes)=>{if(!cancelled)setStory(postStory(index,games,boxes));}).catch(()=>{});
     return()=>{cancelled=true;};
   },[games,index,week]);
-  const status=games.length ? 'TOURNAMENT SCOREBOARD' : 'UPCOMING';
+  const status=week===31 ? `BRACKET CHAMPION · ${championName}` : games.length ? 'TOURNAMENT SCOREBOARD' : 'UPCOMING';
   const cornerTitle=week===34
     ? <><span>The YAT?STATS</span><span>WORLD SERIES</span></>
     : week===33
@@ -375,7 +375,8 @@ export default function FantasyTimeline() {
           const gamesForStage=!stageKnown ? [] : s.key==='yws'
             ? data.index.gf.filter((g)=>g[1]===s.week)
             : data.index.lbt.filter((x)=>x.game[1]===s.week).map((x)=>x.game);
-          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title} showScores={stageIsFinal}
+          const championName=(cal?.final||0)>=30 ? shortName(data.index.schools[data.index.champion]?.[0]||'_______________') : '_______________';
+          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title} showScores={stageIsFinal} championName={championName}
             onTap={()=>{selectStage(s.key);focusWeek(s.week);}}/>;
         })}
       </div>
