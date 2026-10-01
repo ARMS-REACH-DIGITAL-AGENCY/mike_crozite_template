@@ -103,44 +103,63 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     const [hr, ar] = runsThrough(g, card.days);
     const gameNo = g[1] === 31 ? games(31).findIndex((x)=>x[0]===g[0]) + 1
       : g[1] === 32 ? games(32).findIndex((x)=>x[0]===g[0]) + 1 : 1;
+    const played = card.state === 'final' || card.state === 'live';
+    const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : 'UPCOMING';
+    const stageHead = g[1] === 31 ? 'Championship Round 1'
+      : g[1] === 32 ? 'Championship Round 2'
+      : g[1] === 33 ? 'Championship Game'
+      : 'YAT?STATS World Series';
+
     const row = (side:'a'|'h') => {
       const h = side === 'h' ? g[2] : g[3];
       const off = side === 'h' ? 0 : 1;
+      const runs = side === 'h' ? hr : ar;
       const won = card.state === 'final' && g[6] === h;
       const rawName = index.schools[h]?.[0] || '';
       const name = shortName(rawName);
       const location = place(rawName);
-      return <div className={`yfp-post-green-row${h===me?' me':''}${won?' won':''}`}>
-        <button type="button" className="yfp-post-green-team" onClick={()=>onOpen({card,side})}>
-          <span className="abbr">{abbr(name)}</span><span className="full">{name}</span>
-          {location ? <span className="place">{location}</span> : null}
+      return <div className={`yfp-green-row${h===me?' me':''}${won?' won':''}`}>
+        <button type="button" className="yfp-green-team" disabled={!played} onClick={()=>onOpen({card,side})}
+          aria-label={played ? `${name}: this week's players` : undefined}>
+          <span className="yfp-green-abbr">{abbr(name)}</span>
+          <span className="yfp-green-full">{name}</span>
+          {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {[0,1,2,3,4,5,6,7,8].map((i)=>{
           const shown = card.state === 'final' || (card.state === 'live' && i < card.days);
-          return <span key={i} className={shown && g[5][i*2+off] ? 'scored' : ''}>{shown ? g[5][i*2+off] : ''}</span>;
+          const value = g[5][i*2+off];
+          return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
-        <strong>{card.state==='final'||card.state==='live' ? (side==='h'?hr:ar) : ''}</strong>
+        <span className="yfp-green-run">{played ? runs : ''}{won ? <i aria-label="winner">◀</i> : null}</span>
       </div>;
     };
+
     const scoreboard = <>
-      <div className="yfp-post-game-head"><span>Week {g[1]}</span><span>{label}{g[1] < 33 ? ` · Game ${gameNo}` : ''}</span></div>
-      <div className="yfp-post-green-board">
-        <div className="yfp-post-green-row head"><span>{card.state==='final'?'FINAL':card.state==='live'?'LIVE':'UPCOMING'}</span>{[1,2,3,4,5,6,7,8,9].map((n)=><span key={n}>{n}</span>)}<strong>R</strong></div>
+      <div className="yfp-score-head">
+        <span>Week {g[1]} | {index.weeks[g[1]-1] ? fmtRange(index.weeks[g[1]-1][0],index.weeks[g[1]-1][1]) : ''}</span>
+        <span>{stageHead}{g[1] < 33 ? ` | Game ${gameNo}` : ''}</span>
+      </div>
+      <div className="yfp-green-board">
+        <div className="yfp-green-row head">
+          <span className={`yfp-green-status ${card.state}`}>{pill}</span>
+          {[1,2,3,4,5,6,7,8,9].map((n)=><span key={n}>{n}</span>)}
+          <span className="run">R</span>
+        </div>
         {row('a')}{row('h')}
       </div>
-      <div className="yfp-post-game-date">{index.weeks[g[1]-1] ? fmtRange(index.weeks[g[1]-1][0],index.weeks[g[1]-1][1]) : ''}</div>
     </>;
+
     const awayName = shortName(index.schools[g[3]]?.[0] || '');
     const homeName = shortName(index.schools[g[2]]?.[0] || '');
-    return <article key={g[0]} className="yfp-card yfp-post-game" id={`postgame-${g[0]}`}>
+    return <article key={g[0]} className={`yfp-card yfp-scorecard yfp-post-game ${card.state}`} id={`postgame-${g[0]}`}>
       {scoreboard}
-      {(card.state==='final'||card.state==='live') ? <FantasyGameSocial
+      {played ? <FantasyGameSocial
         gameKey={`sim-2026:${g[0]}`}
         title={label}
         subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
         shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${awayName} and ${homeName}.`}
         shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`}
-        preview={<div className="yfp-post-game">{scoreboard}</div>}
+        preview={<div className="yfp-scorecard">{scoreboard}</div>}
       /> : null}
     </article>;
   };
@@ -185,14 +204,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     {drawer ? <InfoDrawer {...drawer} onClose={()=>setDrawer(null)} /> : null}
     <style jsx global>{`
       .yfp-postseason-cards{align-items:stretch}
-      .yfp-post-game{padding:0;overflow:hidden;min-height:190px}
-      .yfp-post-game-head{display:flex;justify-content:space-between;gap:6px;padding:5px 7px 4px;background:#9c7f22;color:#fff5cf;font:700 8px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif;letter-spacing:.04em;text-transform:uppercase}
-      .yfp-post-green-board{padding:6px;background:linear-gradient(180deg,#1f6546,#174c35);border-bottom:1px solid #0d3022}
-      .yfp-post-green-row{display:grid;grid-template-columns:minmax(82px,1fr) repeat(9,18px) 28px;gap:2px;align-items:center;margin-top:2px}
-      .yfp-post-green-row.head{margin-top:0;color:#eef7ef;font:700 8px/1 Oswald,sans-serif;text-align:center}.yfp-post-green-row.head>span:not(:first-child){display:grid;place-items:center}
-      .yfp-post-green-team{min-width:0;border:0;background:transparent;color:#fff;text-align:left;padding:0 5px 0 0;cursor:pointer}.yfp-post-green-team .abbr{display:none}.yfp-post-green-team .full{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 10px/.95 "Roboto Condensed","Arial Narrow",Oswald,sans-serif;letter-spacing:-.025em}.yfp-post-green-team .place{display:block;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#a8bbb0;font:600 5.8px/1 Oswald,sans-serif;letter-spacing:.03em;text-transform:uppercase}.yfp-post-green-row.me .yfp-post-green-team{color:#ffd34f}
-      .yfp-post-green-row>span:not(:first-child),.yfp-post-green-row>strong{height:20px;display:grid;place-items:center;border-radius:3px;background:#0d2d20;color:#edf4ee;font:800 11px/1 Oswald,sans-serif}.yfp-post-green-row>strong{color:#ffd34f;font-size:13px}.yfp-post-green-row.won>strong{background:#f3c735;color:#15251d}
-      .yfp-post-game-date{padding:7px;color:var(--yfp-muted);font:600 9px/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.06em}
+      .yfp-post-game{padding:0;overflow:hidden}
       .yfp-post-card{min-height:230px;display:flex;flex-direction:column;overflow:hidden;border-color:rgba(255,210,74,.28);background:linear-gradient(180deg,rgba(255,210,74,.075),rgba(255,255,255,.025))}
       .yfp-post-kicker{color:var(--yfp-gold);font:800 9px/1 Oswald,sans-serif;letter-spacing:.11em;text-transform:uppercase;margin-bottom:7px}
       .yfp-post-title{color:var(--yfp-strong);font:700 22px/.95 "Bebas Neue",Oswald,sans-serif;letter-spacing:.025em;text-transform:uppercase}
@@ -211,7 +223,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-drawer-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 14px;scrollbar-width:thin}
       .yfp-post-drawer-scroll ol{list-style:none;margin:0;padding:0}.yfp-post-drawer-scroll li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 2px;border-bottom:1px solid #262c37}.yfp-post-drawer-scroll li b{font:700 13px/1.2 Oswald,sans-serif}.yfp-post-drawer-scroll li span{color:#8b93a1;font:500 10px/1.2 Oswald,sans-serif;text-align:right}
       .yfp-post-drawer-note{margin:0;padding:9px 14px 12px;border-top:1px solid #262c37;color:#8b93a1;font:500 10px/1.35 Oswald,sans-serif}
-      @media(max-width:899px){.yfp-post-green-row{grid-template-columns:68px repeat(9,minmax(10px,1fr)) 24px;gap:1px}.yfp-post-green-team .full{display:block;font-size:7.5px;letter-spacing:-.035em}.yfp-post-green-team .place{font-size:4.8px;letter-spacing:.02em}.yfp-post-green-team .abbr{display:none}.yfp-raffle-cta{grid-template-columns:1fr;gap:7px}.yfp-raffle-cta button{width:100%}.yfp-post-card{min-height:220px}}
+      @media(max-width:899px){.yfp-raffle-cta{grid-template-columns:1fr;gap:7px}.yfp-raffle-cta button{width:100%}.yfp-post-card{min-height:220px}}
     `}</style>
   </>;
 }
