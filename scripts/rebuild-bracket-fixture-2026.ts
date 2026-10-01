@@ -3,7 +3,7 @@
 // measurements plus the complete 2026 Neon alumni roster. This is deliberately
 // deterministic: it gives every active alumnus a weekly W-L record, rescoring
 // inning 9 and then regenerating advancement, leaderboards and postseason.
-// It never writes to Neon.
+// It never writes to Neon. Rebuilds are committed only after the integrity audit passes.
 
 import fs from 'node:fs';
 import path from 'node:path';
