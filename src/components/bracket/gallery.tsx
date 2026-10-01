@@ -1171,13 +1171,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             {metricBoard('FIP-', 2, 3, false)}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
-                <div className="bl-tiebreak-line head">
+                <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
                   <span>TIEBREAK</span>
                   {extraInnings.map((i) => <span key={i}>{i + 1}</span>)}
                   <span>R</span>
                 </div>
                 {[1, 0].map((sideIndex) => (
-                  <div className="bl-tiebreak-line" key={sideIndex}>
+                  <div className="bl-tiebreak-line" key={sideIndex} style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
                     <span className="team">{names[sideIndex]}</span>
                     {extraInnings.map((i) => {
                       const v = correctedInnings[i * 2 + sideIndex] || 0;
