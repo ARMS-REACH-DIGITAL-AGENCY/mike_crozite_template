@@ -10,7 +10,7 @@ on:
       - src/lib/bracket/**
       - .github/workflows/bracket-tournament-integrity.yml
   push:
-    branches: [bracket-simulation]
+    branches: [bracket-simulation, Easter-NEWS]
     paths:
       - public/bracket-lab/2026/**
       - scripts/bracket-integrity-2026.mjs
