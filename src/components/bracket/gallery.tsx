@@ -1121,12 +1121,18 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
         </div>
         {rows.map((row) => (
           <div className="bl-metric-line metric" key={row.role}>
-            <span className="metric-team" title={row.name}><small>{row.role}</small>{abbr(row.name)}</span>
+            <span className="metric-team" title={row.name}><small>{row.role}</small><b>{row.name}</b></span>
             {(box?.d || []).slice(0, 7).map((d, i) => (
               <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>
             ))}
             <span className={wonCell(box?.d?.[7]?.[row.idx], box?.d?.[7]?.[row.opp], higher)}>{fmtStat(box?.d?.[7]?.[row.idx])}</span>
-            <span className={row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>{row.wp.toFixed(3).replace(/^0/, '')}</span>
+            {labelText === 'OPS+'
+              ? <span className={row.role === 'HOME' && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
+                  {row.role === 'VISITOR' ? 'W%' : row.wp.toFixed(3).replace(/^0/, '')}
+                </span>
+              : <span className={row.role === 'VISITOR' && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
+                  {row.role === 'HOME' ? 'W%' : row.wp.toFixed(3).replace(/^0/, '')}
+                </span>}
             <span className="final">{metricRunCount(row.idx, row.opp, higher)}</span>
           </div>
         ))}
@@ -1420,8 +1426,8 @@ export function Styles() {
       .bl-sort:hover { color:var(--gold); }
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
-      .bl-metric-scoreboards { margin:10px 12px 8px; display:grid; gap:7px; }
-      .bl-metric-board { margin:0; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow-x:auto; }
+      .bl-metric-scoreboards { margin:10px 12px 8px; display:grid; gap:7px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+      .bl-metric-board { min-width:534px; margin:0; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:visible; }
       .bl-metric-line { min-width:520px; display:grid; grid-template-columns:96px repeat(9,minmax(34px,1fr)) 46px; gap:2px; align-items:center; }
       .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 9px/1 Oswald,sans-serif; text-align:center; letter-spacing:.04em; }
       .bl-metric-line.head span { display:grid; place-items:center; min-height:18px; }
@@ -1430,6 +1436,7 @@ export function Styles() {
       .bl-metric-line.metric>span { min-height:24px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
       .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; padding:2px 5px; color:#eef7ef; overflow:hidden; }
       .bl-metric-line.metric .metric-team small { display:block; color:#9eb2a7; font:600 6px/1 Oswald,sans-serif; letter-spacing:.08em; }
+      .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 9px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.015em; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:12px; }
@@ -1513,10 +1520,10 @@ export function Styles() {
       @media (max-width:520px) {
         .bl-board .st { display:none; }
         .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:5px; }
-        .bl-metric-board { padding:5px; }
-        .bl-metric-line { min-width:448px; grid-template-columns:72px repeat(9,34px) 42px; }
+        .bl-metric-board { min-width:458px; padding:5px; }
+        .bl-metric-line { min-width:448px; grid-template-columns:82px repeat(9,32px) 42px; }
         .bl-metric-line.metric>span { min-height:22px; font-size:9px; }
-        .bl-metric-line.metric .metric-team { font-size:8px; }
+        .bl-metric-line.metric .metric-team b { font-size:7.5px; letter-spacing:-.025em; }
         .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
       }
       .bl-more { display:block; width:100%; padding:9px; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; }
