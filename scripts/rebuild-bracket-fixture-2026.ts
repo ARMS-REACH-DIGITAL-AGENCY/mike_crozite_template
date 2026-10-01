@@ -151,14 +151,17 @@ const teamStintRows=(await pool.query(`
 `)).rows as any[];
 await pool.end();
 
-const rosters=new Map<number,Roster[]>();
+const rosterMaps=new Map<number,Map<string,Roster>>();
 for(const r of rosterRows){
   const h=Number(r.hsid); if(!schoolIds.has(h)) continue;
   const row:Roster={id:String(r.playerid),name:String(r.name||`Player ${r.playerid}`),level:String(r.level||'MLB'),pitcher:Boolean(r.pitcher)};
-  if(!rosters.has(h)) rosters.set(h,[]);
-  rosters.get(h)!.push(row);
+  if(!rosterMaps.has(h)) rosterMaps.set(h,new Map());
+  rosterMaps.get(h)!.set(row.id,row);
 }
-for(const [h,rows] of rosters) rows.sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
+const rosters=new Map<number,Roster[]>();
+for(const [h,rows] of rosterMaps){
+  rosters.set(h,[...rows.values()].sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id)));
+}
 
 function teammateAffinityForRound(firstWeek:number){
   const start=index.weeks[firstWeek-1]?.[0] || '';
@@ -308,12 +311,9 @@ function sideBox(h:number,w:number):SideBox{
     if(!row[8]){ row[8]=syntheticWL(r.id,w,r.level); row[9]=1; }
     return row;
   });
-  // Keep any source row not found by the canonical query.
-  for(const p of by.values()) if(!players.some(x=>String(x[0])===String(p[0]))){
-    const row=[...p] as PlayerRow; if(row[5]) row[5]=extendPit([...(row[5] as number[])]);
-    if(!row[8]){row[8]=syntheticWL(String(row[0]),w,String(row[2]||'MLB'));row[9]=1;}
-    players.push(row);
-  }
+  // The current flip-card roster is authoritative. Old fixture rows that are
+  // no longer eligible (retired, free agent, red-shirt status, HS level, or
+  // removed flip card) are intentionally not resurrected here.
   // Give rostered alumni realistic deterministic weekly participation when
   // the carried-forward source box has no line for them. This is a preview
   // simulation: some active alumni still sit out a week, but roster membership
