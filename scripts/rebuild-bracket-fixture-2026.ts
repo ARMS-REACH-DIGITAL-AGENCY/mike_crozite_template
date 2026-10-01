@@ -205,6 +205,55 @@ function pairNational(teams:number[],seed:string,affinity:(a:number,b:number)=>n
 
 function extendPit(x:number[]){ if(x.length>=9)return x; const [outs=0,hr=0,bb=0,hbp=0,k=0]=x; const ip=outs/3; const hits=outs?Math.max(hr,Math.round(ip*.9)):0; const runs=outs?Math.max(hr,Math.round((hits+bb+hbp)*.38)):0; const er=Math.max(0,runs-(runs>2?1:0)); const fip=outs?(13*hr+3*(bb+hbp)-2*k)/ip+3.1:0; return [outs,hr,bb,hbp,k,hits,runs,er,+fip.toFixed(2)]; }
 
+function ensureRosterParticipation(h:number,w:number,players:PlayerRow[],roster:Roster[]){
+  const [targetOps,targetFip]=metrics(h,w)[7] || [100,100];
+  const byRoster=new Map(roster.map(r=>[r.id,r]));
+  for(const p of players){
+    const id=String(p[0]);
+    const r=byRoster.get(id);
+    if(!r)continue;
+    const hasBat=Array.isArray(p[4]) && Number((p[4] as number[])[0]||0)>0;
+    const hasPit=Array.isArray(p[5]) && Number((p[5] as number[])[0]||0)>0;
+    if(hasBat||hasPit)continue;
+
+    const college=/NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(r.level);
+    // College seasons largely end by early summer. Pro alumni remain eligible
+    // throughout the 34-week preview (spring/regular/minor-league schedules).
+    if(college && w>21)continue;
+
+    const chance=r.pitcher ? (college?.62:.52) : (college?.84:.76);
+    if(rand01(`participate:${h}:${w}:${id}`)>=chance)continue;
+
+    p[3]=1;
+    if(r.pitcher){
+      const outs=3+(hash(`sim-outs:${h}:${w}:${id}`)%16);
+      const ip=outs/3;
+      const hits=Math.max(0,Math.round(ip*(.65+(hash(`sim-h:${h}:${w}:${id}`)%50)/100)));
+      const bb=hash(`sim-bb:${h}:${w}:${id}`)%3;
+      const hbp=hash(`sim-hbp:${h}:${w}:${id}`)%2;
+      const hr=hash(`sim-hr:${h}:${w}:${id}`)%2;
+      const k=Math.max(1,Math.round(ip*(.7+(hash(`sim-k:${h}:${w}:${id}`)%100)/100)));
+      const runs=Math.max(hr,Math.round((hits+bb+hbp)*.32));
+      const er=Math.max(0,runs-(runs>2?1:0));
+      const fip=Math.max(.1,4.2*(Number(targetFip||100)/100));
+      p[5]=[outs,hr,bb,hbp,k,hits,runs,er,+fip.toFixed(2)];
+      p[7]=Math.max(20,Math.min(180,Math.round(Number(targetFip||100)-20+(hash(`sim-fipm:${h}:${w}:${id}`)%41))));
+    }else{
+      const ab=3+(hash(`sim-ab:${h}:${w}:${id}`)%13);
+      const avg=.18+(hash(`sim-avg:${h}:${w}:${id}`)%21)/100;
+      const hits=Math.max(0,Math.min(ab,Math.round(ab*avg)));
+      const d2=Math.min(hits,hash(`sim-2b:${h}:${w}:${id}`)%3);
+      const rem=Math.max(0,hits-d2);
+      const hr=Math.min(rem,hash(`sim-bhr:${h}:${w}:${id}`)%2);
+      const bb=hash(`sim-bwalk:${h}:${w}:${id}`)%4;
+      const hbp=hash(`sim-bhbp:${h}:${w}:${id}`)%2;
+      const sf=hash(`sim-bsf:${h}:${w}:${id}`)%2;
+      p[4]=[ab+bb+hbp+sf,ab,hits,d2,0,hr,bb,hbp,sf];
+      p[6]=Math.max(20,Math.min(220,Math.round(Number(targetOps||100)-25+(hash(`sim-opsm:${h}:${w}:${id}`)%51))));
+    }
+  }
+}
+
 function ensureVisibleWeeklyProduction(h:number,w:number,players:PlayerRow[]){
   const [targetOps,targetFip]=metrics(h,w)[7] || [100,100];
   const totalAb=players.reduce((s,p)=>s+(Array.isArray(p[4])?Number(p[4][1]||0):0),0);
@@ -265,10 +314,13 @@ function sideBox(h:number,w:number):SideBox{
     if(!row[8]){row[8]=syntheticWL(String(row[0]),w,String(row[2]||'MLB'));row[9]=1;}
     players.push(row);
   }
-  // The preview is intentionally complete. If a carried-forward weekly
-  // OPS+/FIP- metric has no visible player production behind it, create a
-  // deterministic weekly line so the box score and the metric cannot
-  // contradict each other (e.g. OPS+ 88 with every batter at 0 AB).
+  // Give rostered alumni realistic deterministic weekly participation when
+  // the carried-forward source box has no line for them. This is a preview
+  // simulation: some active alumni still sit out a week, but roster membership
+  // no longer means "zero forever" merely because the old fixture omitted them.
+  ensureRosterParticipation(h,w,players,roster);
+  // If a school still has no visible production at all, create one fallback
+  // line so the box score cannot contradict the carried team metric.
   ensureVisibleWeeklyProduction(h,w,players);
   const wl=players.reduce<[number,number]>((s,p)=>{const x=p[8]||[0,0];return [s[0]+x[0],s[1]+x[1]]},[0,0]);
   return {p:players,wl};
@@ -303,8 +355,30 @@ function playerTiebreak(home:SideBox,away:SideBox){
   }
 }
 
+function aggregateWeeklyMetric(side:SideBox,fallback:number[]):[number,number]{
+  let opsNum=0,opsDen=0,fipNum=0,fipDen=0;
+  for(const p of side.p){
+    if(Array.isArray(p[4]) && p[6]!==null){
+      const pa=Number((p[4] as number[])[0]||0);
+      if(pa>0){opsNum+=Number(p[6])*pa;opsDen+=pa;}
+    }
+    if(Array.isArray(p[5]) && p[7]!==null){
+      const outs=Number((p[5] as number[])[0]||0);
+      if(outs>0){fipNum+=Number(p[7])*outs;fipDen+=outs;}
+    }
+  }
+  return [opsDen?opsNum/opsDen:Number(fallback[0]||100),fipDen?fipNum/fipDen:Number(fallback[1]||100)];
+}
+
 function play(home:number,away:number,week:number,id:number){
+  const hb=sideBox(home,week), ab=sideBox(away,week);
   const hm=metrics(home,week), am=metrics(away,week);
+  // Innings 1-7 retain the historical/simulated day metrics. Inning 8 is
+  // rebuilt from every alumnus who participated that week, so newly restored
+  // active alumni can affect the weekly result instead of only appearing in
+  // the drawer. Inning 9 already includes every active alumnus via W-L%.
+  hm[7]=aggregateWeeklyMetric(hb,hm[7]||[100,100]);
+  am[7]=aggregateWeeklyMetric(ab,am[7]||[100,100]);
   const d:number[][]=[]; const inn:number[]=[];
   for(let i=0;i<8;i++){
     const [ho,hp]=hm[i], [ao,ap]=am[i];
@@ -312,7 +386,6 @@ function play(home:number,away:number,week:number,id:number){
     const ar=(ao>ho?1:0)+(ap<hp?1:0);
     inn.push(hr,ar); d.push([ho,ao,hp,ap]);
   }
-  const hb=sideBox(home,week), ab=sideBox(away,week);
   const hwp=pct(hb.wl), awp=pct(ab.wl);
   inn.push(hwp>awp?1:0,awp>hwp?1:0);
   let [hs,as]=scoreFlat(inn);
