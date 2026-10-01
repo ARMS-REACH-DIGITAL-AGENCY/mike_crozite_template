@@ -28,8 +28,9 @@
 //     reseeding inside the main bracket.
 //   Regional leaderboards: every school, all 30 weeks, ranked on total
 //     runs. Schools still in the bracket score in their bracket games;
-//     eliminated schools play a weekly game, paired at random inside their
-//     region.
+//     eliminated schools play a weekly game. Pairings draw from the full
+//     national eliminated pool, preferring schools whose alumni are current
+//     real-life teammates, then falling back to a deterministic shuffle.
 //   Weeks 31-33 (Aug 31 - Sep 20): each region's leaderboard leader plays a
 //     single-game, 8-team bracket. The bracket champion sits out (its
 //     region sends the next school).
@@ -373,10 +374,38 @@ function addWL(hsid: number, date: string, club: string, playerid: string) {
   playerWL.get(key)!.set(playerid, pw);
 }
 // A rostered alumnus's level (for the ones who didn't play that week).
+const stintRows = rows('stints.csv', ',');
 const stintLevel = new Map<string, string>();
-for (const r of rows('stints.csv', ',')) {
+for (const r of stintRows) {
   stintLevel.set(r.playerid, r.level);
   for (let t = Date.parse(r.start); iso(t) <= r.end && iso(t) <= LAST_DATA_DAY; t += DAY) addWL(num(r.hsid), iso(t), r.teamid, r.playerid);
+}
+
+// Real-world team affinity for consolation pairing. A school is linked to
+// another school when each has at least one alumnus on the same club during
+// the three-week round. Multiple shared clubs/players increase the score.
+function teammateAffinityForRound(firstWeek: number) {
+  const start = iso(weekStart(firstWeek));
+  const end = iso(weekStart(firstWeek + 2) + 6 * DAY);
+  const clubsBySchool = new Map<number, Map<string, number>>();
+  for (const r of stintRows) {
+    const h = num(r.hsid);
+    if (!schools.has(h) || !r.teamid) continue;
+    if (r.start > end || r.end < start) continue;
+    if (!clubsBySchool.has(h)) clubsBySchool.set(h, new Map());
+    const clubs = clubsBySchool.get(h)!;
+    clubs.set(r.teamid, (clubs.get(r.teamid) || 0) + 1);
+  }
+  return (a: number, b: number) => {
+    const aa = clubsBySchool.get(a), bb = clubsBySchool.get(b);
+    if (!aa || !bb) return 0;
+    let score = 0;
+    for (const [club, ac] of aa) {
+      const bc = bb.get(club) || 0;
+      if (bc) score += ac * bc;
+    }
+    return score;
+  };
 }
 if (SPRING) {
   const springClubs = new Map<string, { hsid: number; clubs: Set<string> }>(); // `${playerid}|${week}`
@@ -517,8 +546,10 @@ const champion = alive[0];
 // ---------------------------------------------------------------------------
 // Regional leaderboards: every school, all season (weeks 1-30), ranked on
 // total runs. Schools still in the bracket score in their bracket games.
-// Once eliminated, a school is paired with ONE random regional opponent for
-// the next three-week round and plays that same school in all three games.
+// Once eliminated, a school is paired from the FULL NATIONAL eliminated pool
+// with ONE opponent for the next three-week round and plays that same school
+// in all three games. Pairing prefers real-life teammate links, then uses the
+// deterministic seeded shuffle. No school may receive a bye.
 // ---------------------------------------------------------------------------
 type Board = { games: number; w: number; l: number; t: number; rf: number; ra: number };
 const board = new Map<number, Board>();
@@ -533,23 +564,22 @@ function addToBoard(g: GameRow) {
 const lbGames: GameRow[] = [];
 // Leaderboard games keep the exact same three-game round grammar as the
 // bracket. Pair ONCE at the start of a round; that opponent is fixed for
-// all three weekly games. A fresh random regional opponent can be drawn in
-// the next round.
-const lbPlayed = new Map<number, number>();
+// all three weekly games. A fresh national opponent is drawn next round.
 for (let round = 2; round <= 10; round++) {
   const firstWeek = (round - 1) * 3 + 1;
-  for (let region = 1; region <= 8; region++) {
-    const pool = [...eliminatedAfterWeek.entries()]
-      .filter(([h, eliminatedWeek]) => eliminatedWeek < firstWeek && schools.get(h)!.region === region)
-      .map(([h]) => h)
-      .sort((a, b) => a - b);
-    if (pool.length < 2) continue;
-    const { pairs } = pairEliminated(pool, lbPlayed, `${SEED}:lb:round:${round}:${region}`);
-    for (const [a, b] of pairs) {
-      for (let gameNo = 0; gameNo < 3; gameNo++) {
-        lbGames.push(game(firstWeek + gameNo, a, b, true));
-      }
-      for (const h of [a, b]) lbPlayed.set(h, (lbPlayed.get(h) || 0) + 3);
+  const pool = [...eliminatedAfterWeek.entries()]
+    .filter(([, eliminatedWeek]) => eliminatedWeek < firstWeek)
+    .map(([h]) => h)
+    .sort((a, b) => a - b);
+
+  if (!pool.length) continue;
+  if (pool.length % 2 !== 0) throw new Error(`Round ${round}: eliminated pool is odd (${pool.length}); no byes are allowed`);
+
+  const affinity = teammateAffinityForRound(firstWeek);
+  const { pairs } = pairEliminated(pool, `${SEED}:lb:round:${round}`, affinity);
+  for (const [a, b] of pairs) {
+    for (let gameNo = 0; gameNo < 3; gameNo++) {
+      lbGames.push(game(firstWeek + gameNo, a, b, true));
     }
   }
 }
@@ -807,7 +837,6 @@ function exportGallery(dir: string) {
   // World Series Tickets Raffle.
   const LEVELS = ['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'JUCO'];
   const seasonEnd = iso(weekStart(BRACKET_LAST_WEEK) + 6 * DAY);
-  const stintRows = rows('stints.csv', ',');
   function alumniOf(hsid: number) {
     const last = new Map<string, { date: string; level: string }>();
     for (const [date, pds] of daily.get(hsid) || []) {
@@ -825,7 +854,9 @@ function exportGallery(dir: string) {
   }
   const alumni = Object.fromEntries([champion, ...lbLeaders].map((h) => [h, alumniOf(h)]));
   const gf = grandFinalGames.map((g) => gameOut('d-gf', g));
-  // Eliminated schools' weekly regional games (+ region), for the leaderboards.
+  // Eliminated schools' weekly national consolation games. g[7] remains
+  // the HOME school's region for file layout/backward-compatible UI grouping;
+  // opponents themselves may be from any region.
   const lb = lbGames.map((g) => {
     const region = schools.get(g.home)!.region;
     return [...gameOut(`d-lb-${g.week}-${region}`, g), region];
