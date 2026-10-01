@@ -161,41 +161,36 @@ test("tiebreak: best hitter vs best hitter and best pitcher vs best pitcher; win
   assert.equal(g.winner, 'home');
 });
 
-test('tiebreak: 1-1 on the best pair goes down to the #2 hitters and #2 pitchers', () => {
+test('tiebreak: 1-1 on #1 advances to #2 and cumulative player runs decide it', () => {
   // #1: home's hitter better (5 hits vs 4), away's pitcher better (12 K vs 10) -> 1-1
-  // #2: away's hitter better (3 vs 2) and away's pitcher better (9 K vs 7) -> away 2-0
+  // #2: away's hitter better (3 vs 2) and away's pitcher better (9 K vs 7) -> cumulative 1-3
   const home = roster(hitter(5), hitter(2), pitcher(10), pitcher(7));
   const away = roster(hitter(4), hitter(3), pitcher(12), pitcher(9));
   const g = playGame(tied(home), tied(away), baselines, HOLD);
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 2);
+  assert.deepEqual(g.tieScore, [1, 3]);
   assert.equal(g.winner, 'away');
 });
 
-test("tiebreak: a player with no one left to face counts only by beating league average", () => {
-  // #1 split 1-1; home has a #2 hitter, away doesn't
-  const top = [hitter(5), pitcher(10)];
-  const awayTop = roster(hitter(4), pitcher(12));
-  // 1-for-10 is below average: no run, rosters run out level -> coin flip
-  const cold = playGame(tied(roster(...top, hitter(1))), tied(awayTop), baselines, HOLD, false, () => 'away');
-  assert.equal(cold.decidedBy, 'coin');
-  assert.equal(cold.winner, 'away');
-  // 4-for-10 with a homer is above average: home takes it at #2
-  const hot = playGame(tied(roster(...top, hitter(4, 1))), tied(awayTop), baselines, HOLD);
-  assert.equal(hot.decidedBy, 'players');
-  assert.equal(hot.tieRank, 2);
-  assert.equal(hot.winner, 'home');
+test("tiebreak: as soon as either roster cannot supply the next hitter AND pitcher pair, use the commissioner's flip", () => {
+  // #1 splits 1-1. Home has a #2 hitter, but away has no #2 hitter or pitcher.
+  // We do NOT compare the extra home player to league average.
+  const home = roster(hitter(5), hitter(4, 1), pitcher(10), pitcher(7));
+  const away = roster(hitter(4), pitcher(12));
+  const g = playGame(tied(home), tied(away), baselines, HOLD, false, () => 'away');
+  assert.equal(g.decidedBy, 'coin');
+  assert.equal(g.winner, 'away');
 });
 
-test("a school with nobody playing can't win a tie against one that played", () => {
-  // Hamilton plays below average all week (no runs); Basha has nobody: 0-0
+test("tiebreak: an empty roster goes directly to the commissioner's flip", () => {
   const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
   const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()]), players: roster(coldDay) };
   const idle = tied(new Map());
-  const g = playGame(cold, idle, baselines, HOLD);
+  const g = playGame(cold, idle, baselines, HOLD, false, () => 'home');
   assert.deepEqual([g.home, g.away], [0, 0]);
   assert.equal(g.winner, 'home');
-  assert.equal(g.decidedBy, 'players');
+  assert.equal(g.decidedBy, 'coin');
 });
 
 test("inning 9: every alumnus's real team record for the week, college or pro, summed", () => {
