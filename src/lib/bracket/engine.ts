@@ -457,19 +457,50 @@ export function shuffle<T>(list: T[], rand: () => number): T[] {
   return a;
 }
 
-// Eliminated schools' weekly pairings within a region: shuffled with a
-// fixed seed; with an odd count, the school that has played the most
-// leaderboard games sits out (first in shuffled order on a tie).
-export function pairEliminated(teams: number[], gamesPlayed: Map<number, number>, seed: string): { pairs: [number, number][]; bye: number | null } {
-  let pool = shuffle(teams, mulberry32(hashString(seed)));
-  let bye: number | null = null;
-  if (pool.length % 2 === 1) {
-    let best = 0;
-    for (let i = 1; i < pool.length; i++) if ((gamesPlayed.get(pool[i]) || 0) > (gamesPlayed.get(pool[best]) || 0)) best = i;
-    bye = pool[best];
-    pool = pool.filter((_, i) => i !== best);
+export type PairAffinity = (a: number, b: number) => number;
+
+// Eliminated schools are paired across the full national pool, never by
+// region. The eliminated count is always even (1,024 minus the teams still
+// alive in the power-of-two bracket), so a bye is a data/logic error.
+//
+// Pairing stays reproducible: the seed first creates a deterministic shuffle.
+// If an affinity callback is supplied, positive-affinity pairs are selected
+// first (highest score wins; shuffled order breaks ties), then the remaining
+// schools are paired from that seeded shuffle.
+export function pairEliminated(teams: number[], seed: string, affinity?: PairAffinity): { pairs: [number, number][] } {
+  if (teams.length % 2 !== 0) {
+    throw new Error(`Eliminated-school pool must be even; got ${teams.length}. No byes are allowed.`);
   }
+  const unique = new Set(teams);
+  if (unique.size !== teams.length) throw new Error('Eliminated-school pool contains duplicate schools');
+
+  const pool = shuffle(teams, mulberry32(hashString(seed)));
   const pairs: [number, number][] = [];
-  for (let i = 0; i + 1 < pool.length; i += 2) pairs.push([pool[i], pool[i + 1]]);
-  return { pairs, bye };
+
+  while (pool.length) {
+    let bestI = 0;
+    let bestJ = 1;
+    let bestScore = 0;
+
+    if (affinity) {
+      for (let i = 0; i < pool.length - 1; i++) {
+        for (let j = i + 1; j < pool.length; j++) {
+          const score = Number(affinity(pool[i], pool[j])) || 0;
+          if (score > bestScore) {
+            bestScore = score;
+            bestI = i;
+            bestJ = j;
+          }
+        }
+      }
+    }
+
+    const a = pool[bestI];
+    const b = pool[bestJ];
+    pairs.push([a, b]);
+    pool.splice(bestJ, 1);
+    pool.splice(bestI, 1);
+  }
+
+  return { pairs };
 }
