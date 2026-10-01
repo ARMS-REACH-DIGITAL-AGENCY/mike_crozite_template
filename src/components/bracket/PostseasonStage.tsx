@@ -124,6 +124,32 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
   const waitingCard = (title:string, body:string) => (
     <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
   );
+  const blankScoreboard = (week:number, stageHead:string, gameNo?:number) => {
+    const blankRow = (key:string) => (
+      <div className="yfp-green-row" key={key} aria-label="School to be determined">
+        <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
+        {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
+        <span className="yfp-green-run" />
+      </div>
+    );
+    return (
+      <article key={`blank-${week}-${gameNo || 1}`} className="yfp-card yfp-scorecard yfp-post-game tbd">
+        <div className="yfp-score-head">
+          <span>Week {week} | {index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : ''}</span>
+          <span>{stageHead}{gameNo ? ` | Game ${gameNo}` : ''}</span>
+        </div>
+        <div className="yfp-green-board" style={{ '--inning-count': 9 } as React.CSSProperties}>
+          <div className="yfp-green-row head">
+            <span className="yfp-green-status tbd">UPCOMING</span>
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
+            <span className="run">R</span>
+          </div>
+          {blankRow('away')}
+          {blankRow('home')}
+        </div>
+      </article>
+    );
+  };
 
   const games = (week:number) => index.lbt.filter((x)=>x.game[1]===week).map((x)=>x.game);
   const gameCard = (g:GameRow, label:string, file:string) => {
@@ -202,12 +228,18 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
   if(stage==='c1'){
     cards = stageKnown(31)
       ? games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'))
-      : waitingCard('Season Championship Round 1', 'The eight regional qualifiers will be set after Week 30 is complete.');
+      : <>
+          {Array.from({ length: 4 }, (_, i) => blankScoreboard(31,'Championship Round 1',i+1))}
+          {waitingCard('Season Championship Round 1', 'The eight regional qualifiers will be set after Week 30 is complete.')}
+        </>;
   } else if(stage==='c2'){
     cards = <>
       {stageKnown(32)
         ? games(32).map((g,i)=>gameCard(g,`Season Championship Round 2 · Game ${i+1}`,'d-lbt'))
-        : waitingCard('Season Championship Round 2', 'The semifinal field will be set after Championship Round 1 is complete.')}
+        : <>
+            {Array.from({ length: 2 }, (_, i) => blankScoreboard(32,'Championship Round 2',i+1))}
+            {waitingCard('Season Championship Round 2', 'The semifinal field will be set after Championship Round 1 is complete.')}
+          </>}
       {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
         body="The 10-round Bracket Champion is waiting for the winner of the eight-team single-elimination Season Championship Tournament." /> : null}
     </>;
@@ -215,7 +247,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     const g=stageKnown(33) ? games(33)[0] : null;
     cards = <>
       {g ? gameCard(g,'Season Championship Game','d-lbt')
-        : waitingCard('Season Championship Game', 'The finalists will be set after Championship Round 2 is complete.')}
+        : <>
+            {blankScoreboard(33,'Championship Game')}
+            {waitingCard('Season Championship Game', 'The finalists will be set after Championship Round 2 is complete.')}
+          </>}
       {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
         body="Waiting for the winner of this Championship Game. The winner advances to the YAT?STATS World Series." /> : null}
       {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
@@ -227,7 +262,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     const g=stageKnown(34) ? (index.gf.find((x)=>x[1]===34) || index.gf[0]) : null;
     cards = <>
       {g ? gameCard(g,'YAT?STATS World Series','d-gf')
-        : waitingCard('YAT?STATS World Series', 'The matchup will be set after the Season Championship Game is complete.')}
+        : <>
+            {blankScoreboard(34,'YAT?STATS World Series')}
+            {waitingCard('YAT?STATS World Series', 'The matchup will be set after the Season Championship Game is complete.')}
+          </>}
       {qualifiersKnown ? <InfoCard kicker="REGIONAL TOP FANS" title="8 nominated Top Fans"
         body="One fan nominated by the players from each of the eight regional Season Championship teams."
         rows={topFans}
