@@ -9,7 +9,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { type GameRow, type Index, type LbGame, fmtRange, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
+import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, fmtRange, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 
@@ -167,7 +167,10 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
             const oppName = opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD';
             return (
               <div key={card.week} className="yft-series-game">
-                <span>{score ? <>{oppName} {score[1]}<br /><em>{schoolName} {score[0]}</em></> : <>Week {card.week}<br /><em>TBD</em></>}</span>
+                <span>{score ? <span className="yft-scorelines">
+                    <span className="yft-scoreline"><b>{oppName}</b><i>{score[1]}</i></span>
+                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score[0]}</i></span>
+                  </span> : <>Week {card.week}<br /><em>TBD</em></>}</span>
                 <small>G{i + 1}</small>
               </div>
             );
@@ -178,21 +181,63 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
   );
 }
 
+type PostStory = { headline:string; summary:string };
+
+function postStory(index:Index, games:GameRow[], boxes:Record<string,GameBox>):PostStory | null {
+  type Perf = { p:PlayerRow; school:string };
+  const rows:Perf[] = [];
+  for (const g of games) {
+    const box=boxes[String(g[0])];
+    if(!box) continue;
+    for(const p of box.h?.p||[]) rows.push({p,school:shortName(index.schools[g[2]]?.[0]||'')});
+    for(const p of box.a?.p||[]) rows.push({p,school:shortName(index.schools[g[3]]?.[0]||'')});
+  }
+  const hitters=rows.filter((x)=>Array.isArray(x.p[4])&&Number((x.p[4] as number[])[0]||0)>0&&Number.isFinite(Number(x.p[6])))
+    .sort((a,b)=>Number(b.p[6])-Number(a.p[6]));
+  const pitchers=rows.filter((x)=>Array.isArray(x.p[5])&&Number.isFinite(Number(x.p[7]))&&((x.p[5] as number[]).slice(0,5).some((v)=>Number(v||0)>0)))
+    .sort((a,b)=>Number(a.p[7])-Number(b.p[7]));
+  const h=hitters[0], p=pitchers[0];
+  if(!h&&!p)return null;
+  const hEdge=h?Number(h.p[6])-100:-Infinity;
+  const pEdge=p?100-Number(p.p[7]):-Infinity;
+  const lead=hEdge>=pEdge?h:p;
+  const surname=(lead?.p[1]||'').trim().split(/\s+/).pop()?.toUpperCase()||'POSTSEASON';
+  const headline=lead===p?`${surname} DEALS`:`${surname} POWERS THE WEEK`;
+  const parts:string[]=[];
+  if(h)parts.push(`${h.p[1]} (${h.school}) posted the week&apos;s top OPS+ at ${Math.round(Number(h.p[6]))}`);
+  if(p)parts.push(`${p.p[1]} (${p.school}) led the pitching side at ${Math.round(Number(p.p[7]))} FIP-`);
+  return {headline,summary:parts.join('. ')+'.'};
+}
+
 function PostSlide({ index, games, week, label, title, onTap }: {
   index:Index; games:GameRow[]; week:number; label:string; title:string; onTap:()=>void;
 }) {
   const dates=index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : '';
+  const displayDates=dates.replace(/\bSep\b/g,'Sept').replace(' – ',' - ');
+  const [story,setStory]=useState<PostStory|null>(null);
+  useEffect(()=>{
+    let cancelled=false;
+    if(!games.length){setStory(null);return()=>{cancelled=true;};}
+    const file=week===34?'d-gf':'d-lbt';
+    loadBoxes(file).then((boxes)=>{if(!cancelled)setStory(postStory(index,games,boxes));}).catch(()=>{});
+    return()=>{cancelled=true;};
+  },[games,index,week]);
   const status=games.length ? 'TOURNAMENT SCOREBOARD' : 'UPCOMING';
+  const cornerTitle=week===34
+    ? <><span>The YAT?STATS</span><span>WORLD SERIES</span></>
+    : week===33
+      ? <><span>CHAMPIONSHIP</span><span>GAME</span></>
+      : <span>{label}</span>;
   return (
     <div className="yft-slide yft-post-slide" role="button" tabIndex={0} onClick={onTap}
       onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onTap();}}}
       aria-label={title}>
       <span className="yft-grad" aria-hidden="true"/>
-      <div className="yft-left-meta"><b>{label}</b><span>{dates}</span></div>
+      <div className={`yft-left-meta${week>=33?' yft-post-corner':''}`}><b>{cornerTitle}</b><span>{week>=33?displayDates:dates}</span></div>
       <div className="yft-story">
         <span className="yft-status">{status}</span>
-        <strong className="yft-title">{title}</strong>
-        <p>{games.length ? 'Every fan can follow the complete field here.' : 'This stage is set when the prior stage is complete.'}</p>
+        <strong className="yft-title">{story?.headline || title}</strong>
+        <p>{story?.summary || (games.length ? 'Every fan can follow the complete field here.' : 'This stage is set when the prior stage is complete.')}</p>
       </div>
       <aside className="yft-series yft-post-scores" aria-label={`${title} scores`}>
         <div className="yft-series-games">
@@ -202,7 +247,10 @@ function PostSlide({ index, games, week, label, title, onTap }: {
             const home=shortName(index.schools[g[2]]?.[0]||'Home');
             return (
               <div className="yft-series-game" key={g[0]}>
-                <span>{away} {ar}<br/><em>{home} {hr}</em></span>
+                <span className="yft-scorelines">
+                  <span className="yft-scoreline"><b>{away}</b><i>{ar}</i></span>
+                  <span className="yft-scoreline home"><b>{home}</b><i>{hr}</i></span>
+                </span>
                 <small>G{i+1}</small>
               </div>
             );
@@ -352,9 +400,11 @@ export default function FantasyTimeline() {
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.2) 26%,rgba(5,5,5,.82) 42%,#050505 72%); }
-        .yft-person { position:absolute; z-index:1; left:65%; bottom:25px; width:13%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+        .yft-person { position:absolute; z-index:1; left:53%; bottom:25px; width:18%; height:calc(100% - 30px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
+        .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
+        .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
         .yft-mark { position:absolute; left:7%; top:48%; transform:translateY(-50%); width:110px; height:110px; display:grid; place-items:center; color:#555; font:400 64px/1 "Bebas Neue",Oswald,sans-serif; }
         .yft-mark-crest { width:100%; height:100%; object-fit:contain; }
@@ -371,6 +421,11 @@ export default function FantasyTimeline() {
         .yft-series-game { display:grid; grid-template-columns:1fr 24px; gap:7px; align-items:start; color:rgba(255,255,255,.78); font:500 11.5px/1.18 Oswald,sans-serif; }
         .yft-series-game small { color:var(--gold,#d5b44a); font:700 9px/1.2 Oswald,sans-serif; text-align:right; padding-top:1px; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
+        .yft-scorelines { display:grid; gap:1px; min-width:0; }
+        .yft-scoreline { display:grid; grid-template-columns:minmax(0,1fr) 22px; column-gap:10px; align-items:baseline; min-width:0; }
+        .yft-scoreline b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.78); font-weight:500; }
+        .yft-scoreline.home b { color:#fff; font-weight:700; }
+        .yft-scoreline i { font-style:normal; text-align:right; color:#fff; font-variant-numeric:tabular-nums; }
         .yft-raffle-cta { position:absolute; z-index:6; left:2.5%; top:70px; display:flex; align-items:flex-start; gap:5px; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
         .yft-raffle-trophy { width:64px; height:92px; flex:none; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 6px 8px rgba(0,0,0,.55)); transform:rotate(-3deg); }
         .yft-raffle-note { max-width:118px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:15px; line-height:.96; text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
@@ -395,12 +450,12 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:65%; width:12%; height:calc(100% - 22px); bottom:12px; object-position:bottom center; }
+          .yft-person { left:58%; width:18%; height:calc(100% - 22px); bottom:12px; object-position:bottom center; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
-          .yft-story { left:27%; right:36%; top:5px; bottom:20px; padding:0 4px; justify-content:flex-start; }
+          .yft-story { left:27%; right:42%; top:5px; bottom:20px; padding:0 4px; justify-content:flex-start; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
           .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
@@ -408,6 +463,7 @@ export default function FantasyTimeline() {
           .yft-series { right:1.2%; top:5px; bottom:20px; width:23.5%; min-width:0; justify-content:flex-start; }
           .yft-series-games { margin-top:0; gap:5px; }
           .yft-series-game { grid-template-columns:1fr 15px; gap:3px; font-size:8.2px; line-height:1.10; }
+          .yft-scoreline { grid-template-columns:minmax(0,1fr) 14px; column-gap:6px; }
           .yft-post-scores .yft-series-games { gap:4px; }
           .yft-post-scores .yft-series-game { font-size:7.2px; line-height:1.08; }
           .yft-series-game small { font-size:6.4px; line-height:1.05; text-align:right; padding-top:1px; }
