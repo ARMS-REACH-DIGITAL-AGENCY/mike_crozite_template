@@ -37,7 +37,7 @@ jobs:
       - name: Commit rebuilt fixture
         # This PR lives in the same repository and the job explicitly checks out
         # bracket-simulation, so persist the validated fixture on PR runs too.
-        # The generated fixture paths are not workflow trigger paths, avoiding a loop.
+        # Generated fixture paths are intentionally not trigger paths; code changes trigger one clean rebuild.
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         run: |
           git config user.name "yatstats-sim-bot"
