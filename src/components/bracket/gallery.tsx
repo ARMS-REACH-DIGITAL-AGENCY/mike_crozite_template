@@ -21,6 +21,7 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
+import { simulationAsOf } from './simulationState';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -393,12 +394,11 @@ export function lastFinalWeek(index: Index, iso: string) {
   return w;
 }
 
-// Today's date (YYYY-MM-DD), or ?asof=YYYY-MM-DD to preview any date.
+// Progressive simulation date. ?asof=YYYY-MM-DD still overrides it for debugging.
 export function previewDate() {
   const q = new URLSearchParams(window.location.search).get('asof') || '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return simulationAsOf();
 }
 
 // One school's games in a stage, played through maxWeek: its bracket series,
