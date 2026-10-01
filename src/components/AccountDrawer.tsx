@@ -1217,41 +1217,23 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </button>
 
               <div style={{ marginBottom: '10px' }}>
-                {!promoOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => setPromoOpen(true)}
-                    style={{
-                      width: '100%',
-                      padding: '4px',
-                      background: 'transparent',
-                      color: 'var(--muted)',
-                      border: 'none',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    Have a promo code?
-                  </button>
-                ) : (
-                  <input
-                    type="text"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder="Enter promo code (optional)"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--line)',
-                      background: 'rgba(255, 255, 255, .06)',
-                      color: 'var(--ink)',
-                      fontSize: '13px',
-                      textTransform: 'uppercase',
-                    }}
-                  />
-                )}
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder="Enter Superfan promo code, then tap the gold button — FREE!"
+                  aria-label="Superfan promo code"
+                  style={{
+                    width: '100%',
+                    padding: '11px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(255, 255, 255, .06)',
+                    color: 'var(--ink)',
+                    fontSize: '13px',
+                    textTransform: 'uppercase',
+                  }}
+                />
               </div>
 
               <button
