@@ -233,12 +233,14 @@ function rankedTiebreak(side:SideBox){
 
 function playerTiebreak(home:SideBox,away:SideBox){
   const h=rankedTiebreak(home), a=rankedTiebreak(away);
-  let hr=0, ar=0;
+  const innings:[number,number][]=[];
   for(let k=0;;k++){
-    if(k>=h.hitters.length || k>=a.hitters.length || k>=h.pitchers.length || k>=a.pitchers.length) return null;
+    if(k>=h.hitters.length || k>=a.hitters.length || k>=h.pitchers.length || k>=a.pitchers.length) return {winner:null,rank:null,innings};
+    let hr=0, ar=0;
     if(h.hitters[k].v>a.hitters[k].v) hr++; else if(a.hitters[k].v>h.hitters[k].v) ar++;
     if(h.pitchers[k].v<a.pitchers[k].v) hr++; else if(a.pitchers[k].v<h.pitchers[k].v) ar++;
-    if(hr!==ar) return {winner:hr>ar?'home' as const:'away' as const,rank:k+1,score:[hr,ar] as [number,number]};
+    innings.push([hr,ar]);
+    if(hr!==ar) return {winner:hr>ar?'home' as const:'away' as const,rank:k+1,innings};
   }
 }
 
@@ -259,13 +261,14 @@ function play(home:number,away:number,week:number,id:number){
   let winner:number;
   if(hs===as){
     const tb=playerTiebreak(hb,ab);
-    if(tb){
-      inn.push(...tb.score);
-      hs+=tb.score[0]; as+=tb.score[1];
+    for(const x of tb.innings){ inn.push(x[0],x[1]); hs+=x[0]; as+=x[1]; }
+    if(tb.winner){
       winner=tb.winner==='home'?home:away;
       decidedBy=`players-${tb.rank}`;
     }else{
       winner=deterministicWinner(home,away,week);
+      const coin:[number,number]=winner===home?[1,0]:[0,1];
+      inn.push(...coin); hs+=coin[0]; as+=coin[1];
       decidedBy='coin';
     }
   }else winner=hs>as?home:away;
