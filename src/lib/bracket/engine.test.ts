@@ -155,9 +155,10 @@ test("ties: no players to compare - the commissioner's coin flip, or a tie on th
 
 test("tiebreak: best hitter vs best hitter and best pitcher vs best pitcher; winning both takes it", () => {
   const g = playGame(tied(roster(hitter(5), hitter(1), pitcher(10))), tied(roster(hitter(4), pitcher(6), pitcher(9))), baselines, HOLD);
-  assert.deepEqual([g.home, g.away], [0, 0]);
+  assert.deepEqual([g.home, g.away], [2, 0]);
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 1);
+  assert.deepEqual(g.tieScore, [2, 0]);
   assert.equal(g.winner, 'home');
 });
 
@@ -167,6 +168,7 @@ test('tiebreak: 1-1 on #1 advances to #2 and cumulative player runs decide it', 
   const home = roster(hitter(5), hitter(2), pitcher(10), pitcher(7));
   const away = roster(hitter(4), hitter(3), pitcher(12), pitcher(9));
   const g = playGame(tied(home), tied(away), baselines, HOLD);
+  assert.deepEqual([g.home, g.away], [1, 3]);
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 2);
   assert.deepEqual(g.tieScore, [1, 3]);
