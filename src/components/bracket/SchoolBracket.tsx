@@ -38,13 +38,13 @@ const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-s
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
 const shareSchoolLabel=(raw:string)=>raw.replace(/,\s*/g,', ').trim();
-const drawerSchoolLabel=(raw:string)=>{
+const drawerSchoolParts=(raw:string)=>{
   const normalized=shareSchoolLabel(raw);
   const m=normalized.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
   const base=(m?.[1]||normalized).trim();
-  const loc=(m?.[2]||'').replace(/,\s*/g,', ').trim();
+  const location=(m?.[2]||'').replace(/,\s*/g,', ').trim();
   const school=/\b(high|prep|academy|school|college)\b/i.test(base)?base:`${base} High School`;
-  return loc?`${school} (${loc})`:school;
+  return { school, location };
 };
 
 type Open = { card: WeekCard; side: 'h' | 'a' };
@@ -199,6 +199,7 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   }, [card.file, homeId, awayId]);
   const S = index.schools;
   const h = side === 'h' ? homeId : awayId;
+  const drawerSchool = drawerSchoolParts(S[h]?.[0] || '');
   const [hr, ar] = runsThrough(g, 7);
   return (
     <DrawerWrap onClose={onClose}>
@@ -206,8 +207,9 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
           <div>
-            <b>{`WEEK ${card.week} · ${card.week <= 30 ? `ROUND ${Math.ceil(card.week / 3)} · GAME ${((card.week - 1) % 3) + 1}` : card.stage.toUpperCase()}`}</b>
-            <span>{drawerSchoolLabel(S[h]?.[0] || '')}</span>
+            <b className="yfp-drawer-school">{drawerSchool.school}</b>
+            {drawerSchool.location ? <span className="yfp-drawer-location">{drawerSchool.location}</span> : null}
+            <span className="yfp-drawer-game">{`WEEK ${card.week} · ${card.week <= 30 ? `ROUND ${Math.ceil(card.week / 3)} · GAME ${((card.week - 1) % 3) + 1}` : card.stage.toUpperCase()}`}</span>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -700,21 +702,27 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* Above the site's floating buttons, so nothing covers the close button. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
         .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: rgba(0,0,0,.3); }
-        .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
+        .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }
         @keyframes yfp-in-r { from { transform: translateX(100%); } to { transform: none; } }
         @keyframes yfp-in-l { from { transform: translateX(-100%); } to { transform: none; } }
         @media (prefers-reduced-motion: reduce) { .bl.bl-embed.yfp-drawer { animation: none; } }
-        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--panel2); border-bottom: 1px solid var(--line); }
-        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-        .yfp-drawer-head b { font: 500 18px/1.1 Oswald, sans-serif; letter-spacing: .03em; color: var(--gold); }
-        .yfp-drawer-head span { color: var(--muted); font: 500 11px/1.2 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-        .yfp-drawer-head button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
+        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .yfp-drawer-head .yfp-drawer-school { color: var(--text); font: 600 18px/1.08 "Roboto Condensed", "Arial Narrow", Oswald, sans-serif; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .yfp-drawer-head .yfp-drawer-location { color: var(--muted); font: 600 10px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+        .yfp-drawer-head .yfp-drawer-game { margin-top: 3px; color: var(--gold); font: 700 11px/1.15 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .yfp-drawer-head button { flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
         .yfp-drawer .ybr-rules { padding: 14px; }
         .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
         @media (max-width: 899px) {
+          .bl.bl-embed.yfp-drawer { width: 100vw; }
+          .yfp-drawer-head { padding: 9px 10px; }
+          .yfp-drawer-head .yfp-drawer-school { font-size: 17px; }
+          .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }
+          .yfp-drawer-head .yfp-drawer-game { font-size: 10px; }
           .yfp { padding: 8px 8px 16px; }
           .yfp-green-row { grid-template-columns:68px repeat(9,minmax(10px,1fr)) 24px; gap:1px; }
           .yfp-green-full { display:block; font:800 7.5px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
