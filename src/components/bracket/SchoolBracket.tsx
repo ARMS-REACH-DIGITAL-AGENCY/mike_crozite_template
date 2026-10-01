@@ -140,19 +140,25 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     </>
   );
 
+  const social = card.state === 'final' && g ? (
+    <FantasyGameSocial
+      gameKey={`sim-2026:${g[0]}`}
+      title={`Round ${round} · Game ${gameNo}`}
+      subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
+      shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
+      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}#sec-fantasy`}
+      preview={<div className="yfp-scorecard">{scoreboard}</div>}
+    />
+  ) : null;
+
   return (
     <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
-      {scoreboard}
-      {card.state === 'final' && g ? (
-        <FantasyGameSocial
-          gameKey={`sim-2026:${g[0]}`}
-          title={`Round ${round} · Game ${gameNo}`}
-          subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
-          shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-          shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}#sec-fantasy`}
-          preview={<div className="yfp-scorecard">{scoreboard}</div>}
-        />
-      ) : null}
+      {social ? (
+        <div className="yfp-game-split">
+          <div className="yfp-game-scorepane">{scoreboard}</div>
+          <div className="yfp-game-socialpane">{social}</div>
+        </div>
+      ) : scoreboard}
     </article>
   );
 }
@@ -561,6 +567,72 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
         .yfp-scorecard .yfp-social { margin-left:8px; margin-right:8px; }
+
+        /* Desktop: keep school names beside the innings, and use the other
+           half of the card for that game's social thread. Mobile remains stacked. */
+        @media (min-width:900px) {
+          .yfp-game-split {
+            display:grid;
+            grid-template-columns:minmax(360px,1fr) minmax(320px,1fr);
+            min-height:126px;
+            align-items:stretch;
+          }
+          .yfp-game-scorepane {
+            min-width:0;
+            overflow:hidden;
+            border-right:1px solid var(--yfp-card-border);
+          }
+          .yfp-game-socialpane {
+            min-width:0;
+            min-height:0;
+            padding:4px 8px 6px 10px;
+            overflow:hidden;
+          }
+          .yfp-game-scorepane .yfp-green-row {
+            grid-template-columns:118px repeat(9,20px) 30px;
+            width:max-content;
+            max-width:100%;
+            justify-content:start;
+          }
+          .yfp-game-scorepane .yfp-green-slot,
+          .yfp-game-scorepane .yfp-green-run { height:22px; }
+          .yfp-game-scorepane .yfp-green-full {
+            font-family:var(--yfp-sb),"Arial Narrow",Oswald,sans-serif;
+            font-size:10px;
+            letter-spacing:-.025em;
+          }
+          .yfp-game-scorepane .yfp-green-place { font-size:5.5px; }
+          .yfp-game-socialpane .fgs-inline.ysv-post {
+            height:100%;
+            min-height:0;
+            display:flex;
+            flex-direction:column;
+            overflow:hidden;
+          }
+          .yfp-game-socialpane .fgs-inline .ysv-counts,
+          .yfp-game-socialpane .fgs-inline .ysv-actions { flex:none; }
+          .yfp-game-socialpane .fgs-desktop-only {
+            flex:1;
+            min-height:0;
+            display:flex!important;
+            flex-direction:column;
+            overflow:hidden;
+          }
+          .yfp-game-socialpane .fgs-inline .ysv-comments {
+            flex:1;
+            min-height:0;
+            overflow-y:auto;
+            overscroll-behavior:contain;
+            scrollbar-width:thin;
+            padding-right:4px;
+          }
+          .yfp-game-socialpane .fgs-inline .ysv-composer {
+            flex:none;
+            margin-top:4px;
+            padding-top:6px;
+            border-top:1px solid var(--yfp-card-border);
+          }
+        }
 
         /* A week, like a scoreboard app's box. */
         .yfp-card { border: 1px solid var(--yfp-card-border); border-radius: 6px; background: var(--yfp-card-bg); padding: 7px 10px 6px; transition: border-color .15s ease, box-shadow .15s ease; }
