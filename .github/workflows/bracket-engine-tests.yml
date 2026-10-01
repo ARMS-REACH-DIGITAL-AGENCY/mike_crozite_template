@@ -2,6 +2,13 @@ name: Bracket Engine Tests
 
 on:
   workflow_dispatch:
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - src/lib/bracket/engine.ts
+      - src/lib/bracket/engine.test.ts
+      - scripts/simulate-bracket-2026.ts
+      - .github/workflows/bracket-engine-tests.yml
   pull_request:
     paths:
       - src/lib/bracket/engine.ts
