@@ -130,7 +130,8 @@ const rosterRows=(await pool.query(`
          ) AS pitcher
     FROM flip_card_front_stage f
     LEFT JOIN season_meta sm ON sm.playerid=f.playerid::text
-   WHERE COALESCE(upper(trim(f.status_label)),'') <> 'RETIRED'
+   WHERE COALESCE(upper(trim(f.status_label)),'') NOT IN ('RETIRED','FREE AGENT')
+     AND COALESCE(upper(trim(f.status_label)),'') !~ 'RED[[:space:]-]*SHIRT'
      AND COALESCE(upper(trim(f.level_label)),'') NOT IN ('HIGH SCHOOL','HS')
 `)).rows as any[];
 
