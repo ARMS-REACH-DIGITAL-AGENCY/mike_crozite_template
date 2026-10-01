@@ -2,7 +2,7 @@ name: Rebuild 2026 Bracket Fixture
 
 on:
   push:
-    branches: [bracket-simulation]
+    branches: [bracket-simulation, Easter-NEWS]
     paths:
       - scripts/rebuild-bracket-fixture-2026.ts
       - .github/workflows/rebuild-bracket-fixture-2026.yml
@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: bracket-simulation
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -33,7 +33,7 @@ jobs:
       - name: Rebuild complete 2026 simulation
         run: npx --yes tsx scripts/rebuild-bracket-fixture-2026.ts
       - name: Audit rebuilt fixture
-        run: node scripts/bracket-integrity-2026.mjs audit --report bracket-integrity-report.json
+        run: node scripts/bracket-integrity-2026.mjs audit --strict-byes --report bracket-integrity-report.json
       - name: Commit rebuilt fixture
         # This PR lives in the same repository and the job explicitly checks out
         # bracket-simulation, so persist the validated fixture on PR runs too.
@@ -50,9 +50,10 @@ jobs:
             # The branch can advance while the database-backed rebuild runs.
             # Rebase this generated-fixture-only commit onto the latest head
             # before pushing instead of losing the validated output.
-            git fetch origin bracket-simulation
-            git rebase origin/bracket-simulation
-            git push origin HEAD:bracket-simulation
+            TARGET_BRANCH="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
+            git fetch origin "$TARGET_BRANCH"
+            git rebase "origin/$TARGET_BRANCH"
+            git push origin "HEAD:$TARGET_BRANCH"
           fi
       - uses: actions/upload-artifact@v4
         if: always()
