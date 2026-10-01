@@ -36,6 +36,42 @@ function pct(wl) {
   return w + l ? w / (w + l) : null;
 }
 
+function rankedPlayers(side) {
+  const rows = Array.isArray(side?.p) ? side.p : [];
+  const hitters = rows
+    .filter((p) => Array.isArray(p?.[4]) && Number(p[4][0] || 0) > 0 && Number.isFinite(Number(p?.[6])))
+    .map((p) => ({ id: String(p[0]), value: Number(p[6]) }))
+    .sort((a, b) => b.value - a.value || a.id.localeCompare(b.id));
+  const pitchers = rows
+    .filter((p) => {
+      if (!Array.isArray(p?.[5]) || !Number.isFinite(Number(p?.[7]))) return false;
+      const x = p[5];
+      return [0, 1, 2, 3, 4].some((i) => Number(x[i] || 0) > 0);
+    })
+    .map((p) => ({ id: String(p[0]), value: Number(p[7]) }))
+    .sort((a, b) => a.value - b.value || a.id.localeCompare(b.id));
+  return { hitters, pitchers };
+}
+
+function expectedPlayerTiebreak(box) {
+  const h = rankedPlayers(box?.h), a = rankedPlayers(box?.a);
+  let home = 0, away = 0;
+  for (let k = 0; ; k++) {
+    if (
+      k >= h.hitters.length || k >= a.hitters.length ||
+      k >= h.pitchers.length || k >= a.pitchers.length
+    ) return { kind: 'coin', rank: k + 1, score: [home, away] };
+
+    if (h.hitters[k].value > a.hitters[k].value) home++;
+    else if (a.hitters[k].value > h.hitters[k].value) away++;
+
+    if (h.pitchers[k].value < a.pitchers[k].value) home++;
+    else if (a.pitchers[k].value < h.pitchers[k].value) away++;
+
+    if (home !== away) return { kind: 'players', rank: k + 1, score: [home, away] };
+  }
+}
+
 function definiteComparisonOptions(h, a, higherIsBetter, absent) {
   const key = (x, y) => `${x},${y}`;
   const out = new Set();
@@ -244,6 +280,26 @@ function auditFixture(fixture, options = {}) {
       const expected = hp0 == null && ap0 == null ? [0, 0] : hp > ap ? [1, 0] : ap > hp ? [0, 1] : [0, 0];
       const saved = [Number(innings[16] || 0), Number(innings[17] || 0)];
       if (!sameArray(expected, saved)) rec.error('inning9-wl-disagreement', `game ${id} week ${week}: saved ${saved.join('-')}, expected ${expected.join('-')} from ${JSON.stringify(box.h?.wl)} vs ${JSON.stringify(box.a?.wl)}`);
+    }
+
+    if (innings.length >= 18) {
+      const regulation = score(innings.slice(0, 18));
+      if (regulation[0] === regulation[1]) {
+        const expectedTb = expectedPlayerTiebreak(box);
+        const decidedBy = String(game[4] || '');
+        if (expectedTb.kind === 'players') {
+          const expectedLabel = `players-${expectedTb.rank}`;
+          const savedTb = innings.length >= 20 ? [Number(innings[18] || 0), Number(innings[19] || 0)] : null;
+          if (decidedBy !== expectedLabel) {
+            rec.error('player-tiebreak-method-disagreement', `game ${id} week ${week}: stored ${decidedBy}, expected ${expectedLabel}`);
+          }
+          if (!savedTb || !sameArray(savedTb, expectedTb.score)) {
+            rec.error('player-tiebreak-score-disagreement', `game ${id} week ${week}: saved ${JSON.stringify(savedTb)}, expected ${expectedTb.score.join('-')}`);
+          }
+        } else if (decidedBy !== 'coin') {
+          rec.error('commissioner-flip-missed', `game ${id} week ${week}: roster exhausted at rank ${expectedTb.rank}, stored ${decidedBy}`);
+        }
+      }
     }
 
     for (const [side, hsid] of [['h', home], ['a', away]]) {
