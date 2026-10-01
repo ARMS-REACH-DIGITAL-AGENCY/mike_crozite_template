@@ -354,7 +354,17 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   // Ties after 9: player vs player, then a tie (leaderboard) or the
   // commissioner's coin flip.
   const pt = playerTiebreak(home, away, baselines, rules);
-  if (pt) return { ...base, winner: pt.winner, decidedBy: 'players', tieRank: pt.rank, tieScore: pt.score };
+  if (pt) {
+    return {
+      ...base,
+      home: hr + pt.score[0],
+      away: ar + pt.score[1],
+      winner: pt.winner,
+      decidedBy: 'players',
+      tieRank: pt.rank,
+      tieScore: pt.score,
+    };
+  }
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
   return { ...base, winner: coinFlip ? coinFlip() : null, decidedBy: 'coin', tieScore: [0, 0] };
 }
