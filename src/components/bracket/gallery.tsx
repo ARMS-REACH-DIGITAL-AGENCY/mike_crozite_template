@@ -977,6 +977,42 @@ function sumRosterWl(players: PlayerRow[]): [number, number] {
   }, [0, 0]);
 }
 
+function splitWeeklyCount(total: number, playerid: string, week: number, stat: string, day: number) {
+  const n = Math.max(0, Math.round(Number(total || 0)));
+  const base = Math.floor(n / 7);
+  const rem = n % 7;
+  const offset = hashRosterKey(`daily:${playerid}:${week}:${stat}`) % 7;
+  const pos = (day - offset + 7) % 7;
+  return base + (pos < rem ? 1 : 0);
+}
+
+function dailyRosterRows(players: PlayerRow[], week: number, day: number): PlayerRow[] {
+  return players.map((p) => {
+    const next = [...p] as PlayerRow;
+    if (Array.isArray(p[4])) {
+      const src = p[4] as number[];
+      const vals = src.map((v, i) => splitWeeklyCount(v, String(p[0]), week, `bat-${i}`, day));
+      let [pa, ab, h, d2, d3, hr, bb, hbp, sf] = vals;
+      h = Math.min(h, ab);
+      d2 = Math.min(d2, h);
+      d3 = Math.min(d3, Math.max(0, h - d2));
+      hr = Math.min(hr, Math.max(0, h - d2 - d3));
+      pa = Math.max(pa, ab + bb + hbp + sf);
+      next[4] = [pa, ab, h, d2, d3, hr, bb, hbp, sf];
+      next[6] = pa > 0 ? p[6] : null;
+    }
+    if (Array.isArray(p[5])) {
+      const src = p[5] as number[];
+      const vals = src.map((v, i) => i === 8 ? Number(v || 0) : splitWeeklyCount(v, String(p[0]), week, `pit-${i}`, day));
+      const active = Number(vals[0] || 0) > 0 || Number(vals[1] || 0) > 0 || Number(vals[2] || 0) > 0 || Number(vals[4] || 0) > 0;
+      next[5] = vals;
+      next[7] = active ? p[7] : null;
+    }
+    next[8] = null;
+    return next;
+  });
+}
+
 export function correctedRosterGame(
   innings: number[],
   week: number,
@@ -1025,9 +1061,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
   const weekVals = box?.d?.[7];
   const myName = names[me];
+  const [statDay, setStatDay] = useState<'week' | number>('week');
+  const viewPlayers = statDay === 'week' ? (mine?.p || []) : dailyRosterRows(mine?.p || [], week, statDay);
 
-  const batters = (mine?.p || []).filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
-  const pitchers = (mine?.p || []).filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
+  const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
+  const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
   const teamBat = batters.reduce((t, p) => (p[4] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const teamPit = pitchers.reduce((t, p) => (p[5] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const obp = (b: number[]) => {
@@ -1052,7 +1090,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const player = (p: PlayerRow) => (
     <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a>
   );
-  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0');
+  const wlCell = (p: PlayerRow) => statDay === 'week' ? (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0') : '—';
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
   const batCols: SortCol[] = [
@@ -1239,12 +1277,26 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {!loading && !mine && <div className="bl-muted">No box score.</div>}
       {mine && (
         <>
+          {drawerMode ? (
+            <div className="bl-history-tabs" role="tablist" aria-label="Player stat history">
+              {[
+                ['week','Week'],[0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su']
+              ].map(([key,label]) => (
+                <button key={String(key)} type="button" role="tab"
+                  className={statDay===key ? 'on' : ''}
+                  aria-selected={statDay===key}
+                  onClick={(e)=>{e.stopPropagation();setStatDay(key as 'week'|number);}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
-            total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[statDay === 'week' && weekVals ? fmtStat(weekVals[me]) : '—', statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
             total={[
-              weekVals ? fmtStat(weekVals[2 + me]) : '0',
-              teamWl,
+              statDay === 'week' && weekVals ? fmtStat(weekVals[2 + me]) : '—',
+              statDay === 'week' ? teamWl : '—',
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
@@ -1373,6 +1425,10 @@ export function Styles() {
       .bl.bl-embed .bl-wl { font-size:10.5px; }
       .bl.bl-embed .bl-legend { font-size:9.5px; }
       .bl.bl-embed .bl-muted { padding:8px; font-size:11px; }
+      .bl-history-tabs{position:sticky;top:0;z-index:4;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px;margin:6px 0 5px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+      .bl-history-tabs button{min-width:0;padding:5px 2px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font:700 9px/1 Oswald,sans-serif;cursor:pointer}
+      .bl-history-tabs button.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold)}
+      @media(max-width:520px){.bl-history-tabs button{font-size:8px;padding:5px 1px}}
       /* On a school's page the cards follow the site's light / dark toggle. */
       body.light-theme .bl.bl-embed { --bg:#f4f4f4; --panel:#fff; --panel2:#f3f4f6; --line:#e1e4e8; --text:#121212; --muted:#5f6670; --gold:#b07d00;
         --win:#1e8e3e; --loss:#c62828; --dim:#a0a6ae; --faint:#80868e; --gold-bg:#fff4d6; --tint:rgba(0,0,0,.06); --tint2:rgba(0,0,0,.02); --gold-tint:rgba(255,193,7,.14); }
