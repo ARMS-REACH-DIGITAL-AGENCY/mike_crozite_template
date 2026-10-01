@@ -57,7 +57,7 @@ for(let round=2;round<=10;round++){
       for(const week of weeks)outGames.push(...(weekOld.get(week)||[]));
       continue;
     }
-    const {pairs}=pairEliminated(pool,played,`${seed}:lb:round:${round}:${region}`);
+    const {pairs}=pairEliminated(pool,`${seed}:lb:round:${round}:${region}`);
     for(const [a,b] of pairs){played.set(a,(played.get(a)||0)+3);played.set(b,(played.get(b)||0)+3);}
     for(const week of weeks){
       const ids=(weekOld.get(week)||[]).map(g=>Number(g[0])).sort((a,b)=>a-b);
