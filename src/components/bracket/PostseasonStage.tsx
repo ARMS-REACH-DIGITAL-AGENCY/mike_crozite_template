@@ -112,6 +112,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
   const bracketChampionKnown = cal.final >= 30;
   const championRaw = bracketChampionKnown ? (index.schools[index.champion]?.[0] || '') : '';
   const championName = championRaw ? shortName(championRaw) : '_______________';
+  const championBase = championRaw ? championRaw.split(' (')[0].replace(/\bPreparatory\b/gi,'Prep').trim() : '';
+  const championSchool = championBase
+    ? (/\b(high|prep|academy|school|college)\b/i.test(championBase) ? championBase : `${championBase} High School`)
+    : '_______________';
   const championLocation = championRaw ? place(championRaw) : '_______________';
   const stageKnown = (week:number) => cal.final >= week - 1;
   const qualifiersKnown = cal.final >= 30;
@@ -125,13 +129,13 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       body={<>
         <p>Congratulations to our 30 Week - Ten Round - Undefeated YAT?STATS Alumni Fantasy Bracket Champion, <b>{championName}</b>! Which of these 8 Regional Champions will they play in Week 34&apos;s YAT?STATS WORLD SERIES?</p>
         <p>More importantly, which lucky fan will win 4 tickets to this year&apos;s MLB World Series?</p>
-        <p>Congratulations to these fans of <b>{championName}</b> High School from <b>{championLocation}</b>. They have all earned the right to have their name entered (some more than once) into the drawing that will take place on October 3, 2027, the last day of the MLB Regular Season.</p>
+        <p>Congratulations to these fans of <b>{championSchool}</b> from <b>{championLocation}</b>. They have all earned the right to have their name entered (some more than once) into the drawing that will take place on October 3, 2027, the last day of the MLB Regular Season.</p>
         <p className="yfp-madlib-line">_______________</p>
         <p>But don&apos;t fret if your favorite Active Alumni didn&apos;t win the bracket tournament. If you are a current fan of the 8 Regional Champions listed above, you may possibly still have a chance to win. Every Active Alumni from the 8 Regional Winners will each be personally selecting 1 <b>LuckyFan</b> that will have their name added to the pool of potential winners. Good Luck!</p>
       </>}
       onOpen={()=>setDrawer({
         title:'World Series raffle entries',
-        kicker:`${championName} High School · ${championLocation}`,
+        kicker:`${championSchool} · ${championLocation}`,
         rows:bracketFans,
         note:'Eligible fan entries will appear here as they are earned and verified.'
       })}
