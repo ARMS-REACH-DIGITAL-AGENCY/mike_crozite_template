@@ -185,9 +185,9 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-game{padding:0;overflow:hidden;min-height:190px}
       .yfp-post-game-head{display:flex;justify-content:space-between;gap:6px;padding:5px 7px 4px;background:#9c7f22;color:#fff5cf;font:700 8px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif;letter-spacing:.04em;text-transform:uppercase}
       .yfp-post-green-board{padding:6px;background:linear-gradient(180deg,#1f6546,#174c35);border-bottom:1px solid #0d3022}
-      .yfp-post-green-row{display:grid;grid-template-columns:minmax(62px,1fr) repeat(9,18px) 28px;gap:2px;align-items:center;margin-top:2px}
+      .yfp-post-green-row{display:grid;grid-template-columns:minmax(82px,1fr) repeat(9,18px) 28px;gap:2px;align-items:center;margin-top:2px}
       .yfp-post-green-row.head{margin-top:0;color:#eef7ef;font:700 8px/1 Oswald,sans-serif;text-align:center}.yfp-post-green-row.head>span:not(:first-child){display:grid;place-items:center}
-      .yfp-post-green-team{min-width:0;border:0;background:transparent;color:#fff;text-align:left;padding:0 5px 0 0;cursor:pointer}.yfp-post-green-team .abbr{display:none;font:800 12px/1 Oswald,sans-serif}.yfp-post-green-team .full{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 11px/1 Oswald,sans-serif}.yfp-post-green-row.me .yfp-post-green-team{color:#ffd34f}
+      .yfp-post-green-team{min-width:0;border:0;background:transparent;color:#fff;text-align:left;padding:0 5px 0 0;cursor:pointer}.yfp-post-green-team .abbr{display:none}.yfp-post-green-team .full{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 10px/.95 "Roboto Condensed","Arial Narrow",Oswald,sans-serif;letter-spacing:-.025em}.yfp-post-green-row.me .yfp-post-green-team{color:#ffd34f}
       .yfp-post-green-row>span:not(:first-child),.yfp-post-green-row>strong{height:20px;display:grid;place-items:center;border-radius:3px;background:#0d2d20;color:#edf4ee;font:800 11px/1 Oswald,sans-serif}.yfp-post-green-row>strong{color:#ffd34f;font-size:13px}.yfp-post-green-row.won>strong{background:#f3c735;color:#15251d}
       .yfp-post-game-date{padding:7px;color:var(--yfp-muted);font:600 9px/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.06em}
       .yfp-post-card{min-height:230px;display:flex;flex-direction:column;overflow:hidden;border-color:rgba(255,210,74,.28);background:linear-gradient(180deg,rgba(255,210,74,.075),rgba(255,255,255,.025))}
@@ -208,7 +208,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-drawer-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 14px;scrollbar-width:thin}
       .yfp-post-drawer-scroll ol{list-style:none;margin:0;padding:0}.yfp-post-drawer-scroll li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 2px;border-bottom:1px solid #262c37}.yfp-post-drawer-scroll li b{font:700 13px/1.2 Oswald,sans-serif}.yfp-post-drawer-scroll li span{color:#8b93a1;font:500 10px/1.2 Oswald,sans-serif;text-align:right}
       .yfp-post-drawer-note{margin:0;padding:9px 14px 12px;border-top:1px solid #262c37;color:#8b93a1;font:500 10px/1.35 Oswald,sans-serif}
-      @media(max-width:899px){.yfp-post-green-row{grid-template-columns:38px repeat(9,minmax(10px,1fr)) 24px;gap:1px}.yfp-post-green-team .full{display:none}.yfp-post-green-team .abbr{display:block}.yfp-raffle-cta{grid-template-columns:1fr;gap:7px}.yfp-raffle-cta button{width:100%}.yfp-post-card{min-height:220px}}
+      @media(max-width:899px){.yfp-post-green-row{grid-template-columns:68px repeat(9,minmax(10px,1fr)) 24px;gap:1px}.yfp-post-green-team .full{display:block;font-size:7.5px;letter-spacing:-.035em}.yfp-post-green-team .abbr{display:none}.yfp-raffle-cta{grid-template-columns:1fr;gap:7px}.yfp-raffle-cta button{width:100%}.yfp-post-card{min-height:220px}}
     `}</style>
   </>;
 }
