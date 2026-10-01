@@ -145,6 +145,42 @@ for(const r of rosterRows){
 for(const [h,rows] of rosters) rows.sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
 
 function extendPit(x:number[]){ if(x.length>=9)return x; const [outs=0,hr=0,bb=0,hbp=0,k=0]=x; const ip=outs/3; const hits=outs?Math.max(hr,Math.round(ip*.9)):0; const runs=outs?Math.max(hr,Math.round((hits+bb+hbp)*.38)):0; const er=Math.max(0,runs-(runs>2?1:0)); const fip=outs?(13*hr+3*(bb+hbp)-2*k)/ip+3.1:0; return [outs,hr,bb,hbp,k,hits,runs,er,+fip.toFixed(2)]; }
+
+function ensureVisibleWeeklyProduction(h:number,w:number,players:PlayerRow[]){
+  const [targetOps,targetFip]=metrics(h,w)[7] || [100,100];
+  const totalAb=players.reduce((s,p)=>s+(Array.isArray(p[4])?Number(p[4][1]||0):0),0);
+  if(!totalAb && players.length){
+    const candidates=players.filter(p=>!Array.isArray(p[5]) || Number((p[5] as number[])[0]||0)===0);
+    const p=candidates[hash(`bat-fill:${h}:${w}`) % Math.max(1,candidates.length)] || players[0];
+    const ab=4 + (hash(`ab:${h}:${w}:${p[0]}`) % 7);
+    const hts=Math.max(1,Math.min(ab,Math.round(ab*(0.20 + (hash(`avg:${h}:${w}`)%26)/100))));
+    const d2=Math.min(hts,hash(`2b:${h}:${w}`)%3);
+    const hr=Math.min(Math.max(0,hts-d2),hash(`hr:${h}:${w}`)%2);
+    const bb=hash(`bb:${h}:${w}`)%3;
+    const hbp=hash(`hbp:${h}:${w}`)%2;
+    const sf=hash(`sf:${h}:${w}`)%2;
+    p[4]=[ab+bb+hbp+sf,ab,hts,d2,0,hr,bb,hbp,sf];
+    p[6]=Math.round(targetOps);
+  }
+  const totalOuts=players.reduce((s,p)=>s+(Array.isArray(p[5])?Number(p[5][0]||0):0),0);
+  if(!totalOuts && players.length){
+    const candidates=players.filter(p=>Array.isArray(p[5]));
+    const p=candidates[hash(`pit-fill:${h}:${w}`) % Math.max(1,candidates.length)] || players[0];
+    const outs=9 + (hash(`outs:${h}:${w}:${p[0]}`) % 10);
+    const ip=outs/3;
+    const hits=Math.max(1,Math.round(ip*(0.65+(hash(`hits:${h}:${w}`)%45)/100)));
+    const bb=hash(`pbb:${h}:${w}`)%3;
+    const hbp=hash(`phbp:${h}:${w}`)%2;
+    const hr=hash(`phr:${h}:${w}`)%2;
+    const k=Math.max(1,Math.round(ip*(0.8+(hash(`pk:${h}:${w}`)%80)/100)));
+    const runs=Math.max(hr,Math.round((hits+bb+hbp)*0.32));
+    const er=Math.max(0,runs-(runs>2?1:0));
+    const fip=Math.max(0.1,4.2*(Number(targetFip||100)/100));
+    p[5]=[outs,hr,bb,hbp,k,hits,runs,er,+fip.toFixed(2)];
+    p[7]=Math.round(targetFip);
+  }
+}
+
 function sideBox(h:number,w:number):SideBox{
   const old=oldSideBySchoolWeek.get(`${h}|${w}`);
   const by=new Map<string,PlayerRow>((old?.p||[]).map(p=>[String(p[0]),p]));
@@ -170,6 +206,11 @@ function sideBox(h:number,w:number):SideBox{
     if(!row[8]){row[8]=syntheticWL(String(row[0]),w,String(row[2]||'MLB'));row[9]=1;}
     players.push(row);
   }
+  // The preview is intentionally complete. If a carried-forward weekly
+  // OPS+/FIP- metric has no visible player production behind it, create a
+  // deterministic weekly line so the box score and the metric cannot
+  // contradict each other (e.g. OPS+ 88 with every batter at 0 AB).
+  ensureVisibleWeeklyProduction(h,w,players);
   const wl=players.reduce<[number,number]>((s,p)=>{const x=p[8]||[0,0];return [s[0]+x[0],s[1]+x[1]]},[0,0]);
   return {p:players,wl};
 }
