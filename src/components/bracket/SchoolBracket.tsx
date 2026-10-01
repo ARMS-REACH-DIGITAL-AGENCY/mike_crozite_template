@@ -86,13 +86,28 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const played = card.state === 'final' || card.state === 'live';
 
   if (!g) {
+    const blankRow = (key: string) => (
+      <div className="yfp-green-row" key={key} aria-label="School to be determined">
+        <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
+        {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
+        <span className="yfp-green-run" />
+      </div>
+    );
     return (
       <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
         <div className="yfp-score-head">
           <span>Week {card.week} | {dates(index, card.week)}</span>
           <span>Round {round} | Game {gameNo}</span>
         </div>
-        <div className="yfp-tbd"><span className="yfp-q">?</span><span>{card.state === 'bye' ? 'No game this week' : 'Opponent TBD'}{card.note ? <small>{card.note}</small> : null}</span></div>
+        <div className="yfp-green-board" style={{ '--inning-count': 9 } as React.CSSProperties}>
+          <div className="yfp-green-row head">
+            <span className="yfp-green-status tbd">UPCOMING</span>
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
+            <span className="run">R</span>
+          </div>
+          {blankRow('away')}
+          {blankRow('home')}
+        </div>
       </article>
     );
   }
