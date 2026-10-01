@@ -23,11 +23,16 @@ function raffleRows(_index: Index): FanRow[] {
   return [];
 }
 function topFanRows(index: Index): FanRow[] {
-  // Keep the eight LuckyFan slots visible without inventing future people.
-  return index.lbLeaders.map((h) => ({
-    name: '_______________',
-    meta: `${shortName(index.schools[h]?.[0] || '_______________')} · LuckyFan selection pending`,
-  }));
+  // Every Active Alumni from every Regional Champion gets one LuckyFan pick.
+  // Do not invent the fan's name; keep the slot visible until the alum selects.
+  return index.lbLeaders.flatMap((h) => {
+    const school = shortName(index.schools[h]?.[0] || '_______________');
+    const alumni = index.alumni?.[String(h)] || [];
+    return alumni.map(([alum, level]) => ({
+      name: '_______________',
+      meta: `${alum} · ${level} · ${school} · LuckyFan selection pending`,
+    }));
+  });
 }
 function cardFor(g: GameRow, stage: string, file: string, cal: Cal): WeekCard {
   const w = g[1];
@@ -302,10 +307,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
             {blankScoreboard(34,'YAT?STATS World Series')}
             {waitingCard('YAT?STATS World Series', 'The matchup will be set after the Season Championship Game is complete.')}
           </>}
-      {qualifiersKnown ? <InfoCard kicker="REGIONAL TOP FANS" title="8 nominated Top Fans"
-        body="One fan nominated by the players from each of the eight regional Season Championship teams."
+      {qualifiersKnown ? <InfoCard kicker="REGIONAL LUCKYFANS" title="Active Alumni LuckyFan selections"
+        body="Every Active Alumni from each of the eight Regional Champions personally selects one LuckyFan for the World Series ticket drawing."
         rows={topFans}
-        onOpen={()=>setDrawer({title:'Regional Top Fans',kicker:'8 Season Championship teams',rows:topFans})} /> : null}
+        onOpen={()=>setDrawer({title:'Regional LuckyFan selections',kicker:'One selection per Active Alumni',rows:topFans,note:'Blank slots fill only when each Active Alumni makes a verified LuckyFan selection.'})} /> : null}
       {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="The Bracket Champion fan list stays visible through the final World Series week."
         rows={bracketFans}
