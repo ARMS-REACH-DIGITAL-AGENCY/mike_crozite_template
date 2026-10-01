@@ -31,12 +31,14 @@
 // numbers, weighted by playing time: OPS+ by plate appearances, FIP- by
 // innings pitched. (Averages, so more alumni never helps by itself.)
 //
-// Ties after 9: player vs player. Each school's best hitter of the week
-// (OPS+) against the other's, and best pitcher (FIP-) against the other's,
-// one run each; the school that takes more wins. 1-1 goes to the #2
-// hitters and pitchers, and on down the rosters. Still tied when the
-// rosters run out: the commissioner's coin flip in the bracket; a tie (half a win
-// each) on the leaderboard.
+// Ties after 9: player vs player. Tiebreaker #1 compares each school's
+// highest weekly OPS+ player (higher wins 1 run), then each school's lowest
+// weekly FIP- player (lower wins 1 run). If those two comparisons are still
+// tied, Tiebreaker #2 uses the second-ranked hitter and pitcher, then #3,
+// and so on. A tiebreak round is valid only when BOTH schools can supply
+// that rank of hitter AND pitcher. As soon as either roster cannot supply
+// the next required hitter or pitcher, the game goes to the commissioner's
+// flip. Exact stat ties award no run.
 //
 // W-L% counts every alumnus on a club's roster that week, game or no game:
 // a pitcher who throws once a week for a winning club helps his school; a
@@ -230,10 +232,11 @@ export type GameResult = {
   innings: Inning[];
   home: number;
   away: number;
-  winner: Side | null; // null = tie (leaderboard games only)
-  // 'coin' with winner null: the commissioner's coin flip is still to come
+  winner: Side | null;
+  // 'coin' with winner null: the commissioner's flip is still to come.
   decidedBy: 'runs' | 'players' | 'coin' | 'tie';
-  tieRank?: number; // 'players': which pair decided it (1 = each school's best)
+  tieRank?: number; // 'players': which ranked hitter/pitcher pair decided it.
+  tieScore?: [number, number]; // cumulative tiebreak runs, home first.
 };
 
 function compareHigher(a: number, b: number): [number, number] {
@@ -282,26 +285,45 @@ export function rankPlayers(players: PlayerLines | undefined, baselines: Baselin
   return { hitters, pitchers };
 }
 
-// Tied after 9: player vs player. Each school's best hitter (OPS+) against
-// the other's best, and best pitcher (FIP-) against the other's best - one
-// run each. The school that takes more of the two wins; 1-1 (or 0-0) goes
-// to the #2 hitters and #2 pitchers, and so on down the rosters. A player
-// with no one left to face counts only by beating league average, the same
-// as in the innings. Returns null when both rosters run out still level.
-function playerTiebreak(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules): { winner: Side; rank: number } | null {
+// Exact user-facing tiebreak ladder:
+//   #1 highest OPS+ vs highest OPS+ (1 run), then lowest FIP- vs lowest FIP-
+//   #2 second-highest OPS+ vs second-highest, then second-lowest FIP- ...
+// Continue only while both schools can supply BOTH comparisons at that rank.
+// Missing the next required hitter or pitcher means the roster is exhausted;
+// no league-average substitute is used in the tiebreak.
+function playerTiebreak(
+  home: SideWeek,
+  away: SideWeek,
+  baselines: Baselines,
+  rules: Rules,
+): { winner: Side; rank: number; score: [number, number] } | null {
   const h = rankPlayers(home.players ?? mergeLines(home.days), baselines, rules.mode);
   const a = rankPlayers(away.players ?? mergeLines(away.days), baselines, rules.mode);
-  const depth = Math.max(h.hitters.length, a.hitters.length, h.pitchers.length, a.pitchers.length);
-  for (let k = 0; k < depth; k++) {
-    const [bx, by] = compareSides(h.hitters[k] ?? null, a.hitters[k] ?? null, averageOffense(rules.mode), true, rules.absent);
-    const [px, py] = compareSides(h.pitchers[k] ?? null, a.pitchers[k] ?? null, averagePitching(rules.mode), false, rules.absent);
-    if (bx + px !== by + py) return { winner: bx + px > by + py ? 'home' : 'away', rank: k + 1 };
+  let homeRuns = 0;
+  let awayRuns = 0;
+
+  for (let k = 0; ; k++) {
+    const canContinue =
+      k < h.hitters.length &&
+      k < a.hitters.length &&
+      k < h.pitchers.length &&
+      k < a.pitchers.length;
+    if (!canContinue) return null;
+
+    const [hx, ax] = compareHigher(h.hitters[k], a.hitters[k]);
+    // Lower FIP- wins, so reverse the comparison.
+    const [hp, ap] = compareHigher(-h.pitchers[k], -a.pitchers[k]);
+    homeRuns += hx + hp;
+    awayRuns += ax + ap;
+
+    if (homeRuns !== awayRuns) {
+      return {
+        winner: homeRuns > awayRuns ? 'home' : 'away',
+        rank: k + 1,
+        score: [homeRuns, awayRuns],
+      };
+    }
   }
-  // A school with nobody playing all week can't win the tiebreak against one that played.
-  const hPlayed = h.hitters.length + h.pitchers.length > 0;
-  const aPlayed = a.hitters.length + a.pitchers.length > 0;
-  if (rules.absent !== 'average' && hPlayed !== aPlayed) return { winner: hPlayed ? 'home' : 'away', rank: depth };
-  return null;
 }
 
 export function volume(buckets: LevelBuckets) {
@@ -332,9 +354,9 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   // Ties after 9: player vs player, then a tie (leaderboard) or the
   // commissioner's coin flip.
   const pt = playerTiebreak(home, away, baselines, rules);
-  if (pt) return { ...base, winner: pt.winner, decidedBy: 'players', tieRank: pt.rank };
+  if (pt) return { ...base, winner: pt.winner, decidedBy: 'players', tieRank: pt.rank, tieScore: pt.score };
   if (allowTie) return { ...base, winner: null, decidedBy: 'tie' };
-  return { ...base, winner: coinFlip ? coinFlip() : null, decidedBy: 'coin' };
+  return { ...base, winner: coinFlip ? coinFlip() : null, decidedBy: 'coin', tieScore: [0, 0] };
 }
 
 // ---------------------------------------------------------------------------
