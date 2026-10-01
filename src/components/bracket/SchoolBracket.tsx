@@ -38,6 +38,14 @@ const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-s
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
 const shareSchoolLabel=(raw:string)=>raw.replace(/,\s*/g,', ').trim();
+const drawerSchoolLabel=(raw:string)=>{
+  const normalized=shareSchoolLabel(raw);
+  const m=normalized.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  const base=(m?.[1]||normalized).trim();
+  const loc=(m?.[2]||'').replace(/,\s*/g,', ').trim();
+  const school=/\b(high|prep|academy|school|college)\b/i.test(base)?base:`${base} High School`;
+  return loc?`${school} (${loc})`:school;
+};
 
 type Open = { card: WeekCard; side: 'h' | 'a' };
 
@@ -197,7 +205,10 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
-          <div><b>{shortName(S[h]?.[0] || '')}</b><span>Week {card.week} · {card.stage} · {side === 'h' ? 'Home' : 'Visitor'}</span></div>
+          <div>
+            <b>{`WEEK ${card.week} · ${card.week <= 30 ? `ROUND ${Math.ceil(card.week / 3)} · GAME ${((card.week - 1) % 3) + 1}` : card.stage.toUpperCase()}`}</b>
+            <span>{drawerSchoolLabel(S[h]?.[0] || '')}</span>
+          </div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
@@ -654,10 +665,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-scorecard { border-radius:5px; }
           .yfp-score-head { font-size:5.6px; padding:2px 4px 1px; }
           .yfp-green-board { padding:4px 4px 3px; }
-          .yfp-green-row { grid-template-columns:34px repeat(9,minmax(9px,1fr)) 22px; gap:1px; margin-top:1px; }
+          .yfp-green-row { grid-template-columns:64px repeat(9,minmax(9px,1fr)) 22px; gap:1px; margin-top:1px; }
           .yfp-green-row.head { font-size:5.8px; }
-          .yfp-green-abbr { display:block; font-size:10px; }
-          .yfp-green-full { display:none; }
+          .yfp-green-abbr { display:none; }
+          .yfp-green-full { display:block; font:800 7.3px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
           .yfp-green-slot,.yfp-green-run { height:17px; font-size:9px; border-radius:2px; }
           .yfp-green-status { font-size:5.5px; padding:1px 2px; }
           .fgs-inline .ysv-actions button { min-height:28px !important; font-size:11px !important; gap:3px !important; }
@@ -705,9 +716,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         @media (max-width: 899px) {
           .yfp { padding: 8px 8px 16px; }
-          .yfp-green-row { grid-template-columns:38px repeat(9,minmax(10px,1fr)) 24px; gap:1px; }
-          .yfp-green-full { display:none; }
-          .yfp-green-abbr { display:block; }
+          .yfp-green-row { grid-template-columns:68px repeat(9,minmax(10px,1fr)) 24px; gap:1px; }
+          .yfp-green-full { display:block; font:800 7.5px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
+          .yfp-green-abbr { display:none; }
           .yfp-green-slot,.yfp-green-run { height:18px; font-size:10px; }
           .yfp-green-row.head { font-size:6.5px; }
           .yfp-green-status { font-size:6px; padding:1px 3px; }
