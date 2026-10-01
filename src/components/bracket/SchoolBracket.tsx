@@ -93,8 +93,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         <span className="yfp-green-run" />
       </div>
     );
-    return (
-      <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
+    const scoreboard = (
+      <>
         <div className="yfp-score-head">
           <span>Week {card.week} | {dates(index, card.week)}</span>
           <span>Round {round} | Game {gameNo}</span>
@@ -107,6 +107,25 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           </div>
           {blankRow('away')}
           {blankRow('home')}
+        </div>
+      </>
+    );
+    const schoolName = shortName(S[me]?.[0] || 'This school');
+    const social = (
+      <FantasyGameSocial
+        gameKey={`sim-2026:school-${me}:week-${card.week}`}
+        title={`Round ${round} · Game ${gameNo}`}
+        subtitle={`${schoolName} · Opponent TBD`}
+        shareText={`Follow ${schoolName} in Round ${round}, Game ${gameNo} of the YAT?STATS High School Alumni Fantasy Tournament.`}
+        shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?week=${card.week}#sec-fantasy`}
+        preview={<div className="yfp-scorecard">{scoreboard}</div>}
+      />
+    );
+    return (
+      <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
+        <div className="yfp-game-split">
+          <div className="yfp-game-scorepane">{scoreboard}</div>
+          <div className="yfp-game-socialpane">{social}</div>
         </div>
       </article>
     );
@@ -156,7 +175,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     </>
   );
 
-  const social = card.state === 'final' && g ? (
+  const social = g ? (
     <FantasyGameSocial
       gameKey={`sim-2026:${g[0]}`}
       title={`Round ${round} · Game ${gameNo}`}
