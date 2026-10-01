@@ -1,0 +1,37 @@
+name: Bracket Tournament Integrity
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - public/bracket-lab/2026/**
+      - scripts/bracket-integrity-2026.mjs
+      - scripts/simulate-bracket-2026.ts
+      - src/lib/bracket/**
+      - .github/workflows/bracket-tournament-integrity.yml
+  push:
+    branches: [bracket-simulation]
+    paths:
+      - public/bracket-lab/2026/**
+      - scripts/bracket-integrity-2026.mjs
+      - scripts/simulate-bracket-2026.ts
+      - src/lib/bracket/**
+      - .github/workflows/bracket-tournament-integrity.yml
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Audit shipped 2026 tournament fixture
+        run: node scripts/bracket-integrity-2026.mjs audit --report bracket-integrity-report.json
+      - name: Upload integrity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bracket-integrity-report
+          path: bracket-integrity-report.json
+          if-no-files-found: ignore

@@ -1,0 +1,62 @@
+name: Rebuild 2026 Bracket Fixture
+
+on:
+  push:
+    branches: [bracket-simulation]
+    paths:
+      - scripts/rebuild-bracket-fixture-2026.ts
+      - .github/workflows/rebuild-bracket-fixture-2026.yml
+  pull_request:
+    paths:
+      - scripts/rebuild-bracket-fixture-2026.ts
+      - .github/workflows/rebuild-bracket-fixture-2026.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bracket-simulation
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Rebuild complete 2026 simulation
+        run: npx --yes tsx scripts/rebuild-bracket-fixture-2026.ts
+      - name: Audit rebuilt fixture
+        run: node scripts/bracket-integrity-2026.mjs audit --report bracket-integrity-report.json
+      - name: Commit rebuilt fixture
+        # This PR lives in the same repository and the job explicitly checks out
+        # bracket-simulation, so persist the validated fixture on PR runs too.
+        # The generated fixture paths are not workflow trigger paths, avoiding a loop.
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        run: |
+          git config user.name "yatstats-sim-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/bracket-lab/2026
+          if git diff --cached --quiet; then
+            echo "No fixture changes."
+          else
+            git commit -m "Bracket: rebuild 2026 simulation with extra-inning tiebreak scoring"
+            # The branch can advance while the database-backed rebuild runs.
+            # Rebase this generated-fixture-only commit onto the latest head
+            # before pushing instead of losing the validated output.
+            git fetch origin bracket-simulation
+            git rebase origin/bracket-simulation
+            git push origin HEAD:bracket-simulation
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bracket-rebuild-integrity
+          path: bracket-integrity-report.json
+          if-no-files-found: ignore

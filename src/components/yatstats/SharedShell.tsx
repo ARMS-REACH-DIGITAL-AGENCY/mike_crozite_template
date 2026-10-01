@@ -14,6 +14,8 @@ import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
 import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
+import FantasyTimeline from '../bracket/FantasyTimeline';
+import BracketTicker from '../bracket/BracketTicker';
 
 type StripPlayer = {
   id: string;
@@ -144,7 +146,11 @@ export default function SharedShell({
         <div className="yat-row3-shell">
           {row3Content
             ? row3Content
-            : profilePlayerId
+            : activeSection === 'fantasy' && !isPlayerProfile
+              // The Fantasy Bracket Tourney tab: the school's season, a
+              // slide per week, where a profile has its Career Path Timeline.
+              ? <FantasyTimeline />
+              : profilePlayerId
               ? (
                   <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
                     <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
@@ -163,7 +169,11 @@ export default function SharedShell({
         <div className="yat-row4-shell">
           {row4Content
             ? row4Content
-            : profilePlayerId
+            : activeSection === 'fantasy' && !isPlayerProfile
+              // The Fantasy Bracket Tourney tab: the current round's scores
+              // as a scrolling scoreboard ticker instead of the metadata.
+              ? <BracketTicker />
+              : profilePlayerId
               // The player profile's thin year-tick timeline (the old
               // variant="line" row) is now folded into the taller
               // variant="images" strip in row 3 above -- one row instead of

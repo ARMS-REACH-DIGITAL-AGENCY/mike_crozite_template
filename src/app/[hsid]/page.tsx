@@ -18,9 +18,11 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
+import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
+import SchoolBracket from "@/components/bracket/SchoolBracket";
 
 export const runtime = "nodejs";
 
@@ -196,7 +198,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   const qp = await searchParams;
@@ -212,6 +214,39 @@ export async function generateMetadata({
   const schoolHsid = String(school?.hsid || hsid);
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
+  const fantasyGameId = Number(String(qp?.fantasyGame || "").trim() || 0);
+  if (fantasyGameId) {
+    try {
+      const game = getSharedFantasyGame(fantasyGameId);
+      if (game) {
+        const visitor = cleanSchoolLabel(game.awayName);
+        const home = cleanSchoolLabel(game.homeName);
+        const description = `Follow the YAT?STATS High School Alumni Fantasy Game between ${visitor} and ${home}.`;
+        const hostBase = host ? `https://${host}` : canonicalUrl;
+        const shareUrl = `${hostBase}/${schoolHsid}?fantasyGame=${game.id}#sec-fantasy`;
+        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}`;
+        return {
+          title: `${visitor} vs ${home} | YAT?STATS Fantasy Game`,
+          description,
+          alternates: { canonical: shareUrl },
+          openGraph: {
+            title: `${visitor} vs ${home} | YAT?STATS`,
+            description,
+            url: shareUrl,
+            images: [{ url: ogImageUrl, width: 1200, height: 630 }],
+          },
+          twitter: {
+            card: "summary_large_image",
+            title: `${visitor} vs ${home} | YAT?STATS`,
+            description,
+            images: [ogImageUrl],
+          },
+        };
+      }
+    } catch {
+      // fall through to player/school metadata
+    }
+  }
 
   // A share link from the Social tab lands here with "?player={id}" so the
   // page can scroll to and highlight that one card (see
@@ -557,7 +592,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-fantasy" className="yat-section">
-        <Placeholder icon="🏆" title="Fantasy Bracket Tournament" body="School-vs-school bracket gameplay and alumni performance tournament experience. Coming soon." />
+        <SchoolBracket hsid={resolvedHsid} />
       </section>
 
       <section id="sec-mentor" className="yat-section">

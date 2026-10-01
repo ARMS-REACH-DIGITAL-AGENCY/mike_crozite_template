@@ -1,0 +1,36 @@
+name: Export Spring Training 2026 (bracket simulator)
+
+# Read-only: fetches every linked player's 2026 MLB spring training lines
+# for the bracket simulator and prints them to the log. Writes nothing to
+# the database. Runs when a pull request changes the export, or by hand.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/export-spring-training-2026.ts
+      - .github/workflows/export-spring-training-2026.yml
+
+jobs:
+  export-spring-training:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Export spring training lines
+        run: npx tsx ./scripts/export-spring-training-2026.ts

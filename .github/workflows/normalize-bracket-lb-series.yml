@@ -1,0 +1,15 @@
+name: Normalize 2026 leaderboard series (disabled)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  blocked:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse unsafe normalization
+        run: |
+          echo "This workflow is intentionally disabled."
+          echo "Leaderboard opponents must be paired before scoring. Do not recombine saved runs with new opponents."
+          echo "Use: npm run bracket:regenerate -- --data <source-export-directory>"
+          exit 1

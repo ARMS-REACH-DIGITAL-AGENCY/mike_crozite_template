@@ -1116,7 +1116,39 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
           )}
 
-          <div style={{ borderTop: '1px solid var(--line)', marginTop: '8px' }}>
+          <section
+            aria-label="World Series Tickets Raffle"
+            style={{
+              margin: '14px 15px 4px',
+              padding: '14px 15px',
+              border: '1px solid rgba(255, 210, 74, .35)',
+              background: 'rgba(255, 210, 74, .055)',
+            }}
+          >
+            <div
+              style={{
+                color: '#FFD24A',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '18px',
+                lineHeight: 1,
+                letterSpacing: '.07em',
+                marginBottom: '5px',
+              }}
+            >
+              WORLD SERIES TICKETS RAFFLE
+            </div>
+            <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
+              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
+              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
+              <strong style={{ color: 'var(--fg)' }}> 20 regular-season entries + 1 postseason entry</strong>.
+            </p>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
+              Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
+              <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
+            </p>
+          </section>
+
+          <div style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
             <div
               style={{
                 padding: '16px',
