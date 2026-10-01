@@ -782,6 +782,7 @@ export function FlipCard({ game, label, index, box, loading, front = 'h', back }
       home={home}
       away={away}
       names={[shortName(S[home]?.[0] || ''), shortName(S[away]?.[0] || '')]}
+      locations={[place(S[home]?.[0] || ''), place(S[away]?.[0] || '')]}
       score={[hr, ar]}
       innings={innings}
       winner={winner}
@@ -997,8 +998,8 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
-export function Face({ side, label, week, dates, home, away, names, score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false }: {
-  side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string];
+export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false }: {
+  side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
   homeRoster?: ActiveRosterPlayer[];
@@ -1110,8 +1111,8 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
       + (ninthRun ? 1 : 0);
   const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
     const rows = [
-      { key: 'away', name: names[1], idx: awayIdx, opp: homeIdx, wp: awayWp, oppWp: homeWp, isHome: false },
-      { key: 'home', name: names[0], idx: homeIdx, opp: awayIdx, wp: homeWp, oppWp: awayWp, isHome: true },
+      { key: 'away', name: names[1], location: locations[1], idx: awayIdx, opp: homeIdx, wp: awayWp, oppWp: homeWp, isHome: false },
+      { key: 'home', name: names[0], location: locations[0], idx: homeIdx, opp: awayIdx, wp: homeWp, oppWp: awayWp, isHome: true },
     ];
     return (
       <div className="bl-metric-board" aria-label={`${labelText} by inning`}>
@@ -1128,7 +1129,9 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
             : !row.isHome && row.wp > row.oppWp;
           return (
             <div className="bl-metric-line metric" key={row.key}>
-              <span className="metric-team" title={row.name}><b>{row.name}</b></span>
+              <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
+                <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+              </span>
               {(box?.d || []).slice(0, 7).map((d, i) => (
                 <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>
               ))}
@@ -1166,11 +1169,11 @@ export function Face({ side, label, week, dates, home, away, names, score, innin
           <div className="bl-top">
             <div className="bl-meta"><span>{label} · Week {week}</span><span>{dates}</span></div>
             <div className="bl-score">
-              <div className={`bl-team${me === 0 ? ' me' : ''}`}><b>{names[0]}</b></div>
+              <div className={`bl-team${me === 0 ? ' me' : ''}`}><b>{names[0]}</b>{locations[0] ? <small>{locations[0]}</small> : null}</div>
               <div className="bl-runs">{score[0]}</div>
               <div className="bl-final">FINAL</div>
               <div className="bl-runs">{score[1]}</div>
-              <div className={`bl-team r${me === 1 ? ' me' : ''}`}><b>{names[1]}</b></div>
+              <div className={`bl-team r${me === 1 ? ' me' : ''}`}><b>{names[1]}</b>{locations[1] ? <small>{locations[1]}</small> : null}</div>
             </div>
           </div>
 
@@ -1390,6 +1393,7 @@ export function Styles() {
       .bl-meta { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font:500 11px/1.2 Oswald, sans-serif; letter-spacing:.08em; text-transform:uppercase; }
       .bl-score { display:grid; grid-template-columns:1fr auto auto auto 1fr; align-items:center; gap:10px; margin-top:8px; }
       .bl-team { min-width:0; font-size:13.5px; line-height:1.15; color:var(--muted); overflow-wrap:anywhere; }
+      .bl-team small { display:block; margin-top:2px; color:var(--muted); font:600 8px/1 Oswald,sans-serif; letter-spacing:.06em; text-transform:uppercase; }
       .bl-team.r { text-align:right; }
       .bl-team.me { color:var(--text); }
       .bl-team.me b { color:var(--gold); }
@@ -1435,9 +1439,9 @@ export function Styles() {
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
 
-      /* Drawer tables are intentionally dense: keep every stat visible without
-         horizontal scrolling, including on a phone. */
-      .bl.bl-embed.yfp-drawer .bl-scroll { overflow-x:hidden; }
+      /* Drawer tables are dense enough to fit in normal use, but retain
+         horizontal scrolling as a safety valve on very narrow screens. */
+      .bl.bl-embed.yfp-drawer .bl-scroll { overflow-x:auto; }
       .bl.bl-embed.yfp-drawer .bl-box { width:100%; min-width:0; table-layout:fixed; font-size:9px; }
       .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:92px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col:not(:first-child) { width:auto !important; }
@@ -1451,16 +1455,17 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:2px; }
       .bl.bl-embed.yfp-drawer .bl-sort { width:100%; overflow:hidden; text-overflow:clip; }
 
-      .bl-metric-scoreboards { margin:8px 8px 6px; display:grid; gap:6px; overflow-x:hidden; }
-      .bl-metric-board { width:100%; min-width:0; box-sizing:border-box; margin:0; padding:6px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { min-width:0; display:grid; grid-template-columns:minmax(72px,1.8fr) repeat(9,minmax(0,1fr)) 30px; gap:1px; align-items:center; }
+      .bl-metric-scoreboards { margin:8px 8px 6px; display:grid; gap:6px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+      .bl-metric-board { width:100%; min-width:300px; box-sizing:border-box; margin:0; padding:6px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
+      .bl-metric-line { min-width:0; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(9,minmax(18px,1fr)) 24px; gap:1px; align-items:center; }
       .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
       .bl-metric-line.head span { display:grid; place-items:center; min-height:17px; }
       .bl-metric-line.head .metric-name { justify-items:start; padding-left:4px; color:#ffd34f; font-size:11px; }
       .bl-metric-line.metric { margin-top:2px; }
       .bl-metric-line.metric>span { min-height:23px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 9px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
-      .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; padding:2px 4px; color:#eef7ef; overflow:hidden; }
+      .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; }
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
+      .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
@@ -1472,8 +1477,8 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box td { padding:3px 0; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { padding-left:4px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
-        .bl-metric-board { padding:4px; }
-        .bl-metric-line { grid-template-columns:minmax(66px,1.65fr) repeat(9,minmax(0,1fr)) 24px; gap:1px; }
+        .bl-metric-board { min-width:300px; padding:4px; }
+        .bl-metric-line { grid-template-columns:64px repeat(9,minmax(18px,1fr)) 22px; gap:1px; }
         .bl-metric-line.head { font-size:6.8px; }
         .bl-metric-line.head .metric-name { font-size:9px; padding-left:3px; }
         .bl-metric-line.metric>span { min-height:21px; font-size:7.5px; }
