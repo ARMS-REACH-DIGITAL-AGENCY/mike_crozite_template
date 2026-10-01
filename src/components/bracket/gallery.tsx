@@ -113,7 +113,7 @@ export const LEVEL: Record<string, string> = {
   'NCAA-D1': 'D1', 'NCAA-D2': 'D2', 'NCAA-D3': 'D3', NAIA: 'NAIA', JUCO: 'JUCO',
 };
 export const lvl = (l: string) => l.split('/').map((x) => LEVEL[x] || x).join('/');
-export const place = (name: string) => (name.includes(' (') ? name.split(' (')[1].replace(/\)$/, '').replace(',', ', ') : '');
+export const place = (name: string) => (name.includes(' (') ? name.split(' (')[1].replace(/\)$/, '').replace(/,\s*/g, ', ').trim() : '');
 export function fmtDate(iso: string) {
   const d = new Date(`${iso}T12:00:00Z`);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
