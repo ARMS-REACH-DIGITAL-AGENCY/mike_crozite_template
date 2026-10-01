@@ -12,10 +12,11 @@ export async function GET() {
       WHERE yatstats_national_rank IS NOT NULL
     `);
 
-    const ranks = Object.fromEntries(
-      rows.map((row) => [String(row.hsid), Number(row.yatstats_national_rank)])
-        .filter(([, rank]) => Number.isFinite(rank))
-    );
+    const ranks: Record<string, number> = {};
+    for (const row of rows) {
+      const rank = Number(row.yatstats_national_rank);
+      if (Number.isFinite(rank)) ranks[String(row.hsid)] = rank;
+    }
 
     return NextResponse.json(
       { ranks },
