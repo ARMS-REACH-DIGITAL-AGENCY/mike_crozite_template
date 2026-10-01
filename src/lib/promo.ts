@@ -23,7 +23,7 @@ interface PromoDef {
 }
 
 const PROMO_CODES: Record<string, PromoDef> = {
-  WOODY10: { durationMonths: null, label: 'Hamilton founding fans — lifetime Superfan' },
+  WOODY10RINGS: { durationMonths: null, label: 'Hamilton founding fans — lifetime Superfan' },
 };
 
 export type RedeemResult =
