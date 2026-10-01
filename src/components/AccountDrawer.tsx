@@ -88,8 +88,8 @@ function PasswordInput({
 
 function normalizeMicrositeUrl(value?: string | null) {
   const raw = String(value || '').trim();
-  if (!raw || !/^https?:///i.test(raw)) return null;
-  return raw.replace(//+$/, '');
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  return raw.replace(/\/+$/, '');
 }
 
 function buildMicrositeUrl(
@@ -697,14 +697,20 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             try {
               localStorage.setItem('yat-plan', 'superfan');
             } catch {}
+            if (sessionStorage.getItem('pending_fav_pid')) {
+              await resumePendingFavorite(uid, regData?.contactId);
+            }
             setMessage('Promo applied — welcome, Superfan!');
             setMessageType('success');
             setTimeout(() => setMessage(''), 2500);
             return;
           }
+          const clickedSuperfanCta = sessionStorage.getItem('pending_superfan');
           setMessage(
             (promoData?.error || 'That promo code is not valid.') +
-              ' Continuing as a Fan — you can try another code in your account.'
+              (clickedSuperfanCta
+                ? ' Proceeding to Superfan checkout.'
+                : ' Continuing as a Fan — you can try another code in your account.')
           );
           setMessageType('error');
         } catch {
@@ -1186,6 +1192,30 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 <PasswordInput name="registerPassword" placeholder="Password" />
               </div>
 
+              <button
+                type="submit"
+                name="intent"
+                value="fan"
+                disabled={isLoading}
+                onClick={() => sessionStorage.removeItem('pending_superfan')}
+                style={{
+                  width: '100%',
+                  padding: '11px',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontSize: '13px',
+                  letterSpacing: '.07em',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                  marginBottom: '8px',
+                }}
+              >
+                {isLoading ? 'Creating Account...' : 'BECOME A FAN OF THIS SCHOOL — FREE'}
+              </button>
+
               <div style={{ marginBottom: '10px' }}>
                 {!promoOpen ? (
                   <button
@@ -1223,30 +1253,6 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   />
                 )}
               </div>
-
-              <button
-                type="submit"
-                name="intent"
-                value="fan"
-                disabled={isLoading}
-                onClick={() => sessionStorage.removeItem('pending_superfan')}
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  background: 'var(--fg)',
-                  color: 'var(--bg)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                  fontSize: '13px',
-                  letterSpacing: '.07em',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  opacity: isLoading ? 0.6 : 1,
-                  marginBottom: '8px',
-                }}
-              >
-                {isLoading ? 'Creating Account...' : 'BECOME A FAN OF THIS SCHOOL — FREE'}
-              </button>
 
               <button
                 type="submit"
