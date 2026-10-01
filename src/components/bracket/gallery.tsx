@@ -73,7 +73,7 @@ export const SCT = 'Season Championship Tournament';
 export const WORLD_SERIES = 'Fantasy World Series';
 export const WORLD_SERIES_FULL = 'YAT?STATS High School Alumni Fantasy World Series';
 export const TIE_NOTE: Record<string, string> = {
-  coin: "Tied after 9 · won on the commissioner's coin flip",
+  coin: "Tied after 9 and after all available player tiebreakers · commissioner coin flip (+1 run)",
 };
 // 'players-2': the tie went down to each school's #2 hitter and #2 pitcher
 export function tieNote(decidedBy: string) {
@@ -107,7 +107,12 @@ export function loadActiveRoster(hsid: number) {
   return activeRosterCache.get(hsid)!;
 }
 
-export const shortName = (name: string) => name.split(' (')[0];
+export const shortName = (name: string) => name
+  .split(' (')[0]
+  .replace(/\bPreparatory\b/gi, 'Prep')
+  .replace(/\s+High School$/i, '')
+  .replace(/\s+Prep School$/i, ' Prep')
+  .trim();
 export const LEVEL: Record<string, string> = {
   MLB: 'MLB', 'TRIPLE-A': 'AAA', 'DOUBLE-A': 'AA', 'HIGH-A': 'A+', 'LOW-A': 'A', ROOKIE: 'RK', SPRING: 'ST',
   'NCAA-D1': 'D1', 'NCAA-D2': 'D2', 'NCAA-D3': 'D3', NAIA: 'NAIA', JUCO: 'JUCO',
@@ -1105,6 +1110,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   ];
   const correctedWinner = correctedScore[0] === correctedScore[1] ? winner
     : correctedScore[0] > correctedScore[1] ? home : away;
+  const inningCount = Math.max(9, Math.floor(correctedInnings.length / 2));
+  const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
   const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
     (box?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
@@ -1162,6 +1169,25 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           <div className="bl-metric-scoreboards" aria-label="OPS+ and FIP- inning scoreboards">
             {metricBoard('OPS+', 0, 1, true)}
             {metricBoard('FIP-', 2, 3, false)}
+            {extraInnings.length ? (
+              <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
+                <div className="bl-tiebreak-line head">
+                  <span>TIEBREAK</span>
+                  {extraInnings.map((i) => <span key={i}>{i + 1}</span>)}
+                  <span>R</span>
+                </div>
+                {[1, 0].map((sideIndex) => (
+                  <div className="bl-tiebreak-line" key={sideIndex}>
+                    <span className="team">{names[sideIndex]}</span>
+                    {extraInnings.map((i) => {
+                      const v = correctedInnings[i * 2 + sideIndex] || 0;
+                      return <span key={i} className={v ? 'won' : ''}>{v}</span>;
+                    })}
+                    <span className="total">{correctedScore[sideIndex]}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null
       ) : (
@@ -1180,14 +1206,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           <div className="bl-scroll">
             <table className="bl-ls">
               <thead>
-                <tr><th />{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <th key={n}>{n}</th>)}<th className="sep">R</th><th>OPS+</th><th>FIP-</th></tr>
+                <tr><th />{Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <th key={n}>{n}</th>)}<th className="sep">R</th><th>OPS+</th><th>FIP-</th></tr>
               </thead>
               <tbody>
                 {[0, 1].map((s) => (
                   <tr key={s} className={s === me ? 'me' : ''}>
                     <th>{abbr(names[s])}</th>
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-                      const v = correctedInnings[i * 2 + s];
+                    {Array.from({ length: inningCount }, (_, i) => i).map((i) => {
+                      const v = correctedInnings[i * 2 + s] || 0;
                       return <td key={i} className={v ? 'hit' : ''}>{v}</td>;
                     })}
                     <td className="sep r">{correctedScore[s]}</td>
@@ -1238,6 +1264,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               <p>For innings (days) 1–7, the run totals are based on a daily head-to-head team comparison between one alumni&apos;s team higher OPS+ (Offensive Stat) and lower FIP- (Defensive Stat). Each winning comparison is worth 1 run.</p>
               <p>The 8th inning is computed the same way, but uses the two teams&apos; weekly OPS+ and FIP- comparisons.</p>
               <p>The 9th inning does not use the OPS+/FIP- results. Instead the final frame is decided by the better weekly W-L% across all active alumni&apos;s real-world teams, whether each alumnus played or not.</p>
+              <p><b>TIEBREAKERS:</b> If the score is tied after 9, inning 10 compares each school&apos;s #1 hitter (OPS+) and #1 pitcher (FIP-), worth one run each. If that inning is also tied, inning 11 uses the #2 hitter and #2 pitcher, inning 12 uses the #3 pair, and so on until one school leads. Only after both schools exhaust the next required hitter/pitcher pair while still tied does the commissioner&apos;s coin flip apply; the winner of the flip receives one final run, so a completed game never displays a tied final score.</p>
             </div>
           ) : (
             <div className="bl-how">
@@ -1336,6 +1363,13 @@ export function Styles() {
       .bl.bl-embed .bl-box th:last-child, .bl.bl-embed .bl-box td:last-child { padding-right:12px; }
       .bl.bl-embed .bl-how { margin:8px; padding:6px 7px; }
       .bl.bl-embed .bl-days { font-size:9.5px; }
+      .bl-tiebreak-board { margin-top:6px; overflow-x:auto; border:1px solid var(--line); border-radius:5px; }
+      .bl-tiebreak-line { min-width:max-content; display:grid; grid-template-columns:minmax(110px,1fr) repeat(var(--tb-count, 1),28px) 34px; align-items:center; gap:2px; padding:2px 4px; font:600 9px/1.15 Oswald,sans-serif; }
+      .bl-tiebreak-line.head { color:var(--muted); font-size:8px; text-transform:uppercase; border-bottom:1px solid var(--line); }
+      .bl-tiebreak-line > span:not(:first-child) { text-align:center; }
+      .bl-tiebreak-line .team { color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .bl-tiebreak-line .won { color:var(--gold); font-weight:800; }
+      .bl-tiebreak-line .total { color:var(--gold); font-weight:800; }
       .bl.bl-embed .bl-wl { font-size:10.5px; }
       .bl.bl-embed .bl-legend { font-size:9.5px; }
       .bl.bl-embed .bl-muted { padding:8px; font-size:11px; }
