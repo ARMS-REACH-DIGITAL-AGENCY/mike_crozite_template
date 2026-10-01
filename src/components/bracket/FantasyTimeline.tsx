@@ -32,7 +32,7 @@ function RafflePolaroidCTA() {
   return (
     <button type="button" className="yft-raffle-cta" onClick={(e) => { e.stopPropagation(); openRaffleRegistration(); }}
       aria-label="Register to win four tickets to the 2027 World Series">
-      <img className="yft-raffle-trophy" src="/img/world-series-trophy-cta.png" alt="" aria-hidden="true" />
+      <img className="yft-raffle-trophy" src="/img/world-series-trophy-cta.jpg" alt="" aria-hidden="true" />
       <span className="yft-raffle-note">Tickets to the<br />&apos;27 World Series!<br /><strong>Register to Win!</strong></span>
     </button>
   );
