@@ -184,8 +184,23 @@ function buildSchoolNotLiveHref(school: Row, resolvedHsid: string, schoolState: 
 
 async function resolveSchool(hsid: string, host: string): Promise<Row | null> {
   try {
+    const isNumericHsid = /^\d+$/.test(hsid);
+    const requestedSchool = isNumericHsid ? await getSchoolByHsid(hsid) : null;
     const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
+
+    // A numeric school ID in the URL is an explicit cross-hub navigation.
+    // If it resolves to a different school than the current subdomain, the
+    // requested school must win so the canonical microsite redirect below can
+    // send the visitor to that school's hub instead of bouncing them back here.
+    if (
+      requestedSchool &&
+      (!hostSchool || String(requestedSchool.hsid) !== String(hostSchool.hsid))
+    ) {
+      return requestedSchool as Row;
+    }
+
     if (hostSchool) return hostSchool as Row;
+    if (requestedSchool) return requestedSchool as Row;
     return (await getSchoolByHsid(hsid)) as Row | null;
   } catch (error) {
     console.error("school lookup failed", { hsid, host, error });
