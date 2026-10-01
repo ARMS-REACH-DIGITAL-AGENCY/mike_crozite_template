@@ -780,8 +780,13 @@ function exportGallery(dir: string) {
     details.get(file)![id] = { d: days, h: hs, a: as };
     award(g.home, g.week, hs.p);
     award(g.away, g.week, as.p);
-    // 'players-2' = the tie went to the #2 hitters/pitchers
-    return [id, g.week, g.home, g.away, g.decidedBy === 'players' ? `players-${g.tieRank}` : g.decidedBy, g.innings.flat(), g.winner];
+    // 'players-2' = the tie went to the #2 hitters/pitchers.
+    // Tiebreak comparison runs are appended after the 9 regulation innings;
+    // the UI still renders innings 1-9, while total runs/standings include them.
+    const savedInnings = g.decidedBy === 'players' && g.tieScore
+      ? [...g.innings.flat(), ...g.tieScore]
+      : g.innings.flat();
+    return [id, g.week, g.home, g.away, g.decidedBy === 'players' ? `players-${g.tieRank}` : g.decidedBy, savedInnings, g.winner];
   }
 
   const ROUND_NAMES = Array.from({ length: 10 }, (_, i) => `Round ${i + 1}`);
