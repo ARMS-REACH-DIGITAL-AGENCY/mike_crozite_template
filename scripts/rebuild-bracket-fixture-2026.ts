@@ -87,23 +87,51 @@ function metrics(h:number,w:number){
 
 const pool=new Pool({connectionString:DATABASE_URL,ssl:{rejectUnauthorized:false}});
 const rosterRows=(await pool.query(`
+  -- Fantasy roster membership mirrors the visible Active Baseball Alumni
+  -- flip-card gallery. Stats never decide whether an alumnus exists on the
+  -- fantasy roster: new graduates and other zero-stat players still belong.
   WITH season_rows AS (
-    SELECT playerid, teamid, NULLIF(highlevel,'') AS raw_level, false AS pitcher
+    SELECT playerid::text AS playerid, teamid, NULLIF(highlevel,'') AS raw_level, false AS pitcher
       FROM tbc_batting_2026_season_raw
      WHERE year='2026'
     UNION ALL
-    SELECT playerid, teamid, NULLIF(highlevel,'') AS raw_level, true AS pitcher
+    SELECT playerid::text AS playerid, teamid, NULLIF(highlevel,'') AS raw_level, true AS pitcher
       FROM tbc_pitching_2026_season_raw
      WHERE year='2026'
+  ),
+  season_meta AS (
+    SELECT sr.playerid,
+           MAX(sr.raw_level) AS raw_level,
+           MAX(tum.level_label) AS mapped_level,
+           bool_or(sr.pitcher) AS pitcher
+      FROM season_rows sr
+      LEFT JOIN teamid_universe_mapping tum ON tum.teamid=sr.teamid
+     GROUP BY sr.playerid
   )
-  SELECT ph.hsid, ph.playerid,
-         trim(concat_ws(' ',ph.firstname,ph.lastname)) AS name,
-         COALESCE(MAX(sr.raw_level),MAX(tum.level_label),'MLB') AS level,
-         bool_or(sr.pitcher) AS pitcher
-    FROM player_hsids ph
-    JOIN season_rows sr ON sr.playerid=ph.playerid
-    LEFT JOIN teamid_universe_mapping tum ON tum.teamid=sr.teamid
-   GROUP BY ph.hsid,ph.playerid,ph.firstname,ph.lastname
+  SELECT f.hsid,
+         f.playerid::text AS playerid,
+         COALESCE(
+           NULLIF(trim(f.display_name),''),
+           NULLIF(trim(concat_ws(' ',f.first_name,f.last_name)),''),
+           f.playerid::text
+         ) AS name,
+         COALESCE(
+           NULLIF(f.level_label,''),
+           NULLIF(sm.mapped_level,''),
+           NULLIF(sm.raw_level,''),
+           'UNKNOWN'
+         ) AS level,
+         COALESCE(
+           sm.pitcher,
+           CASE
+             WHEN upper(COALESCE(f.position,'')) ~ '(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)' THEN true
+             ELSE false
+           END
+         ) AS pitcher
+    FROM flip_card_front_stage f
+    LEFT JOIN season_meta sm ON sm.playerid=f.playerid::text
+   WHERE COALESCE(upper(trim(f.status_label)),'') <> 'RETIRED'
+     AND COALESCE(upper(trim(f.level_label)),'') NOT IN ('HIGH SCHOOL','HS')
 `)).rows as any[];
 await pool.end();
 
