@@ -100,6 +100,7 @@ export async function GET(request: Request) {
         logs_for_schools: (c3.rows[0] as any)?.n,
         intersection: (c4.rows[0] as any)?.n,
         recent_dates: c5.rows,
+        stats_sample: (await query('SELECT stats::text AS s FROM public.player_game_logs gl JOIN public.flip_card_front_stage ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) AND gl.game_date >= $3::date LIMIT 1', [homeHsid, awayHsid, '2026-09-29'])).rows[0],
       });
     }
 
