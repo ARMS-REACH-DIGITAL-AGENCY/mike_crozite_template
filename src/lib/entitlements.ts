@@ -9,6 +9,16 @@ import type { UserProfile } from '@/lib/userProfile';
 export function isSuperfan(profile: UserProfile | null | undefined): boolean {
   if (!profile) return false;
 
+  // A promo grant past its expiry no longer counts — unless the fan has since
+  // paid: a live Stripe subscription always wins over the promo grant.
+  if (
+    !profile.stripe_subscription_id &&
+    profile.promo_expires_at &&
+    new Date(profile.promo_expires_at) <= new Date()
+  ) {
+    return false;
+  }
+
   return (
     profile.plan === 'superfan' ||
     profile.role === 'superfan' ||
