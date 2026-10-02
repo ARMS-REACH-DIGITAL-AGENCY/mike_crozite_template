@@ -65,6 +65,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'home and away hsids required' }, { status: 400 });
     }
 
+
+
     // Date gate: only serve real data on/after the 2027 season start.
     const today = new Date().toISOString().slice(0, 10);
     const asof = dateStr || today;
@@ -84,6 +86,18 @@ export async function GET(request: Request) {
     const weekEnd = new Date(monday);
     weekEnd.setUTCDate(monday.getUTCDate() + 6);
     const weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+    // Debug mode: return raw counts to diagnose data issues.
+    if (searchParams.get('debug') === '1') {
+      const c1 = await query('SELECT COUNT(*) AS n FROM public.player_hsids WHERE hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
+      const c2 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs WHERE game_date >= $1::date AND game_date <= $2::date', [weekStart, weekEndStr]);
+      const c3 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
+      return NextResponse.json({
+        players_mapped: (c1.rows[0] as any)?.n,
+        logs_in_week: (c2.rows[0] as any)?.n,
+        logs_for_schools: (c3.rows[0] as any)?.n,
+      });
+    }
 
     // Query game logs for both schools' players in this week.
     const { rows } = await query<PlayerGameLog>(`
