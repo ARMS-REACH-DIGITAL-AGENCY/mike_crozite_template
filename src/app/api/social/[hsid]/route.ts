@@ -1,8 +1,8 @@
 // src/app/api/social/[hsid]/route.ts
-// YAT?STATS — Instagram school/player feed API
+// YAT?STATS — stored Instagram school/player feed API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSocialFeedPosts } from '@/lib/instagramSocial';
+import { query } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
@@ -22,21 +22,24 @@ export async function GET(
   const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 10;
 
   try {
-    const posts = await getSocialFeedPosts(hsid, playerid, limit);
+    const result = await query(
+      `SELECT p.id, p.external_post_id, p.media_type, p.caption, p.permalink,
+              p.thumbnail_url, p.published_at, s.handle, s.owner_type
+         FROM public.social_posts p
+         JOIN public.social_sources s ON s.id = p.social_source_id
+        WHERE s.platform = 'instagram' AND s.status = 'active'
+          AND (s.hsid = $1 OR ($2::text IS NOT NULL AND s.playerid = $2))
+        ORDER BY p.published_at DESC LIMIT $3`,
+      [hsid, playerid || null, limit]
+    );
 
     return NextResponse.json(
-      { posts, total: posts.length },
-      {
-        status: 200,
-        headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' },
-      }
+      { posts: result.rows, total: result.rows.length },
+      { status: 200, headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' } }
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Social API route error:', message);
-    return NextResponse.json(
-      { error: 'Server error', message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Server error', message }, { status: 500 });
   }
 }
