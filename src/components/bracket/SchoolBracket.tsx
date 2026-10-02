@@ -261,9 +261,9 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
           <div>
-            <span className="yfp-drawer-game">{drawerGameLabel}</span>
-            <b className="yfp-drawer-school">{drawerSchool.school}</b>
             {drawerSchool.location ? <span className="yfp-drawer-location">{drawerSchool.location}</span> : null}
+            <b className="yfp-drawer-school">{drawerSchool.school}</b>
+            <span className="yfp-drawer-game">{drawerGameLabel}</span>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -852,19 +852,19 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @keyframes yfp-in-r { from { transform: translateX(100%); } to { transform: none; } }
         @keyframes yfp-in-l { from { transform: translateX(-100%); } to { transform: none; } }
         @media (prefers-reduced-motion: reduce) { .bl.bl-embed.yfp-drawer { animation: none; } }
-        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); }
-        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-        .yfp-drawer-head .yfp-drawer-school { color: var(--text); font: 600 18px/1.08 "Roboto Condensed", "Arial Narrow", Oswald, sans-serif; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .yfp-drawer-head .yfp-drawer-location { color: var(--muted); font: 600 10px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
-        .yfp-drawer-head .yfp-drawer-game { margin-top: 3px; color: var(--gold); font: 700 11px/1.15 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+        .yfp-drawer-head .yfp-drawer-school { color: var(--text); font: 700 14px/1.1 "Roboto Condensed", "Arial Narrow", Oswald, sans-serif; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .yfp-drawer-head .yfp-drawer-location { color: var(--muted); font: 600 9px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+        .yfp-drawer-head .yfp-drawer-game { margin-top: 1px; color: var(--gold); font: 700 10px/1.15 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .yfp-drawer-head button { flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
         .yfp-drawer .ybr-rules { padding: 14px; }
         .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
         @media (max-width: 899px) {
           .bl.bl-embed.yfp-drawer { width: 100vw; }
-          .yfp-drawer-head { padding: 9px 10px; }
-          .yfp-drawer-head .yfp-drawer-school { font-size: 17px; }
+          .yfp-drawer-head { padding: 6px 10px; }
+          .yfp-drawer-head .yfp-drawer-school { font-size: 13px; }
           .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }
           .yfp-drawer-head .yfp-drawer-game { font-size: 10px; }
           .yfp-lb-cols { grid-template-columns:16px minmax(0,1fr) auto; gap:3px; font-size:5.5px; }
