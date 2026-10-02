@@ -2805,6 +2805,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-drafted { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
+          /* Give the anchor headline just enough mobile width for "NEITHER"
+             to stay with the graduation line above instead of orphaning at
+             the start of the next line. Other slide copy widths stay put. */
+          .zt-anchor .zt-copy { width:20.5%; }
           .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
         }
       `}</style>
