@@ -26,6 +26,7 @@ import {
 } from "@/lib/db";
 import type { Metadata } from "next";
 import { storyAssetUrl } from "@/lib/storyAssets";
+import { getSocialFeedPosts } from "@/lib/instagramSocial";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
@@ -753,22 +754,7 @@ export default async function ProfilePage({ params }: Props) {
 
   // ── School/player social feed ──────────────────────────────────────────────────
 
-  const socialPosts = (await query<{
-    id: string | number;
-    caption: string | null;
-    permalink: string | null;
-    published_at: Date | string | null;
-    handle: string | null;
-  }>(
-    `SELECT p.id, p.caption, p.permalink, p.published_at, s.handle
-       FROM public.social_posts p
-       JOIN public.social_sources s ON s.id = p.social_source_id
-      WHERE s.platform = 'instagram' AND s.status = 'active'
-        AND (s.hsid = $1 OR s.playerid = $2)
-      ORDER BY p.published_at DESC
-      LIMIT 10`,
-    [hsid, safePlayerId]
-  )).rows;
+  const socialPosts = await getSocialFeedPosts(hsid, safePlayerId, 10);
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
@@ -941,50 +927,41 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-social" className="pp-fz-panel">
-          {socialPosts.length > 0 && (
+          {socialPosts.some((post) => post.image_url) ? (
             <div className="pp-school-social">
               <div className="pp-stats-bar">SCHOOL SOCIAL</div>
-              {socialPosts.map((post) => (
-                <article className="pp-social-post" key={String(post.id)}>
-                  <div className="pp-social-post-caption">{String(post.caption || "").slice(0, 120)}</div>
-                  <div className="pp-social-post-footer">
-                    @{post.handle} · {post.published_at ? new Date(post.published_at).toLocaleDateString() : ""}
-                    {post.permalink && <> · <a href={post.permalink} target="_blank" rel="noopener noreferrer">View on Instagram</a></>}
-                  </div>
-                </article>
-              ))}
+              <div className="pp-social-grid">
+                {socialPosts.filter((post) => post.image_url).map((post) => (
+                  post.resolved_permalink ? (
+                    <a className="pp-social-card" key={String(post.id)} href={post.resolved_permalink} target="_blank" rel="noopener noreferrer">
+                      <img className="pp-social-media" src={post.image_url || ""} alt={String(post.caption || "Instagram post")} loading="lazy" />
+                      <div className="pp-social-media-shade" />
+                      <div className="pp-social-card-meta">
+                        <div className="pp-social-card-handle"><i className="ri-instagram-line" /> @{post.handle}</div>
+                        <div className="pp-social-card-date">{post.published_at ? new Date(post.published_at).toLocaleDateString() : ""}</div>
+                        {post.caption && <div className="pp-social-card-caption">{String(post.caption).replace(/\s+/g, " ").trim()}</div>}
+                      </div>
+                    </a>
+                  ) : (
+                    <div className="pp-social-card" key={String(post.id)}>
+                      <img className="pp-social-media" src={post.image_url || ""} alt={String(post.caption || "Instagram post")} loading="lazy" />
+                      <div className="pp-social-media-shade" />
+                      <div className="pp-social-card-meta">
+                        <div className="pp-social-card-handle"><i className="ri-instagram-line" /> @{post.handle}</div>
+                        <div className="pp-social-card-date">{post.published_at ? new Date(post.published_at).toLocaleDateString() : ""}</div>
+                        {post.caption && <div className="pp-social-card-caption">{String(post.caption).replace(/\s+/g, " ").trim()}</div>}
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="pp-fz-placeholder">
+              <i className="ri-instagram-line pp-ph-icon" />
+              <p>No Instagram photos are available yet.</p>
             </div>
           )}
-          <div className="pp-social-tag">#YATABOY</div>
-          <div className="pp-social-sub">Show some love for {firstName}!</div>
-          <div className="pp-social-links">
-            {xHandle && (
-              <a
-                href={`https://x.com/${xHandle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pp-social-link"
-              >
-                <i className="ri-twitter-x-line" /> @{xHandle}
-              </a>
-            )}
-            {igHandle && (
-              <a
-                href={`https://instagram.com/${igHandle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pp-social-link"
-              >
-                <i className="ri-instagram-line" /> @{igHandle}
-              </a>
-            )}
-            {!xHandle && !igHandle && (
-              <div className="pp-fz-placeholder">
-                <i className="ri-share-line pp-ph-icon" />
-                <p>Social links will appear here once available.</p>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* ── CONNECT tab ──────────────────────────────────────────────────── */}
@@ -1013,28 +990,17 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
-        .pp-school-social {
-          width: 100%;
-          margin-bottom: 14px;
-        }
-        .pp-social-post {
-          padding: 10px 12px;
-          border-bottom: 1px solid rgba(255,255,255,.12);
-        }
-        .pp-social-post-caption {
-          font-size: 14px;
-          line-height: 1.35;
-          color: #fff;
-        }
-        .pp-social-post-footer {
-          margin-top: 5px;
-          font-size: 11px;
-          color: rgba(255,255,255,.62);
-        }
-        .pp-social-post-footer a {
-          color: inherit;
-          text-decoration: underline;
-        }
+        .pp-school-social { width: 100%; }
+        .pp-social-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+        .pp-social-card { position: relative; display: block; aspect-ratio: 1 / 1; min-width: 0; overflow: hidden; border-radius: 6px; background: rgba(255,255,255,.05); color: #fff; text-decoration: none; }
+        .pp-social-card:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 10; }
+        .pp-social-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pp-social-media-shade { position: absolute; inset: 35% 0 0; background: linear-gradient(to bottom, transparent, rgba(0,0,0,.82)); pointer-events: none; }
+        .pp-social-card-meta { position: absolute; left: 9px; right: 9px; bottom: 8px; min-width: 0; text-shadow: 0 1px 3px rgba(0,0,0,.85); }
+        .pp-social-card-handle { font: 600 10px/1.2 Oswald, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-social-card-date { margin-top: 2px; font: 400 8px/1.2 Oswald, sans-serif; color: rgba(255,255,255,.72); }
+        .pp-social-card-caption { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 4px; font: 400 10px/1.3 Oswald, sans-serif; }
+        .pp-social-card:first-child .pp-social-card-caption { font-size: 12px; }
 
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
