@@ -92,10 +92,14 @@ export async function GET(request: Request) {
       const c1 = await query('SELECT COUNT(*) AS n FROM public.player_hsids WHERE hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
       const c2 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs WHERE game_date >= $1::date AND game_date <= $2::date', [weekStart, weekEndStr]);
       const c3 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
+      const c4 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) AND gl.game_date >= $3::date AND gl.game_date <= $4::date', [homeHsid, awayHsid, weekStart, weekEndStr]);
+      const c5 = await query('SELECT gl.game_date::text AS gd, COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) GROUP BY gl.game_date ORDER BY gl.game_date DESC LIMIT 5', [homeHsid, awayHsid]);
       return NextResponse.json({
         players_mapped: (c1.rows[0] as any)?.n,
         logs_in_week: (c2.rows[0] as any)?.n,
         logs_for_schools: (c3.rows[0] as any)?.n,
+        intersection: (c4.rows[0] as any)?.n,
+        recent_dates: c5.rows,
       });
     }
 
