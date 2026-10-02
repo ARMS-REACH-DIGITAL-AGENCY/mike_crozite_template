@@ -141,7 +141,7 @@ export async function GET(request: Request) {
 
       const agg = days[dayIdx][side];
       const st = row.stats || {};
-      if (row.stat_type === 'hitting' || st.hitting) {
+      if (row.stat_type === 'batting' || st.hitting) {
         const h = st.hitting || st;
         agg.ab += Number(h.atBats || 0);
         agg.h += Number(h.hits || 0);
