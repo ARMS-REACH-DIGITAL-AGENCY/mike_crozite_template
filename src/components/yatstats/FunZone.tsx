@@ -502,6 +502,36 @@ function CheckIcon() {
   );
 }
 
+function SchoolSocialFeed({ hsid, playerid }: { hsid: string; playerid: string }) {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!hsid) return;
+    fetch(`/api/social/${hsid}?playerid=${playerid}&limit=10`)
+      .then((r) => r.json())
+      .then((d) => { setPosts(d.posts || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [hsid, playerid]);
+  if (loading) return <div className="fz-placeholder"><div className="fz-ph-text">Loading school posts...</div></div>;
+  if (!posts.length) return null;
+  return (
+    <div className="fz-school-feed">
+      <div className="fz-social-bar">SCHOOL SOCIAL</div>
+      {posts.map((post: any) => (
+        <div key={post.id} className="fz-news-featured">
+          <div className="fz-news-copy">
+            <div className="fz-news-title">{(post.caption || '').slice(0, 120)}</div>
+            <div className="fz-news-footer">
+              @{post.handle} · {post.published_at ? new Date(post.published_at).toLocaleDateString() : ''}
+              {post.permalink && <> · <a href={post.permalink} target="_blank" rel="noopener noreferrer">View on Instagram</a></>}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
 // own feed with a personalized #YATABOY hashtag. Every link here is a plain
@@ -515,12 +545,16 @@ function SocialPanel({
   schoolName,
   schoolLocation,
   shareUrl,
+  hsid,
+  playerid,
 }: {
   firstName: string;
   lastName: string;
   schoolName: string;
   schoolLocation: string;
   shareUrl: string;
+  hsid: string;
+  playerid: string;
 }) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ") || "this player";
   const hashtag = `YATABOY${firstName.replace(/[^a-zA-Z0-9]/g, "")}`;
@@ -593,6 +627,7 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
+      {hsid && <SchoolSocialFeed hsid={hsid} playerid={playerid} />}
       {/* Same bar treatment as the Stats tab's "2026 SEASON" header
           (.yat-stats-bar) - a dedicated, identically-styled class rather
           than that literal class, so a Social-only tweak here can never
@@ -849,6 +884,8 @@ export default function FunZone({
           schoolName={schoolName || ""}
           schoolLocation={schoolLocation || ""}
           shareUrl={shareUrl}
+          hsid={resolvedHsid || ""}
+          playerid={String(player?.playerid || "")}
         />
       </div>
       <div
