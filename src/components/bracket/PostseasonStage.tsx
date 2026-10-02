@@ -122,7 +122,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     ? (/\b(high|prep|academy|school|college)\b/i.test(championBase) ? championBase : `${championBase} High School`)
     : '_______________';
   const championLocation = championRaw ? place(championRaw) : '_______________';
-  const stageKnown = (week:number) => cal.final >= week - 1;
+  const stageKnown = (week:number) => week === 31 ? index.lbt.some((x) => x.game[1] === 31) : cal.final >= week - 1;
   const qualifiersKnown = cal.final >= 30;
   const waitingCard = (title:string, body:string) => (
     <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
@@ -199,6 +199,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     const gameNo = g[1] === 31 ? games(31).findIndex((x)=>x[0]===g[0]) + 1
       : g[1] === 32 ? games(32).findIndex((x)=>x[0]===g[0]) + 1 : 1;
     const played = card.state === 'final' || card.state === 'live';
+    const canOpenDrawer = true;
     const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : 'UPCOMING';
     const stageHead = g[1] === 31 ? 'Championship Round 1'
       : g[1] === 32 ? 'Championship Round 2'
@@ -215,7 +216,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       const name = shortName(rawName);
       const location = place(rawName);
       return <div className={`yfp-green-row${h===me?' me':''}${won?' won':''}`}>
-        <button type="button" className="yfp-green-team" disabled={!played} onClick={()=>onOpen({card,side})}
+        <button type="button" className="yfp-green-team" disabled={!canOpenDrawer} onClick={()=>onOpen({card,side})}
           aria-label={played ? `${name}: this week's players` : undefined}>
           <span className="yfp-green-abbr">{abbr(name)}</span>
           <span className="yfp-green-full">{name}</span>
