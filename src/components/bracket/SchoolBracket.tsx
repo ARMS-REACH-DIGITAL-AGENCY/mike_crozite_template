@@ -86,13 +86,47 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const played = card.state === 'final' || card.state === 'live';
 
   if (!g) {
-    return (
-      <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
+    const blankRow = (key: string) => (
+      <div className="yfp-green-row" key={key} aria-label="School to be determined">
+        <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
+        {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
+        <span className="yfp-green-run" />
+      </div>
+    );
+    const scoreboard = (
+      <>
         <div className="yfp-score-head">
           <span>Week {card.week} | {dates(index, card.week)}</span>
           <span>Round {round} | Game {gameNo}</span>
         </div>
-        <div className="yfp-tbd"><span className="yfp-q">?</span><span>{card.state === 'bye' ? 'No game this week' : 'Opponent TBD'}{card.note ? <small>{card.note}</small> : null}</span></div>
+        <div className="yfp-green-board" style={{ '--inning-count': 9 } as React.CSSProperties}>
+          <div className="yfp-green-row head">
+            <span className="yfp-green-status tbd">UPCOMING</span>
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
+            <span className="run">R</span>
+          </div>
+          {blankRow('away')}
+          {blankRow('home')}
+        </div>
+      </>
+    );
+    const schoolName = shortName(S[me]?.[0] || 'This school');
+    const social = (
+      <FantasyGameSocial
+        gameKey={`sim-2026:school-${me}:week-${card.week}`}
+        title={`Round ${round} · Game ${gameNo}`}
+        subtitle={`${schoolName} · Opponent TBD`}
+        shareText={`Follow ${schoolName} in Round ${round}, Game ${gameNo} of the YAT?STATS High School Alumni Fantasy Tournament.`}
+        shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?week=${card.week}#sec-fantasy`}
+        preview={<div className="yfp-scorecard">{scoreboard}</div>}
+      />
+    );
+    return (
+      <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
+        <div className="yfp-game-split">
+          <div className="yfp-game-scorepane">{scoreboard}</div>
+          <div className="yfp-game-socialpane">{social}</div>
+        </div>
       </article>
     );
   }
@@ -141,7 +175,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     </>
   );
 
-  const social = card.state === 'final' && g ? (
+  const social = g ? (
     <FantasyGameSocial
       gameKey={`sim-2026:${g[0]}`}
       title={`Round ${round} · Game ${gameNo}`}
@@ -220,25 +254,28 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         : card.week === 33
           ? 'WEEK 33 - SEASON CHAMPIONSHIP GAME'
           : 'WEEK 34 - YAT?STATS WORLD SERIES';
-  const [hr, ar] = runsThrough(g, 7);
+  // Staged simulation: the drawer only shows results once the week's games
+  // are final. Before that it's the empty Day-1 state (no leaked sim data).
+  const played = card.state === 'final';
+  const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
   return (
     <DrawerWrap onClose={onClose}>
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
           <div>
-            <span className="yfp-drawer-game">{drawerGameLabel}</span>
-            <b className="yfp-drawer-school">{drawerSchool.school}</b>
             {drawerSchool.location ? <span className="yfp-drawer-location">{drawerSchool.location}</span> : null}
+            <b className="yfp-drawer-school">{drawerSchool.school}</b>
+            <span className="yfp-drawer-game">{drawerGameLabel}</span>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]}
           locations={[place(S[homeId]?.[0] || ''), place(S[awayId]?.[0] || '')]}
-          score={[hr, ar]} innings={g[5]} winner={g[6]}
-          decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!rosters}
-          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode />
+          score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
+          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
+          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} />
       </aside>
     </DrawerWrap>
   );
@@ -572,10 +609,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* A week as the green manual ballpark scoreboard from the approved mockup.
            School logos are intentionally omitted until all 1,024 schools have real crests. */
-        .yfp-scorecard { padding:0; overflow:hidden; border-radius:7px; background:rgba(255,255,255,.035); }
+        .yfp-card.yfp-scorecard { padding:0; overflow:hidden; border-radius:7px; background:rgba(255,255,255,.035); }
         .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; background:#9c7f22; color:#fff5cf; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-green-board { margin:0; padding:5px 6px 5px; background:linear-gradient(180deg,#1f6546,#174c35); border-top:1px solid rgba(255,255,255,.14); border-bottom:1px solid #0d3022; box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 5px rgba(0,0,0,.24); }
-        .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1fr) repeat(var(--inning-count,9),18px) 28px; gap:2px; align-items:center; margin-top:2px; }
+        .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1.1fr) repeat(var(--inning-count,9),minmax(18px,1fr)) minmax(24px,0.7fr); gap:2px; align-items:center; margin-top:2px; }
         .yfp-green-row.head { margin-top:0; color:#eef7ef; font:700 8px/1 Oswald,sans-serif; text-align:center; }
         .yfp-green-row.head>span:not(:first-child) { display:grid; place-items:center; }
         .yfp-green-row.head .run { color:#ffd34f; }
@@ -818,19 +855,19 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @keyframes yfp-in-r { from { transform: translateX(100%); } to { transform: none; } }
         @keyframes yfp-in-l { from { transform: translateX(-100%); } to { transform: none; } }
         @media (prefers-reduced-motion: reduce) { .bl.bl-embed.yfp-drawer { animation: none; } }
-        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); }
-        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-        .yfp-drawer-head .yfp-drawer-school { color: var(--text); font: 600 18px/1.08 "Roboto Condensed", "Arial Narrow", Oswald, sans-serif; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .yfp-drawer-head .yfp-drawer-location { color: var(--muted); font: 600 10px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
-        .yfp-drawer-head .yfp-drawer-game { margin-top: 3px; color: var(--gold); font: 700 11px/1.15 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .yfp-drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+        .yfp-drawer-head div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+        .yfp-drawer-head .yfp-drawer-school { color: var(--text); font: 700 14px/1.1 "Roboto Condensed", "Arial Narrow", Oswald, sans-serif; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .yfp-drawer-head .yfp-drawer-location { color: var(--muted); font: 600 9px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+        .yfp-drawer-head .yfp-drawer-game { margin-top: 1px; color: var(--gold); font: 700 10px/1.15 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .yfp-drawer-head button { flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
         .yfp-drawer .ybr-rules { padding: 14px; }
         .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
         @media (max-width: 899px) {
           .bl.bl-embed.yfp-drawer { width: 100vw; }
-          .yfp-drawer-head { padding: 9px 10px; }
-          .yfp-drawer-head .yfp-drawer-school { font-size: 17px; }
+          .yfp-drawer-head { padding: 6px 10px; }
+          .yfp-drawer-head .yfp-drawer-school { font-size: 13px; }
           .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }
           .yfp-drawer-head .yfp-drawer-game { font-size: 10px; }
           .yfp-lb-cols { grid-template-columns:16px minmax(0,1fr) auto; gap:3px; font-size:5.5px; }

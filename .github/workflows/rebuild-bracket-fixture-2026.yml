@@ -2,7 +2,7 @@ name: Rebuild 2026 Bracket Fixture
 
 on:
   push:
-    branches: [bracket-simulation, Easter-NEWS]
+    branches: [bracket-simulation, Easter-NEWS, bracket-weekly-simulation]
     paths:
       - scripts/rebuild-bracket-fixture-2026.ts
       - .github/workflows/rebuild-bracket-fixture-2026.yml
@@ -37,7 +37,7 @@ jobs:
       - name: Commit rebuilt fixture
         # This PR lives in the same repository and the job explicitly checks out
         # bracket-simulation, so persist the validated fixture on PR runs too.
-        # The generated fixture paths are not workflow trigger paths, avoiding a loop.
+        # Generated fixture paths are intentionally not trigger paths; code changes trigger one clean rebuild.
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         run: |
           git config user.name "yatstats-sim-bot"
@@ -53,7 +53,12 @@ jobs:
             TARGET_BRANCH="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
             git fetch origin "$TARGET_BRANCH"
             git rebase "origin/$TARGET_BRANCH"
-            git push origin "HEAD:$TARGET_BRANCH"
+            if ! git push origin "HEAD:$TARGET_BRANCH"; then
+              echo "Branch advanced during rebuild; rebasing generated fixture once more."
+              git fetch origin "$TARGET_BRANCH"
+              git rebase "origin/$TARGET_BRANCH"
+              git push origin "HEAD:$TARGET_BRANCH"
+            fi
           fi
       - uses: actions/upload-artifact@v4
         if: always()

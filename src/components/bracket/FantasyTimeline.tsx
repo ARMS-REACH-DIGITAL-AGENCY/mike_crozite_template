@@ -15,6 +15,13 @@ import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stage
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
+// YaTi character stand-ins for the hero spot until a player of the week is known.
+const YATI_HEROES = [
+  '/img/yati-placeholders/yati-standing-hips.webp',
+  '/img/yati-placeholders/yati-running-field.webp',
+  '/img/yati-placeholders/yati-catcher-back.webp',
+  '/img/yati-placeholders/yati-thinking.webp',
+];
 
 function openRaffleRegistration() {
   if (typeof window === 'undefined') return;
@@ -141,7 +148,10 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
       <span className="yft-grad" aria-hidden="true" />
       {slide.heroStar
         ? <Fallback className="yft-person" srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
-        : <span className="yft-mark" aria-hidden="true">{slide.opponent ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
+        : <Fallback className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
+      {slide.opponent
+        ? <span className="yft-mark" aria-hidden="true"><Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /></span>
+        : null}
 
       <div className="yft-left-meta">
         <b>ROUND {slide.round}</b>
@@ -165,11 +175,12 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
             const score = scoreFor(card, me);
             const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
             const oppName = opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD';
+            const matchupKnown = Boolean(opp);
             return (
               <div key={card.week} className="yft-series-game">
-                <span>{score ? <span className="yft-scorelines">
-                    <span className="yft-scoreline"><b>{oppName}</b><i>{score[1]}</i></span>
-                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score[0]}</i></span>
+                <span>{score || matchupKnown ? <span className="yft-scorelines">
+                    <span className="yft-scoreline"><b>{oppName}</b><i>{score ? score[1] : ''}</i></span>
+                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score ? score[0] : ''}</i></span>
                   </span> : <>Week {card.week}<br /><em>TBD</em></>}</span>
                 <small>G{i + 1}</small>
               </div>
@@ -209,8 +220,8 @@ function postStory(index:Index, games:GameRow[], boxes:Record<string,GameBox>):P
   return {headline,summary:parts.join('. ')+'.'};
 }
 
-function PostSlide({ index, games, week, label, title, onTap }: {
-  index:Index; games:GameRow[]; week:number; label:string; title:string; onTap:()=>void;
+function PostSlide({ index, games, week, label, title, showScores, championName, onTap }: {
+  index:Index; games:GameRow[]; week:number; label:string; title:string; showScores:boolean; championName:string; onTap:()=>void;
 }) {
   const dates=index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : '';
   const displayDates=dates.replace(/\bSep\b/g,'Sept').replace(' – ',' - ');
@@ -222,7 +233,7 @@ function PostSlide({ index, games, week, label, title, onTap }: {
     loadBoxes(file).then((boxes)=>{if(!cancelled)setStory(postStory(index,games,boxes));}).catch(()=>{});
     return()=>{cancelled=true;};
   },[games,index,week]);
-  const status=games.length ? 'TOURNAMENT SCOREBOARD' : 'UPCOMING';
+  const status=week===31 ? `BRACKET CHAMPION · ${championName}` : games.length ? 'TOURNAMENT SCOREBOARD' : 'UPCOMING';
   const cornerTitle=week===34
     ? <><span>The YAT?STATS</span><span>WORLD SERIES</span></>
     : week===33
@@ -248,8 +259,8 @@ function PostSlide({ index, games, week, label, title, onTap }: {
             return (
               <div className="yft-series-game" key={g[0]}>
                 <span className="yft-scorelines">
-                  <span className="yft-scoreline"><b>{away}</b><i>{ar}</i></span>
-                  <span className="yft-scoreline home"><b>{home}</b><i>{hr}</i></span>
+                  <span className="yft-scoreline"><b>{away}</b><i>{showScores ? ar : ''}</i></span>
+                  <span className="yft-scoreline home"><b>{home}</b><i>{showScores ? hr : ''}</i></span>
                 </span>
                 <small>G{i+1}</small>
               </div>
@@ -369,10 +380,13 @@ export default function FantasyTimeline() {
           return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
         })}
         {postStages.map((s)=>{
-          const gamesForStage=s.key==='yws'
+          const stageKnown=(cal?.final||0)>=s.week-1;
+          const stageIsFinal=s.week<=(cal?.final||0);
+          const gamesForStage=!stageKnown ? [] : s.key==='yws'
             ? data.index.gf.filter((g)=>g[1]===s.week)
             : data.index.lbt.filter((x)=>x.game[1]===s.week).map((x)=>x.game);
-          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title}
+          const championName=(cal?.final||0)>=30 ? shortName(data.index.schools[data.index.champion]?.[0]||'_______________') : '_______________';
+          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title} showScores={stageIsFinal} championName={championName}
             onTap={()=>{selectStage(s.key);focusWeek(s.week);}}/>;
         })}
       </div>
@@ -407,7 +421,7 @@ export default function FantasyTimeline() {
         .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
         .yft-mark { position:absolute; left:7%; top:48%; transform:translateY(-50%); width:110px; height:110px; display:grid; place-items:center; color:#555; font:400 64px/1 "Bebas Neue",Oswald,sans-serif; }
-        .yft-mark-crest { width:100%; height:100%; object-fit:contain; }
+        .yft-mark-crest { width:100%; height:100%; object-fit:contain; opacity:.28; }
         .yft-story { position:absolute; z-index:2; left:27%; right:36%; top:18px; bottom:34px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }

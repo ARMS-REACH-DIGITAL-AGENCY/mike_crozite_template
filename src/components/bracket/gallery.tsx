@@ -21,6 +21,7 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
+import { simulationAsOf } from './simulationState';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -393,12 +394,11 @@ export function lastFinalWeek(index: Index, iso: string) {
   return w;
 }
 
-// Today's date (YYYY-MM-DD), or ?asof=YYYY-MM-DD to preview any date.
+// Progressive simulation date. ?asof=YYYY-MM-DD still overrides it for debugging.
 export function previewDate() {
   const q = new URLSearchParams(window.location.search).get('asof') || '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return simulationAsOf();
 }
 
 // One school's games in a stage, played through maxWeek: its bracket series,
@@ -977,6 +977,98 @@ function sumRosterWl(players: PlayerRow[]): [number, number] {
   }, [0, 0]);
 }
 
+// Deterministic per-player daily RNG (mulberry32 seeded from the FNV hash).
+function dailyRng(playerid: string, week: number, stat: string) {
+  let a = hashRosterKey(`daily:${playerid}:${week}:${stat}`) >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Distribute `total` indistinguishable units across 7 days with probability
+// proportional to `weights`. The result always sums to exactly `total`.
+// When `caps` is given, no day receives more than its cap (used to keep the
+// baseball hierarchy true per day: hits <= at-bats, extra-base hits <= hits,
+// earned runs <= runs, ...). If the weekly source data already violates the
+// hierarchy, the spillover distributes proportionally without caps.
+function assignDailyCounts(total: number, weights: number[], rand: () => number, caps?: number[]): number[] {
+  const n = Math.max(0, Math.round(Number(total || 0)));
+  const out = [0, 0, 0, 0, 0, 0, 0];
+  if (!n) return out;
+  const w = weights.map((v) => Math.max(0, Number(v) || 0));
+  const hasCap = Array.isArray(caps);
+  const cap = hasCap ? (caps as number[]).map((v) => Math.max(0, Math.floor(Number(v) || 0))) : null;
+  const pickDay = (respectCap: boolean): number => {
+    const ew = [0, 0, 0, 0, 0, 0, 0];
+    let wSum = 0;
+    for (let d = 0; d < 7; d++) {
+      let e = w[d];
+      if (e <= 0 && !hasCap) e = 1; // uncapped mode with no signal: spread evenly
+      if (respectCap && cap && out[d] >= cap[d]) e = 0;
+      ew[d] = e; wSum += e;
+    }
+    if (wSum <= 0) return -1;
+    let r = rand() * wSum;
+    for (let d = 0; d < 7; d++) { if (r < ew[d]) return d; r -= ew[d]; }
+    return 6;
+  };
+  for (let i = 0; i < n; i++) {
+    let d = hasCap ? pickDay(true) : pickDay(false);
+    if (d < 0) d = pickDay(false); // caps exhausted: spill proportionally
+    if (d < 0) d = i % 7;          // fully degenerate: round-robin
+    out[d]++;
+  }
+  return out;
+}
+
+function dailyRosterRows(players: PlayerRow[], week: number, day: number): PlayerRow[] {
+  return players.map((p) => {
+    const next = [...p] as PlayerRow;
+    const pid = String(p[0]);
+    if (Array.isArray(p[4])) {
+      const src = p[4] as number[];
+      const [wPa, wAb, wH, wD2, wD3, wHr, wBb, wHbp, wSf] = src.map((v) => Math.max(0, Math.round(Number(v || 0))));
+      // Hierarchical split so the daily columns always add up to the weekly
+      // total: at-bats first, hits as a subset of at-bat days, extra-base
+      // hits as subsets of hit days. No post-hoc clamping, so no lost units.
+      const dAb = assignDailyCounts(wAb, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-ab'));
+      const dH = assignDailyCounts(wH, dAb, dailyRng(pid, week, 'bat-h'), dAb);
+      const dD2 = assignDailyCounts(wD2, dH, dailyRng(pid, week, 'bat-2b'), dH);
+      const dD3 = assignDailyCounts(wD3, dH.map((v, i) => v - dD2[i]), dailyRng(pid, week, 'bat-3b'), dH.map((v, i) => v - dD2[i]));
+      const dHr = assignDailyCounts(wHr, dH.map((v, i) => v - dD2[i] - dD3[i]), dailyRng(pid, week, 'bat-hr'), dH.map((v, i) => v - dD2[i] - dD3[i]));
+      const dBb = assignDailyCounts(wBb, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-bb'));
+      const dHbp = assignDailyCounts(wHbp, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-hbp'));
+      const dSf = assignDailyCounts(wSf, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-sf'));
+      // Plate appearances follow the day's events; any weekly surplus beyond
+      // AB+BB+HBP+SF rides along proportionally so the sum stays exact.
+      const dPa = assignDailyCounts(wPa, dAb.map((v, i) => v + dBb[i] + dHbp[i] + dSf[i]), dailyRng(pid, week, 'bat-pa'));
+      next[4] = [dPa[day], dAb[day], dH[day], dD2[day], dD3[day], dHr[day], dBb[day], dHbp[day], dSf[day]];
+      next[6] = dPa[day] > 0 ? p[6] : null;
+    }
+    if (Array.isArray(p[5])) {
+      const src = p[5] as number[];
+      const [wOuts, wHr, wBb, wHbp, wK, wHits, wR, wEr] = src.map((v) => Math.max(0, Math.round(Number(v || 0))));
+      const wFip = Number(src[8] || 0);
+      const dOuts = assignDailyCounts(wOuts, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'pit-outs'));
+      const dHits = assignDailyCounts(wHits, dOuts, dailyRng(pid, week, 'pit-h'), dOuts);
+      const dHr = assignDailyCounts(wHr, dHits, dailyRng(pid, week, 'pit-hr'), dHits);
+      const dBb = assignDailyCounts(wBb, dOuts, dailyRng(pid, week, 'pit-bb'));
+      const dHbp = assignDailyCounts(wHbp, dOuts, dailyRng(pid, week, 'pit-hbp'));
+      const dK = assignDailyCounts(wK, dOuts, dailyRng(pid, week, 'pit-k'), dOuts);
+      const dR = assignDailyCounts(wR, dHits.map((v, i) => v + dBb[i] + dHbp[i]), dailyRng(pid, week, 'pit-r'), dHits.map((v, i) => v + dBb[i] + dHbp[i]));
+      const dEr = assignDailyCounts(wEr, dR, dailyRng(pid, week, 'pit-er'), dR);
+      next[5] = [dOuts[day], dHr[day], dBb[day], dHbp[day], dK[day], dHits[day], dR[day], dEr[day], wFip];
+      const active = dOuts[day] > 0 || dHr[day] > 0 || dBb[day] > 0 || dK[day] > 0;
+      next[7] = active ? p[7] : null;
+    }
+    next[8] = null;
+    return next;
+  });
+}
+
 export function correctedRosterGame(
   innings: number[],
   week: number,
@@ -1003,31 +1095,43 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
-export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false }: {
+export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
   homeRoster?: ActiveRosterPlayer[];
   awayRoster?: ActiveRosterPlayer[];
   drawerMode?: boolean;
+  played?: boolean; // false when this week's games haven't been played yet (staged simulation)
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
-  const rawMine = box ? box[side] : undefined;
-  const rawTheirs = box ? box[side === 'h' ? 'a' : 'h'] : undefined;
+  // Unplayed weeks: the box score doesn't exist yet. Withhold it so the
+  // drawer renders the staged empty state instead of leaking sim results.
+  const boxForView = played ? box : undefined;
+  const rawMine = boxForView ? boxForView[side] : undefined;
+  const rawTheirs = boxForView ? boxForView[side === 'h' ? 'a' : 'h'] : undefined;
   const mineRoster = me === 0 ? homeRoster : awayRoster;
   const theirsRoster = me === 0 ? awayRoster : homeRoster;
   const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster, week);
   const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster, week);
+  // Unplayed drawer: the roster is known, but no metric can exist yet.
+  // Blank the rate/metric cells so the drawer reads as empty, not zero-data.
+  if (drawerMode && !played) {
+    for (const p of minePlayers) { p[6] = null; p[7] = null; p[8] = null; }
+    for (const p of theirPlayers) { p[6] = null; p[7] = null; p[8] = null; }
+  }
   const mine = rawMine || mineRoster ? { p: minePlayers, wl: sumRosterWl(minePlayers) } as SideBox : undefined;
   const theirs = rawTheirs || theirsRoster ? { p: theirPlayers, wl: sumRosterWl(theirPlayers) } as SideBox : undefined;
   if (mine) mine.wl = sumRosterWl(minePlayers);
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
-  const weekVals = box?.d?.[7];
+  const weekVals = boxForView?.d?.[7];
   const myName = names[me];
+  const [statDay, setStatDay] = useState<'week' | number>('week');
+  const viewPlayers = statDay === 'week' ? (mine?.p || []) : dailyRosterRows(mine?.p || [], week, statDay);
 
-  const batters = (mine?.p || []).filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
-  const pitchers = (mine?.p || []).filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
+  const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
+  const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
   const teamBat = batters.reduce((t, p) => (p[4] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const teamPit = pitchers.reduce((t, p) => (p[5] as number[]).map((v, i) => v + (t[i] || 0)), [] as number[]);
   const obp = (b: number[]) => {
@@ -1044,7 +1148,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const wl = mine?.wl || [0, 0];
   const owl = theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '.000');
-  const pctNum = (w: number, l: number) => (w + l ? w / (w + l) : 0.5);
+  const pctNum = (w: number, l: number): number | null => (w + l ? w / (w + l) : null);
   // Last names only; an initial when two share one (B. Smith, R. Smith).
   const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
@@ -1052,7 +1156,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const player = (p: PlayerRow) => (
     <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a>
   );
-  const wlCell = (p: PlayerRow) => (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0');
+  const wlCell = (p: PlayerRow) => statDay === 'week' ? (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0') : '—';
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
   const batCols: SortCol[] = [
@@ -1095,14 +1199,22 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const teamFip = teamFipWeight
     ? pitchers.reduce((s, p) => s + fipRaw(p) * (pit(p)[0] || 0), 0) / teamFipWeight
     : 0;
+  // Team metric cell for the Team row: the authoritative daily team OPS+/FIP-
+  // from the box, so the Team row ties out to the scoreboard above it.
+  // (Weekly tab uses the week aggregate; daily tabs use that day's value.)
+  const teamDayMetric = (idx: number): string => {
+    if (statDay === 'week') return weekVals ? fmtStat(weekVals[idx]) : '—';
+    const v = boxForView?.d?.[statDay]?.[idx];
+    return v == null ? '—' : fmtStat(v);
+  };
   const homeWl = me === 0 ? wl : owl;
   const awayWl = me === 0 ? owl : wl;
   const homeWp = pctNum(homeWl[0], homeWl[1]);
   const awayWp = pctNum(awayWl[0], awayWl[1]);
   const correctedInnings = [...innings];
   if (drawerMode && correctedInnings.length >= 18) {
-    correctedInnings[16] = homeWp > awayWp ? 1 : 0;
-    correctedInnings[17] = awayWp > homeWp ? 1 : 0;
+    correctedInnings[16] = (homeWp ?? 0) > (awayWp ?? 0) ? 1 : 0;
+    correctedInnings[17] = (awayWp ?? 0) > (homeWp ?? 0) ? 1 : 0;
   }
   const correctedScore: [number, number] = [
     correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
@@ -1114,7 +1226,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
   const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
-    (box?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
+    (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
       + (ninthRun ? 1 : 0);
   const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
     const rows = [
@@ -1132,23 +1244,24 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           // Inning 9 is the single W-L% run. It belongs only once across the
           // two split scoreboards: home on OPS+, visitor on FIP-.
           const ninthRun = labelText === 'OPS+'
-            ? row.isHome && row.wp > row.oppWp
-            : !row.isHome && row.wp > row.oppWp;
+            ? row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0)
+            : !row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0);
           return (
             <div className="bl-metric-line metric" key={row.key}>
               <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
                 <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
               </span>
-              {(box?.d || []).slice(0, 7).map((d, i) => (
-                <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>
-              ))}
-              <span className={wonCell(box?.d?.[7]?.[row.idx], box?.d?.[7]?.[row.opp], higher)}>{fmtStat(box?.d?.[7]?.[row.idx])}</span>
+              {Array.from({ length: 7 }, (_, i) => {
+                const d = boxForView?.d?.[i];
+                return <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
+              })}
+              <span className={wonCell(boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
               {labelText === 'OPS+'
-                ? <span className={row.isHome && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? row.wp.toFixed(3).replace(/^0/, '') : 'W%'}
+                ? <span className={row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
+                    {row.isHome ? (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, '')) : 'W%'}
                   </span>
-                : <span className={!row.isHome && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? 'W%' : row.wp.toFixed(3).replace(/^0/, '')}
+                : <span className={!row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
+                    {row.isHome ? 'W%' : (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, ''))}
                   </span>}
               <span className="final">{metricRunCount(row.idx, row.opp, higher, ninthRun)}</span>
             </div>
@@ -1165,7 +1278,6 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
       {drawerMode ? (
-        box ? (
           <div className="bl-metric-scoreboards" aria-label="OPS+ and FIP- inning scoreboards">
             {metricBoard('OPS+', 0, 1, true)}
             {metricBoard('FIP-', 2, 3, false)}
@@ -1189,7 +1301,6 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               </div>
             ) : null}
           </div>
-        ) : null
       ) : (
         <>
           <div className="bl-top">
@@ -1229,22 +1340,38 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {tieNote(decidedBy) && <div className="bl-note">{tieNote(decidedBy)}</div>}
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
+      {(!drawerMode || played) && (
       <div className="bl-tabs">
-        <span className="on">{myName}</span>
+        {!drawerMode && <span className="on">{myName}</span>}
         {onFlip && <span className="flip">{flipTo || names[them]} ⟳</span>}
         <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
+      )}
 
       {loading && <div className="bl-muted">Loading box score…</div>}
       {!loading && !mine && <div className="bl-muted">No box score.</div>}
       {mine && (
         <>
+          {drawerMode ? (
+            <div className="bl-history-tabs" role="tablist" aria-label="Player stat history">
+              {[
+                ['week','Week'],[0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su']
+              ].map(([key,label]) => (
+                <button key={String(key)} type="button" role="tab"
+                  className={statDay===key ? 'on' : ''}
+                  aria-selected={statDay===key}
+                  onClick={(e)=>{e.stopPropagation();setStatDay(key as 'week'|number);}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
-            total={[weekVals ? fmtStat(weekVals[me]) : '—', teamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
             total={[
-              weekVals ? fmtStat(weekVals[2 + me]) : '0',
-              teamWl,
+              teamDayMetric(2 + me),
+              statDay === 'week' ? teamWl : '—',
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
@@ -1373,6 +1500,10 @@ export function Styles() {
       .bl.bl-embed .bl-wl { font-size:10.5px; }
       .bl.bl-embed .bl-legend { font-size:9.5px; }
       .bl.bl-embed .bl-muted { padding:8px; font-size:11px; }
+      .bl-history-tabs{position:sticky;top:0;z-index:4;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px;margin:6px 0 5px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+      .bl-history-tabs button{min-width:0;padding:4px 2px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font:700 12px/1 Oswald,sans-serif;cursor:pointer}
+      .bl-history-tabs button.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold)}
+      @media(max-width:520px){.bl-history-tabs button{font-size:10px;padding:4px 1px}}
       /* On a school's page the cards follow the site's light / dark toggle. */
       body.light-theme .bl.bl-embed { --bg:#f4f4f4; --panel:#fff; --panel2:#f3f4f6; --line:#e1e4e8; --text:#121212; --muted:#5f6670; --gold:#b07d00;
         --win:#1e8e3e; --loss:#c62828; --dim:#a0a6ae; --faint:#80868e; --gold-bg:#fff4d6; --tint:rgba(0,0,0,.06); --tint2:rgba(0,0,0,.02); --gold-tint:rgba(255,193,7,.14); }
@@ -1489,16 +1620,15 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:2px; }
       .bl.bl-embed.yfp-drawer .bl-sort { width:100%; overflow:hidden; text-overflow:clip; }
 
-      .bl-metric-scoreboards { margin:8px 8px 6px; display:grid; gap:6px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-      .bl-metric-board { width:100%; min-width:300px; box-sizing:border-box; margin:0; padding:6px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { --metric-cell:40px; min-width:max-content; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(10,var(--metric-cell)); gap:2px; align-items:center; }
-      .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
-      .bl-metric-line.head span { display:grid; place-items:center; min-height:17px; }
+      .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
+      .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
+      .bl-metric-line { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:center; }
+      .bl-metric-line.head { margin-bottom:2px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
+      .bl-metric-line.head span { display:grid; place-items:center; min-height:12px; }
       .bl-metric-line.head .metric-name { justify-items:start; padding-left:4px; color:#ffd34f; font-size:11px; }
       .bl-metric-line.metric { margin-top:2px; }
-      .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 9px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
-      .bl-metric-line.metric>.metric-team { width:auto; min-width:0; height:var(--metric-cell); }
-      .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; }
+      .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
@@ -1512,14 +1642,12 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box td { padding:3px 0; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { padding-left:4px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
-        .bl-metric-board { min-width:300px; padding:4px; }
-        .bl-metric-line { --metric-cell:32px; grid-template-columns:64px repeat(10,var(--metric-cell)); gap:2px; }
         .bl-metric-line.head { font-size:6.8px; }
         .bl-metric-line.head .metric-name { font-size:9px; padding-left:3px; }
-        .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); font-size:7.5px; }
+        .bl-metric-line.metric>span { font-size:9px; min-height:19px; }
         .bl-metric-line.metric .metric-team { padding:2px 3px; }
         .bl-metric-line.metric .metric-team b { font-size:7.2px; letter-spacing:-.035em; }
-        .bl-metric-line.metric>span.final { font-size:9px; }
+        .bl-metric-line.metric>span.final { font-size:10px; }
       }
       .bl-drawer-explain { margin:14px 12px 2px; padding-top:9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.42; }
       .bl-drawer-explain p { margin:0 0 7px; }
@@ -1600,10 +1728,7 @@ export function Styles() {
       .bl-board td.none { text-align:left; color:var(--muted); font-style:italic; }
       @media (max-width:520px) {
         .bl-board .st { display:none; }
-        .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:5px; }
-        .bl-metric-board { min-width:458px; padding:5px; }
-        .bl-metric-line { min-width:448px; grid-template-columns:82px repeat(9,32px) 42px; }
-        .bl-metric-line.metric>span { min-height:22px; font-size:9px; }
+        .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:4px; }
         .bl-metric-line.metric .metric-team b { font-size:7.5px; letter-spacing:-.025em; }
         .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
       }

@@ -32,7 +32,8 @@ function isPitcherPosition(value: unknown) {
  *
  * Membership MUST come from flip_card_front_stage, not from the 2026 stat
  * feeds. A player can have a live flip card and zero stats for the preview
- * season (new graduate, redshirt, injured player, future 2027 roster, etc.).
+ * season (new graduate, injured player, future 2027 roster, etc.).
+ * Explicit RETIRED, FREE AGENT and RED SHIRT-family statuses are excluded.
  * Stats are only an overlay for players who have them.
  */
 export async function GET(
@@ -54,7 +55,11 @@ export async function GET(
     const roster = stageRows
       .filter((stage) => {
         const status = text(stage.status_label ?? stage.status).toUpperCase();
-        return status !== 'RETIRED' && !isHighSchoolLevel(stage);
+        const excludedStatus =
+          status === 'RETIRED' ||
+          status === 'FREE AGENT' ||
+          /RED[\s-]*SHIRT/.test(status);
+        return !excludedStatus && !isHighSchoolLevel(stage);
       })
       .map((stage) => {
         const id = text(stage.playerid);

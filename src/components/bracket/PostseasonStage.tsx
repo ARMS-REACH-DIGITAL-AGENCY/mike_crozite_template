@@ -17,25 +17,22 @@ const LAST = ['Reed','Martinez','Collins','Bennett','Foster','Ramirez','Murphy',
 function fanName(seed: number, i: number) {
   return `${FIRST[Math.abs(seed * 31 + i * 17) % FIRST.length]} ${LAST[Math.abs(seed * 13 + i * 29 + 7) % LAST.length]}`;
 }
-function raffleRows(index: Index): FanRow[] {
-  const seed = index.champion || 1;
-  return Array.from({ length: 36 }, (_, i) => {
-    const registeredRounds = 1 + Math.abs((seed + i * 7) % 10);
-    const superFan = i % 3 === 0;
-    const regular = registeredRounds;
-    const bonus = superFan ? registeredRounds : 0;
-    const entries = regular + bonus + 1;
-    return {
-      name: fanName(seed, i),
-      meta: `${superFan ? 'Super Fan' : 'Fan'} · ${entries} entries`,
-    };
-  });
+function raffleRows(_index: Index): FanRow[] {
+  // Real entrant names are intentionally not simulated. This drawer is the
+  // destination for the live list once registration data exists.
+  return [];
 }
 function topFanRows(index: Index): FanRow[] {
-  return index.lbLeaders.map((h, i) => ({
-    name: fanName(h, i + 60),
-    meta: `${shortName(index.schools[h]?.[0] || '')} · nominated Top Fan`,
-  }));
+  // Every Active Alumni from every Regional Champion gets one LuckyFan pick.
+  // Do not invent the fan's name; keep the slot visible until the alum selects.
+  return index.lbLeaders.flatMap((h) => {
+    const school = shortName(index.schools[h]?.[0] || '_______________');
+    const alumni = index.alumni?.[String(h)] || [];
+    return alumni.map(([alum, level]) => ({
+      name: '_______________',
+      meta: `${alum} · ${level} · ${school} · LuckyFan selection pending`,
+    }));
+  });
 }
 function cardFor(g: GameRow, stage: string, file: string, cal: Cal): WeekCard {
   const w = g[1];
@@ -91,13 +88,13 @@ function InfoDrawer({ title, kicker, rows, note, onClose }:{
 }
 
 function InfoCard({ kicker, title, body, rows, onOpen }:{
-  kicker:string; title:string; body:string; rows?:FanRow[]; onOpen?:()=>void;
+  kicker:string; title:string; body:React.ReactNode; rows?:FanRow[]; onOpen?:()=>void;
 }) {
   return (
     <article className="yfp-card yfp-post-card">
       <div className="yfp-post-kicker">{kicker}</div>
       <div className="yfp-post-title">{title}</div>
-      <p>{body}</p>
+      <div className="yfp-post-body">{body}</div>
       {rows?.length ? <div className="yfp-post-preview">
         {rows.slice(0,8).map((row,i)=><div key={`${row.name}-${i}`}><b>{row.name}</b><span>{row.meta}</span></div>)}
       </div> : null}
@@ -117,7 +114,83 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
   const [drawer, setDrawer] = useState<null | {title:string;kicker:string;rows:FanRow[];note?:string}>(null);
   const bracketFans = useMemo(()=>raffleRows(index),[index]);
   const topFans = useMemo(()=>topFanRows(index),[index]);
-  const championName = shortName(index.schools[index.champion]?.[0] || 'Bracket Champion');
+  const bracketChampionKnown = cal.final >= 30;
+  const championRaw = bracketChampionKnown ? (index.schools[index.champion]?.[0] || '') : '';
+  const championName = championRaw ? shortName(championRaw) : '_______________';
+  const championBase = championRaw ? championRaw.split(' (')[0].replace(/\bPreparatory\b/gi,'Prep').trim() : '';
+  const championSchool = championBase
+    ? (/\b(high|prep|academy|school|college)\b/i.test(championBase) ? championBase : `${championBase} High School`)
+    : '_______________';
+  const championLocation = championRaw ? place(championRaw) : '_______________';
+  const stageKnown = (week:number) => cal.final >= week - 1;
+  const qualifiersKnown = cal.final >= 30;
+  const waitingCard = (title:string, body:string) => (
+    <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
+  );
+  const week31Announcement = (
+    <InfoCard
+      kicker="BRACKET CHAMPION · WORLD SERIES TICKETS"
+      title={`Bracket Champion: ${championName}`}
+      body={<>
+        <p>Congratulations to our 30 Week - Ten Round - Undefeated YAT?STATS Alumni Fantasy Bracket Champion, <b>{championName}</b>! Which of these 8 Regional Champions will they play in Week 34&apos;s YAT?STATS WORLD SERIES?</p>
+        <p>More importantly, which lucky fan will win 4 tickets to this year&apos;s MLB World Series?</p>
+        <p>Congratulations to these fans of <b>{championSchool}</b> from <b>{championLocation}</b>. They have all earned the right to have their name entered (some more than once) into the drawing that will take place on October 3, 2027, the last day of the MLB Regular Season.</p>
+        <p className="yfp-madlib-line">_______________</p>
+        <p>But don&apos;t fret if your favorite Active Alumni didn&apos;t win the bracket tournament. If you are a current fan of the 8 Regional Champions listed above, you may possibly still have a chance to win. Every Active Alumni from the 8 Regional Winners will each be personally selecting 1 <b>LuckyFan</b> that will have their name added to the pool of potential winners. Good Luck!</p>
+      </>}
+      onOpen={()=>setDrawer({
+        title:'World Series raffle entries',
+        kicker:`${championSchool} · ${championLocation}`,
+        rows:bracketFans,
+        note:'Eligible fan entries will appear here as they are earned and verified.'
+      })}
+    />
+  );
+  const blankScoreboard = (week:number, stageHead:string, gameNo?:number) => {
+    const slot = gameNo || 1;
+    const blankRow = (key:string) => (
+      <div className="yfp-green-row" key={key} aria-label="School to be determined">
+        <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
+        {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
+        <span className="yfp-green-run" />
+      </div>
+    );
+    const scoreboard = (
+      <>
+        <div className="yfp-score-head">
+          <span>Week {week} | {index.weeks[week-1] ? fmtRange(index.weeks[week-1][0],index.weeks[week-1][1]) : ''}</span>
+          <span>{stageHead}{gameNo ? ` | Game ${gameNo}` : ''}</span>
+        </div>
+        <div className="yfp-green-board" style={{ '--inning-count': 9 } as React.CSSProperties}>
+          <div className="yfp-green-row head">
+            <span className="yfp-green-status tbd">UPCOMING</span>
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
+            <span className="run">R</span>
+          </div>
+          {blankRow('away')}
+          {blankRow('home')}
+        </div>
+      </>
+    );
+    const social = (
+      <FantasyGameSocial
+        gameKey={`sim-2026:postseason-${week}-${slot}`}
+        title={gameNo ? `${stageHead} · Game ${gameNo}` : stageHead}
+        subtitle="Matchup to be determined"
+        shareText={`Follow the ${stageHead} in the YAT?STATS High School Alumni Fantasy Tournament.`}
+        shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?week=${week}#sec-fantasy`}
+        preview={<div className="yfp-scorecard">{scoreboard}</div>}
+      />
+    );
+    return (
+      <article key={`blank-${week}-${slot}`} className="yfp-card yfp-scorecard yfp-post-game tbd">
+        <div className="yfp-game-split">
+          <div className="yfp-game-scorepane">{scoreboard}</div>
+          <div className="yfp-game-socialpane">{social}</div>
+        </div>
+      </article>
+    );
+  };
 
   const games = (week:number) => index.lbt.filter((x)=>x.game[1]===week).map((x)=>x.game);
   const gameCard = (g:GameRow, label:string, file:string) => {
@@ -174,14 +247,14 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
 
     const awayName = shortName(index.schools[g[3]]?.[0] || '');
     const homeName = shortName(index.schools[g[2]]?.[0] || '');
-    const social = played ? <FantasyGameSocial
+    const social = <FantasyGameSocial
       gameKey={`sim-2026:${g[0]}`}
       title={label}
       subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${awayName} and ${homeName}.`}
       shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
-    /> : null;
+    />;
 
     return <article key={g[0]} className={`yfp-card yfp-scorecard yfp-post-game ${card.state}`} id={`postgame-${g[0]}`}>
       {social ? <div className="yfp-game-split">
@@ -194,36 +267,54 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
 
   let cards: React.ReactNode;
   if(stage==='c1'){
-    cards = games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'));
+    cards = <>
+      {stageKnown(31)
+        ? games(31).map((g,i)=>gameCard(g,`Season Championship Round 1 · Game ${i+1}`,'d-lbt'))
+        : Array.from({ length: 4 }, (_, i) => blankScoreboard(31,'Championship Round 1',i+1))}
+      {week31Announcement}
+    </>;
   } else if(stage==='c2'){
     cards = <>
-      {games(32).map((g,i)=>gameCard(g,`Season Championship Round 2 · Game ${i+1}`,'d-lbt'))}
-      <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
-        body="The 10-round Bracket Champion is waiting for the winner of the eight-team single-elimination Season Championship Tournament." />
+      {stageKnown(32)
+        ? games(32).map((g,i)=>gameCard(g,`Season Championship Round 2 · Game ${i+1}`,'d-lbt'))
+        : <>
+            {Array.from({ length: 2 }, (_, i) => blankScoreboard(32,'Championship Round 2',i+1))}
+            {waitingCard('Season Championship Round 2', 'The semifinal field will be set after Championship Round 1 is complete.')}
+          </>}
+      {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
+        body="The 10-round Bracket Champion is waiting for the winner of the eight-team single-elimination Season Championship Tournament." /> : null}
     </>;
   } else if(stage==='cg'){
-    const g=games(33)[0];
+    const g=stageKnown(33) ? games(33)[0] : null;
     cards = <>
-      {g ? gameCard(g,'Season Championship Game','d-lbt') : null}
-      <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
-        body="Waiting for the winner of this Championship Game. The winner advances to the YAT?STATS World Series." />
-      <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
+      {g ? gameCard(g,'Season Championship Game','d-lbt')
+        : <>
+            {blankScoreboard(33,'Championship Game')}
+            {waitingCard('Season Championship Game', 'The finalists will be set after Championship Round 2 is complete.')}
+          </>}
+      {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
+        body="Waiting for the winner of this Championship Game. The winner advances to the YAT?STATS World Series." /> : null}
+      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="Registered fans of the Bracket Champion whose names will be entered in the World Series tickets raffle."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans})} />
+        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans})} /> : null}
     </>;
   } else {
-    const g=index.gf.find((x)=>x[1]===34) || index.gf[0];
+    const g=stageKnown(34) ? (index.gf.find((x)=>x[1]===34) || index.gf[0]) : null;
     cards = <>
-      {g ? gameCard(g,'YAT?STATS World Series','d-gf') : null}
-      <InfoCard kicker="REGIONAL TOP FANS" title="8 nominated Top Fans"
-        body="One fan nominated by the players from each of the eight regional Season Championship teams."
+      {g ? gameCard(g,'YAT?STATS World Series','d-gf')
+        : <>
+            {blankScoreboard(34,'YAT?STATS World Series')}
+            {waitingCard('YAT?STATS World Series', 'The matchup will be set after the Season Championship Game is complete.')}
+          </>}
+      {qualifiersKnown ? <InfoCard kicker="REGIONAL LUCKYFANS" title="Active Alumni LuckyFan selections"
+        body="Every Active Alumni from each of the eight Regional Champions personally selects one LuckyFan for the World Series ticket drawing."
         rows={topFans}
-        onOpen={()=>setDrawer({title:'Regional Top Fans',kicker:'8 Season Championship teams',rows:topFans})} />
-      <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
+        onOpen={()=>setDrawer({title:'Regional LuckyFan selections',kicker:'One selection per Active Alumni',rows:topFans,note:'Blank slots fill only when each Active Alumni makes a verified LuckyFan selection.'})} /> : null}
+      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
         body="The Bracket Champion fan list stays visible through the final World Series week."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'All entries must be submitted by 11:59 PM September 26, 2027.'})} />
+        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'All entries must be submitted by 11:59 PM September 26, 2027.'})} /> : null}
     </>;
   }
 
@@ -236,7 +327,11 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       .yfp-post-card{min-height:230px;display:flex;flex-direction:column;overflow:hidden;border-color:rgba(255,210,74,.28);background:linear-gradient(180deg,rgba(255,210,74,.075),rgba(255,255,255,.025))}
       .yfp-post-kicker{color:var(--yfp-gold);font:800 9px/1 Oswald,sans-serif;letter-spacing:.11em;text-transform:uppercase;margin-bottom:7px}
       .yfp-post-title{color:var(--yfp-strong);font:700 22px/.95 "Bebas Neue",Oswald,sans-serif;letter-spacing:.025em;text-transform:uppercase}
-      .yfp-post-card>p{margin:8px 0;color:var(--yfp-muted);font:500 11px/1.35 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
+      .yfp-post-body{margin:8px 0;color:var(--yfp-muted);font:500 11px/1.35 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
+      .yfp-post-body p{margin:0 0 9px}
+      .yfp-post-body p:last-child{margin-bottom:0}
+      .yfp-post-body b{color:var(--yfp-strong)}
+      .yfp-madlib-line{color:var(--yfp-gold);font-weight:800;letter-spacing:.08em}
       .yfp-post-preview{flex:1;min-height:0;max-height:125px;overflow-y:auto;overscroll-behavior:contain;border-top:1px solid var(--yfp-card-border);margin-top:4px;padding-top:4px;scrollbar-width:thin}
       .yfp-post-preview>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;padding:3px 1px;border-bottom:1px solid var(--yfp-card-border);font:500 9px/1.2 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif}
       .yfp-post-preview b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--yfp-strong);font-weight:700}
