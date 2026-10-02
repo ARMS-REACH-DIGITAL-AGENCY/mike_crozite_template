@@ -15,6 +15,13 @@ import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stage
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
+// YaTi character stand-ins for the hero spot until a player of the week is known.
+const YATI_HEROES = [
+  '/img/yati-placeholders/yati-standing-hips.webp',
+  '/img/yati-placeholders/yati-running-field.webp',
+  '/img/yati-placeholders/yati-catcher-back.webp',
+  '/img/yati-placeholders/yati-thinking.webp',
+];
 
 function openRaffleRegistration() {
   if (typeof window === 'undefined') return;
@@ -141,7 +148,10 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
       <span className="yft-grad" aria-hidden="true" />
       {slide.heroStar
         ? <Fallback className="yft-person" srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
-        : <span className="yft-mark" aria-hidden="true">{slide.opponent ? <Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : '?'}</span>}
+        : <Fallback className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
+      {slide.opponent
+        ? <span className="yft-mark" aria-hidden="true"><Fallback className="yft-mark-crest" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /></span>
+        : null}
 
       <div className="yft-left-meta">
         <b>ROUND {slide.round}</b>
@@ -411,7 +421,7 @@ export default function FantasyTimeline() {
         .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
         .yft-mark { position:absolute; left:7%; top:48%; transform:translateY(-50%); width:110px; height:110px; display:grid; place-items:center; color:#555; font:400 64px/1 "Bebas Neue",Oswald,sans-serif; }
-        .yft-mark-crest { width:100%; height:100%; object-fit:contain; }
+        .yft-mark-crest { width:100%; height:100%; object-fit:contain; opacity:.28; }
         .yft-story { position:absolute; z-index:2; left:27%; right:36%; top:18px; bottom:34px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
