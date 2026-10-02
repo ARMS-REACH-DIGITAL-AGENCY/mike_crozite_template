@@ -254,7 +254,10 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         : card.week === 33
           ? 'WEEK 33 - SEASON CHAMPIONSHIP GAME'
           : 'WEEK 34 - YAT?STATS WORLD SERIES';
-  const [hr, ar] = runsThrough(g, 7);
+  // Staged simulation: the drawer only shows results once the week's games
+  // are final. Before that it's the empty Day-1 state (no leaked sim data).
+  const played = card.state === 'final';
+  const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
   return (
     <DrawerWrap onClose={onClose}>
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
@@ -270,9 +273,9 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]}
           locations={[place(S[homeId]?.[0] || ''), place(S[awayId]?.[0] || '')]}
-          score={[hr, ar]} innings={g[5]} winner={g[6]}
-          decidedBy={g[4]} box={box ? box[String(g[0])] : undefined} loading={!rosters}
-          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode />
+          score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
+          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
+          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} />
       </aside>
     </DrawerWrap>
   );
