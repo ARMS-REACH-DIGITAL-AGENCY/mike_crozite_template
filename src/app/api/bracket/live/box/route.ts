@@ -89,11 +89,11 @@ export async function GET(request: Request) {
 
     // Debug mode: return raw counts to diagnose data issues.
     if (searchParams.get('debug') === '1') {
-      const c1 = await query('SELECT COUNT(*) AS n FROM public.player_hsids WHERE hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
+      const c1 = await query('SELECT COUNT(*) AS n FROM public.flip_card_front_stage WHERE hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
       const c2 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs WHERE game_date >= $1::date AND game_date <= $2::date', [weekStart, weekEndStr]);
-      const c3 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
-      const c4 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) AND gl.game_date >= $3::date AND gl.game_date <= $4::date', [homeHsid, awayHsid, weekStart, weekEndStr]);
-      const c5 = await query('SELECT gl.game_date::text AS gd, COUNT(*) AS n FROM public.player_game_logs gl JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) GROUP BY gl.game_date ORDER BY gl.game_date DESC LIMIT 5', [homeHsid, awayHsid]);
+      const c3 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.flip_card_front_stage ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2)', [homeHsid, awayHsid]);
+      const c4 = await query('SELECT COUNT(*) AS n FROM public.player_game_logs gl JOIN public.flip_card_front_stage ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) AND gl.game_date >= $3::date AND gl.game_date <= $4::date', [homeHsid, awayHsid, weekStart, weekEndStr]);
+      const c5 = await query('SELECT gl.game_date::text AS gd, COUNT(*) AS n FROM public.player_game_logs gl JOIN public.flip_card_front_stage ph ON ph.playerid::text = gl.playerid::text WHERE ph.hsid::text IN ($1, $2) GROUP BY gl.game_date ORDER BY gl.game_date DESC LIMIT 5', [homeHsid, awayHsid]);
       return NextResponse.json({
         players_mapped: (c1.rows[0] as any)?.n,
         logs_in_week: (c2.rows[0] as any)?.n,
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
     const { rows } = await query<PlayerGameLog>(`
       SELECT gl.playerid, gl.game_date::text AS game_date, gl.stat_type, gl.stats
       FROM public.player_game_logs gl
-      JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text
+      JOIN public.flip_card_front_stage ph ON ph.playerid::text = gl.playerid::text
       WHERE ph.hsid::text IN ($1, $2)
         AND gl.game_date >= $3::date
         AND gl.game_date <= $4::date
@@ -125,7 +125,7 @@ export async function GET(request: Request) {
     // Map playerid to school for aggregation.
     const { rows: hsidRows } = await query<{ playerid: string; hsid: string }>(`
       SELECT DISTINCT playerid::text AS playerid, hsid::text AS hsid
-      FROM public.player_hsids
+      FROM public.flip_card_front_stage
       WHERE hsid::text IN ($1, $2)
     `, [homeHsid, awayHsid]);
     const pidToHsid = new Map(hsidRows.map(r => [r.playerid, r.hsid]));
