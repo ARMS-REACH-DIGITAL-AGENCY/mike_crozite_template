@@ -1244,8 +1244,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           // Inning 9 is the single W-L% run. It belongs only once across the
           // two split scoreboards: home on OPS+, visitor on FIP-.
           const ninthRun = labelText === 'OPS+'
-            ? row.isHome && row.wp > row.oppWp
-            : !row.isHome && row.wp > row.oppWp;
+            ? row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0)
+            : !row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0);
           return (
             <div className="bl-metric-line metric" key={row.key}>
               <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
