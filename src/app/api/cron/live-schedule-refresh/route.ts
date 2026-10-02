@@ -161,9 +161,11 @@ async function reconcileMissingConditionalPostseasonGames(
   // a series ends early. Those rows used to remain forever in team_schedules
   // as Scheduled, so the 7-day snapshot showed a phantom upcoming game.
   //
-  // Only reconcile when every sport request succeeded, only postseason game
-  // types, and only after the scheduled start has been safely in the past.
-  // That keeps a transient API omission from cancelling a real game.
+  // Only reconcile when every sport request succeeded and only after the
+  // scheduled start has been safely in the past. If an old Scheduled/Pre-Game
+  // row is no longer present in MLB's authoritative schedule window, retire it.
+  // This covers 'if necessary' playoff games even when legacy rows have no
+  // game_type populated, while still avoiding transient feed omissions.
   if (warnings.length > 0) return 0;
 
   const observedGamePks = rows.map((row) => row.game_pk);
@@ -176,7 +178,6 @@ async function reconcileMissingConditionalPostseasonGames(
         set status = 'Not Necessary',
             updated_at = now()
       where game_date between $1::date and $2::date
-        and coalesce(game_type, 'R') in ('F', 'D', 'L', 'W', 'C', 'P')
         and lower(trim(coalesce(status, ''))) in ('scheduled', 'pre-game')
         and game_time_utc < now() - interval '3 hours'
         and not (game_pk = any($3::bigint[]))`,

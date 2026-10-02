@@ -218,9 +218,21 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
     const iso = addDays(today, offset);
     const gamesForDate = (scheduleByDate.get(iso) || [])
       // MLB removes "if necessary" playoff games once a series ends early.
-      // The live refresh marks any previously-scheduled orphan row as
-      // "Not Necessary"; do not render that as a fake upcoming game.
-      .filter((game) => !/not necessary/i.test(String(game.status || '')))
+      // The live refresh marks orphan rows as "Not Necessary"; hide those.
+      // Also hide any stale Scheduled/Pre-Game row whose start time is already
+      // more than 3 hours in the past. A real game would have advanced to a
+      // live/final/postponed status; leaving it as an upcoming time is wrong.
+      .filter((game) => {
+        const status = String(game.status || '');
+        if (/not necessary/i.test(status)) return false;
+        if (/^(scheduled|pre-game)$/i.test(status.trim()) && game.game_time_utc) {
+          const startMs = new Date(String(game.game_time_utc)).getTime();
+          if (Number.isFinite(startMs) && startMs < Date.now() - 3 * 60 * 60 * 1000) {
+            return false;
+          }
+        }
+        return true;
+      })
       .slice()
       .sort((a, b) => String(a.game_time_utc || '').localeCompare(String(b.game_time_utc || '')));
 
