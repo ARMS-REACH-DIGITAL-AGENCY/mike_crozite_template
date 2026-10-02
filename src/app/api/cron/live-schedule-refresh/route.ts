@@ -153,6 +153,39 @@ async function fetchLiveWindow(): Promise<{ rows: ScheduleRow[]; warnings: strin
 }
 
 // One statement for the whole window instead of a round trip per game.
+async function reconcileMissingConditionalPostseasonGames(
+  rows: ScheduleRow[],
+  warnings: string[]
+): Promise<number> {
+  // MLB removes "if necessary" postseason games from the schedule feed once
+  // a series ends early. Those rows used to remain forever in team_schedules
+  // as Scheduled, so the 7-day snapshot showed a phantom upcoming game.
+  //
+  // Only reconcile when every sport request succeeded, only postseason game
+  // types, and only after the scheduled start has been safely in the past.
+  // That keeps a transient API omission from cancelling a real game.
+  if (warnings.length > 0) return 0;
+
+  const observedGamePks = rows.map((row) => row.game_pk);
+  const today = azNow().isoDate;
+  const startDate = addDays(today, -1);
+  const endDate = addDays(today, 1);
+
+  const result = await pool.query(
+    `update public.team_schedules
+        set status = 'Not Necessary',
+            updated_at = now()
+      where game_date between $1::date and $2::date
+        and coalesce(game_type, 'R') in ('F', 'D', 'L', 'W', 'C', 'P')
+        and lower(trim(coalesce(status, ''))) in ('scheduled', 'pre-game')
+        and game_time_utc < now() - interval '3 hours'
+        and not (game_pk = any($3::bigint[]))`,
+    [startDate, endDate, observedGamePks]
+  );
+
+  return result.rowCount ?? 0;
+}
+
 async function upsertTeamSchedules(rows: ScheduleRow[]): Promise<number> {
   if (rows.length === 0) return 0;
   const result = await pool.query(
@@ -392,6 +425,7 @@ export async function GET(req: NextRequest) {
 
     const { rows, warnings } = await fetchLiveWindow();
     const upserted = await upsertTeamSchedules(rows);
+    const conditionalGamesRetired = await reconcileMissingConditionalPostseasonGames(rows, warnings);
     const refreshed = await pool.query(REFRESH_NEXT_GAMES_SQL);
     const expired = await pool.query(EXPIRE_STALE_NEXT_GAMES_SQL);
 
@@ -399,6 +433,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       window: gate.detail,
       gamesUpserted: upserted,
+      conditionalGamesRetired,
       nextGamesRefreshed: refreshed.rowCount ?? 0,
       staleNextGamesExpired: expired.rowCount ?? 0,
       warnings,
