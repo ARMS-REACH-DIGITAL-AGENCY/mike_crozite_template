@@ -141,8 +141,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     const location = place(rawName);
     return (
       <div className={`yfp-green-row${h === me ? ' me' : ''}${won ? ' won' : ''}`}>
-        <button type="button" className="yfp-green-team" disabled={!played} onClick={() => onOpen({ card, side })}
-          aria-label={played ? `${name}: this week's players` : undefined}>
+        <button type="button" className="yfp-green-team" onClick={() => onOpen({ card, side })}
+          aria-label={`${name}: this week's players`}>
           <span className="yfp-green-abbr">{abbr(name)}</span>
           <span className="yfp-green-full">{name}</span>
           {location ? <span className="yfp-green-place">{location}</span> : null}
