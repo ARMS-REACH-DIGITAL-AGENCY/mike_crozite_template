@@ -5,7 +5,7 @@
 export const SIMULATION_WEEK = 0;
 
 const DAY = 86400000;
-const START_UTC = Date.UTC(2026, 1, 2); // Mon Feb 2, 2026
+const START_UTC = Date.UTC(2026, 1, 1); // Sun Feb 1, 2026
 
 export function simulationAsOf() {
   const week = Math.max(0, Math.min(34, SIMULATION_WEEK));
