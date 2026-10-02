@@ -122,7 +122,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     ? (/\b(high|prep|academy|school|college)\b/i.test(championBase) ? championBase : `${championBase} High School`)
     : '_______________';
   const championLocation = championRaw ? place(championRaw) : '_______________';
-  const stageKnown = (week:number) => cal.final >= week - 1;
+  const stageKnown = (week:number) => week === 31 ? index.lbt.some((x) => x.game[1] === 31) : cal.final >= week - 1;
   const qualifiersKnown = cal.final >= 30;
   const waitingCard = (title:string, body:string) => (
     <InfoCard kicker="FIELD NOT SET" title={title} body={body} />
