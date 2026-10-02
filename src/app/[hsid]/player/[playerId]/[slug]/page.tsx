@@ -751,6 +751,25 @@ export default async function ProfilePage({ params }: Props) {
     ? thisYear
     : ([...logSeasons].reverse().find((y) => y < thisYear) ?? logSeasons[0] ?? thisYear);
 
+  // ── School/player social feed ──────────────────────────────────────────────────
+
+  const socialPosts = (await query<{
+    id: string | number;
+    caption: string | null;
+    permalink: string | null;
+    published_at: Date | string | null;
+    handle: string | null;
+  }>(
+    `SELECT p.id, p.caption, p.permalink, p.published_at, s.handle
+       FROM public.social_posts p
+       JOIN public.social_sources s ON s.id = p.social_source_id
+      WHERE s.platform = 'instagram' AND s.status = 'active'
+        AND (s.hsid = $1 OR s.playerid = $2)
+      ORDER BY p.published_at DESC
+      LIMIT 10`,
+    [hsid, safePlayerId]
+  )).rows;
+
   // ── Social handles ────────────────────────────────────────────────────────────
 
   const xHandle = (player.x_handle || player.twitter_handle || "").replace(/^@/, "");
@@ -922,6 +941,20 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-social" className="pp-fz-panel">
+          {socialPosts.length > 0 && (
+            <div className="pp-school-social">
+              <div className="pp-stats-bar">SCHOOL SOCIAL</div>
+              {socialPosts.map((post) => (
+                <article className="pp-social-post" key={String(post.id)}>
+                  <div className="pp-social-post-caption">{String(post.caption || "").slice(0, 120)}</div>
+                  <div className="pp-social-post-footer">
+                    @{post.handle} · {post.published_at ? new Date(post.published_at).toLocaleDateString() : ""}
+                    {post.permalink && <> · <a href={post.permalink} target="_blank" rel="noopener noreferrer">View on Instagram</a></>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
           <div className="pp-social-tag">#YATABOY</div>
           <div className="pp-social-sub">Show some love for {firstName}!</div>
           <div className="pp-social-links">
@@ -980,6 +1013,29 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
+        .pp-school-social {
+          width: 100%;
+          margin-bottom: 14px;
+        }
+        .pp-social-post {
+          padding: 10px 12px;
+          border-bottom: 1px solid rgba(255,255,255,.12);
+        }
+        .pp-social-post-caption {
+          font-size: 14px;
+          line-height: 1.35;
+          color: #fff;
+        }
+        .pp-social-post-footer {
+          margin-top: 5px;
+          font-size: 11px;
+          color: rgba(255,255,255,.62);
+        }
+        .pp-social-post-footer a {
+          color: inherit;
+          text-decoration: underline;
+        }
+
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
