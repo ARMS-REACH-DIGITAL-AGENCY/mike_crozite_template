@@ -2752,6 +2752,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              so it can sit right at the very bottom of the section instead
              of the desktop base rule's 8px -- per direct feedback. */
           .zt-rail { bottom:2px; }
+          /* Phones have the year labels hidden, leaving more vertical room
+             above the rail than desktop. Use that space to make the team
+             marks materially easier to read without widening their year
+             slots or letting them collide with neighboring seasons. */
+          .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
           .zt-nav { bottom:0; }
           .zt-rail-tick-boundary { bottom:6px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
