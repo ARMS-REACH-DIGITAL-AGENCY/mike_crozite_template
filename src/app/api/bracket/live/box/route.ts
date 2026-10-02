@@ -107,7 +107,7 @@ export async function GET(request: Request) {
       WHERE ph.hsid::text IN ($1, $2)
         AND gl.game_date >= $3::date
         AND gl.game_date <= $4::date
-        AND gl.game_status = 'Final'
+        
       ORDER BY gl.game_date
     `, [homeHsid, awayHsid, weekStart, weekEndStr]);
 
