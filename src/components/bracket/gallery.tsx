@@ -60,7 +60,7 @@ export type ActiveRosterPlayer = {
   is_pitcher?: boolean | null;
 };
 
-export const BASE = '/bracket-lab/2026';
+export const BASE = '/bracket-lab/tournament-test-2';
 export const FAV_KEY = 'yat-bracket-lab-favs';
 export const REGIONS: Record<number, string> = {
   // By geography (the states in each region's field).
