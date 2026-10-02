@@ -1296,9 +1296,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // Not on phones, and not on the anchor (the opening screen keeps the
   // years; the grad year's months are on its own slide just before it).
   const activeSlide = model.slides[activeIndex];
-  // How much of the landing slide is showing (1 when it's fully in view),
-  // so its row of team logos on the rail fades with it.
-  const anchorRailOpacity = ready ? clamp(1 - 4 * Math.abs(scrollProgress - model.anchorIndex), 0, 1) : 0;
   // The draft slide keeps the years too: it's one day, not a year.
   const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft' ? activeSlide.year : null;
 
@@ -2001,16 +1998,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               </>
             ) : (
             <>
-            {/* On the landing (graduation) slide, each season's dash - from
-                its tick to the next - carries the logo of the team he played
-                for that year; blank when there's no logo. Painted before the
-                ticks so the ticks and year chip sit on top. */}
-            {anchorRailOpacity > 0 && model.slides.map((slide, i) => (
+            {/* Every year-rail slide keeps the season/team logos visible.
+                The rail is persistent navigation, so its visual history should
+                not disappear just because the user has left the opening
+                graduation slide. Blank when a season has no team logo.
+                Painted before the ticks so the ticks and year chip sit on top. */}
+            {model.slides.map((slide, i) => (
               slide.kind === 'season' && slide.teamLogoSrcs?.length ? (
                 <span
                   key={`dash-${slide.id}`}
                   className="zt-rail-dash-logo"
-                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `${100 / Math.max(1, model.slides.length - 1)}%`, opacity: anchorRailOpacity }}
+                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `${100 / Math.max(1, model.slides.length - 1)}%` }}
                   aria-hidden="true"
                 >
                   <SmartImage srcs={slide.teamLogoSrcs} alt="" />
