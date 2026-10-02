@@ -426,10 +426,22 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 let indexPromise: Promise<Index> | null = null;
 export function loadIndex() {
   if (!indexPromise) {
-    indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))));
+    indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
+      // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
+      if (idx && Array.isArray(idx.weeks)) {
+        idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
+      }
+      return idx;
+    });
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
+}
+// Shift an ISO date string by N days.
+function shiftDate(iso: string, days: number): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
