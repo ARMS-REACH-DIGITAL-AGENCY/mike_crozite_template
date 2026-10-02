@@ -678,10 +678,15 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         plan,
       });
 
-      // Promo code entered on the join form? Redeem it now so the new fan
-      // lands as a Superfan immediately — no Stripe checkout needed.
+      // Promo code entered on the join form? The gold Superfan CTA sets
+      // pending_superfan; the Fan CTA clears it. A code typed with the Fan
+      // button is ignored (normal Fan signup). With the Superfan button, a
+      // valid code grants free Superfan immediately (no Stripe). An invalid
+      // or failed code stops here with an error — it must never fall through
+      // to Stripe checkout.
       const enteredPromo = promoCode.trim();
-      if (enteredPromo && uid) {
+      const clickedSuperfanCta = sessionStorage.getItem('pending_superfan');
+      if (clickedSuperfanCta && enteredPromo && uid) {
         try {
           const promoRes = await fetch('/api/promo/redeem', {
             method: 'POST',
@@ -705,17 +710,22 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             setTimeout(() => setMessage(''), 2500);
             return;
           }
-          const clickedSuperfanCta = sessionStorage.getItem('pending_superfan');
+          // Bad or failed code: stay on the form so it can be fixed.
+          // Never continue to Stripe checkout on a bad code.
+          sessionStorage.removeItem('pending_superfan');
           setMessage(
             (promoData?.error || 'That promo code is not valid.') +
-              (clickedSuperfanCta
-                ? ' Proceeding to Superfan checkout.'
-                : ' Continuing as a Fan — you can try another code in your account.')
+              " You can try another code in your account — look for 'Have a promo code?' below."
           );
           setMessageType('error');
+          return;
         } catch {
-          setMessage('Could not apply the promo code. Continuing as a Fan.');
+          sessionStorage.removeItem('pending_superfan');
+          setMessage(
+            "Could not apply the promo code. You can try again in your account — look for 'Have a promo code?' below."
+          );
           setMessageType('error');
+          return;
         }
       }
 
