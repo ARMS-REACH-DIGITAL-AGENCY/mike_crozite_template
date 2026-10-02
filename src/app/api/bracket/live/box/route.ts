@@ -89,8 +89,7 @@ export async function GET(request: Request) {
     const { rows } = await query<PlayerGameLog>(`
       SELECT gl.playerid, gl.game_date::text AS game_date, gl.stat_type, gl.stats
       FROM public.player_game_logs gl
-      JOIN public.player_source_map sm ON sm.source_player_id::text = gl.playerid::text AND sm.source = 'mlb_api'
-      JOIN public.player_hsids ph ON ph.playerid::text = sm.playerid::text
+      JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text
       WHERE ph.hsid::text IN ($1, $2)
         AND gl.game_date >= $3::date
         AND gl.game_date <= $4::date
@@ -107,10 +106,9 @@ export async function GET(request: Request) {
 
     // Map playerid to school for aggregation.
     const { rows: hsidRows } = await query<{ playerid: string; hsid: string }>(`
-      SELECT DISTINCT sm.source_player_id::text AS playerid, ph.hsid::text AS hsid
-      FROM public.player_hsids ph
-      JOIN public.player_source_map sm ON sm.playerid::text = ph.playerid::text AND sm.source = 'mlb_api'
-      WHERE ph.hsid::text IN ($1, $2)
+      SELECT DISTINCT playerid::text AS playerid, hsid::text AS hsid
+      FROM public.player_hsids
+      WHERE hsid::text IN ($1, $2)
     `, [homeHsid, awayHsid]);
     const pidToHsid = new Map(hsidRows.map(r => [r.playerid, r.hsid]));
 
