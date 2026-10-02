@@ -1148,7 +1148,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const wl = mine?.wl || [0, 0];
   const owl = theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '.000');
-  const pctNum = (w: number, l: number) => (w + l ? w / (w + l) : 0.5);
+  const pctNum = (w: number, l: number): number | null => (w + l ? w / (w + l) : null);
   // Last names only; an initial when two share one (B. Smith, R. Smith).
   const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
@@ -1213,8 +1213,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const awayWp = pctNum(awayWl[0], awayWl[1]);
   const correctedInnings = [...innings];
   if (drawerMode && correctedInnings.length >= 18) {
-    correctedInnings[16] = homeWp > awayWp ? 1 : 0;
-    correctedInnings[17] = awayWp > homeWp ? 1 : 0;
+    correctedInnings[16] = (homeWp ?? 0) > (awayWp ?? 0) ? 1 : 0;
+    correctedInnings[17] = (awayWp ?? 0) > (homeWp ?? 0) ? 1 : 0;
   }
   const correctedScore: [number, number] = [
     correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
@@ -1257,11 +1257,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               })}
               <span className={wonCell(boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
               {labelText === 'OPS+'
-                ? <span className={row.isHome && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? row.wp.toFixed(3).replace(/^0/, '') : 'W%'}
+                ? <span className={row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
+                    {row.isHome ? (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, '')) : 'W%'}
                   </span>
-                : <span className={!row.isHome && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? 'W%' : row.wp.toFixed(3).replace(/^0/, '')}
+                : <span className={!row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
+                    {row.isHome ? 'W%' : (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, ''))}
                   </span>}
               <span className="final">{metricRunCount(row.idx, row.opp, higher, ninthRun)}</span>
             </div>
