@@ -1095,27 +1095,37 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
-export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false }: {
+export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
   homeRoster?: ActiveRosterPlayer[];
   awayRoster?: ActiveRosterPlayer[];
   drawerMode?: boolean;
+  played?: boolean; // false when this week's games haven't been played yet (staged simulation)
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
-  const rawMine = box ? box[side] : undefined;
-  const rawTheirs = box ? box[side === 'h' ? 'a' : 'h'] : undefined;
+  // Unplayed weeks: the box score doesn't exist yet. Withhold it so the
+  // drawer renders the staged empty state instead of leaking sim results.
+  const boxForView = played ? box : undefined;
+  const rawMine = boxForView ? boxForView[side] : undefined;
+  const rawTheirs = boxForView ? boxForView[side === 'h' ? 'a' : 'h'] : undefined;
   const mineRoster = me === 0 ? homeRoster : awayRoster;
   const theirsRoster = me === 0 ? awayRoster : homeRoster;
   const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster, week);
   const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster, week);
+  // Unplayed drawer: the roster is known, but no metric can exist yet.
+  // Blank the rate/metric cells so the drawer reads as empty, not zero-data.
+  if (drawerMode && !played) {
+    for (const p of minePlayers) { p[6] = null; p[7] = null; p[8] = null; }
+    for (const p of theirPlayers) { p[6] = null; p[7] = null; p[8] = null; }
+  }
   const mine = rawMine || mineRoster ? { p: minePlayers, wl: sumRosterWl(minePlayers) } as SideBox : undefined;
   const theirs = rawTheirs || theirsRoster ? { p: theirPlayers, wl: sumRosterWl(theirPlayers) } as SideBox : undefined;
   if (mine) mine.wl = sumRosterWl(minePlayers);
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
-  const weekVals = box?.d?.[7];
+  const weekVals = boxForView?.d?.[7];
   const myName = names[me];
   const [statDay, setStatDay] = useState<'week' | number>('week');
   const viewPlayers = statDay === 'week' ? (mine?.p || []) : dailyRosterRows(mine?.p || [], week, statDay);
@@ -1189,6 +1199,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const teamFip = teamFipWeight
     ? pitchers.reduce((s, p) => s + fipRaw(p) * (pit(p)[0] || 0), 0) / teamFipWeight
     : 0;
+  // Team metric cell for the Team row: the authoritative daily team OPS+/FIP-
+  // from the box, so the Team row ties out to the scoreboard above it.
+  // (Weekly tab uses the week aggregate; daily tabs use that day's value.)
+  const teamDayMetric = (idx: number): string => {
+    if (statDay === 'week') return weekVals ? fmtStat(weekVals[idx]) : '—';
+    const v = boxForView?.d?.[statDay]?.[idx];
+    return v == null ? '—' : fmtStat(v);
+  };
   const homeWl = me === 0 ? wl : owl;
   const awayWl = me === 0 ? owl : wl;
   const homeWp = pctNum(homeWl[0], homeWl[1]);
@@ -1208,7 +1226,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
   const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
-    (box?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
+    (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
       + (ninthRun ? 1 : 0);
   const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
     const rows = [
@@ -1233,10 +1251,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
                 <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
               </span>
-              {(box?.d || []).slice(0, 7).map((d, i) => (
-                <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>
-              ))}
-              <span className={wonCell(box?.d?.[7]?.[row.idx], box?.d?.[7]?.[row.opp], higher)}>{fmtStat(box?.d?.[7]?.[row.idx])}</span>
+              {Array.from({ length: 7 }, (_, i) => {
+                const d = boxForView?.d?.[i];
+                return <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
+              })}
+              <span className={wonCell(boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
               {labelText === 'OPS+'
                 ? <span className={row.isHome && row.wp > row.oppWp ? 'won wl-pct' : 'wl-pct'}>
                     {row.isHome ? row.wp.toFixed(3).replace(/^0/, '') : 'W%'}
@@ -1259,7 +1278,6 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
       {drawerMode ? (
-        box ? (
           <div className="bl-metric-scoreboards" aria-label="OPS+ and FIP- inning scoreboards">
             {metricBoard('OPS+', 0, 1, true)}
             {metricBoard('FIP-', 2, 3, false)}
@@ -1283,7 +1301,6 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               </div>
             ) : null}
           </div>
-        ) : null
       ) : (
         <>
           <div className="bl-top">
@@ -1323,11 +1340,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {tieNote(decidedBy) && <div className="bl-note">{tieNote(decidedBy)}</div>}
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
+      {(!drawerMode || played) && (
       <div className="bl-tabs">
         {!drawerMode && <span className="on">{myName}</span>}
         {onFlip && <span className="flip">{flipTo || names[them]} ⟳</span>}
         <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
+      )}
 
       {loading && <div className="bl-muted">Loading box score…</div>}
       {!loading && !mine && <div className="bl-muted">No box score.</div>}
@@ -1348,10 +1367,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             </div>
           ) : null}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
-            total={[statDay === 'week' && weekVals ? fmtStat(weekVals[me]) : '—', statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
             total={[
-              statDay === 'week' && weekVals ? fmtStat(weekVals[2 + me]) : '—',
+              teamDayMetric(2 + me),
               statDay === 'week' ? teamWl : '—',
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
