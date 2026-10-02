@@ -977,35 +977,91 @@ function sumRosterWl(players: PlayerRow[]): [number, number] {
   }, [0, 0]);
 }
 
-function splitWeeklyCount(total: number, playerid: string, week: number, stat: string, day: number) {
+// Deterministic per-player daily RNG (mulberry32 seeded from the FNV hash).
+function dailyRng(playerid: string, week: number, stat: string) {
+  let a = hashRosterKey(`daily:${playerid}:${week}:${stat}`) >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Distribute `total` indistinguishable units across 7 days with probability
+// proportional to `weights`. The result always sums to exactly `total`.
+// When `caps` is given, no day receives more than its cap (used to keep the
+// baseball hierarchy true per day: hits <= at-bats, extra-base hits <= hits,
+// earned runs <= runs, ...). If the weekly source data already violates the
+// hierarchy, the spillover distributes proportionally without caps.
+function assignDailyCounts(total: number, weights: number[], rand: () => number, caps?: number[]): number[] {
   const n = Math.max(0, Math.round(Number(total || 0)));
-  const base = Math.floor(n / 7);
-  const rem = n % 7;
-  const offset = hashRosterKey(`daily:${playerid}:${week}:${stat}`) % 7;
-  const pos = (day - offset + 7) % 7;
-  return base + (pos < rem ? 1 : 0);
+  const out = [0, 0, 0, 0, 0, 0, 0];
+  if (!n) return out;
+  const w = weights.map((v) => Math.max(0, Number(v) || 0));
+  const hasCap = Array.isArray(caps);
+  const cap = hasCap ? (caps as number[]).map((v) => Math.max(0, Math.floor(Number(v) || 0))) : null;
+  const pickDay = (respectCap: boolean): number => {
+    const ew = [0, 0, 0, 0, 0, 0, 0];
+    let wSum = 0;
+    for (let d = 0; d < 7; d++) {
+      let e = w[d];
+      if (e <= 0 && !hasCap) e = 1; // uncapped mode with no signal: spread evenly
+      if (respectCap && cap && out[d] >= cap[d]) e = 0;
+      ew[d] = e; wSum += e;
+    }
+    if (wSum <= 0) return -1;
+    let r = rand() * wSum;
+    for (let d = 0; d < 7; d++) { if (r < ew[d]) return d; r -= ew[d]; }
+    return 6;
+  };
+  for (let i = 0; i < n; i++) {
+    let d = hasCap ? pickDay(true) : pickDay(false);
+    if (d < 0) d = pickDay(false); // caps exhausted: spill proportionally
+    if (d < 0) d = i % 7;          // fully degenerate: round-robin
+    out[d]++;
+  }
+  return out;
 }
 
 function dailyRosterRows(players: PlayerRow[], week: number, day: number): PlayerRow[] {
   return players.map((p) => {
     const next = [...p] as PlayerRow;
+    const pid = String(p[0]);
     if (Array.isArray(p[4])) {
       const src = p[4] as number[];
-      const vals = src.map((v, i) => splitWeeklyCount(v, String(p[0]), week, `bat-${i}`, day));
-      let [pa, ab, h, d2, d3, hr, bb, hbp, sf] = vals;
-      h = Math.min(h, ab);
-      d2 = Math.min(d2, h);
-      d3 = Math.min(d3, Math.max(0, h - d2));
-      hr = Math.min(hr, Math.max(0, h - d2 - d3));
-      pa = Math.max(pa, ab + bb + hbp + sf);
-      next[4] = [pa, ab, h, d2, d3, hr, bb, hbp, sf];
-      next[6] = pa > 0 ? p[6] : null;
+      const [wPa, wAb, wH, wD2, wD3, wHr, wBb, wHbp, wSf] = src.map((v) => Math.max(0, Math.round(Number(v || 0))));
+      // Hierarchical split so the daily columns always add up to the weekly
+      // total: at-bats first, hits as a subset of at-bat days, extra-base
+      // hits as subsets of hit days. No post-hoc clamping, so no lost units.
+      const dAb = assignDailyCounts(wAb, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-ab'));
+      const dH = assignDailyCounts(wH, dAb, dailyRng(pid, week, 'bat-h'), dAb);
+      const dD2 = assignDailyCounts(wD2, dH, dailyRng(pid, week, 'bat-2b'), dH);
+      const dD3 = assignDailyCounts(wD3, dH.map((v, i) => v - dD2[i]), dailyRng(pid, week, 'bat-3b'), dH.map((v, i) => v - dD2[i]));
+      const dHr = assignDailyCounts(wHr, dH.map((v, i) => v - dD2[i] - dD3[i]), dailyRng(pid, week, 'bat-hr'), dH.map((v, i) => v - dD2[i] - dD3[i]));
+      const dBb = assignDailyCounts(wBb, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-bb'));
+      const dHbp = assignDailyCounts(wHbp, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-hbp'));
+      const dSf = assignDailyCounts(wSf, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-sf'));
+      // Plate appearances follow the day's events; any weekly surplus beyond
+      // AB+BB+HBP+SF rides along proportionally so the sum stays exact.
+      const dPa = assignDailyCounts(wPa, dAb.map((v, i) => v + dBb[i] + dHbp[i] + dSf[i]), dailyRng(pid, week, 'bat-pa'));
+      next[4] = [dPa[day], dAb[day], dH[day], dD2[day], dD3[day], dHr[day], dBb[day], dHbp[day], dSf[day]];
+      next[6] = dPa[day] > 0 ? p[6] : null;
     }
     if (Array.isArray(p[5])) {
       const src = p[5] as number[];
-      const vals = src.map((v, i) => i === 8 ? Number(v || 0) : splitWeeklyCount(v, String(p[0]), week, `pit-${i}`, day));
-      const active = Number(vals[0] || 0) > 0 || Number(vals[1] || 0) > 0 || Number(vals[2] || 0) > 0 || Number(vals[4] || 0) > 0;
-      next[5] = vals;
+      const [wOuts, wHr, wBb, wHbp, wK, wHits, wR, wEr] = src.map((v) => Math.max(0, Math.round(Number(v || 0))));
+      const wFip = Number(src[8] || 0);
+      const dOuts = assignDailyCounts(wOuts, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'pit-outs'));
+      const dHits = assignDailyCounts(wHits, dOuts, dailyRng(pid, week, 'pit-h'), dOuts);
+      const dHr = assignDailyCounts(wHr, dHits, dailyRng(pid, week, 'pit-hr'), dHits);
+      const dBb = assignDailyCounts(wBb, dOuts, dailyRng(pid, week, 'pit-bb'));
+      const dHbp = assignDailyCounts(wHbp, dOuts, dailyRng(pid, week, 'pit-hbp'));
+      const dK = assignDailyCounts(wK, dOuts, dailyRng(pid, week, 'pit-k'), dOuts);
+      const dR = assignDailyCounts(wR, dHits.map((v, i) => v + dBb[i] + dHbp[i]), dailyRng(pid, week, 'pit-r'), dHits.map((v, i) => v + dBb[i] + dHbp[i]));
+      const dEr = assignDailyCounts(wEr, dR, dailyRng(pid, week, 'pit-er'), dR);
+      next[5] = [dOuts[day], dHr[day], dBb[day], dHbp[day], dK[day], dHits[day], dR[day], dEr[day], wFip];
+      const active = dOuts[day] > 0 || dHr[day] > 0 || dBb[day] > 0 || dK[day] > 0;
       next[7] = active ? p[7] : null;
     }
     next[8] = null;
@@ -1268,7 +1324,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
       <div className="bl-tabs">
-        <span className="on">{myName}</span>
+        {!drawerMode && <span className="on">{myName}</span>}
         {onFlip && <span className="flip">{flipTo || names[them]} ⟳</span>}
         <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
@@ -1426,9 +1482,9 @@ export function Styles() {
       .bl.bl-embed .bl-legend { font-size:9.5px; }
       .bl.bl-embed .bl-muted { padding:8px; font-size:11px; }
       .bl-history-tabs{position:sticky;top:0;z-index:4;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px;margin:6px 0 5px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
-      .bl-history-tabs button{min-width:0;padding:5px 2px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font:700 9px/1 Oswald,sans-serif;cursor:pointer}
+      .bl-history-tabs button{min-width:0;padding:4px 2px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font:700 12px/1 Oswald,sans-serif;cursor:pointer}
       .bl-history-tabs button.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold)}
-      @media(max-width:520px){.bl-history-tabs button{font-size:8px;padding:5px 1px}}
+      @media(max-width:520px){.bl-history-tabs button{font-size:10px;padding:4px 1px}}
       /* On a school's page the cards follow the site's light / dark toggle. */
       body.light-theme .bl.bl-embed { --bg:#f4f4f4; --panel:#fff; --panel2:#f3f4f6; --line:#e1e4e8; --text:#121212; --muted:#5f6670; --gold:#b07d00;
         --win:#1e8e3e; --loss:#c62828; --dim:#a0a6ae; --faint:#80868e; --gold-bg:#fff4d6; --tint:rgba(0,0,0,.06); --tint2:rgba(0,0,0,.02); --gold-tint:rgba(255,193,7,.14); }
@@ -1546,10 +1602,10 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-sort { width:100%; overflow:hidden; text-overflow:clip; }
 
       .bl-metric-scoreboards { margin:8px 8px 6px; display:grid; gap:6px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-      .bl-metric-board { width:100%; min-width:300px; box-sizing:border-box; margin:0; padding:6px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { --metric-cell:40px; min-width:max-content; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(10,var(--metric-cell)); gap:2px; align-items:center; }
+      .bl-metric-board { width:100%; min-width:300px; box-sizing:border-box; margin:0; padding:4px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
+      .bl-metric-line { --metric-cell:20px; min-width:max-content; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(10,var(--metric-cell)); gap:2px; align-items:center; }
       .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
-      .bl-metric-line.head span { display:grid; place-items:center; min-height:17px; }
+      .bl-metric-line.head span { display:grid; place-items:center; min-height:12px; }
       .bl-metric-line.head .metric-name { justify-items:start; padding-left:4px; color:#ffd34f; font-size:11px; }
       .bl-metric-line.metric { margin-top:2px; }
       .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 9px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
