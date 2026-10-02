@@ -184,6 +184,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('live box transformer failed', error);
-    return NextResponse.json({ error: 'transformer failed' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: 'transformer failed', detail: msg }, { status: 500 });
   }
 }
