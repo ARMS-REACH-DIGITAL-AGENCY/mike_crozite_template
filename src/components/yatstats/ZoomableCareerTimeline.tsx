@@ -2129,7 +2129,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            the edge of the frame -- matching the real corporate hero, where
            the ghosted crest is only partly visible, clipped by the frame's
            right edge, not fully contained inside it. */
-        .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.15; pointer-events:none; }
+        .zt-logo-layer { position:absolute; z-index:3; top:4%; bottom:4%; right:-14%; width:56%; display:flex; align-items:center; justify-content:center; opacity:.20; pointer-events:none; }
         .zt-logo-layer :global(img) { width:100%; height:100%; object-fit:contain; }
 
         /* Moved in from the very edge, closer to the headline, so it sits
@@ -2499,7 +2499,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         /* A season's logo standing on the rail, as wide as its dash. */
         .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
-        .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+        .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; transform:scale(1.12); transform-origin:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
         /* Draft pennant: a gold flag on a short pole, standing on the rail
            (above the tick, clear of the year chip) and inline on the slide. */
         .zt-pennant { position:absolute; left:50%; bottom:calc(100% + 8px); width:1px; height:13px; margin-left:-0.5px; background:${DRAFT_GOLD}; z-index:3; pointer-events:auto; }
@@ -2706,7 +2706,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              clamp(84px,28vw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */
           .zt-person-stack :global(.zt-person-then) { left:24%; width:clamp(130px,40vw,170px); }
-          .zt-logo-layer { width:58%; right:-14%; opacity:.14; }
+          .zt-logo-layer { width:58%; right:-14%; opacity:.19; }
           /* This whole block (name + the four metadata lines) is sized
              down a notch at this breakpoint -- smaller than the desktop
              clamp floors, not just following the same vw scaling -- so a
@@ -2752,6 +2752,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              so it can sit right at the very bottom of the section instead
              of the desktop base rule's 8px -- per direct feedback. */
           .zt-rail { bottom:2px; }
+          /* Phones have the year labels hidden, leaving more vertical room
+             above the rail than desktop. Use that space to make the team
+             marks materially easier to read without widening their year
+             slots or letting them collide with neighboring seasons. */
+          .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
           .zt-nav { bottom:0; }
           .zt-rail-tick-boundary { bottom:6px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
@@ -2800,6 +2805,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-kick { font-size:7px; margin-bottom:3px; }
           .zt-drafted { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(13px,4.2vw,17px); margin-bottom:3px; }
+          /* Give the anchor headline just enough mobile width for "NEITHER"
+             to stay with the graduation line above instead of orphaning at
+             the start of the next line. Other slide copy widths stay put. */
+          .zt-anchor .zt-copy { width:20.5%; }
           .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
         }
       `}</style>
