@@ -26,6 +26,7 @@ import {
 } from "@/lib/db";
 import type { Metadata } from "next";
 import { storyAssetUrl } from "@/lib/storyAssets";
+import ProfileSchoolSocialFeed from "@/components/yatstats/ProfileSchoolSocialFeed";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
@@ -922,36 +923,28 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-social" className="pp-fz-panel">
+          <ProfileSchoolSocialFeed hsid={hsid} playerid={safePlayerId} />
           <div className="pp-social-tag">#YATABOY</div>
           <div className="pp-social-sub">Show some love for {firstName}!</div>
-          <div className="pp-social-links">
-            {xHandle && (
-              <a
-                href={`https://x.com/${xHandle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pp-social-link"
-              >
-                <i className="ri-twitter-x-line" /> @{xHandle}
-              </a>
-            )}
-            {igHandle && (
-              <a
-                href={`https://instagram.com/${igHandle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pp-social-link"
-              >
-                <i className="ri-instagram-line" /> @{igHandle}
-              </a>
-            )}
-            {!xHandle && !igHandle && (
-              <div className="pp-fz-placeholder">
-                <i className="ri-share-line pp-ph-icon" />
-                <p>Social links will appear here once available.</p>
-              </div>
-            )}
-          </div>
+          {xHandle || igHandle ? (
+            <div className="pp-social-links">
+              {xHandle && (
+                <a href={`https://x.com/${xHandle}`} target="_blank" rel="noopener noreferrer" className="pp-social-btn">
+                  <i className="ri-twitter-x-line" /> @{xHandle}
+                </a>
+              )}
+              {igHandle && (
+                <a href={`https://instagram.com/${igHandle}`} target="_blank" rel="noopener noreferrer" className="pp-social-btn">
+                  <i className="ri-instagram-line" /> @{igHandle}
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="pp-fz-placeholder">
+              <i className="ri-share-line pp-ph-icon" />
+              <p>Social links will appear here once available.</p>
+            </div>
+          )}
         </div>
 
         {/* ── CONNECT tab ──────────────────────────────────────────────────── */}
@@ -980,6 +973,15 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
+        .pp-school-social-feed { width:100%; margin-bottom:8px; }
+        .pp-social-feed-loading { padding:10px 4px; color:rgba(255,255,255,.58); font:400 11px/1.2 Oswald,sans-serif; }
+        .pp-social-feed-strip { display:flex; gap:6px; width:100%; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; padding:0 0 2px; }
+        .pp-social-feed-strip::-webkit-scrollbar { display:none; }
+        .pp-social-feed-card { position:relative; display:block; flex:0 0 112px; width:112px; height:112px; overflow:hidden; border-radius:5px; background:rgba(255,255,255,.05); color:#fff; text-decoration:none; }
+        .pp-social-feed-image { width:100%; height:100%; object-fit:cover; display:block; }
+        .pp-social-feed-meta { position:absolute; left:0; right:0; bottom:0; display:flex; justify-content:space-between; align-items:center; gap:4px; padding:18px 5px 5px; background:linear-gradient(to bottom,transparent,rgba(0,0,0,.82)); font:600 8px/1 Oswald,sans-serif; text-shadow:0 1px 2px #000; }
+        .pp-social-feed-meta span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
