@@ -926,16 +926,16 @@ export default async function ProfilePage({ params }: Props) {
           <ProfileSchoolSocialFeed hsid={hsid} playerid={safePlayerId} />
           <div className="pp-social-tag">#YATABOY</div>
           <div className="pp-social-sub">Show some love for {firstName}!</div>
-          {xHandle || instagramHandle ? (
+          {xHandle || igHandle ? (
             <div className="pp-social-links">
               {xHandle && (
                 <a href={`https://x.com/${xHandle}`} target="_blank" rel="noopener noreferrer" className="pp-social-btn">
                   <i className="ri-twitter-x-line" /> @{xHandle}
                 </a>
               )}
-              {instagramHandle && (
-                <a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noopener noreferrer" className="pp-social-btn">
-                  <i className="ri-instagram-line" /> @{instagramHandle}
+              {igHandle && (
+                <a href={`https://instagram.com/${igHandle}`} target="_blank" rel="noopener noreferrer" className="pp-social-btn">
+                  <i className="ri-instagram-line" /> @{igHandle}
                 </a>
               )}
             </div>
