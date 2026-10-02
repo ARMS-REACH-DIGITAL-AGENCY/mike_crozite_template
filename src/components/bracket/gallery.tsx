@@ -1620,16 +1620,15 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:2px; }
       .bl.bl-embed.yfp-drawer .bl-sort { width:100%; overflow:hidden; text-overflow:clip; }
 
-      .bl-metric-scoreboards { margin:8px 8px 6px; display:grid; gap:6px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-      .bl-metric-board { width:100%; min-width:300px; box-sizing:border-box; margin:0; padding:4px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { --metric-cell:20px; min-width:max-content; display:grid; grid-template-columns:clamp(72px,18vw,96px) repeat(10,var(--metric-cell)); gap:2px; align-items:center; }
-      .bl-metric-line.head { margin-bottom:3px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
+      .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
+      .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
+      .bl-metric-line { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:center; }
+      .bl-metric-line.head { margin-bottom:2px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
       .bl-metric-line.head span { display:grid; place-items:center; min-height:12px; }
       .bl-metric-line.head .metric-name { justify-items:start; padding-left:4px; color:#ffd34f; font-size:11px; }
       .bl-metric-line.metric { margin-top:2px; }
-      .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 9px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
-      .bl-metric-line.metric>.metric-team { width:auto; min-width:0; height:var(--metric-cell); }
-      .bl-metric-line.metric .metric-team { grid-template-columns:1fr; justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; }
+      .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
@@ -1643,14 +1642,12 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box td { padding:3px 0; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { padding-left:4px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
-        .bl-metric-board { min-width:300px; padding:4px; }
-        .bl-metric-line { --metric-cell:32px; grid-template-columns:64px repeat(10,var(--metric-cell)); gap:2px; }
         .bl-metric-line.head { font-size:6.8px; }
         .bl-metric-line.head .metric-name { font-size:9px; padding-left:3px; }
-        .bl-metric-line.metric>span { width:var(--metric-cell); height:var(--metric-cell); min-width:var(--metric-cell); min-height:var(--metric-cell); font-size:7.5px; }
+        .bl-metric-line.metric>span { font-size:9px; min-height:19px; }
         .bl-metric-line.metric .metric-team { padding:2px 3px; }
         .bl-metric-line.metric .metric-team b { font-size:7.2px; letter-spacing:-.035em; }
-        .bl-metric-line.metric>span.final { font-size:9px; }
+        .bl-metric-line.metric>span.final { font-size:10px; }
       }
       .bl-drawer-explain { margin:14px 12px 2px; padding-top:9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.42; }
       .bl-drawer-explain p { margin:0 0 7px; }
@@ -1731,10 +1728,7 @@ export function Styles() {
       .bl-board td.none { text-align:left; color:var(--muted); font-style:italic; }
       @media (max-width:520px) {
         .bl-board .st { display:none; }
-        .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:5px; }
-        .bl-metric-board { min-width:458px; padding:5px; }
-        .bl-metric-line { min-width:448px; grid-template-columns:82px repeat(9,32px) 42px; }
-        .bl-metric-line.metric>span { min-height:22px; font-size:9px; }
+        .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:4px; }
         .bl-metric-line.metric .metric-team b { font-size:7.5px; letter-spacing:-.025em; }
         .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
       }
