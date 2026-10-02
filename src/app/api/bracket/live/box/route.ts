@@ -87,7 +87,7 @@ export async function GET(request: Request) {
 
     // Query game logs for both schools' players in this week.
     const { rows } = await query<PlayerGameLog>(`
-      SELECT DISTINCT gl.playerid, gl.game_date::text, gl.stat_type, gl.stats
+      SELECT gl.playerid, gl.game_date::text AS game_date, gl.stat_type, gl.stats
       FROM public.player_game_logs gl
       JOIN public.player_hsids ph ON ph.playerid::text = gl.playerid::text
       WHERE ph.hsid::text IN ($1, $2)
