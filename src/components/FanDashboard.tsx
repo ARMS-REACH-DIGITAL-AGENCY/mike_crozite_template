@@ -424,6 +424,140 @@ function SchoolPicker({
   );
 }
 
+// -- Team Picker ------------------------------------------------------------
+
+type TeamResult = {
+  currentTeamName: string;
+};
+
+function TeamPicker({
+  selected,
+  onSelect,
+  label = 'Team',
+  required = false,
+}: {
+  selected: string | null;
+  onSelect: (t: string | null) => void;
+  label?: string;
+  required?: boolean;
+}) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<TeamResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.length < 2) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/teams/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        const json = await res.json();
+        const list = json.teams || json.results || [];
+        setResults(list.slice(0, 8));
+        setShowResults(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]);
+
+  if (selected) {
+    return (
+      <div>
+        <label style={labelStyle}>
+          {label} {required && <span style={{ color: 'var(--gold)' }}>*</span>}
+        </label>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 12px',
+          borderRadius: '6px',
+          border: '1px solid var(--gold)',
+          background: 'rgba(255,215,0,.08)',
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
+            {selected}
+          </div>
+          <button
+            type="button"
+            onClick={() => { onSelect(null); setQ(''); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={labelStyle}>
+        {label} {required && <span style={{ color: 'var(--gold)' }}>*</span>}
+      </label>
+      <input
+        type="text"
+        placeholder="Type team name…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onBlur={() => setTimeout(() => setShowResults(false), 200)}
+        onFocus={() => { if (results.length) setShowResults(true); }}
+        style={inputStyle}
+      />
+      {showResults && results.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'var(--bg)',
+          border: '1px solid var(--line)',
+          borderRadius: '6px',
+          marginTop: '4px',
+          maxHeight: '240px',
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+        }}>
+          {results.map((t, i) => (
+            <button
+              key={i}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onSelect(t.currentTeamName); setShowResults(false); setQ(''); }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '10px 12px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: '1px solid var(--line)',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'var(--fg)',
+              }}
+            >
+              {t.currentTeamName}
+            </button>
+          ))}
+        </div>
+      )}
+      {searching && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>Searching…</div>}
+    </div>
+  );
+}
+
 // -- Manual player fields (when not on platform) ----------------------------
 
 function ManualPlayerFields({
@@ -751,7 +885,7 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
   const [purpose, setPurpose] = useState('flip_card');
   const [description, setDescription] = useState('');
   const [dateTaken, setDateTaken] = useState('');
-  const [teamAtTime, setTeamAtTime] = useState('');
+  const [teamAtTime, setTeamAtTime] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
@@ -770,13 +904,13 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
       fd.append('hsid', player.schoolId || defaultHsid);
       fd.append('purpose', purpose);
       fd.append('description', description);
-      fd.append('team_at_time', teamAtTime);
+      fd.append('team_at_time', teamAtTime || '');
       if (dateTaken) fd.append('date_taken', dateTaken);
       const res = await fetch('/api/upload/image', { method: 'POST', credentials: 'include', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Upload failed');
       setOk(true); setMsg(json.message);
-      setFile(null); setPlayer(null); setDescription(''); setDateTaken(''); setTeamAtTime('');
+      setFile(null); setPlayer(null); setDescription(''); setDateTaken(''); setTeamAtTime(null);
     } catch (err: any) {
       setOk(false); setMsg(err.message);
     } finally { setBusy(false); }
@@ -803,10 +937,11 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
           value={description} onChange={(e) => setDescription(e.target.value)}
           required style={inputStyle} />
       </Field>
-      <Field label="What team was the player on when this was taken?">
-        <input type="text" placeholder="e.g. Hamilton HS (2023), Reno Aces"
-          value={teamAtTime} onChange={(e) => setTeamAtTime(e.target.value)} style={inputStyle} />
-      </Field>
+      <TeamPicker
+        selected={teamAtTime}
+        onSelect={setTeamAtTime}
+        label="What team was the player on when this was taken?"
+      />
       <Field label="Date Taken (if known)">
         <input type="date" value={dateTaken}
           onChange={(e) => setDateTaken(e.target.value)} style={inputStyle} />
