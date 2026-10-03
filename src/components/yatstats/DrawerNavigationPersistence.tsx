@@ -92,10 +92,10 @@ function showSectionWithoutClosing(tabId: string) {
     const labels: Record<string, string> = {
       active: 'ACTIVE BASEBALL ALUMNI',
       news: 'ACTIVE ALUMNI NEWS',
-      alltime: 'NEXT-LEVEL ALL-TIME LIST',
+      alltime: 'ALL-TIME NEXT-LEVEL LIST',
       current: highSchoolTeamLabel(),
       fantasy: 'FANTASY BRACKET TOURNEY',
-      mentor: 'MENTORSHIP MARKETPLACE',
+      mentor: 'CONTRIBUTOR MARKETPLACE',
       partner: 'PARTNERSHIP PROGRAM',
       about: 'ABOUT US',
       faq: "FAQ'S",
