@@ -281,6 +281,149 @@ function PlayerPicker({
   );
 }
 
+// -- School Picker ----------------------------------------------------------
+
+type SchoolResult = {
+  hsid: string;
+  hsname: string;
+  hslocation: string;
+};
+
+function SchoolPicker({
+  selected,
+  onSelect,
+  label = 'High School',
+  required = false,
+}: {
+  selected: SchoolResult | null;
+  onSelect: (s: SchoolResult | null) => void;
+  label?: string;
+  required?: boolean;
+}) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<SchoolResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.length < 2) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/schools/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        const json = await res.json();
+        const list = json.schools || json.results || [];
+        setResults(list.slice(0, 8));
+        setShowResults(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]);
+
+  if (selected) {
+    return (
+      <div>
+        <label style={labelStyle}>
+          {label} {required && <span style={{ color: 'var(--gold)' }}>*</span>}
+        </label>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 12px',
+          borderRadius: '6px',
+          border: '1px solid var(--gold)',
+          background: 'rgba(255,215,0,.08)',
+        }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
+              {selected.hsname}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+              {selected.hslocation || `HSID: ${selected.hsid}`}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onSelect(null); setQ(''); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={labelStyle}>
+        {label} {required && <span style={{ color: 'var(--gold)' }}>*</span>}
+      </label>
+      <input
+        type="text"
+        placeholder="Type school name…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onBlur={() => setTimeout(() => setShowResults(false), 200)}
+        onFocus={() => { if (results.length) setShowResults(true); }}
+        style={inputStyle}
+      />
+      {showResults && results.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'var(--bg)',
+          border: '1px solid var(--line)',
+          borderRadius: '6px',
+          marginTop: '4px',
+          maxHeight: '240px',
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+        }}>
+          {results.map((s) => (
+            <button
+              key={s.hsid}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onSelect(s); setShowResults(false); setQ(''); }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '10px 12px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: '1px solid var(--line)',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
+                {s.hsname}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                {s.hslocation || `HSID: ${s.hsid}`}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {searching && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>Searching…</div>}
+    </div>
+  );
+}
+
 // -- Manual player fields (when not on platform) ----------------------------
 
 function ManualPlayerFields({
@@ -444,6 +587,7 @@ function NewsTipForm({ senderName }: { senderName: string }) {
 
 function MissingPlayerForm({ defaultHsid }: { defaultHsid: string }) {
   const [manual, setManual] = useState<Record<string, string>>({});
+  const [school, setSchool] = useState<SchoolResult | null>(null);
   const [gradYear, setGradYear] = useState('');
   const [notes, setNotes] = useState('');
   const [msg, setMsg] = useState('');
@@ -458,8 +602,8 @@ function MissingPlayerForm({ defaultHsid }: { defaultHsid: string }) {
     try {
       const r = await postJson('/api/tips/missing-player', {
         player_name: manual['mp_name'],
-        school_name: manual['mp_hs'],
-        hsid: defaultHsid || null,
+        school_name: school ? school.hsname : (manual['mp_hs'] || null),
+        hsid: school ? school.hsid : (defaultHsid || null),
         grad_year: gradYear ? parseInt(gradYear, 10) : null,
         position: manual['mp_pos'] || null,
         level: manual['mp_level'] || null,
@@ -467,7 +611,7 @@ function MissingPlayerForm({ defaultHsid }: { defaultHsid: string }) {
         notes: notes || null,
       });
       setOk(true); setMsg(r.message);
-      setManual({}); setGradYear(''); setNotes('');
+      setManual({}); setSchool(null); setGradYear(''); setNotes('');
     } catch (err: any) {
       setOk(false); setMsg(err.message);
     } finally { setBusy(false); }
@@ -479,7 +623,56 @@ function MissingPlayerForm({ defaultHsid }: { defaultHsid: string }) {
       <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>
         Know a player who should be on YAT?STATS but isn't? Tell us who.
       </p>
-      <ManualPlayerFields prefix="mp" values={manual} onChange={setManualField} />
+      <Field label="Player Name" required>
+        <input
+          type="text" placeholder="Full name"
+          value={manual['mp_name'] || ''}
+          onChange={(e) => setManualField('mp_name', e.target.value)}
+          required style={inputStyle}
+        />
+      </Field>
+      <SchoolPicker selected={school} onSelect={setSchool} label="High School" required />
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Level">
+            <select
+              value={manual['mp_level'] || ''}
+              onChange={(e) => setManualField('mp_level', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select…</option>
+              <option value="MLB">MLB</option>
+              <option value="MiLB">MiLB</option>
+              <option value="Indy">Indy Ball</option>
+              <option value="NCAA D1">NCAA D1</option>
+              <option value="NCAA D2">NCAA D2</option>
+              <option value="NCAA D3">NCAA D3</option>
+              <option value="NAIA">NAIA</option>
+              <option value="JUCO">JUCO</option>
+              <option value="HS">High School</option>
+              <option value="Other">Other</option>
+            </select>
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Position">
+            <input
+              type="text" placeholder="e.g. SS, RHP"
+              value={manual['mp_pos'] || ''}
+              onChange={(e) => setManualField('mp_pos', e.target.value)}
+              style={inputStyle}
+            />
+          </Field>
+        </div>
+      </div>
+      <Field label="Current Team">
+        <input
+          type="text" placeholder="e.g. Arizona Diamondbacks"
+          value={manual['mp_team'] || ''}
+          onChange={(e) => setManualField('mp_team', e.target.value)}
+          style={inputStyle}
+        />
+      </Field>
       <Field label="Grad Year">
         <input type="number" placeholder="e.g. 2020" value={gradYear}
           onChange={(e) => setGradYear(e.target.value)} min={1950} max={2040} style={inputStyle} />
