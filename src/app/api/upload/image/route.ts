@@ -78,13 +78,17 @@ export async function POST(req: NextRequest) {
   const s3Key = `pending/${uploadId}.${ext}`;
 
   try {
+    // Parse playerid safely
+    const rawUploadPid = playerid ? parseInt(String(playerid), 10) : NaN;
+    const safePlayerid = Number.isNaN(rawUploadPid) ? null : rawUploadPid;
+
     await query(
       `INSERT INTO public.media_upload
         (id, playerid, hsid, category, s3_key, date_taken, uploaded_by, status, mime_type, file_size_bytes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)`,
       [
         uploadId,
-        playerid ? parseInt(playerid, 10) : null,
+        safePlayerid,
         hsid,
         category,
         s3Key,
@@ -101,8 +105,11 @@ export async function POST(req: NextRequest) {
       message: 'Thanks! Our team will review your photo.',
       upload_id: uploadId,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[upload/image] insert failed:', err);
-    return NextResponse.json({ error: 'Failed to save upload' }, { status: 500 });
+    return NextResponse.json(
+      { error: `DB error: ${err?.message || 'Unknown'} (code: ${err?.code || 'none'})` },
+      { status: 500 }
+    );
   }
 }
