@@ -285,12 +285,15 @@ export default function ContributePage() {
           { icon: '⚾', label: 'Suggest a Missing Player', desc: 'Know someone we don\'t have?' },
           { icon: '🔧', label: 'Report a Correction', desc: 'Spotted bad data?' },
           { icon: '📍', label: 'Where Are They Now?', desc: 'Update us on a retired player' },
+          { icon: '🎥', label: 'Video Shoutout', desc: 'Coming soon — personalized videos from players', disabled: true },
         ].map((item, i) => (
           <div key={i} style={{
             border: '1px solid var(--line, #333)', borderRadius: '8px',
-            padding: '16px', textAlign: 'center', cursor: 'pointer',
+            padding: '16px', textAlign: 'center',
+            cursor: item.disabled ? 'default' : 'pointer',
+            opacity: item.disabled ? 0.5 : 1,
           }}
-          onClick={() => window.dispatchEvent(new CustomEvent('open-login-drawer'))}
+          onClick={() => { if (!item.disabled) window.dispatchEvent(new CustomEvent('open-login-drawer')); }}
           >
             <div style={{ fontSize: '28px', marginBottom: '8px' }}>{item.icon}</div>
             <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--fg, #fff)', marginBottom: '4px' }}>{item.label}</div>
