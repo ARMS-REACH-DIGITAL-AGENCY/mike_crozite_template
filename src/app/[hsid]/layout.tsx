@@ -383,13 +383,13 @@ export default async function HsidLayout({
               />
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news">ACTIVE ALUMNI <strong>NEWS</strong></a>
-            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL <strong>ALL-TIME LIST</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">ALL-TIME <strong>NEXT-LEVEL LIST</strong></a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">
               {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
               <strong>{highSchoolTeamLabel().split(" ")[0]}</strong> {highSchoolTeamLabel().split(" ").slice(1).join(" ")}
             </a>
             <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><strong>FANTASY</strong> BRACKET TOURNEY</a>
-            <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">MENTORSHIP <strong>MARKETPLACE</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">CONTRIBUTOR <strong>MARKETPLACE</strong></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><strong>PARTNERSHIP</strong> PROGRAM</a>
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
             <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ&apos;S</a>
