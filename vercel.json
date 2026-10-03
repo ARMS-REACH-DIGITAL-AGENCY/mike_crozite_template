@@ -21,6 +21,10 @@
     {
       "path": "/api/cron/live-schedule-refresh",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/process-tip-queue",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
