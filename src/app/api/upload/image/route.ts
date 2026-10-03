@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate required fields per purpose
-  const validPurposes = ['flip_card', 'headshot', 'timeline', 'school_logo', 'team_logo'];
+  const validPurposes = ['flip_card', 'headshot', 'action', 'school_logo', 'team_logo'];
   if (!validPurposes.includes(purpose)) {
     return NextResponse.json({ error: 'Invalid purpose' }, { status: 400 });
   }
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (['flip_card', 'headshot', 'timeline'].includes(purpose) && !playerid) {
+  if (['flip_card', 'headshot', 'action'].includes(purpose) && !playerid) {
     return NextResponse.json({ error: 'Player is required for this photo type' }, { status: 400 });
   }
   if (purpose === 'school_logo' && !hsid) {
