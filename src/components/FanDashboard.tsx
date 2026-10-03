@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // ---------------------------------------------------------------------------
 // FanDashboard — "HELP IMPROVE YAT?STATS" sections for the account drawer.
-// Lets logged-in fans submit news tips, suggest missing players, report
-// corrections, and upload photos. All submissions go through review.
+// Only one section open at a time. Player selection via platform search.
 // ---------------------------------------------------------------------------
+
+// -- Styles ---------------------------------------------------------------
 
 const sectionStyle: React.CSSProperties = {
   borderTop: '1px solid var(--line)',
@@ -98,6 +99,16 @@ const formContainerStyle: React.CSSProperties = {
   padding: '4px 2px 12px 2px',
 };
 
+const disclaimerStyle: React.CSSProperties = {
+  fontSize: '11px',
+  color: 'var(--muted)',
+  fontFamily: 'Inter, -apple-system, sans-serif',
+  marginTop: '8px',
+  lineHeight: 1.4,
+};
+
+// -- Helpers ---------------------------------------------------------------
+
 async function postJson(url: string, data: Record<string, unknown>) {
   const res = await fetch(url, {
     method: 'POST',
@@ -108,19 +119,6 @@ async function postJson(url: string, data: Record<string, unknown>) {
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || 'Something went wrong');
   return json;
-}
-
-function Collapsible({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ marginBottom: '4px' }}>
-      <button type="button" onClick={() => setOpen(!open)} style={subHeaderStyle}>
-        <span>{icon} &nbsp;{title}</span>
-        <span style={{ color: 'var(--muted)', fontSize: '16px', fontWeight: 400 }}>{open ? '−' : '+'}</span>
-      </button>
-      {open && <div style={formContainerStyle}>{children}</div>}
-    </div>
-  );
 }
 
 function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
@@ -134,69 +132,304 @@ function Field({ label, children, required }: { label: string; children: React.R
   );
 }
 
-// ---------------------------------------------------------------------------
-// News Tip Form
-// ---------------------------------------------------------------------------
+// -- Player Picker ----------------------------------------------------------
+
+type PlayerResult = {
+  playerid: string;
+  firstname: string;
+  lastname: string;
+  hsid: string;
+  hsname: string;
+  hslocation: string;
+};
+
+function PlayerPicker({
+  selected,
+  onSelect,
+  label = 'Find Player',
+  required = false,
+}: {
+  selected: PlayerResult | null;
+  onSelect: (p: PlayerResult | null) => void;
+  label?: string;
+  required?: boolean;
+}) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<PlayerResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.length < 2) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/players/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        const json = await res.json();
+        // API returns { results: [...] } or { players: [...] } — handle both
+        const list = json.results || json.players || [];
+        setResults(list.slice(0, 8));
+        setShowResults(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]);
+
+  if (selected) {
+    return (
+      <div>
+        <label style={labelStyle}>
+          {label} {required && <span style={{ color: 'var(--gold)' }}>*</span>}
+        </label>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 12px',
+          borderRadius: '6px',
+          border: '1px solid var(--gold)',
+          background: 'rgba(255,215,0,.08)',
+        }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
+              {selected.firstname} {selected.lastname}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+              {selected.hsname} {selected.hslocation ? `(${selected.hslocation})` : ''}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onSelect(null); setQ(''); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={labelStyle}>
+        {label} {required && <span style={{ color: 'var(--gold)' }}>*</span>}
+      </label>
+      <input
+        type="text"
+        placeholder="Type player name…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onBlur={() => setTimeout(() => setShowResults(false), 200)}
+        onFocus={() => { if (results.length) setShowResults(true); }}
+        style={inputStyle}
+      />
+      {showResults && results.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'var(--bg)',
+          border: '1px solid var(--line)',
+          borderRadius: '6px',
+          marginTop: '4px',
+          maxHeight: '240px',
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+        }}>
+          {results.map((p) => (
+            <button
+              key={`${p.playerid}-${p.hsid}`}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onSelect(p); setShowResults(false); setQ(''); }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '10px 12px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: '1px solid var(--line)',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
+                {p.firstname} {p.lastname}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                {p.hsname} {p.hslocation ? `(${p.hslocation})` : ''}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {searching && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>Searching…</div>}
+    </div>
+  );
+}
+
+// -- Manual player fields (when not on platform) ----------------------------
+
+function ManualPlayerFields({
+  prefix,
+  values,
+  onChange,
+}: {
+  prefix: string;
+  values: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+}) {
+  return (
+    <>
+      <Field label="Player Name" required>
+        <input
+          type="text" placeholder="Full name"
+          value={values[`${prefix}_name`] || ''}
+          onChange={(e) => onChange(`${prefix}_name`, e.target.value)}
+          required style={inputStyle}
+        />
+      </Field>
+      <Field label="High School" required>
+        <input
+          type="text" placeholder="e.g. Hamilton High School"
+          value={values[`${prefix}_hs`] || ''}
+          onChange={(e) => onChange(`${prefix}_hs`, e.target.value)}
+          required style={inputStyle}
+        />
+      </Field>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Level">
+            <select
+              value={values[`${prefix}_level`] || ''}
+              onChange={(e) => onChange(`${prefix}_level`, e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select…</option>
+              <option value="MLB">MLB</option>
+              <option value="MiLB">MiLB</option>
+              <option value="Indy">Indy Ball</option>
+              <option value="NCAA D1">NCAA D1</option>
+              <option value="NCAA D2">NCAA D2</option>
+              <option value="NCAA D3">NCAA D3</option>
+              <option value="NAIA">NAIA</option>
+              <option value="JUCO">JUCO</option>
+              <option value="HS">High School</option>
+              <option value="Other">Other</option>
+            </select>
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Position">
+            <input
+              type="text" placeholder="e.g. SS, RHP"
+              value={values[`${prefix}_pos`] || ''}
+              onChange={(e) => onChange(`${prefix}_pos`, e.target.value)}
+              style={inputStyle}
+            />
+          </Field>
+        </div>
+      </div>
+      <Field label="Current Team">
+        <input
+          type="text" placeholder="e.g. Arizona Diamondbacks"
+          value={values[`${prefix}_team`] || ''}
+          onChange={(e) => onChange(`${prefix}_team`, e.target.value)}
+          style={inputStyle}
+        />
+      </Field>
+    </>
+  );
+}
+
+// -- News Tip Form -----------------------------------------------------------
+
 function NewsTipForm({ senderName }: { senderName: string }) {
+  const [player, setPlayer] = useState<PlayerResult | null>(null);
+  const [notOnPlatform, setNotOnPlatform] = useState(false);
+  const [manual, setManual] = useState<Record<string, string>>({});
   const [url, setUrl] = useState('');
-  const [playerName, setPlayerName] = useState('');
   const [notes, setNotes] = useState('');
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const setManualField = (k: string, v: string) => setManual((m) => ({ ...m, [k]: v }));
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setMsg('');
+    setBusy(true); setMsg('');
     try {
-      const r = await postJson('/api/tips/news', {
-        article_url: url,
-        raw_player_name: playerName || null,
-        notes,
-        sender_name: senderName,
-      });
-      setOk(true);
-      setMsg(r.message);
-      setUrl(''); setPlayerName(''); setNotes('');
+      const payload: Record<string, unknown> = {
+        article_url: url, notes, sender_name: senderName,
+      };
+      if (player) {
+        payload.playerid = player.playerid;
+        payload.raw_player_name = `${player.firstname} ${player.lastname}`;
+        payload.matched_hsid = player.hsid;
+      } else if (notOnPlatform) {
+        payload.raw_player_name = manual['tip_name'];
+        payload.notes = [
+          `School: ${manual['tip_hs'] || '?'}`,
+          `Level: ${manual['tip_level'] || '?'}`,
+          `Position: ${manual['tip_pos'] || '?'}`,
+          `Team: ${manual['tip_team'] || '?'}`,
+          notes ? `Notes: ${notes}` : '',
+        ].filter(Boolean).join(' | ');
+      }
+      const r = await postJson('/api/tips/news', payload);
+      setOk(true); setMsg(r.message);
+      setPlayer(null); setNotOnPlatform(false); setManual({}); setUrl(''); setNotes('');
     } catch (err: any) {
-      setOk(false);
-      setMsg(err.message);
-    } finally {
-      setBusy(false);
-    }
+      setOk(false); setMsg(err.message);
+    } finally { setBusy(false); }
   };
 
   return (
     <form onSubmit={submit}>
       {msg && <p style={feedbackStyle(ok)}>{msg}</p>}
+      {!notOnPlatform ? (
+        <>
+          <PlayerPicker selected={player} onSelect={setPlayer} label="Which player is this about?" />
+          <button
+            type="button"
+            onClick={() => { setNotOnPlatform(true); setPlayer(null); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--gold)', fontSize: '12px', cursor: 'pointer', marginTop: '6px', padding: 0 }}
+          >
+            Player not on YAT?STATS? Enter manually →
+          </button>
+        </>
+      ) : (
+        <>
+          <ManualPlayerFields prefix="tip" values={manual} onChange={setManualField} />
+          <button
+            type="button"
+            onClick={() => { setNotOnPlatform(false); setManual({}); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--gold)', fontSize: '12px', cursor: 'pointer', marginTop: '6px', padding: 0 }}
+          >
+            ← Back to player search
+          </button>
+        </>
+      )}
       <Field label="Article URL" required>
-        <input
-          type="url"
-          placeholder="https://…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          required
-          style={inputStyle}
-        />
+        <input type="url" placeholder="https://…" value={url}
+          onChange={(e) => setUrl(e.target.value)} required style={inputStyle} />
       </Field>
-      <Field label="Player this is about">
-        <input
-          type="text"
-          placeholder="e.g. Cody Bellinger"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          style={inputStyle}
-        />
-      </Field>
-      <Field label="Notes">
-        <textarea
-          placeholder="Why is this newsworthy?"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          style={{ ...inputStyle, resize: 'vertical' }}
-        />
+      <Field label="Why is this newsworthy?">
+        <textarea placeholder="What happened?" value={notes}
+          onChange={(e) => setNotes(e.target.value)} rows={2}
+          style={{ ...inputStyle, resize: 'vertical' }} />
       </Field>
       <button type="submit" disabled={busy} style={{ ...buttonStyle, opacity: busy ? 0.6 : 1 }}>
         {busy ? 'Submitting…' : 'Submit Tip'}
@@ -205,112 +438,54 @@ function NewsTipForm({ senderName }: { senderName: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Missing Player Form
-// ---------------------------------------------------------------------------
+// -- Missing Player Form ------------------------------------------------------
+
 function MissingPlayerForm({ defaultHsid }: { defaultHsid: string }) {
-  const [name, setName] = useState('');
-  const [school, setSchool] = useState('');
-  const [hsid, setHsid] = useState(defaultHsid);
+  const [manual, setManual] = useState<Record<string, string>>({});
   const [gradYear, setGradYear] = useState('');
-  const [position, setPosition] = useState('');
-  const [currentTeam, setCurrentTeam] = useState('');
   const [notes, setNotes] = useState('');
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const setManualField = (k: string, v: string) => setManual((m) => ({ ...m, [k]: v }));
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setMsg('');
+    setBusy(true); setMsg('');
     try {
       const r = await postJson('/api/tips/missing-player', {
-        player_name: name,
-        school_name: school || null,
-        hsid: hsid || null,
+        player_name: manual['mp_name'],
+        school_name: manual['mp_hs'],
+        hsid: defaultHsid || null,
         grad_year: gradYear ? parseInt(gradYear, 10) : null,
-        position: position || null,
-        current_team: currentTeam || null,
+        position: manual['mp_pos'] || null,
+        level: manual['mp_level'] || null,
+        current_team: manual['mp_team'] || null,
         notes: notes || null,
       });
-      setOk(true);
-      setMsg(r.message);
-      setName(''); setSchool(''); setGradYear(''); setPosition(''); setCurrentTeam(''); setNotes('');
+      setOk(true); setMsg(r.message);
+      setManual({}); setGradYear(''); setNotes('');
     } catch (err: any) {
-      setOk(false);
-      setMsg(err.message);
-    } finally {
-      setBusy(false);
-    }
+      setOk(false); setMsg(err.message);
+    } finally { setBusy(false); }
   };
 
   return (
     <form onSubmit={submit}>
       {msg && <p style={feedbackStyle(ok)}>{msg}</p>}
-      <Field label="Player Name" required>
-        <input
-          type="text"
-          placeholder="Full name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          style={inputStyle}
-        />
-      </Field>
-      <Field label="High School" required>
-        <input
-          type="text"
-          placeholder="e.g. Hamilton High School"
-          value={school}
-          onChange={(e) => setSchool(e.target.value)}
-          required
-          style={inputStyle}
-        />
-      </Field>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <div style={{ flex: 1 }}>
-          <Field label="Grad Year">
-            <input
-              type="number"
-              placeholder="e.g. 2020"
-              value={gradYear}
-              onChange={(e) => setGradYear(e.target.value)}
-              min={1950}
-              max={2040}
-              style={inputStyle}
-            />
-          </Field>
-        </div>
-        <div style={{ flex: 1 }}>
-          <Field label="Position">
-            <input
-              type="text"
-              placeholder="e.g. SS, RHP"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              style={inputStyle}
-            />
-          </Field>
-        </div>
-      </div>
-      <Field label="Current Team / Level">
-        <input
-          type="text"
-          placeholder="e.g. Arizona Diamondbacks (AAA)"
-          value={currentTeam}
-          onChange={(e) => setCurrentTeam(e.target.value)}
-          style={inputStyle}
-        />
+      <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>
+        Know a player who should be on YAT?STATS but isn't? Tell us who.
+      </p>
+      <ManualPlayerFields prefix="mp" values={manual} onChange={setManualField} />
+      <Field label="Grad Year">
+        <input type="number" placeholder="e.g. 2020" value={gradYear}
+          onChange={(e) => setGradYear(e.target.value)} min={1950} max={2040} style={inputStyle} />
       </Field>
       <Field label="Additional Notes">
-        <textarea
-          placeholder="Anything else we should know?"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          style={{ ...inputStyle, resize: 'vertical' }}
-        />
+        <textarea placeholder="Anything else we should know?" value={notes}
+          onChange={(e) => setNotes(e.target.value)} rows={2}
+          style={{ ...inputStyle, resize: 'vertical' }} />
       </Field>
       <button type="submit" disabled={busy} style={{ ...buttonStyle, opacity: busy ? 0.6 : 1 }}>
         {busy ? 'Submitting…' : 'Suggest Player'}
@@ -319,12 +494,11 @@ function MissingPlayerForm({ defaultHsid }: { defaultHsid: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Correction Form
-// ---------------------------------------------------------------------------
+// -- Correction Form ----------------------------------------------------------
+
 function CorrectionForm({ senderName }: { senderName: string }) {
+  const [player, setPlayer] = useState<PlayerResult | null>(null);
   const [correctionType, setCorrectionType] = useState('player_info');
-  const [playerName, setPlayerName] = useState('');
   const [correction, setCorrection] = useState('');
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
@@ -332,36 +506,30 @@ function CorrectionForm({ senderName }: { senderName: string }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setMsg('');
+    setBusy(true); setMsg('');
     try {
       const r = await postJson('/api/tips/correction', {
         correction_type: correctionType,
-        raw_player_name: playerName || null,
+        playerid: player?.playerid || null,
+        raw_player_name: player ? `${player.firstname} ${player.lastname}` : null,
+        matched_hsid: player?.hsid || null,
         correction,
         page_url: typeof window !== 'undefined' ? window.location.href : '',
         sender_name: senderName,
       });
-      setOk(true);
-      setMsg(r.message);
-      setCorrection(''); setPlayerName('');
+      setOk(true); setMsg(r.message);
+      setCorrection(''); setPlayer(null);
     } catch (err: any) {
-      setOk(false);
-      setMsg(err.message);
-    } finally {
-      setBusy(false);
-    }
+      setOk(false); setMsg(err.message);
+    } finally { setBusy(false); }
   };
 
   return (
     <form onSubmit={submit}>
       {msg && <p style={feedbackStyle(ok)}>{msg}</p>}
+      <PlayerPicker selected={player} onSelect={setPlayer} label="Which player?" />
       <Field label="What's wrong?">
-        <select
-          value={correctionType}
-          onChange={(e) => setCorrectionType(e.target.value)}
-          style={inputStyle}
-        >
+        <select value={correctionType} onChange={(e) => setCorrectionType(e.target.value)} style={inputStyle}>
           <option value="player_info">Player info (team, stats, bio)</option>
           <option value="photo">Wrong or bad photo</option>
           <option value="missing_player">Player missing from site</option>
@@ -369,24 +537,10 @@ function CorrectionForm({ senderName }: { senderName: string }) {
           <option value="other">Something else</option>
         </select>
       </Field>
-      <Field label="Player Name (if applicable)">
-        <input
-          type="text"
-          placeholder="e.g. Cody Bellinger"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          style={inputStyle}
-        />
-      </Field>
       <Field label="Describe the issue" required>
-        <textarea
-          placeholder="What's incorrect and what should it be?"
-          value={correction}
-          onChange={(e) => setCorrection(e.target.value)}
-          required
-          rows={3}
-          style={{ ...inputStyle, resize: 'vertical' }}
-        />
+        <textarea placeholder="What's incorrect and what should it be?" value={correction}
+          onChange={(e) => setCorrection(e.target.value)} required rows={3}
+          style={{ ...inputStyle, resize: 'vertical' }} />
       </Field>
       <button type="submit" disabled={busy} style={{ ...buttonStyle, opacity: busy ? 0.6 : 1 }}>
         {busy ? 'Submitting…' : 'Report Correction'}
@@ -395,15 +549,14 @@ function CorrectionForm({ senderName }: { senderName: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Photo Upload Form
-// ---------------------------------------------------------------------------
+// -- Photo Upload Form --------------------------------------------------------
+
 function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
-  const [category, setCategory] = useState<'player' | 'school'>('player');
-  const [playerName, setPlayerName] = useState('');
-  const [schoolName, setSchoolName] = useState('');
+  const [player, setPlayer] = useState<PlayerResult | null>(null);
+  const [purpose, setPurpose] = useState('flip_card');
   const [description, setDescription] = useState('');
   const [dateTaken, setDateTaken] = useState('');
+  const [teamAtTime, setTeamAtTime] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
@@ -411,123 +564,80 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
-    setBusy(true);
-    setMsg('');
+    if (!file || !player) return;
+    setBusy(true); setMsg('');
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('category', category);
-      fd.append('player_name', playerName);
-      fd.append('school_name', schoolName);
+      fd.append('category', 'player');
+      fd.append('playerid', player.playerid);
+      fd.append('player_name', `${player.firstname} ${player.lastname}`);
+      fd.append('hsid', player.hsid || defaultHsid);
+      fd.append('purpose', purpose);
       fd.append('description', description);
+      fd.append('team_at_time', teamAtTime);
       if (dateTaken) fd.append('date_taken', dateTaken);
-      const res = await fetch('/api/upload/image', {
-        method: 'POST',
-        credentials: 'include',
-        body: fd,
-      });
+      const res = await fetch('/api/upload/image', { method: 'POST', credentials: 'include', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Upload failed');
-      setOk(true);
-      setMsg(json.message);
-      setFile(null); setPlayerName(''); setSchoolName(''); setDescription(''); setDateTaken('');
+      setOk(true); setMsg(json.message);
+      setFile(null); setPlayer(null); setDescription(''); setDateTaken(''); setTeamAtTime('');
     } catch (err: any) {
-      setOk(false);
-      setMsg(err.message);
-    } finally {
-      setBusy(false);
-    }
+      setOk(false); setMsg(err.message);
+    } finally { setBusy(false); }
   };
-
-  const toggleStyle = (active: boolean): React.CSSProperties => ({
-    flex: 1,
-    padding: '10px',
-    background: active ? 'var(--gold)' : 'transparent',
-    color: active ? '#000' : 'var(--fg)',
-    border: '1px solid var(--line)',
-    borderRadius: '6px',
-    fontFamily: '"Bebas Neue", Oswald, sans-serif',
-    fontSize: '13px',
-    letterSpacing: '.06em',
-    cursor: 'pointer',
-  });
 
   return (
     <form onSubmit={submit}>
       {msg && <p style={feedbackStyle(ok)}>{msg}</p>}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-        <button type="button" onClick={() => setCategory('player')} style={toggleStyle(category === 'player')}>
-          Player Photo
-        </button>
-        <button type="button" onClick={() => setCategory('school')} style={toggleStyle(category === 'school')}>
-          School Image
-        </button>
-      </div>
-      {category === 'player' ? (
-        <Field label="Player Name" required>
-          <input
-            type="text"
-            placeholder="Who is in this photo?"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </Field>
-      ) : (
-        <Field label="School Name" required>
-          <input
-            type="text"
-            placeholder="Which school is this for?"
-            value={schoolName}
-            onChange={(e) => setSchoolName(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </Field>
-      )}
-      <Field label="Photo Description" required>
-        <input
-          type="text"
-          placeholder="e.g. Game action vs. Chandler, headshot, team photo"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-          style={inputStyle}
-        />
+      <p style={disclaimerStyle}>
+        For flip card and profile photos. This is <strong>not</strong> for career path
+        timeline uploads — use the timeline on the player profile page for those.
+      </p>
+      <PlayerPicker selected={player} onSelect={setPlayer} label="Who is in this photo?" required />
+      <Field label="What is this photo for?" required>
+        <select value={purpose} onChange={(e) => setPurpose(e.target.value)} style={inputStyle}>
+          <option value="flip_card">Flip card front</option>
+          <option value="profile_gallery">Profile photo gallery</option>
+          <option value="news_article">News article image</option>
+          <option value="other">Other</option>
+        </select>
+      </Field>
+      <Field label="What's in the photograph?" required>
+        <input type="text" placeholder="e.g. Game action vs. Chandler, headshot, pitching delivery"
+          value={description} onChange={(e) => setDescription(e.target.value)}
+          required style={inputStyle} />
+      </Field>
+      <Field label="What team was the player on when this was taken?">
+        <input type="text" placeholder="e.g. Hamilton HS (2023), Reno Aces"
+          value={teamAtTime} onChange={(e) => setTeamAtTime(e.target.value)} style={inputStyle} />
       </Field>
       <Field label="Date Taken (if known)">
-        <input
-          type="date"
-          value={dateTaken}
-          onChange={(e) => setDateTaken(e.target.value)}
-          style={inputStyle}
-        />
+        <input type="date" value={dateTaken}
+          onChange={(e) => setDateTaken(e.target.value)} style={inputStyle} />
       </Field>
       <Field label="Choose Photo" required>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          required
-          style={{ ...inputStyle, padding: '8px 10px' }}
-        />
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={(e) => setFile(e.target.files?.[0] || null)} required
+          style={{ ...inputStyle, padding: '8px 10px' }} />
       </Field>
-      <button
-        type="submit"
-        disabled={busy || !file}
-        style={{ ...buttonStyle, opacity: busy || !file ? 0.6 : 1 }}
-      >
+      <button type="submit" disabled={busy || !file || !player}
+        style={{ ...buttonStyle, opacity: busy || !file || !player ? 0.6 : 1 }}>
         {busy ? 'Uploading…' : 'Upload Photo'}
       </button>
     </form>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main Dashboard Component
-// ---------------------------------------------------------------------------
+// -- Main Dashboard (single-open accordion) ------------------------------------
+
+const SECTIONS = [
+  { id: 'tip', title: 'Submit a News Tip', icon: '📰' },
+  { id: 'player', title: 'Suggest a Missing Player', icon: '⚾' },
+  { id: 'correction', title: 'Report a Correction', icon: '🔧' },
+  { id: 'photo', title: 'Upload a Photo', icon: '📸' },
+] as const;
+
 export default function FanDashboard({
   displayName,
   homeHsid,
@@ -535,21 +645,31 @@ export default function FanDashboard({
   displayName: string;
   homeHsid: string;
 }) {
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  const toggle = (id: string) => setOpenSection((cur) => (cur === id ? null : id));
+
   return (
     <div style={sectionStyle}>
       <p style={headerStyle}>Help Improve YAT?STATS</p>
-      <Collapsible title="Submit a News Tip" icon="📰">
-        <NewsTipForm senderName={displayName} />
-      </Collapsible>
-      <Collapsible title="Suggest a Missing Player" icon="⚾">
-        <MissingPlayerForm defaultHsid={homeHsid} />
-      </Collapsible>
-      <Collapsible title="Report a Correction" icon="🔧">
-        <CorrectionForm senderName={displayName} />
-      </Collapsible>
-      <Collapsible title="Upload a Photo" icon="📸">
-        <PhotoUploadForm defaultHsid={homeHsid} />
-      </Collapsible>
+      {SECTIONS.map((s) => (
+        <div key={s.id} style={{ marginBottom: '4px' }}>
+          <button type="button" onClick={() => toggle(s.id)} style={subHeaderStyle}>
+            <span>{s.icon} &nbsp;{s.title}</span>
+            <span style={{ color: 'var(--muted)', fontSize: '16px', fontWeight: 400 }}>
+              {openSection === s.id ? '−' : '+'}
+            </span>
+          </button>
+          {openSection === s.id && (
+            <div style={formContainerStyle}>
+              {s.id === 'tip' && <NewsTipForm senderName={displayName} />}
+              {s.id === 'player' && <MissingPlayerForm defaultHsid={homeHsid} />}
+              {s.id === 'correction' && <CorrectionForm senderName={displayName} />}
+              {s.id === 'photo' && <PhotoUploadForm defaultHsid={homeHsid} />}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
