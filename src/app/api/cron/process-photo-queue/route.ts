@@ -187,16 +187,51 @@ async function promoteToHeadshot(upload: any): Promise<void> {
   }
 }
 
-async function promoteToAction(upload: any): Promise<void> {
+async function promoteToBackHero(upload: any): Promise<void> {
+  const playerId = String(upload.playerid).trim();
+  const destKey = `players/back/${playerId}.jpg`;
+  const cardKey = `players/back-card/${playerId}.webp`;
+  const webKey = `players/back-web/${playerId}.webp`;
+
+  const buffer = await downloadFromS3(upload.s3_key);
+
+  await getS3().send(
+    new CopyObjectCommand({
+      Bucket: S3_BUCKET,
+      CopySource: `${S3_BUCKET}/${upload.s3_key}`,
+      Key: destKey,
+      ContentType: 'image/jpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+      MetadataDirective: 'REPLACE',
+    })
+  );
+
+  const [cardBuf, webBuf] = await Promise.all([
+    sharp(buffer).resize({ width: 800, height: 1000, fit: 'cover', position: 'attention' }).webp({ quality: 75 }).toBuffer(),
+    sharp(buffer).resize({ width: 1200, height: 800, fit: 'inside', withoutEnlargement: true }).webp({ quality: 78 }).toBuffer(),
+  ]);
+  await Promise.all([
+    getS3().send(new PutObjectCommand({
+      Bucket: S3_BUCKET, Key: cardKey, Body: cardBuf,
+      ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable',
+    })),
+    getS3().send(new PutObjectCommand({
+      Bucket: S3_BUCKET, Key: webKey, Body: webBuf,
+      ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable',
+    })),
+  ]);
+}
+
+async function promoteToTimelineHero(upload: any): Promise<void> {
   const playerId = String(upload.playerid).trim();
   const imageUrl = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${upload.s3_key}`;
 
-  // Action photos go to player_photos for timeline hero/background use
+  // Timeline hero photos go to player_photos for the career path timeline
   await query(
     `INSERT INTO public.player_photos
       (playerid, image_url, image_role, show_on_pp_timeline, approval_status,
        date_taken, is_active)
-     VALUES ($1, $2, 'ACTION', TRUE, 'APPROVED', $3, TRUE)`,
+     VALUES ($1, $2, 'TIMELINE_HERO', TRUE, 'APPROVED', $3, TRUE)`,
     [playerId, imageUrl, upload.date_taken || null]
   );
 }
@@ -297,9 +332,12 @@ export async function GET(req: NextRequest) {
         } else if (purpose === 'headshot' && upload.playerid) {
           await promoteToHeadshot(upload);
           console.log(`[photo-queue] Promoted ${upload.id} to HEADSHOT role`);
-        } else if (purpose === 'action' && upload.playerid) {
-          await promoteToAction(upload);
-          console.log(`[photo-queue] Promoted ${upload.id} to action photo`);
+        } else if (purpose === 'back_hero' && upload.playerid) {
+          await promoteToBackHero(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to back hero`);
+        } else if (purpose === 'timeline_hero' && upload.playerid) {
+          await promoteToTimelineHero(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to timeline hero`);
         } else if (purpose === 'school_logo' && upload.hsid) {
           const destKey = await promoteToSchoolLogo(upload);
           console.log(`[photo-queue] Promoted ${upload.id} to ${destKey}`);
