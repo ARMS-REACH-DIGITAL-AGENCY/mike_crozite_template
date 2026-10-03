@@ -897,14 +897,98 @@ type UploadRow = {
   manualName: string;
   manualSchool: SchoolResult | null;
   playerNotFound: boolean;
+  cropX: number;
+  cropY: number;
+  previewUrl: string | null;
 };
 
 const blankUploadRow = (): UploadRow => ({
   file: null, date: '', type: 'flip_card', player: null,
   manualName: '', manualSchool: null, playerNotFound: false,
+  cropX: 50, cropY: 50, previewUrl: null,
 });
 
-function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
+// Crop preview: draggable image inside a 5:7 frame so the uploader
+// can position the subject before submitting.
+function CropPreview({ file, cropX, cropY, onCropChange }: {
+  file: File;
+  cropX: number;
+  cropY: number;
+  onCropChange: (x: number, y: number) => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, cx: 50, cy: 50 });
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const handleStart = (clientX: number, clientY: number) => {
+    setDragging(true);
+    setDragStart({ x: clientX, y: clientY, cx: cropX, cy: cropY });
+  };
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!dragging || !frameRef.current) return;
+    const rect = frameRef.current.getBoundingClientRect();
+    const dx = ((clientX - dragStart.x) / rect.width) * 100;
+    const dy = ((clientY - dragStart.y) / rect.height) * 100;
+    // Invert: dragging the image moves it opposite to position the subject
+    const nx = Math.min(100, Math.max(0, dragStart.cx - dx));
+    const ny = Math.min(100, Math.max(0, dragStart.cy - dy));
+    onCropChange(Math.round(nx), Math.round(ny));
+  };
+
+  if (!previewUrl) return null;
+
+  return (
+    <div style={{ marginBottom: '8px' }}>
+      <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>
+        Drag to position — this is how it will appear (5×7 portrait):
+      </div>
+      <div
+        ref={frameRef}
+        onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+        onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
+        onMouseUp={() => setDragging(false)}
+        onMouseLeave={() => setDragging(false)}
+        onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchEnd={() => setDragging(false)}
+        style={{
+          width: '150px',
+          aspectRatio: '5 / 7',
+          overflow: 'hidden',
+          borderRadius: '6px',
+          border: '2px solid var(--gold)',
+          cursor: dragging ? 'grabbing' : 'grab',
+          position: 'relative',
+          touchAction: 'none',
+          userSelect: 'none',
+        }}
+      >
+        <img
+          src={previewUrl}
+          alt="Crop preview"
+          draggable={false}
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: `${cropX}% ${cropY}%`,
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
   defaultHsid: string;
   userName?: string;
   userEmail?: string;
@@ -976,6 +1060,8 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
           fd.append('purpose', row.type);
           fd.append('team_at_time', teamAtTime || '');
           if (row.date) fd.append('date_taken', row.date);
+          fd.append('crop_x', String(row.cropX));
+          fd.append('crop_y', String(row.cropY));
           const res = await fetch('/api/upload/image', { method: 'POST', credentials: 'include', body: fd });
           const json = await res.json();
           if (!res.ok) throw new Error(json.error || 'Upload failed');
@@ -1031,9 +1117,18 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
             <label style={{ ...labelStyle, marginBottom: '4px' }}>Choose photo</label>
             <input
               type="file" accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(e) => updateRow(i, { file: e.target.files?.[0] || null })}
+              onChange={(e) => updateRow(i, { file: e.target.files?.[0] || null, cropX: 50, cropY: 50 })}
               style={{ ...inputStyle, padding: '8px 10px', marginBottom: '8px' }}
             />
+
+            {row.file && ['flip_card', 'headshot'].includes(row.type) && (
+              <CropPreview
+                file={row.file}
+                cropX={row.cropX}
+                cropY={row.cropY}
+                onCropChange={(x, y) => updateRow(i, { cropX: x, cropY: y })}
+              />
+            )}
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <div style={{ flex: 1 }}>
