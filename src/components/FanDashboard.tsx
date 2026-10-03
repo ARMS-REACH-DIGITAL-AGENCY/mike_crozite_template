@@ -882,6 +882,7 @@ function CorrectionForm({ senderName }: { senderName: string }) {
 
 function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
   const [player, setPlayer] = useState<PlayerResult | null>(null);
+  const [school, setSchool] = useState<SchoolResult | null>(null);
   const [purpose, setPurpose] = useState('flip_card');
   const [description, setDescription] = useState('');
   const [dateTaken, setDateTaken] = useState('');
@@ -891,17 +892,30 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const isSchoolLogo = purpose === 'school_logo';
+  const isFlipCard = purpose === 'flip_card';
+  const canSubmit = file && (isSchoolLogo ? school : player) && (!isFlipCard || dateTaken);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !player) return;
+    if (!file) return;
+    if (isSchoolLogo && !school) return;
+    if (!isSchoolLogo && !player) return;
     setBusy(true); setMsg('');
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('category', 'player');
-      fd.append('playerid', player.playerId);
-      fd.append('player_name', `${player.firstName} ${player.lastName}`);
-      fd.append('hsid', player.schoolId || defaultHsid);
+      fd.append('category', isSchoolLogo ? 'school' : 'player');
+      if (player) {
+        fd.append('playerid', player.playerId);
+        fd.append('player_name', `${player.firstName} ${player.lastName}`);
+      }
+      if (school) {
+        fd.append('hsid', school.hsid);
+        fd.append('school_name', school.hsname);
+      } else if (player?.schoolId || defaultHsid) {
+        fd.append('hsid', player?.schoolId || defaultHsid);
+      }
       fd.append('purpose', purpose);
       fd.append('description', description);
       fd.append('team_at_time', teamAtTime || '');
@@ -910,7 +924,7 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Upload failed');
       setOk(true); setMsg(json.message);
-      setFile(null); setPlayer(null); setDescription(''); setDateTaken(''); setTeamAtTime(null);
+      setFile(null); setPlayer(null); setSchool(null); setDescription(''); setDateTaken(''); setTeamAtTime(null);
     } catch (err: any) {
       setOk(false); setMsg(err.message);
     } finally { setBusy(false); }
@@ -923,36 +937,86 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
         For flip card and profile photos. This is <strong>not</strong> for career path
         timeline uploads — use the timeline on the player profile page for those.
       </p>
-      <PlayerPicker selected={player} onSelect={setPlayer} label="Who is in this photo?" required />
       <Field label="What is this photo for?" required>
         <select value={purpose} onChange={(e) => setPurpose(e.target.value)} style={inputStyle}>
-          <option value="flip_card">Flip card front</option>
-          <option value="profile_gallery">Profile photo gallery</option>
-          <option value="news_article">News article image</option>
-          <option value="other">Other</option>
+          <option value="flip_card">Flip card front — high school photo</option>
+          <option value="headshot">Headshot — current photo</option>
+          <option value="timeline">Career timeline photo</option>
+          <option value="school_logo">School logo</option>
         </select>
       </Field>
-      <Field label="What's in the photograph?" required>
-        <input type="text" placeholder="e.g. Game action vs. Chandler, headshot, pitching delivery"
-          value={description} onChange={(e) => setDescription(e.target.value)}
-          required style={inputStyle} />
-      </Field>
-      <TeamPicker
-        selected={teamAtTime}
-        onSelect={setTeamAtTime}
-        label="What team was the player on when this was taken?"
-      />
-      <Field label="Date Taken (if known)">
+
+      {isFlipCard && (
+        <div style={{
+          background: 'rgba(255,215,0,.08)',
+          border: '1px solid var(--gold)',
+          borderRadius: '6px',
+          padding: '12px',
+          marginBottom: '12px',
+          fontSize: '12px',
+          color: 'var(--fg)',
+        }}>
+          <strong style={{ color: 'var(--gold)' }}>High school photo required.</strong>
+          <br />
+          The flip card gallery shows every player during their high school years.
+          Please only upload photos taken while the player was in high school.
+          Baby photos, current pro photos, or college photos will be rejected.
+        </div>
+      )}
+
+      {isSchoolLogo ? (
+        <SchoolPicker selected={school} onSelect={setSchool} label="Which school is this logo for?" required />
+      ) : (
+        <PlayerPicker selected={player} onSelect={setPlayer} label="Who is in this photo?" required />
+      )}
+
+      {isFlipCard && player && (
+        <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>
+          This photo will appear on <strong style={{ color: 'var(--fg)' }}>{player.firstName} {player.lastName}</strong>'s
+          flip card as their high school photo.
+          {player.schoolName && (
+            <> High school on file: <strong style={{ color: 'var(--fg)' }}>{player.schoolName}</strong>.</>
+          )}
+        </div>
+      )}
+
+      {!isSchoolLogo && (
+        <>
+          <Field label="What's in the photograph?" required>
+            <input type="text" placeholder="e.g. Game action vs. Chandler, headshot, pitching delivery"
+              value={description} onChange={(e) => setDescription(e.target.value)}
+              required style={inputStyle} />
+          </Field>
+          <TeamPicker
+            selected={teamAtTime}
+            onSelect={setTeamAtTime}
+            label="What team was the player on when this was taken?"
+          />
+        </>
+      )}
+
+      <Field label={isFlipCard ? "Year taken (required)" : "Date Taken (if known)"} required={isFlipCard}>
         <input type="date" value={dateTaken}
-          onChange={(e) => setDateTaken(e.target.value)} style={inputStyle} />
+          onChange={(e) => setDateTaken(e.target.value)}
+          required={isFlipCard}
+          style={inputStyle} />
       </Field>
+
+      {isSchoolLogo && (
+        <Field label="Description">
+          <input type="text" placeholder="e.g. Official school crest, updated 2026"
+            value={description} onChange={(e) => setDescription(e.target.value)}
+            style={inputStyle} />
+        </Field>
+      )}
+
       <Field label="Choose Photo" required>
         <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={(e) => setFile(e.target.files?.[0] || null)} required
           style={{ ...inputStyle, padding: '8px 10px' }} />
       </Field>
-      <button type="submit" disabled={busy || !file || !player}
-        style={{ ...buttonStyle, opacity: busy || !file || !player ? 0.6 : 1 }}>
+      <button type="submit" disabled={busy || !canSubmit}
+        style={{ ...buttonStyle, opacity: busy || !canSubmit ? 0.6 : 1 }}>
         {busy ? 'Uploading…' : 'Upload Photo'}
       </button>
     </form>
