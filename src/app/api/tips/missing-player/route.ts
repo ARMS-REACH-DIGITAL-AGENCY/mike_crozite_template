@@ -54,11 +54,14 @@ export async function POST(req: NextRequest) {
   }
 
   // Pack extra context into notes since the table has no dedicated columns
+  // Note: contact_id is UUID type but we have Firebase UID string, so we
+  // store the submitter UID in notes instead of the contact_id column
   const extras: string[] = [];
   if (schoolName) extras.push(`School: ${schoolName}`);
   if (position) extras.push(`Position: ${position}`);
   if (level) extras.push(`Level: ${level}`);
   if (currentTeam) extras.push(`Current team: ${currentTeam}`);
+  extras.push(`Submitted by UID: ${session.uid}`);
   if (extras.length) {
     notes = notes ? `${extras.join(' | ')} | ${notes}` : extras.join(' | ');
   }
@@ -66,9 +69,9 @@ export async function POST(req: NextRequest) {
   try {
     await query(
       `INSERT INTO public.missing_player_submission
-        (hsid, player_name, grad_year, contact_id, notes)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [hsid, playerName, gradYear, session.uid, notes]
+        (hsid, player_name, grad_year, notes)
+       VALUES ($1, $2, $3, $4)`,
+      [hsid, playerName, gradYear, notes]
     );
     return NextResponse.json({ ok: true, message: 'Thanks! We\'ll look into adding this player.' });
   } catch (err: any) {
