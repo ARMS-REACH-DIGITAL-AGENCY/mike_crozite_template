@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
   const playerName = String(formData.get('player_name') || '').trim() || null;
   const schoolName = String(formData.get('school_name') || '').trim() || null;
   const description = String(formData.get('description') || '').trim() || null;
+  const purpose = String(formData.get('purpose') || 'other').trim();
+  const teamAtTime = String(formData.get('team_at_time') || '').trim() || null;
   const dateTaken = String(formData.get('date_taken') || '').trim() || null;
   const playerid = formData.get('playerid') ? String(formData.get('playerid')) : null;
   const hsid = String(formData.get('hsid') || session.homeHsid || '').trim() || null;
@@ -93,7 +95,7 @@ export async function POST(req: NextRequest) {
       ]
     );
     // Log context for review team until columns are added
-    console.log(`[upload/image] ${uploadId}: player=${playerName} school=${schoolName} desc=${description}`);
+    console.log(`[upload/image] ${uploadId}: player=${playerName} school=${schoolName} purpose=${purpose} team_at_time=${teamAtTime} desc=${description}`);
     return NextResponse.json({
       ok: true,
       message: 'Thanks! Our team will review your photo.',
