@@ -915,7 +915,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             Sign Out
           </button>
 
-          <FanDashboard displayName={displayName || 'Fan'} />
+          <FanDashboard
+            displayName={displayName || 'Fan'}
+            homeHsid={sessionUser?.homeHsid || ''}
+          />
 
           {message && (
             <p
