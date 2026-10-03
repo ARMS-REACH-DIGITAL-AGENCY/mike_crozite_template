@@ -94,8 +94,9 @@ export async function POST(req: NextRequest) {
 
     await query(
       `INSERT INTO public.media_upload
-        (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+        (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes,
+         purpose, description, team_at_time)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11)`,
       [
         uploadId,
         safePlayerid,
@@ -105,6 +106,9 @@ export async function POST(req: NextRequest) {
         dateTaken || null,
         stored.mime_type,
         stored.file_size_bytes,
+        purpose || null,
+        description || null,
+        teamAtTime || null,
       ]
     );
     // Log context for review team until columns are added
