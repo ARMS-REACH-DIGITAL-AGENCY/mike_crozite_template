@@ -940,9 +940,10 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
       <Field label="What is this photo for?" required>
         <select value={purpose} onChange={(e) => setPurpose(e.target.value)} style={inputStyle}>
           <option value="flip_card">Flip card front — high school photo</option>
-          <option value="headshot">Headshot — current photo</option>
+          <option value="headshot">Headshot</option>
           <option value="timeline">Career timeline photo</option>
           <option value="school_logo">School logo</option>
+          <option value="team_logo">Team logo (college/pro)</option>
         </select>
       </Field>
 
@@ -961,6 +962,22 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
           The flip card gallery shows every player during their high school years.
           Please only upload photos taken while the player was in high school.
           Baby photos, current pro photos, or college photos will be rejected.
+        </div>
+      )}
+
+      {purpose === 'headshot' && (
+        <div style={{
+          background: 'rgba(255,255,255,.03)',
+          border: '1px solid var(--line)',
+          borderRadius: '6px',
+          padding: '12px',
+          marginBottom: '12px',
+          fontSize: '12px',
+          color: 'var(--muted)',
+        }}>
+          Headshots appear on the career timeline. If this is from the current year,
+          it will become the player's main headshot. Photos from past years will
+          appear on that year's timeline entry.
         </div>
       )}
 
