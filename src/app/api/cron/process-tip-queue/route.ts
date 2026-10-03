@@ -132,7 +132,7 @@ async function promoteTip(tip: any, mod: ModerationResult): Promise<string> {
       (uuid, playerid, player_name, hsid, title, source, url,
        snippet, published_at, ingested_at, discovery_source,
        verification_status, verification_score, verification_reason)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), 'fan_tip', 'AI_REVIEWED', $9, $10)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), 'fan_tip', 'VERIFIED', $9, $10)`,
     [
       newsUuid,
       tip.matched_playerid || null,
@@ -143,7 +143,7 @@ async function promoteTip(tip: any, mod: ModerationResult): Promise<string> {
       tip.article_url,
       notes.slice(0, 500) || null,
       mod.score,
-      mod.reason,
+      `AI auto-moderated: ${mod.reason}`,
     ]
   );
 
