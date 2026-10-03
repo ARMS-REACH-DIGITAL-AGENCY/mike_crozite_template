@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (['flip_card', 'headshot', 'back_hero', 'timeline_hero'].includes(purpose) && !playerid) {
+  if (['flip_card', 'headshot', 'back_hero', 'timeline_hero'].includes(purpose) && !playerid && !playerName) {
     return NextResponse.json({ error: 'Player is required for this photo type' }, { status: 400 });
   }
   if (purpose === 'school_logo' && !hsid) {
