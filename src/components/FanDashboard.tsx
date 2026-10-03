@@ -135,12 +135,14 @@ function Field({ label, children, required }: { label: string; children: React.R
 // -- Player Picker ----------------------------------------------------------
 
 type PlayerResult = {
-  playerid: string;
-  firstname: string;
-  lastname: string;
-  hsid: string;
-  hsname: string;
-  hslocation: string;
+  playerId: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  schoolId: string;
+  schoolName: string;
+  city: string;
+  state: string;
 };
 
 function PlayerPicker({
@@ -202,10 +204,10 @@ function PlayerPicker({
         }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
-              {selected.firstname} {selected.lastname}
+              {selected.displayName || `${selected.firstName} ${selected.lastName}`}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-              {selected.hsname} {selected.hslocation ? `(${selected.hslocation})` : ''}
+              {selected.schoolName} {selected.city && selected.state ? `(${selected.city}, ${selected.state})` : ''}
             </div>
           </div>
           <button
@@ -251,7 +253,7 @@ function PlayerPicker({
         }}>
           {results.map((p) => (
             <button
-              key={`${p.playerid}-${p.hsid}`}
+              key={`${p.playerId}-${p.schoolId}`}
               type="button"
               onMouseDown={(e) => { e.preventDefault(); onSelect(p); setShowResults(false); setQ(''); }}
               style={{
@@ -265,10 +267,10 @@ function PlayerPicker({
               }}
             >
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fg)' }}>
-                {p.firstname} {p.lastname}
+                {p.displayName || `${p.firstName} ${p.lastName}`}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                {p.hsname} {p.hslocation ? `(${p.hslocation})` : ''}
+                {p.schoolName} {p.city && p.state ? `(${p.city}, ${p.state})` : ''}
               </div>
             </button>
           ))}
@@ -375,9 +377,9 @@ function NewsTipForm({ senderName }: { senderName: string }) {
         article_url: url, notes, sender_name: senderName,
       };
       if (player) {
-        payload.playerid = player.playerid;
-        payload.raw_player_name = `${player.firstname} ${player.lastname}`;
-        payload.matched_hsid = player.hsid;
+        payload.playerid = player.playerId;
+        payload.raw_player_name = `${player.firstName} ${player.lastName}`;
+        payload.matched_hsid = player.schoolId;
       } else if (notOnPlatform) {
         payload.raw_player_name = manual['tip_name'];
         payload.notes = [
@@ -511,7 +513,7 @@ function CorrectionForm({ senderName }: { senderName: string }) {
       const r = await postJson('/api/tips/correction', {
         correction_type: correctionType,
         playerid: player?.playerid || null,
-        raw_player_name: player ? `${player.firstname} ${player.lastname}` : null,
+        raw_player_name: player ? `${player.firstName} ${player.lastName}` : null,
         matched_hsid: player?.hsid || null,
         correction,
         page_url: typeof window !== 'undefined' ? window.location.href : '',
@@ -570,9 +572,9 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('category', 'player');
-      fd.append('playerid', player.playerid);
-      fd.append('player_name', `${player.firstname} ${player.lastname}`);
-      fd.append('hsid', player.hsid || defaultHsid);
+      fd.append('playerid', player.playerId);
+      fd.append('player_name', `${player.firstName} ${player.lastName}`);
+      fd.append('hsid', player.schoolId || defaultHsid);
       fd.append('purpose', purpose);
       fd.append('description', description);
       fd.append('team_at_time', teamAtTime);
