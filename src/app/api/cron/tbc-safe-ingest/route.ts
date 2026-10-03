@@ -466,10 +466,16 @@ async function ensureFlipCardBaselineRows(
       returning playerid
     ),
     inserted as (
-      insert into public.flip_card_front_stage (playerid, hsid, display_name, first_name, last_name)
+      insert into public.flip_card_front_stage (
+        playerid, hsid, display_name, first_name, last_name,
+        status_label, display_status_label,
+        current_team_name, previous_team_name
+      )
       select playerid, hsid,
              trim(coalesce(firstname, '') || ' ' || coalesce(lastname, '')),
-             firstname, lastname
+             firstname, lastname,
+             'PENDING REVIEW', 'PENDING REVIEW',
+             null, 'TEAM PENDING REVIEW'
       from checked
       where crosswalk_playerid is null
         and yat_match_playerid is null
