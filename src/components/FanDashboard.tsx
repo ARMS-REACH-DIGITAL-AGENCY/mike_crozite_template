@@ -881,29 +881,36 @@ function CorrectionForm({ senderName }: { senderName: string }) {
 // -- Photo Upload Form --------------------------------------------------------
 
 const UPLOAD_TYPES = [
-  { value: 'flip_card', label: 'High school image (front of flip card)', needsPlayer: true, needsDate: true },
-  { value: 'headshot', label: 'Current headshot', needsPlayer: true, needsDate: true },
-  { value: 'back_hero', label: 'Flip card back (current team hero)', needsPlayer: true, needsDate: false },
-  { value: 'timeline_hero', label: 'Career timeline annual hero', needsPlayer: true, needsDate: true },
-  { value: 'school_logo', label: 'High school logo', needsPlayer: false, needsDate: false },
-  { value: 'team_logo', label: 'Next-level team logo (college/pro)', needsPlayer: false, needsDate: false },
+  { value: 'flip_card', label: 'High School Image (Front Of Flip Card)', needsPlayer: true, needsDate: true },
+  { value: 'headshot', label: 'Headshot', needsPlayer: true, needsDate: true },
+  { value: 'back_hero', label: 'Flip Card Back (Current Team Hero)', needsPlayer: true, needsDate: false },
+  { value: 'timeline_hero', label: 'Career Timeline Annual Hero', needsPlayer: true, needsDate: true },
+  { value: 'school_logo', label: 'High School Logo', needsPlayer: false, needsDate: false },
+  { value: 'team_logo', label: 'Next-Level Team Logo (College/Pro)', needsPlayer: false, needsDate: false },
 ];
 
 type UploadRow = {
   file: File | null;
   date: string;
   type: string;
+  player: PlayerResult | null;
+  manualName: string;
+  manualSchool: SchoolResult | null;
+  playerNotFound: boolean;
 };
+
+const blankUploadRow = (): UploadRow => ({
+  file: null, date: '', type: 'flip_card', player: null,
+  manualName: '', manualSchool: null, playerNotFound: false,
+});
 
 function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
   defaultHsid: string;
   userName?: string;
   userEmail?: string;
 }) {
-  const [player, setPlayer] = useState<PlayerResult | null>(null);
-  const [school, setSchool] = useState<SchoolResult | null>(null);
   const [teamAtTime, setTeamAtTime] = useState<string | null>(null);
-  const [rows, setRows] = useState<UploadRow[]>([{ file: null, date: '', type: 'flip_card' }]);
+  const [rows, setRows] = useState<UploadRow[]>([blankUploadRow()]);
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -912,7 +919,7 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
     setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
   };
   const addRow = () => {
-    if (rows.length < 10) setRows((r) => [...r, { file: null, date: '', type: 'flip_card' }]);
+    if (rows.length < 10) setRows((r) => [...r, blankUploadRow()]);
   };
   const removeRow = (i: number) => {
     setRows((r) => r.filter((_, j) => j !== i));
@@ -923,12 +930,15 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
     const t = UPLOAD_TYPES.find((x) => x.value === row.type);
     if (!t) return false;
     if (t.needsDate && !row.date) return false;
-    if (t.needsPlayer && !player) return false;
+    if (t.needsPlayer) {
+      if (row.playerNotFound) {
+        if (!row.manualName.trim() || !row.manualSchool) return false;
+      } else if (!row.player) return false;
+    }
+    if (row.type === 'school_logo' && !row.manualSchool) return false;
     return true;
   };
-  const allValid = rows.length > 0 && rows.every(rowValid) &&
-    rows.some((r) => UPLOAD_TYPES.find((x) => x.value === r.type)?.needsPlayer ? player : true) &&
-    rows.some((r) => r.type === 'school_logo' ? school : true);
+  const allValid = rows.length > 0 && rows.every(rowValid);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -944,15 +954,24 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
           const fd = new FormData();
           fd.append('file', row.file);
           fd.append('category', t.needsPlayer ? 'player' : 'school');
-          if (player && t.needsPlayer) {
-            fd.append('playerid', player.playerId);
-            fd.append('player_name', `${player.firstName} ${player.lastName}`);
+          if (t.needsPlayer) {
+            if (row.playerNotFound) {
+              fd.append('player_name', row.manualName.trim());
+              fd.append('manual_entry', 'true');
+              if (row.manualSchool) {
+                fd.append('hsid', row.manualSchool.hsid);
+                fd.append('school_name', row.manualSchool.hsname);
+              }
+            } else if (row.player) {
+              fd.append('playerid', row.player.playerId);
+              fd.append('player_name', `${row.player.firstName} ${row.player.lastName}`);
+              if (row.player.schoolId) fd.append('hsid', row.player.schoolId);
+              if (row.player.schoolName) fd.append('school_name', row.player.schoolName);
+            }
           }
-          if (row.type === 'school_logo' && school) {
-            fd.append('hsid', school.hsid);
-            fd.append('school_name', school.hsname);
-          } else if (player?.schoolId || defaultHsid) {
-            fd.append('hsid', player?.schoolId || defaultHsid);
+          if (row.type === 'school_logo' && row.manualSchool) {
+            fd.append('hsid', row.manualSchool.hsid);
+            fd.append('school_name', row.manualSchool.hsname);
           }
           fd.append('purpose', row.type);
           fd.append('team_at_time', teamAtTime || '');
@@ -964,40 +983,29 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
         } catch { failed++; }
       }
       if (failed === 0) {
-        setOk(true); setMsg(`Uploaded ${succeeded} photo${succeeded > 1 ? 's' : ''}! Our team will review.`);
+        setOk(true); setMsg(`Thank you — upload complete! ${succeeded} photo${succeeded > 1 ? 's' : ''} received.`);
       } else {
         setOk(false); setMsg(`${succeeded} uploaded, ${failed} failed. Try the failed ones again.`);
       }
-      setRows([{ file: null, date: '', type: 'flip_card' }]);
-      setPlayer(null); setSchool(null); setTeamAtTime(null);
+      setRows([blankUploadRow()]);
+      setTeamAtTime(null);
     } catch (err: any) {
       setOk(false); setMsg(err.message);
     } finally { setBusy(false); }
   };
 
-  const needsPlayerAnywhere = rows.some((r) => UPLOAD_TYPES.find((x) => x.value === r.type)?.needsPlayer);
-  const needsSchoolLogo = rows.some((r) => r.type === 'school_logo');
-
   return (
     <form onSubmit={submit}>
       {msg && <p style={feedbackStyle(ok)}>{msg}</p>}
 
-      {(userName || userEmail) && (
-        <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>
-          Uploading as <strong style={{ color: 'var(--fg)' }}>{userName || userEmail}</strong>
-          {userName && userEmail ? ` (${userEmail})` : ''}
+      {userName && (
+        <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>
+          Thank you, {userName} — we appreciate your participation!
         </div>
       )}
 
-      {needsPlayerAnywhere && (
-        <PlayerPicker selected={player} onSelect={setPlayer} label="Who is in these photos?" required />
-      )}
-      {needsSchoolLogo && (
-        <SchoolPicker selected={school} onSelect={setSchool} label="Which school is this logo for?" required />
-      )}
-
       <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.06em',
-        textTransform: 'uppercase', color: 'var(--gold)', margin: '16px 0 8px' }}>
+        textTransform: 'uppercase', color: 'var(--gold)', margin: '0 0 8px' }}>
         Photos to upload ({rows.length}/10)
       </div>
 
@@ -1019,12 +1027,15 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
                     cursor: 'pointer', fontSize: '16px' }}>×</button>
               )}
             </div>
+
+            <label style={{ ...labelStyle, marginBottom: '4px' }}>Choose photo</label>
             <input
               type="file" accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={(e) => updateRow(i, { file: e.target.files?.[0] || null })}
               style={{ ...inputStyle, padding: '8px 10px', marginBottom: '8px' }}
             />
-            <div style={{ display: 'flex', gap: '8px' }}>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ ...labelStyle, marginBottom: '4px' }}>Where does this go?</label>
                 <select value={row.type} onChange={(e) => updateRow(i, { type: e.target.value })}
@@ -1044,6 +1055,60 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
                 </div>
               )}
             </div>
+
+            {t?.needsPlayer && !row.playerNotFound && (
+              <PlayerPicker
+                selected={row.player}
+                onSelect={(p) => updateRow(i, { player: p })}
+                label="Which player is this?"
+                required
+              />
+            )}
+
+            {t?.needsPlayer && row.player && (
+              <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px' }}>
+                Not the right player?{' '}
+                <button type="button"
+                  onClick={() => updateRow(i, { playerNotFound: true, player: null })}
+                  style={{ background: 'none', border: 'none', color: 'var(--gold)',
+                    cursor: 'pointer', textDecoration: 'underline', fontSize: '11px', padding: 0 }}>
+                  Player not found
+                </button>
+              </div>
+            )}
+
+            {t?.needsPlayer && row.playerNotFound && (
+              <div style={{ marginBottom: '8px' }}>
+                <Field label="Player name (not in our system)" required>
+                  <input type="text" placeholder="e.g. John Smith"
+                    value={row.manualName}
+                    onChange={(e) => updateRow(i, { manualName: e.target.value })}
+                    required style={inputStyle} />
+                </Field>
+                <SchoolPicker
+                  selected={row.manualSchool}
+                  onSelect={(s) => updateRow(i, { manualSchool: s })}
+                  label="Which high school?"
+                  required
+                />
+                <button type="button"
+                  onClick={() => updateRow(i, { playerNotFound: false, manualName: '', manualSchool: null })}
+                  style={{ background: 'none', border: 'none', color: 'var(--gold)',
+                    cursor: 'pointer', textDecoration: 'underline', fontSize: '11px', padding: 0 }}>
+                  Back to player search
+                </button>
+              </div>
+            )}
+
+            {row.type === 'school_logo' && (
+              <SchoolPicker
+                selected={row.manualSchool}
+                onSelect={(s) => updateRow(i, { manualSchool: s })}
+                label="Which high school is this logo for?"
+                required
+              />
+            )}
+
             {row.type === 'flip_card' && (
               <div style={{ fontSize: '11px', color: 'var(--gold)', marginTop: '6px' }}>
                 Must be a high school photo. Baby photos or current pro photos will be rejected.
@@ -1069,7 +1134,7 @@ function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
 
       <button type="submit" disabled={busy || !allValid}
         style={{ ...buttonStyle, opacity: busy || !allValid ? 0.6 : 1 }}>
-        {busy ? 'Uploading…' : `Upload ${rows.filter((r) => r.file).length || ''} Photo${rows.filter((r) => r.file).length === 1 ? '' : 's'}`.trim()}
+        {busy ? 'Uploading…' : 'Upload'}
       </button>
     </form>
   );
