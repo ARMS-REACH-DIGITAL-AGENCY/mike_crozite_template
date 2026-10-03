@@ -84,8 +84,8 @@ export async function POST(req: NextRequest) {
 
     await query(
       `INSERT INTO public.media_upload
-        (id, playerid, hsid, category, s3_key, date_taken, uploaded_by, status, mime_type, file_size_bytes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)`,
+        (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
       [
         uploadId,
         safePlayerid,
@@ -93,13 +93,14 @@ export async function POST(req: NextRequest) {
         category,
         s3Key,
         dateTaken || null,
-        session.uid,
         file.type,
         file.size,
       ]
     );
     // Log context for review team until columns are added
-    console.log(`[upload/image] ${uploadId}: player=${playerName} school=${schoolName} purpose=${purpose} team_at_time=${teamAtTime} desc=${description}`);
+    // Note: uploaded_by is UUID type but we have Firebase UID string, so we
+    // log the submitter UID here instead of the uploaded_by column
+    console.log(`[upload/image] ${uploadId}: uploaded_by_uid=${session.uid} player=${playerName} school=${schoolName} purpose=${purpose} team_at_time=${teamAtTime} desc=${description}`);
     return NextResponse.json({
       ok: true,
       message: 'Thanks! Our team will review your photo.',
