@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
 
   const playerName = String(body.player_name || '').trim();
   const schoolName = String(body.school_name || '').trim() || null;
-  const gradYear = body.grad_year ? parseInt(String(body.grad_year), 10) : null;
+  const rawGradYear = body.grad_year ? parseInt(String(body.grad_year), 10) : NaN;
+  const gradYear = Number.isNaN(rawGradYear) ? null : rawGradYear;
   const position = String(body.position || '').trim() || null;
   const level = String(body.level || '').trim() || null;
   const currentTeam = String(body.current_team || '').trim() || null;
@@ -70,8 +71,11 @@ export async function POST(req: NextRequest) {
       [hsid, playerName, gradYear, session.uid, notes]
     );
     return NextResponse.json({ ok: true, message: 'Thanks! We\'ll look into adding this player.' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[tips/missing-player] insert failed:', err);
-    return NextResponse.json({ error: 'Failed to save submission' }, { status: 500 });
+    return NextResponse.json(
+      { error: `DB error: ${err?.message || 'Unknown'} (code: ${err?.code || 'none'})` },
+      { status: 500 }
+    );
   }
 }
