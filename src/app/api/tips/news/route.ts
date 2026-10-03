@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
 
   const articleUrl = String(body.article_url || '').trim();
   const rawPlayerName = String(body.raw_player_name || '').trim() || null;
-  const playerid = body.playerid ? parseInt(String(body.playerid), 10) : null;
+  // Parse playerid safely — NaN becomes null so the insert never fails on bad input
+  const rawPid = body.playerid ? parseInt(String(body.playerid), 10) : NaN;
+  const playerid = Number.isNaN(rawPid) ? null : rawPid;
   const matchedHsid = String(body.matched_hsid || '').trim() || null;
   const notes = String(body.notes || '').trim();
   const senderName = String(body.sender_name || '').trim() || null;
