@@ -78,9 +78,8 @@ export async function POST(req: NextRequest) {
   const s3Key = `pending/${uploadId}.${ext}`;
 
   try {
-    // Parse playerid safely
-    const rawUploadPid = playerid ? parseInt(String(playerid), 10) : NaN;
-    const safePlayerid = Number.isNaN(rawUploadPid) ? null : rawUploadPid;
+    // playerid is TEXT format (e.g. "YAT000072" or "195486") — pass through as-is
+    const safePlayerid = playerid ? String(playerid).trim() || null : null;
 
     await query(
       `INSERT INTO public.media_upload
