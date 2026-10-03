@@ -40,12 +40,24 @@ export async function POST(req: NextRequest) {
   }
 
   const playerName = String(body.player_name || '').trim();
+  const schoolName = String(body.school_name || '').trim() || null;
   const gradYear = body.grad_year ? parseInt(String(body.grad_year), 10) : null;
-  const notes = String(body.notes || '').trim() || null;
+  const position = String(body.position || '').trim() || null;
+  const currentTeam = String(body.current_team || '').trim() || null;
+  let notes = String(body.notes || '').trim() || null;
   const hsid = String(body.hsid || session.homeHsid || '').trim() || null;
 
   if (!playerName) {
     return NextResponse.json({ error: 'Player name is required' }, { status: 400 });
+  }
+
+  // Pack extra context into notes since the table has no dedicated columns
+  const extras: string[] = [];
+  if (schoolName) extras.push(`School: ${schoolName}`);
+  if (position) extras.push(`Position: ${position}`);
+  if (currentTeam) extras.push(`Current team: ${currentTeam}`);
+  if (extras.length) {
+    notes = notes ? `${extras.join(' | ')} | ${notes}` : extras.join(' | ');
   }
 
   try {
