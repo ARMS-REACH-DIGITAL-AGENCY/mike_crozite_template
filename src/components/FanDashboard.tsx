@@ -512,9 +512,9 @@ function CorrectionForm({ senderName }: { senderName: string }) {
     try {
       const r = await postJson('/api/tips/correction', {
         correction_type: correctionType,
-        playerid: player?.playerid || null,
+        playerid: player?.playerId || null,
         raw_player_name: player ? `${player.firstName} ${player.lastName}` : null,
-        matched_hsid: player?.hsid || null,
+        matched_hsid: player?.schoolId || null,
         correction,
         page_url: typeof window !== 'undefined' ? window.location.href : '',
         sender_name: senderName,
