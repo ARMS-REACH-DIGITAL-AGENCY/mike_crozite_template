@@ -60,8 +60,12 @@ export async function POST(req: NextRequest) {
       [senderName, uid, rawPlayerName, playerid, matchedHsid, articleUrl, notes || null]
     );
     return NextResponse.json({ ok: true, message: 'Thanks! Our team will review your tip.' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[tips/news] insert failed:', err);
-    return NextResponse.json({ error: 'Failed to save tip' }, { status: 500 });
+    // Return actual error for debugging — remove detail in production
+    return NextResponse.json(
+      { error: `DB error: ${err?.message || 'Unknown'} (code: ${err?.code || 'none'})` },
+      { status: 500 }
+    );
   }
 }
