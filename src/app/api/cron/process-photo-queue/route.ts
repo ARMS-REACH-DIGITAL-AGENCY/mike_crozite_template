@@ -10,8 +10,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { S3Client, CopyObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, CopyObjectCommand, HeadObjectCommand, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { S3_BUCKET, S3_REGION } from '@/lib/storyAssets';
+import sharp from 'sharp';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -63,7 +64,9 @@ async function moderatePhoto(upload: any): Promise<ModerationResult> {
 async function promoteToFlipCard(upload: any): Promise<string> {
   const playerId = String(upload.playerid).trim();
   const destKey = `players/then/${playerId}.jpg`;
+  const cardKey = `players/then-card/${playerId}.webp`;
 
+  // Copy original to then/
   await getS3().send(
     new CopyObjectCommand({
       Bucket: S3_BUCKET,
@@ -75,7 +78,31 @@ async function promoteToFlipCard(upload: any): Promise<string> {
     })
   );
 
+  // Generate downsized WebP for then-card/ (fast flip card loading)
+  const buffer = await downloadFromS3(upload.s3_key);
+  const webp = await sharp(buffer)
+    .resize({ width: 800, height: 1120, fit: 'cover', position: 'attention' })
+    .webp({ quality: 75 })
+    .toBuffer();
+  await getS3().send(
+    new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: cardKey,
+      Body: webp,
+      ContentType: 'image/webp',
+      CacheControl: 'public, max-age=31536000, immutable',
+    })
+  );
+
   return destKey;
+}
+
+async function downloadFromS3(key: string): Promise<Buffer> {
+  const res = await getS3().send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }));
+  const chunks: Buffer[] = [];
+  const stream = res.Body as any;
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
 }
 
 async function promoteToHeadshot(upload: any): Promise<void> {
@@ -84,8 +111,17 @@ async function promoteToHeadshot(upload: any): Promise<void> {
   const photoYear = upload.date_taken ? new Date(upload.date_taken).getFullYear() : null;
   const currentYear = new Date().getFullYear();
 
-  // Copy to players/now/ (always, regardless of year — it's the latest headshot file)
+  // Copy to players/now/ (always — it's the latest headshot file)
   const nowKey = `players/now/${playerId}.jpg`;
+  const nowWebKey = `players/now-web/${playerId}.webp`;
+  const nowThumbKey = `players/now-thumb/${playerId}.webp`;
+
+  // Also write year-specific file for season-headshots/ (timeline ticks)
+  const seasonKey = photoYear ? `players/season-headshots/${playerId}_${photoYear}.jpg` : null;
+
+  const buffer = await downloadFromS3(upload.s3_key);
+
+  // Original to now/
   await getS3().send(
     new CopyObjectCommand({
       Bucket: S3_BUCKET,
@@ -96,6 +132,34 @@ async function promoteToHeadshot(upload: any): Promise<void> {
       MetadataDirective: 'REPLACE',
     })
   );
+
+  // Year-specific copy for season-headshots/
+  if (seasonKey) {
+    await getS3().send(
+      new CopyObjectCommand({
+        Bucket: S3_BUCKET,
+        CopySource: `${S3_BUCKET}/${upload.s3_key}`,
+        Key: seasonKey,
+        ContentType: 'image/jpeg',
+        CacheControl: 'public, max-age=31536000, immutable',
+        MetadataDirective: 'REPLACE',
+      })
+    );
+  }
+  const [webBuf, thumbBuf] = await Promise.all([
+    sharp(buffer).resize({ width: 400, height: 560, fit: 'cover', position: 'attention' }).webp({ quality: 75 }).toBuffer(),
+    sharp(buffer).resize({ width: 200, height: 200, fit: 'cover', position: 'attention' }).webp({ quality: 70 }).toBuffer(),
+  ]);
+  await Promise.all([
+    getS3().send(new PutObjectCommand({
+      Bucket: S3_BUCKET, Key: nowWebKey, Body: webBuf,
+      ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable',
+    })),
+    getS3().send(new PutObjectCommand({
+      Bucket: S3_BUCKET, Key: nowThumbKey, Body: thumbBuf,
+      ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable',
+    })),
+  ]);
 
   if (photoYear === currentYear) {
     // Current year: this becomes THE headshot. Demote any existing HEADSHOT role.
@@ -140,14 +204,20 @@ async function promoteToSchoolLogo(upload: any): Promise<string> {
   const hsid = String(upload.hsid).trim();
   const destKey = `schools/${hsid}.png`;
 
+  // Optimize the PNG before storing (schools/ has 1.9MB files slowing the site)
+  const buffer = await downloadFromS3(upload.s3_key);
+  const optimized = await sharp(buffer)
+    .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+
   await getS3().send(
-    new CopyObjectCommand({
+    new PutObjectCommand({
       Bucket: S3_BUCKET,
-      CopySource: `${S3_BUCKET}/${upload.s3_key}`,
       Key: destKey,
+      Body: optimized,
       ContentType: 'image/png',
       CacheControl: 'public, max-age=31536000, immutable',
-      MetadataDirective: 'REPLACE',
     })
   );
 
@@ -155,22 +225,27 @@ async function promoteToSchoolLogo(upload: any): Promise<string> {
 }
 
 async function promoteToTeamLogo(upload: any): Promise<string> {
-  // Team ID comes from the team picker — stored in notes or a dedicated field
-  // For now, extract from description or use a placeholder
   const teamId = String(upload.team_at_time || '').trim();
   if (!teamId) throw new Error('No team ID for team logo');
   const destKey = `teams/${teamId}.png`;
+  const webKey = `teams-web/${teamId}.webp`;
 
-  await getS3().send(
-    new CopyObjectCommand({
-      Bucket: S3_BUCKET,
-      CopySource: `${S3_BUCKET}/${upload.s3_key}`,
-      Key: destKey,
-      ContentType: 'image/png',
-      CacheControl: 'public, max-age=31536000, immutable',
-      MetadataDirective: 'REPLACE',
-    })
-  );
+  // Optimize PNG + generate tiny WebP for fast loading
+  const buffer = await downloadFromS3(upload.s3_key);
+  const [pngBuf, webpBuf] = await Promise.all([
+    sharp(buffer).resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true }).png({ compressionLevel: 9 }).toBuffer(),
+    sharp(buffer).resize({ width: 400, height: 400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 75 }).toBuffer(),
+  ]);
+  await Promise.all([
+    getS3().send(new PutObjectCommand({
+      Bucket: S3_BUCKET, Key: destKey, Body: pngBuf,
+      ContentType: 'image/png', CacheControl: 'public, max-age=31536000, immutable',
+    })),
+    getS3().send(new PutObjectCommand({
+      Bucket: S3_BUCKET, Key: webKey, Body: webpBuf,
+      ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable',
+    })),
+  ]);
 
   return destKey;
 }
