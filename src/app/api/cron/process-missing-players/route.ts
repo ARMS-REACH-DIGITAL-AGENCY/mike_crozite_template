@@ -32,6 +32,12 @@ function moderateSubmission(sub: any): ModerationResult {
     return { approved: false, reason: 'Spam/junk name detected' };
   }
 
+  // Reject obvious non-players (companies, agencies, sponsors)
+  // These need the sponsor flow, not the player flow
+  if (/agency|digital|marketing|insurance|realty|plumbing|electric|llc|inc\.?$/i.test(name)) {
+    return { approved: false, reason: 'Appears to be a business, not a player — use sponsor flow' };
+  }
+
   // Must have some school info (in notes or hsid)
   const hasSchool = sub.hsid || notes.includes('school:');
   if (!hasSchool) {
