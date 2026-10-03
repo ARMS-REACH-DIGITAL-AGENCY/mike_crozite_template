@@ -505,10 +505,10 @@ function CheckIcon() {
 // School Instagram feed — pulls from social_posts via /api/social/[hsid].
 // Shows the school's recent Instagram content on every player profile's Social tab.
 function SchoolSocialFeed({ hsid, playerid }: { hsid: string; playerid: string }) {
-  const [posts, setPosts] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!hsid) return;
     fetch(`/api/social/${hsid}?playerid=${playerid}&limit=10`)
       .then((r) => r.json())
