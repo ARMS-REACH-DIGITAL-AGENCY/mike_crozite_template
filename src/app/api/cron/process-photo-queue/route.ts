@@ -81,32 +81,85 @@ async function promoteToFlipCard(upload: any): Promise<string> {
 async function promoteToHeadshot(upload: any): Promise<void> {
   const playerId = String(upload.playerid).trim();
   const imageUrl = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${upload.s3_key}`;
+  const photoYear = upload.date_taken ? new Date(upload.date_taken).getFullYear() : null;
+  const currentYear = new Date().getFullYear();
 
-  await query(
-    `INSERT INTO public.player_photos
-      (playerid, image_url, image_role, approval_status, date_taken, is_active)
-     VALUES ($1, $2, 'HEADSHOT', 'APPROVED', $3, TRUE)`,
-    [playerId, imageUrl, upload.date_taken || null]
+  // Copy to players/now/ (always, regardless of year — it's the latest headshot file)
+  const nowKey = `players/now/${playerId}.jpg`;
+  await getS3().send(
+    new CopyObjectCommand({
+      Bucket: S3_BUCKET,
+      CopySource: `${S3_BUCKET}/${upload.s3_key}`,
+      Key: nowKey,
+      ContentType: 'image/jpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+      MetadataDirective: 'REPLACE',
+    })
   );
+
+  if (photoYear === currentYear) {
+    // Current year: this becomes THE headshot. Demote any existing HEADSHOT role.
+    await query(
+      `UPDATE public.player_photos SET image_role = 'TIMELINE_HEADSHOT'
+       WHERE playerid::text = $1 AND image_role = 'HEADSHOT'`,
+      [playerId]
+    );
+    await query(
+      `INSERT INTO public.player_photos
+        (playerid, image_url, image_role, show_on_pp_timeline, approval_status,
+         date_taken, is_active)
+       VALUES ($1, $2, 'HEADSHOT', TRUE, 'APPROVED', $3, TRUE)`,
+      [playerId, imageUrl, upload.date_taken || null]
+    );
+  } else {
+    // Past year: timeline headshot — shows on that year's timeline tick
+    await query(
+      `INSERT INTO public.player_photos
+        (playerid, image_url, image_role, show_on_pp_timeline, approval_status,
+         date_taken, is_active)
+       VALUES ($1, $2, 'TIMELINE_HEADSHOT', TRUE, 'APPROVED', $3, TRUE)`,
+      [playerId, imageUrl, upload.date_taken || null]
+    );
+  }
 }
 
 async function promoteToTimeline(upload: any): Promise<void> {
   const playerId = String(upload.playerid).trim();
   const imageUrl = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${upload.s3_key}`;
-  const year = upload.date_taken ? new Date(upload.date_taken).getFullYear() : null;
 
   await query(
     `INSERT INTO public.player_photos
       (playerid, image_url, image_role, show_on_pp_timeline, approval_status,
-       date_taken, season_year, is_active)
-     VALUES ($1, $2, 'TIMELINE', TRUE, 'APPROVED', $3, $4, TRUE)`,
-    [playerId, imageUrl, upload.date_taken || null, year]
+       date_taken, is_active)
+     VALUES ($1, $2, 'TIMELINE', TRUE, 'APPROVED', $3, TRUE)`,
+    [playerId, imageUrl, upload.date_taken || null]
   );
 }
 
 async function promoteToSchoolLogo(upload: any): Promise<string> {
   const hsid = String(upload.hsid).trim();
   const destKey = `schools/${hsid}.png`;
+
+  await getS3().send(
+    new CopyObjectCommand({
+      Bucket: S3_BUCKET,
+      CopySource: `${S3_BUCKET}/${upload.s3_key}`,
+      Key: destKey,
+      ContentType: 'image/png',
+      CacheControl: 'public, max-age=31536000, immutable',
+      MetadataDirective: 'REPLACE',
+    })
+  );
+
+  return destKey;
+}
+
+async function promoteToTeamLogo(upload: any): Promise<string> {
+  // Team ID comes from the team picker — stored in notes or a dedicated field
+  // For now, extract from description or use a placeholder
+  const teamId = String(upload.team_at_time || '').trim();
+  if (!teamId) throw new Error('No team ID for team logo');
+  const destKey = `teams/${teamId}.png`;
 
   await getS3().send(
     new CopyObjectCommand({
@@ -173,6 +226,9 @@ export async function GET(req: NextRequest) {
           console.log(`[photo-queue] Promoted ${upload.id} to timeline`);
         } else if (purpose === 'school_logo' && upload.hsid) {
           const destKey = await promoteToSchoolLogo(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to ${destKey}`);
+        } else if (purpose === 'team_logo') {
+          const destKey = await promoteToTeamLogo(upload);
           console.log(`[photo-queue] Promoted ${upload.id} to ${destKey}`);
         }
         // Unknown purposes stay in staging — review manually
