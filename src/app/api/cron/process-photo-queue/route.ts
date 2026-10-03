@@ -187,15 +187,16 @@ async function promoteToHeadshot(upload: any): Promise<void> {
   }
 }
 
-async function promoteToTimeline(upload: any): Promise<void> {
+async function promoteToAction(upload: any): Promise<void> {
   const playerId = String(upload.playerid).trim();
   const imageUrl = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${upload.s3_key}`;
 
+  // Action photos go to player_photos for timeline hero/background use
   await query(
     `INSERT INTO public.player_photos
       (playerid, image_url, image_role, show_on_pp_timeline, approval_status,
        date_taken, is_active)
-     VALUES ($1, $2, 'TIMELINE', TRUE, 'APPROVED', $3, TRUE)`,
+     VALUES ($1, $2, 'ACTION', TRUE, 'APPROVED', $3, TRUE)`,
     [playerId, imageUrl, upload.date_taken || null]
   );
 }
@@ -296,9 +297,9 @@ export async function GET(req: NextRequest) {
         } else if (purpose === 'headshot' && upload.playerid) {
           await promoteToHeadshot(upload);
           console.log(`[photo-queue] Promoted ${upload.id} to HEADSHOT role`);
-        } else if (purpose === 'timeline' && upload.playerid) {
-          await promoteToTimeline(upload);
-          console.log(`[photo-queue] Promoted ${upload.id} to timeline`);
+        } else if (purpose === 'action' && upload.playerid) {
+          await promoteToAction(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to action photo`);
         } else if (purpose === 'school_logo' && upload.hsid) {
           const destKey = await promoteToSchoolLogo(upload);
           console.log(`[photo-queue] Promoted ${upload.id} to ${destKey}`);
