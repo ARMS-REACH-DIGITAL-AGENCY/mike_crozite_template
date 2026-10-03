@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
   const schoolName = String(body.school_name || '').trim() || null;
   const gradYear = body.grad_year ? parseInt(String(body.grad_year), 10) : null;
   const position = String(body.position || '').trim() || null;
+  const level = String(body.level || '').trim() || null;
   const currentTeam = String(body.current_team || '').trim() || null;
   let notes = String(body.notes || '').trim() || null;
   const hsid = String(body.hsid || session.homeHsid || '').trim() || null;
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
   const extras: string[] = [];
   if (schoolName) extras.push(`School: ${schoolName}`);
   if (position) extras.push(`Position: ${position}`);
+  if (level) extras.push(`Level: ${level}`);
   if (currentTeam) extras.push(`Current team: ${currentTeam}`);
   if (extras.length) {
     notes = notes ? `${extras.join(' | ')} | ${notes}` : extras.join(' | ');
