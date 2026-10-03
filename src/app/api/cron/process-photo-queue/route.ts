@@ -78,6 +78,50 @@ async function promoteToFlipCard(upload: any): Promise<string> {
   return destKey;
 }
 
+async function promoteToHeadshot(upload: any): Promise<void> {
+  const playerId = String(upload.playerid).trim();
+  const imageUrl = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${upload.s3_key}`;
+
+  await query(
+    `INSERT INTO public.player_photos
+      (playerid, image_url, image_role, approval_status, date_taken, is_active)
+     VALUES ($1, $2, 'HEADSHOT', 'APPROVED', $3, TRUE)`,
+    [playerId, imageUrl, upload.date_taken || null]
+  );
+}
+
+async function promoteToTimeline(upload: any): Promise<void> {
+  const playerId = String(upload.playerid).trim();
+  const imageUrl = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${upload.s3_key}`;
+  const year = upload.date_taken ? new Date(upload.date_taken).getFullYear() : null;
+
+  await query(
+    `INSERT INTO public.player_photos
+      (playerid, image_url, image_role, show_on_pp_timeline, approval_status,
+       date_taken, season_year, is_active)
+     VALUES ($1, $2, 'TIMELINE', TRUE, 'APPROVED', $3, $4, TRUE)`,
+    [playerId, imageUrl, upload.date_taken || null, year]
+  );
+}
+
+async function promoteToSchoolLogo(upload: any): Promise<string> {
+  const hsid = String(upload.hsid).trim();
+  const destKey = `schools/${hsid}.png`;
+
+  await getS3().send(
+    new CopyObjectCommand({
+      Bucket: S3_BUCKET,
+      CopySource: `${S3_BUCKET}/${upload.s3_key}`,
+      Key: destKey,
+      ContentType: 'image/png',
+      CacheControl: 'public, max-age=31536000, immutable',
+      MetadataDirective: 'REPLACE',
+    })
+  );
+
+  return destKey;
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -121,9 +165,17 @@ export async function GET(req: NextRequest) {
           const destKey = await promoteToFlipCard(upload);
           console.log(`[photo-queue] Promoted ${upload.id} to ${destKey}`);
           results.promoted_to_flip_card++;
+        } else if (purpose === 'headshot' && upload.playerid) {
+          await promoteToHeadshot(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to HEADSHOT role`);
+        } else if (purpose === 'timeline' && upload.playerid) {
+          await promoteToTimeline(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to timeline`);
+        } else if (purpose === 'school_logo' && upload.hsid) {
+          const destKey = await promoteToSchoolLogo(upload);
+          console.log(`[photo-queue] Promoted ${upload.id} to ${destKey}`);
         }
-        // Other purposes (profile_gallery, news_article, other) stay in
-        // fan-uploads/ for now — downstream consumers pull from media_upload
+        // Unknown purposes stay in staging — review manually
 
         await query(
           `UPDATE public.media_upload SET status = 'approved' WHERE id = $1`,
