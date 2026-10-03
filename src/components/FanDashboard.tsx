@@ -880,228 +880,201 @@ function CorrectionForm({ senderName }: { senderName: string }) {
 
 // -- Photo Upload Form --------------------------------------------------------
 
-function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
+const UPLOAD_TYPES = [
+  { value: 'flip_card', label: 'High school image (front of flip card)', needsPlayer: true, needsDate: true },
+  { value: 'headshot', label: 'Current headshot', needsPlayer: true, needsDate: true },
+  { value: 'back_hero', label: 'Flip card back (current team hero)', needsPlayer: true, needsDate: false },
+  { value: 'timeline_hero', label: 'Career timeline annual hero', needsPlayer: true, needsDate: true },
+  { value: 'school_logo', label: 'High school logo', needsPlayer: false, needsDate: false },
+  { value: 'team_logo', label: 'Next-level team logo (college/pro)', needsPlayer: false, needsDate: false },
+];
+
+type UploadRow = {
+  file: File | null;
+  date: string;
+  type: string;
+};
+
+function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
+  defaultHsid: string;
+  userName?: string;
+  userEmail?: string;
+}) {
   const [player, setPlayer] = useState<PlayerResult | null>(null);
   const [school, setSchool] = useState<SchoolResult | null>(null);
-  const [purpose, setPurpose] = useState('flip_card');
-  const [description, setDescription] = useState('');
-  const [dateTaken, setDateTaken] = useState('');
   const [teamAtTime, setTeamAtTime] = useState<string | null>(null);
-  const [files, setFiles] = useState<File[]>([]);
-  const [fileYears, setFileYears] = useState<Record<number, string>>({});
+  const [rows, setRows] = useState<UploadRow[]>([{ file: null, date: '', type: 'flip_card' }]);
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const isSchoolLogo = purpose === 'school_logo';
-  const isTeamLogo = purpose === 'team_logo';
-  const isFlipCard = purpose === 'flip_card';
-  const isHeadshot = purpose === 'headshot';
-  const isLogo = isSchoolLogo || isTeamLogo;
-  const needsPlayer = !isLogo;
-
-  const handleFiles = (fileList: FileList | null) => {
-    if (!fileList) return;
-    const arr = Array.from(fileList).slice(0, 10);
-    setFiles(arr);
-    // Initialize years from dateTaken if set
-    const years: Record<number, string> = {};
-    arr.forEach((_, i) => { if (dateTaken) years[i] = dateTaken; });
-    setFileYears(years);
+  const updateRow = (i: number, patch: Partial<UploadRow>) => {
+    setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
+  };
+  const addRow = () => {
+    if (rows.length < 10) setRows((r) => [...r, { file: null, date: '', type: 'flip_card' }]);
+  };
+  const removeRow = (i: number) => {
+    setRows((r) => r.filter((_, j) => j !== i));
   };
 
-  const canSubmit = files.length > 0 && (isLogo ? (isSchoolLogo ? school : true) : player) &&
-    (!isFlipCard || dateTaken) &&
-    (!isHeadshot || files.every((_, i) => fileYears[i]));
+  const rowValid = (row: UploadRow) => {
+    if (!row.file) return false;
+    const t = UPLOAD_TYPES.find((x) => x.value === row.type);
+    if (!t) return false;
+    if (t.needsDate && !row.date) return false;
+    if (t.needsPlayer && !player) return false;
+    return true;
+  };
+  const allValid = rows.length > 0 && rows.every(rowValid) &&
+    rows.some((r) => UPLOAD_TYPES.find((x) => x.value === r.type)?.needsPlayer ? player : true) &&
+    rows.some((r) => r.type === 'school_logo' ? school : true);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (files.length === 0) return;
     setBusy(true); setMsg('');
     let succeeded = 0;
     let failed = 0;
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileDate = fileYears[i] || dateTaken;
+      for (const row of rows) {
+        if (!row.file) continue;
+        const t = UPLOAD_TYPES.find((x) => x.value === row.type);
+        if (!t) continue;
         try {
           const fd = new FormData();
-          fd.append('file', file);
-          fd.append('category', isLogo ? 'school' : 'player');
-          if (player) {
+          fd.append('file', row.file);
+          fd.append('category', t.needsPlayer ? 'player' : 'school');
+          if (player && t.needsPlayer) {
             fd.append('playerid', player.playerId);
             fd.append('player_name', `${player.firstName} ${player.lastName}`);
           }
-          if (school) {
+          if (row.type === 'school_logo' && school) {
             fd.append('hsid', school.hsid);
             fd.append('school_name', school.hsname);
           } else if (player?.schoolId || defaultHsid) {
             fd.append('hsid', player?.schoolId || defaultHsid);
           }
-          fd.append('purpose', purpose);
-          fd.append('description', description);
+          fd.append('purpose', row.type);
           fd.append('team_at_time', teamAtTime || '');
-          if (fileDate) fd.append('date_taken', fileDate);
+          if (row.date) fd.append('date_taken', row.date);
           const res = await fetch('/api/upload/image', { method: 'POST', credentials: 'include', body: fd });
           const json = await res.json();
           if (!res.ok) throw new Error(json.error || 'Upload failed');
           succeeded++;
-        } catch {
-          failed++;
-        }
+        } catch { failed++; }
       }
       if (failed === 0) {
         setOk(true); setMsg(`Uploaded ${succeeded} photo${succeeded > 1 ? 's' : ''}! Our team will review.`);
       } else {
         setOk(false); setMsg(`${succeeded} uploaded, ${failed} failed. Try the failed ones again.`);
       }
-      setFiles([]); setFileYears({}); setPlayer(null); setSchool(null);
-      setDescription(''); setDateTaken(''); setTeamAtTime(null);
+      setRows([{ file: null, date: '', type: 'flip_card' }]);
+      setPlayer(null); setSchool(null); setTeamAtTime(null);
     } catch (err: any) {
       setOk(false); setMsg(err.message);
     } finally { setBusy(false); }
   };
 
+  const needsPlayerAnywhere = rows.some((r) => UPLOAD_TYPES.find((x) => x.value === r.type)?.needsPlayer);
+  const needsSchoolLogo = rows.some((r) => r.type === 'school_logo');
+
   return (
     <form onSubmit={submit}>
       {msg && <p style={feedbackStyle(ok)}>{msg}</p>}
-      <p style={disclaimerStyle}>
-        For flip card and profile photos. This is <strong>not</strong> for career path
-        timeline uploads — use the timeline on the player profile page for those.
-      </p>
-      <Field label="What is this photo for?" required>
-        <select value={purpose} onChange={(e) => setPurpose(e.target.value)} style={inputStyle}>
-          <option value="flip_card">High school image (front of flip card)</option>
-          <option value="headshot">Headshot</option>
-          <option value="action">Action photo (timeline hero/background)</option>
-          <option value="school_logo">High school logo</option>
-          <option value="team_logo">Next level team logo (college/pro)</option>
-        </select>
-      </Field>
 
-      {isFlipCard && (
-        <div style={{
-          background: 'rgba(255,215,0,.08)',
-          border: '1px solid var(--gold)',
-          borderRadius: '6px',
-          padding: '12px',
-          marginBottom: '12px',
-          fontSize: '12px',
-          color: 'var(--fg)',
-        }}>
-          <strong style={{ color: 'var(--gold)' }}>High school photo required.</strong>
-          <br />
-          The flip card gallery shows every player during their high school years.
-          Please only upload photos taken while the player was in high school.
-          Baby photos, current pro photos, or college photos will be rejected.
-        </div>
-      )}
-
-      {purpose === 'headshot' && (
-        <div style={{
-          background: 'rgba(255,255,255,.03)',
-          border: '1px solid var(--line)',
-          borderRadius: '6px',
-          padding: '12px',
-          marginBottom: '12px',
-          fontSize: '12px',
-          color: 'var(--muted)',
-        }}>
-          Headshots appear on the career timeline. If this is from the current year,
-          it will become the player's main headshot. Photos from past years will
-          appear on that year's timeline entry.
-        </div>
-      )}
-
-      {isSchoolLogo ? (
-        <SchoolPicker selected={school} onSelect={setSchool} label="Which school is this logo for?" required />
-      ) : (
-        <PlayerPicker selected={player} onSelect={setPlayer} label="Who is in this photo?" required />
-      )}
-
-      {isFlipCard && player && (
+      {(userName || userEmail) && (
         <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>
-          This photo will appear on <strong style={{ color: 'var(--fg)' }}>{player.firstName} {player.lastName}</strong>'s
-          flip card as their high school photo.
-          {player.schoolName && (
-            <> High school on file: <strong style={{ color: 'var(--fg)' }}>{player.schoolName}</strong>.</>
-          )}
+          Uploading as <strong style={{ color: 'var(--fg)' }}>{userName || userEmail}</strong>
+          {userName && userEmail ? ` (${userEmail})` : ''}
         </div>
       )}
 
-      {!isSchoolLogo && (
-        <>
-          <Field label="What's in the photograph?" required>
-            <input type="text" placeholder="e.g. Game action vs. Chandler, headshot, pitching delivery"
-              value={description} onChange={(e) => setDescription(e.target.value)}
-              required style={inputStyle} />
-          </Field>
-          <TeamPicker
-            selected={teamAtTime}
-            onSelect={setTeamAtTime}
-            label="What team was the player on when this was taken?"
-          />
-        </>
+      {needsPlayerAnywhere && (
+        <PlayerPicker selected={player} onSelect={setPlayer} label="Who is in these photos?" required />
+      )}
+      {needsSchoolLogo && (
+        <SchoolPicker selected={school} onSelect={setSchool} label="Which school is this logo for?" required />
       )}
 
-      <Field label={isFlipCard ? "Year taken (required)" : "Date Taken (if known)"} required={isFlipCard}>
-        <input type="date" value={dateTaken}
-          onChange={(e) => setDateTaken(e.target.value)}
-          required={isFlipCard}
-          style={inputStyle} />
-      </Field>
+      <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.06em',
+        textTransform: 'uppercase', color: 'var(--gold)', margin: '16px 0 8px' }}>
+        Photos to upload ({rows.length}/10)
+      </div>
 
-      {isSchoolLogo && (
-        <Field label="Description">
-          <input type="text" placeholder="e.g. Official school crest, updated 2026"
-            value={description} onChange={(e) => setDescription(e.target.value)}
-            style={inputStyle} />
-        </Field>
-      )}
-
-      <Field label={isHeadshot ? "Choose Photos (up to 10)" : "Choose Photo"} required>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple={isHeadshot}
-          onChange={(e) => handleFiles(e.target.files)}
-          required
-          style={{ ...inputStyle, padding: '8px 10px' }}
-        />
-      </Field>
-
-      {isHeadshot && files.length > 0 && (
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>
-            What year is each headshot from?
-          </div>
-          {files.map((f, i) => (
-            <div key={i} style={{
-              display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px',
-            }}>
-              <div style={{ flex: 1, fontSize: '13px', color: 'var(--fg)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {f.name}
-              </div>
-              <input
-                type="date"
-                value={fileYears[i] || ''}
-                onChange={(e) => setFileYears((m) => ({ ...m, [i]: e.target.value }))}
-                required
-                style={{ ...inputStyle, width: '150px', marginBottom: 0 }}
-              />
+      {rows.map((row, i) => {
+        const t = UPLOAD_TYPES.find((x) => x.value === row.type);
+        return (
+          <div key={i} style={{
+            border: '1px solid var(--line)', borderRadius: '8px',
+            padding: '12px', marginBottom: '8px',
+            background: 'rgba(255,255,255,.02)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)' }}>
+                Photo {i + 1}
+              </span>
+              {rows.length > 1 && (
+                <button type="button" onClick={() => removeRow(i)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--muted)',
+                    cursor: 'pointer', fontSize: '16px' }}>×</button>
+              )}
             </div>
-          ))}
-        </div>
+            <input
+              type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => updateRow(i, { file: e.target.files?.[0] || null })}
+              style={{ ...inputStyle, padding: '8px 10px', marginBottom: '8px' }}
+            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...labelStyle, marginBottom: '4px' }}>Where does this go?</label>
+                <select value={row.type} onChange={(e) => updateRow(i, { type: e.target.value })}
+                  style={{ ...inputStyle, marginBottom: 0 }}>
+                  {UPLOAD_TYPES.map((ut) => (
+                    <option key={ut.value} value={ut.value}>{ut.label}</option>
+                  ))}
+                </select>
+              </div>
+              {t?.needsDate && (
+                <div style={{ width: '150px' }}>
+                  <label style={{ ...labelStyle, marginBottom: '4px' }}>Date taken</label>
+                  <input type="date" value={row.date}
+                    onChange={(e) => updateRow(i, { date: e.target.value })}
+                    required
+                    style={{ ...inputStyle, marginBottom: 0 }} />
+                </div>
+              )}
+            </div>
+            {row.type === 'flip_card' && (
+              <div style={{ fontSize: '11px', color: 'var(--gold)', marginTop: '6px' }}>
+                Must be a high school photo. Baby photos or current pro photos will be rejected.
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {rows.length < 10 && (
+        <button type="button" onClick={addRow}
+          style={{ ...buttonStyle, background: 'transparent', border: '1px dashed var(--line)',
+            color: 'var(--muted)', marginBottom: '12px' }}>
+          + Add another photo
+        </button>
       )}
 
-      <button type="submit" disabled={busy || !canSubmit}
-        style={{ ...buttonStyle, opacity: busy || !canSubmit ? 0.6 : 1 }}>
-        {busy ? 'Uploading…' : files.length > 1 ? `Upload ${files.length} Photos` : 'Upload Photo'}
+      <TeamPicker
+        selected={teamAtTime}
+        onSelect={setTeamAtTime}
+        label="What team was the player on? (if applicable)"
+      />
+
+      <button type="submit" disabled={busy || !allValid}
+        style={{ ...buttonStyle, opacity: busy || !allValid ? 0.6 : 1 }}>
+        {busy ? 'Uploading…' : `Upload ${rows.filter((r) => r.file).length || ''} Photo${rows.filter((r) => r.file).length === 1 ? '' : 's'}`.trim()}
       </button>
     </form>
   );
 }
+
 
 // -- Main Dashboard (single-open accordion) ------------------------------------
 
