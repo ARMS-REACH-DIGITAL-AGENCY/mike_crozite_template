@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
+  const correctionType = String(body.correction_type || 'other').trim();
+  const rawPlayerName = String(body.raw_player_name || '').trim() || null;
   const correction = String(body.correction || '').trim();
   const pageUrl = String(body.page_url || '').trim() || null;
   const senderName = String(body.sender_name || '').trim() || null;
@@ -46,12 +48,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Please describe the correction' }, { status: 400 });
   }
 
+  const notes = `[${correctionType}] ${correction}`;
+
   try {
     await query(
       `INSERT INTO public.news_tip_queue
-        (intake_source, sender_name, sender_contact_id, article_url, notes, status)
-       VALUES ('correction', $1, $2, $3, $4, 'new')`,
-      [senderName, uid, pageUrl, correction]
+        (intake_source, sender_name, sender_contact_id, raw_player_name, article_url, notes, status)
+       VALUES ('correction', $1, $2, $3, $4, $5, 'new')`,
+      [senderName, uid, rawPlayerName, pageUrl, notes]
     );
     return NextResponse.json({ ok: true, message: 'Thanks! We\'ll review your correction.' });
   } catch (err) {
