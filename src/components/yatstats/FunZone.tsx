@@ -136,7 +136,7 @@ function getCta(tab: TabId, firstName: string): string {
     case "social":
       return `Share a #YATABOY post with ${firstName}'s fans, family & friends.`;
     case "connect":
-      return `Connect with ${firstName} through our Mentorship Marketplace.`;
+      return `Connect with ${firstName} through our Contributor Marketplace.`;
     case "upload":
       return `See and share stories about ${firstName} on his player profile page.`;
   }
@@ -502,6 +502,57 @@ function CheckIcon() {
   );
 }
 
+// School Instagram feed — pulls from social_posts via /api/social/[hsid].
+// Shows the school's recent Instagram content on every player profile's Social tab.
+function SchoolSocialFeed({ hsid, playerid }: { hsid: string; playerid: string }) {
+  const [posts, setPosts] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!hsid) return;
+    fetch(`/api/social/${hsid}?playerid=${playerid}&limit=10`)
+      .then((r) => r.json())
+      .then((d) => {
+        setPosts(d.posts || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [hsid, playerid]);
+
+  if (loading) return <div className="fz-social-loading">Loading school posts...</div>;
+  if (!posts.length) return null;
+
+  return (
+    <div className="fz-school-feed">
+      <div className="fz-school-feed-header">
+        <span className="fz-school-feed-title">SCHOOL SOCIAL</span>
+      </div>
+      {posts.map((post: any) => (
+        <div key={post.id} className="fz-social-post">
+          {post.thumbnail_url && (
+            <img src={post.thumbnail_url} alt="" className="fz-social-post-img" loading="lazy" />
+          )}
+          <div className="fz-social-post-body">
+            <p className="fz-social-post-caption">
+              {(post.caption || '').slice(0, 150)}
+              {(post.caption || '').length > 150 ? '...' : ''}
+            </p>
+            <div className="fz-social-post-meta">
+              <span>@{post.handle}</span>
+              <span>{post.published_at ? new Date(post.published_at).toLocaleDateString() : ''}</span>
+              {post.permalink && (
+                <a href={post.permalink} target="_blank" rel="noopener noreferrer" className="fz-social-post-link">
+                  View on Instagram
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // The Social tab isn't about the player's own social accounts - it's a
 // commercial for YAT?STATS itself: prompt a fan to share this card to their
 // own feed with a personalized #YATABOY hashtag. Every link here is a plain
@@ -515,12 +566,16 @@ function SocialPanel({
   schoolName,
   schoolLocation,
   shareUrl,
+  hsid,
+  playerid,
 }: {
   firstName: string;
   lastName: string;
   schoolName: string;
   schoolLocation: string;
   shareUrl: string;
+  hsid: string;
+  playerid: string;
 }) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ") || "this player";
   const hashtag = `YATABOY${firstName.replace(/[^a-zA-Z0-9]/g, "")}`;
@@ -593,6 +648,7 @@ function SocialPanel({
 
   return (
     <div className="fz-social">
+      {hsid && <SchoolSocialFeed hsid={hsid} playerid={playerid} />}
       {/* Same bar treatment as the Stats tab's "2026 SEASON" header
           (.yat-stats-bar) - a dedicated, identically-styled class rather
           than that literal class, so a Social-only tweak here can never
@@ -674,17 +730,17 @@ function SocialPanel({
   );
 }
 
-// Not a dynamic layout - the whole panel is the approved Mentorship
+// Not a dynamic layout - the whole panel is the approved Contributor
 // Marketplace graphic (the exact "Coming Soon" design that was signed off
 // on), used as-is as one big graphic button linking to the marketplace
 // section on the profile page. No per-player text, no responsive
 // typography to fit into the fixed card height - just the image.
 function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
-    <a className="fz-connect" href={profileHref} aria-label="Learn more about the Mentorship Marketplace">
+    <a className="fz-connect" href={profileHref} aria-label="Learn more about the Contributor Marketplace">
       <img
         src="/img/mentorship-marketplace-coming-soon.jpg"
-        alt="Mentorship Marketplace - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
+        alt="Contributor Marketplace - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
         className="fz-connect-graphic"
       />
     </a>
@@ -849,6 +905,8 @@ export default function FunZone({
           schoolName={schoolName || ""}
           schoolLocation={schoolLocation || ""}
           shareUrl={shareUrl}
+          hsid={resolvedHsid || ""}
+          playerid={String(player?.playerid || "")}
         />
       </div>
       <div
@@ -1327,7 +1385,7 @@ export default function FunZone({
         }
         .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
 
-        /* -- Connect / Mentorship Marketplace panel ---------------------- */
+        /* -- Connect / Contributor Marketplace panel ---------------------- */
         /* One big graphic button - no dynamic text, no responsive type. */
         .fz-connect{
           display:block;
