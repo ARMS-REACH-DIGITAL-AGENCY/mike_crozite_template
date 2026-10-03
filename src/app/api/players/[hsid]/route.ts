@@ -55,11 +55,13 @@ export async function GET(
     const roster = stageRows
       .filter((stage) => {
         const status = text(stage.status_label ?? stage.status).toUpperCase();
-        const excludedStatus =
-          status === 'RETIRED' ||
-          status === 'FREE AGENT' ||
-          /RED[\s-]*SHIRT/.test(status);
-        return !excludedStatus && !isHighSchoolLevel(stage);
+        const isCurrentActiveStatus =
+          status === 'ACTIVE' ||
+          status.startsWith('INJURED') ||
+          status === 'DEVELOPMENT LIST' ||
+          status === 'RESTRICTED LIST' ||
+          status === 'MILITARY LEAVE';
+        return isCurrentActiveStatus && !isHighSchoolLevel(stage);
       })
       .map((stage) => {
         const id = text(stage.playerid);
