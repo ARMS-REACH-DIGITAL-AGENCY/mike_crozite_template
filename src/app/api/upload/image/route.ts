@@ -47,6 +47,10 @@ export async function POST(req: NextRequest) {
 
   const file = formData.get('file') as File | null;
   const category = String(formData.get('category') || '').trim(); // 'school' | 'player'
+  const playerName = String(formData.get('player_name') || '').trim() || null;
+  const schoolName = String(formData.get('school_name') || '').trim() || null;
+  const description = String(formData.get('description') || '').trim() || null;
+  const dateTaken = String(formData.get('date_taken') || '').trim() || null;
   const playerid = formData.get('playerid') ? String(formData.get('playerid')) : null;
   const hsid = String(formData.get('hsid') || session.homeHsid || '').trim() || null;
 
@@ -65,6 +69,8 @@ export async function POST(req: NextRequest) {
 
   // TODO: Upload to S3 and get real s3_key. For now, record as pending with
   // a placeholder key so the review team can process the queue.
+  // TODO: Add player_name, school_name, description columns to media_upload
+  // so review team sees the context without cross-referencing.
   const uploadId = randomUUID();
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const s3Key = `pending/${uploadId}.${ext}`;
@@ -72,19 +78,22 @@ export async function POST(req: NextRequest) {
   try {
     await query(
       `INSERT INTO public.media_upload
-        (id, playerid, hsid, category, s3_key, uploaded_by, status, mime_type, file_size_bytes)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+        (id, playerid, hsid, category, s3_key, date_taken, uploaded_by, status, mime_type, file_size_bytes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)`,
       [
         uploadId,
         playerid ? parseInt(playerid, 10) : null,
         hsid,
         category,
         s3Key,
+        dateTaken || null,
         session.uid,
         file.type,
         file.size,
       ]
     );
+    // Log context for review team until columns are added
+    console.log(`[upload/image] ${uploadId}: player=${playerName} school=${schoolName} desc=${description}`);
     return NextResponse.json({
       ok: true,
       message: 'Thanks! Our team will review your photo.',
