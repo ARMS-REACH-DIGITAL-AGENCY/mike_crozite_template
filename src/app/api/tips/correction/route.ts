@@ -62,8 +62,11 @@ export async function POST(req: NextRequest) {
       [senderName, uid, rawPlayerName, playerid, matchedHsid, pageUrl, notes]
     );
     return NextResponse.json({ ok: true, message: 'Thanks! We\'ll review your correction.' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[tips/correction] insert failed:', err);
-    return NextResponse.json({ error: 'Failed to save correction' }, { status: 500 });
+    return NextResponse.json(
+      { error: `DB error: ${err?.message || 'Unknown'} (code: ${err?.code || 'none'})` },
+      { status: 500 }
+    );
   }
 }
