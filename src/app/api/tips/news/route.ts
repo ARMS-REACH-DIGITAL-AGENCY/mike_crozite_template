@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
 
   const articleUrl = String(body.article_url || '').trim();
   const rawPlayerName = String(body.raw_player_name || '').trim() || null;
+  const playerid = body.playerid ? parseInt(String(body.playerid), 10) : null;
+  const matchedHsid = String(body.matched_hsid || '').trim() || null;
   const notes = String(body.notes || '').trim();
   const senderName = String(body.sender_name || '').trim() || null;
 
@@ -50,9 +52,10 @@ export async function POST(req: NextRequest) {
   try {
     await query(
       `INSERT INTO public.news_tip_queue
-        (intake_source, sender_name, sender_contact_id, raw_player_name, article_url, notes, status)
-       VALUES ('fan_drawer', $1, $2, $3, $4, $5, 'new')`,
-      [senderName, uid, rawPlayerName, articleUrl, notes || null]
+        (intake_source, sender_name, sender_contact_id, raw_player_name,
+         matched_playerid, matched_hsid, article_url, notes, status)
+       VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, 'new')`,
+      [senderName, uid, rawPlayerName, playerid, matchedHsid, articleUrl, notes || null]
     );
     return NextResponse.json({ ok: true, message: 'Thanks! Our team will review your tip.' });
   } catch (err) {
