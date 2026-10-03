@@ -55,7 +55,9 @@ class NotAnImageError extends Error {}
 
 async function processImage(
   buffer: Buffer,
-  purpose: string
+  purpose: string,
+  cropX: number = 50,
+  cropY: number = 50
 ): Promise<{ data: Buffer; contentType: string; extension: string }> {
   let pipeline: sharp.Sharp;
   try {
@@ -79,10 +81,11 @@ async function processImage(
   }
 
   if (purpose === 'flip_card' || purpose === 'headshot') {
-    // 5x7 portrait proportion, smart crop on the subject
+    // 5x7 portrait proportion, crop at the user's chosen focal point
+    // cropX/cropY are 0-100 percentages from the preview drag
     const data = await pipeline
       .clone()
-      .resize({ width: 500, height: 700, fit: 'cover', position: 'attention' })
+      .resize({ width: 500, height: 700, fit: 'cover', position: `${cropX}% ${cropY}%` as any })
       .jpeg({ quality: 86, mozjpeg: true })
       .toBuffer();
     return { data, contentType: 'image/jpeg', extension: 'jpg' };
@@ -153,7 +156,9 @@ export async function POST(req: NextRequest) {
   let processed: { data: Buffer; contentType: string; extension: string };
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    processed = await processImage(buffer, purpose);
+    const cropX = Math.min(100, Math.max(0, parseInt(String(formData.get('crop_x') || '50'), 10) || 50));
+    const cropY = Math.min(100, Math.max(0, parseInt(String(formData.get('crop_y') || '50'), 10) || 50));
+    processed = await processImage(buffer, purpose, cropX, cropY);
   } catch (err: any) {
     if (err instanceof NotAnImageError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
