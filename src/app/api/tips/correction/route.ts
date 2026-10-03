@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
 
   const correctionType = String(body.correction_type || 'other').trim();
   const rawPlayerName = String(body.raw_player_name || '').trim() || null;
-  const playerid = body.playerid ? parseInt(String(body.playerid), 10) : null;
+  const rawPidC = body.playerid ? parseInt(String(body.playerid), 10) : NaN;
+  const playerid = Number.isNaN(rawPidC) ? null : rawPidC;
   const matchedHsid = String(body.matched_hsid || '').trim() || null;
   const correction = String(body.correction || '').trim();
   const pageUrl = String(body.page_url || '').trim() || null;
