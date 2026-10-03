@@ -887,44 +887,76 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
   const [description, setDescription] = useState('');
   const [dateTaken, setDateTaken] = useState('');
   const [teamAtTime, setTeamAtTime] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileYears, setFileYears] = useState<Record<number, string>>({});
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const isSchoolLogo = purpose === 'school_logo';
+  const isTeamLogo = purpose === 'team_logo';
   const isFlipCard = purpose === 'flip_card';
-  const canSubmit = file && (isSchoolLogo ? school : player) && (!isFlipCard || dateTaken);
+  const isHeadshot = purpose === 'headshot';
+  const isLogo = isSchoolLogo || isTeamLogo;
+  const needsPlayer = !isLogo;
+
+  const handleFiles = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const arr = Array.from(fileList).slice(0, 10);
+    setFiles(arr);
+    // Initialize years from dateTaken if set
+    const years: Record<number, string> = {};
+    arr.forEach((_, i) => { if (dateTaken) years[i] = dateTaken; });
+    setFileYears(years);
+  };
+
+  const canSubmit = files.length > 0 && (isLogo ? (isSchoolLogo ? school : true) : player) &&
+    (!isFlipCard || dateTaken) &&
+    (!isHeadshot || files.every((_, i) => fileYears[i]));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
-    if (isSchoolLogo && !school) return;
-    if (!isSchoolLogo && !player) return;
+    if (files.length === 0) return;
     setBusy(true); setMsg('');
+    let succeeded = 0;
+    let failed = 0;
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('category', isSchoolLogo ? 'school' : 'player');
-      if (player) {
-        fd.append('playerid', player.playerId);
-        fd.append('player_name', `${player.firstName} ${player.lastName}`);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileDate = fileYears[i] || dateTaken;
+        try {
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('category', isLogo ? 'school' : 'player');
+          if (player) {
+            fd.append('playerid', player.playerId);
+            fd.append('player_name', `${player.firstName} ${player.lastName}`);
+          }
+          if (school) {
+            fd.append('hsid', school.hsid);
+            fd.append('school_name', school.hsname);
+          } else if (player?.schoolId || defaultHsid) {
+            fd.append('hsid', player?.schoolId || defaultHsid);
+          }
+          fd.append('purpose', purpose);
+          fd.append('description', description);
+          fd.append('team_at_time', teamAtTime || '');
+          if (fileDate) fd.append('date_taken', fileDate);
+          const res = await fetch('/api/upload/image', { method: 'POST', credentials: 'include', body: fd });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Upload failed');
+          succeeded++;
+        } catch {
+          failed++;
+        }
       }
-      if (school) {
-        fd.append('hsid', school.hsid);
-        fd.append('school_name', school.hsname);
-      } else if (player?.schoolId || defaultHsid) {
-        fd.append('hsid', player?.schoolId || defaultHsid);
+      if (failed === 0) {
+        setOk(true); setMsg(`Uploaded ${succeeded} photo${succeeded > 1 ? 's' : ''}! Our team will review.`);
+      } else {
+        setOk(false); setMsg(`${succeeded} uploaded, ${failed} failed. Try the failed ones again.`);
       }
-      fd.append('purpose', purpose);
-      fd.append('description', description);
-      fd.append('team_at_time', teamAtTime || '');
-      if (dateTaken) fd.append('date_taken', dateTaken);
-      const res = await fetch('/api/upload/image', { method: 'POST', credentials: 'include', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Upload failed');
-      setOk(true); setMsg(json.message);
-      setFile(null); setPlayer(null); setSchool(null); setDescription(''); setDateTaken(''); setTeamAtTime(null);
+      setFiles([]); setFileYears({}); setPlayer(null); setSchool(null);
+      setDescription(''); setDateTaken(''); setTeamAtTime(null);
     } catch (err: any) {
       setOk(false); setMsg(err.message);
     } finally { setBusy(false); }
@@ -939,11 +971,11 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
       </p>
       <Field label="What is this photo for?" required>
         <select value={purpose} onChange={(e) => setPurpose(e.target.value)} style={inputStyle}>
-          <option value="flip_card">Flip card front — high school photo</option>
+          <option value="flip_card">High school image (front of flip card)</option>
           <option value="headshot">Headshot</option>
-          <option value="timeline">Career timeline photo</option>
-          <option value="school_logo">School logo</option>
-          <option value="team_logo">Team logo (college/pro)</option>
+          <option value="action">Action photo (timeline hero/background)</option>
+          <option value="school_logo">High school logo</option>
+          <option value="team_logo">Next level team logo (college/pro)</option>
         </select>
       </Field>
 
@@ -1027,14 +1059,45 @@ function PhotoUploadForm({ defaultHsid }: { defaultHsid: string }) {
         </Field>
       )}
 
-      <Field label="Choose Photo" required>
-        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={(e) => setFile(e.target.files?.[0] || null)} required
-          style={{ ...inputStyle, padding: '8px 10px' }} />
+      <Field label={isHeadshot ? "Choose Photos (up to 10)" : "Choose Photo"} required>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple={isHeadshot}
+          onChange={(e) => handleFiles(e.target.files)}
+          required
+          style={{ ...inputStyle, padding: '8px 10px' }}
+        />
       </Field>
+
+      {isHeadshot && files.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>
+            What year is each headshot from?
+          </div>
+          {files.map((f, i) => (
+            <div key={i} style={{
+              display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px',
+            }}>
+              <div style={{ flex: 1, fontSize: '13px', color: 'var(--fg)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {f.name}
+              </div>
+              <input
+                type="date"
+                value={fileYears[i] || ''}
+                onChange={(e) => setFileYears((m) => ({ ...m, [i]: e.target.value }))}
+                required
+                style={{ ...inputStyle, width: '150px', marginBottom: 0 }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       <button type="submit" disabled={busy || !canSubmit}
         style={{ ...buttonStyle, opacity: busy || !canSubmit ? 0.6 : 1 }}>
-        {busy ? 'Uploading…' : 'Upload Photo'}
+        {busy ? 'Uploading…' : files.length > 1 ? `Upload ${files.length} Photos` : 'Upload Photo'}
       </button>
     </form>
   );
