@@ -988,13 +988,18 @@ function CropPreview({ file, cropX, cropY, onCropChange }: {
   );
 }
 
-export function PhotoUploadForm({ defaultHsid, userName, userEmail }: {
+export function PhotoUploadForm({ defaultHsid, userName, userEmail, presetType }: {
   defaultHsid: string;
   userName?: string;
   userEmail?: string;
+  presetType?: string;
 }) {
   const [teamAtTime, setTeamAtTime] = useState<string | null>(null);
-  const [rows, setRows] = useState<UploadRow[]>([blankUploadRow()]);
+  const [rows, setRows] = useState<UploadRow[]>(() => {
+    const r = blankUploadRow();
+    if (presetType && UPLOAD_TYPES.some((t) => t.value === presetType)) r.type = presetType;
+    return [r];
+  });
   const [msg, setMsg] = useState('');
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
