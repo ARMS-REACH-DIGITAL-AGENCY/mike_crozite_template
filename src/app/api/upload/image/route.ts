@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { query } from '@/lib/db';
 import { randomUUID } from 'crypto';
+import { storeStoryPhoto, NotAnImageError } from '@/lib/stories';
 
 export const runtime = 'nodejs';
 
@@ -69,13 +70,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 });
   }
 
-  // TODO: Upload to S3 and get real s3_key. For now, record as pending with
-  // a placeholder key so the review team can process the queue.
-  // TODO: Add player_name, school_name, description columns to media_upload
-  // so review team sees the context without cross-referencing.
+  // Store the photo in S3 (stripped of metadata, resized to 3 sizes)
+  // using the platform's existing photo pipeline
   const uploadId = randomUUID();
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const s3Key = `pending/${uploadId}.${ext}`;
+  let stored;
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    stored = await storeStoryPhoto(`fan-uploads/${uploadId}`, 0, buffer);
+  } catch (err: any) {
+    if (err instanceof NotAnImageError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    console.error('[upload/image] S3 store failed:', err);
+    return NextResponse.json(
+      { error: `Photo storage failed: ${err?.message || 'Unknown'}` },
+      { status: 500 }
+    );
+  }
 
   try {
     // playerid is TEXT format (e.g. "YAT000072" or "195486") — pass through as-is
@@ -90,10 +101,10 @@ export async function POST(req: NextRequest) {
         safePlayerid,
         hsid,
         category,
-        s3Key,
+        stored.s3_key,
         dateTaken || null,
-        file.type,
-        file.size,
+        stored.mime_type,
+        stored.file_size_bytes,
       ]
     );
     // Log context for review team until columns are added
