@@ -59,6 +59,8 @@ export async function GET(request: Request) {
     const homeHsid = searchParams.get('home');
     const awayHsid = searchParams.get('away');
     const dateStr = searchParams.get('date');
+    const startStr = searchParams.get('start');
+    const endStr = searchParams.get('end');
     const preview = searchParams.get('preview') === '1';
 
     if (!homeHsid || !awayHsid) {
@@ -77,15 +79,24 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get the Monday of the requested week.
-    const asofDate = new Date(asof + 'T00:00:00Z');
-    const dow = asofDate.getUTCDay();
-    const monday = new Date(asofDate);
-    monday.setUTCDate(asofDate.getUTCDate() - ((dow + 6) % 7));
-    const weekStart = monday.toISOString().slice(0, 10);
-    const weekEnd = new Date(monday);
-    weekEnd.setUTCDate(monday.getUTCDate() + 6);
-    const weekEndStr = weekEnd.toISOString().slice(0, 10);
+    // Test brackets can pass their exact seven-day window.
+    let weekStart: string;
+    let weekEndStr: string;
+    let monday: Date;
+    if (startStr && endStr) {
+      weekStart = startStr;
+      weekEndStr = endStr;
+      monday = new Date(startStr + 'T00:00:00Z');
+    } else {
+      const asofDate = new Date(asof + 'T00:00:00Z');
+      const dow = asofDate.getUTCDay();
+      monday = new Date(asofDate);
+      monday.setUTCDate(asofDate.getUTCDate() - ((dow + 6) % 7));
+      weekStart = monday.toISOString().slice(0, 10);
+      const weekEnd = new Date(monday);
+      weekEnd.setUTCDate(monday.getUTCDate() + 6);
+      weekEndStr = weekEnd.toISOString().slice(0, 10);
+    }
 
     // Debug mode: return raw counts to diagnose data issues.
     if (searchParams.get('debug') === '1') {
@@ -124,12 +135,24 @@ export async function GET(request: Request) {
     }));
 
     // Map playerid to school for aggregation.
-    const { rows: hsidRows } = await query<{ playerid: string; hsid: string }>(`
-      SELECT DISTINCT playerid::text AS playerid, hsid::text AS hsid
+    const { rows: hsidRows } = await query<{ playerid: string; hsid: string; display_name: string; level: string }>(`
+      SELECT DISTINCT
+        playerid::text AS playerid,
+        hsid::text AS hsid,
+        COALESCE(NULLIF(display_name,''), trim(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), playerid::text) AS display_name,
+        COALESCE(NULLIF(display_level_label,''), NULLIF(level_label,''), NULLIF(current_level_label,''), NULLIF(current_team_level,''), '') AS level
       FROM public.flip_card_front_stage
       WHERE hsid::text IN ($1, $2)
     `, [homeHsid, awayHsid]);
     const pidToHsid = new Map(hsidRows.map(r => [r.playerid, r.hsid]));
+    const metaByPid = new Map(hsidRows.map(r => [r.playerid, r]));
+    type PlayerAgg = { pa:number; ab:number; h:number; d2:number; d3:number; hr:number; bb:number; hbp:number; sf:number; outs:number; phr:number; pbb:number; phbp:number; k:number; hitsAllowed:number; runsAllowed:number; er:number; };
+    const playerAgg = new Map<string, PlayerAgg>();
+    const getPlayerAgg = (pid:string) => {
+      let v = playerAgg.get(pid);
+      if (!v) { v = { pa:0,ab:0,h:0,d2:0,d3:0,hr:0,bb:0,hbp:0,sf:0,outs:0,phr:0,pbb:0,phbp:0,k:0,hitsAllowed:0,runsAllowed:0,er:0 }; playerAgg.set(pid,v); }
+      return v;
+    };
 
     for (const row of rows) {
       const hsid = pidToHsid.get(row.playerid);
@@ -143,25 +166,18 @@ export async function GET(request: Request) {
       const st = row.stats || {};
       if (row.stat_type === 'batting' || st.hitting) {
         const h = st.hitting || st;
-        agg.ab += Number(h.atBats || 0);
-        agg.h += Number(h.hits || 0);
-        agg.d2 += Number(h.doubles || 0);
-        agg.d3 += Number(h.triples || 0);
-        agg.hr += Number(h.homeRuns || 0);
-        agg.bb += Number(h.baseOnBalls || 0);
-        agg.hbp += Number(h.hitByPitch || 0);
-        agg.sf += Number(h.sacFlies || 0);
-        agg.pa += agg.ab + agg.bb + agg.hbp + agg.sf;
+        const pa = Number(h.plateAppearances ?? (Number(h.atBats || 0) + Number(h.baseOnBalls || 0) + Number(h.hitByPitch || 0) + Number(h.sacFlies || 0)));
+        agg.ab += Number(h.atBats || 0); agg.h += Number(h.hits || 0); agg.d2 += Number(h.doubles || 0); agg.d3 += Number(h.triples || 0); agg.hr += Number(h.homeRuns || 0); agg.bb += Number(h.baseOnBalls || 0); agg.hbp += Number(h.hitByPitch || 0); agg.sf += Number(h.sacFlies || 0); agg.pa += pa;
+        const pAgg = getPlayerAgg(row.playerid);
+        pAgg.pa += pa; pAgg.ab += Number(h.atBats || 0); pAgg.h += Number(h.hits || 0); pAgg.d2 += Number(h.doubles || 0); pAgg.d3 += Number(h.triples || 0); pAgg.hr += Number(h.homeRuns || 0); pAgg.bb += Number(h.baseOnBalls || 0); pAgg.hbp += Number(h.hitByPitch || 0); pAgg.sf += Number(h.sacFlies || 0);
       } else if (row.stat_type === 'pitching' || st.pitching) {
         const p = st.pitching || st;
         const ipStr = String(p.inningsPitched || '0');
         const [ipW, ipF] = ipStr.split('.').map(Number);
-        agg.ip += (ipW || 0) + (ipF || 0) / 3;
-        agg.er += Number(p.earnedRuns || 0);
-        agg.k += Number(p.strikeOuts || 0);
-        agg.bbA += Number(p.baseOnBalls || 0);
-        agg.hbpA += Number(p.hitBatsmen || 0);
-        agg.hrA += Number(p.homeRuns || 0);
+        const outs = (ipW || 0) * 3 + (ipF || 0);
+        agg.ip += outs / 3; agg.er += Number(p.earnedRuns || 0); agg.k += Number(p.strikeOuts || 0); agg.bbA += Number(p.baseOnBalls || 0); agg.hbpA += Number(p.hitBatsmen || 0); agg.hrA += Number(p.homeRuns || 0);
+        const pAgg = getPlayerAgg(row.playerid);
+        pAgg.outs += outs; pAgg.phr += Number(p.homeRuns || 0); pAgg.pbb += Number(p.baseOnBalls || 0); pAgg.phbp += Number(p.hitBatsmen || 0); pAgg.k += Number(p.strikeOuts || 0); pAgg.hitsAllowed += Number(p.hits || 0); pAgg.runsAllowed += Number(p.runs || 0); pAgg.er += Number(p.earnedRuns || 0);
       }
     }
 
@@ -190,17 +206,20 @@ export async function GET(request: Request) {
       computeFipMinus(wA.ip, wA.hrA, wA.bbA, wA.hbpA, wA.k) ?? 100,
     ]);
 
-    return NextResponse.json({
-      status: 'ok',
-      week: weekStart,
-      preview,
-      d,
-      // Player-level detail (h/a) to be added in next iteration.
-      h: { p: [], wl: [0, 0] },
-      a: { p: [], wl: [0, 0] },
-    }, {
-      headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
+    const innings:number[] = [];
+    for (const [hOps,aOps,hFip,aFip] of d) {
+      innings.push((hOps > aOps ? 1 : 0) + (hFip < aFip ? 1 : 0), (aOps > hOps ? 1 : 0) + (aFip < hFip ? 1 : 0));
+    }
+    innings.push(0,0);
+    const playerRows = (hsid:string) => [...playerAgg.entries()].filter(([pid]) => pidToHsid.get(pid) === hsid).map(([pid,v]) => {
+      const meta = metaByPid.get(pid);
+      const bat = v.pa > 0 ? [v.pa,v.ab,v.h,v.d2,v.d3,v.hr,v.bb,v.hbp,v.sf] : 0;
+      const pit = v.outs > 0 || v.phr || v.pbb || v.phbp || v.k ? [v.outs,v.phr,v.pbb,v.phbp,v.k,v.hitsAllowed,v.runsAllowed,v.er,computeFipMinus(v.outs/3,v.phr,v.pbb,v.phbp,v.k) ?? 100] : 0;
+      const opsPlus = v.pa > 0 ? computeOpsPlus(v.pa,v.h,v.d2,v.d3,v.hr,v.bb,v.hbp,v.sf,v.ab) : null;
+      const fipMinus = pit ? computeFipMinus(v.outs/3,v.phr,v.pbb,v.phbp,v.k) : null;
+      return [pid,meta?.display_name || pid,meta?.level || '',0,bat,pit,opsPlus,fipMinus,null] as any;
     });
+    return NextResponse.json({ status:'ok', week:weekStart, weekEnd:weekEndStr, preview, d, innings, h:{p:playerRows(homeHsid),wl:[0,0]}, a:{p:playerRows(awayHsid),wl:[0,0]} }, { headers:{'Cache-Control':'no-store'} });
   } catch (error) {
     console.error('live box transformer failed', error);
     const msg = error instanceof Error ? error.message : String(error);
