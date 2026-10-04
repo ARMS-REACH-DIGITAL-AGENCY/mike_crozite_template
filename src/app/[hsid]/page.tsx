@@ -612,7 +612,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-mentor" className="yat-section">
-        <Placeholder icon="🤝" title="Mentorship Marketplace" body={`Connect with ${schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.`} />
+        <Placeholder icon="🤝" title="Connect & Contribute Portal" body={`A logged-in portal for contributing missing Community Hub content and, where available, optional player/fan interaction opportunities. Personal stories and memories are added from the player's Career Path Timeline.`} />
       </section>
 
       <section id="sec-partner" className="yat-section">
