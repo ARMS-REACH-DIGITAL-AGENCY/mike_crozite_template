@@ -686,7 +686,7 @@ function cardHTML(p){
             <button class="back-nav-link active" data-content="stats">SEASON & CAREER STATISTICS</button>  
             <button class="back-nav-link" data-content="news">NEWS & VIDEO CLIPS</button>  
             <button class="back-nav-link" data-content="social">SOCIAL MEDIA</button>  
-            <button class="back-nav-link" data-content="mentor">MENTORSHIP MARKETPLACE</button>  
+            <button class="back-nav-link" data-content="mentor">CONNECT &amp; CONTRIBUTE</button>  
             <button class="back-nav-link" data-content="pics">TIMELINE GALLERY</button>  
           </nav>  
           <div class="fun-zone">${generateStatsGridHTML(p)}</div>  
@@ -902,10 +902,10 @@ async function handleFunZone(button){
   
   if (content === 'mentor'){  
     funZone.innerHTML = player.nil_score  
-      ? `<div class="stats-header-bar">MENTORSHIP MARKETPLACE</div>  
+      ? `<div class="stats-header-bar">CONNECT &amp; CONTRIBUTE</div>  
          <p style="padding:12px;text-align:center;">Upload your baseball video (hitting, throwing, fielding, etc.) and get personalized feedback, coaching, and encouragement from ${player.display_name}!</p>  
          <button style="width:100%;padding:12px;background:var(--fg);color:var(--bg);border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.08em;cursor:pointer;">SEND ${player.first.toUpperCase()} A VIDEO</button>`  
-      : `<p style="padding:12px;text-align:center;">Mentorship not available for ${player.display_name}.</p>`;  
+      : `<p style="padding:12px;text-align:center;">Connect &amp; Contribute not available for ${player.display_name}.</p>`;  
     return;  
   }  
   

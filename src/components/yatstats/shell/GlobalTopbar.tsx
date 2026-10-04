@@ -97,6 +97,22 @@ function schoolSectionHref(hsid: string, section: string) {
   return `/${encodeURIComponent(hsid)}#sec-${section}`;
 }
 
+// The Connect & Contribute Portal is its own page. On a school subdomain it
+// lives at /connect-contribute (the middleware adds the school); on a bare
+// host (previews) it needs the /<hsid> prefix.
+function connectContributeHref(hsid: string) {
+  return `/${encodeURIComponent(hsid)}/connect-contribute`;
+}
+
+function isSchoolSubdomain(hostname: string) {
+  const host = hostname.toLowerCase();
+  return host.endsWith('.yatstats.com') && !/^(www\.)?yatstats\.com$/.test(host);
+}
+
+function isConnectContributePath(pathname: string) {
+  return /\/connect-contribute\/?$/.test(pathname);
+}
+
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   useEffect(() => {
     updateDesktopDocking();
@@ -116,8 +132,18 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
       showLeftSearchDrawer();
     };
 
+    if (isSchoolSubdomain(window.location.hostname)) {
+      document.querySelectorAll<HTMLAnchorElement>('a[data-cc-link]').forEach((link) => {
+        link.setAttribute('href', '/connect-contribute');
+      });
+    }
+
+    // Pages outside the school home (player profiles, the Connect &
+    // Contribute Portal) have no tab sections: a section nav item goes back
+    // to the school home, opened on that section.
     const interceptPlayerProfileSectionNav = (event: MouseEvent) => {
-      if (window.location.pathname.indexOf('/player/') === -1) return;
+      const path = window.location.pathname;
+      if (path.indexOf('/player/') === -1 && !isConnectContributePath(path)) return;
 
       const target = event.target as HTMLElement | null;
       const navItem = target?.closest('[data-tab]') as HTMLElement | null;
@@ -174,7 +200,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
           <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>2026</span><strong>TEAM</strong></a>
           <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
-          <a className="yat-topnav-item" data-tab="mentor" href={schoolSectionHref(hsid, 'mentor')}><span>MENTORSHIP</span><strong>MARKETPLACE</strong></a>
+          <a className="yat-topnav-item" data-cc-link href={connectContributeHref(hsid)}><strong>CONNECT</strong><span>&amp;</span><strong>CONTRIBUTE</strong><span>PORTAL</span></a>
           <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
           <a className="yat-topnav-item" data-tab="about" href={schoolSectionHref(hsid, 'about')}><span>ABOUT</span><strong>US</strong></a>
           <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ&apos;S</strong></a>

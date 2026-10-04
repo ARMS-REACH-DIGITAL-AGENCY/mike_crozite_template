@@ -136,7 +136,7 @@ function getCta(tab: TabId, firstName: string): string {
     case "social":
       return `Share a #YATABOY post with ${firstName}'s fans, family & friends.`;
     case "connect":
-      return `Connect with ${firstName} through our Mentorship Marketplace.`;
+      return `Connect with ${firstName} through our Connect & Contribute Portal.`;
     case "upload":
       return `See and share stories about ${firstName} on his player profile page.`;
   }
@@ -674,17 +674,17 @@ function SocialPanel({
   );
 }
 
-// Not a dynamic layout - the whole panel is the approved Mentorship
-// Marketplace graphic (the exact "Coming Soon" design that was signed off
+// Not a dynamic layout - the whole panel is the approved Connect &
+// Contribute Portal graphic (the exact "Coming Soon" design that was signed off
 // on), used as-is as one big graphic button linking to the marketplace
 // section on the profile page. No per-player text, no responsive
 // typography to fit into the fixed card height - just the image.
 function ConnectPanel({ profileHref }: { profileHref: string }) {
   return (
-    <a className="fz-connect" href={profileHref} aria-label="Learn more about the Mentorship Marketplace">
+    <a className="fz-connect" href={profileHref} aria-label="Learn more about the Connect & Contribute Portal">
       <img
-        src="/img/mentorship-marketplace-coming-soon.jpg"
-        alt="Mentorship Marketplace - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
+        src="/img/connect-contribute-coming-soon.jpg"
+        alt="Connect & Contribute Portal - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
         className="fz-connect-graphic"
       />
     </a>
@@ -1327,7 +1327,7 @@ export default function FunZone({
         }
         .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
 
-        /* -- Connect / Mentorship Marketplace panel ---------------------- */
+        /* -- Connect / Connect & Contribute Portal panel ---------------------- */
         /* One big graphic button - no dynamic text, no responsive type. */
         .fz-connect{
           display:block;

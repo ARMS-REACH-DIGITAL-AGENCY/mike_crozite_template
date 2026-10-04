@@ -649,7 +649,7 @@ function syncStripToVisibleCards() {
         alltime:'NEXT-LEVEL ALL-TIME LIST',
         current:'${highSchoolTeamLabel()}',
         fantasy:'FANTASY BRACKET TOURNEY',
-        mentor:'MENTORSHIP MARKETPLACE',
+        mentor:'CONNECT & CONTRIBUTE PORTAL',
         partner:'PARTNERSHIP PROGRAM',
         about:'ABOUT US',
         faq:"FAQ'S"
@@ -794,7 +794,9 @@ function syncStripToVisibleCards() {
   (function initSectionFromHash(){
     var hash=window.location.hash||'';
     var tab='';
-    if(hash.indexOf('#sec-')===0){
+    if(window.location.pathname.split('/').filter(Boolean).pop()==='connect-contribute'){
+      tab='mentor';
+    }else if(hash.indexOf('#sec-')===0){
       tab=hash.replace('#sec-','');
     }
     if(!tab)tab='active';
