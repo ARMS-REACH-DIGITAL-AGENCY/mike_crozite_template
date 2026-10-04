@@ -155,8 +155,8 @@ export default function ProfileNewsList({
           --pp-news-label:var(--gold,#ffc107);
           display:flex;
           flex-direction:column;
-          gap:10px;
-          padding:10px 10px calc(var(--profile-tabs-h,68px) + 12px);
+          gap:0;
+          padding:8px 12px calc(var(--profile-tabs-h,68px) + 16px);
           min-height:100%;
           min-width:0;
         }
@@ -190,15 +190,16 @@ export default function ProfileNewsList({
           display:flex;
           flex-direction:column;
           align-items:stretch;
-          gap:7px;
+          gap:8px;
           min-width:0;
-          padding:8px;
+          padding:14px 0;
           text-align:left;
           cursor:pointer;
-          border:1px solid var(--pp-news-card-border);
-          border-radius:8px;
-          background:var(--pp-news-card-bg);
-          box-shadow:var(--pp-news-card-shadow);
+          border:0;
+          border-bottom:1px solid var(--pp-news-card-border);
+          border-radius:0;
+          background:transparent;
+          box-shadow:none;
           color:var(--pp-news-title);
           transition:border-color .15s ease,background .15s ease,transform .15s ease;
         }
@@ -217,10 +218,10 @@ export default function ProfileNewsList({
         .pp-news-thumb{
           display:block;
           flex:0 0 auto;
-          width:68px;
-          height:88px;
+          width:112px;
+          height:76px;
           object-fit:cover;
-          border-radius:8px;
+          border-radius:6px;
           border:1px solid var(--pp-news-thumb-border);
           box-shadow:0 1px 3px rgba(0,0,0,.16);
           background:var(--pp-news-thumb-bg);
@@ -229,8 +230,8 @@ export default function ProfileNewsList({
           display:flex;
           align-items:center;
           justify-content:center;
-          font:700 11px "Bebas Neue",sans-serif;
-          letter-spacing:.08em;
+          font:700 11px var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:.01em;
           color:var(--pp-news-muted);
         }
         .pp-news-copy{
@@ -241,19 +242,19 @@ export default function ProfileNewsList({
           gap:4px;
         }
         .pp-news-label{
-          font:700 8px/1 Oswald,sans-serif;
-          letter-spacing:.1em;
+          font:700 9px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:.05em;
           text-transform:uppercase;
           color:var(--pp-news-label);
         }
         .pp-news-title{
           margin-top:-.08em;
-          font:700 17px/1.12 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.03em;
+          font:800 17px/1.2 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:-.02em;
           color:var(--pp-news-title);
         }
         .pp-news-body{
-          font:400 12px/1.35 Georgia,"Times New Roman",serif;
+          font:400 13px/1.45 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           color:var(--pp-news-body);
           display:-webkit-box;
           -webkit-line-clamp:2;
@@ -261,15 +262,15 @@ export default function ProfileNewsList({
           overflow:hidden;
         }
         .pp-news-footer{
-          font:700 9px/1.2 Oswald,sans-serif;
-          letter-spacing:.06em;
+          font:600 10px/1.25 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:0;
           text-transform:uppercase;
           color:var(--pp-news-muted);
         }
 
         .pp-news-reader-copy{
           margin:0 0 16px;
-          font:400 15px/1.68 Georgia,"Times New Roman",serif;
+          font:400 18px/1.62 var(--yat-news-font,Georgia,serif);
           color:var(--yat-content-drawer-copy,rgba(255,255,255,.94));
         }
         .pp-news-modal-why{
@@ -284,8 +285,8 @@ export default function ProfileNewsList({
           gap:7px;
           color:var(--gold,#ffc107);
           text-decoration:none;
-          font:400 12px/1.2 Oswald,sans-serif;
-          letter-spacing:.05em;
+          font:600 12px/1.25 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:0;
           text-transform:uppercase;
         }
 
@@ -295,11 +296,11 @@ export default function ProfileNewsList({
             padding-left:8px;
             padding-right:8px;
           }
-          .pp-news-teaser{gap:6px;padding:7px}
+          .pp-news-teaser{gap:7px;padding:12px 0}
           .pp-news-row{gap:8px}
-          .pp-news-thumb{width:62px;height:80px}
-          .pp-news-title{font-size:15px}
-          .pp-news-body{font-size:10px}
+          .pp-news-thumb{width:96px;height:68px}
+          .pp-news-title{font-size:16px}
+          .pp-news-body{font-size:12px}
           .pp-news-reader-copy{font-size:14px;line-height:1.65}
         }
 
