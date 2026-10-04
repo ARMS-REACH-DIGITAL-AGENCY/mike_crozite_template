@@ -102,6 +102,14 @@ function hasReal2026Stats(p: Row): boolean {
   });
 }
 
+// A school's coach (status RETIRED - COACH) is listed at the high-school
+// level because he is on the school's staff, but he belongs in the alumni
+// grids (All-Time, and Active when his status is checked), not only the
+// current team.
+function isCoachCard(p: Row | undefined): boolean {
+  return String(p?.status_label ?? p?.status ?? "").trim().toUpperCase().includes("COACH");
+}
+
 function isHighSchoolPlayer(p: Row | undefined): boolean {
   if (!p) return false;
 
@@ -443,7 +451,7 @@ export default async function SchoolPage({
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow)) continue;
+    if (isHighSchoolPlayer(mergedRow) && !isCoachCard(mergedRow)) continue;
     activeMerged.push(mergedRow);
     activeSeenIds.add(id);
   }
@@ -461,14 +469,14 @@ export default async function SchoolPage({
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow)) continue;
+    if (isHighSchoolPlayer(mergedRow) && !isCoachCard(mergedRow)) continue;
     allTimeMerged.push(mergedRow);
     allTimeSeenIds.add(id);
   }
 
   for (const p of stageRows) {
     const id = String(p.playerid);
-    if (!allTimeSeenIds.has(id) && !isHighSchoolPlayer(p)) {
+    if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isCoachCard(p))) {
       allTimeMerged.push({ ...p });
     }
   }
