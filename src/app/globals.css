@@ -312,3 +312,55 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
     transform: none;
   }
 }
+
+
+/* =========================================================
+   MLB.COM-INSPIRED TYPOGRAPHY PREVIEW
+   These overrides deliberately target reading/UI copy while leaving
+   dense stat tables and specialty timeline handwriting intact.
+   ========================================================= */
+.yat-shell-meta-chip .yat-gs-chip-lbl,
+.yat-shell-meta-chip .yat-gs-chip-val,
+.yat-search-mode-btn,
+.yat-search-empty,
+.yat-search-section-label,
+.yat-sort-scope-label,
+.yat-sort-level-btn,
+.yat-sort-column-title,
+.yat-sort-options label,
+.yat-sort-reset,
+.yat-sort-status,
+.pp-fz-tab,
+.pp-fz-tab span,
+.front-chip,
+.yat-front-team-name,
+.yat-front-org-name,
+.yat-front-next-game-text,
+.yat-front-flip-button {
+  font-family: var(--yat-font-ui) !important;
+}
+
+.yat-search-mode-btn,
+.yat-sort-scope-label,
+.yat-sort-level-btn,
+.yat-sort-column-title,
+.yat-sort-options label,
+.yat-sort-reset,
+.yat-sort-status,
+.front-chip,
+.yat-front-flip-button {
+  letter-spacing: .025em !important;
+}
+
+.yat-front-name,
+.ybm-name,
+.yat-section h1,
+.yat-section h2,
+.yat-section h3 {
+  font-family: var(--yat-font-display) !important;
+}
+
+.yat-front-name {
+  font-weight: 800 !important;
+}
+
