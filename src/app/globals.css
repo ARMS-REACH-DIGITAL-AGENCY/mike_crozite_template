@@ -13,10 +13,14 @@
   --border: rgba(0, 0, 0, 0.08);
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 
-  /* Body copy of every news story - gallery card backs, the profile News
-     feed and its reader drawer. Newsreader is a serif drawn for reading
-     news on screens; headlines stay in Bebas Neue. */
-  --yat-news-font: "Newsreader", Georgia, "Times New Roman", serif;
+  /* MLB.com-inspired typography roles: neutral, readable UI first;
+     condensed display for sports hierarchy; serif only for long-form news;
+     handwritten type only for scrapbook/timeline moments. */
+  --yat-font-ui: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --yat-font-display: "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --yat-font-story: "Caveat", "Segoe Print", cursive;
+  --yat-font-editorial: "Newsreader", Georgia, "Times New Roman", serif;
+  --yat-news-font: var(--yat-font-editorial);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,7 +40,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans, system-ui, sans-serif);
+  --font-sans: var(--yat-font-ui);
   --font-mono: var(--font-geist-mono, ui-monospace, monospace);
 }
 
@@ -308,3 +312,55 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
     transform: none;
   }
 }
+
+
+/* =========================================================
+   MLB.COM-INSPIRED TYPOGRAPHY PREVIEW
+   These overrides deliberately target reading/UI copy while leaving
+   dense stat tables and specialty timeline handwriting intact.
+   ========================================================= */
+.yat-shell-meta-chip .yat-gs-chip-lbl,
+.yat-shell-meta-chip .yat-gs-chip-val,
+.yat-search-mode-btn,
+.yat-search-empty,
+.yat-search-section-label,
+.yat-sort-scope-label,
+.yat-sort-level-btn,
+.yat-sort-column-title,
+.yat-sort-options label,
+.yat-sort-reset,
+.yat-sort-status,
+.pp-fz-tab,
+.pp-fz-tab span,
+.front-chip,
+.yat-front-team-name,
+.yat-front-org-name,
+.yat-front-next-game-text,
+.yat-front-flip-button {
+  font-family: var(--yat-font-ui) !important;
+}
+
+.yat-search-mode-btn,
+.yat-sort-scope-label,
+.yat-sort-level-btn,
+.yat-sort-column-title,
+.yat-sort-options label,
+.yat-sort-reset,
+.yat-sort-status,
+.front-chip,
+.yat-front-flip-button {
+  letter-spacing: .025em !important;
+}
+
+.yat-front-name,
+.ybm-name,
+.yat-section h1,
+.yat-section h2,
+.yat-section h3 {
+  font-family: var(--yat-font-display) !important;
+}
+
+.yat-front-name {
+  font-weight: 800 !important;
+}
+
