@@ -9,6 +9,7 @@
 
 export const INJURED_STATUSES = [
   'INJURED 7-DAY',
+  'INJURED 10-DAY',
   'INJURED 15-DAY',
   'INJURED 30-DAY',
   'INJURED 60-DAY',
