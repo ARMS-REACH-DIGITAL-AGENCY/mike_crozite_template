@@ -647,17 +647,47 @@ export function SeriesRowView({ row, index, favs, onFav, onOpen }: { row: Row; i
     const el = ref.current;
     if (!el) return;
     let cancelled = false;
+    let timer: number | undefined;
+
+    const asofQuery = typeof window !== 'undefined'
+      ? (new URLSearchParams(window.location.search).get('asof') || '')
+      : '';
+    const today = /^\d{4}-\d{2}-\d{2}$/.test(asofQuery)
+      ? asofQuery
+      : new Date().toISOString().slice(0, 10);
+
+    const liveGames = row.games.filter((g) => {
+      const range = index.weeks[g[1] - 1];
+      return !!range && today >= range[0] && today <= range[1];
+    });
+
+    const refresh = async () => {
+      const staticList = await Promise.all(filesKey.split('|').filter(Boolean).map(loadBoxes));
+      const merged: Record<string, GameBox> = Object.assign({}, ...staticList);
+      if (liveGames.length) {
+        const liveList = await Promise.all(liveGames.map((g) => loadLiveBox(index, g).catch(() => undefined)));
+        liveGames.forEach((g, i) => {
+          if (liveList[i]) merged[String(g[0])] = liveList[i]!;
+        });
+      }
+      if (!cancelled) setBoxes(merged);
+    };
+
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         io.disconnect();
-        Promise.all(filesKey.split('|').map(loadBoxes)).then((list) => {
-          if (!cancelled) setBoxes(Object.assign({}, ...list));
-        });
+        refresh().catch(() => {});
+        if (liveGames.length) timer = window.setInterval(() => { refresh().catch(() => {}); }, 60000);
       }
     }, { rootMargin: '800px 0px' });
+
     io.observe(el);
-    return () => { cancelled = true; io.disconnect(); };
-  }, [filesKey]);
+    return () => {
+      cancelled = true;
+      io.disconnect();
+      if (timer) window.clearInterval(timer);
+    };
+  }, [filesKey, index, row.games]);
 
   const team = (h: number, seed: number) => (
     <span>
@@ -798,8 +828,9 @@ export function FlipCard({ game, label, index, box, loading, front = 'h', back }
   const [id, week, home, away, decidedBy, innings, winner] = game;
   const S = index.schools;
   const [ws, we] = index.weeks[week - 1] || ['', ''];
-  const hr = innings.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
-  const ar = innings.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0);
+  const shownInnings = box?.innings || innings;
+  const hr = shownInnings.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+  const ar = shownInnings.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0);
   const face = (side: 'h' | 'a') => (
     <Face
       side={side}
@@ -811,7 +842,7 @@ export function FlipCard({ game, label, index, box, loading, front = 'h', back }
       names={[shortName(S[home]?.[0] || ''), shortName(S[away]?.[0] || '')]}
       locations={[place(S[home]?.[0] || ''), place(S[away]?.[0] || '')]}
       score={[hr, ar]}
-      innings={innings}
+      innings={shownInnings}
       winner={winner}
       decidedBy={decidedBy}
       box={box}
