@@ -2385,7 +2385,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            cutout image beside it; a dark shadow keeps it legible against
            the photo instead of just the plain background it was designed
            against. */
-        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:300; font-size:13px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.6); }
+        .zt-bodycopy { display:block; width:100%; margin:0; color:#aeb2b6; font-family:var(--yat-font-ui,"Archivo","Helvetica Neue",Arial,sans-serif); font-weight:500; font-size:13px; line-height:1.42; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.6); }
         /* The season's 4 headline numbers, big and plain -- no card/tile
            background, border or shadow, per direct feedback ("it doesn't
            need to be a graphic"). Just enlarged label+number pairs in a
