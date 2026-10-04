@@ -5,19 +5,11 @@ export default function YatStyles() {
   return (
     <style>{`
 
-    @font-face{
-  font-family:"Indigo";
-  src:url("/fonts/Indigo.woff2") format("woff2"), url("/fonts/Indigo.otf") format("opentype");
-  font-weight:400;
-  font-style:normal;
-  font-display:block;
-}
-    
-    :root{--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:42px;--footerH:66px;--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:36px;--row2-h:54px;--row3-h:100px;--row4-h:56px;--fz-tabs-h:44px}
+:root{--yat-font-ui:"Inter","Helvetica Neue",Arial,sans-serif;--yat-font-display:"Roboto Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;--yat-font-story:"Caveat","Segoe Print",cursive;--bg:#0c0c0c;--fg:#f2f2f2;--muted:#c4c4c4;--ink:#e8e8e8;--line:rgba(255,255,255,.08);--card-bg:#171717;--header-bg:#000;--drawer-bg:rgba(10,10,10,.95);--shade-end:rgba(0,0,0,.95);--hamSmall:13px;--hamBig:20px;--hamBigger:24px;--tagGrey:#cfd2d6;--crestH:42px;--footerH:66px;--green:#00e676;--gold:#ffc107;--blue:#42a5f5;--purple:#ce93d8;--orange:#ff9800;--logo-filter:invert(1);--row1-h:36px;--row2-h:54px;--row3-h:100px;--row4-h:56px;--fz-tabs-h:44px}
       body.light-theme{--bg:#f4f4f4;--fg:#121212;--muted:#555;--ink:#222;--line:rgba(0,0,0,.1);--card-bg:#fff;--header-bg:#fff;--drawer-bg:rgba(255,255,255,.97);--tagGrey:#555;--shade-end:rgba(0,0,0,.85);--logo-filter:none}
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
-      body{background:var(--bg);color:var(--fg);font-family:Oswald,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
+      body{background:var(--bg);color:var(--fg);font-family:var(--yat-font-ui);-webkit-font-smoothing:antialiased;padding-bottom:var(--footerH);transition:background-color .3s,color .3s}
       body.drawer-open{overflow:hidden}
       a{color:inherit;text-decoration:none}
 
@@ -162,21 +154,32 @@ export default function YatStyles() {
       }
 
       .yat-topnav-item span{
-        font-family:Oswald, sans-serif;
-        font-weight:300;
-        letter-spacing:.02em;
+        font-family:var(--yat-font-ui);
+        font-weight:500;
+        letter-spacing:.01em;
         color:var(--muted);
       }
 
       .yat-topnav-item strong{
-        font-family:"Indigo", "Bebas Neue", Oswald, sans-serif;
-        font-weight:400;
-        letter-spacing:.01em;
+        font-family:var(--yat-font-ui);
+        font-weight:700;
+        letter-spacing:0;
         color:var(--fg);
       }
 
       .yat-topnav-item:hover{
         opacity:.72;
+      }
+
+      /* MLB.com-inspired preview: prioritize a neutral, high-legibility
+         sports UI without changing application behavior or layout logic. */
+      button,input,select,textarea{font-family:var(--yat-font-ui)}
+      .yat-drawer,.yat-drawer-content,.yat-section,.yat-grid{font-family:var(--yat-font-ui)}
+      .yat-section p,.yat-section li,.yat-drawer p,.yat-drawer label{letter-spacing:0}
+      .yat-section h1,.yat-section h2,.yat-section h3,.yat-drawer h2,.yat-drawer h3{
+        font-family:var(--yat-font-display);
+        font-weight:700;
+        letter-spacing:.015em;
       }
 
       .yat-wordmark-wrap{
