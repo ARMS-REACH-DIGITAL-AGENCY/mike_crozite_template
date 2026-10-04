@@ -13,10 +13,14 @@
   --border: rgba(0, 0, 0, 0.08);
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 
-  /* Body copy of every news story - gallery card backs, the profile News
-     feed and its reader drawer. Newsreader is a serif drawn for reading
-     news on screens; headlines stay in Bebas Neue. */
-  --yat-news-font: "Newsreader", Georgia, "Times New Roman", serif;
+  /* ESPN-inspired type system using open/licensed web fonts rather than
+     ESPN's proprietary BentonSans / Ignite families. */
+  --yat-font-ui: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --yat-font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --yat-font-compact: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --yat-font-editorial: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --yat-font-story: "Caveat", "Segoe Print", cursive;
+  --yat-news-font: var(--yat-font-editorial);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,7 +40,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans, system-ui, sans-serif);
+  --font-sans: var(--yat-font-ui);
   --font-mono: var(--font-geist-mono, ui-monospace, monospace);
 }
 
@@ -308,3 +312,53 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
     transform: none;
   }
 }
+
+
+/* =========================================================
+   ESPN-INSPIRED UI TYPE + RHYTHM PREVIEW
+   ========================================================= */
+.yat-shell-meta-chip .yat-gs-chip-val,
+.yat-front-name,
+.ybm-name {
+  font-family: var(--yat-font-compact) !important;
+  font-weight: 800 !important;
+}
+
+.yat-shell-meta-chip .yat-gs-chip-lbl,
+.front-chip,
+.yat-front-team-name,
+.yat-front-org-name,
+.yat-front-next-game-text,
+.yat-front-flip-button,
+.pp-fz-tab,
+.pp-fz-tab span,
+.yat-search-mode-btn,
+.yat-search-empty,
+.yat-search-section-label,
+.yat-sort-scope-label,
+.yat-sort-level-btn,
+.yat-sort-column-title,
+.yat-sort-options label,
+.yat-sort-reset,
+.yat-sort-status {
+  font-family: var(--yat-font-ui) !important;
+}
+
+.yat-section h1,
+.yat-section h2,
+.yat-section h3,
+.yat-drawer h1,
+.yat-drawer h2,
+.yat-drawer h3 {
+  font-family: var(--yat-font-display) !important;
+  font-weight: 800 !important;
+  letter-spacing: -.015em !important;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--yat-font-ui);
+}
+

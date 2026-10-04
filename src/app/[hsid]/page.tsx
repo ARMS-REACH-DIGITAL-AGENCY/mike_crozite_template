@@ -23,6 +23,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
+import SchoolFaq from "@/components/yatstats/SchoolFaq";
 
 export const runtime = "nodejs";
 
@@ -647,7 +648,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-faq" className="yat-section">
-        <Placeholder icon="❓" title="FAQ&apos;s" body="Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon." />
+        <SchoolFaq schoolName={schoolName} />
       </section>
     </>
   );

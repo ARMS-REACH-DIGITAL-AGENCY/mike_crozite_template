@@ -621,9 +621,11 @@ export default function PlayerCardFront({
         }
 
         .yat-front-name {
-          font-family: Indigo, "Bebas Neue", sans-serif;
-          font-size: clamp(22px, 13.5cqi, 42px);
-          line-height: 0.86;
+          font-family: var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif);
+          font-size: clamp(22px, 12.8cqi, 40px);
+          font-weight: 800;
+          line-height: 0.92;
+          letter-spacing: -0.015em;
           text-transform: uppercase;
           text-shadow: 0 2px 10px rgba(0,0,0,0.48);
           max-width: 100%;

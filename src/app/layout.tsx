@@ -22,12 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* The card-name font (Indigo), fetched right away instead of when
-            the browser first reaches a card -- with font-display:block in
-            YatStyles, names wait for it (14KB) rather than drawing in the
-            fallback font and then visibly swapping. */}
+        {/* ESPN-inspired preview: Archivo for UI/headlines, Barlow Condensed
+            for compact sports data, Source Serif 4 for editorial reading. */}
         <script dangerouslySetInnerHTML={{ __html: GA_BOOTSTRAP }} />
-        <link rel="preload" href="/fonts/Indigo.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -37,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&family=Bebas+Neue&family=Caveat:wght@500;700&family=Newsreader:opsz,wght@6..72,400;6..72,700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@500;600;700;800&family=Caveat:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Oswald:wght@300;400;500;700&family=Bebas+Neue&display=swap"
           rel="stylesheet"
         />
       </head>

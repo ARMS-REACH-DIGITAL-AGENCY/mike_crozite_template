@@ -324,8 +324,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-strong: rgba(31,25,18,.94);
           --ysf-when: #b78600;
         }
-        .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 system-ui, sans-serif; }
-        .ysf-empty strong { color: var(--ysf-strong); font: 700 18px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
+        .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
         .ysf-layout > .ytm { width: 150px; }
         .ysf-main { min-width: 0; }
@@ -339,7 +339,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         /* Search and sort stay pinned at the top of the tab while you scroll. */
         .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
         .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
-        .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 system-ui, sans-serif; outline: none; }
+        .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 var(--yat-font-ui, Arial, sans-serif); outline: none; }
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -360,7 +360,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-open { appearance: none; display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 100%; min-width: 0; margin: 0; padding: 8px 8px 6px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
         /* Like · Comment · Share on each card. */
         .ysf-card-actions { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ysf-card-border); }
-        .ysf-card-actions button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 400 14px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; cursor: pointer; }
+        .ysf-card-actions button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 600 13px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; cursor: pointer; }
         .ysf-card-actions button i { font-size: 15px; }
         .ysf-card-actions button:hover { color: var(--ysf-strong); }
         .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
@@ -368,17 +368,17 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card:hover { border-color: var(--gold, #ffc107); }
         .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
         /* Same type as the News cards' eyebrow (.pp-news-label). */
-        .ysf-card-when { color: var(--ysf-when); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+        .ysf-card-when { color: var(--ysf-when); font: 700 9px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
         .ysf-card-row { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
         /* Same size and frame as the News thumbnail (.pp-news-thumb). */
         .ysf-card-photo { position: relative; flex: 0 0 auto; display: block; width: 68px; height: 88px; overflow: hidden; border-radius: 8px; border: 1px solid var(--ysf-thumb-border); box-shadow: 0 1px 3px rgba(0,0,0,.16); background: var(--ysf-thumb-bg); }
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
         .ysf-card-photo-logo { background: #f4f1ea; }
         .ysf-card-photo-logo img { object-fit: contain; object-position: center; padding: 8px; box-sizing: border-box; }
-        .ysf-card-count { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 2px 0; text-align: center; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        .ysf-card-count { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 2px 0; text-align: center; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .01em; text-transform: uppercase; }
         .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
         .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
-        .ysf-card-by { color: var(--ysf-muted); font: 700 9px/1.2 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .ysf-card-by { color: var(--ysf-muted); font: 600 10px/1.2 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; text-transform: uppercase; }
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
           .ysf-feed { gap: 8px; }
