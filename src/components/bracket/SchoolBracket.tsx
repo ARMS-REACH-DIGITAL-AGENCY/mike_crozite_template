@@ -201,7 +201,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 // Where a drawer opens: on desktop only over row 5 (the timeline and the
 // ticker stay in view above it, the footer ad below); on a phone the whole
 // screen.
-function DrawerWrap({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+function DrawerWrap({ onClose, children, dual = false }: { onClose: () => void; children: React.ReactNode; dual?: boolean }) {
   const [box, setBox] = useState<{ top: number } | null>(null);
   useEffect(() => {
     const place = () => {
@@ -218,7 +218,7 @@ function DrawerWrap({ onClose, children }: { onClose: () => void; children: Reac
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return createPortal(
-    <div className={`yfp-drawer-wrap${box ? ' row5' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={onClose}>
+    <div className={`yfp-drawer-wrap${box ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={dual ? undefined : onClose}>
       {children}
     </div>,
     document.body,
@@ -227,7 +227,7 @@ function DrawerWrap({ onClose, children }: { onClose: () => void; children: Reac
 
 // A school's week in a drawer: every player's line, OPS+ and FIP-, and how
 // each run was scored. Home from the right, visitor from the left.
-function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+function TeamDrawerPanel({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
   const { card, side } = open;
   const g = card.game!;
   const homeId = g[2], awayId = g[3];
@@ -259,7 +259,6 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   const played = card.state === 'final';
   const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
   return (
-    <DrawerWrap onClose={onClose}>
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
@@ -277,8 +276,40 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
           decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
           homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} />
       </aside>
+  );
+}
+
+function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+  return (
+    <DrawerWrap onClose={onClose}>
+      <TeamDrawerPanel index={index} open={open} onClose={onClose} />
     </DrawerWrap>
   );
+}
+
+// A maximized desktop screen: both schools' Stat Ledgers at once - the
+// visitor from the left, home from the right - with the game cards still
+// visible (and usable) between them.
+function DualTeamDrawers({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+  return (
+    <DrawerWrap onClose={onClose} dual>
+      <TeamDrawerPanel index={index} open={{ card: open.card, side: 'a' }} onClose={onClose} />
+      <TeamDrawerPanel index={index} open={{ card: open.card, side: 'h' }} onClose={onClose} />
+    </DrawerWrap>
+  );
+}
+
+// True while the window is at least `px` wide.
+function useMinWidth(px: number) {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${px}px)`);
+    const sync = () => setOk(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [px]);
+  return ok;
 }
 
 // The rules, in a drawer from the right.
@@ -433,6 +464,10 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
   );
 }
 
+// From this width both Stat Ledger drawers open together (about a third of
+// the screen each), leaving ~600px of game cards between them.
+const DUAL_DRAWER_MIN_WIDTH = 1680;
+
 export default function SchoolBracket({ hsid }: { hsid: string }) {
   const me = Number(hsid);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -442,6 +477,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const [error, setError] = useState('');
   const [asof, setAsof] = useState('');
   const [open, setOpen] = useState<Open | null>(null);
+  const bothDrawers = useMinWidth(DUAL_DRAWER_MIN_WIDTH);
   const [rules, setRules] = useState(false);
   const [focused, setFocused] = useState(0);
   const [stars, setStars] = useState<Record<number, Star> | null>(null);
@@ -571,7 +607,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           </nav>
         </div>
       )}
-      {index && open && <TeamDrawer index={index} open={open} onClose={() => setOpen(null)} />}
+      {index && open && (bothDrawers
+        ? <DualTeamDrawers index={index} open={open} onClose={() => setOpen(null)} />
+        : <TeamDrawer index={index} open={open} onClose={() => setOpen(null)} />)}
       {rules && <RulesDrawer onClose={() => setRules(false)} />}
       <Styles />
       <style jsx global>{`
@@ -772,6 +810,66 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-cards { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; }
         .yfz-cards .yfp-card { flex: 0 0 auto; }
         .yfz-cards .yfp-tbd { margin-top: 0; }
+
+        /* Desktop: a full-width scoreboard you can read at 100%, its
+           like/comment/share row underneath (not squeezed beside it), a
+           standings column wide enough to read, and Stat Ledger drawers
+           wide enough for every column. */
+        @media (min-width:900px) {
+          .yfz-cards { gap:12px; }
+          .yfp-game-split { display:block; min-height:0; }
+          .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:1px solid var(--yfp-card-border); }
+          .yfp-game-socialpane { padding:4px 12px 8px; overflow:visible; }
+          .yfp-game-socialpane .fgs-inline.ysv-post { height:auto; }
+          .yfp-game-socialpane .fgs-inline .ysv-comments { max-height:180px; }
+          .yfp-score-head { padding:5px 12px 4px; font-size:11px; }
+          .yfp-green-board { padding:8px 12px 10px; }
+          .yfp-game-scorepane .yfp-green-row {
+            grid-template-columns:minmax(170px,260px) repeat(var(--inning-count,9),minmax(34px,1fr)) minmax(46px,60px);
+            width:100%;
+            max-width:none;
+            gap:4px;
+            margin-top:4px;
+          }
+          .yfp-game-scorepane .yfp-green-row.head { margin-top:0; font-size:13px; }
+          .yfp-game-scorepane .yfp-green-status { font-size:10px; padding:3px 6px 2px; }
+          .yfp-game-scorepane .yfp-green-slot,
+          .yfp-game-scorepane .yfp-green-run { height:36px; font-size:18px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-run { font-size:21px; }
+          .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
+          .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
+          .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
+
+          /* The standings column. scrollbar-gutter keeps the scrollbar in its
+             own lane so it never covers the run totals. */
+          .yfz-panel { grid-template-columns:minmax(0,1fr) 250px; }
+          .yfz-panel > .yfp-lb { scrollbar-gutter:stable; padding-right:4px; }
+          .yfp-lb { font-size:13px; line-height:1.4; }
+          .yfp-lb-title { font-size:12px; }
+          .yfp-lb-sub { font-size:10px; }
+          .yfp-lb-sort button { min-height:26px; font-size:11px; }
+          .yfp-lb-cols { grid-template-columns:34px minmax(0,1fr) 30px; gap:6px; font-size:9.5px; }
+          .yfp-lb li { grid-template-columns:34px minmax(0,1fr) 30px; gap:6px; padding:2px 0; }
+          .yfp-lb li .rf { text-align:right; }
+          .yfp-lb-head { margin-top:4px; font-size:11px; }
+          .yfp-lb-rules { min-height:32px; font-size:11px; }
+          .yfp-lb-note { font-size:10px; }
+
+          /* Stat Ledger drawers: wide enough for the name and all 13 stat
+             columns at a readable size - no clipping, no sideways scroll. */
+          .bl.bl-embed.yfp-drawer { width:min(760px, 94vw); }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box { font-size:11.5px; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:120px !important; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:10px; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box th,
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box td { padding:5px 2px; }
+        }
+        /* A maximized desktop screen: both drawers open, no dimming, the
+           game cards usable between them. */
+        @media (min-width:1680px) {
+          .yfp-drawer-wrap.dual { background:transparent; pointer-events:none; }
+          .yfp-drawer-wrap.dual .bl.bl-embed.yfp-drawer { width:min(700px, calc((100vw - 600px) / 2)); pointer-events:auto; }
+        }
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
         .yfz-all table { width: 100%; border-collapse: collapse; font: 500 12px/1.2 Oswald, sans-serif; color: var(--yfp-text); }
