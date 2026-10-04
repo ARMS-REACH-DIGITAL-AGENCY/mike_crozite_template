@@ -131,9 +131,9 @@ function Hotspot({ label, sub, onClick, children, wide }: {
 // ---------------------------------------------------------------------------
 // Main contribute page — visual explainer matching Pete's mockup
 // ---------------------------------------------------------------------------
-export default function ContributeExplainer() {
+export default function ContributeExplainer({ defaultHsid }: { defaultHsid?: string }) {
   const [userName, setUserName] = useState('');
-  const [homeHsid, setHomeHsid] = useState('');
+  const [homeHsid, setHomeHsid] = useState(defaultHsid || '');
   const [loggedIn, setLoggedIn] = useState(false);
   const [drawerType, setDrawerType] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,7 +145,7 @@ export default function ContributeExplainer() {
         if (s.uid || s.email) {
           setLoggedIn(true);
           setUserName(s.displayName || s.email || '');
-          setHomeHsid(s.homeHsid || '');
+          if (!defaultHsid) setHomeHsid(s.homeHsid || '');
         }
       })
       .catch(() => {})
