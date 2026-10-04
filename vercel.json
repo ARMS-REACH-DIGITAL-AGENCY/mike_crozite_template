@@ -21,6 +21,18 @@
     {
       "path": "/api/cron/live-schedule-refresh",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/process-tip-queue",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-missing-players",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-photo-queue",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

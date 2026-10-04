@@ -610,8 +610,13 @@ export default async function SchoolPage({
         <SchoolBracket hsid={resolvedHsid} />
       </section>
 
-      <section id="sec-mentor" className="yat-section">
-        <Placeholder icon="🤝" title="Mentorship Marketplace" body={`Connect with ${schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.`} />
+      <section id="sec-mentor" className="yat-section" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <a href={`/${resolvedHsid}/contribute-connect`}
+          style={{ display: 'inline-block', background: 'var(--gold, #ffd700)', color: '#000',
+            fontWeight: 700, fontSize: '16px', padding: '14px 32px', borderRadius: '8px',
+            textDecoration: 'none' }}>
+          Visit the Connect & Contribute Portal →
+        </a>
       </section>
 
       <section id="sec-partner" className="yat-section">
