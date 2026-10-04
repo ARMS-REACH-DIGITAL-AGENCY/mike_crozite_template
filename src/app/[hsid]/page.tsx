@@ -22,6 +22,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
+import ContributeExplainer from "@/components/ContributeExplainer";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
 
 export const runtime = "nodejs";
@@ -611,7 +612,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-mentor" className="yat-section">
-        <Placeholder icon="🤝" title="Contributor Marketplace" body={`Share photos, news tips, and stories about ${schoolName} alumni. Request personalized video messages from players. Coming soon.`} />
+        <ContributeExplainer />
       </section>
 
       <section id="sec-partner" className="yat-section">
