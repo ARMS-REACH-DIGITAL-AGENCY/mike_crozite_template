@@ -22,7 +22,6 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
-import ContributeExplainer from "@/components/ContributeExplainer";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
 
 export const runtime = "nodejs";
@@ -611,8 +610,13 @@ export default async function SchoolPage({
         <SchoolBracket hsid={resolvedHsid} />
       </section>
 
-      <section id="sec-mentor" className="yat-section">
-        <ContributeExplainer />
+      <section id="sec-mentor" className="yat-section" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <a href={`/${resolvedHsid}/contribute-connect`}
+          style={{ display: 'inline-block', background: 'var(--gold, #ffd700)', color: '#000',
+            fontWeight: 700, fontSize: '16px', padding: '14px 32px', borderRadius: '8px',
+            textDecoration: 'none' }}>
+          Visit the Connect & Contribute Portal →
+        </a>
       </section>
 
       <section id="sec-partner" className="yat-section">
