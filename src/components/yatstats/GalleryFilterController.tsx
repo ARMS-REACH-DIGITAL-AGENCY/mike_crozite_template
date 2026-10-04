@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
@@ -174,11 +175,9 @@ function applyPreset(section: string) {
 
   clearFilters();
 
+  // Active: ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
   if (section === 'active') {
-    const statuses = getGroupBoxes('filterStatus')
-      .map((box) => normalize(box.value))
-      .filter((status) => status && status !== 'RETIRED');
-    setValues('filterStatus', statuses);
+    setValues('filterStatus', [...ACTIVE_GALLERY_STATUSES]);
   }
 
   if (section === 'alltime') {
@@ -216,8 +215,7 @@ function readLinkedPlayer(): { id: string; view: string } {
 function presetShows(section: string, card: HTMLElement): boolean {
   const status = normalize(card.dataset.status);
   if (section === 'active') {
-    const allowed = getGroupBoxes('filterStatus').map((box) => normalize(box.value)).filter((s) => s && s !== 'RETIRED');
-    return allowed.length ? allowed.includes(status) : status !== 'RETIRED';
+    return ACTIVE_GALLERY_STATUSES.includes(status);
   }
   if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
   return true;

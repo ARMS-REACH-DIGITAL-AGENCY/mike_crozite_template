@@ -6,6 +6,7 @@ import Script from 'next/script';
 import { highSchoolTeamLabel } from '@/lib/playerUtils';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import { GLOBAL_SEARCH_DEBOUNCE_MS, GLOBAL_SEARCH_LIMIT } from '@/lib/searchConfig';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
 interface YatInteractivityProps {
   resolvedHsid: string;
@@ -1554,10 +1555,12 @@ function resetFiltersForCurrentSection(){
     var isNewsPage=newsSection&&newsSection.classList.contains('visible');
     var isAllTimePage=allTimeSection&&allTimeSection.classList.contains('visible');
 
+    // ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
     if(isActivePage||isNewsPage){
+      var ACTIVE_GALLERY_STATUSES=${JSON.stringify(ACTIVE_GALLERY_STATUSES)};
       document.querySelectorAll('#filterStatus input[type="checkbox"]:not([data-select-all])').forEach(function(i){
         var statusValue=String(i.value||'').toUpperCase().trim();
-        i.checked=statusValue!==''&&statusValue!=='RETIRED';
+        i.checked=ACTIVE_GALLERY_STATUSES.indexOf(statusValue)!==-1;
       });
     }
 

@@ -20,6 +20,7 @@ import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
+import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
 
 import type { Metadata } from 'next';
 
@@ -42,70 +43,6 @@ const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
-}
-
-function buildStatusFilterOptions(rows: Record<string, unknown>[]): string[] {
-  const statuses = new Set<string>();
-
-  const NON_STATUS_VALUES = new Set([
-    'MLB',
-    'TRIPLE-A',
-    'AAA',
-    'DOUBLE-A',
-    'AA',
-    'HIGH-A',
-    'A+',
-    'SINGLE-A',
-    'A',
-    'LOW-A',
-    'A-',
-    'ROOKIE',
-    'RK',
-    'ROK',
-    'INDY',
-    'INDEPENDENT',
-    "INT'L",
-    'INTERNATIONAL',
-    'NCAA',
-    'NCAA-D1',
-    'NCAA-D2',
-    'NCAA-D3',
-    'D1',
-    'D2',
-    'D3',
-    'NAIA',
-    'JUCO',
-    'JRCOLLEGE',
-    'NJCAA',
-    'HIGH SCHOOL',
-    'HS',
-  ]);
-
-  statuses.add('ACTIVE');
-  // RETIRED and FREE AGENT are also the real statuses written by
-  // scripts/apply-mlb-transaction-status.ts (a sourced MLB transaction
-  // record) — always offered here, same as the other baseline statuses,
-  // rather than only appearing once a school happens to already have a
-  // player in that state.
-  statuses.add('RETIRED');
-  statuses.add('FREE AGENT');
-  statuses.add('INJURED');
-  statuses.add('PARTNER/SPONSOR');
-
-  for (const row of rows) {
-    const status = normalizeStatusLabel(row.status_label);
-    if (status && !NON_STATUS_VALUES.has(status)) {
-      statuses.add(status);
-    }
-  }
-
-  // Alphabetical, with ACTIVE pinned first even if a school ever has a
-  // status that would sort ahead of it.
-  return Array.from(statuses).sort((a, b) => {
-    if (a === 'ACTIVE') return -1;
-    if (b === 'ACTIVE') return 1;
-    return a.localeCompare(b);
-  });
 }
 
 function isCurrentHighSchoolRosterStatus(value: unknown): boolean {
@@ -286,7 +223,8 @@ export default async function HsidLayout({
     regionRecord: String(school.current_team_region_record || school.region_record || '4-4'),
   };
 
-  const statusFilterOptions = buildStatusFilterOptions(stageRows);
+  // The same statuses on every school, in the same order (src/lib/galleryStatuses.ts).
+  const statusFilterOptions = GALLERY_STATUS_OPTIONS;
   const stripStageMap = new Map(
     stageRows.map((p) => [String(p.playerid), p])
   );
@@ -459,7 +397,7 @@ export default async function HsidLayout({
 
               {statusFilterOptions.map((s) => (
                 <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked={s === 'ACTIVE'} /> {s}
+                  <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
                 </label>
               ))}
             </div>
