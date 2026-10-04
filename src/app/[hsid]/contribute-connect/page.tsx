@@ -48,10 +48,15 @@ export default async function ContributeConnectPage({ params }: { params: Promis
   const threePlayers = sorted.slice(0, 3);
   const playerIds = threePlayers.map((p) => String(p.playerid));
 
-  // Get images for the 3 players
-  const [frontImageMap, headshotMap] = await getBatchDesignatedPlayerImages(playerIds).catch(
-    () => [new Map(), new Map()] as const
-  );
+  // Get images for the 3 players (same as homepage)
+  const [frontImageMap, headshotMap] = await Promise.all([
+    playerIds.length
+      ? getBatchDesignatedPlayerImages(playerIds, "YATSTATS_FRONT").catch(() => new Map<string, any>())
+      : Promise.resolve(new Map<string, any>()),
+    playerIds.length
+      ? getBatchDesignatedPlayerImages(playerIds, "HEADSHOT").catch(() => new Map<string, any>())
+      : Promise.resolve(new Map<string, any>()),
+  ]);
 
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
   const shareBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://yatstats.com";
