@@ -106,6 +106,13 @@ export default function SharedShell({
         const requestedSection = readRequestedSection();
         applyVisibleSection(requestedSection);
         setActiveSection(requestedSection);
+        // The section is applied: drop the first-paint mark set in
+        // app/layout.tsx (after React has rendered rows 3-4 for it).
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            document.documentElement.removeAttribute('data-yat-sec');
+          });
+        });
       });
     };
 

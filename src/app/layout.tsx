@@ -18,6 +18,19 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
+const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq'];
+
+const SECTION_BOOTSTRAP =
+  "try{var m=(location.hash||'').match(/^#sec-([a-z]+)/);" +
+  "if(m&&" + JSON.stringify(BOOTSTRAP_SECTIONS) + ".indexOf(m[1])!==-1){" +
+  "var d=document.documentElement;d.setAttribute('data-yat-sec',m[1]);" +
+  "setTimeout(function(){d.removeAttribute('data-yat-sec');},3000);}}catch(e){}";
+
+const SECTION_BOOTSTRAP_CSS =
+  "html[data-yat-sec] .yat-section{display:none!important}" +
+  BOOTSTRAP_SECTIONS.map((s) => `html[data-yat-sec="${s}"] #sec-${s}{display:block!important}`).join('') +
+  "html[data-yat-sec] .yat-row3-shell,html[data-yat-sec] .yat-row4-shell{visibility:hidden}";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -37,6 +50,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@500;600;700;800&family=Caveat:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Oswald:wght@300;400;500;700&family=Bebas+Neue&display=swap"
           rel="stylesheet"
         />
+        {/* Opening a school page on a section (/<school>#sec-news from a
+            profile, the portal, a shared link) painted the Active gallery
+            first - the server always renders it - and only switched once
+            the shell's JS ran: a flash of the home page between pages.
+            Mark the requested section before the first paint and show only
+            it; SharedShell clears the mark once it has switched (3s
+            fallback). Rows 3-4 wait too, since they render for the gallery
+            until the shell knows the section. */}
+        <script dangerouslySetInnerHTML={{ __html: SECTION_BOOTSTRAP }} />
+        <style dangerouslySetInnerHTML={{ __html: SECTION_BOOTSTRAP_CSS }} />
       </head>
       <body suppressHydrationWarning>
         {/* Applies a saved light theme before the first paint. Without it
