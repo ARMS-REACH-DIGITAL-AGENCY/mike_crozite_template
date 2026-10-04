@@ -6,7 +6,6 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { sortActivePlayers, isRetiredAtHighSchoolLevel } from "@/lib/playerUtils";
-import PlayerCard from "@/components/yatstats/PlayerCard";
 import ContributeClient from "./ContributeClient";
 
 export async function generateMetadata({ params }: { params: Promise<{ hsid: string }> }) {
@@ -64,15 +63,20 @@ export default async function ContributeConnectPage({ params }: { params: Promis
   // Headshot strip data (first 12 for the strip)
   const stripPlayers = sorted.slice(0, 12);
 
+  // Serialize for client component (DB rows may contain BigInt/Date)
+  const serialize = (obj: unknown) => JSON.parse(JSON.stringify(obj, (_k, v) =>
+    typeof v === 'bigint' ? String(v) : v
+  ));
+
   return (
     <ContributeClient
       hsid={resolvedHsid}
       schoolName={schoolName}
       crestUrl={crestUrl}
-      players={threePlayers}
-      stripPlayers={stripPlayers}
-      frontImageMap={Object.fromEntries(frontImageMap)}
-      headshotMap={Object.fromEntries(headshotMap)}
+      players={serialize(threePlayers)}
+      stripPlayers={serialize(stripPlayers)}
+      frontImageMap={serialize(Object.fromEntries(frontImageMap))}
+      headshotMap={serialize(Object.fromEntries(headshotMap))}
       shareBaseUrl={shareBaseUrl}
     />
   );
