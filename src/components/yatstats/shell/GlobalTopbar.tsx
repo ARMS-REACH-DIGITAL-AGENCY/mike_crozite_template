@@ -174,7 +174,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>ALL-TIME</span><strong>NEXT-LEVEL LIST</strong></a>
           <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>2026</span><strong>TEAM</strong></a>
           <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
-          <a className="yat-topnav-item" data-tab="mentor" href={schoolSectionHref(hsid, 'mentor')}><strong>CONNECT</strong><span style={{fontWeight:400}}>&</span><strong>CONTRIBUTE</strong><span style={{fontWeight:400}}>PORTAL</span></a>
+          <a className="yat-topnav-item" data-tab="mentor" href={`/${hsid}/contribute-connect`}><strong>CONNECT</strong><span style={{fontWeight:400}}>&</span><strong>CONTRIBUTE</strong><span style={{fontWeight:400}}>PORTAL</span></a>
           <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
           <a className="yat-topnav-item" data-tab="about" href={schoolSectionHref(hsid, 'about')}><span>ABOUT</span><strong>US</strong></a>
           <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ&apos;S</strong></a>
