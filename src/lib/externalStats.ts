@@ -326,7 +326,12 @@ export async function upsertExternalPlayerGameStat(input: UpsertExternalPlayerGa
 }
 
 export async function getRecentExternalStatsForPlayer(playerId: string, limit = 5) {
-  await ensureExternalStatsTables();
+  // Read-only: no ensureExternalStatsTables() here (same as
+  // getIndyIscoreStatsForPlayer). The site's database role can read these
+  // tables but not create in schema public, so the CREATE TABLE IF NOT EXISTS
+  // pass failed every player-season-stats request with "permission denied for
+  // schema public" and the external stats never loaded. The ingest cron
+  // creates the tables.
   const { rows } = await query(
     `select
        epgs.source_system,
