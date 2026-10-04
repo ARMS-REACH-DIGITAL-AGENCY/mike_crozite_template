@@ -23,6 +23,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
+import SchoolFaq from "@/components/yatstats/SchoolFaq";
 
 export const runtime = "nodejs";
 
@@ -611,7 +612,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-mentor" className="yat-section">
-        <Placeholder icon="🤝" title="Mentorship Marketplace" body={`Connect with ${schoolName} alumni for mentorship, NIL guidance, and career development. Coming soon.`} />
+        <Placeholder icon="🤝" title="Connect & Contribute Portal" body={`A logged-in portal for contributing missing Community Hub content and, where available, optional player/fan interaction opportunities. Personal stories and memories are added from the player's Career Path Timeline.`} />
       </section>
 
       <section id="sec-partner" className="yat-section">
@@ -647,7 +648,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-faq" className="yat-section">
-        <Placeholder icon="❓" title="FAQ&apos;s" body="Frequently asked questions about YAT?STATS, how data is sourced, and how to get your school listed. Coming soon." />
+        <SchoolFaq schoolName={schoolName} />
       </section>
     </>
   );
