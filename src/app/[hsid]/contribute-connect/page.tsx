@@ -148,7 +148,7 @@ export default async function ContributeConnectPage({ params }: { params: Promis
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '16px',
         }}>
-          {players.map((p) => {
+          {threePlayers.map((p) => {
             const pid = String(p.playerid);
             return (
               <PlayerCard
