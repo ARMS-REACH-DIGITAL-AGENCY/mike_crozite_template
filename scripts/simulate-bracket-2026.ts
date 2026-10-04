@@ -226,6 +226,18 @@ function addDay(hsid: number, date: string, pd: PlayerDay) {
 for (const r of proBat) addDay(num(r.hsid), r.date, { playerid: r.playerid, level: proLevel(r), simulated: false, bat: proBatLine(r) });
 for (const r of proPit) addDay(num(r.hsid), r.date, { playerid: r.playerid, level: proLevel(r), simulated: false, pit: proPitLine(r), pitExtra: proPitExtraLine(r) });
 
+// Observed pro club(s) by player/week from actual game lines. This is the
+// safest fallback when a stint row is missing or incomplete: if a player
+// appeared for a club during the week, his inning-9 W-L must use that club's
+// full weekly record, not a player-specific synthetic record.
+const observedProClubsByWeek = new Map<string, Set<string>>(); // `${playerid}|${week}`
+for (const r of [...proBat, ...proPit]) {
+  if (r.level === 'SPRING' || !r.playerid || !r.teamid || !r.date) continue;
+  const key = `${r.playerid}|${weekOf(r.date)}`;
+  if (!observedProClubsByWeek.has(key)) observedProClubsByWeek.set(key, new Set());
+  observedProClubsByWeek.get(key)!.add(r.teamid);
+}
+
 // College calendars: game days and season windows by level (2026).
 const COLLEGE: Record<string, { start: string; end: string; latest: string; days: number[] }> = {
   'NCAA-D1': { start: '2026-02-13', end: '2026-05-17', latest: '2026-06-22', days: [2, 5, 6, 0] },
@@ -397,10 +409,24 @@ if (SPRING) {
 // Every eligible alumnus must contribute a weekly club record to inning 9.
 // Real stint/team results win whenever they exist. Missing records are filled
 // deterministically so the simulation never drops an active alumnus from W-L%.
-function syntheticPlayerWL(playerid: string, week: number, level: string) {
+function fullClubWeekWL(club: string, week: number) {
+  let w = 0, l = 0, found = false;
+  for (const date of weekDates(week)) {
+    const res = clubResults.get(`${club}|${date}`);
+    if (!res) continue;
+    w += res.w;
+    l += res.l;
+    found = true;
+  }
+  return found ? { w, l } : null;
+}
+function syntheticPlayerWL(playerid: string, week: number, level: string, club?: string) {
   const college = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level);
   const games = college ? 4 : 6;
-  const rand = mulberry32(hashString(`yatstats-2026-wl:${playerid}:${week}:${level}`));
+  // If the real club is known but results are unavailable, every alumnus on
+  // that club must still receive the same fallback record.
+  const identity = club || playerid;
+  const rand = mulberry32(hashString(`yatstats-2026-wl:${identity}:${week}:${level}`));
   const wins = Math.floor(rand() * (games + 1));
   return { w: wins, l: games - wins };
 }
@@ -412,11 +438,22 @@ for (const [hsid, roster] of seasonRoster) {
     for (const [playerid, entry] of roster) {
       if (perPlayer.has(playerid)) continue;
       const level = [...entry.levels][0] || 'MLB';
-      const synthetic = syntheticPlayerWL(playerid, week, level);
-      perPlayer.set(playerid, synthetic);
+      const observedClubs = [...(observedProClubsByWeek.get(`${playerid}|${week}`) || [])];
+      let fallback: { w: number; l: number } | null = null;
+      let fallbackClub: string | undefined;
+      // A pro who actually appeared this week inherits the full weekly record
+      // of the observed club. This prevents impossible cases where Yankees
+      // teammates show different W-L records solely because one stint row was
+      // missing or started/ended midweek.
+      if (observedClubs.length === 1) {
+        fallbackClub = observedClubs[0];
+        fallback = fullClubWeekWL(fallbackClub, week);
+      }
+      if (!fallback) fallback = syntheticPlayerWL(playerid, week, level, fallbackClub);
+      perPlayer.set(playerid, fallback);
       const total = weeklyWL.get(key) || { w: 0, l: 0 };
-      total.w += synthetic.w;
-      total.l += synthetic.l;
+      total.w += fallback.w;
+      total.l += fallback.l;
       weeklyWL.set(key, total);
     }
   }
