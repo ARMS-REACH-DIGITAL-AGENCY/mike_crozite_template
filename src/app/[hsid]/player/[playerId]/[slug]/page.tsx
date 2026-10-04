@@ -960,7 +960,7 @@ export default async function ProfilePage({ params }: Props) {
             <i className="ri-group-line pp-ph-icon" />
             <p>
               Connect with {firstName} through the{" "}
-              <strong>Mentorship Marketplace</strong>.
+              <strong>Connect &amp; Contribute Portal</strong>.
             </p>
           </div>
         </div>

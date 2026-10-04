@@ -327,7 +327,7 @@ export default async function HsidLayout({
               <strong>{highSchoolTeamLabel().split(" ")[0]}</strong> {highSchoolTeamLabel().split(" ").slice(1).join(" ")}
             </a>
             <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><strong>FANTASY</strong> BRACKET TOURNEY</a>
-            <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">MENTORSHIP <strong>MARKETPLACE</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="mentor" href="#sec-mentor">CONNECT &amp; <strong>CONTRIBUTE</strong></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><strong>PARTNERSHIP</strong> PROGRAM</a>
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
             <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ&apos;S</a>

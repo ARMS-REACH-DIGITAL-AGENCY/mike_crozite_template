@@ -174,7 +174,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
           <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>2026</span><strong>TEAM</strong></a>
           <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
-          <a className="yat-topnav-item" data-tab="mentor" href={schoolSectionHref(hsid, 'mentor')}><span>MENTORSHIP</span><strong>MARKETPLACE</strong></a>
+          <a className="yat-topnav-item" data-tab="mentor" href={schoolSectionHref(hsid, 'mentor')}><span>CONNECT &amp;</span><strong>CONTRIBUTE</strong></a>
           <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
           <a className="yat-topnav-item" data-tab="about" href={schoolSectionHref(hsid, 'about')}><span>ABOUT</span><strong>US</strong></a>
           <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ&apos;S</strong></a>
