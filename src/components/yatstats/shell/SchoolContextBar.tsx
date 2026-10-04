@@ -85,7 +85,7 @@ const SECTION_LABELS: Record<string, string> = {
   alltime: 'NEXT-LEVEL ALL-TIME LIST',
   current: highSchoolTeamLabel(),
   fantasy: 'FANTASY BRACKET TOURNEY',
-  mentor: 'CONNECT & CONTRIBUTE',
+  mentor: 'CONNECT & CONTRIBUTE PORTAL',
   partner: 'PARTNERSHIP PROGRAM',
   about: 'ABOUT US',
   faq: "FAQ'S",

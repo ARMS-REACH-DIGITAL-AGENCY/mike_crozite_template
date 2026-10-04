@@ -612,7 +612,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-mentor" className="yat-section">
-        <Placeholder icon="🤝" title="Connect & Contribute Portal" body={`Share photos, memories and news tips about ${schoolName} alumni, request a personalized message from a player, and support a player or the school. Coming soon.`} />
+        <Placeholder icon="🤝" title="CONNECT & CONTRIBUTE PORTAL" body={`Share photos, memories and news tips about ${schoolName} alumni, request a personalized message from a player, and support a player or the school. Coming soon.`} />
       </section>
 
       <section id="sec-partner" className="yat-section">
