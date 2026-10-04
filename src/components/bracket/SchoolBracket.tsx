@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
+  abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadLiveBox, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -64,22 +64,22 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   useEffect(() => {
     let cancelled = false;
     if (!g) { setPreviewData(null); return () => { cancelled = true; }; }
-    const boxPromise = card.file ? loadBoxes(card.file).then((all) => all[String(g[0])]).catch(() => undefined) : Promise.resolve(undefined);
-    Promise.all([boxPromise, loadActiveRoster(g[2]), loadActiveRoster(g[3])])
-      .then(([box, homeRoster, awayRoster]) => { if (!cancelled) setPreviewData({ box, homeRoster, awayRoster }); })
-      .catch(() => { if (!cancelled) setPreviewData({ box: undefined, homeRoster: [], awayRoster: [] }); });
-    return () => { cancelled = true; };
-  }, [g, card.file]);
+    const fetchBox=()=>card.state==='live'?loadLiveBox(index,g):card.file?loadBoxes(card.file).then((all)=>all[String(g[0])]).catch(()=>undefined):Promise.resolve(undefined);
+    const refresh=()=>Promise.all([fetchBox(),loadActiveRoster(g[2]),loadActiveRoster(g[3])]).then(([box,homeRoster,awayRoster])=>{if(!cancelled)setPreviewData({box,homeRoster,awayRoster});}).catch(()=>{if(!cancelled)setPreviewData({box:undefined,homeRoster:[],awayRoster:[]});});
+    refresh(); const timer=card.state==='live'?window.setInterval(refresh,60000):undefined;
+    return()=>{cancelled=true;if(timer)window.clearInterval(timer);};
+  }, [g, card.file, card.state, index]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
   const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
-  const shownInnings = corrected?.innings || g?.[5] || [];
+  const shownInnings = previewData?.box?.innings || corrected?.innings || g?.[5] || [];
   const inningCount = Math.max(9, Math.floor(shownInnings.length / 2));
   const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
-  const [hr, ar] = corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr];
+  const liveScore:[number,number]|null=card.state==='live'&&previewData?.box?.innings?[previewData.box.innings.filter((_,i)=>i%2===0).reduce((s,v)=>s+Number(v||0),0),previewData.box.innings.filter((_,i)=>i%2===1).reduce((s,v)=>s+Number(v||0),0)]:null;
+  const [hr,ar]=liveScore||(corrected&&card.state==='final'?corrected.score:[rawHr,rawAr]);
   const correctedWinner = g && corrected && card.state === 'final'
     ? (corrected.score[0] === corrected.score[1] ? g[6] : corrected.score[0] > corrected.score[1] ? g[2] : g[3])
     : g?.[6] ?? null;
@@ -235,12 +235,11 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   const [rosters, setRosters] = useState<{ home: ActiveRosterPlayer[]; away: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
-    Promise.all([loadActiveRoster(homeId), loadActiveRoster(awayId)])
-      .then(([home, away]) => { if (!cancelled) setRosters({ home, away }); })
-      .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
-    return () => { cancelled = true; };
-  }, [card.file, homeId, awayId]);
+    const refreshBox=()=>card.state==='live'?loadLiveBox(index,g).then((live)=>{if(!cancelled)setBox(live?{[String(g[0])]:live}:{});}):card.file?loadBoxes(card.file).then((b)=>{if(!cancelled)setBox(b);}):Promise.resolve();
+    refreshBox().catch(()=>{if(!cancelled)setBox({});}); const timer=card.state==='live'?window.setInterval(()=>{refreshBox().catch(()=>{});},60000):undefined;
+    Promise.all([loadActiveRoster(homeId),loadActiveRoster(awayId)]).then(([home,away])=>{if(!cancelled)setRosters({home,away});}).catch(()=>{if(!cancelled)setRosters({home:[],away:[]});});
+    return()=>{cancelled=true;if(timer)window.clearInterval(timer);};
+  }, [card.file, card.state, homeId, awayId, index, g]);
   const S = index.schools;
   const h = side === 'h' ? homeId : awayId;
   const drawerSchool = drawerSchoolParts(S[h]?.[0] || '');
@@ -256,7 +255,7 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
           : 'WEEK 34 - YAT?STATS WORLD SERIES';
   // Staged simulation: the drawer only shows results once the week's games
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
-  const played = card.state === 'final';
+  const played = card.state === 'final' || card.state === 'live';
   const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
   return (
     <DrawerWrap onClose={onClose}>
