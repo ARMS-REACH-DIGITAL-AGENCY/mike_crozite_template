@@ -389,7 +389,7 @@ export default async function HsidLayout({
               <strong>{highSchoolTeamLabel().split(" ")[0]}</strong> {highSchoolTeamLabel().split(" ").slice(1).join(" ")}
             </a>
             <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><strong>FANTASY</strong> BRACKET TOURNEY</a>
-            <a className="yat-drawer-nav-item" data-tab="mentor" href={`/${resolvedHsid}/contribute-connect`}><strong>CONNECT</strong> <span style={{fontWeight:400}}>&</span> <strong>CONTRIBUTE</strong> <span style={{fontWeight:400}}>PORTAL</span></a>
+            <a className="yat-drawer-nav-item" data-tab="mentor" href={`/${resolvedHsid}/contribute-connect`}><strong>CONNECTING</strong> <span style={{fontWeight:400}}>&</span> <strong>CONTRIBUTE</strong></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><strong>PARTNERSHIP</strong> PROGRAM</a>
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
             <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ&apos;S</a>
