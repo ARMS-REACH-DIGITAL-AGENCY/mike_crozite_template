@@ -17,11 +17,8 @@
 
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
-import {
-  resolvePlayerFromSourceMap,
-  upsertSourceMap,
-} from "./lib/player-source-map";
-import { identityVerdict, toIsoDate } from "./lib/player-identity";
+import { upsertSourceMap } from "./lib/player-source-map";
+import { identityVerdict, toIsoDate, REJECTED_MATCH_METHOD } from "./lib/player-identity";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -37,6 +34,13 @@ if (!DATABASE_URL) {
 const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
 const DELAY_MS = 250;
 const ALL_SPORT_IDS = "1,11,12,13,14,15,16";
+
+// Raw roster snapshots older than this are deleted at the end of each run
+// (with their resolution rows, via ON DELETE CASCADE from
+// source_ingest_runs). Every run stores ~25-28k rows with the full MLB JSON;
+// keeping them all grew these two tables to ~50 GB and slowed the whole
+// database. The refresh step only reads the latest completed run.
+const RETENTION_DAYS = 7;
 
 // MLB parent clubs can expose true 40-man roster context.
 // Affiliates should not be queried for 40Man because that can pollute MLB 40-man flags.
@@ -480,8 +484,25 @@ function buildNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
   return index;
 }
 
+// player_source_map (mlb_api), loaded once per run instead of one query per
+// roster entry. Same rule as resolvePlayerFromSourceMap: rejected links
+// (same name, different person) never resolve.
+let sourceMapCache: Map<string, string> | null = null;
+
+async function loadSourceMapCache(): Promise<void> {
+  const { rows } = await pool.query<{ source_player_id: string; playerid: string }>(
+    `SELECT DISTINCT ON (source_player_id) source_player_id, playerid::text AS playerid
+       FROM player_source_map
+      WHERE source = 'mlb_api'
+        AND match_method IS DISTINCT FROM $1
+      ORDER BY source_player_id`,
+    [REJECTED_MATCH_METHOD]
+  );
+  sourceMapCache = new Map(rows.map((r) => [String(r.source_player_id), String(r.playerid)]));
+}
+
 async function resolveFromSourceMap(mlbPersonId: number): Promise<string | null> {
-  return resolvePlayerFromSourceMap(pool, "mlb_api", String(mlbPersonId));
+  return sourceMapCache?.get(String(mlbPersonId)) ?? null;
 }
 
 async function saveSourceMap(
@@ -495,6 +516,7 @@ async function saveSourceMap(
   isVerified?: boolean | null,
   notes?: string | null
 ): Promise<void> {
+  sourceMapCache?.set(String(mlbPersonId), playerid);
   await upsertSourceMap(
     pool,
     playerid,
@@ -556,8 +578,7 @@ async function finalizeIngestRun(args: {
   );
 }
 
-async function insertMlbOrgRosterRaw(args: {
-  runId: string;
+interface RawRowArgs {
   org: MlbTeam;
   entry: MlbRosterEntry;
   assignedTeamId: number;
@@ -565,12 +586,48 @@ async function insertMlbOrgRosterRaw(args: {
   level: LevelLabel;
   rosterStatus: string;
   rosterType: string;
-}): Promise<number> {
-  const p = args.entry.person;
-  const fullName = safePlayerName(p);
+}
 
-  const { rows } = await pool.query<{ id: number }>(
+// One INSERT per roster (up to ~300 rows) instead of one per player.
+// Ids are reserved from the sequence first so each entry keeps its own
+// raw_id for its resolution row.
+async function insertMlbOrgRosterRawBatch(runId: string, rows: RawRowArgs[]): Promise<number[]> {
+  if (rows.length === 0) return [];
+  const { rows: idRows } = await pool.query<{ id: string }>(
+    `SELECT nextval('public.mlb_org_roster_raw_id_seq')::bigint AS id FROM generate_series(1, $1)`,
+    [rows.length]
+  );
+  const ids = idRows.map((r) => Number(r.id));
+
+  const params: unknown[] = [];
+  const tuples = rows.map((args, i) => {
+    const p = args.entry.person;
+    const values = [
+      ids[i],
+      runId,
+      SEASON,
+      args.rosterType,
+      String(args.org.id),
+      args.org.name,
+      args.org.abbreviation,
+      String(p.id),
+      safePlayerName(p),
+      String(args.assignedTeamId),
+      args.assignedTeamName,
+      args.rosterStatus,
+      args.level,
+      JSON.stringify(args.entry),
+    ];
+    const base = params.length;
+    params.push(...values);
+    const ph = values.map((_, j) => `$${base + j + 1}`);
+    ph[13] = `${ph[13]}::jsonb`;
+    return `(${ph[0]}, ${ph[1]}, 'mlb_api', 'mlb_full_org_roster', ${ph.slice(2).join(", ")}, NOW(), NOW())`;
+  });
+
+  await pool.query(
     `INSERT INTO public.mlb_org_roster_raw (
+       id,
        run_id,
        source,
        feed_name,
@@ -589,47 +646,46 @@ async function insertMlbOrgRosterRaw(args: {
        seen_at,
        updated_at
      )
-     VALUES (
-       $1,
-       'mlb_api',
-       'mlb_full_org_roster',
-       $2,
-       $3,
-       $4,
-       $5,
-       $6,
-       $7,
-       $8,
-       $9,
-       $10,
-       $11,
-       $12,
-       $13::jsonb,
-       NOW(),
-       NOW()
-     )
-     RETURNING id`,
-    [
-      args.runId,
-      SEASON,
-      args.rosterType,
-      String(args.org.id),
-      args.org.name,
-      args.org.abbreviation,
-      String(p.id),
-      fullName,
-      String(args.assignedTeamId),
-      args.assignedTeamName,
-      args.rosterStatus,
-      args.level,
-      JSON.stringify(args.entry),
-    ]
+     VALUES ${tuples.join(",\n")}`,
+    params
   );
 
-  return rows[0].id;
+  return ids;
 }
 
+// Resolution rows are buffered and written once per roster
+// (flushMlbOrgRosterResolutions) instead of one INSERT per player.
+const pendingResolutions: ResolutionArgs[] = [];
+
 async function saveMlbOrgRosterResolution(args: ResolutionArgs): Promise<void> {
+  pendingResolutions.push(args);
+}
+
+async function flushMlbOrgRosterResolutions(): Promise<void> {
+  if (pendingResolutions.length === 0) return;
+  const batch = pendingResolutions.splice(0, pendingResolutions.length);
+  const params: unknown[] = [];
+  const tuples = batch.map((args) => {
+    const values = [
+      args.runId,
+      args.rawId,
+      args.playerid,
+      args.sourcePlayerId,
+      args.sourcePlayerName,
+      args.sourceTeamId,
+      args.sourceTeamName,
+      args.matchStatus,
+      args.matchMethod,
+      args.matchConfidence,
+      JSON.stringify(args.candidatePlayerIds),
+      args.notes,
+    ];
+    const base = params.length;
+    params.push(...values);
+    const ph = values.map((_, j) => `$${base + j + 1}`);
+    return `(${ph[0]}, ${ph[1]}, ${ph[2]}, 'mlb_api', ${ph.slice(3, 10).join(", ")}, ${ph[10]}::jsonb, ${ph[11]}, NOW(), NOW())`;
+  });
+
   await pool.query(
     `INSERT INTO public.mlb_org_roster_resolution (
        run_id,
@@ -648,38 +704,19 @@ async function saveMlbOrgRosterResolution(args: ResolutionArgs): Promise<void> {
        created_at,
        updated_at
      )
-     VALUES (
-       $1,
-       $2,
-       $3,
-       'mlb_api',
-       $4,
-       $5,
-       $6,
-       $7,
-       $8,
-       $9,
-       $10,
-       $11::jsonb,
-       $12,
-       NOW(),
-       NOW()
-     )`,
-    [
-      args.runId,
-      args.rawId,
-      args.playerid,
-      args.sourcePlayerId,
-      args.sourcePlayerName,
-      args.sourceTeamId,
-      args.sourceTeamName,
-      args.matchStatus,
-      args.matchMethod,
-      args.matchConfidence,
-      JSON.stringify(args.candidatePlayerIds),
-      args.notes,
-    ]
+     VALUES ${tuples.join(",\n")}`,
+    params
   );
+}
+
+async function pruneOldRosterRuns(): Promise<number> {
+  const { rowCount } = await pool.query(
+    `DELETE FROM public.source_ingest_runs
+      WHERE feed_name = 'mlb_full_org_roster'
+        AND started_at < NOW() - make_interval(days => $1)`,
+    [RETENTION_DAYS]
+  );
+  return rowCount ?? 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -922,6 +959,11 @@ async function main() {
     const allTeamInfo = await fetchAllTeamsWithSport();
     console.log(`Fetched affiliate team info (${allTeamInfo.size} teams)`);
 
+    if (!dryRun) {
+      await loadSourceMapCache();
+      console.log(`Loaded ${sourceMapCache?.size ?? 0} MLB player links`);
+    }
+
     const dbPlayers = await getAllDbPlayers();
     console.log(`Loaded ${dbPlayers.length} players from DB`);
 
@@ -972,6 +1014,8 @@ async function main() {
 
           totalEntries += roster.length;
 
+          const rawRows: RawRowArgs[] = [];
+
           for (const entry of roster) {
             rowsReceived++;
 
@@ -991,8 +1035,7 @@ async function main() {
               continue;
             }
 
-            const rawId = await insertMlbOrgRosterRaw({
-              runId,
+            rawRows.push({
               org,
               entry,
               assignedTeamId,
@@ -1001,25 +1044,33 @@ async function main() {
               rosterStatus,
               rosterType,
             });
+          }
 
-            rowsStored++;
+          if (!dryRun && rawRows.length) {
+            const rawIds = await insertMlbOrgRosterRawBatch(runId, rawRows);
+            rowsStored += rawRows.length;
 
-            const result = await resolveAndSave({
-              runId,
-              rawId,
-              org,
-              entry,
-              assignedTeamId,
-              assignedTeamName,
-              level,
-              rosterStatus,
-              nameIndex,
-            });
+            for (let i = 0; i < rawRows.length; i++) {
+              const row = rawRows[i];
+              const result = await resolveAndSave({
+                runId,
+                rawId: rawIds[i],
+                org: row.org,
+                entry: row.entry,
+                assignedTeamId: row.assignedTeamId,
+                assignedTeamName: row.assignedTeamName,
+                level: row.level,
+                rosterStatus: row.rosterStatus,
+                nameIndex,
+              });
 
-            if (result === "matched_source_map") resolvedViaSourceMap++;
-            if (result === "matched_name") resolvedViaName++;
-            if (result === "ambiguous") ambiguousSkipped++;
-            if (result === "unmatched") unmatchedSkipped++;
+              if (result === "matched_source_map") resolvedViaSourceMap++;
+              if (result === "matched_name") resolvedViaName++;
+              if (result === "ambiguous") ambiguousSkipped++;
+              if (result === "unmatched") unmatchedSkipped++;
+            }
+
+            await flushMlbOrgRosterResolutions();
           }
 
           await delay(DELAY_MS);
@@ -1040,6 +1091,9 @@ async function main() {
         notes:
           "Raw + resolution sync complete. No player_current_team or flip_card_front_stage writes.",
       });
+
+      const pruned = await pruneOldRosterRuns();
+      console.log(`Pruned ${pruned} roster runs older than ${RETENTION_DAYS} days`);
     }
 
     console.log("");
