@@ -88,9 +88,20 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const isFixtureLive = fixtureWeekIsLiveNow(index, card.week);
   const pill = card.state === 'final' ? 'FINAL' : isFixtureLive ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
-    ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
+    ? correctedRosterGame(
+        isFixtureLive ? (previewData.box.innings || []) : g[5],
+        card.week,
+        previewData.box.h?.p || [],
+        previewData.box.a?.p || [],
+        previewData.homeRoster,
+        previewData.awayRoster,
+      )
     : null;
-  const shownInnings = previewData?.box?.innings || corrected?.innings || g?.[5] || [];
+  // A live fixture must never fall back to manufactured/static innings.
+  // If the live API is unavailable, show no live scoring data rather than fake data.
+  const shownInnings = isFixtureLive
+    ? (previewData?.box?.innings || [])
+    : (previewData?.box?.innings || corrected?.innings || g?.[5] || []);
   const inningCount = Math.max(9, Math.floor(shownInnings.length / 2));
   const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
   const liveScore: [number, number] | null = isFixtureLive && previewData?.box?.innings
@@ -99,7 +110,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         previewData.box.innings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
       ]
     : null;
-  const [hr, ar] = liveScore || (corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr]);
+  const [hr, ar] = isFixtureLive
+    ? (liveScore || [0, 0])
+    : (corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr]);
   const correctedWinner = g && corrected && card.state === 'final'
     ? (corrected.score[0] === corrected.score[1] ? g[6] : corrected.score[0] > corrected.score[1] ? g[2] : g[3])
     : g?.[6] ?? null;
@@ -283,10 +296,11 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
           : 'WEEK 34 - YAT?STATS WORLD SERIES';
   // Staged simulation: the drawer only shows results once the week's games
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
-  const played = card.state === 'final' || card.state === 'live';
+  const isFixtureLive = fixtureWeekIsLiveNow(index, card.week);
+  const played = card.state === 'final' || isFixtureLive;
   const liveDrawerBox = box?.[String(g[0])];
   const liveDrawerInnings = liveDrawerBox?.innings || [];
-  const [staticHr, staticAr] = played ? runsThrough(g, 7) : [0, 0];
+  const [staticHr, staticAr] = !isFixtureLive && played ? runsThrough(g, 7) : [0, 0];
   const [hr, ar] = liveDrawerInnings.length
     ? [
         liveDrawerInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
@@ -308,8 +322,11 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]}
           locations={[place(S[homeId]?.[0] || ''), place(S[awayId]?.[0] || '')]}
-          score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
-          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
+          score={[hr, ar]}
+          innings={isFixtureLive ? liveDrawerInnings : (played ? g[5] : [])}
+          winner={isFixtureLive ? null : (played ? g[6] : null)}
+          decidedBy={isFixtureLive ? '' : (played ? g[4] : '')}
+          box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
           homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} />
       </aside>
     </DrawerWrap>
