@@ -37,6 +37,12 @@ import { Roboto_Condensed } from 'next/font/google';
 const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-sb', display: 'swap' });
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
+const fixtureWeekIsLiveNow = (index: Index, week: number) => {
+  const range = index.weeks[week - 1];
+  if (!range) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return today >= range[0] && today <= range[1];
+};
 const shareSchoolLabel=(raw:string)=>raw.replace(/,\s*/g,', ').trim();
 const drawerSchoolParts=(raw:string)=>{
   const normalized=shareSchoolLabel(raw);
@@ -64,7 +70,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   useEffect(() => {
     let cancelled = false;
     if (!g) { setPreviewData(null); return () => { cancelled = true; }; }
-    const fetchBox = () => card.state === 'live'
+    const isFixtureLive = fixtureWeekIsLiveNow(index, card.week);
+    const fetchBox = () => isFixtureLive
       ? loadLiveBox(index, g)
       : card.file
         ? loadBoxes(card.file).then((all) => all[String(g[0])]).catch(() => undefined)
@@ -73,19 +80,20 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       .then(([box, homeRoster, awayRoster]) => { if (!cancelled) setPreviewData({ box, homeRoster, awayRoster }); })
       .catch(() => { if (!cancelled) setPreviewData({ box: undefined, homeRoster: [], awayRoster: [] }); });
     refresh();
-    const timer = card.state === 'live' ? window.setInterval(refresh, 60000) : undefined;
+    const timer = isFixtureLive ? window.setInterval(refresh, 60000) : undefined;
     return () => { cancelled = true; if (timer) window.clearInterval(timer); };
   }, [g, card.file, card.state, index]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
-  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
+  const isFixtureLive = fixtureWeekIsLiveNow(index, card.week);
+  const pill = card.state === 'final' ? 'FINAL' : isFixtureLive ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
   const shownInnings = previewData?.box?.innings || corrected?.innings || g?.[5] || [];
   const inningCount = Math.max(9, Math.floor(shownInnings.length / 2));
   const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
-  const liveScore: [number, number] | null = card.state === 'live' && previewData?.box?.innings
+  const liveScore: [number, number] | null = isFixtureLive && previewData?.box?.innings
     ? [
         previewData.box.innings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
         previewData.box.innings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
@@ -95,7 +103,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const correctedWinner = g && corrected && card.state === 'final'
     ? (corrected.score[0] === corrected.score[1] ? g[6] : corrected.score[0] > corrected.score[1] ? g[2] : g[3])
     : g?.[6] ?? null;
-  const played = card.state === 'final' || card.state === 'live';
+  const played = card.state === 'final' || fixtureWeekIsLiveNow(index, card.week);
 
   if (!g) {
     const blankRow = (key: string) => (
@@ -160,7 +168,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {Array.from({ length: inningCount }, (_, i) => i).map((i) => {
-          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(card.days, 9));
+          const shown = card.state === 'final' || (isFixtureLive && i < Math.min(Math.max(card.days, 1), 9));
           const value = shownInnings[i * 2 + off] || 0;
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
@@ -247,13 +255,14 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   const [rosters, setRosters] = useState<{ home: ActiveRosterPlayer[]; away: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const refreshBox = () => card.state === 'live'
+    const isFixtureLive = fixtureWeekIsLiveNow(index, card.week);
+    const refreshBox = () => isFixtureLive
       ? loadLiveBox(index, g).then((live) => { if (!cancelled) setBox(live ? { [String(g[0])]: live } : {}); })
       : card.file
         ? loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); })
         : Promise.resolve();
     refreshBox().catch(() => { if (!cancelled) setBox({}); });
-    const timer = card.state === 'live' ? window.setInterval(() => { refreshBox().catch(() => {}); }, 60000) : undefined;
+    const timer = isFixtureLive ? window.setInterval(() => { refreshBox().catch(() => {}); }, 60000) : undefined;
     Promise.all([loadActiveRoster(homeId), loadActiveRoster(awayId)])
       .then(([home, away]) => { if (!cancelled) setRosters({ home, away }); })
       .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
@@ -275,7 +284,15 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
   // Staged simulation: the drawer only shows results once the week's games
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
   const played = card.state === 'final' || card.state === 'live';
-  const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
+  const liveDrawerBox = box?.[String(g[0])];
+  const liveDrawerInnings = liveDrawerBox?.innings || [];
+  const [staticHr, staticAr] = played ? runsThrough(g, 7) : [0, 0];
+  const [hr, ar] = liveDrawerInnings.length
+    ? [
+        liveDrawerInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
+        liveDrawerInnings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
+      ]
+    : [staticHr, staticAr];
   return (
     <DrawerWrap onClose={onClose}>
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
