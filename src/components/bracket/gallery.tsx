@@ -50,7 +50,7 @@ export type LbGame = [id: number, week: number, home: number, away: number, deci
 // a deterministic simulated W-L used only when the 2026 source record is absent.
 export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
 export type SideBox = { p: PlayerRow[]; wl: [number, number] };
-export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
+export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; innings?: number[] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
   display_name?: string | null;
@@ -92,6 +92,13 @@ export function loadBoxes(file: string) {
     boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
   }
   return boxCache.get(file)!;
+}
+
+export async function loadLiveBox(index: Index, game: GameRow): Promise<GameBox | undefined> {
+  const range=index.weeks[game[1]-1]; if(!range) return undefined;
+  const qs=new URLSearchParams({home:String(game[2]),away:String(game[3]),start:range[0],end:range[1],date:range[0],preview:'1'});
+  const res=await fetch(`/api/bracket/live/box?${qs.toString()}`,{cache:'no-store'}); if(!res.ok) return undefined;
+  const data=await res.json(); return data?.status==='ok'?data as GameBox:undefined;
 }
 
 const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
