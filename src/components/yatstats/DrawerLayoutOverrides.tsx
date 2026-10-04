@@ -188,13 +188,12 @@ export default function DrawerLayoutOverrides() {
         body.drawer-account-open .yat-grid,
         body.drawer-favorites-open .yat-grid,
         body.yat-desktop-docked-drawers .yat-grid {
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)) !important;
-        }
-
-        body.drawer-left-open.drawer-right-open .yat-grid,
-        body.drawer-left-open.drawer-account-open .yat-grid,
-        body.drawer-left-open.drawer-favorites-open .yat-grid {
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+          /* Same fixed card width as the base .yat-grid rule (YatStyles):
+             an open drawer means fewer columns, never bigger cards. The old
+             auto-fit + 1fr tracks stretched the cards to fill the row, so
+             a filter that left one card blew it up to full width. */
+          grid-template-columns: repeat(auto-fill, min(100%, 264px)) !important;
+          justify-content: center;
         }
 
         body.drawer-left-open .yat-schoolrow,
