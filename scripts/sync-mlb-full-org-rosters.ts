@@ -709,12 +709,23 @@ async function flushMlbOrgRosterResolutions(): Promise<void> {
   );
 }
 
+// At most a few runs per pass (oldest first): in steady state one run ages
+// out per run, and a backlog drains over a few runs instead of one huge
+// delete holding locks on a small database.
+const PRUNE_RUNS_PER_PASS = 3;
+
 async function pruneOldRosterRuns(): Promise<number> {
   const { rowCount } = await pool.query(
     `DELETE FROM public.source_ingest_runs
-      WHERE feed_name = 'mlb_full_org_roster'
-        AND started_at < NOW() - make_interval(days => $1)`,
-    [RETENTION_DAYS]
+      WHERE run_id IN (
+        SELECT run_id
+          FROM public.source_ingest_runs
+         WHERE feed_name = 'mlb_full_org_roster'
+           AND started_at < NOW() - make_interval(days => $1)
+         ORDER BY started_at
+         LIMIT $2
+      )`,
+    [RETENTION_DAYS, PRUNE_RUNS_PER_PASS]
   );
   return rowCount ?? 0;
 }
