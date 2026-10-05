@@ -95,15 +95,21 @@ export function loadBoxes(file: string) {
 }
 
 const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
+// A school's active alumni for the Stat Ledgers. A failed load (the
+// database busy, a dropped connection) is retried, and only a real answer
+// is kept - a failure is never cached as an empty roster for the visit.
 export function loadActiveRoster(hsid: number) {
   if (!activeRosterCache.has(hsid)) {
-    activeRosterCache.set(
-      hsid,
+    const attempt = (n: number): Promise<ActiveRosterPlayer[]> =>
       fetch(`/api/players/${hsid}`, { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : []))
-        .then((rows) => Array.isArray(rows) ? rows : [])
-        .catch(() => []),
-    );
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((rows) => (Array.isArray(rows) ? rows : Promise.reject(new Error('bad roster'))))
+        .catch((e) => (n > 0 ? new Promise<ActiveRosterPlayer[]>((res) => setTimeout(() => res(attempt(n - 1)), 1200 * (4 - n))) : Promise.reject(e)));
+    const p = attempt(3).catch(() => {
+      activeRosterCache.delete(hsid); // try again next time the drawer opens
+      return [] as ActiveRosterPlayer[];
+    });
+    activeRosterCache.set(hsid, p);
   }
   return activeRosterCache.get(hsid)!;
 }
