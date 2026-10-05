@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getActiveRosterByHsid, getFlipCardFrontStageByHsid } from '@/lib/db';
+import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 
 type Row = Record<string, unknown>;
 
@@ -28,13 +29,14 @@ function isPitcherPosition(value: unknown) {
 }
 
 /**
- * The Fantasy roster is the visible Active Baseball Alumni flip-card roster.
+ * The Fantasy roster is exactly the Active Baseball Alumni flip-card
+ * gallery: the school's flip_card_front_stage rows whose status is ACTIVE or
+ * one of the injured-list statuses (the same list the gallery opens on,
+ * src/lib/galleryStatuses.ts), not listed at the high-school level. Nothing
+ * else - no commits, uncommitted, coaches, sponsors or blank statuses.
  *
- * Membership MUST come from flip_card_front_stage, not from the 2026 stat
- * feeds. A player can have a live flip card and zero stats for the preview
- * season (new graduate, injured player, future 2027 roster, etc.).
- * Explicit RETIRED, FREE AGENT and RED SHIRT-family statuses are excluded.
- * Stats are only an overlay for players who have them.
+ * A player can be on it with zero stats for the season (new graduate,
+ * injured player...); stats are only an overlay for players who have them.
  */
 export async function GET(
   _request: NextRequest,
@@ -53,14 +55,7 @@ export async function GET(
     const statsById = new Map(statsRows.map((row) => [text(row.playerid), row]));
 
     const roster = stageRows
-      .filter((stage) => {
-        const status = text(stage.status_label ?? stage.status).toUpperCase();
-        const excludedStatus =
-          status === 'RETIRED' ||
-          status === 'FREE AGENT' ||
-          /RED[\s-]*SHIRT/.test(status);
-        return !excludedStatus && !isHighSchoolLevel(stage);
-      })
+      .filter((stage) => isActiveGalleryStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage))
       .map((stage) => {
         const id = text(stage.playerid);
         const stats = statsById.get(id);
