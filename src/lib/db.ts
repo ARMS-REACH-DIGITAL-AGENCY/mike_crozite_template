@@ -97,6 +97,26 @@ function normalizeHostOrUrl(input: string) {
 // of choosing one winning row) fixes this without reintroducing the
 // original blank-name bug: each field is read from whichever source
 // actually has it.
+// A player's own social accounts (social_sources rows owned by the player),
+// as { instagram: 'handle', x: 'handle' }. The profile's Social tab links
+// them; nothing else stores a player's handle. Never throws - a missing
+// handle just hides the link.
+export async function getPlayerSocialHandles(playerId: string): Promise<Record<string, string>> {
+  try {
+    const { rows } = await query<{ platform: string; handle: string }>(
+      `SELECT DISTINCT ON (platform) platform, handle
+         FROM social_sources
+        WHERE playerid = $1 AND status = 'active' AND COALESCE(handle, '') <> ''
+        ORDER BY platform, updated_at DESC NULLS LAST`,
+      [playerId]
+    );
+    return Object.fromEntries(rows.map((r) => [String(r.platform).toLowerCase(), String(r.handle)]));
+  } catch (error) {
+    console.error('getPlayerSocialHandles failed', { playerId, error });
+    return {};
+  }
+}
+
 export async function getPlayerById(playerId: string): Promise<any | null> {
   const [tbcResult, stageResult] = await Promise.all([
     query<{

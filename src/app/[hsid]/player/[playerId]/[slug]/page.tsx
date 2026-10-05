@@ -22,12 +22,14 @@ import {
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
   getNewsByPlayer,
+  getPlayerSocialHandles,
   query,
 } from "@/lib/db";
 import type { Metadata } from "next";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
+import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
@@ -241,6 +243,7 @@ export default async function ProfilePage({ params }: Props) {
     careerPitching,
     resolvedCurrentTeam,
     transactionStatus,
+    socialHandles,
   ] = await Promise.all([
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
@@ -248,6 +251,7 @@ export default async function ProfilePage({ params }: Props) {
     getPlayerCareerPitching(safePlayerId),
     getResolvedCurrentTeam(safePlayerId),
     getFlipCardTransactionStatus(safePlayerId),
+    getPlayerSocialHandles(safePlayerId),
   ]);
 
   const latestYear = Math.max(
@@ -753,8 +757,8 @@ export default async function ProfilePage({ params }: Props) {
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
-  const xHandle = (player.x_handle || player.twitter_handle || "").replace(/^@/, "");
-  const igHandle = (player.ig_handle || player.instagram_handle || "").replace(/^@/, "");
+  const xHandle = (socialHandles.x || socialHandles.twitter || player.x_handle || player.twitter_handle || "").replace(/^@/, "");
+  const igHandle = (socialHandles.instagram || player.ig_handle || player.instagram_handle || "").replace(/^@/, "");
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -924,6 +928,7 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-social" className="pp-fz-panel">
           <div className="pp-social-tag">#YATABOY</div>
           <div className="pp-social-sub">Show some love for {firstName}!</div>
+          <PlayerInstagramFeed playerId={safePlayerId} firstName={firstName} />
           <div className="pp-social-links">
             {xHandle && (
               <a

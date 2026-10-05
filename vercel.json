@@ -25,6 +25,10 @@
     {
       "path": "/api/cron/mlb-live-gamelogs",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/instagram-sync",
+      "schedule": "17 */6 * * *"
     }
   ]
 }
