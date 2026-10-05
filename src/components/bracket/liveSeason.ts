@@ -142,7 +142,13 @@ function score(idx: Index, live: Live, asof: string) {
     };
     const home = side(g[2]), away = side(g[3]);
     const result: GameResult = playGame(home.week, away.week, new Map(), RULES, !final, final ? () => flip(g[0]) : undefined);
-    g[5] = result.innings.flatMap((i) => [i.home, i.away]);
+    // A week in progress counts only its days so far (the runs on the
+    // scoreboard); the week (8) and W-L (9) innings and any tiebreak wait for
+    // the week to end.
+    const daysIn = Math.min(7, today - from + 1);
+    g[5] = final
+      ? result.innings.flatMap((i) => [i.home, i.away])
+      : result.innings.slice(0, 9).flatMap((i, k) => (k < daysIn ? [i.home, i.away] : [0, 0]));
     g[6] = final && result.winner ? (result.winner === 'home' ? g[2] : g[3]) : null;
     g[4] = !final ? '' : result.decidedBy === 'players' ? `players-${result.tieRank}` : result.decidedBy;
     boxes[String(g[0])] = {
