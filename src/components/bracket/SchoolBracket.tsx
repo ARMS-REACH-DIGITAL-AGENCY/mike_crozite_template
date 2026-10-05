@@ -374,7 +374,7 @@ function RulesDrawer({ onClose }: { onClose: () => void }) {
 }
 
 // The narrow column (a profile's teammates): the Most Runs Scored
-// Leaderboards through the last final week - all 8 regions, or every school
+// Leaderboards through the last final week (live: through this week's days so far) - all 8 regions, or every school
 // A-Z (like the teammates' A-Z / Year). Opens on this school.
 function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbGame[]; me: number; final: number; onRules: () => void }) {
   const myRegion = index.schools[me]?.[1] || 1;
@@ -714,7 +714,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                 </div>
               )}
             </div>
-            <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={()=>setRules(true)}/>
+            <RegionColumn index={index} lb={lb} me={me} final={cal.days ? Math.max(cal.final, cal.week) : cal.final} onRules={()=>setRules(true)}/>
           </div>
         </div>
       )}
