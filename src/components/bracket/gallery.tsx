@@ -1265,11 +1265,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
     correctedInnings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
   ];
-  const correctedWinner = correctedScore[0] === correctedScore[1] ? winner
-    : correctedScore[0] > correctedScore[1] ? home : away;
   const inningCount = Math.max(9, Math.floor(correctedInnings.length / 2));
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
-  const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
     (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
       + (ninthRun ? 1 : 0);
@@ -1392,11 +1389,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {tieNote(decidedBy) && <div className="bl-note">{tieNote(decidedBy)}</div>}
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
-      {(!drawerMode || played) && (
+      {/* No W / L / T badge: the scoreboard says who won. */}
+      {!drawerMode && (
       <div className="bl-tabs">
-        {!drawerMode && <span className="on">{myName}</span>}
+        <span className="on">{myName}</span>
         {onFlip && <span className="flip">{flipTo || names[them]} ⟳</span>}
-        <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
       )}
 
@@ -1406,12 +1403,12 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <>
           {drawerMode ? (
             // Each day's tab sits under its inning on the scoreboards above
-            // (Monday = inning 1 ... Sunday = 7); the week's under the total.
+            // (Monday = inning 1 ... Sunday = 7); the week spans 8, 9 and the total.
             <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history">
               {[
                 [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Week']
               ].map(([key,label]) => (
-                <button key={String(key)} type="button" role="tab" style={{ gridColumn: key === 'week' ? 11 : Number(key) + 2 }}
+                <button key={String(key)} type="button" role="tab" style={{ gridColumn: key === 'week' ? '9 / 12' : Number(key) + 2 }}
                   className={statDay===key ? 'on' : ''}
                   aria-selected={statDay===key}
                   onClick={(e)=>{e.stopPropagation();setStatDay(key as 'week'|number);}}>
@@ -1561,7 +1558,7 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-history-tabs{position:sticky;top:var(--yfp-head-h,23px);display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button{flex:1 1 0;position:relative;margin-bottom:-1px;padding:5px 2px 4px;border:1px solid rgba(255,255,255,.2);border-bottom-color:transparent;border-radius:7px 7px 0 0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font:700 12px/1 Oswald,sans-serif}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button:hover{color:#fff}
-      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs{display:grid;grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr));gap:2px;padding:0 12px}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs{display:grid;grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr));gap:2px;padding:0 12px;margin-top:4px}
       .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs button{padding-left:0;padding-right:0;font-size:11px}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button.on{padding-top:7px;background:var(--bg,#0c0c0c);border-color:rgba(255,255,255,.2);border-bottom-color:var(--bg,#0c0c0c);color:var(--gold,#d2b45c)}
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs{border-bottom-color:rgba(0,0,0,.2)}
