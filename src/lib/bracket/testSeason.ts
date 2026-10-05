@@ -12,8 +12,8 @@ export function arizonaToday(now = Date.now()) {
 }
 
 // Which of the 6 test brackets (src/lib/bracket/testBrackets.ts) this
-// branch runs. Bracket 1 is the one with Hamilton.
-export const TEST_BRACKET = 1;
+// branch runs (this is test/bracket-3). Bracket 1 is the one with Hamilton.
+export const TEST_BRACKET = 3;
 
 
 type IndexLike = {
