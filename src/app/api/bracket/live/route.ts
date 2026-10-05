@@ -15,10 +15,13 @@ import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 //
 // Response:
 //   roster: { [hsid]: [playerid, name, level, isPitcher (0|1), club][] }
-//   lines:  [hsid, playerid, day, 'b'|'p', stats[], gameId, club][]
+//   lines:  [hsid, playerid, day, 'b'|'p', stats[], gameId, club, final (0|1)][]
 //           day: 0 = start; batting stats [PA AB H 2B 3B HR BB HBP SF],
 //           pitching [outs HR BB HBP K H R ER]
 //   clubs:  { [club]: [day, gameId, won (0|1)][] } - finished games only
+//   games:  { [club]: [day, gameId, done (0|1)][] } - every scheduled pro game
+//           (team_schedules, refreshed every 10 minutes): done = final,
+//           postponed or cancelled. A day's run waits on the games not done.
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +30,8 @@ type StageRow = {
   status_label: string | null; level_label: string | null; display_level_label: string | null;
   position: string | null; current_team_name: string | null;
 };
-type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null };
+type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null };
+type SchedRow = { game: string; day: number; status: string | null; home: string; away: string; home_runs: number | null; away_runs: number | null };
 type ClubRow = { team: string; game: string; day: number; is_win: boolean };
 
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
@@ -44,6 +48,9 @@ const pitOf = (s: Record<string, unknown>) => [
 ];
 const text = (v: unknown) => String(v ?? '').trim();
 const isHighSchool = (r: StageRow) => [r.level_label, r.display_level_label].some((v) => /^(HIGH SCHOOL|HS)$/i.test(text(v)));
+// A game that is over (or will not be played).
+const isDone = (status: unknown) => /^(final|game over|completed|postponed|cancelled|canceled|suspended)/i.test(text(status));
+const isFinal = (status: unknown) => /^(final|game over|completed)/i.test(text(status));
 const isPitcher = (position: unknown) => /(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)/.test(text(position).toUpperCase());
 
 export async function GET(req: NextRequest) {
@@ -78,7 +85,7 @@ export async function GET(req: NextRequest) {
         // One row per player, game and stat type: the newest copy.
         `SELECT DISTINCT ON (playerid, source_game_id, stat_type)
                 playerid::text AS playerid, (game_date::date - $2::date) AS day, stat_type, stats,
-                source_game_id::text AS game, team_name AS team
+                source_game_id::text AS game, team_name AS team, game_status AS status
            FROM player_game_logs
           WHERE playerid::text = ANY($1) AND game_date >= $2::date AND game_date < $2::date + $3::int
             AND stat_type IN ('batting', 'pitching')
@@ -88,7 +95,7 @@ export async function GET(req: NextRequest) {
       : { rows: [] as LineRow[] };
     const lines = logRows.map((r) => [
       schoolOf.get(r.playerid)!, r.playerid, Number(r.day), r.stat_type === 'batting' ? 'b' : 'p',
-      r.stat_type === 'batting' ? batOf(r.stats || {}) : pitOf(r.stats || {}), r.game, text(r.team),
+      r.stat_type === 'batting' ? batOf(r.stats || {}) : pitOf(r.stats || {}), r.game, text(r.team), isDone(r.status) ? 1 : 0,
     ]);
 
     // Club results: every finished game of every club these alumni play
@@ -110,10 +117,39 @@ export async function GET(req: NextRequest) {
       )
       : { rows: [] as ClubRow[] };
     const clubs: Record<string, [number, string, 0 | 1][]> = {};
-    for (const r of clubRows) (clubs[r.team] ||= []).push([Number(r.day), r.game, r.is_win ? 1 : 0]);
+    const seen = new Set<string>();
+    const result = (club: string, day: number, game: string, won: boolean) => {
+      if (seen.has(`${club}:${game}`)) return;
+      seen.add(`${club}:${game}`);
+      (clubs[club] ||= []).push([day, game, won ? 1 : 0]);
+    };
+
+    // The pro schedule: each club's games and their state; a final score
+    // is that club's result (the W-L inning) as soon as the game ends.
+    const { rows: sched } = clubNames.length
+      ? await query<SchedRow>(
+        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status,
+                home_team_name AS home, away_team_name AS away, home_score AS home_runs, away_score AS away_runs
+           FROM team_schedules
+          WHERE (home_team_name = ANY($1) OR away_team_name = ANY($1))
+            AND game_date >= $2::date AND game_date < $2::date + $3::int`,
+        [clubNames, start, weeks * 7],
+      )
+      : { rows: [] as SchedRow[] };
+    const want = new Set(clubNames);
+    const games: Record<string, [number, string, 0 | 1][]> = {};
+    for (const r of sched) {
+      for (const [club, mine, theirs] of [[r.home, r.home_runs, r.away_runs], [r.away, r.away_runs, r.home_runs]] as const) {
+        if (!want.has(club)) continue;
+        (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0]);
+        if (isFinal(r.status) && mine !== null && theirs !== null && mine !== theirs) result(club, Number(r.day), r.game, mine > theirs);
+      }
+    }
+    // Clubs off the pro schedule (Fall League ...): the result on the lines.
+    for (const r of clubRows) result(r.team, Number(r.day), r.game, r.is_win);
 
     return NextResponse.json(
-      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs },
+      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games },
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
     );
   } catch (error) {

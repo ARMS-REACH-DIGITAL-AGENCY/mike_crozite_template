@@ -54,7 +54,9 @@ export type LbGame = [id: number, week: number, home: number, away: number, deci
 export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
 // days: live boxes carry each day's real lines (the drawer's M-Su tabs).
 export type SideBox = { p: PlayerRow[]; wl: [number, number]; days?: PlayerRow[][] };
-export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
+// f (live boxes): is each inning's [offensive, pitching] run settled yet;
+// 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
+export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
   display_name?: string | null;
@@ -1230,8 +1232,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const awayWl = me === 0 ? owl : wl;
   const homeWp = pctNum(homeWl[0], homeWl[1]);
   const awayWp = pctNum(awayWl[0], awayWl[1]);
+  // Live: a run counts only once settled; until then the cell shows the lead.
+  const settledAt = (inning: number, idx: number) => !boxForView?.f || Boolean(boxForView.f[inning]?.[idx < 2 ? 0 : 1]);
+  const cellClass = (inning: number, idx: number, mine: number | null | undefined, theirs: number | null | undefined, higher: boolean) => {
+    const better = wonCell(mine, theirs, higher);
+    return better ? (settledAt(inning, idx) ? 'won' : 'lead') : '';
+  };
   const correctedInnings = [...innings];
-  if (drawerMode && correctedInnings.length >= 18) {
+  if (drawerMode && correctedInnings.length >= 18 && settledAt(8, 0)) {
     correctedInnings[16] = (homeWp ?? 0) > (awayWp ?? 0) ? 1 : 0;
     correctedInnings[17] = (awayWp ?? 0) > (homeWp ?? 0) ? 1 : 0;
   }
@@ -1245,8 +1253,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
   const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
-    (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
-      + (ninthRun ? 1 : 0);
+    (boxForView?.d || []).slice(0, 8).reduce((runs, d, i) => runs + (cellClass(i, idx, d?.[idx], d?.[opp], higher) === 'won' ? 1 : 0), 0)
+      + (ninthRun && settledAt(8, 0) ? 1 : 0);
   const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
     const rows = [
       { key: 'away', name: names[1], location: locations[1], idx: awayIdx, opp: homeIdx, wp: awayWp, oppWp: homeWp, isHome: false },
@@ -1279,14 +1287,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               )}
               {Array.from({ length: 7 }, (_, i) => {
                 const d = boxForView?.d?.[i];
-                return <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
+                return <span key={i} className={cellClass(i, row.idx, d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
               })}
-              <span className={wonCell(boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
+              <span className={cellClass(7, row.idx, boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
               {labelText === 'OPS+'
-                ? <span className={row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
+                ? <span className={row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? `${settledAt(8, 0) ? 'won' : 'lead'} wl-pct` : 'wl-pct'}>
                     {row.isHome ? (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, '')) : 'W%'}
                   </span>
-                : <span className={!row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
+                : <span className={!row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? `${settledAt(8, 0) ? 'won' : 'lead'} wl-pct` : 'wl-pct'}>
                     {row.isHome ? 'W%' : (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, ''))}
                   </span>}
               <span className="final">{metricRunCount(row.idx, row.opp, higher, ninthRun)}</span>
@@ -1675,6 +1683,7 @@ export function Styles() {
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
+      .bl-metric-line.metric>span.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
       @media (max-width:600px) {
