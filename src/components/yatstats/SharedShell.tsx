@@ -176,14 +176,14 @@ export default function SharedShell({
                 )}
         </div>
 
-        <div className="yat-row4-shell">
+        <div className={`yat-row4-shell${activeSection === 'fantasy' && !isPlayerProfile && !row4Content ? ' yat-row4-off' : ''}`}>
           {row4Content
             ? row4Content
             : activeSection === 'fantasy' && !isPlayerProfile
-              // The Fantasy Bracket Tourney tab: the round buttons (R1-YWS),
-              // which SchoolBracket renders into this slot. The scores
-              // ticker is in row 6.
-              ? <div className="yfz-row4-slot" />
+              // The Fantasy Bracket Tourney tab has no row 4: row 3's
+              // timeline picks the round, the scores ticker is in row 6,
+              // and row 5 gets the height.
+              ? null
               : profilePlayerId
               // The player profile's thin year-tick timeline (the old
               // variant="line" row) is now folded into the taller

@@ -450,7 +450,7 @@ export default function FantasyTimeline() {
         .yft-nav:disabled { opacity:.2; cursor:default; }
         .yft-nav.prev { left:0; }
         .yft-nav.next { right:0; }
-        .yft-rail { position:absolute; left:29%; right:23%; bottom:6px; height:26px; z-index:4; }
+        .yft-rail { position:absolute; left:29%; right:23%; bottom:4px; height:34px; z-index:4; }
         .yft-rail-track { position:absolute; left:0; right:0; top:8px; height:2px; background:rgba(255,255,255,.18); }
         .yft-tick { position:absolute; top:1px; width:14px; height:14px; margin-left:-7px; padding:0; border:0; background:transparent; cursor:pointer; }
         .yft-tick:disabled { cursor:default; }
@@ -458,7 +458,9 @@ export default function FantasyTimeline() {
         .yft-tick.W::before { background:#78c988; }
         .yft-tick.L::before { background:#d46f66; }
         .yft-tick.on::before,.yft-tick.now::before { box-shadow:0 0 0 2px rgba(213,180,74,.72); }
-        .yft-tick-label { position:absolute; left:50%; top:15px; transform:translateX(-50%); color:rgba(255,255,255,.58); font:700 7px/1 Oswald,sans-serif; }
+        .yft-tick-label { position:absolute; left:50%; top:16px; transform:translateX(-50%); color:rgba(255,255,255,.62); font:700 13px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; }
+        .yft-tick:hover .yft-tick-label { color:#fff; }
+        .yft-tick.on .yft-tick-label { color:#d5b44a; }
 
         @media (max-width:760px) {
           body:has(.yft-hero) { --row3-h:118px; }
@@ -485,11 +487,11 @@ export default function FantasyTimeline() {
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
           .yft-raffle-note { left:28px; bottom:4px; width:78px; font-size:10.5px; line-height:.92; letter-spacing:-.045em; -webkit-text-stroke:.6px #000; }
           .yft-nav { display:none; }
-          .yft-rail { left:28%; right:2%; bottom:1px; height:20px; }
+          .yft-rail { left:28%; right:3%; bottom:1px; height:24px; }
           .yft-rail-track { top:6px; height:1px; }
           .yft-tick { width:10px; height:10px; margin-left:-5px; top:1px; }
           .yft-tick::before { left:3px; top:2px; width:4px; height:6px; }
-          .yft-tick-label { display:block; top:10px; font-size:4.3px; color:rgba(255,255,255,.62); }
+          .yft-tick-label { display:block; top:11px; font-size:9px; letter-spacing:0; color:rgba(255,255,255,.62); }
         }
       `}</style>
     </section>

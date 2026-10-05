@@ -489,16 +489,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   // The round's games show one at a time (Game 1 / 2 / 3 tabs). null = the
   // round's current game: live, else next, else the last one played.
   const [gameWeek, setGameWeek] = useState<number | null>(null);
-  // Row 4's slot for the round buttons (SharedShell renders it on this tab).
-  const [dockSlot, setDockSlot] = useState<Element | null>(null);
-  useEffect(() => {
-    const find = () => setDockSlot(document.querySelector('.yfz-row4-slot'));
-    const t = window.setTimeout(find, 0);
-    const row4 = document.querySelector('.yat-row4-shell');
-    const mo = row4 ? new MutationObserver(find) : null;
-    if (row4 && mo) mo.observe(row4, { childList: true });
-    return () => { window.clearTimeout(t); mo?.disconnect(); };
-  }, []);
   const [stars, setStars] = useState<Record<number, Star> | null>(null);
   const [identities, setIdentities] = useState<Record<string, CurrentPlayerIdentity>>({});
   const nav = useBracketNav();
@@ -556,10 +546,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   },[cal]);
   const tab = nav.stageKey || nowTab;
 
-  const pickTab = (key:FantasyStageKey) => {
-    selectStage(key);
-    setGameWeek(null);
-  };
   // A hero click/focus also changes the canonical stage.
   useEffect(() => {
     if(!nav.focusSeq||!nav.focusWeek) return;
@@ -591,26 +577,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   if (gameIdx < 0) curList.forEach((c, i) => { if (c.state === 'final') gameIdx = i; });
   if (gameIdx < 0) gameIdx = 0;
   const shownCard = curList[gameIdx];
-  const roundTitle=(key:FantasyStageKey)=>{
-    if(key==='c1') return 'Championship Round 1 · Week 31';
-    if(key==='c2') return 'Championship Round 2 · Week 32';
-    if(key==='cg') return 'Championship Game · Week 33';
-    if(key==='yws') return 'YAT?STATS World Series · Week 34';
-    const r=Number(key.slice(1)); const a=index?.weeks[r*3-3],b=index?.weeks[r*3-1];
-    return `Round ${r} · weeks ${r*3-2}–${r*3}${a&&b?` · ${fmtRange(a[0],b[1])}`:''}`;
-  };
-  const roundDock = index && cal ? (
-    <nav className="yfz-dock" aria-label="Rounds">
-      <div className="yfz-dock-tabs" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
-        {tabs.map((t) => (
-          <button key={t.key} type="button" className={`yfz-tab${t.key===tab?' on':''}${t.key===nowTab&&cal.week>=1&&cal.week<=index.weeks.length?' now':''}`}
-            aria-pressed={t.key===tab} onClick={()=>pickTab(t.key)} title={roundTitle(t.key)}>
-            <b>{t.label}</b>
-          </button>
-        ))}
-      </div>
-    </nav>
-  ) : null;
 
   return (
     <div className={`yfp ${scoreboardFont.variable}`}>
@@ -618,7 +584,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {!error && (!index || !lb || !cal) && <p className="yfp-empty">Loading the 2026 season…</p>}
       {index && lb && cal && (
-        <div className={`yfz${dockSlot ? ' dock-up' : ''}`}>
+        <div className="yfz">
           <div className="yfz-panel">
             <div className="yfz-round">
               {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
@@ -644,9 +610,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             </div>
             <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={()=>setRules(true)}/>
           </div>
-          {/* The round buttons: up in row 4 (under the slider), or pinned
-              above the footer if the shell has no slot for them. */}
-          {dockSlot ? createPortal(roundDock, dockSlot) : roundDock}
         </div>
       )}
       {index && open && (bothDrawers
@@ -834,7 +797,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            ad and the pinned round buttons - one round at a time, no page
            scrolling (like the profile's FunZone). */
         .yfp:has(.yfz) { padding: 0; }
-        .yfz { --yfz-dock-h:58px; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px)); min-height:318px; max-height:none; overflow:hidden; }
+        .yfz { --yfz-dock-h:0px; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px)); min-height:318px; max-height:none; overflow:hidden; }
         .yfz-panel { position:absolute; inset:0 0 var(--yfz-dock-h) 0; display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:16px; padding:8px; }
         .yfz-panel.all { grid-template-columns: minmax(0, 1fr); }
         .yfz-panel > .yfp-lb { position: static; max-height: none; height: 100%; overflow-y: auto; }
@@ -1047,7 +1010,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-tab.on::before { content: ''; position: absolute; left: 20%; right: 20%; top: 0; height: 3px; border-radius: 0 0 2px 2px; background: #d2b45c; }
         .yfz-tab.now span { color: var(--gold, #ffc107); }
         @media (max-width: 899px) {
-          .yfz { --yfz-dock-h: 38px; }
           .yfz-dock-tabs { padding:0 2px; }
           .yfz-tab { gap:0; padding:2px 0; }
           .yfz-tab b { font-size:14px; line-height:1; }
@@ -1076,15 +1038,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* Same as the player profile: Row 4 is visually absent, but its
            established height budget is NOT reassigned to Row 5. */
         @media (max-width:760px) {
-          body:has(.yfz):not(:has(.yfz-row4-slot)) { --row4-h:0px; }
-          body:has(.yfz):not(:has(.yfz-row4-slot)) .yat-row4-shell { display:none; }
-          body:has(.yfz-row4-slot) { --row4-h:40px; }
+          body:has(.yfz) { --row4-h:0px; }
+          body:has(.yfz) .yat-row4-shell { display:none; }
           .yfz { min-height:0; }
         }
-        /* The round buttons in row 4, under the slider. */
-        .yfz.dock-up { --yfz-dock-h:0px; }
-        .yfz-row4-slot { height:var(--row4-h,56px); }
-        .yfz-row4-slot .yfz-dock { position:static; height:100%; border-top:0; box-shadow:none; background:var(--bg,#0c0c0c); }
+        /* No row 4 on this tab: row 5 takes its height. */
+        body:has(.yat-row4-off) { --row4-h:0px; }
+        .yat-row4-shell.yat-row4-off { display:none; }
 
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
