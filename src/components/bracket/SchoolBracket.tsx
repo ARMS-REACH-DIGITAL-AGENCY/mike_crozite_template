@@ -337,68 +337,60 @@ function RulesDrawer({ onClose }: { onClose: () => void }) {
 // Leaderboards through the last final week - all 8 regions, or every school
 // A-Z (like the teammates' A-Z / Year). Opens on this school.
 function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbGame[]; me: number; final: number; onRules: () => void }) {
-  const [order, setOrder] = useState<'region' | 'az'>('region');
-  const [nationalRanks, setNationalRanks] = useState<Record<string, number>>({});
+  const myRegion = index.schools[me]?.[1] || 1;
+  const [region, setRegion] = useState<number>(myRegion);
+  const [order, setOrder] = useState<'rank' | 'az'>('rank');
   const through = Math.min(final, LAST_WEEK);
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/bracket/school-ranks')
-      .then((r) => r.ok ? r.json() : { ranks: {} })
-      .then((data) => { if (!cancelled) setNationalRanks(data?.ranks || {}); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
   const boards = useMemo(() => {
     const st = standings(index, lb, through);
     return Object.keys(REGIONS).map((k) => ({ region: Number(k), ranked: rankRegion(index, st, Number(k)) }));
   }, [index, lb, through]);
-  const az = useMemo(() => {
-    const rows = boards.flatMap((b) => b.ranked.map((s, i) => ({ s, region: b.region, rank: i + 1, name: shortName(index.schools[s.h]?.[0] || '') })));
-    return rows.sort((x, y) => x.name.localeCompare(y.name));
-  }, [boards, index]);
-  const ref = useRef<HTMLElement | null>(null);
-  // Bring this school's line into view (inside the column only).
+  const board = boards.find((x) => x.region === region) || boards[0];
+  const rows = useMemo(() => {
+    const ranked = board.ranked.map((s, i) => ({ s, place: i + 1 }));
+    if (order === 'rank') return ranked;
+    return [...ranked].sort((x, y) => shortName(index.schools[x.s.h]?.[0] || '').localeCompare(shortName(index.schools[y.s.h]?.[0] || '')));
+  }, [board, order, index]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  // Bring this school's line into view (inside the list only).
   useEffect(() => {
-    const col = ref.current;
-    const row = col?.querySelector<HTMLElement>('li.me');
-    if (col && row) col.scrollTop = row.offsetTop - col.clientHeight / 3;
-  }, [order]);
-  const line = (s: { h: number; rf: number; ra: number }, rk: string, title: string) => (
-    <li key={s.h} className={s.h === me ? 'me' : ''} title={title}>
-      <span className="rk">{rk}</span>
-      <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}</a>
-      <span className="rf">{s.rf}</span>
-    </li>
-  );
+    const list = listRef.current;
+    if (!list) return;
+    const row = list.querySelector<HTMLElement>('li.me');
+    list.scrollTop = row ? row.offsetTop - list.clientHeight / 3 : 0;
+  }, [region, order]);
   const diff = (s: { rf: number; ra: number }) => `${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra}`;
   return (
-    <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards" ref={ref}>
-      <div className="yfp-lb-title">Most Runs Scored</div>
-      <div className="yfp-lb-sub">{through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential</div>
-      <div className="yfp-lb-sticky">
+    <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
+      <div className="yfp-lb-top">
+        <div>
+          <div className="yfp-lb-title">Most Runs Scored</div>
+          <div className="yfp-lb-sub">{through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential</div>
+        </div>
         <div className="yfp-lb-sort" role="group" aria-label="Order">
-          <button type="button" className={order === 'region' ? 'on' : ''} aria-pressed={order === 'region'} onClick={() => setOrder('region')}>Region</button>
+          <button type="button" className={order === 'rank' ? 'on' : ''} aria-pressed={order === 'rank'} onClick={() => setOrder('rank')}>Standings</button>
           <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
         </div>
-        <div className="yfp-lb-cols" aria-hidden="true">
-          <span>{order === 'region' ? 'SEED' : 'RANK'}</span><span>SCHOOL</span><span>RUNS</span>
-        </div>
       </div>
-      <div className="yfp-lb-list">
-      {order === 'region' ? boards.map((b) => (
-        <section key={b.region} className="yfp-lb-group">
-          <div className="yfp-lb-head"><span>{b.region}</span> {REGIONS[b.region]}</div>
-          <ol>{b.ranked.map((s, i) => line(s, String(index.schools[s.h]?.[2] ?? '—'), `${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${b.region} · leaderboard #${i + 1} · ${s.rf} runs (${diff(s)})`))}</ol>
-        </section>
-      )) : (
-        <ol>{az.map((x) => {
-          const national = nationalRanks[String(x.s.h)];
-          return line(x.s, national ? `#${national}` : '—', `${index.schools[x.s.h]?.[0]} · national rank ${national ? `#${national}` : 'not ranked'} · #${x.rank} in Region ${x.region} · ${x.s.rf} runs (${diff(x.s)})`);
-        })}</ol>
-      )}
+      <div className="yfp-lb-regions" role="tablist" aria-label="Regions">
+        {boards.map((x) => (
+          <button key={x.region} type="button" role="tab" aria-selected={x.region === region}
+            className={`${x.region === region ? 'on' : ''}${x.region === myRegion ? ' mine' : ''}`}
+            onClick={() => setRegion(x.region)}>
+            <b>{x.region}</b><span>{REGIONS[x.region]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="yfp-lb-list" ref={listRef}>
+        <ol>{rows.map(({ s, place }) => (
+          <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · leaderboard #${place} · ${s.rf} runs (${diff(s)})`}>
+            <span className="rk">{order === 'rank' ? place : (index.schools[s.h]?.[2] ?? '—')}</span>
+            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}</a>
+            <span className="rf">{s.rf}</span>
+          </li>
+        ))}</ol>
       </div>
       <button type="button" className="yfp-lb-rules" onClick={onRules}>Rules · how it&apos;s scored</button>
-      <p className="yfp-lb-note">After week 30 each region&apos;s leader plays in the Season Championship Tournament.</p>
     </aside>
   );
 }
@@ -707,7 +699,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* Desktop: keep school names beside the innings, and use the other
            half of the card for that game's social thread. Mobile remains stacked. */
-        @media (min-width:900px) {
+        @media (min-width:600px) {
           .yfp-game-split {
             display:grid;
             grid-template-columns:minmax(360px,1fr) minmax(320px,1fr);
@@ -811,17 +803,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-lb { min-width: 0; position: sticky; top: calc(var(--row1-h, 36px) + var(--row2-h, 54px) + var(--row3-h, 100px) + 8px); max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--footerH, 66px) - 16px); overflow-y: auto; font: 400 9px/1.28 system-ui, sans-serif; }
         .yfp-lb-title { color: var(--yfp-gold); font: 700 9px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
         .yfp-lb-sub { margin: 2px 0 4px; color: var(--yfp-muted); font-size: 7px; line-height:1.15; }
-        .yfp-lb-sticky { position:sticky; top:0; z-index:2; margin:0 0 6px; padding:2px 0 3px; background:var(--bg,#070707); }
-        body.light-theme .yfp-lb-sticky { background:var(--bg,#f4efe6); }
         .yfp-lb-sort { display: flex; gap: 2px; margin: 0 0 4px; padding: 0; }
-        .yfp-lb-cols { display:grid; grid-template-columns:22px minmax(0,1fr) auto; gap:4px; color:var(--yfp-faint); font:700 6.5px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
-        .yfp-lb-cols span:first-child { text-align:right; }
-        .yfp-lb-cols span:last-child { text-align:right; }
         .yfp-lb-sort button { flex: 1; min-height: 18px; padding: 0 2px; border: 1px solid var(--yfp-card-border); border-radius: 2px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 700 7px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
         .yfp-lb-sort button.on { border-color: var(--yfp-gold); color: var(--yfp-gold); }
-        .yfp-lb-group { margin: 0 0 9px; }
-        .yfp-lb-head { color: var(--yfp-strong); font: 700 7.5px/1.2 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
-        .yfp-lb-head span { color: var(--yfp-gold); }
         .yfp-lb ol { margin: 0; padding: 0; list-style: none; }
         .yfp-lb li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 4px; padding: 1px 0; }
         .yfp-lb li .rk { color: var(--yfp-faint); text-align: right; font-size: .9em; }
@@ -830,7 +814,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-lb li .rf { color: var(--yfp-muted); font-variant-numeric: tabular-nums; }
         .yfp-lb li.me, .yfp-lb li.me .rf, .yfp-lb li.me .rk { color: var(--yfp-gold); font-weight: 700; }
         .yfp-lb-rules { display: block; width: 100%; margin: 10px 0 0; min-height: 26px; border: 1px solid var(--yfp-gold); border-radius: 4px; background: transparent; color: var(--yfp-gold); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
-        .yfp-lb-note { margin: 8px 0 0; color: var(--yfp-muted); font-size: 7.5px; line-height: 1.35; }
 
         /* The FunZone: exactly the screen under rows 1-4, above the footer
            ad and the pinned round buttons - one round at a time, no page
@@ -849,7 +832,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            like/comment/share row underneath (not squeezed beside it), a
            standings column wide enough to read, and Stat Ledger drawers
            wide enough for every column. */
-        @media (min-width:900px) {
+        @media (min-width:600px) {
           /* Every game card is one fixed width (what fits between both
              Stat Ledgers) and centered - the same with or without drawers. */
           .yfz-cards { gap:12px; align-items:center; }
@@ -896,13 +879,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-lb-title { font-size:12px; }
           .yfp-lb-sub { font-size:10px; }
           .yfp-lb-sort button { min-height:26px; font-size:11px; }
-          .yfp-lb-cols { grid-template-columns:34px minmax(0,1fr) 30px; gap:6px; font-size:9.5px; }
           .yfp-lb li { grid-template-columns:34px minmax(0,1fr) 30px; gap:6px; padding:2px 0; }
           .yfp-lb li .rf { text-align:right; }
-          .yfp-lb-head { margin-top:4px; font-size:11px; }
           .yfp-lb-rules { min-height:32px; font-size:11px; }
-          .yfp-lb-note { font-size:10px; }
 
+        }
+        @media (min-width:900px) {
           /* Stat Ledger drawers: wide enough for the name and all 13 stat
              columns at a readable size - no clipping, no sideways scroll. */
           body { --yfp-dw:min(760px, 94vw); }
@@ -923,13 +905,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         }
         /* A maximized desktop screen: both drawers open, no dimming, the
            game cards usable between them. */
-        /* Balance the leaderboard column with the same space on the left,
-           so the cards sit in the middle of the screen. */
-        @media (min-width:1280px) {
-          .yfz-panel { padding-left:274px; }
-          body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding-left:8px; }
-          body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
-        }
         @media (min-width:1680px) {
           /* Drawers take everything but a fixed 600px middle, so the card is
              the same width on every big screen and always centered. */
@@ -948,32 +923,55 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-game-tab span { font-size:8px; }
         }
 
-        /* Desktop: one middle column - the game tabs and the game on top,
-           the Most Runs Scored leaderboard under it - in the same spot
-           whether the drawers are open or not. */
+        /* Every screen: one middle column - the game tabs and the game on
+           top, the Most Runs Scored leaderboard always right under it, one
+           region at a time. The column scrolls if the screen is short. */
+        .yfz-panel,
+        body.yfp-dock-l .yfz-panel,
+        body.yfp-dock-r .yfz-panel {
+          grid-template-columns:min(100%, 580px); grid-template-rows:auto minmax(280px,1fr);
+          justify-content:center; row-gap:10px; padding:8px; overflow-y:auto; overscroll-behavior:contain;
+        }
+        .yfz-panel.all { grid-template-columns:min(100%, 580px); grid-template-rows:minmax(0,1fr) minmax(280px,1fr); }
+        .yfz-panel > .yfz-round { grid-row:1; }
+        .yfz-cards { overflow:visible; scrollbar-width:none; }
+        .yfz-cards::-webkit-scrollbar { display:none; }
+        .yfz-cards > * { width:100%; }
+        .yfz-panel > .yfp-lb,
+        body.yfp-dock-l .yfz-panel > .yfp-lb,
+        body.yfp-dock-r .yfz-panel > .yfp-lb {
+          grid-row:2; display:flex; flex-direction:column; min-height:0; height:auto; max-height:none; position:static; overflow:hidden;
+          padding:8px 10px; border:1px solid var(--yfp-card-border); border-top:2px solid var(--yfp-gold,#d2b45c); border-radius:8px;
+          background:var(--yfp-card-bg); font:400 13px/1.4 system-ui,sans-serif;
+        }
+        .yfp-lb-top { flex:none; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+        .yfz-panel .yfp-lb-title { font-size:12px; }
+        .yfz-panel .yfp-lb-sub { margin:2px 0 0; font-size:10px; }
+        .yfz-panel .yfp-lb-sort { flex:none; width:170px; margin:0; }
+        .yfz-panel .yfp-lb-sort button { min-height:24px; font-size:10.5px; }
+        .yfp-lb-regions { flex:none; display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:3px; margin:8px 0 6px; }
+        .yfp-lb-regions button { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:0; padding:4px 2px 3px; border:1px solid var(--yfp-card-border); border-radius:4px; background:transparent; color:var(--yfp-muted); cursor:pointer; }
+        .yfp-lb-regions b { font:700 12px/1 Oswald,sans-serif; }
+        .yfp-lb-regions span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 9px/1.1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
+        .yfp-lb-regions button.mine b { color:var(--yfp-gold); }
+        .yfp-lb-regions button.on { border-color:var(--yfp-gold); background:rgba(210,180,92,.14); color:var(--yfp-gold); }
+        .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+        .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:24px; }
+        .yfz-panel .yfp-lb li { grid-template-columns:30px minmax(0,1fr) 30px; gap:6px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb li .rk { font-size:.85em; }
+        .yfz-panel .yfp-lb li .rf { text-align:right; }
+        .yfz-panel .yfp-lb-rules { flex:none; margin-top:8px; min-height:24px; font-size:10px; }
+        @media (max-width:599px) {
+          .yfz-panel, body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding:5px; row-gap:6px; grid-template-rows:auto minmax(240px,1fr); }
+          .yfp-lb-regions { grid-template-columns:repeat(4,minmax(0,1fr)); }
+          .yfz-panel .yfp-lb-list ol { column-count:1; }
+          .yfz-panel > .yfp-lb { font-size:12px; }
+        }
+        /* Docked drawers on a laptop screen: the column steps out from under
+           the drawer. */
         @media (min-width:900px) {
-          .yfz-panel,
-          body.yfp-dock-l .yfz-panel,
-          body.yfp-dock-r .yfz-panel {
-            grid-template-columns:min(100%, 580px); grid-template-rows:minmax(0,auto) minmax(150px,1fr);
-            justify-content:center; row-gap:10px; padding:8px;
-          }
           body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
           body.yfp-dock-r .yfz-panel { padding-right:calc(var(--yfp-dw) + 8px); }
-          .yfz-panel > .yfz-round { grid-row:1; }
-          .yfz-panel > .yfp-lb,
-          body.yfp-dock-l .yfz-panel > .yfp-lb,
-          body.yfp-dock-r .yfz-panel > .yfp-lb {
-            display:block; grid-row:2; position:static; height:100%; padding:8px 12px 10px;
-            border:1px solid var(--yfp-card-border); border-top:2px solid var(--yfp-gold,#d2b45c); border-radius:8px;
-          }
-          .yfz-panel > .yfp-lb .yfp-lb-cols { display:none; }
-          .yfz-panel > .yfp-lb .yfp-lb-sort { max-width:260px; }
-          /* Regions side by side, two across, each read top to bottom. */
-          .yfz-panel > .yfp-lb .yfp-lb-list { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); column-gap:24px; align-items:start; }
-          .yfz-cards > * { width:100%; }
-          .yfz-cards { scrollbar-width:none; }
-          .yfz-cards::-webkit-scrollbar { display:none; }
         }
         /* A maximized screen: the column is exactly the space between the
            two drawers, open or not - flush against both. */
@@ -1014,12 +1012,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-tab.now span { color: var(--gold, #ffc107); }
         @media (max-width: 899px) {
           .yfz { --yfz-dock-h: 38px; }
-          .yfz-panel { grid-template-columns:minmax(0,1fr) 88px; gap:7px; padding:5px 4px 4px 5px; }
           .yfz-dock-tabs { padding:0 2px; }
           .yfz-tab { gap:0; padding:2px 0; }
           .yfz-tab b { font-size:14px; line-height:1; }
           .yfz-tab span { display:none; }
           .yfz-tab.on::before { left:18%; right:18%; height:2px; }
+        }
+        @media (max-width: 599px) {
           .yfz-cards { gap:4px; }
           .yfp-scorecard { border-radius:5px; }
           .yfp-score-head { font-size:5.6px; padding:2px 4px 1px; }
@@ -1033,15 +1032,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .fgs-inline .ysv-actions button { min-height:28px !important; font-size:11px !important; gap:3px !important; }
           .fgs-inline .ysv-actions button i { font-size:13px !important; }
           .fgs-inline .ysv-actions { border-bottom:0; }
-          .yfp-lb { font-size:7.5px; line-height:1.16; }
-          .yfp-lb-sort { gap:1px; margin-bottom:4px; padding:0; }
-          .yfp-lb-sort button { min-height:16px; font-size:6px; padding:0 1px; }
-          .yfp-lb-group { margin-bottom:5px; }
-          .yfp-lb-head { font-size:6.7px; }
-          .yfp-lb li { grid-template-columns:11px minmax(0,1fr) auto; gap:2px; padding:.5px 0; }
-          .yfp-lb li .rk { text-align:left; font-size:.8em; }
-          .yfp-lb-note { display:none; }
-          .yfp-lb-rules { min-height:20px; margin-top:6px; font-size:7px; }
           .yfz-all table { font-size: 11px; }
           .yfz-all td { padding: 4px 3px; }
           .yfz-all th:nth-child(3), .yfz-all td:nth-child(3) { display: none; }
@@ -1080,7 +1070,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-drawer-head .yfp-drawer-school { font-size: 13px; }
           .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }
           .yfp-drawer-head .yfp-drawer-game { font-size: 10px; }
-          .yfp-lb-cols { grid-template-columns:16px minmax(0,1fr) auto; gap:3px; font-size:5.5px; }
+        }
+        @media (max-width: 599px) {
           .yfp { padding: 8px 8px 16px; }
           .yfp-green-row { grid-template-columns:68px repeat(var(--inning-count,9),minmax(10px,1fr)) 24px; gap:1px; }
           .yfp-green-full { display:block; font:800 7.5px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
@@ -1091,8 +1082,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-status { font-size:6px; padding:1px 3px; }
           .yfp-score-head { font-size:6px; padding:3px 4px 2px; }
           .yfp-layout { grid-template-columns:minmax(0,1fr) 92px; gap:16px; }
-          .yfp-lb { font-size: 8px; }
-          .yfp-lb li { grid-template-columns: 16px minmax(0,1fr) auto; gap: 3px; }
           .yfp-card { padding: 6px 8px 5px; }
           .yfp-box thead th:not(.tm):not(.r) { width: 13px; }
           .yfp-box { font-size: 12px; }
