@@ -834,7 +834,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            standings column wide enough to read, and Stat Ledger drawers
            wide enough for every column. */
         @media (min-width:900px) {
-          .yfz-cards { gap:12px; }
+          /* Every game card is one fixed width (what fits between both
+             Stat Ledgers) and centered - the same with or without drawers. */
+          .yfz-cards { gap:12px; align-items:center; }
+          .yfz-cards > * { width:min(100%, 580px); }
           .yfp-game-split { display:block; min-height:0; }
           .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:1px solid var(--yfp-card-border); }
           .yfp-game-socialpane { padding:4px 12px 8px; overflow:visible; }
@@ -847,8 +850,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              sits right beside inning 1 - and the board is centered. */
           .yfp-game-scorepane .yfp-green-board {
             display:grid;
-            grid-template-columns:minmax(0,max-content) repeat(var(--inning-count,9),38px) 54px;
-            column-gap:4px;
+            grid-template-columns:minmax(0,max-content) repeat(var(--inning-count,9),36px) 52px;
+            column-gap:3px;
             justify-content:center;
           }
           .yfp-game-scorepane .yfp-green-row {
@@ -892,7 +895,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              over to stay visible beside the drawer(s). */
           .yfp-drawer-wrap.row5 { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { pointer-events:auto; }
-          body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); }
+          body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); padding-left:8px; }
           body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { display:none; }
           body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
           body.yfp-dock-r .yfz-panel { padding-right:calc(var(--yfp-dw) + 8px); }
@@ -904,6 +907,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         }
         /* A maximized desktop screen: both drawers open, no dimming, the
            game cards usable between them. */
+        /* Balance the leaderboard column with the same space on the left,
+           so the cards sit in the middle of the screen. */
+        @media (min-width:1280px) {
+          .yfz-panel { padding-left:274px; }
+          body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding-left:8px; }
+          body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
+        }
         @media (min-width:1680px) {
           body { --yfp-dw:min(700px, calc((100vw - 600px) / 2)); }
         }
