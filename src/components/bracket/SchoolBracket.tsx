@@ -484,7 +484,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   // One set of drawers at a time: a Stat Ledger opening closes the site's
   // drawers (account, menu, favorites...), and a site drawer opening
   // closes the Stat Ledgers - so the game never gets squeezed between both.
+  // Wide screens open both Stat Ledgers for the game on the board; they
+  // close when the screen narrows past that and come back when it widens -
+  // unless the fan closed them (or opened a site drawer).
+  const autoOpened = useRef(false);
+  const keepClosed = useRef(false);
+  const closeStats = () => { keepClosed.current = true; autoOpened.current = false; setOpen(null); };
   const openStats = (o: Open | null) => {
+    autoOpened.current = false;
     if (o) {
       document.body.classList.remove('drawer-open', 'drawer-left-open', 'drawer-right-open', 'drawer-account-open',
         'drawer-favorites-open', 'drawer-sort-open', 'yat-left-search-mode', 'yat-desktop-docked-drawers');
@@ -496,7 +503,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     if (!open) return;
     const siteDrawer = () => ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
       .some((c) => document.body.classList.contains(c));
-    const mo = new MutationObserver(() => { if (siteDrawer()) setOpen(null); });
+    const mo = new MutationObserver(() => { if (siteDrawer()) { keepClosed.current = true; autoOpened.current = false; setOpen(null); } });
     mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
   }, [open]);
@@ -596,6 +603,24 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   if (gameIdx < 0) curList.forEach((c, i) => { if (c.state === 'final') gameIdx = i; });
   if (gameIdx < 0) gameIdx = 0;
   const shownCard = curList[gameIdx];
+  const shownWeek = shownCard?.week ?? 0;
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const siteDrawerOpen = ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
+        .some((c) => document.body.classList.contains(c));
+      if (bothDrawers && shownCard && !keepClosed.current && !siteDrawerOpen) {
+        if (!open || (autoOpened.current && open.card.week !== shownCard.week)) {
+          autoOpened.current = true;
+          setOpen({ card: shownCard, side: 'h' });
+        }
+      } else if (!bothDrawers && autoOpened.current && open) {
+        autoOpened.current = false;
+        setOpen(null);
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bothDrawers, shownWeek, !!open]);
 
   return (
     <div className={`yfp ${scoreboardFont.variable}`}>
@@ -632,8 +657,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         </div>
       )}
       {index && open && (bothDrawers
-        ? <DualTeamDrawers index={index} open={open} onClose={() => setOpen(null)} />
-        : <TeamDrawer index={index} open={open} onClose={() => setOpen(null)} />)}
+        ? <DualTeamDrawers index={index} open={open} onClose={closeStats} />
+        : <TeamDrawer index={index} open={open} onClose={closeStats} />)}
       {rules && <RulesDrawer onClose={() => setRules(false)} />}
       <Styles />
       <style jsx global>{`
