@@ -405,9 +405,8 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
       <div className="yfp-lb-regions" role="tablist" aria-label="Most Runs Scored · Season Leaderboard">
         <span className="yfp-lb-title" title={`${through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential`}>
-          Season Runs Leaderboard <i>|</i>
+          Season Runs Leaderboard <i>|</i> <span className="yfp-lb-regions-k" aria-hidden="true">Regions</span>
         </span>
-        <span className="yfp-lb-regions-k" aria-hidden="true">Regions</span>
         {boards.map((x) => (
           <button key={x.region} type="button" role="tab" aria-selected={x.region === view}
             aria-label={`Region ${x.region} · ${REGIONS[x.region]}`} title={`Region ${x.region} · ${REGIONS[x.region]}`}
@@ -993,12 +992,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            one joins the list. */
         .yfp-lb-regions { flex:none; display:flex; flex-wrap:nowrap; align-items:flex-end; gap:3px; margin:0 0 6px; border-bottom:1px solid rgba(255,255,255,.2); }
         .yfp-lb-regions > * { flex:none; white-space:nowrap; }
-        .yfp-lb-regions-k { margin-right:4px; padding-bottom:5px; color:var(--yfp-muted); font:700 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+        .yfp-lb-regions-k { color:var(--yfp-muted); font-size:.85em; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
         .yfp-lb-regions button { position:relative; margin-bottom:-1px; min-width:26px; padding:4px 7px 3px; border:1px solid rgba(255,255,255,.2); border-bottom-color:transparent;
           border-radius:7px 7px 0 0; background:rgba(255,255,255,.05); color:rgba(255,255,255,.55); font:700 12px/1 Oswald,sans-serif; cursor:pointer; }
         .yfp-lb-regions button:hover { color:#fff; }
         .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:var(--yfp-gold,#d2b45c); }
-        .yfp-lb-regions button.az { margin-left:6px; }
+        .yfp-lb-regions button { width:28px; min-width:0; padding-left:0; padding-right:0; text-align:center; }
+        .yfp-lb-regions button.az { margin-left:4px; font-size:9px; letter-spacing:-.02em; }
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
         body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
@@ -1015,16 +1015,17 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-list ol { column-count:1; }
           .yfz-panel .yfp-lb-title { font-size:9px; letter-spacing:.02em; margin-right:0; padding-bottom:4px; }
           .yfz-panel .yfp-lb-title i { margin:0 3px; }
-          .yfp-lb-regions-k { font-size:7px; letter-spacing:.04em; margin-right:1px; padding-bottom:5px; }
+          .yfp-lb-regions-k { letter-spacing:.04em; }
           .yfp-lb-regions { gap:1px; }
-          .yfp-lb-regions button { min-width:14px; padding:4px 3px 3px; font-size:10.5px; }
-          .yfz-panel > .yfp-lb, body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { padding:8px 6px; }
+          .yfz-panel .yfp-lb-regions button { width:17px; padding:4px 0 3px; font-size:10.5px; }
+          .yfz-panel .yfp-lb-regions button.az { margin-left:2px; font-size:6.5px; letter-spacing:-.04em; }
+          .yfz-panel > .yfp-lb, body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { padding:8px 6px; font-size:12px; }
         }
         @media (max-width:374px) {
           .yfz-panel .yfp-lb-title { font-size:8.5px; letter-spacing:0; }
           .yfz-panel .yfp-lb-title i { margin:0 2px; }
-          .yfp-lb-regions button.az { margin-left:2px; }
-          .yfz-panel > .yfp-lb { font-size:12px; }
+          .yfp-lb-regions-k { letter-spacing:0; }
+          .yfz-panel .yfp-lb-regions button { width:15px; }
         }
         /* From 820px, like the flip-card gallery: the game (up to 680px)
            sits centered with no drawer, and when one opens it slides over
