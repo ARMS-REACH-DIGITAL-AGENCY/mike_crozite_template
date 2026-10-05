@@ -19,7 +19,7 @@
 //
 // "Now" follows the calendar; ?asof=YYYY-MM-DD previews any date.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
@@ -400,6 +400,28 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     const row = list.querySelector<HTMLElement>('li.me');
     list.scrollTop = row ? row.offsetTop - list.clientHeight / 3 : 0;
   }, [view]);
+  // The run column sits right after the longest school name (with its
+  // city) in the list shown, not at the far edge of the column.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const fit = () => {
+      list.style.removeProperty('--lb-name-w');
+      const li = list.querySelector('li');
+      const names = [...list.querySelectorAll<HTMLElement>('li a')];
+      if (!li || !names.length) return;
+      const textW = (el: HTMLElement) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
+      const longest = Math.max(...names.map(textW));
+      const cs = getComputedStyle(li);
+      const cols = cs.gridTemplateColumns.split(' ');
+      const room = li.clientWidth - parseFloat(cols[0]) - parseFloat(cols[2]) - 2 * parseFloat(cs.columnGap || '0');
+      list.style.setProperty('--lb-name-w', `${Math.ceil(Math.min(longest + 2, room))}px`);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(list);
+    return () => ro.disconnect();
+  }, [rows]);
   const diff = (s: { rf: number; ra: number }) => `${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra}`;
   return (
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
@@ -1007,8 +1029,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
         .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:22px; }
-        .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
-        .yfz-panel .yfp-lb-list.az li { grid-template-columns:52px minmax(0,1fr) 22px; }
+        .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px var(--lb-name-w, minmax(0,1fr)) 22px; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
