@@ -1113,7 +1113,7 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
-export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true }: {
+export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
@@ -1121,6 +1121,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   awayRoster?: ActiveRosterPlayer[];
   drawerMode?: boolean;
   played?: boolean; // false when this week's games haven't been played yet (staged simulation)
+  onSwitchSide?: () => void; // one drawer at a time: the opponent's name opens his drawer instead
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
@@ -1254,9 +1255,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     return (
       <div className="bl-metric-board" aria-label={`${labelText} by inning`}>
         <div className="bl-metric-line head">
-          <span className="metric-name">{labelText}</span>
+          <span className="metric-name-spacer" aria-hidden="true" />
           {[1,2,3,4,5,6,7,8,9].map((n) => <span key={n}>{n}</span>)}
-          <span className="metric-total-head" aria-label="Run tally" />
+          <span className="metric-name" aria-label={`${labelText} run tally`}>{labelText}</span>
         </div>
         {rows.map((row) => {
           // Inning 9 is the single W-L% run. It belongs only once across the
@@ -1266,9 +1267,16 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             : !row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0);
           return (
             <div className="bl-metric-line metric" key={row.key}>
-              <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
-                <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
-              </span>
+              {onSwitchSide && row.isHome !== (me === 0) ? (
+                <button type="button" className="metric-team metric-switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
+                  title={`Show ${row.name}'s stats`} aria-label={`Show ${row.name}'s stats`}>
+                  <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+                </button>
+              ) : (
+                <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
+                  <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+                </span>
+              )}
               {Array.from({ length: 7 }, (_, i) => {
                 const d = boxForView?.d?.[i];
                 return <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
@@ -1521,6 +1529,14 @@ export function Styles() {
       .bl-history-tabs{position:sticky;top:0;z-index:4;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px;margin:6px 0 5px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
       .bl-history-tabs button{min-width:0;padding:4px 2px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font:700 12px/1 Oswald,sans-serif;cursor:pointer}
       .bl-history-tabs button.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold)}
+      /* In the Stat Ledgers the days are folder tabs, like the leaderboard's regions. */
+      .bl.bl-embed.yfp-drawer .bl-history-tabs{position:sticky;top:var(--yfp-head-h,23px);display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs button{flex:1 1 0;position:relative;margin-bottom:-1px;padding:5px 2px 4px;border:1px solid rgba(255,255,255,.2);border-bottom-color:transparent;border-radius:7px 7px 0 0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font:700 12px/1 Oswald,sans-serif}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs button:hover{color:#fff}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs button.on{padding-top:7px;background:var(--bg,#0c0c0c);border-color:rgba(255,255,255,.2);border-bottom-color:var(--bg,#0c0c0c);color:var(--gold,#d2b45c)}
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs{border-bottom-color:rgba(0,0,0,.2)}
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button{border-color:rgba(0,0,0,.2);border-bottom-color:transparent;background:rgba(0,0,0,.04);color:rgba(0,0,0,.55)}
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button.on{border-bottom-color:var(--bg,#f4efe6);color:#8a6a10}
       @media(max-width:520px){.bl-history-tabs button{font-size:10px;padding:4px 1px}}
       /* On a school's page the cards follow the site's light / dark toggle. */
       body.light-theme .bl.bl-embed { --bg:#f4f4f4; --panel:#fff; --panel2:#f3f4f6; --line:#e1e4e8; --text:#121212; --muted:#5f6670; --gold:#b07d00;
@@ -1650,7 +1666,9 @@ export function Styles() {
       .bl-metric-line { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:center; }
       .bl-metric-line.head { margin-bottom:2px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
       .bl-metric-line.head span { display:grid; place-items:center; min-height:12px; }
-      .bl-metric-line.head .metric-name { justify-items:start; padding-left:4px; color:#ffd34f; font-size:11px; }
+      .bl-metric-line.head .metric-name { color:#ffd34f; font-size:10px; letter-spacing:0; white-space:nowrap; }
+      .bl-metric-line.metric .metric-switch { display:grid; min-width:0; min-height:20px; padding:2px 4px; border-radius:3px; background:#0d2d20; color:#eef7ef; border:0; text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(255,211,79,.6); text-underline-offset:2px; font:inherit; }
+      .bl-metric-line.metric .metric-switch:hover b { color:#ffd34f; }
       .bl-metric-line.metric { margin-top:2px; }
       .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
@@ -1667,7 +1685,7 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-metric-line.head { font-size:6.8px; }
-        .bl-metric-line.head .metric-name { font-size:9px; padding-left:3px; }
+        .bl-metric-line.head .metric-name { font-size:8px; }
         .bl-metric-line.metric>span { font-size:9px; min-height:19px; }
         .bl-metric-line.metric .metric-team { padding:2px 3px; }
         .bl-metric-line.metric .metric-team b { font-size:7.2px; letter-spacing:-.035em; }

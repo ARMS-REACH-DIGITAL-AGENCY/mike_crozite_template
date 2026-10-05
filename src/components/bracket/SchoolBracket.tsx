@@ -73,10 +73,7 @@ function ScoreHead({ index, card, games }: { index: Index; card: WeekCard; games
           </button>
         ))}
       </span>
-      <i aria-hidden="true">|</i>
-      <span>Week {card.week}</span>
-      <i aria-hidden="true">|</i>
-      <span className="yfp-score-dates">{dates(index, card.week)}</span>
+      <span className="yfp-score-dates">Week {card.week} <i aria-hidden="true">|</i> {dates(index, card.week)}</span>
     </div>
   );
 }
@@ -272,7 +269,7 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
 // A future game with no opponent yet: this school at home v TBD (id 0).
 const tbdGame = (card: WeekCard, me: number): GameRow => [0, card.week, me, 0, '', [], null];
 
-function TeamDrawerPanel({ index, open, me, onClose }: { index: Index; open: Open; me: number; onClose: () => void }) {
+function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index; open: Open; me: number; onClose: () => void; onSwitch?: () => void }) {
   const { card, side } = open;
   const g = card.game ?? tbdGame(card, me);
   const homeId = g[2], awayId = g[3];
@@ -293,14 +290,14 @@ function TeamDrawerPanel({ index, open, me, onClose }: { index: Index; open: Ope
   const nameOf = (id: number) => (id ? shortName(S[id]?.[0] || '') : 'TBD');
   const stageGameNo = Number(card.stage.match(/Game\s+(\d+)/i)?.[1] || 1);
   const drawerGameLabel = card.week <= 30
-    ? `WEEK ${card.week} - ROUND ${Math.ceil(card.week / 3)} - GAME ${((card.week - 1) % 3) + 1}`
+    ? `ROUND ${Math.ceil(card.week / 3)} - GAME ${((card.week - 1) % 3) + 1}`
     : card.week === 31
-      ? `WEEK 31 - SEASON CHAMPIONSHIP ROUND 1 - GAME ${stageGameNo}`
+      ? `CHAMPIONSHIP ROUND 1 - GAME ${stageGameNo}`
       : card.week === 32
-        ? `WEEK 32 - SEASON CHAMPIONSHIP ROUND 2 - GAME ${stageGameNo}`
+        ? `CHAMPIONSHIP ROUND 2 - GAME ${stageGameNo}`
         : card.week === 33
-          ? 'WEEK 33 - SEASON CHAMPIONSHIP GAME'
-          : 'WEEK 34 - YAT?STATS WORLD SERIES';
+          ? 'CHAMPIONSHIP GAME'
+          : 'YAT?STATS WORLD SERIES';
   // Staged simulation: the drawer only shows results once the week's games
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
   const played = card.state === 'final';
@@ -308,12 +305,12 @@ function TeamDrawerPanel({ index, open, me, onClose }: { index: Index; open: Ope
   return (
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
-        <div className="yfp-drawer-head">
-          <div>
-            {drawerSchool.location ? <span className="yfp-drawer-location">{drawerSchool.location}</span> : null}
-            <b className="yfp-drawer-school">{drawerSchool.school}</b>
-            <span className="yfp-drawer-game">{drawerGameLabel}</span>
-          </div>
+        <div className="yfp-drawer-head yfp-drawer-head-line">
+          <span className="yfp-drawer-who">
+            <b className="yfp-drawer-school">{nameOf(h)}</b>
+            {drawerSchool.location ? <><i aria-hidden="true">|</i><span className="yfp-drawer-location">{drawerSchool.location}</span></> : null}
+          </span>
+          <span className="yfp-drawer-game">{drawerGameLabel}</span>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
         {h ? null : (
@@ -324,15 +321,15 @@ function TeamDrawerPanel({ index, open, me, onClose }: { index: Index; open: Ope
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
           decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
-          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} />
+          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} />
       </aside>
   );
 }
 
-function TeamDrawer({ index, open, me, onClose }: { index: Index; open: Open; me: number; onClose: () => void }) {
+function TeamDrawer({ index, open, me, onClose, onSwitch }: { index: Index; open: Open; me: number; onClose: () => void; onSwitch: () => void }) {
   return (
     <DrawerWrap onClose={onClose} sides={[open.side === 'h' ? 'r' : 'l']}>
-      <TeamDrawerPanel index={index} open={open} me={me} onClose={onClose} />
+      <TeamDrawerPanel index={index} open={open} me={me} onClose={onClose} onSwitch={onSwitch} />
     </DrawerWrap>
   );
 }
@@ -408,7 +405,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
       <div className="yfp-lb-regions" role="tablist" aria-label="Most Runs Scored · Season Leaderboard">
         <span className="yfp-lb-title" title={`${through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential`}>
-          Most Runs <i>|</i> Season Leaderboard <i>|</i>
+          Season Runs Leaderboard <i>|</i>
         </span>
         <span className="yfp-lb-regions-k" aria-hidden="true">Regions</span>
         {boards.map((x) => (
@@ -422,11 +419,11 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         <button type="button" role="tab" aria-selected={view === 'az'} className={`az${view === 'az' ? ' on' : ''}`}
           title="The whole field, A-Z" onClick={() => setView('az')}>A–Z</button>
       </div>
-      <div className="yfp-lb-list" ref={listRef}>
-        <ol>{rows.map(({ s, place, region }) => (
-          <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${place} in the region · ${s.rf} runs (${diff(s)})`}>
-            <span className="rk">{view === 'az' ? `${region}·${place}` : place}</span>
-            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}</a>
+      <div className={`yfp-lb-list${view === 'az' ? ' az' : ''}`} ref={listRef}>
+        <ol>{rows.map(({ s, place: rank, region }) => (
+          <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
+            <span className="rk">{view === 'az' ? `R${region}-S${index.schools[s.h]?.[2] ?? '—'}` : rank}</span>
+            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
             <span className="rf">{s.rf}</span>
           </li>
         ))}</ol>
@@ -687,7 +684,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
       )}
       {index && open && (bothDrawers
         ? <DualTeamDrawers index={index} open={open} me={me} onClose={closeStats} />
-        : <TeamDrawer index={index} open={open} me={me} onClose={closeStats} />)}
+        : <TeamDrawer index={index} open={open} me={me} onClose={closeStats}
+            onSwitch={() => setOpen((o) => (o ? { card: o.card, side: o.side === 'h' ? 'a' : 'h' } : o))} />)}
       {rules && <RulesDrawer onClose={() => setRules(false)} />}
       <Styles />
       <style jsx global>{`
@@ -942,6 +940,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); }
           .yfp-drawer-wrap.row5 { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { pointer-events:auto; }
+          /* Docked drawers start where the game card starts, so the three
+             gold headers sit on one line. */
+          .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
         }
         /* The Rules pill: the flip cards' pill size. */
         .yfz-panel .yfp-lb-rules {
@@ -954,6 +955,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* The gold header: ROUND n | GAME 1 | GAME 2 | GAME 3 | WEEK n | dates. */
         .yfp-score-head.yfp-score-head-tabs { justify-content:flex-start; align-items:center; flex-wrap:wrap; gap:4px 8px; }
+        @media (min-width:600px) { .yfp-score-head.yfp-score-head-tabs { box-sizing:border-box; height:23px; padding-top:0; padding-bottom:0; } }
         .yfp-score-head-tabs i { font-style:normal; opacity:.45; }
         .yfp-score-games { display:inline-flex; gap:2px; }
         .yfp-score-games button { padding:2px 6px 1px; border:0; border-radius:3px; background:transparent; color:inherit; opacity:.65;
@@ -961,7 +963,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-score-games button:hover:not(:disabled) { opacity:1; }
         .yfp-score-games button.on { opacity:1; background:#fff5cf; color:#3a2d06; }
         .yfp-score-games button:disabled { cursor:default; }
-        .yfp-score-dates { margin-left:auto; }
+        .yfp-score-dates { margin-left:auto; white-space:nowrap; }
+        .yfp-score-dates i { margin:0 4px; }
 
         /* Every screen: one middle column - the game tabs and the game on
            top, the Most Runs Scored leaderboard always right under it, one
@@ -988,27 +991,39 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel .yfp-lb-title i { margin:0 4px; font-style:normal; color:var(--yfp-faint,rgba(255,255,255,.3)); font-weight:400; }
         /* Regions 1-8: manila-folder tabs on the list's top edge; the open
            one joins the list. */
-        .yfp-lb-regions { flex:none; display:flex; flex-wrap:wrap; align-items:flex-end; gap:3px; margin:0 0 6px; border-bottom:1px solid rgba(255,255,255,.2); }
+        .yfp-lb-regions { flex:none; display:flex; flex-wrap:nowrap; align-items:flex-end; gap:3px; margin:0 0 6px; border-bottom:1px solid rgba(255,255,255,.2); }
+        .yfp-lb-regions > * { flex:none; white-space:nowrap; }
         .yfp-lb-regions-k { margin-right:4px; padding-bottom:5px; color:var(--yfp-muted); font:700 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
         .yfp-lb-regions button { position:relative; margin-bottom:-1px; min-width:26px; padding:4px 7px 3px; border:1px solid rgba(255,255,255,.2); border-bottom-color:transparent;
           border-radius:7px 7px 0 0; background:rgba(255,255,255,.05); color:rgba(255,255,255,.55); font:700 12px/1 Oswald,sans-serif; cursor:pointer; }
         .yfp-lb-regions button:hover { color:#fff; }
-        .yfp-lb-regions button.mine { color:var(--yfp-gold,#d2b45c); }
-        .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#fff; }
-        .yfp-lb-regions button.on.mine { color:var(--yfp-gold,#d2b45c); }
+        .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:var(--yfp-gold,#d2b45c); }
         .yfp-lb-regions button.az { margin-left:6px; }
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
-        body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#111; }
+        body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
-        .yfz-panel .yfp-lb-list ol { column-width:150px; column-gap:16px; }
-        .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 18px; gap:4px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:22px; }
+        .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb-list.az li { grid-template-columns:52px minmax(0,1fr) 22px; }
+        .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
         .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
         @media (max-width:599px) {
           .yfz-panel, body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding:5px; row-gap:6px; grid-template-rows:max-content minmax(240px,1fr); }
           .yfz-panel .yfp-lb-list ol { column-count:1; }
+          .yfz-panel .yfp-lb-title { font-size:9px; letter-spacing:.02em; margin-right:0; padding-bottom:4px; }
+          .yfz-panel .yfp-lb-title i { margin:0 3px; }
+          .yfp-lb-regions-k { font-size:7px; letter-spacing:.04em; margin-right:1px; padding-bottom:5px; }
+          .yfp-lb-regions { gap:1px; }
+          .yfp-lb-regions button { min-width:14px; padding:4px 3px 3px; font-size:10.5px; }
+          .yfz-panel > .yfp-lb, body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { padding:8px 6px; }
+        }
+        @media (max-width:374px) {
+          .yfz-panel .yfp-lb-title { font-size:8.5px; letter-spacing:0; }
+          .yfz-panel .yfp-lb-title i { margin:0 2px; }
+          .yfp-lb-regions button.az { margin-left:2px; }
           .yfz-panel > .yfp-lb { font-size:12px; }
         }
         /* From 820px, like the flip-card gallery: the game (up to 680px)
@@ -1115,6 +1130,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head .yfp-drawer-location { color: var(--muted); font: 600 9px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .yfp-drawer-head .yfp-drawer-game { margin-top: 1px; color: var(--gold); font: 700 10px/1.15 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .yfp-drawer-head button { flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
+        /* Stat Ledger header: one gold line like the game's header -
+           "School | City, ST" left, "ROUND n - GAME n" right. */
+        .yfp-drawer-head.yfp-drawer-head-line { gap:8px; padding:0 4px 0 12px; height:var(--yfp-head-h,23px); background:#9c7f22; border-bottom:0; color:#fff5cf;
+          font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+        .yfp-drawer-head-line .yfp-drawer-who { flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; overflow:hidden; white-space:nowrap; }
+        .yfp-drawer-head-line .yfp-drawer-who i { font-style:normal; opacity:.45; }
+        .yfp-drawer-head-line .yfp-drawer-school { color:#fff; font:inherit; font-size:12px; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-drawer-head-line .yfp-drawer-location { color:#fff5cf; font:inherit; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff5cf; font:inherit; }
+        .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
         .yfp-drawer .ybr-rules { padding: 14px; }
         .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
