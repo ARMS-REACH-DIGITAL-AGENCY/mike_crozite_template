@@ -31,6 +31,7 @@ type FanSession = {
 type PlayerResult = {
   playerId: string;
   displayName: string;
+  schoolId: string;
   schoolName: string;
   city: string;
   state: string;
