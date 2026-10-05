@@ -2,7 +2,7 @@
 // Connect & Contribute Portal — renders ONLY the gallery content inside {children}.
 // The shared shell (header, logo, headshot strip, drawers, styles) comes from [hsid]/layout.tsx.
 // This page shows the same first 3 flip cards as the homepage gallery, plus the
-// upload drawer trigger.
+// upload drawer trigger. Build 2: all drawer components present.
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
