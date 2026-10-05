@@ -22,6 +22,8 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
+import { TEST_OPENING_DAY } from '@/lib/bracket/testSeason';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -433,21 +435,15 @@ let indexPromise: Promise<Index> | null = null;
 export function loadIndex() {
   if (!indexPromise) {
     indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
-      // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
+      // Test branch: the season opens Mon Oct 5, 2026 - Week 1 = Oct 5-11.
       if (idx && Array.isArray(idx.weeks)) {
-        idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
+        idx.weeks = tournamentWeeks(TEST_OPENING_DAY, idx.weeks.length);
       }
       return idx;
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
-}
-// Shift an ISO date string by N days.
-function shiftDate(iso: string, days: number): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {

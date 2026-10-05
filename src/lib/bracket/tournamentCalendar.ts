@@ -26,7 +26,7 @@ function iso(t: number) {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-export function tournamentWeeks(start = TOURNAMENT_2027.start, count = TOURNAMENT_2027.worldSeriesWeek): [string, string][] {
+export function tournamentWeeks(start: string = TOURNAMENT_2027.start, count: number = TOURNAMENT_2027.worldSeriesWeek): [string, string][] {
   const t0 = parseUtc(start);
   return Array.from({ length: count }, (_, i) => {
     const a = t0 + i * 7 * DAY;
