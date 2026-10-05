@@ -64,6 +64,10 @@ async function put(key: string, body: Buffer, contentType: string) {
   );
 }
 
+// Same bucket, keys and immutable caching for other server jobs that store
+// public images (the Instagram feed sync).
+export const putPublicAsset = put;
+
 export class NotAnImageError extends Error {}
 
 export async function storeStoryPhoto(folder: string, index: number, input: Buffer): Promise<StoredStoryPhoto> {
