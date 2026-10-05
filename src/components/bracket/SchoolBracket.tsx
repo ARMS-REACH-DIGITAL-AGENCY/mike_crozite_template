@@ -434,11 +434,11 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
             aria-label={`Region ${x.region} · ${REGIONS[x.region]}`} title={`Region ${x.region} · ${REGIONS[x.region]}`}
             className={`${x.region === view ? 'on' : ''}${x.region === myRegion ? ' mine' : ''}`}
             onClick={() => setView(x.region)}>
-            {x.region}
+            <span>{x.region}</span>
           </button>
         ))}
         <button type="button" role="tab" aria-selected={view === 'az'} className={`az${view === 'az' ? ' on' : ''}`}
-          title="The whole field, A-Z" onClick={() => setView('az')}>A–Z</button>
+          title="The whole field, A-Z" onClick={() => setView('az')}><span>A–Z</span></button>
       </div>
       <div className={`yfp-lb-list${view === 'az' ? ' az' : ''}`} ref={listRef}>
         <ol>{rows.map(({ s, place: rank, region }) => (
@@ -1008,11 +1008,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           padding:8px 10px; border:1px solid var(--yfp-card-border); border-radius:8px;
           background:var(--yfp-card-bg); font:400 13px/1.4 system-ui,sans-serif;
         }
-        .yfz-panel .yfp-lb-title { align-self:center; margin-right:4px; padding-bottom:5px; font-size:11px; white-space:nowrap; }
+        .yfz-panel .yfp-lb-title { align-self:auto; margin-right:4px; padding-bottom:0; font-size:11px; line-height:1; white-space:nowrap; }
         .yfz-panel .yfp-lb-title i { margin:0 4px; font-style:normal; color:var(--yfp-faint,rgba(255,255,255,.3)); font-weight:400; }
         /* Regions 1-8: manila-folder tabs on the list's top edge; the open
            one joins the list. */
-        .yfp-lb-regions { flex:none; display:flex; flex-wrap:nowrap; align-items:flex-end; gap:3px; margin:0 0 6px; border-bottom:1px solid rgba(255,255,255,.2); }
+        .yfp-lb-regions { flex:none; display:flex; flex-wrap:nowrap; align-items:baseline; gap:3px; margin:0 0 6px; border-bottom:1px solid rgba(255,255,255,.2); }
         .yfp-lb-regions > * { flex:none; white-space:nowrap; }
         .yfp-lb-regions-k { color:var(--yfp-muted); font-size:.85em; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
         .yfp-lb-regions button { position:relative; margin-bottom:-1px; min-width:26px; padding:4px 7px 3px; border:1px solid rgba(255,255,255,.2); border-bottom-color:transparent;
@@ -1020,7 +1020,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-lb-regions button:hover { color:#fff; }
         .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:var(--yfp-gold,#d2b45c); }
         /* Every tab - 1 to 8 and A-Z - is one size; the open one rises 2px. */
-        .yfp-lb-regions button { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+        .yfp-lb-regions button { display:inline-flex; align-items:flex-end; justify-content:center; box-sizing:border-box; line-height:1; padding-bottom:4px !important;
           flex:1 1 0; width:auto; min-width:14px; height:20px; padding:0; text-align:center; }
         .yfp-lb-regions button.on { height:22px; padding:0; }
         .yfp-lb-regions button.az { margin-left:4px; font-size:9px; letter-spacing:-.02em; }
@@ -1038,7 +1038,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @media (max-width:599px) {
           .yfz-panel, body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding:5px; row-gap:6px; grid-template-rows:max-content minmax(240px,1fr); }
           .yfz-panel .yfp-lb-list ol { column-count:1; }
-          .yfz-panel .yfp-lb-title { font-size:9px; letter-spacing:.02em; margin-right:0; padding-bottom:4px; }
+          .yfz-panel .yfp-lb-title { font-size:9px; letter-spacing:.02em; margin-right:0; padding-bottom:0; }
           .yfz-panel .yfp-lb-title i { margin:0 3px; }
           .yfp-lb-regions-k { letter-spacing:.04em; }
           .yfp-lb-regions { gap:1px; }
