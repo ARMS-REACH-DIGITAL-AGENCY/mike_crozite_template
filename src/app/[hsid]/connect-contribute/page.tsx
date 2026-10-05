@@ -125,7 +125,7 @@ export default async function ConnectContributePage({
 
   return (
     <>
-      <section id="sec-connect-gallery" className="yat-section visible">
+      <section id="sec-mentor" className="yat-section visible">
         <div className="yat-grid" id="connect-grid">
           {threePlayers.map((p) => {
             const playerId = String(p.playerid);
