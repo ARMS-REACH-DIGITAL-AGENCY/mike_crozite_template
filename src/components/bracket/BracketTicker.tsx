@@ -2,23 +2,28 @@
 
 // src/components/bracket/BracketTicker.tsx
 // Row 6 (the footer) on the Fantasy Bracket Tourney tab: a scoreboard ticker
-// (dot-matrix light bulbs) scrolling every game of the current round with its
-// running score - the day innings through yesterday's stats, or FINAL once
-// the week is over - with the sponsor's ad line every few games. Same date
-// as the tab (today, or ?asof=YYYY-MM-DD).
+// (dot-matrix light bulbs) crawling every game of the current round, one
+// region at a time - each game stacked like a scoreboard (visitor over home,
+// running score at the right): the day innings through yesterday's stats, or
+// FINAL once the week is over. The games slide under a sponsor spot pinned
+// to the left - "REGION 1 PLAY BROUGHT TO YOU BY ..." - which changes with
+// each region. Same date as the tab (today, or ?asof=YYYY-MM-DD).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Doto } from 'next/font/google';
-import { selectSponsorCampaign } from '@/lib/sponsorCampaigns';
+import { selectRegionSponsor } from '@/lib/sponsorCampaigns';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
 
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
-const ROUND_TAG = Array.from({ length: 10 }, (_, i) => `ROUND ${i + 1}`);
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+// The crawl, in pixels per second.
+const CRAWL_PX_PER_SEC = 38;
 
 type Item = { key: string; tag: string; home: string; away: string; h: number; a: number; status: string; lead: 0 | 1 | 2 };
+// One region's games (region 0: a postseason stage), with its spot label.
+type Group = { region: number; label: string; items: Item[] };
 
-function tickerItems(index: Index, asof: string): Item[] {
+function tickerGroups(index: Index, asof: string): Group[] {
   const week = weekOfDate(index, asof);
   if (week === 0) return [];
   const last = index.weeks.length;
@@ -28,107 +33,148 @@ function tickerItems(index: Index, asof: string): Item[] {
     const t = Date.parse(`${index.weeks[w - 1][0]}T00:00:00Z`) + d * 86400000;
     return new Date(t).toISOString().slice(0, 10);
   }).filter((d) => d < asof).length;
-  const out: Item[] = [];
-  const add = (g: GameRow, tag: string) => {
+  const groups = new Map<string, Group>();
+  const add = (g: GameRow, region: number, label: string, tag: string) => {
     let h = 0, a = 0;
     g[5].forEach((v, i) => {
       const inning = Math.floor(i / 2);
       if (done === 7 || inning < done) { if (i % 2 === 0) h += v; else a += v; }
     });
-    const final = done === 7;
-    out.push({
+    const k = `${region}:${label}`;
+    if (!groups.has(k)) groups.set(k, { region, label, items: [] });
+    groups.get(k)!.items.push({
       key: `t${g[0]}`,
       tag,
       home: shortName(index.schools[g[2]]?.[0] || '').toUpperCase(),
       away: shortName(index.schools[g[3]]?.[0] || '').toUpperCase(),
       h, a,
-      status: final ? 'FINAL' : done === 0 ? 'STARTS MON' : `THRU ${DAYS[done - 1]}`,
+      status: done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : `THRU ${DAYS[done - 1]}`,
       lead: h > a ? 1 : a > h ? 2 : 0,
     });
   };
   for (const r of index.rounds) {
     for (const s of r.series) {
-      s[7].forEach((g, i) => { if (g[1] === w) add(g, `${ROUND_TAG[r.r - 1]}${s[0] ? ` · REG ${s[0]}` : ''} · G${i + 1}`); });
+      s[7].forEach((g, i) => {
+        if (g[1] === w) add(g, s[0], s[0] ? `ROUND ${r.r} · REGION ${s[0]}` : `ROUND ${r.r}`, `G${i + 1}`);
+      });
     }
   }
-  for (const { game } of index.lbt) if (game[1] === w) add(game, game[1] === 33 ? 'SEASON CHAMPIONSHIP GAME' : `SEASON CHAMPIONSHIP ${(LBT_ROUNDS[game[1]] || '').toUpperCase()}`);
-  for (const g of index.gf) if (g[1] === w) add(g, 'FANTASY WORLD SERIES');
-  return out;
+  for (const { game } of index.lbt) {
+    if (game[1] === w) add(game, 0, game[1] === 33 ? 'SEASON CHAMPIONSHIP GAME' : `SEASON CHAMPIONSHIP ${(LBT_ROUNDS[game[1]] || '').toUpperCase()}`, '');
+  }
+  for (const g of index.gf) if (g[1] === w) add(g, 0, 'FANTASY WORLD SERIES', '');
+  return [...groups.values()].sort((x, y) => (x.region || 99) - (y.region || 99));
 }
-
-// One ad line after every AD_EVERY games (and one to lead).
-const AD_EVERY = 5;
 
 export default function BracketTicker({ hsid }: { hsid: string }) {
   const [index, setIndex] = useState<Index | null>(null);
   const [asof, setAsof] = useState('');
+  const [turn, setTurn] = useState(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     loadIndex().then((i) => { setAsof(previewDate()); setIndex(i); }).catch(() => {});
   }, []);
-  const items = useMemo(() => (index && asof ? tickerItems(index, asof) : []), [index, asof]);
-  const ad = useMemo(() => {
-    const c = selectSponsorCampaign(hsid);
-    return c?.tickerText ? c : null;
-  }, [hsid]);
+  const groups = useMemo(() => (index && asof ? tickerGroups(index, asof) : []), [index, asof]);
+  const group = groups.length ? groups[turn % groups.length] : null;
+  const sponsor = useMemo(() => (group ? selectRegionSponsor(hsid, group.region) : null), [hsid, group]);
 
-  const adItem = (copy: number, n: number) => ad && (
-    <a key={`${copy}-ad${n}`} className="ybt-item ybt-ad" href={ad.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
-      aria-label={ad.altText} aria-hidden={copy ? true : undefined} tabIndex={copy ? -1 : undefined}
-      data-sponsor-id={ad.id} data-sponsor-name={ad.sponsorName}>
-      <span className="ybt-tag">SPONSOR</span>
-      <span>{ad.tickerText}</span>
-      <span className="ybt-status">TAP TO CLAIM</span>
-    </a>
+  // A steady crawl whatever the region's length: the duration comes from
+  // the track's width (the lane's width of lead-in plus its games).
+  useLayoutEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.style.animationDuration = `${Math.max(8, el.offsetWidth / CRAWL_PX_PER_SEC)}s`;
+    el.style.animationName = 'ybt-crawl';
+  }, [turn, group]);
+
+  const spot = group && (
+    sponsor ? (
+      <a className="ybt-spot" href={sponsor.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
+        aria-label={`${group.label} play brought to you by ${sponsor.sponsorName}`}
+        data-sponsor-id={sponsor.id} data-sponsor-name={sponsor.sponsorName}>
+        <span className="ybt-spot-k">{group.label} PLAY</span>
+        <span className="ybt-spot-by">BROUGHT TO YOU BY</span>
+        <b className="ybt-spot-name">{sponsor.sponsorName}</b>
+      </a>
+    ) : (
+      <div className="ybt-spot">
+        <span className="ybt-spot-k">{group.label} PLAY</span>
+      </div>
+    )
   );
-  const line = (copy: number) => items.flatMap((it, i) => [
-    i % AD_EVERY === 0 ? adItem(copy, i) : null,
-    <span key={`${copy}-${it.key}`} className="ybt-item" aria-hidden={copy ? true : undefined}>
-      <span className="ybt-tag">{it.tag}</span>
-      <span className={it.lead === 1 ? 'ybt-lead' : ''}>{it.home} {it.h}</span>
-      <span className="ybt-dash">-</span>
-      <span className={it.lead === 2 ? 'ybt-lead' : ''}>{it.a} {it.away}</span>
-      <span className="ybt-status">{it.status}</span>
-    </span>,
-  ]);
 
   return (
     <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores">
-      {!index && <span className="ybt-msg">LOADING SCORES...</span>}
-      {index && !items.length && <span className="ybt-msg">THE 2026 BRACKET STARTS {index.weeks[0][0]}</span>}
-      {index && !items.length && adItem(0, 0)}
-      {items.length > 0 && (
-        <div className="ybt-track" style={{ animationDuration: `${Math.max(30, items.length * 6)}s` }}>
-          {line(0)}{line(1)}
-        </div>
-      )}
+      {spot}
+      <div className="ybt-lane">
+        {!index && <span className="ybt-msg">LOADING SCORES...</span>}
+        {index && !groups.length && <span className="ybt-msg">THE 2026 BRACKET STARTS {index.weeks[0][0]}</span>}
+        {group && (
+          <div key={`${turn}`} ref={trackRef} className="ybt-track" onAnimationEnd={() => setTurn((t) => t + 1)}>
+            {group.items.map((it) => (
+              <span key={it.key} className="ybt-item">
+                <span className="ybt-meta">
+                  {it.tag && <span className="ybt-tag">{it.tag}</span>}
+                  <span className="ybt-status">{it.status}</span>
+                </span>
+                <span className="ybt-board">
+                  <span className={`ybt-team${it.lead === 2 ? ' ybt-lead' : ''}`}>{it.away}</span>
+                  <span className={`ybt-run${it.lead === 2 ? ' ybt-lead' : ''}`}>{it.a}</span>
+                  <span className={`ybt-team${it.lead === 1 ? ' ybt-lead' : ''}`}>{it.home}</span>
+                  <span className={`ybt-run${it.lead === 1 ? ' ybt-lead' : ''}`}>{it.h}</span>
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
       <style jsx global>{`
-        .ybt { position:relative; flex:1 1 auto; align-self:stretch; width:100%; height:100%; overflow:hidden; display:flex; align-items:center;
+        .ybt { position:relative; flex:1 1 auto; align-self:stretch; width:100%; height:100%; display:flex; overflow:hidden;
           background-color:#070503;
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
-          border-top:1px solid #1d1408; border-bottom:1px solid #1d1408; }
-        .ybt-track { display:inline-flex; flex:none; white-space:nowrap; animation:ybt-scroll linear infinite; will-change:transform; }
+          border-top:1px solid #1d1408; }
+        .ybt-lane { position:relative; flex:1 1 auto; min-width:0; overflow:hidden; display:flex; align-items:center; }
+        /* Starts just off the right edge (padding = the lane's width) and
+           crawls left until its last game has gone under the sponsor spot. */
+        .ybt-track { position:absolute; top:0; bottom:0; left:0; padding-left:100%; display:flex; align-items:center; white-space:nowrap;
+          animation-timing-function:linear; animation-iteration-count:1; animation-fill-mode:both; will-change:transform; }
         .ybt:hover .ybt-track { animation-play-state:paused; }
-        .ybt-item, .ybt-msg { display:inline-flex; align-items:baseline; gap:10px; padding:0 28px; font-size:22px; font-weight:900; letter-spacing:.06em;
-          color:#ffb238; text-shadow:0 0 3px rgba(255,170,40,.9), 0 0 10px rgba(255,120,0,.55); }
-        .ybt-msg { padding:0 16px; }
+        @keyframes ybt-crawl { from { transform:translateX(0); } to { transform:translateX(-100%); } }
+        .ybt-item { display:inline-flex; align-items:center; gap:10px; padding:0 22px; color:#ffb238;
+          text-shadow:0 0 3px rgba(255,170,40,.9), 0 0 10px rgba(255,120,0,.55); }
         .ybt-item + .ybt-item { border-left:2px dotted rgba(255,160,40,.35); }
-        .ybt-tag { font-size:14px; font-weight:700; color:#ff7a1a; text-shadow:0 0 3px rgba(255,110,20,.9); }
+        .ybt-meta { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+        .ybt-tag, .ybt-status { font-size:11px; font-weight:700; line-height:1; color:#ff7a1a; text-shadow:0 0 3px rgba(255,110,20,.9); }
+        .ybt-board { display:grid; grid-template-columns:auto auto; column-gap:12px; row-gap:2px; align-items:baseline; }
+        .ybt-team { font-size:17px; font-weight:900; line-height:1.05; letter-spacing:.05em; }
+        .ybt-run { font-size:17px; font-weight:900; line-height:1.05; text-align:right; font-variant-numeric:tabular-nums; }
         .ybt-lead { color:#fff3c4; text-shadow:0 0 3px rgba(255,230,160,.95), 0 0 12px rgba(255,190,60,.7); }
-        .ybt-dash { opacity:.7; }
-        a.ybt-ad { color:#fff3c4; text-decoration:none; text-shadow:0 0 3px rgba(255,230,160,.95), 0 0 12px rgba(255,190,60,.7); }
-        a.ybt-ad .ybt-tag { color:#04150c; background:#ffb238; padding:2px 6px 1px; border-radius:2px; text-shadow:none; }
-        a.ybt-ad:hover, a.ybt-ad:focus-visible { color:#fff; outline:none; text-decoration:underline; }
+        .ybt-msg { padding:0 16px; font-size:20px; font-weight:900; letter-spacing:.06em; color:#ffb238;
+          text-shadow:0 0 3px rgba(255,170,40,.9), 0 0 10px rgba(255,120,0,.55); white-space:nowrap; }
+        /* The sponsor spot: pinned left, above the crawl. */
+        .ybt-spot { position:relative; z-index:2; flex:none; width:250px; display:flex; flex-direction:column; justify-content:center; gap:2px;
+          padding:0 14px; background:#0b0805; border-right:2px solid rgba(255,160,40,.45); box-shadow:8px 0 14px rgba(0,0,0,.75);
+          color:#ffb238; text-decoration:none; font-family:Oswald,sans-serif; text-transform:uppercase; }
+        .ybt-spot-k { font-size:12px; font-weight:700; letter-spacing:.06em; line-height:1.1; color:#ffb238; }
+        .ybt-spot-by { font-size:9px; font-weight:600; letter-spacing:.12em; line-height:1; color:rgba(255,255,255,.55); }
+        .ybt-spot-name { font-size:14px; font-weight:700; letter-spacing:.03em; line-height:1.1; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        a.ybt-spot:hover .ybt-spot-name, a.ybt-spot:focus-visible .ybt-spot-name { text-decoration:underline; }
+        a.ybt-spot:focus-visible { outline:2px solid #ffb238; outline-offset:-2px; }
         @media (max-width:640px) {
-          .ybt-item, .ybt-msg { font-size:18px; gap:8px; padding:0 20px; }
-          .ybt-tag, .ybt-status { font-size:12px; }
+          .ybt-spot { width:128px; padding:0 8px; }
+          .ybt-spot-k { font-size:9.5px; }
+          .ybt-spot-by { font-size:7px; letter-spacing:.08em; }
+          .ybt-spot-name { font-size:11px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+          .ybt-item { gap:7px; padding:0 14px; }
+          .ybt-team, .ybt-run { font-size:14px; }
+          .ybt-tag, .ybt-status { font-size:9px; }
+          .ybt-msg { font-size:15px; }
         }
-        .ybt-status { font-size:14px; font-weight:700; color:#ff7a1a; text-shadow:0 0 3px rgba(255,110,20,.9); }
-        @keyframes ybt-scroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) {
-          .ybt { overflow-x:auto; }
-          .ybt-track { animation:none; }
+          .ybt-lane { overflow-x:auto; }
+          .ybt-track { position:relative; padding-left:0; animation:none !important; }
         }
       `}</style>
     </div>
