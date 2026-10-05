@@ -147,7 +147,6 @@ export default async function ConnectContributePage({
                 />
               </div>
             );
-            );
           })}
         </div>
       </section>
