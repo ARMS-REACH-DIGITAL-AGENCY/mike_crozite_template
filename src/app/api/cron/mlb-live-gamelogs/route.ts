@@ -16,6 +16,7 @@ const pool = new Pool({
 type ScheduleGame = {
   gamePk: number;
   gameDate?: string;
+  officialDate?: string;
   status?: { detailedState?: string };
   teams?: {
     home?: { team?: { id?: number; name?: string } };
@@ -223,7 +224,9 @@ export async function GET(req: NextRequest) {
         const idMap = await getMappedPlayerIds([...new Set(mlbIds.map(String))]);
         mappedPlayersSeen += idMap.size;
 
-        const gameDate = String(game.gameDate || date).slice(0, 10);
+        // officialDate is the local game day. gameDate is the UTC start time,
+        // so a 5pm Arizona game (00:00Z) would land on the next day.
+        const gameDate = String(game.officialDate || date).slice(0, 10);
         const gameStatus = game.status?.detailedState || "Unknown";
 
         for (const side of sides) {
