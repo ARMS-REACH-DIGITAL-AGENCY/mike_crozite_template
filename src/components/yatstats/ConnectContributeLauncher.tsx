@@ -8,7 +8,7 @@ export default function ConnectContributeLauncher({ hsid }: { hsid: string }) {
 
   return (
     <>
-      <section className="yat-section visible" style={{ textAlign: 'center', padding: '8px 20px 32px' }}>
+      <div style={{ textAlign: 'center', padding: '8px 20px 32px' }}>
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -29,7 +29,7 @@ export default function ConnectContributeLauncher({ hsid }: { hsid: string }) {
         <p style={{ marginTop: '12px', fontSize: '14px', opacity: 0.8 }}>
           Share photos of your school&apos;s alumni. Up to 10 at a time.
         </p>
-      </section>
+      </div>
       <ConnectContributeDrawer hsid={hsid} open={open} onClose={() => setOpen(false)} />
     </>
   );
