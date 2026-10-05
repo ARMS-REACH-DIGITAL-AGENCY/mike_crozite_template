@@ -401,17 +401,28 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     list.scrollTop = row ? row.offsetTop - list.clientHeight / 3 : 0;
   }, [view]);
   // The run column sits right after the longest school name (with its
-  // city) in the list shown, not at the far edge of the column.
+  // city) in the WHOLE field - one spot, the same for every region.
+  const fieldNames = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => index.schools[x.h]?.[0] || '')), [boards, index]);
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const fit = () => {
       list.style.removeProperty('--lb-name-w');
       const li = list.querySelector('li');
-      const names = [...list.querySelectorAll<HTMLElement>('li a')];
-      if (!li || !names.length) return;
+      if (!li || !fieldNames.length) return;
+      // Measure every school's name + city once, in a hidden copy of a row.
+      const probe = document.createElement('ol');
+      probe.setAttribute('aria-hidden', 'true');
+      probe.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;column-count:1';
+      probe.innerHTML = fieldNames.map(() => '<li><a><span></span><small></small></a></li>').join('');
+      [...probe.querySelectorAll('a')].forEach((a, i) => {
+        a.querySelector('span')!.textContent = shortName(fieldNames[i]);
+        a.querySelector('small')!.textContent = place(fieldNames[i]);
+      });
+      list.appendChild(probe);
       const textW = (el: HTMLElement) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
-      const longest = Math.max(...names.map(textW));
+      const longest = Math.max(...[...probe.querySelectorAll<HTMLElement>('a')].map(textW));
+      probe.remove();
       const cs = getComputedStyle(li);
       const cols = cs.gridTemplateColumns.split(' ');
       const room = li.clientWidth - parseFloat(cols[0]) - parseFloat(cols[2]) - 2 * parseFloat(cs.columnGap || '0');
@@ -421,7 +432,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     const ro = new ResizeObserver(fit);
     ro.observe(list);
     return () => ro.disconnect();
-  }, [rows]);
+  }, [fieldNames, view]);
   const diff = (s: { rf: number; ra: number }) => `${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra}`;
   return (
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
