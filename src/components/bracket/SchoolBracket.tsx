@@ -494,6 +494,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const [lbSheet, setLbSheet] = useState(false);
   const [rules, setRules] = useState(false);
   const [focused, setFocused] = useState(0);
+  // The round's games show one at a time (Game 1 / 2 / 3 tabs). null = the
+  // round's current game: live, else next, else the last one played.
+  const [gameWeek, setGameWeek] = useState<number | null>(null);
   const [stars, setStars] = useState<Record<number, Star> | null>(null);
   const [identities, setIdentities] = useState<Record<string, CurrentPlayerIdentity>>({});
   const nav = useBracketNav();
@@ -553,14 +556,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
   const pickTab = (key:FantasyStageKey) => {
     selectStage(key);
-    const list=tabs.find(t=>t.key===key)?.list||[];
-    if(list[0]) setFocused(list[0].week);
+    setGameWeek(null);
   };
   // A hero click/focus also changes the canonical stage.
   useEffect(() => {
     if(!nav.focusSeq||!nav.focusWeek) return;
     const key=stageKeyForWeek(nav.focusWeek);
-    const on=window.setTimeout(()=>{selectStage(key);setFocused(nav.focusWeek);},0);
+    const on=window.setTimeout(()=>{selectStage(key);setFocused(nav.focusWeek);setGameWeek(nav.focusWeek);},0);
     const off=window.setTimeout(()=>setFocused(0),2200);
     return()=>{window.clearTimeout(on);window.clearTimeout(off);};
   },[nav.focusSeq,nav.focusWeek]);
@@ -574,11 +576,19 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     if(!card) return;
     selectStage(stageKeyForWeek(card.week));
     setFocused(card.week);
+    setGameWeek(card.week);
     requestAnimationFrame(()=>document.getElementById(`fweek-${card.week}`)?.scrollIntoView({block:'nearest'}));
   },[cards]);
 
   const school = index?.schools[me];
   const cur = tabs.find((t) => t.key === tab);
+  const curList = cur?.list || [];
+  let gameIdx = gameWeek != null ? curList.findIndex((c) => c.week === gameWeek) : -1;
+  if (gameIdx < 0) gameIdx = curList.findIndex((c) => c.state === 'live');
+  if (gameIdx < 0) gameIdx = curList.findIndex((c) => c.state === 'next');
+  if (gameIdx < 0) curList.forEach((c, i) => { if (c.state === 'final') gameIdx = i; });
+  if (gameIdx < 0) gameIdx = 0;
+  const shownCard = curList[gameIdx];
   const roundTitle=(key:FantasyStageKey)=>{
     if(key==='c1') return 'Championship Round 1 · Week 31';
     if(key==='c2') return 'Championship Round 2 · Week 32';
@@ -600,8 +610,19 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                 <PostseasonStage stage={tab} index={index} me={me} cal={cal} rec={rec} onOpen={setOpen} />
               ) : (
                 <div className="yfz-cards">
-                  {cur?.list.map((c)=><WeekCardView key={c.week} index={index} card={c} me={me} star={stars?.[c.week]} starIdentity={stars?.[c.week]?identities[stars[c.week][5]]:undefined} rec={rec} focused={focused===c.week} onOpen={setOpen}/>)}
-                  {cur&&cur.list.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
+                  {curList.length > 1 && (
+                    <div className="yfz-game-tabs" role="tablist" aria-label="Games">
+                      {curList.map((c, i) => (
+                        <button key={c.week} type="button" role="tab" aria-selected={i === gameIdx}
+                          className={`yfz-game-tab${i === gameIdx ? ' on' : ''}${c.state === 'live' ? ' live' : ''}`}
+                          onClick={() => setGameWeek(c.week)}>
+                          <b>Game {i + 1}</b><span>{dates(index, c.week)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {shownCard && <WeekCardView key={shownCard.week} index={index} card={shownCard} me={me} star={stars?.[shownCard.week]} starIdentity={stars?.[shownCard.week]?identities[stars[shownCard.week][5]]:undefined} rec={rec} focused={focused===shownCard.week} onOpen={setOpen}/>}
+                  {cur&&curList.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
                   {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
                 </div>
               )}
@@ -917,6 +938,32 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @media (min-width:1680px) {
           body { --yfp-dw:min(700px, calc((100vw - 600px) / 2)); }
         }
+        /* Game 1 / 2 / 3: one game at a time, like the drawers' day tabs. */
+        .yfz-game-tabs { flex:none; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:4px; }
+        .yfz-game-tab { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 4px 5px; border:1px solid var(--yfp-card-border); border-radius:6px; background:var(--yfp-card-bg); color:var(--yfp-muted); cursor:pointer; }
+        .yfz-game-tab b { font:700 14px/1 Oswald,sans-serif; letter-spacing:.06em; text-transform:uppercase; }
+        .yfz-game-tab span { font:600 10px/1 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; }
+        .yfz-game-tab.on { border-color:var(--yfp-gold); background:rgba(210,180,92,.14); color:var(--yfp-gold); }
+        .yfz-game-tab.live:not(.on) b::after { content:' · live'; color:#e2786a; }
+        @media (max-width:899px) {
+          .yfz-game-tab { padding:4px 2px 3px; }
+          .yfz-game-tab b { font-size:11px; }
+          .yfz-game-tab span { font-size:8px; }
+        }
+
+        /* A maximized screen: the middle column is exactly the space between
+           two open drawers, open or not - the card fills it edge to edge.
+           The leaderboard sits in the right gutter when no drawer covers it. */
+        @media (min-width:1680px) {
+          .yfz-panel,
+          body.yfp-dock-l .yfz-panel,
+          body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
+          .yfz-panel > .yfp-lb { position:absolute; top:8px; bottom:8px; right:8px; width:250px; }
+          .yfz-cards > * { width:100%; }
+          .yfz-cards { scrollbar-width:none; }
+          .yfz-cards::-webkit-scrollbar { display:none; }
+        }
+
         /* The leaderboard while drawers are docked: its column is hidden, so a
            MOST RUNS button on the round bar slides it up from the bottom,
            between the drawers, in columns. */
@@ -943,6 +990,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz.lb-open .yfp-lb-list { column-width:230px; column-gap:28px; }
           .yfz.lb-open .yfp-lb-head { break-after:avoid; }
           .yfz.lb-open .yfp-lb li { break-inside:avoid; }
+        }
+        @media (min-width:1680px) {
+          body.yfp-dock-l .yfz.lb-open .yfz-panel > .yfp-lb,
+          body.yfp-dock-r .yfz.lb-open .yfz-panel > .yfp-lb { top:auto; width:auto; }
+          body.yfp-dock-l .yfz.lb-open .yfz-panel > .yfp-lb { left:var(--yfp-dw); }
+          body.yfp-dock-r .yfz.lb-open .yfz-panel > .yfp-lb { right:var(--yfp-dw); }
         }
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
