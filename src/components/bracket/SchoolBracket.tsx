@@ -491,7 +491,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const bothDrawers = useMinWidth(DUAL_DRAWER_MIN_WIDTH);
   // Desktop with Stat Ledgers open: the Most Runs leaderboard as a sheet
   // from the bottom, between the drawers (its column is hidden then).
-  const [lbSheet, setLbSheet] = useState(false);
   const [rules, setRules] = useState(false);
   const [focused, setFocused] = useState(0);
   // The round's games show one at a time (Game 1 / 2 / 3 tabs). null = the
@@ -603,7 +602,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {!error && (!index || !lb || !cal) && <p className="yfp-empty">Loading the 2026 season…</p>}
       {index && lb && cal && (
-        <div className={`yfz${lbSheet ? ' lb-open' : ''}`}>
+        <div className="yfz">
           <div className="yfz-panel">
             <div className="yfz-round">
               {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
@@ -639,10 +638,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                 </button>
               ))}
             </div>
-            <button type="button" className={`yfz-lb-toggle${lbSheet ? ' on' : ''}`} aria-pressed={lbSheet}
-              onClick={() => setLbSheet((v) => !v)} title="Most Runs Scored leaderboard">
-              <b>Most Runs</b>
-            </button>
           </nav>
         </div>
       )}
@@ -951,51 +946,40 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-game-tab span { font-size:8px; }
         }
 
-        /* A maximized screen: the middle column is exactly the space between
-           two open drawers, open or not - the card fills it edge to edge.
-           The leaderboard sits in the right gutter when no drawer covers it. */
-        @media (min-width:1680px) {
+        /* Desktop: one middle column - the game tabs and the game on top,
+           the Most Runs Scored leaderboard under it - in the same spot
+           whether the drawers are open or not. */
+        @media (min-width:900px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
-          body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
-          .yfz-panel > .yfp-lb { position:absolute; top:8px; bottom:8px; right:8px; width:250px; }
+          body.yfp-dock-r .yfz-panel {
+            grid-template-columns:min(100%, 580px); grid-template-rows:minmax(0,auto) minmax(150px,1fr);
+            justify-content:center; row-gap:10px; padding:8px;
+          }
+          body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
+          body.yfp-dock-r .yfz-panel { padding-right:calc(var(--yfp-dw) + 8px); }
+          .yfz-panel > .yfz-round { grid-row:1; }
+          .yfz-panel > .yfp-lb,
+          body.yfp-dock-l .yfz-panel > .yfp-lb,
+          body.yfp-dock-r .yfz-panel > .yfp-lb {
+            display:block; grid-row:2; position:static; height:100%; padding:8px 12px 10px;
+            border:1px solid var(--yfp-card-border); border-top:2px solid var(--yfp-gold,#d2b45c); border-radius:8px;
+          }
+          .yfz-panel > .yfp-lb .yfp-lb-cols { display:none; }
+          .yfz-panel > .yfp-lb .yfp-lb-sort { max-width:260px; }
+          .yfz-panel > .yfp-lb .yfp-lb-list { column-width:170px; column-gap:22px; }
+          .yfz-panel > .yfp-lb .yfp-lb-head { break-after:avoid; }
+          .yfz-panel > .yfp-lb li { break-inside:avoid; }
           .yfz-cards > * { width:100%; }
           .yfz-cards { scrollbar-width:none; }
           .yfz-cards::-webkit-scrollbar { display:none; }
         }
-
-        /* The leaderboard while drawers are docked: its column is hidden, so a
-           MOST RUNS button on the round bar slides it up from the bottom,
-           between the drawers, in columns. */
-        .yfz-lb-toggle { display:none; }
-        @media (min-width:900px) {
-          body.yfp-dock-l .yfz-lb-toggle, body.yfp-dock-r .yfz-lb-toggle {
-            display:flex; align-items:center; position:absolute; top:50%; transform:translateY(-50%);
-            right:calc(var(--yfp-dw) + 16px); height:34px; padding:0 14px; border:1px solid var(--yfp-gold,#d2b45c);
-            border-radius:5px; background:transparent; color:var(--yfp-gold,#d2b45c); cursor:pointer;
-          }
-          body.yfp-dock-l:not(.yfp-dock-r) .yfz-lb-toggle { right:16px; }
-          .yfz-lb-toggle b { font:700 13px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
-          .yfz-lb-toggle.on { background:var(--yfp-gold,#d2b45c); color:#111; }
-          body.yfp-dock-l .yfz.lb-open .yfz-panel > .yfp-lb,
-          body.yfp-dock-r .yfz.lb-open .yfz-panel > .yfp-lb {
-            display:block; position:fixed; z-index:61; left:8px; right:8px; height:min(48vh,460px);
-            bottom:calc(var(--footerH,66px) + var(--yfz-dock-h));
-            padding:10px 14px 12px; background:var(--bg,#0c0c0c); border:1px solid var(--yfp-card-border);
-            border-top:2px solid var(--yfp-gold,#d2b45c); border-radius:10px 10px 0 0; box-shadow:0 -10px 28px rgba(0,0,0,.55);
-          }
-          body.yfp-dock-l .yfz.lb-open .yfz-panel > .yfp-lb { left:calc(var(--yfp-dw) + 8px); }
-          body.yfp-dock-r .yfz.lb-open .yfz-panel > .yfp-lb { right:calc(var(--yfp-dw) + 8px); }
-          .yfz.lb-open .yfp-lb-cols { display:none; }
-          .yfz.lb-open .yfp-lb-list { column-width:230px; column-gap:28px; }
-          .yfz.lb-open .yfp-lb-head { break-after:avoid; }
-          .yfz.lb-open .yfp-lb li { break-inside:avoid; }
-        }
+        /* A maximized screen: the column is exactly the space between the
+           two drawers, open or not - flush against both. */
         @media (min-width:1680px) {
-          body.yfp-dock-l .yfz.lb-open .yfz-panel > .yfp-lb,
-          body.yfp-dock-r .yfz.lb-open .yfz-panel > .yfp-lb { top:auto; width:auto; }
-          body.yfp-dock-l .yfz.lb-open .yfz-panel > .yfp-lb { left:var(--yfp-dw); }
-          body.yfp-dock-r .yfz.lb-open .yfz-panel > .yfp-lb { right:var(--yfp-dw); }
+          .yfz-panel,
+          body.yfp-dock-l .yfz-panel,
+          body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
         }
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
