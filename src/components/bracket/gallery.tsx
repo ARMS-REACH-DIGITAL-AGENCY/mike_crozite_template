@@ -24,6 +24,7 @@ import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { TEST_OPENING_DAY, applyTestField } from '@/lib/bracket/testSeason';
+import { applyLive, liveBoxes } from './liveSeason';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -51,7 +52,8 @@ export type LbGame = [id: number, week: number, home: number, away: number, deci
 // ... then his club's W-L that week (inning 9). The final optional flag marks
 // a deterministic simulated W-L used only when the 2026 source record is absent.
 export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
-export type SideBox = { p: PlayerRow[]; wl: [number, number] };
+// days: live boxes carry each day's real lines (the drawer's M-Su tabs).
+export type SideBox = { p: PlayerRow[]; wl: [number, number]; days?: PlayerRow[][] };
 export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
 export type ActiveRosterPlayer = {
   playerid: string | number;
@@ -90,8 +92,8 @@ export function tieNote(decidedBy: string) {
 // Box scores are shared by every card of a round + region: one fetch each.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
-  // Test branch: no practice-season box scores (live lines come next).
-  if (!boxCache.has(file)) boxCache.set(file, Promise.resolve({}));
+  // Live games: every round's boxes come from the live lines.
+  if (!boxCache.has(file)) boxCache.set(file, liveBoxes());
   return boxCache.get(file)!;
 }
 
@@ -439,7 +441,7 @@ export function loadIndex() {
         idx.weeks = tournamentWeeks(TEST_OPENING_DAY, idx.weeks.length);
       }
       if (idx) applyTestField(idx);
-      return idx;
+      return idx ? applyLive(idx, simulationAsOf()) : idx;
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
@@ -1144,7 +1146,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const weekVals = boxForView?.d?.[7];
   const myName = names[me];
   const [statDay, setStatDay] = useState<'week' | number>('week');
-  const viewPlayers = statDay === 'week' ? (mine?.p || []) : dailyRosterRows(mine?.p || [], week, statDay);
+  const viewPlayers = statDay === 'week' ? (mine?.p || [])
+    : rawMine?.days ? rawMine.days[statDay] || [] : dailyRosterRows(mine?.p || [], week, statDay);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);

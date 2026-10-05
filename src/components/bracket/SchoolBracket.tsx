@@ -301,8 +301,9 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           : 'YAT?STATS WORLD SERIES';
   // Staged simulation: the drawer only shows results once the week's games
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
-  const played = card.state === 'final';
-  const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
+  // Live: a week in progress shows its days so far.
+  const played = card.state === 'final' || (card.state === 'live' && card.days > 0);
+  const [hr, ar] = played ? runsThrough(g, card.state === 'final' ? 7 : card.days) : [0, 0];
   return (
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
