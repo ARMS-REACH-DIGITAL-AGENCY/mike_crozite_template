@@ -5,6 +5,9 @@ export type SponsorCampaign = {
   mobileImage: string;
   destinationUrl: string;
   altText: string;
+  /** Fantasy bracket regions (1-8) whose ticker play this sponsor
+   *  presents ("REGION 1 PLAY BROUGHT TO YOU BY ..."). Omit for any. */
+  regions?: number[];
   schoolIds: '*' | string[];
   startsAt?: string;
   endsAt?: string;
@@ -63,4 +66,21 @@ export function selectSponsorCampaign(
   const rotationWindow = Math.floor(now.getTime() / (10 * 60 * 1000));
 
   return weighted[hash(`${hsid}:${rotationWindow}`) % weighted.length] || null;
+}
+
+/** The sponsor presenting one region's games in the bracket ticker: a
+ *  campaign booked for that region first, else any campaign that runs
+ *  everywhere. Region 0 = games outside the regions (postseason). */
+export function selectRegionSponsor(
+  hsid: string,
+  region: number,
+  now = new Date(),
+): SponsorCampaign | null {
+  const eligible = sponsorCampaigns.filter(
+    (campaign) => isActive(campaign, now) && appliesToSchool(campaign, hsid),
+  );
+  const booked = eligible.filter((campaign) => campaign.regions?.includes(region));
+  const candidates = booked.length ? booked : eligible.filter((campaign) => !campaign.regions);
+  if (!candidates.length) return null;
+  return candidates[hash(`${hsid}:region:${region}`) % candidates.length];
 }

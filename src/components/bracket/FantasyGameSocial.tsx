@@ -162,9 +162,10 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
     </div>
   );
 
-  const composer=(
+  // Signed out: no composer at all - COMMENT opens the account drawer.
+  const composer=me?(
     <div className="ysv-composer fgs-composer">
-      {me?<>
+      <>
         <span className="ysv-avatar ysv-avatar-sm">{initials(myName)}</span>
         <div className="ysv-compose-box">
           {picked.length?<div className="ysv-picked">{picked.map(p=><span key={p.id}><img src={p.preview} alt=""/><button type="button" onClick={()=>setPicked(list=>list.filter(x=>x.id!==p.id))}><i className="ri-close-line"/></button></span>)}</div>:null}
@@ -173,9 +174,9 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
         <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={e=>pick(e.target.files)}/>
         <button type="button" className="ysv-photo-btn" onClick={()=>inputRef.current?.click()} disabled={picked.length>=MAX_PHOTOS}><i className="ri-image-add-line"/></button>
         <button type="button" onClick={()=>void post()} disabled={busy||(!draft.trim()&&!picked.length)}><i className={busy?'ri-loader-4-line ysv-spin':'ri-send-plane-2-fill'}/></button>
-      </>:<button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to comment</button>}
+      </>
     </div>
-  );
+  ):null;
 
   return <>
     <div className="fgs-inline ysv-post">

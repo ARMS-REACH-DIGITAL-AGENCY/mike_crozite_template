@@ -176,13 +176,14 @@ export default function SharedShell({
                 )}
         </div>
 
-        <div className="yat-row4-shell">
+        <div className={`yat-row4-shell${activeSection === 'fantasy' && !isPlayerProfile && !row4Content ? ' yat-row4-off' : ''}`}>
           {row4Content
             ? row4Content
             : activeSection === 'fantasy' && !isPlayerProfile
-              // The Fantasy Bracket Tourney tab: the current round's scores
-              // as a scrolling scoreboard ticker instead of the metadata.
-              ? <BracketTicker />
+              // The Fantasy Bracket Tourney tab has no row 4: row 3's
+              // timeline picks the round, the scores ticker is in row 6,
+              // and row 5 gets the height.
+              ? null
               : profilePlayerId
               // The player profile's thin year-tick timeline (the old
               // variant="line" row) is now folded into the taller
@@ -205,7 +206,10 @@ export default function SharedShell({
       </main>
 
       <footer className="yat-row6-shell yat-footer">
-        <SponsorBanner hsid={hsid} />
+        {activeSection === 'fantasy' && !isPlayerProfile
+          // The bracket tab: the scores ticker, with the sponsor ads in it.
+          ? <BracketTicker hsid={hsid} />
+          : <SponsorBanner hsid={hsid} />}
       </footer>
     </>
   );
