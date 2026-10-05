@@ -36,7 +36,7 @@ const pitOf = (s: Record<string, unknown>): PitTotals => ({
 export type PlayerDay = { name: string; team: string | null; line: string; day: number; type: string };
 export type Matchup = { home: [number, string, number]; away: [number, string, number]; result: GameResult; players: Record<number, PlayerDay[]> };
 
-export async function loadTestBrackets(): Promise<{ brackets: Matchup[][]; lines: number; asOf: string }> {
+export async function loadTestBrackets(): Promise<{ brackets: Matchup[][]; lines: number; asOf: string; today: number }> {
   const hsids = Array.from(new Set(TEST_BRACKETS.flat().map(([h]) => String(h))));
   const { rows } = await query<Row>(
     `SELECT DISTINCT ON (gl.playerid, gl.source_game_id, gl.stat_type)
@@ -89,5 +89,8 @@ export async function loadTestBrackets(): Promise<{ brackets: Matchup[][]; lines
     }
     return games;
   });
-  return { brackets, lines: rows.length, asOf: new Date().toISOString() };
+  // Day of the week in Arizona (UTC-7, no DST): 0 = Monday.
+  const now = Date.now();
+  const today = Math.min(6, Math.max(0, Math.floor((now - Date.parse(`${TEST_WEEK.start}T07:00:00Z`)) / 86400000)));
+  return { brackets, lines: rows.length, asOf: new Date(now).toISOString(), today };
 }

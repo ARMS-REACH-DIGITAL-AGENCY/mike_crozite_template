@@ -10,8 +10,7 @@ export const metadata: Metadata = { title: 'Bracket live test | YAT?STATS', robo
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S', 'WK', 'W-L'];
 
 export default async function BracketTestPage() {
-  const { brackets, lines, asOf } = await loadTestBrackets();
-  const today = Math.min(6, Math.max(0, Math.floor((Date.now() - Date.parse(`${TEST_WEEK.start}T07:00:00Z`)) / 86400000)));
+  const { brackets, lines, asOf, today } = await loadTestBrackets();
   return (
     <main className="bt">
       <header>
