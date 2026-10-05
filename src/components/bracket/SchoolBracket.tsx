@@ -26,7 +26,7 @@ import {
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
-import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
@@ -95,7 +95,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   }, [g, card.file]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
-  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
+  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
@@ -232,7 +232,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 // ticker stay in view above it, the footer ad below); on a phone the whole
 // screen.
 function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () => void; children: React.ReactNode; dual?: boolean; sides: ('l' | 'r')[] }) {
-  const [box, setBox] = useState<{ top: number } | null>(null);
+  const [box, setBox] = useState<{ top: number; mobile?: boolean } | null>(null);
   // Desktop: the drawers dock beside the game cards (body classes pad the
   // panel on those sides) rather than covering them, so the other school's
   // name stays visible and clickable.
@@ -243,13 +243,17 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     return () => document.body.classList.remove(...cls);
   }, [sideKey]);
   useEffect(() => {
+    // Never over row 1: the drawers start below the site's top bar.
     const place = () => {
       const row5 = document.querySelector('.yfz') || document.querySelector('.yat-row5-shell');
-      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(0, row5.getBoundingClientRect().top) } : null);
+      const bar = document.querySelector('.yat-topbar');
+      const below = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(below, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
     };
     place();
     window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
+    window.addEventListener('scroll', place, { passive: true });
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place); };
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -257,7 +261,7 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return createPortal(
-    <div className={`yfp-drawer-wrap${box ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box ? undefined : onClose}>
+    <div className={`yfp-drawer-wrap${box && !box.mobile ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box && !box.mobile ? undefined : onClose}>
       {children}
     </div>,
     document.body,
@@ -302,6 +306,10 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
   const played = card.state === 'final';
   const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
+  // The drawer opens on today's tab during the week (Monday = 0), else on the week.
+  const weekStart = index.weeks[card.week - 1]?.[0];
+  const todayIdx = weekStart ? Math.round((Date.parse(`${previewDate()}T00:00:00Z`) - Date.parse(`${weekStart}T00:00:00Z`)) / 86400000) : -1;
+  const openDay: 'week' | number = todayIdx >= 0 && todayIdx <= 6 ? todayIdx : 'week';
   return (
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
@@ -321,7 +329,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
           decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
-          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} />
+          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} openDay={openDay} />
       </aside>
   );
 }
