@@ -899,19 +899,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-lb-rules { min-height:32px; font-size:11px; }
 
         }
-        @media (min-width:900px) {
-          /* Stat Ledger drawers: wide enough for the name and all 13 stat
-             columns at a readable size - no clipping, no sideways scroll. */
-          body { --yfp-dw:min(760px, 94vw); }
+        /* Docked Stat Ledger drawers (1100px and up): no dimming, clicks pass
+           through to the game. A drawer takes whatever the fixed 580px game
+           column leaves (up to 760px), so the game never changes size. */
+        @media (min-width:1100px) {
+          body { --yfp-dw:min(760px, calc(100vw - 600px)); }
           .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); }
-          /* Docked: no dimming, clicks pass through to the cards, which move
-             over to stay visible beside the drawer(s). */
           .yfp-drawer-wrap.row5 { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { pointer-events:auto; }
-          body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); padding-left:8px; }
-          body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { display:none; }
-          body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
-          body.yfp-dock-r .yfz-panel { padding-right:calc(var(--yfp-dw) + 8px); }
+        }
+        @media (min-width:900px) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box { font-size:11.5px; }
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:120px !important; }
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:10px; }
@@ -986,12 +983,22 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-list ol { column-count:1; }
           .yfz-panel > .yfp-lb { font-size:12px; }
         }
-        /* Docked drawers on a laptop screen: the column steps out from under
-           the drawer. */
-        @media (min-width:900px) {
-          body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
-          body.yfp-dock-r .yfz-panel { padding-right:calc(var(--yfp-dw) + 8px); }
+        /* 1100px and up: the game column is always 580px. Closed, it's
+           centered; when a drawer opens it slides over (with the drawer) and
+           sits right against it - left drawer, it moves right; right drawer,
+           it moves left. */
+        @media (min-width:1100px) {
+          .yfz-panel,
+          body.yfp-dock-l .yfz-panel,
+          body.yfp-dock-r .yfz-panel {
+            grid-template-columns:minmax(0,1fr); justify-content:stretch;
+            padding-left:max(8px, calc((100% - 580px) / 2)); padding-right:max(8px, calc((100% - 580px) / 2));
+            transition:padding-left .22s ease-out, padding-right .22s ease-out;
+          }
+          body.yfp-dock-l .yfz-panel { padding-left:var(--yfp-dw); padding-right:max(0px, calc(100% - var(--yfp-dw) - 580px)); }
+          body.yfp-dock-r .yfz-panel { padding-right:var(--yfp-dw); padding-left:max(0px, calc(100% - var(--yfp-dw) - 580px)); }
         }
+        @media (prefers-reduced-motion: reduce) { .yfz-panel { transition:none !important; } }
         /* A maximized screen: the column is exactly the space between the
            two drawers, open or not - flush against both. */
         @media (min-width:1680px) {
