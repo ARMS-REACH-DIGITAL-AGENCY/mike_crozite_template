@@ -30,7 +30,7 @@ export function calendar(index: Index, asof: string) {
   const week = weekOfDate(index, asof);
   const final = lastFinalWeek(index, asof);
   const days = week >= 1 && week <= index.weeks.length
-    ? Array.from({ length: 7 }, (_, d) => new Date(Date.parse(`${index.weeks[week - 1][0]}T00:00:00Z`) + d * 86400000).toISOString().slice(0, 10)).filter((d) => d < asof).length
+    ? Array.from({ length: 7 }, (_, d) => new Date(Date.parse(`${index.weeks[week - 1][0]}T00:00:00Z`) + d * 86400000).toISOString().slice(0, 10)).filter((d) => d <= asof).length
     : 0;
   return { week, final, days };
 }
