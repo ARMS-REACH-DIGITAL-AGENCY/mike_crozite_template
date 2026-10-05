@@ -22,6 +22,7 @@ import {
   getResolvedCurrentTeam,
   getFlipCardTransactionStatus,
   getNewsByPlayer,
+  getPlayerSocialHandles,
   query,
 } from "@/lib/db";
 import type { Metadata } from "next";
@@ -241,6 +242,7 @@ export default async function ProfilePage({ params }: Props) {
     careerPitching,
     resolvedCurrentTeam,
     transactionStatus,
+    socialHandles,
   ] = await Promise.all([
     getPlayerBattingStats(safePlayerId),
     getPlayerPitchingStats(safePlayerId),
@@ -248,6 +250,7 @@ export default async function ProfilePage({ params }: Props) {
     getPlayerCareerPitching(safePlayerId),
     getResolvedCurrentTeam(safePlayerId),
     getFlipCardTransactionStatus(safePlayerId),
+    getPlayerSocialHandles(safePlayerId),
   ]);
 
   const latestYear = Math.max(
@@ -753,8 +756,8 @@ export default async function ProfilePage({ params }: Props) {
 
   // ── Social handles ────────────────────────────────────────────────────────────
 
-  const xHandle = (player.x_handle || player.twitter_handle || "").replace(/^@/, "");
-  const igHandle = (player.ig_handle || player.instagram_handle || "").replace(/^@/, "");
+  const xHandle = (socialHandles.x || socialHandles.twitter || player.x_handle || player.twitter_handle || "").replace(/^@/, "");
+  const igHandle = (socialHandles.instagram || player.ig_handle || player.instagram_handle || "").replace(/^@/, "");
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
