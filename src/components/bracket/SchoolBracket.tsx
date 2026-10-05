@@ -363,9 +363,8 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
   return (
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
       <div className="yfp-lb-top">
-        <div>
-          <div className="yfp-lb-title">Most Runs Scored</div>
-          <div className="yfp-lb-sub">{through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential</div>
+        <div className="yfp-lb-title" title={`${through ? `Thru week ${through}` : 'Starts week 1'} · runs, then run differential`}>
+          Most Runs <span>|</span> Season Leaderboard
         </div>
         <div className="yfp-lb-sort" role="group" aria-label="Order">
           <button type="button" className={order === 'rank' ? 'on' : ''} aria-pressed={order === 'rank'} onClick={() => setOrder('rank')}>Standings</button>
@@ -373,11 +372,13 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         </div>
       </div>
       <div className="yfp-lb-regions" role="tablist" aria-label="Regions">
+        <span className="yfp-lb-regions-k" aria-hidden="true">Regions</span>
         {boards.map((x) => (
           <button key={x.region} type="button" role="tab" aria-selected={x.region === region}
+            aria-label={`Region ${x.region} · ${REGIONS[x.region]}`} title={`Region ${x.region} · ${REGIONS[x.region]}`}
             className={`${x.region === region ? 'on' : ''}${x.region === myRegion ? ' mine' : ''}`}
             onClick={() => setRegion(x.region)}>
-            <b>{x.region}</b><span>{REGIONS[x.region]}</span>
+            {x.region}
           </button>
         ))}
       </div>
@@ -817,7 +818,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* Pinned just under rows 1-3 while the weeks scroll. */
         .yfp-lb { min-width: 0; position: sticky; top: calc(var(--row1-h, 36px) + var(--row2-h, 54px) + var(--row3-h, 100px) + 8px); max-height: calc(100dvh - var(--row1-h, 36px) - var(--row2-h, 54px) - var(--row3-h, 100px) - var(--footerH, 66px) - 16px); overflow-y: auto; font: 400 9px/1.28 system-ui, sans-serif; }
         .yfp-lb-title { color: var(--yfp-gold); font: 700 9px/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-        .yfp-lb-sub { margin: 2px 0 4px; color: var(--yfp-muted); font-size: 7px; line-height:1.15; }
         .yfp-lb-sort { display: flex; gap: 2px; margin: 0 0 4px; padding: 0; }
         .yfp-lb-sort button { flex: 1; min-height: 18px; padding: 0 2px; border: 1px solid var(--yfp-card-border); border-radius: 2px; background: var(--yfp-card-bg); color: var(--yfp-muted); font: 700 7px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
         .yfp-lb-sort button.on { border-color: var(--yfp-gold); color: var(--yfp-gold); }
@@ -892,7 +892,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel > .yfp-lb { scrollbar-gutter:stable; padding-right:4px; }
           .yfp-lb { font-size:13px; line-height:1.4; }
           .yfp-lb-title { font-size:12px; }
-          .yfp-lb-sub { font-size:10px; }
           .yfp-lb-sort button { min-height:26px; font-size:11px; }
           .yfp-lb li { grid-template-columns:34px minmax(0,1fr) 30px; gap:6px; padding:2px 0; }
           .yfp-lb li .rf { text-align:right; }
@@ -924,26 +923,26 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* Pills - the same size as the flip cards' (ACTIVE / CLASS OF ...):
            Game 1/2/3, the regions, Standings/A-Z, Rules. The selected one is
            filled, not outlined in color. */
-        .yfz-game-tab, .yfp-lb-regions button, .yfz-panel .yfp-lb-sort button, .yfz-panel .yfp-lb-rules {
+        .yfz-game-tab, .yfz-panel .yfp-lb-sort button, .yfz-panel .yfp-lb-rules {
           display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:0; width:auto; margin:0;
           padding:3px 10px; border:1px solid rgba(255,255,255,.15); border-radius:20px; background:rgba(0,0,0,.5);
           color:rgba(255,255,255,.62); font:700 10px/1.2 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase;
           white-space:nowrap; cursor:pointer;
         }
-        .yfz-game-tab b, .yfp-lb-regions b { font:inherit; color:#fff; }
-        .yfz-game-tab span, .yfp-lb-regions span { font:inherit; letter-spacing:inherit; color:inherit; max-width:none; overflow:visible; }
-        .yfz-game-tab:hover, .yfp-lb-regions button:hover, .yfz-panel .yfp-lb-sort button:hover, .yfz-panel .yfp-lb-rules:hover { color:#fff; }
-        .yfz-game-tab.on, .yfp-lb-regions button.on, .yfz-panel .yfp-lb-sort button.on {
+        .yfz-game-tab b { font:inherit; color:#fff; }
+        .yfz-game-tab span { font:inherit; letter-spacing:inherit; color:inherit; }
+        .yfz-game-tab:hover, .yfz-panel .yfp-lb-sort button:hover, .yfz-panel .yfp-lb-rules:hover { color:#fff; }
+        .yfz-game-tab.on, .yfz-panel .yfp-lb-sort button.on {
           background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.3); color:#fff;
         }
-        .yfz-game-tab.on b, .yfp-lb-regions button.on b { color:var(--yfp-gold,#d2b45c); }
+        .yfz-game-tab.on b { color:var(--yfp-gold,#d2b45c); }
         .yfz-game-tab.live:not(.on) b::after { content:' · live'; color:#e2786a; }
         .yfz-game-tabs { flex:none; display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
-        body.light-theme .yfz-game-tab, body.light-theme .yfp-lb-regions button,
+        body.light-theme .yfz-game-tab,
         body.light-theme .yfz-panel .yfp-lb-sort button, body.light-theme .yfz-panel .yfp-lb-rules {
           background:rgba(255,255,255,.7); border-color:rgba(0,0,0,.15); color:rgba(0,0,0,.6);
         }
-        body.light-theme .yfz-game-tab b, body.light-theme .yfp-lb-regions b { color:#111; }
+        body.light-theme .yfz-game-tab b { color:#111; }
 
         /* Every screen: one middle column - the game tabs and the game on
            top, the Most Runs Scored leaderboard always right under it, one
@@ -967,10 +966,22 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           background:var(--yfp-card-bg); font:400 13px/1.4 system-ui,sans-serif;
         }
         .yfp-lb-top { flex:none; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-        .yfz-panel .yfp-lb-title { font-size:12px; }
-        .yfz-panel .yfp-lb-sub { margin:2px 0 0; font-size:10px; }
+        .yfz-panel .yfp-lb-title { align-self:center; font-size:12px; white-space:nowrap; }
+        .yfz-panel .yfp-lb-title span { margin:0 4px; color:var(--yfp-faint,rgba(255,255,255,.3)); font-weight:400; }
         .yfz-panel .yfp-lb-sort { flex:none; display:flex; gap:4px; width:auto; margin:0; }
-        .yfp-lb-regions { flex:none; display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:8px 0 6px; }
+        /* Regions 1-8: manila-folder tabs on the list's top edge; the open
+           one joins the list. */
+        .yfp-lb-regions { flex:none; display:flex; align-items:flex-end; gap:3px; margin:8px 0 6px; border-bottom:1px solid rgba(255,255,255,.2); }
+        .yfp-lb-regions-k { margin-right:6px; padding-bottom:5px; color:var(--yfp-muted); font:700 10px/1 Oswald,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+        .yfp-lb-regions button { position:relative; margin-bottom:-1px; min-width:30px; padding:4px 9px 3px; border:1px solid rgba(255,255,255,.2); border-bottom-color:transparent;
+          border-radius:7px 7px 0 0; background:rgba(255,255,255,.05); color:rgba(255,255,255,.55); font:700 12px/1 Oswald,sans-serif; cursor:pointer; }
+        .yfp-lb-regions button:hover { color:#fff; }
+        .yfp-lb-regions button.mine { color:var(--yfp-gold,#d2b45c); }
+        .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#fff; }
+        .yfp-lb-regions button.on.mine { color:var(--yfp-gold,#d2b45c); }
+        body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
+        body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
+        body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#111; }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
         .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:24px; }
         .yfz-panel .yfp-lb li { grid-template-columns:30px minmax(0,1fr) 30px; gap:6px; padding:2px 0; break-inside:avoid; }
