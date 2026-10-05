@@ -9,7 +9,7 @@
 //   Weeks 31-34: its Season Championship Tournament and Fantasy World Series
 //   games, only once it's in them; the Bracket Champ's bye weeks.
 
-import { type GameRow, type Index, type LbGame, BASE, LAST_WEEK, lvl, LBT_ROUNDS, REGIONS, WORLD_SERIES, eliminations, lastFinalWeek, weekOfDate } from './gallery';
+import { type GameRow, type Index, type LbGame, LAST_WEEK, lvl, LBT_ROUNDS, REGIONS, WORLD_SERIES, eliminations, lastFinalWeek, weekOfDate } from './gallery';
 
 export type WeekState = 'final' | 'live' | 'next' | 'tbd' | 'bye';
 export type WeekCard = {
@@ -113,7 +113,8 @@ export type CurrentPlayerIdentity = {
 const starCache = new Map<number, Promise<Record<number, Record<number, Star>>>>();
 export function loadStars(region: number) {
   if (!starCache.has(region)) {
-    starCache.set(region, fetch(`${BASE}/stars-${region}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+    // Test branch: no practice-season stars.
+    starCache.set(region, Promise.resolve({}));
   }
   return starCache.get(region)!;
 }

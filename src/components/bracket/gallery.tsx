@@ -23,7 +23,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
-import { TEST_OPENING_DAY } from '@/lib/bracket/testSeason';
+import { TEST_OPENING_DAY, applyTestField } from '@/lib/bracket/testSeason';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -90,9 +90,8 @@ export function tieNote(decidedBy: string) {
 // Box scores are shared by every card of a round + region: one fetch each.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
-  if (!boxCache.has(file)) {
-    boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
-  }
+  // Test branch: no practice-season box scores (live lines come next).
+  if (!boxCache.has(file)) boxCache.set(file, Promise.resolve({}));
   return boxCache.get(file)!;
 }
 
@@ -439,6 +438,7 @@ export function loadIndex() {
       if (idx && Array.isArray(idx.weeks)) {
         idx.weeks = tournamentWeeks(TEST_OPENING_DAY, idx.weeks.length);
       }
+      if (idx) applyTestField(idx);
       return idx;
     });
     indexPromise.catch(() => { indexPromise = null; });
@@ -448,7 +448,8 @@ export function loadIndex() {
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
   if (!lbPromise) {
-    lbPromise = fetch(`${BASE}/lb.json`).then((r) => (r.ok ? r.json() : { games: [] })).then((d: { games: LbGame[] }) => d.games).catch(() => []);
+    // Test branch: no practice-season leaderboard games.
+    lbPromise = Promise.resolve([] as LbGame[]);
   }
   return lbPromise;
 }
