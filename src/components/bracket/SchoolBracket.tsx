@@ -931,7 +931,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           body.yfp-dock-l .yfz-panel { padding-left:calc(var(--yfp-dw) + 8px); }
         }
         @media (min-width:1680px) {
-          body { --yfp-dw:min(700px, calc((100vw - 600px) / 2)); }
+          /* Drawers take everything but a fixed 600px middle, so the card is
+             the same width on every big screen and always centered. */
+          body { --yfp-dw:calc((100vw - 600px) / 2); }
         }
         /* Game 1 / 2 / 3: one game at a time, like the drawers' day tabs. */
         .yfz-game-tabs { flex:none; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:4px; }
@@ -967,9 +969,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           }
           .yfz-panel > .yfp-lb .yfp-lb-cols { display:none; }
           .yfz-panel > .yfp-lb .yfp-lb-sort { max-width:260px; }
-          .yfz-panel > .yfp-lb .yfp-lb-list { column-width:170px; column-gap:22px; }
-          .yfz-panel > .yfp-lb .yfp-lb-head { break-after:avoid; }
-          .yfz-panel > .yfp-lb li { break-inside:avoid; }
+          /* Regions side by side, two across, each read top to bottom. */
+          .yfz-panel > .yfp-lb .yfp-lb-list { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); column-gap:24px; align-items:start; }
           .yfz-cards > * { width:100%; }
           .yfz-cards { scrollbar-width:none; }
           .yfz-cards::-webkit-scrollbar { display:none; }
