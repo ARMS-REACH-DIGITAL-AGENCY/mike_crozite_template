@@ -1021,7 +1021,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:var(--yfp-gold,#d2b45c); }
         /* Every tab - 1 to 8 and A-Z - is one size; the open one rises 2px. */
         .yfp-lb-regions button { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
-          width:28px; height:20px; min-width:0; padding:0; text-align:center; }
+          flex:1 1 0; width:auto; min-width:14px; height:20px; padding:0; text-align:center; }
         .yfp-lb-regions button.on { height:22px; padding:0; }
         .yfp-lb-regions button.az { margin-left:4px; font-size:9px; letter-spacing:-.02em; }
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
@@ -1042,7 +1042,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-title i { margin:0 3px; }
           .yfp-lb-regions-k { letter-spacing:.04em; }
           .yfp-lb-regions { gap:1px; }
-          .yfz-panel .yfp-lb-regions button { width:17px; height:18px; padding:0; font-size:10.5px; }
+          .yfz-panel .yfp-lb-regions button { flex:1 1 0; width:auto; min-width:14px; height:18px; padding:0; font-size:10.5px; }
           .yfz-panel .yfp-lb-regions button.on { height:20px; }
           .yfz-panel .yfp-lb-regions button.az { margin-left:2px; font-size:6.5px; letter-spacing:-.04em; }
           .yfz-panel > .yfp-lb, body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { padding:8px 6px; font-size:12px; }
@@ -1051,7 +1051,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-title { font-size:8.5px; letter-spacing:0; }
           .yfz-panel .yfp-lb-title i { margin:0 2px; }
           .yfp-lb-regions-k { letter-spacing:0; }
-          .yfz-panel .yfp-lb-regions button { width:15px; }
         }
         /* From 820px, like the flip-card gallery: the game (up to 680px)
            sits centered with no drawer, and when one opens it slides over
