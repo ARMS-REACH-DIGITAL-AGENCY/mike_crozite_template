@@ -741,9 +741,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      -- Years compare as numeric: TBC labels the Mexican League's 2018
+      -- spring and fall seasons "2018.1" and "2018.2".
       COALESCE(
         CASE
-          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
           THEN lp.pit_level
           ELSE lb.bat_level
         END,
@@ -759,7 +761,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
-          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+          lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
         ) THEN lp.bb
         ELSE lb.bb
       END AS bb,
@@ -780,7 +782,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       COALESCE(spb.season_pitching_buckets, '[]'::jsonb) AS season_pitching_buckets,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
-          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+          lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
         ) THEN true
         ELSE false
       END AS is_pitcher
@@ -793,7 +795,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
     ORDER BY
       CASE COALESCE(
         CASE
-          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
           THEN lp.pit_level ELSE lb.bat_level
         END, sp.career_highlevel)
         WHEN 'MLB'           THEN 1
@@ -1310,7 +1312,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
       cb.rbi,
       cb.sb,
       CASE
-        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::numeric >= lbl.stat_year::numeric)
         THEN cp.bb
         ELSE cb.bb
       END AS bb,
@@ -1340,7 +1342,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
 
       CASE WHEN a26.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
       CASE
-        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::numeric >= lbl.stat_year::numeric)
         THEN true
         ELSE false
       END AS is_pitcher
