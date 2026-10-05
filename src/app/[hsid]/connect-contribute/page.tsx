@@ -149,8 +149,8 @@ export default async function ConnectContributePage({
             );
           })}
         </div>
+        <ConnectContributeLauncher hsid={resolvedHsid} />
       </section>
-      <ConnectContributeLauncher hsid={resolvedHsid} />
     </>
   );
 }
