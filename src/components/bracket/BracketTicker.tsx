@@ -16,7 +16,6 @@ import { selectRegionSponsor } from '@/lib/sponsorCampaigns';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
 
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 // The crawl, in pixels per second.
 const CRAWL_PX_PER_SEC = 38;
 
@@ -50,7 +49,7 @@ function tickerGroups(index: Index, asof: string): Group[] {
       home: shortName(index.schools[g[2]]?.[0] || '').toUpperCase(),
       away: shortName(index.schools[g[3]]?.[0] || '').toUpperCase(),
       h, a,
-      status: done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : `THRU ${DAYS[done - 1]}`,
+      status: done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE',
       lead: h > a ? 1 : a > h ? 2 : 0,
     });
   };
