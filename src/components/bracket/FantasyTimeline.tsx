@@ -409,12 +409,12 @@ export default function FantasyTimeline() {
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
         .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        .yft-series { position:absolute; z-index:2; right:2%; top:18px; bottom:42px; width:21%; min-width:160px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; text-align:left; }
+        .yft-series { position:absolute; z-index:2; right:1.2%; top:18px; bottom:42px; width:16%; min-width:150px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
         .yft-series-games { margin-top:11px; width:100%; display:grid; gap:9px; }
-        .yft-series-game { display:grid; grid-template-columns:22px minmax(0,1fr); gap:7px; align-items:start; color:rgba(255,255,255,.78); font:500 11.5px/1.18 Oswald,sans-serif; }
-        .yft-series-game small { color:var(--gold,#d5b44a); font:700 9px/1.2 Oswald,sans-serif; text-align:left; padding-top:2px; }
+        .yft-series-game { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px; align-items:center; color:rgba(255,255,255,.78); font:500 11.5px/1.18 Oswald,sans-serif; }
+        .yft-series-game small { color:var(--gold,#d5b44a); font:700 9px/1 Oswald,sans-serif; text-align:left; padding:0; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
         .yft-scorelines { display:grid; gap:1px; min-width:0; }
         .yft-scoreline { display:grid; grid-template-columns:minmax(0,1fr) 22px; column-gap:10px; align-items:baseline; min-width:0; }
@@ -457,13 +457,13 @@ export default function FantasyTimeline() {
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
           .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1.2%; top:5px; bottom:27px; width:23.5%; min-width:0; justify-content:flex-start; }
+          .yft-series { right:1%; top:5px; bottom:27px; width:21%; min-width:0; justify-content:flex-start; }
           .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { grid-template-columns:14px minmax(0,1fr); gap:3px; font-size:8.2px; line-height:1.10; }
+          .yft-series-game { grid-template-columns:auto minmax(0,1fr); gap:3px; font-size:8.2px; line-height:1.10; }
           .yft-scoreline { grid-template-columns:minmax(0,1fr) 14px; column-gap:6px; }
           .yft-post-scores .yft-series-games { gap:4px; }
           .yft-post-scores .yft-series-game { font-size:7.2px; line-height:1.08; }
-          .yft-series-game small { font-size:6.4px; line-height:1.05; text-align:left; padding-top:1px; }
+          .yft-series-game small { font-size:6.4px; line-height:1; text-align:left; padding:0; }
           .yft-raffle-cta { left:2.5%; top:4px; bottom:auto; width:112px; height:78px; transform:none; }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
           .yft-raffle-note { left:28px; bottom:4px; width:78px; font-size:10.5px; line-height:.92; letter-spacing:-.045em; -webkit-text-stroke:.6px #000; }
