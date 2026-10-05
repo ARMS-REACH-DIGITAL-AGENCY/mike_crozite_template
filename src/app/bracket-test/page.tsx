@@ -2,21 +2,22 @@
 // (Oct 5-11), scored from real game lines. Private test page - not linked
 // anywhere, kept out of search.
 import type { Metadata } from 'next';
-import { loadTestBrackets, TEST_WEEK } from '@/lib/bracket/testLive';
+import { CHECK_WEEK, loadTestBrackets, TEST_WEEK } from '@/lib/bracket/testLive';
 
 export const revalidate = 300;
 export const metadata: Metadata = { title: 'Bracket live test | YAT?STATS', robots: { index: false, follow: false } };
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S', 'WK', 'W-L'];
 
-export default async function BracketTestPage() {
-  const { brackets, lines, asOf, today } = await loadTestBrackets();
+export default async function BracketTestPage({ searchParams }: { searchParams: Promise<{ check?: string }> }) {
+  const week = (await searchParams).check === 'week1' ? CHECK_WEEK : TEST_WEEK;
+  const { brackets, lines, asOf, today } = await loadTestBrackets(week);
   return (
     <main className="bt">
       <header>
-        <h1>Bracket live test · {TEST_WEEK.label}</h1>
+        <h1>Bracket live test · {week.label}</h1>
         <p>
-          Mon Oct 5 – Sun Oct 11, 2026 · day {today + 1} of 7 · {lines} real game lines so far · scored with the bracket engine (raw mode) ·
+          {week.start} to {week.end} · day {today + 1} of 7 · {lines} real game lines so far · scored with the bracket engine (raw mode) ·
           updated {new Date(asOf).toLocaleString('en-US', { timeZone: 'America/Phoenix', dateStyle: 'medium', timeStyle: 'short' })} AZ
         </p>
       </header>

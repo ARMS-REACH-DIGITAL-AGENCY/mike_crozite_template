@@ -15,6 +15,10 @@ import {
 import { TEST_BRACKETS } from '@/lib/bracket/testBrackets';
 
 export const TEST_WEEK = { start: '2026-10-05', end: '2026-10-11', label: 'Round 1 · Game 1' };
+// The week before, scored by the same code - a check with real numbers in it
+// before this week's first games land (/bracket-test?check=week1).
+export const CHECK_WEEK = { start: '2026-09-28', end: '2026-10-04', label: 'Check run · last week (Sept 28 – Oct 4)' };
+export type TestWeek = typeof TEST_WEEK;
 const RULES = { mode: 'raw' as const, absent: 'hold' as const };
 const LEVEL = 'PRO';
 
@@ -36,7 +40,7 @@ const pitOf = (s: Record<string, unknown>): PitTotals => ({
 export type PlayerDay = { name: string; team: string | null; line: string; day: number; type: string };
 export type Matchup = { home: [number, string, number]; away: [number, string, number]; result: GameResult; players: Record<number, PlayerDay[]> };
 
-export async function loadTestBrackets(): Promise<{ brackets: Matchup[][]; lines: number; asOf: string; today: number }> {
+export async function loadTestBrackets(week: TestWeek = TEST_WEEK): Promise<{ brackets: Matchup[][]; lines: number; asOf: string; today: number }> {
   const hsids = Array.from(new Set(TEST_BRACKETS.flat().map(([h]) => String(h))));
   const { rows } = await query<Row>(
     `SELECT DISTINCT ON (gl.playerid, gl.source_game_id, gl.stat_type)
@@ -47,7 +51,7 @@ export async function loadTestBrackets(): Promise<{ brackets: Matchup[][]; lines
        JOIN flip_card_front_stage f ON f.playerid::text = gl.playerid::text
       WHERE f.hsid::text = ANY($1) AND gl.game_date BETWEEN $2::date AND $3::date
       ORDER BY gl.playerid, gl.source_game_id, gl.stat_type, gl.updated_at DESC`,
-    [hsids, TEST_WEEK.start, TEST_WEEK.end]
+    [hsids, week.start, week.end]
   );
 
   // Per school: 7 days of player lines, W-L, and who played.
@@ -91,6 +95,6 @@ export async function loadTestBrackets(): Promise<{ brackets: Matchup[][]; lines
   });
   // Day of the week in Arizona (UTC-7, no DST): 0 = Monday.
   const now = Date.now();
-  const today = Math.min(6, Math.max(0, Math.floor((now - Date.parse(`${TEST_WEEK.start}T07:00:00Z`)) / 86400000)));
+  const today = Math.min(6, Math.max(0, Math.floor((now - Date.parse(`${week.start}T07:00:00Z`)) / 86400000)));
   return { brackets, lines: rows.length, asOf: new Date(now).toISOString(), today };
 }
