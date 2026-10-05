@@ -17,6 +17,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
+import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
 
@@ -225,6 +226,7 @@ export async function generateMetadata({
   searchParams: Promise<{ player?: string; fantasyGame?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
+  if (isNeverASchoolSegment(hsid)) notFound();
   const qp = await searchParams;
   const headersList = await headers();
   const host = headersList.get("host") || "";
@@ -370,6 +372,7 @@ export default async function SchoolPage({
   searchParams: Promise<{ schoolState?: string }>;
 }) {
   const { hsid } = await params;
+  if (isNeverASchoolSegment(hsid)) notFound();
   const qp = await searchParams;
   const headersList = await headers();
   const host = headersList.get("host") || "";

@@ -20,6 +20,7 @@ import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound } from 'next/navigation';
+import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
 
 import type { Metadata } from 'next';
@@ -88,6 +89,7 @@ export async function generateMetadata({
   params: Promise<{ hsid: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
+  if (isNeverASchoolSegment(hsid)) notFound();
   const headersList = await headers();
   const host = headersList.get('host') || '';
   let school: Record<string, unknown> | null = null;
@@ -130,6 +132,7 @@ export default async function HsidLayout({
   params: Promise<{ hsid: string }>;
 }) {
   const { hsid } = await params;
+  if (isNeverASchoolSegment(hsid)) notFound();
   const headersList = await headers();
   const host = headersList.get('host') || '';
   let school: Record<string, unknown> | null = null;
