@@ -130,16 +130,23 @@ export default async function ConnectContributePage({
           {threePlayers.map((p) => {
             const playerId = String(p.playerid);
             return (
-              <PlayerCard
-                key={`connect-${playerId}`}
-                player={p}
-                resolvedHsid={resolvedHsid}
-                frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
-                headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
-                shareBaseUrl={shareBaseUrl}
-                schoolName={shareSchoolName}
-                schoolLocation={shareSchoolLocation}
-              />
+              <div
+                key={`connect-wrap-${playerId}`}
+                data-player-card-wrap="true"
+                data-playerid={playerId}
+              >
+                <PlayerCard
+                  key={`connect-${playerId}`}
+                  player={p}
+                  resolvedHsid={resolvedHsid}
+                  frontImageUrl={frontImageMap.get(playerId)?.image_url ?? null}
+                  headshotUrl={headshotMap.get(playerId)?.image_url ?? null}
+                  shareBaseUrl={shareBaseUrl}
+                  schoolName={shareSchoolName}
+                  schoolLocation={shareSchoolLocation}
+                />
+              </div>
+            );
             );
           })}
         </div>
