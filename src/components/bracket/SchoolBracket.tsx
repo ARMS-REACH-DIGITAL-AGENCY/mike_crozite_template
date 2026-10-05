@@ -997,7 +997,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           border-radius:7px 7px 0 0; background:rgba(255,255,255,.05); color:rgba(255,255,255,.55); font:700 12px/1 Oswald,sans-serif; cursor:pointer; }
         .yfp-lb-regions button:hover { color:#fff; }
         .yfp-lb-regions button.on { padding-top:6px; background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:var(--yfp-gold,#d2b45c); }
-        .yfp-lb-regions button { width:28px; min-width:0; padding-left:0; padding-right:0; text-align:center; }
+        /* Every tab - 1 to 8 and A-Z - is one size; the open one rises 2px. */
+        .yfp-lb-regions button { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+          width:28px; height:20px; min-width:0; padding:0; text-align:center; }
+        .yfp-lb-regions button.on { height:22px; padding:0; }
         .yfp-lb-regions button.az { margin-left:4px; font-size:9px; letter-spacing:-.02em; }
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
@@ -1017,7 +1020,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-title i { margin:0 3px; }
           .yfp-lb-regions-k { letter-spacing:.04em; }
           .yfp-lb-regions { gap:1px; }
-          .yfz-panel .yfp-lb-regions button { width:17px; padding:4px 0 3px; font-size:10.5px; }
+          .yfz-panel .yfp-lb-regions button { width:17px; height:18px; padding:0; font-size:10.5px; }
+          .yfz-panel .yfp-lb-regions button.on { height:20px; }
           .yfz-panel .yfp-lb-regions button.az { margin-left:2px; font-size:6.5px; letter-spacing:-.04em; }
           .yfz-panel > .yfp-lb, body.yfp-dock-l .yfz-panel > .yfp-lb, body.yfp-dock-r .yfz-panel > .yfp-lb { padding:8px 6px; font-size:12px; }
         }
