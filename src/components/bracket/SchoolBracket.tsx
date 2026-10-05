@@ -481,6 +481,25 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const [error, setError] = useState('');
   const [asof, setAsof] = useState('');
   const [open, setOpen] = useState<Open | null>(null);
+  // One set of drawers at a time: a Stat Ledger opening closes the site's
+  // drawers (account, menu, favorites...), and a site drawer opening
+  // closes the Stat Ledgers - so the game never gets squeezed between both.
+  const openStats = (o: Open | null) => {
+    if (o) {
+      document.body.classList.remove('drawer-open', 'drawer-left-open', 'drawer-right-open', 'drawer-account-open',
+        'drawer-favorites-open', 'drawer-sort-open', 'yat-left-search-mode', 'yat-desktop-docked-drawers');
+      ['drawerAccount', 'drawerMask'].forEach((id) => document.getElementById(id)?.classList.remove('open', 'is-open', 'active'));
+    }
+    setOpen(o);
+  };
+  useEffect(() => {
+    if (!open) return;
+    const siteDrawer = () => ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
+      .some((c) => document.body.classList.contains(c));
+    const mo = new MutationObserver(() => { if (siteDrawer()) setOpen(null); });
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, [open]);
   const bothDrawers = useMinWidth(DUAL_DRAWER_MIN_WIDTH);
   // Desktop with Stat Ledgers open: the Most Runs leaderboard as a sheet
   // from the bottom, between the drawers (its column is hidden then).
@@ -588,7 +607,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           <div className="yfz-panel">
             <div className="yfz-round">
               {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
-                <PostseasonStage stage={tab} index={index} me={me} cal={cal} rec={rec} onOpen={setOpen} />
+                <PostseasonStage stage={tab} index={index} me={me} cal={cal} rec={rec} onOpen={openStats} />
               ) : (
                 <div className="yfz-cards">
                   {curList.length > 1 && (
@@ -602,7 +621,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                       ))}
                     </div>
                   )}
-                  {shownCard && <WeekCardView key={shownCard.week} index={index} card={shownCard} me={me} star={stars?.[shownCard.week]} starIdentity={stars?.[shownCard.week]?identities[stars[shownCard.week][5]]:undefined} rec={rec} focused={focused===shownCard.week} onOpen={setOpen}/>}
+                  {shownCard && <WeekCardView key={shownCard.week} index={index} card={shownCard} me={me} star={stars?.[shownCard.week]} starIdentity={stars?.[shownCard.week]?identities[stars[shownCard.week][5]]:undefined} rec={rec} focused={focused===shownCard.week} onOpen={openStats}/>}
                   {cur&&curList.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
                   {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
                 </div>
