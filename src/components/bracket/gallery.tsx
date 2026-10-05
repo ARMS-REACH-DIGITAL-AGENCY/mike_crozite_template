@@ -99,6 +99,23 @@ export function loadBoxes(file: string) {
   return boxCache.get(file)!;
 }
 
+// The signed-in fan's favorite players (Super Fan favorites), once per visit:
+// their lines are bold in the stat drawers. Signed out: none.
+let favoritePlayers: Promise<Set<string>> | null = null;
+export function loadFavoritePlayers() {
+  if (!favoritePlayers) {
+    let uid = '';
+    try { uid = String(JSON.parse(localStorage.getItem('yat-user') || 'null')?.uid || ''); } catch { uid = ''; }
+    favoritePlayers = uid
+      ? fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => new Set<string>(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []))
+        .catch(() => new Set<string>())
+      : Promise.resolve(new Set<string>());
+  }
+  return favoritePlayers;
+}
+
 const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
 // A school's active alumni for the Stat Ledgers. A failed load (the
 // database busy, a dropped connection) is retried, and only a real answer
@@ -850,8 +867,9 @@ export function shortNames(players: PlayerRow[]) {
 type SortCol = { key: string; label: string; cls?: string; val: (p: PlayerRow) => number | null; show: (p: PlayerRow) => ReactNode };
 // A box-score table whose headers sort it: a tap sorts high to low, a
 // second tap low to high (the name sorts A-Z). The Team row stays last.
-function SortTable({ title, rows, cols, player, labels, total, empty }: {
+function SortTable({ title, rows, cols, player, labels, total, empty, favs }: {
   title: string; rows: PlayerRow[]; cols: SortCol[]; player: (p: PlayerRow) => ReactNode; labels: Map<string, string>; total: ReactNode[]; empty: string;
+  favs?: Set<string>; // the fan's favorite players: their whole line in bold
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const sorted = useMemo(() => {
@@ -890,7 +908,7 @@ function SortTable({ title, rows, cols, player, labels, total, empty }: {
         <tbody>
           {rows.length === 0 && empty && <tr><td className="nm none" colSpan={cols.length + 1}>{empty}</td></tr>}
           {sorted.map((p) => (
-            <tr key={p[0]}>
+            <tr key={p[0]} className={favs?.has(String(p[0])) ? 'fav' : undefined}>
               <td className="nm">{player(p)}</td>
               {cols.map((c) => <td key={c.key} className={c.cls}>{c.show(p)}</td>)}
             </tr>
@@ -1114,7 +1132,7 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
-export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide }: {
+export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide, openDay = 'week' }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
@@ -1123,6 +1141,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   drawerMode?: boolean;
   played?: boolean; // false when this week's games haven't been played yet (staged simulation)
   onSwitchSide?: () => void; // one drawer at a time: the opponent's name opens his drawer instead
+  openDay?: 'week' | number; // the drawer's first tab: today (0 = Monday) during the week, else the week
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
@@ -1147,7 +1166,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
   const weekVals = boxForView?.d?.[7];
   const myName = names[me];
-  const [statDay, setStatDay] = useState<'week' | number>('week');
+  const [statDay, setStatDay] = useState<'week' | number>(openDay);
+  const [favs, setFavs] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!drawerMode) return;
+    let live = true;
+    loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
+    return () => { live = false; };
+  }, [drawerMode]);
   const viewPlayers = statDay === 'week' ? (mine?.p || [])
     : rawMine?.days ? rawMine.days[statDay] || [] : dailyRosterRows(mine?.p || [], week, statDay);
 
@@ -1387,11 +1413,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {mine && (
         <>
           {drawerMode ? (
-            <div className="bl-history-tabs" role="tablist" aria-label="Player stat history">
+            // Each day's tab sits under its inning on the scoreboards above
+            // (Monday = inning 1 ... Sunday = 7); the week's under the total.
+            <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history">
               {[
-                ['week','Week'],[0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su']
+                [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Week']
               ].map(([key,label]) => (
-                <button key={String(key)} type="button" role="tab"
+                <button key={String(key)} type="button" role="tab" style={{ gridColumn: key === 'week' ? 11 : Number(key) + 2 }}
                   className={statDay===key ? 'on' : ''}
                   aria-selected={statDay===key}
                   onClick={(e)=>{e.stopPropagation();setStatDay(key as 'week'|number);}}>
@@ -1400,9 +1428,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               ))}
             </div>
           ) : null}
-          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
+          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
             total={[teamDayMetric(me), statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
-          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
+          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
             total={[
               teamDayMetric(2 + me),
               statDay === 'week' ? teamWl : '—',
@@ -1541,6 +1569,8 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-history-tabs{position:sticky;top:var(--yfp-head-h,23px);display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button{flex:1 1 0;position:relative;margin-bottom:-1px;padding:5px 2px 4px;border:1px solid rgba(255,255,255,.2);border-bottom-color:transparent;border-radius:7px 7px 0 0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font:700 12px/1 Oswald,sans-serif}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button:hover{color:#fff}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs{display:grid;grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr));gap:2px;padding:0 12px}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs button{padding-left:0;padding-right:0;font-size:11px}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button.on{padding-top:7px;background:var(--bg,#0c0c0c);border-color:rgba(255,255,255,.2);border-bottom-color:var(--bg,#0c0c0c);color:var(--gold,#d2b45c)}
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs{border-bottom-color:rgba(0,0,0,.2)}
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button{border-color:rgba(0,0,0,.2);border-bottom-color:transparent;background:rgba(0,0,0,.04);color:rgba(0,0,0,.55)}
@@ -1684,6 +1714,8 @@ export function Styles() {
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
       .bl-metric-line.metric>span.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
+      table.bl-box tr.fav td { font-weight:800; color:#fff; }
+      body.light-theme table.bl-box tr.fav td { color:#000; }
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
       @media (max-width:600px) {
