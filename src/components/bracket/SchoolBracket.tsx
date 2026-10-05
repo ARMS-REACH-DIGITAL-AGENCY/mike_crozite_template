@@ -925,18 +925,29 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              the same width on every big screen and always centered. */
           body { --yfp-dw:calc((100vw - 600px) / 2); }
         }
-        /* Game 1 / 2 / 3: one game at a time, like the drawers' day tabs. */
-        .yfz-game-tabs { flex:none; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:4px; }
-        .yfz-game-tab { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 4px 5px; border:1px solid var(--yfp-card-border); border-radius:6px; background:var(--yfp-card-bg); color:var(--yfp-muted); cursor:pointer; }
-        .yfz-game-tab b { font:700 14px/1 Oswald,sans-serif; letter-spacing:.06em; text-transform:uppercase; }
-        .yfz-game-tab span { font:600 10px/1 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase; }
-        .yfz-game-tab.on { border-color:var(--yfp-gold); background:rgba(210,180,92,.14); color:var(--yfp-gold); }
-        .yfz-game-tab.live:not(.on) b::after { content:' · live'; color:#e2786a; }
-        @media (max-width:899px) {
-          .yfz-game-tab { padding:4px 2px 3px; }
-          .yfz-game-tab b { font-size:11px; }
-          .yfz-game-tab span { font-size:8px; }
+        /* Pills - the same size as the flip cards' (ACTIVE / CLASS OF ...):
+           Game 1/2/3, the regions, Standings/A-Z, Rules. The selected one is
+           filled, not outlined in color. */
+        .yfz-game-tab, .yfp-lb-regions button, .yfz-panel .yfp-lb-sort button, .yfz-panel .yfp-lb-rules {
+          display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:0; width:auto; margin:0;
+          padding:3px 10px; border:1px solid rgba(255,255,255,.15); border-radius:20px; background:rgba(0,0,0,.5);
+          color:rgba(255,255,255,.62); font:700 10px/1.2 Oswald,sans-serif; letter-spacing:.04em; text-transform:uppercase;
+          white-space:nowrap; cursor:pointer;
         }
+        .yfz-game-tab b, .yfp-lb-regions b { font:inherit; color:#fff; }
+        .yfz-game-tab span, .yfp-lb-regions span { font:inherit; letter-spacing:inherit; color:inherit; max-width:none; overflow:visible; }
+        .yfz-game-tab:hover, .yfp-lb-regions button:hover, .yfz-panel .yfp-lb-sort button:hover, .yfz-panel .yfp-lb-rules:hover { color:#fff; }
+        .yfz-game-tab.on, .yfp-lb-regions button.on, .yfz-panel .yfp-lb-sort button.on {
+          background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.3); color:#fff;
+        }
+        .yfz-game-tab.on b, .yfp-lb-regions button.on b { color:var(--yfp-gold,#d2b45c); }
+        .yfz-game-tab.live:not(.on) b::after { content:' · live'; color:#e2786a; }
+        .yfz-game-tabs { flex:none; display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
+        body.light-theme .yfz-game-tab, body.light-theme .yfp-lb-regions button,
+        body.light-theme .yfz-panel .yfp-lb-sort button, body.light-theme .yfz-panel .yfp-lb-rules {
+          background:rgba(255,255,255,.7); border-color:rgba(0,0,0,.15); color:rgba(0,0,0,.6);
+        }
+        body.light-theme .yfz-game-tab b, body.light-theme .yfp-lb-regions b { color:#111; }
 
         /* Every screen: one middle column - the game tabs and the game on
            top, the Most Runs Scored leaderboard always right under it, one
@@ -944,7 +955,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel,
         body.yfp-dock-l .yfz-panel,
         body.yfp-dock-r .yfz-panel {
-          grid-template-columns:min(100%, 580px); grid-template-rows:auto minmax(280px,1fr);
+          grid-template-columns:min(100%, 580px); grid-template-rows:max-content minmax(280px,1fr);
           justify-content:center; row-gap:10px; padding:8px; overflow-y:auto; overscroll-behavior:contain;
         }
         .yfz-panel.all { grid-template-columns:min(100%, 580px); grid-template-rows:minmax(0,1fr) minmax(280px,1fr); }
@@ -956,29 +967,22 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.yfp-dock-l .yfz-panel > .yfp-lb,
         body.yfp-dock-r .yfz-panel > .yfp-lb {
           grid-row:2; display:flex; flex-direction:column; min-height:0; height:auto; max-height:none; position:static; overflow:hidden;
-          padding:8px 10px; border:1px solid var(--yfp-card-border); border-top:2px solid var(--yfp-gold,#d2b45c); border-radius:8px;
+          padding:8px 10px; border:1px solid var(--yfp-card-border); border-radius:8px;
           background:var(--yfp-card-bg); font:400 13px/1.4 system-ui,sans-serif;
         }
         .yfp-lb-top { flex:none; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
         .yfz-panel .yfp-lb-title { font-size:12px; }
         .yfz-panel .yfp-lb-sub { margin:2px 0 0; font-size:10px; }
-        .yfz-panel .yfp-lb-sort { flex:none; width:170px; margin:0; }
-        .yfz-panel .yfp-lb-sort button { min-height:24px; font-size:10.5px; }
-        .yfp-lb-regions { flex:none; display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:3px; margin:8px 0 6px; }
-        .yfp-lb-regions button { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:0; padding:4px 2px 3px; border:1px solid var(--yfp-card-border); border-radius:4px; background:transparent; color:var(--yfp-muted); cursor:pointer; }
-        .yfp-lb-regions b { font:700 12px/1 Oswald,sans-serif; }
-        .yfp-lb-regions span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 9px/1.1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
-        .yfp-lb-regions button.mine b { color:var(--yfp-gold); }
-        .yfp-lb-regions button.on { border-color:var(--yfp-gold); background:rgba(210,180,92,.14); color:var(--yfp-gold); }
+        .yfz-panel .yfp-lb-sort { flex:none; display:flex; gap:4px; width:auto; margin:0; }
+        .yfp-lb-regions { flex:none; display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:8px 0 6px; }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
         .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:24px; }
         .yfz-panel .yfp-lb li { grid-template-columns:30px minmax(0,1fr) 30px; gap:6px; padding:2px 0; break-inside:avoid; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
-        .yfz-panel .yfp-lb-rules { flex:none; margin-top:8px; min-height:24px; font-size:10px; }
+        .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
         @media (max-width:599px) {
-          .yfz-panel, body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding:5px; row-gap:6px; grid-template-rows:auto minmax(240px,1fr); }
-          .yfp-lb-regions { grid-template-columns:repeat(4,minmax(0,1fr)); }
+          .yfz-panel, body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding:5px; row-gap:6px; grid-template-rows:max-content minmax(240px,1fr); }
           .yfz-panel .yfp-lb-list ol { column-count:1; }
           .yfz-panel > .yfp-lb { font-size:12px; }
         }
