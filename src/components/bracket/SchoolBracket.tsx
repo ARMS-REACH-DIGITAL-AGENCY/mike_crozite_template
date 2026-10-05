@@ -470,7 +470,7 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
 
 // From this width both Stat Ledger drawers open together (about a third of
 // the screen each), leaving ~600px of game cards between them.
-const DUAL_DRAWER_MIN_WIDTH = 1680;
+const DUAL_DRAWER_MIN_WIDTH = 1420;
 
 export default function SchoolBracket({ hsid }: { hsid: string }) {
   const me = Number(hsid);
@@ -830,10 +830,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            standings column wide enough to read, and Stat Ledger drawers
            wide enough for every column. */
         @media (min-width:600px) {
-          /* Every game card is one fixed width (what fits between both
-             Stat Ledgers) and centered - the same with or without drawers. */
           .yfz-cards { gap:12px; align-items:center; }
-          .yfz-cards > * { width:min(100%, 580px); }
           .yfp-game-split { display:block; min-height:0; }
           .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:1px solid var(--yfp-card-border); }
           .yfp-game-socialpane { padding:4px 12px 8px; overflow:visible; }
@@ -846,8 +843,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              sits right beside inning 1 - and the board is centered. */
           .yfp-game-scorepane .yfp-green-board {
             display:grid;
-            grid-template-columns:minmax(0,max-content) repeat(var(--inning-count,9),36px) 52px;
-            column-gap:3px;
+            grid-template-columns:minmax(0,max-content) repeat(var(--inning-count,9),clamp(20px,6cqw,40px)) clamp(32px,8.5cqw,56px);
+            column-gap:clamp(2px,.5cqw,4px);
             justify-content:center;
           }
           .yfp-game-scorepane .yfp-green-row {
@@ -858,14 +855,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             max-width:none;
             margin-top:4px;
           }
-          .yfp-game-scorepane .yfp-green-team { padding-right:10px; }
-          .yfp-game-scorepane .yfp-green-row.head { margin-top:0; font-size:13px; }
-          .yfp-game-scorepane .yfp-green-status { font-size:10px; padding:3px 6px 2px; }
+          /* The board scales with the card (like the flip-card gallery): it
+             fills a wide card and shrinks smoothly in a narrow one. */
+          .yfp-game-scorepane .yfp-green-team { padding-right:clamp(4px,1.6cqw,10px); }
+          .yfp-game-scorepane .yfp-green-row.head { margin-top:0; font-size:clamp(10px,2.2cqw,14px); }
+          .yfp-game-scorepane .yfp-green-status { font-size:clamp(8px,1.6cqw,10px); padding:3px 6px 2px; }
           .yfp-game-scorepane .yfp-green-slot,
-          .yfp-game-scorepane .yfp-green-run { height:36px; font-size:18px; border-radius:4px; }
-          .yfp-game-scorepane .yfp-green-run { font-size:21px; }
+          .yfp-game-scorepane .yfp-green-run { height:clamp(22px,6cqw,40px); font-size:clamp(11px,3cqw,20px); border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-run { font-size:clamp(13px,3.6cqw,23px); }
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
-          .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
+          .yfp-game-scorepane .yfp-green-full { font-size:clamp(12px,2.9cqw,18px); letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
           /* The standings column. scrollbar-gutter keeps the scrollbar in its
@@ -880,27 +879,18 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-lb-rules { min-height:32px; font-size:11px; }
 
         }
-        /* Docked Stat Ledger drawers (1100px and up): no dimming, clicks pass
-           through to the game. A drawer takes whatever the fixed 580px game
-           column leaves (up to 760px), so the game never changes size. */
-        @media (min-width:1100px) {
-          body { --yfp-dw:min(760px, calc(100vw - 600px)); }
+        /* Stat Ledger drawers are as wide as their tables need (470px) and
+           dock beside the game from 860px: no dimming, clicks pass through
+           to the game. Both open (1420px and up): if there's more room than
+           the game's 680px, the drawers take it, so they stay flush. */
+        @media (min-width:860px) {
+          body { --yfp-dw:470px; }
           .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); }
           .yfp-drawer-wrap.row5 { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { pointer-events:auto; }
         }
-        @media (min-width:900px) {
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box { font-size:11.5px; }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:10px; }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box th,
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box td { padding:5px 5px; }
-        }
-        /* A maximized desktop screen: both drawers open, no dimming, the
-           game cards usable between them. */
-        @media (min-width:1680px) {
-          /* Drawers take everything but a fixed 600px middle, so the card is
-             the same width on every big screen and always centered. */
-          body { --yfp-dw:calc((100vw - 600px) / 2); }
+        @media (min-width:1420px) {
+          body { --yfp-dw:max(470px, calc((100vw - 680px) / 2)); }
         }
         /* Pills - the same size as the flip cards' (ACTIVE / CLASS OF ...):
            Game 1/2/3, the regions, Standings/A-Z, Rules. The selected one is
@@ -932,11 +922,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel,
         body.yfp-dock-l .yfz-panel,
         body.yfp-dock-r .yfz-panel {
-          grid-template-columns:min(100%, 580px); grid-template-rows:max-content minmax(280px,1fr);
+          grid-template-columns:min(100%, 680px); grid-template-rows:max-content minmax(280px,1fr);
           justify-content:center; row-gap:10px; padding:8px; overflow-y:auto; overscroll-behavior:contain;
         }
-        .yfz-panel.all { grid-template-columns:min(100%, 580px); grid-template-rows:minmax(0,1fr) minmax(280px,1fr); }
-        .yfz-panel > .yfz-round { grid-row:1; }
+        .yfz-panel.all { grid-template-columns:min(100%, 680px); grid-template-rows:minmax(0,1fr) minmax(280px,1fr); }
+        .yfz-panel > .yfz-round { grid-row:1; container-type:inline-size; }
         .yfz-cards { overflow:visible; scrollbar-width:none; }
         .yfz-cards::-webkit-scrollbar { display:none; }
         .yfz-cards > * { width:100%; }
@@ -975,29 +965,24 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-list ol { column-count:1; }
           .yfz-panel > .yfp-lb { font-size:12px; }
         }
-        /* 1100px and up: the game column is always 580px. Closed, it's
-           centered; when a drawer opens it slides over (with the drawer) and
-           sits right against it - left drawer, it moves right; right drawer,
-           it moves left. */
-        @media (min-width:1100px) {
+        /* From 860px, like the flip-card gallery: the game (up to 680px)
+           sits centered with no drawer, and when one opens it slides over
+           and sits right against it, shrinking only if the room left is
+           narrower than 680px; with both open it fills the space between
+           them, flush on both sides. */
+        @media (min-width:860px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
           body.yfp-dock-r .yfz-panel {
             grid-template-columns:minmax(0,1fr); justify-content:stretch;
-            padding-left:max(8px, calc((100% - 580px) / 2)); padding-right:max(8px, calc((100% - 580px) / 2));
+            padding-left:max(8px, calc((100% - 680px) / 2)); padding-right:max(8px, calc((100% - 680px) / 2));
             transition:padding-left .22s ease-out, padding-right .22s ease-out;
           }
-          body.yfp-dock-l .yfz-panel { padding-left:var(--yfp-dw); padding-right:max(0px, calc(100% - var(--yfp-dw) - 580px)); }
-          body.yfp-dock-r .yfz-panel { padding-right:var(--yfp-dw); padding-left:max(0px, calc(100% - var(--yfp-dw) - 580px)); }
+          body.yfp-dock-l .yfz-panel { padding-left:var(--yfp-dw); padding-right:max(8px, calc(100% - var(--yfp-dw) - 680px)); }
+          body.yfp-dock-r .yfz-panel { padding-right:var(--yfp-dw); padding-left:max(8px, calc(100% - var(--yfp-dw) - 680px)); }
+          body.yfp-dock-l.yfp-dock-r .yfz-panel { padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
         }
         @media (prefers-reduced-motion: reduce) { .yfz-panel { transition:none !important; } }
-        /* A maximized screen: the column is exactly the space between the
-           two drawers, open or not - flush against both. */
-        @media (min-width:1680px) {
-          .yfz-panel,
-          body.yfp-dock-l .yfz-panel,
-          body.yfp-dock-r .yfz-panel { grid-template-columns:minmax(0,1fr); padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
-        }
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }
         .yfz-all table { width: 100%; border-collapse: collapse; font: 500 12px/1.2 Oswald, sans-serif; color: var(--yfp-text); }
@@ -1084,8 +1069,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer .ybr-rules { padding: 14px; }
         .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
-        @media (max-width: 899px) {
-          .bl.bl-embed.yfp-drawer { width: 100vw; }
+        @media (max-width: 859px) {
+          .bl.bl-embed.yfp-drawer { width: min(470px, 100vw); }
           .yfp-drawer-head { padding: 6px 10px; }
           .yfp-drawer-head .yfp-drawer-school { font-size: 13px; }
           .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }

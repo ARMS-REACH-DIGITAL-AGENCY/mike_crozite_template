@@ -1619,16 +1619,17 @@ export function Styles() {
       /* Drawer tables are dense enough to fit in normal use, but retain
          horizontal scrolling as a safety valve on very narrow screens. */
       /* Each stat column is as wide as its numbers (no even spreading), the
-         name column takes what's left, and the numbers keep a readable size;
+         name column is as wide as the names (no gap before OPS+), and the
+         numbers keep a readable size;
          if a phone is too narrow for all 13, the table scrolls sideways with
          the names pinned. */
       .bl.bl-embed.yfp-drawer .bl-scroll { overflow-x:auto; }
-      .bl.bl-embed.yfp-drawer .bl-box { width:100%; min-width:0; table-layout:auto; font-size:11px; }
+      .bl.bl-embed.yfp-drawer .bl-box { width:auto; min-width:0; table-layout:auto; font-size:11px; }
       .bl.bl-embed.yfp-drawer .bl-box col { width:auto !important; }
       .bl.bl-embed.yfp-drawer .bl-box th,
       .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 4px; overflow:visible; }
       .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9.5px; letter-spacing:0; }
-      .bl.bl-embed.yfp-drawer .bl-box .nm { width:100%; min-width:74px; padding-left:6px; overflow:hidden; text-overflow:ellipsis;
+      .bl.bl-embed.yfp-drawer .bl-box .nm { width:auto; min-width:74px; max-width:118px; padding-left:6px; padding-right:8px; overflow:hidden; text-overflow:ellipsis;
         position:sticky; left:0; z-index:1; background:var(--bg,#0c0c0c); }
       .bl.bl-embed.yfp-drawer .bl-stat-block.offense .bl-box thead th.nm { background:#6c5317; }
       .bl.bl-embed.yfp-drawer .bl-stat-block.defense .bl-box thead th.nm { background:#174c35; }
