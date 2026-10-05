@@ -910,10 +910,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         }
         @media (min-width:900px) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box { font-size:11.5px; }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:120px !important; }
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:10px; }
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box th,
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box td { padding:5px 2px; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-box td { padding:5px 5px; }
         }
         /* A maximized desktop screen: both drawers open, no dimming, the
            game cards usable between them. */

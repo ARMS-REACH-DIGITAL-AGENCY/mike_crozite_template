@@ -1618,19 +1618,25 @@ export function Styles() {
 
       /* Drawer tables are dense enough to fit in normal use, but retain
          horizontal scrolling as a safety valve on very narrow screens. */
+      /* Each stat column is as wide as its numbers (no even spreading), the
+         name column takes what's left, and the numbers keep a readable size;
+         if a phone is too narrow for all 13, the table scrolls sideways with
+         the names pinned. */
       .bl.bl-embed.yfp-drawer .bl-scroll { overflow-x:auto; }
-      .bl.bl-embed.yfp-drawer .bl-box { width:100%; min-width:0; table-layout:fixed; font-size:9px; }
-      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:92px !important; }
-      .bl.bl-embed.yfp-drawer .bl-box col:not(:first-child) { width:auto !important; }
+      .bl.bl-embed.yfp-drawer .bl-box { width:100%; min-width:0; table-layout:auto; font-size:11px; }
+      .bl.bl-embed.yfp-drawer .bl-box col { width:auto !important; }
       .bl.bl-embed.yfp-drawer .bl-box th,
-      .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 1px; overflow:hidden; text-overflow:clip; }
-      .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:8px; letter-spacing:0; }
-      .bl.bl-embed.yfp-drawer .bl-box .nm { width:auto !important; max-width:none; padding-left:6px; text-overflow:ellipsis; }
+      .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 4px; overflow:visible; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9.5px; letter-spacing:0; }
+      .bl.bl-embed.yfp-drawer .bl-box .nm { width:100%; min-width:74px; padding-left:6px; overflow:hidden; text-overflow:ellipsis;
+        position:sticky; left:0; z-index:1; background:var(--bg,#0c0c0c); }
+      .bl.bl-embed.yfp-drawer .bl-stat-block.offense .bl-box thead th.nm { background:#6c5317; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block.defense .bl-box thead th.nm { background:#174c35; }
       .bl.bl-embed.yfp-drawer .bl-box .plus,
-      .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:1px; padding-right:1px; }
+      .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:4px; padding-right:4px; }
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
-      .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:2px; }
-      .bl.bl-embed.yfp-drawer .bl-sort { width:100%; overflow:hidden; text-overflow:clip; }
+      .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:8px; }
+      .bl.bl-embed.yfp-drawer .bl-sort { width:auto; overflow:visible; }
 
       .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
       .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
@@ -1647,12 +1653,11 @@ export function Styles() {
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
       @media (max-width:600px) {
-        .bl.bl-embed.yfp-drawer .bl-box { font-size:7.2px; }
-        .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:74px !important; }
-        .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:6.7px; }
+        .bl.bl-embed.yfp-drawer .bl-box { font-size:10.5px; }
+        .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9px; }
         .bl.bl-embed.yfp-drawer .bl-box th,
-        .bl.bl-embed.yfp-drawer .bl-box td { padding:3px 0; }
-        .bl.bl-embed.yfp-drawer .bl-box .nm { padding-left:4px; }
+        .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 3px; }
+        .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-metric-line.head { font-size:6.8px; }
         .bl-metric-line.head .metric-name { font-size:9px; padding-left:3px; }
