@@ -1,13 +1,15 @@
 'use client';
 
 // src/components/bracket/BracketTicker.tsx
-// Row 4 on the Fantasy Bracket Tourney tab: a scoreboard ticker (dot-matrix
-// light bulbs) scrolling every game of the current round with its running
-// score - the day innings through yesterday's stats, or FINAL once the week
-// is over. Same date as the tab (today, or ?asof=YYYY-MM-DD).
+// Row 6 (the footer) on the Fantasy Bracket Tourney tab: a scoreboard ticker
+// (dot-matrix light bulbs) scrolling every game of the current round with its
+// running score - the day innings through yesterday's stats, or FINAL once
+// the week is over - with the sponsor's ad line every few games. Same date
+// as the tab (today, or ?asof=YYYY-MM-DD).
 
 import { useEffect, useMemo, useState } from 'react';
 import { Doto } from 'next/font/google';
+import { selectSponsorCampaign } from '@/lib/sponsorCampaigns';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
 
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
@@ -54,28 +56,46 @@ function tickerItems(index: Index, asof: string): Item[] {
   return out;
 }
 
-export default function BracketTicker() {
+// One ad line after every AD_EVERY games (and one to lead).
+const AD_EVERY = 5;
+
+export default function BracketTicker({ hsid }: { hsid: string }) {
   const [index, setIndex] = useState<Index | null>(null);
   const [asof, setAsof] = useState('');
   useEffect(() => {
     loadIndex().then((i) => { setAsof(previewDate()); setIndex(i); }).catch(() => {});
   }, []);
   const items = useMemo(() => (index && asof ? tickerItems(index, asof) : []), [index, asof]);
+  const ad = useMemo(() => {
+    const c = selectSponsorCampaign(hsid);
+    return c?.tickerText ? c : null;
+  }, [hsid]);
 
-  const line = (copy: number) => items.map((it) => (
+  const adItem = (copy: number, n: number) => ad && (
+    <a key={`${copy}-ad${n}`} className="ybt-item ybt-ad" href={ad.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
+      aria-label={ad.altText} aria-hidden={copy ? true : undefined} tabIndex={copy ? -1 : undefined}
+      data-sponsor-id={ad.id} data-sponsor-name={ad.sponsorName}>
+      <span className="ybt-tag">SPONSOR</span>
+      <span>{ad.tickerText}</span>
+      <span className="ybt-status">TAP TO CLAIM</span>
+    </a>
+  );
+  const line = (copy: number) => items.flatMap((it, i) => [
+    i % AD_EVERY === 0 ? adItem(copy, i) : null,
     <span key={`${copy}-${it.key}`} className="ybt-item" aria-hidden={copy ? true : undefined}>
       <span className="ybt-tag">{it.tag}</span>
       <span className={it.lead === 1 ? 'ybt-lead' : ''}>{it.home} {it.h}</span>
       <span className="ybt-dash">-</span>
       <span className={it.lead === 2 ? 'ybt-lead' : ''}>{it.a} {it.away}</span>
       <span className="ybt-status">{it.status}</span>
-    </span>
-  ));
+    </span>,
+  ]);
 
   return (
     <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores">
       {!index && <span className="ybt-msg">LOADING SCORES...</span>}
       {index && !items.length && <span className="ybt-msg">THE 2026 BRACKET STARTS {index.weeks[0][0]}</span>}
+      {index && !items.length && adItem(0, 0)}
       {items.length > 0 && (
         <div className="ybt-track" style={{ animationDuration: `${Math.max(30, items.length * 6)}s` }}>
           {line(0)}{line(1)}
@@ -83,7 +103,7 @@ export default function BracketTicker() {
       )}
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
       <style jsx global>{`
-        .ybt { position:relative; height:var(--row4-h, 56px); overflow:hidden; display:flex; align-items:center;
+        .ybt { position:relative; flex:1 1 auto; align-self:stretch; width:100%; height:100%; overflow:hidden; display:flex; align-items:center;
           background-color:#070503;
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
@@ -97,6 +117,13 @@ export default function BracketTicker() {
         .ybt-tag { font-size:14px; font-weight:700; color:#ff7a1a; text-shadow:0 0 3px rgba(255,110,20,.9); }
         .ybt-lead { color:#fff3c4; text-shadow:0 0 3px rgba(255,230,160,.95), 0 0 12px rgba(255,190,60,.7); }
         .ybt-dash { opacity:.7; }
+        a.ybt-ad { color:#fff3c4; text-decoration:none; text-shadow:0 0 3px rgba(255,230,160,.95), 0 0 12px rgba(255,190,60,.7); }
+        a.ybt-ad .ybt-tag { color:#04150c; background:#ffb238; padding:2px 6px 1px; border-radius:2px; text-shadow:none; }
+        a.ybt-ad:hover, a.ybt-ad:focus-visible { color:#fff; outline:none; text-decoration:underline; }
+        @media (max-width:640px) {
+          .ybt-item, .ybt-msg { font-size:18px; gap:8px; padding:0 20px; }
+          .ybt-tag, .ybt-status { font-size:12px; }
+        }
         .ybt-status { font-size:14px; font-weight:700; color:#ff7a1a; text-shadow:0 0 3px rgba(255,110,20,.9); }
         @keyframes ybt-scroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) {

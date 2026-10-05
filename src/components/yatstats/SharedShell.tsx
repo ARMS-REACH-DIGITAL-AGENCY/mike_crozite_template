@@ -180,9 +180,10 @@ export default function SharedShell({
           {row4Content
             ? row4Content
             : activeSection === 'fantasy' && !isPlayerProfile
-              // The Fantasy Bracket Tourney tab: the current round's scores
-              // as a scrolling scoreboard ticker instead of the metadata.
-              ? <BracketTicker />
+              // The Fantasy Bracket Tourney tab: the round buttons (R1-YWS),
+              // which SchoolBracket renders into this slot. The scores
+              // ticker is in row 6.
+              ? <div className="yfz-row4-slot" />
               : profilePlayerId
               // The player profile's thin year-tick timeline (the old
               // variant="line" row) is now folded into the taller
@@ -205,7 +206,10 @@ export default function SharedShell({
       </main>
 
       <footer className="yat-row6-shell yat-footer">
-        <SponsorBanner hsid={hsid} />
+        {activeSection === 'fantasy' && !isPlayerProfile
+          // The bracket tab: the scores ticker, with the sponsor ads in it.
+          ? <BracketTicker hsid={hsid} />
+          : <SponsorBanner hsid={hsid} />}
       </footer>
     </>
   );

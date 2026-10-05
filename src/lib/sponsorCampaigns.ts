@@ -5,6 +5,8 @@ export type SponsorCampaign = {
   mobileImage: string;
   destinationUrl: string;
   altText: string;
+  /** The ad's line in the bracket's scoreboard ticker (row 6). */
+  tickerText?: string;
   schoolIds: '*' | string[];
   startsAt?: string;
   endsAt?: string;
@@ -19,6 +21,7 @@ export const sponsorCampaigns: SponsorCampaign[] = [
     mobileImage: '/ads/tpc-shipsticks-mobile.webp',
     destinationUrl: 'https://tpc.armsreachdigital.agency',
     altText: 'Claim $75 in ShipSticks travel credit from The Travel Protection Club',
+    tickerText: "HEY, THEY'RE GIVING AWAY $75 IN SHIPSTICKS TRAVEL CREDIT",
     schoolIds: '*',
     rotationWeight: 1,
   },
