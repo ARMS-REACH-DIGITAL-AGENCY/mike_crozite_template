@@ -22,7 +22,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  type ActiveRosterPlayer, type GameBox, type Index, type LbGame,
+  type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
@@ -112,13 +112,26 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const played = card.state === 'final' || card.state === 'live';
 
   if (!g) {
-    const blankRow = (key: string) => (
-      <div className="yfp-green-row" key={key} aria-label="School to be determined">
-        <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
-        {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
-        <span className="yfp-green-run" />
-      </div>
-    );
+    // A future game: the opponent is TBD (decided by earlier rounds), this
+    // school is home. Both names open the Stat Ledgers.
+    const tbdRow = (side: 'a' | 'h') => {
+      const mine = side === 'h';
+      const rawName = mine ? (S[me]?.[0] || '') : '';
+      const name = mine ? shortName(rawName) : 'TBD';
+      const location = mine ? place(rawName) : 'Opponent to be determined';
+      return (
+        <div className={`yfp-green-row${mine ? ' me' : ''}`} key={side}>
+          <button type="button" className="yfp-green-team" onClick={() => onOpen({ card, side })}
+            aria-label={`${name}: this week's players`}>
+            <span className="yfp-green-abbr">{mine ? abbr(name) : 'TBD'}</span>
+            <span className="yfp-green-full">{name}</span>
+            <span className="yfp-green-place">{location}</span>
+          </button>
+          {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
+          <span className="yfp-green-run" />
+        </div>
+      );
+    };
     const scoreboard = (
       <>
         <ScoreHead index={index} card={card} games={games} />
@@ -128,8 +141,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
           </div>
-          {blankRow('away')}
-          {blankRow('home')}
+          {tbdRow('a')}
+          {tbdRow('h')}
         </div>
       </>
     );
@@ -164,8 +177,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     const location = place(rawName);
     return (
       <div className={`yfp-green-row${h === me ? ' me' : ''}${won ? ' won' : ''}`}>
-        <button type="button" className="yfp-green-team" disabled={!played} onClick={() => onOpen({ card, side })}
-          aria-label={played ? `${name}: this week's players` : undefined}>
+        <button type="button" className="yfp-green-team" onClick={() => onOpen({ card, side })}
+          aria-label={`${name}: this week's players`}>
           <span className="yfp-green-abbr">{abbr(name)}</span>
           <span className="yfp-green-full">{name}</span>
           {location ? <span className="yfp-green-place">{location}</span> : null}
@@ -256,23 +269,28 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
 
 // A school's week in a drawer: every player's line, OPS+ and FIP-, and how
 // each run was scored. Home from the right, visitor from the left.
-function TeamDrawerPanel({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+// A future game with no opponent yet: this school at home v TBD (id 0).
+const tbdGame = (card: WeekCard, me: number): GameRow => [0, card.week, me, 0, '', [], null];
+
+function TeamDrawerPanel({ index, open, me, onClose }: { index: Index; open: Open; me: number; onClose: () => void }) {
   const { card, side } = open;
-  const g = card.game!;
+  const g = card.game ?? tbdGame(card, me);
   const homeId = g[2], awayId = g[3];
   const [box, setBox] = useState<Record<string, GameBox> | null>(null);
   const [rosters, setRosters] = useState<{ home: ActiveRosterPlayer[]; away: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
-    Promise.all([loadActiveRoster(homeId), loadActiveRoster(awayId)])
+    const roster = (id: number) => (id ? loadActiveRoster(id) : Promise.resolve([] as ActiveRosterPlayer[]));
+    Promise.all([roster(homeId), roster(awayId)])
       .then(([home, away]) => { if (!cancelled) setRosters({ home, away }); })
       .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
     return () => { cancelled = true; };
   }, [card.file, homeId, awayId]);
   const S = index.schools;
   const h = side === 'h' ? homeId : awayId;
-  const drawerSchool = drawerSchoolParts(S[h]?.[0] || '');
+  const drawerSchool = h ? drawerSchoolParts(S[h]?.[0] || '') : { school: 'TBD', location: 'Opponent to be determined' };
+  const nameOf = (id: number) => (id ? shortName(S[id]?.[0] || '') : 'TBD');
   const stageGameNo = Number(card.stage.match(/Game\s+(\d+)/i)?.[1] || 1);
   const drawerGameLabel = card.week <= 30
     ? `WEEK ${card.week} - ROUND ${Math.ceil(card.week / 3)} - GAME ${((card.week - 1) % 3) + 1}`
@@ -289,7 +307,7 @@ function TeamDrawerPanel({ index, open, onClose }: { index: Index; open: Open; o
   const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
   return (
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
-        aria-label={`${shortName(S[h]?.[0] || '')}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
+        aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head">
           <div>
             {drawerSchool.location ? <span className="yfp-drawer-location">{drawerSchool.location}</span> : null}
@@ -298,9 +316,12 @@ function TeamDrawerPanel({ index, open, onClose }: { index: Index; open: Open; o
           </div>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
+        {h ? null : (
+          <p className="yfp-drawer-wait">This school is decided by the earlier rounds. Its players show here once it is set.</p>
+        )}
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
-          names={[shortName(S[homeId]?.[0] || ''), shortName(S[awayId]?.[0] || '')]}
-          locations={[place(S[homeId]?.[0] || ''), place(S[awayId]?.[0] || '')]}
+          names={[nameOf(homeId), nameOf(awayId)]}
+          locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
           decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
           homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} />
@@ -308,10 +329,10 @@ function TeamDrawerPanel({ index, open, onClose }: { index: Index; open: Open; o
   );
 }
 
-function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+function TeamDrawer({ index, open, me, onClose }: { index: Index; open: Open; me: number; onClose: () => void }) {
   return (
     <DrawerWrap onClose={onClose} sides={[open.side === 'h' ? 'r' : 'l']}>
-      <TeamDrawerPanel index={index} open={open} onClose={onClose} />
+      <TeamDrawerPanel index={index} open={open} me={me} onClose={onClose} />
     </DrawerWrap>
   );
 }
@@ -319,11 +340,11 @@ function TeamDrawer({ index, open, onClose }: { index: Index; open: Open; onClos
 // A maximized desktop screen: both schools' Stat Ledgers at once - the
 // visitor from the left, home from the right - with the game cards still
 // visible (and usable) between them.
-function DualTeamDrawers({ index, open, onClose }: { index: Index; open: Open; onClose: () => void }) {
+function DualTeamDrawers({ index, open, me, onClose }: { index: Index; open: Open; me: number; onClose: () => void }) {
   return (
     <DrawerWrap onClose={onClose} dual sides={['l', 'r']}>
-      <TeamDrawerPanel index={index} open={{ card: open.card, side: 'a' }} onClose={onClose} />
-      <TeamDrawerPanel index={index} open={{ card: open.card, side: 'h' }} onClose={onClose} />
+      <TeamDrawerPanel index={index} open={{ card: open.card, side: 'a' }} me={me} onClose={onClose} />
+      <TeamDrawerPanel index={index} open={{ card: open.card, side: 'h' }} me={me} onClose={onClose} />
     </DrawerWrap>
   );
 }
@@ -627,13 +648,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     const t = window.setTimeout(() => {
       const siteDrawerOpen = ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
         .some((c) => document.body.classList.contains(c));
-      const playable = !!shownCard?.game;
-      if (bothDrawers && playable && !keepClosed.current && !siteDrawerOpen) {
+      if (bothDrawers && shownCard && !keepClosed.current && !siteDrawerOpen) {
         if (!open || (autoOpened.current && open.card.week !== shownCard.week)) {
           autoOpened.current = true;
           setOpen({ card: shownCard, side: 'h' });
         }
-      } else if ((!bothDrawers || !playable) && autoOpened.current && open) {
+      } else if (!bothDrawers && autoOpened.current && open) {
         autoOpened.current = false;
         setOpen(null);
       }
@@ -666,8 +686,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         </div>
       )}
       {index && open && (bothDrawers
-        ? <DualTeamDrawers index={index} open={open} onClose={closeStats} />
-        : <TeamDrawer index={index} open={open} onClose={closeStats} />)}
+        ? <DualTeamDrawers index={index} open={open} me={me} onClose={closeStats} />
+        : <TeamDrawer index={index} open={open} me={me} onClose={closeStats} />)}
       {rules && <RulesDrawer onClose={() => setRules(false)} />}
       <Styles />
       <style jsx global>{`
