@@ -425,7 +425,9 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       probe.remove();
       const cs = getComputedStyle(li);
       const cols = cs.gridTemplateColumns.split(' ');
-      const room = li.clientWidth - parseFloat(cols[0]) - parseFloat(cols[2]) - 2 * parseFloat(cs.columnGap || '0');
+      // Room as laid out in a region list (24px rank column), so A-Z, whose
+      // wider label column takes its 20px back from the names, lines up too.
+      const room = li.clientWidth - 24 - parseFloat(cols[2]) - 2 * parseFloat(cs.columnGap || '0');
       list.style.setProperty('--lb-name-w', `${Math.ceil(Math.min(longest + 2, room))}px`);
     };
     fit();
@@ -1041,7 +1043,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
         .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:22px; }
         .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
-        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px var(--lb-name-w, minmax(0,1fr)) 22px; }
+        /* A-Z's label column (R3-S15) is 20px wider than the rank column,
+           so its name column gives those 20px back: the runs stay put. */
+        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px calc(var(--lb-name-w, 220px) - 20px) 22px; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
