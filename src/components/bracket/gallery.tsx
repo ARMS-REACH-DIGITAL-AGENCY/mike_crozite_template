@@ -1444,8 +1444,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               ))}
             </div>
           ) : null}
+          {/* W-L is the one stat batters and pitchers share: the school's
+              W-L is totaled once, on the bottom (Pitchers) Team row - not
+              also after the batters, where it read like a subtotal. */}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={[teamDayMetric(me), shownTeamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), '', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
             total={[
               teamDayMetric(2 + me),
