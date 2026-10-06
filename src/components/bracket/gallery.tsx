@@ -912,12 +912,12 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs, gran
       <table className="bl-box">
         <colgroup>
           <col style={{ width: 136 }} />
-          {cols.map((c) => <col key={c.key} style={{ width: c.cls === 'plus' ? 58 : c.cls === 'wl' ? 56 : 44 }} />)}
+          {cols.map((c) => <col key={c.key} className={c.cls} style={{ width: c.cls === 'plus' ? 58 : c.cls === 'wl' ? 56 : 44 }} />)}
         </colgroup>
         <thead>
           <tr>
             <th className="nm"><button type="button" className="bl-sort" onClick={click('name')}>{title}{arrow('name')}</button></th>
-            {cols.map((c) => <th key={c.key} className={c.cls}><button type="button" className="bl-sort" onClick={click(c.key)}>{c.label}{arrow(c.key)}</button></th>)}
+            {cols.map((c) => <th key={c.key} className={c.cls}><button type="button" className="bl-sort" onClick={click(c.key)}>{c.label}{arrow(c.key) ? <span className="bl-arrow">{arrow(c.key)}</span> : null}</button></th>)}
           </tr>
         </thead>
         <tbody>
@@ -1246,9 +1246,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'ops+', label: 'OPS+', cls: 'plus', val: (p) => p[6] ?? null, show: (p) => p[6] ?? '—' },
     { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
     ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((label, i): SortCol => ({ key: label, label, val: (p) => bat(p)[i + 1], show: (p) => bat(p)[i + 1] })),
-    { key: 'obp', label: 'OBP', val: (p) => obp(bat(p)), show: (p) => rate(obp(bat(p))) },
-    { key: 'slg', label: 'SLG', val: (p) => slg(bat(p)), show: (p) => rate(slg(bat(p))) },
-    { key: 'ops', label: 'OPS', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
+    { key: 'obp', label: 'OBP', cls: 'rate', val: (p) => obp(bat(p)), show: (p) => rate(obp(bat(p))) },
+    { key: 'slg', label: 'SLG', cls: 'rate', val: (p) => slg(bat(p)), show: (p) => rate(slg(bat(p))) },
+    { key: 'ops', label: 'OPS', cls: 'rate', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
   ];
   const pit = (p: PlayerRow) => p[5] as number[];
   const whip = (p: PlayerRow) => {
@@ -1271,9 +1271,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'bb', label: 'BB', val: (p) => pit(p)[2] || 0, show: (p) => pit(p)[2] || 0 },
     { key: 'hbp', label: 'HBP', val: (p) => pit(p)[3] || 0, show: (p) => pit(p)[3] || 0 },
     { key: 'k', label: 'K', val: (p) => pit(p)[4] || 0, show: (p) => pit(p)[4] || 0 },
-    { key: 'whip', label: 'WHIP', val: whip, show: (p) => rate(whip(p)) },
-    { key: 'kbb', label: 'K/BB', val: kbb, show: (p) => kbb(p).toFixed(2) },
-    { key: 'fip', label: 'FIP', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
+    { key: 'whip', label: 'WHIP', cls: 'rate', val: whip, show: (p) => rate(whip(p)) },
+    { key: 'kbb', label: 'K/BB', cls: 'rate', val: kbb, show: (p) => kbb(p).toFixed(2) },
+    { key: 'fip', label: 'FIP', cls: 'rate', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
   const wlText = (x: [number, number]) => `${x[0]}-${x[1]}`;
   const teamWl = wlText(wl);
@@ -1759,10 +1759,31 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:4px; padding-right:4px; }
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
       .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:8px; }
+      /* The drawer's tables fit with no inner scrollbar: the name, then 13
+         stat columns of one width, each label centered over its numbers.
+         The header row is the gold line's type ("HAMILTON | CHANDLER, AZ"). */
+      .bl.bl-embed.yfp-drawer .bl-box { width:100%; table-layout:fixed; }
+      /* Every counting stat (AB ... SF, IP ... K) is one width, every rate
+         (.000) another; OPS+/FIP- and W-L a little wider; the name the rest. */
+      .bl.bl-embed.yfp-drawer .bl-box col { width:20px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.rate { width:30px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.plus,
+      .bl.bl-embed.yfp-drawer .bl-box col.wl { width:28px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:auto !important; }
+      .bl.bl-embed.yfp-drawer .bl-box th,
+      .bl.bl-embed.yfp-drawer .bl-box td,
+      .bl.bl-embed.yfp-drawer .bl-box th:last-child,
+      .bl.bl-embed.yfp-drawer .bl-box td:last-child,
+      .bl.bl-embed.yfp-drawer .bl-box .plus,
+      .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:0; padding-right:0; text-align:center; }
+      .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:6px; padding-right:4px; text-align:left; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th { position:relative; font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-box .bl-sort { width:100%; text-align:inherit; }
+      .bl.bl-embed.yfp-drawer .bl-box .bl-arrow { position:absolute; top:1px; right:0; font-size:6px; }
       .bl.bl-embed.yfp-drawer .bl-sort { width:auto; overflow:visible; }
 
       .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
-      .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
+      .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:linear-gradient(180deg,#1f6546,#174c35); box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
       /* One board per school: a single grid - the name cell spans the OPS+
          and FIP- rows; columns match the day tabs below (name, 1-9, label). */
       .bl-team-board { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:stretch; }
@@ -1782,9 +1803,9 @@ export function Styles() {
       body.light-theme table.bl-box tr.fav td { color:#000; }
       @media (max-width:600px) {
         .bl.bl-embed.yfp-drawer .bl-box { font-size:10.5px; }
-        .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9px; }
+        .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:11px; }
         .bl.bl-embed.yfp-drawer .bl-box th,
-        .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 3px; }
+        .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 0; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-tb-head { font-size:6.8px; }
