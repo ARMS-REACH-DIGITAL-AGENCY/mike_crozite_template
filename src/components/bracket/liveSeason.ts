@@ -22,6 +22,7 @@ import {
 } from '@/lib/bracket/engine';
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
+import { setSettledDays } from './schoolSeason';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
@@ -153,10 +154,14 @@ function score(idx: Index, live: Live, asof: string) {
   const start = idx.weeks[0][0];
   const today = dayOf(asof, start);
   const now = Date.now();
-  // Clubs with a game on a day that isn't over yet.
+  // Clubs with a game on a day (dayClubs), and those whose game isn't over yet.
+  const dayClubs = new Map<number, Set<string>>();
   const openClubs = new Map<number, Set<string>>();
   for (const [club, list] of Object.entries(live.games || {})) {
-    for (const [d, , done] of list) if (!done) (openClubs.get(d) || openClubs.set(d, new Set()).get(d)!).add(club);
+    for (const [d, , done] of list) {
+      (dayClubs.get(d) || dayClubs.set(d, new Set()).get(d)!).add(club);
+      if (!done) (openClubs.get(d) || openClubs.set(d, new Set()).get(d)!).add(club);
+    }
   }
   // Players with a line from a game still going: day -> 'b'|'p' -> ids.
   const openLines = new Map<string, Set<string>>();
@@ -196,29 +201,37 @@ function score(idx: Index, live: Live, asof: string) {
     const [ws] = idx.weeks[week - 1] || [];
     if (!ws || ws > asof || !g[2] || !g[3]) return;
     const from = dayOf(ws, start);
-    // Is day d's offensive ('b') or pitching ('p') run settled? Every
-    // hitter (pitcher) on both rosters is done: his club has no game left
-    // that day and he has no line from a game still going.
+    // Is day d's offensive ('b') or pitching ('p') run settled? Early only
+    // once the day has been played: someone on either roster had a game,
+    // and every hitter (pitcher) is done - his club has no game left that
+    // day and he has no line from a game still going. A day with no games
+    // for either roster isn't over until 4 a.m. the next morning.
     const settled = (d: number, kind: 'b' | 'p') => {
       const abs = from + d;
       if (abs > today) return false;
       if (now >= settledBy(start, abs)) return true;
+      const sched = dayClubs.get(abs);
       const open = openClubs.get(abs);
       const going = openLines.get(`${abs}:${kind}`);
+      let played = false;
       for (const h of [g[2], g[3]]) {
         const mine = lines.get(String(h));
         for (const p of roster.get(String(h)) || []) {
           const x = mine?.get(p[0])?.get(abs);
+          const club = x?.club || p[4];
+          if (sched?.has(club) || x?.b || x?.p) played = true;
           const role = kind === 'p' ? p[3] === 1 || Boolean(x?.p) : p[3] === 0 || Boolean(x?.b);
           if (!role) continue;
           if (going?.has(p[0])) return false;
-          const club = x?.club || p[4];
           if (open?.has(club)) return false;
         }
       }
-      return true;
+      return played;
     };
     const f = Array.from({ length: 7 }, (_, d) => [settled(d, 'b'), settled(d, 'p')] as [boolean, boolean]);
+    // The board shows a day's inning once both its runs are settled.
+    const dayDone = f.findIndex((x) => !x[0] || !x[1]);
+    setSettledDays(g[0], dayDone < 0 ? 7 : dayDone);
     const weekDone: [boolean, boolean] = [f.every((x) => x[0]), f.every((x) => x[1])];
     const final = weekDone[0] && weekDone[1];
     const side = (h: number) => {
