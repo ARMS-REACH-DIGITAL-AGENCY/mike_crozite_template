@@ -31,6 +31,7 @@ import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } fro
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
+import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { Roboto_Condensed } from 'next/font/google';
 import { TEST_BRACKET } from '@/lib/bracket/testSeason';
 
@@ -147,6 +148,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
+          <BoardCrest id={me} side="r" />
         </div>
       </>
     );
@@ -214,6 +216,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         </div>
         {row('a')}
         {row('h')}
+        <BoardCrest id={g[3]} side="l" />
+        <BoardCrest id={g[2]} side="r" />
       </div>
     </>
   );
@@ -239,6 +243,16 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       ) : scoreboard}
     </article>
   );
+}
+
+// A school's crest beside the main scoreboard, screened back (visitors left,
+// home right). Only on a card wide enough to have room for it; a school
+// without a crest image shows nothing.
+function BoardCrest({ id, side }: { id: number; side: 'l' | 'r' }) {
+  const [gone, setGone] = useState(false);
+  if (!id || gone) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className={`yfp-board-crest ${side}`} src={getSchoolCrestUrl(id)} alt="" aria-hidden="true" onError={() => setGone(true)} />;
 }
 
 // Where a drawer opens: on desktop only over row 5 (the timeline and the
@@ -1052,7 +1066,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-cards { gap:12px; align-items:center; }
           .yfp-game-split { display:block; min-height:0; }
           .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:0; }
-          .yfp-game-socialpane { padding:4px 12px 8px; overflow:visible; }
+          .yfp-game-socialpane { padding:0 12px 2px; overflow:visible; }
+          .yfp-game-socialpane .fgs-inline .ysv-actions button { min-height:28px; font-size:13px; }
+          /* No stroke around the game card. */
+          .yfz-cards .yfp-card.yfp-scorecard { border-color:transparent; }
           .yfp-game-socialpane .fgs-inline.ysv-post { height:auto; }
           .yfp-game-socialpane .fgs-inline .ysv-comments { max-height:180px; }
           .yfp-score-head { padding:5px 12px 4px; font-size:11px; }
@@ -1063,6 +1080,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* Inset under the gold row with rounded corners, and as tall as a
              drawer's two boards (6px below the gold row to 138px below it),
              so all three boards start and end on the same lines. */
+          /* School crests either side of the board, screened back, once the
+             card is wide enough to hold them beside it (hidden otherwise). */
+          .yfp-game-scorepane { container-type:inline-size; }
+          .yfp-game-scorepane .yfp-green-board { position:relative; }
+          .yfp-board-crest { display:none; }
+          @container (min-width: 900px) {
+            .yfp-game-scorepane .yfp-board-crest { display:block; position:absolute; top:50%; transform:translateY(-50%); height:84%; max-width:15%; object-fit:contain; opacity:.16; pointer-events:none; }
+            .yfp-game-scorepane .yfp-board-crest.l { left:16px; }
+            .yfp-game-scorepane .yfp-board-crest.r { right:16px; }
+          }
           .yfp-game-scorepane .yfp-green-board {
             box-sizing:border-box; height:132px; margin:6px 8px 0; padding-top:0; padding-bottom:0; align-content:center;
             border:1px solid rgba(255,255,255,.12); border-radius:7px; box-shadow:inset 0 1px 8px rgba(0,0,0,.28);
