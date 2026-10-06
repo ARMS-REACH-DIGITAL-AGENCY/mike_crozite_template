@@ -89,16 +89,49 @@ export function schoolSeason(index: Index, lb: LbGame[], h: number, asof: string
   return out.sort((a, b) => a.week - b.week);
 }
 
-// Live scoring's settled days per game id: the days (from Monday) whose
-// runs are final. A day that has begun but isn't over isn't shown yet.
-const settled = new Map<number, number>();
-export function setSettledDays(gameId: number, days: number) {
-  settled.set(gameId, days);
+// Live scoring's inning per game id (the test brackets). The bracket's day
+// runs 4 a.m. to 4 a.m. Arizona time, the same for every game: at 4 a.m. the
+// day before goes final (white) and the new day's inning starts in the Top
+// (the visitors' yellow 0). It goes to the Bottom (both yellow 0s) once the
+// matchup's last real game of the day has started - the whole bracket's last
+// game if neither school has anyone playing - and its real runs post in
+// yellow once all those games are over. day: 0-6 = Monday-Sunday, 7 = the
+// week is over. The runs in g[5] are only ever the posted ones.
+export type LivePhase = 'top' | 'bottom' | 'posted';
+const liveInnings = new Map<number, { day: number; phase: LivePhase }>();
+export function setLiveInning(gameId: number, day: number, phase: LivePhase) {
+  liveInnings.set(gameId, { day, phase });
 }
-// The days of game g to show, of the calendar's days in.
+// The days of game g to count, of the calendar's days in: a live game's runs
+// (g[5]) are its posted runs, so all of them.
 export function shownDays(g: GameRow, days: number) {
-  const s = settled.get(g[0]);
-  return s === undefined ? days : Math.min(days, s);
+  return liveInnings.has(g[0]) ? 7 : days;
+}
+
+export type InningCell = { v: number | ''; now: boolean }; // now: yellow, not final yet
+// A live game's board while its week is being played: the status ("TOP 2",
+// "BOT 2"), each side's 9 inning cells (visitors first) and runs. null: not
+// a live game, or its week is over (the board shows it final).
+export function liveBoard(g: GameRow): { status: string; cells: [InningCell[], InningCell[]]; runs: [number, number] } | null {
+  const lv = liveInnings.get(g[0]);
+  if (!lv || lv.day >= 7) return null;
+  const { day, phase } = lv;
+  const posted = phase === 'posted';
+  const weekPosted = day === 6 && posted;
+  const side = (off: 0 | 1): InningCell[] => Array.from({ length: 9 }, (_, i) => {
+    const run = g[5][i * 2 + off] || 0;
+    if (i < 7 && i < day) return { v: run, now: false };
+    if (i === day) {
+      if (posted) return { v: run, now: true };
+      // Visitors bat in the Top; both sides show a yellow 0 in the Bottom.
+      return off === 1 || phase === 'bottom' ? { v: 0, now: true } : { v: '', now: false };
+    }
+    if (i >= 7 && weekPosted) return { v: run, now: true };
+    return { v: '', now: false };
+  });
+  const away = side(1), home = side(0);
+  const sum = (c: InningCell[]) => c.reduce((n, x) => n + (typeof x.v === 'number' ? x.v : 0), 0);
+  return { status: `${phase === 'top' ? 'TOP' : 'BOT'} ${day + 1}`, cells: [away, home], runs: [sum(home), sum(away)] };
 }
 
 // A game's runs through the days in (innings 1-7 are the days; 8 and 9 the
