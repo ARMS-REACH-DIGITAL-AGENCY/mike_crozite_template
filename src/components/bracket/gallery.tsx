@@ -1541,6 +1541,19 @@ export function abbr(name: string) {
   return words.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
 }
 
+// The main scoreboard's daily-stats button: a small round stat icon to the
+// right of each school's R column - the visible way into that school's stat
+// drawer (the school name opens it too, but doesn't look like a link).
+export function StatsDot({ name, onOpen }: { name: string; onOpen?: () => void }) {
+  if (!onOpen) return <span className="yfp-green-stats-cell" aria-hidden="true" />;
+  return (
+    <button type="button" className="yfp-green-stats" onClick={onOpen}
+      aria-label={`${name}: daily stats`} title={`${name}: daily stats`}>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="8" width="2.6" height="5.5" rx=".6" /><rect x="6.7" y="3" width="2.6" height="10.5" rx=".6" /><rect x="10.9" y="5.8" width="2.6" height="7.7" rx=".6" /></svg>
+    </button>
+  );
+}
+
 export function Styles() {
   return (
     <style jsx global>{`
