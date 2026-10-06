@@ -74,7 +74,13 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
   const [turn, setTurn] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    loadIndex().then((i) => { setAsof(previewDate()); setIndex(i); }).catch(() => {});
+    // Each visit starts on a random region, so every region (and its
+    // sponsor) leads the crawl equally often - not always Region 1.
+    loadIndex().then((i) => {
+      const a = previewDate();
+      const n = tickerGroups(i, a).length;
+      setAsof(a); setIndex(i); setTurn(n ? Math.floor(Math.random() * n) : 0);
+    }).catch(() => {});
   }, []);
   const groups = useMemo(() => (index && asof ? tickerGroups(index, asof) : []), [index, asof]);
   const group = groups.length ? groups[turn % groups.length] : null;
@@ -103,11 +109,13 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
       </div>
     )
   );
+  // A tap on the region box moves straight on to the next region.
   const box = group && (
-    <div className="ybt-box" aria-label={`${group.boxK} ${group.boxV}`}>
+    <button type="button" className="ybt-box" onClick={() => setTurn((t) => t + 1)}
+      aria-label={`${group.boxK} ${group.boxV}: show the next region`} title="Next region">
       <span className="ybt-box-k">{group.boxK}</span>
       <b className="ybt-box-v">{group.boxV}</b>
-    </div>
+    </button>
   );
 
   return (
@@ -174,7 +182,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         a.ybt-spot:focus-visible { outline:2px solid #ffb238; outline-offset:-2px; }
         /* The region box: pinned right, a fixed size; the games come out
            from under it. */
-        .ybt-box { position:relative; z-index:2; flex:none; width:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+        .ybt-box { position:relative; z-index:2; flex:none; width:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:0; border:0; cursor:pointer; color:inherit;
           background:#0b0805; border-left:2px solid rgba(255,160,40,.45); box-shadow:-8px 0 14px rgba(0,0,0,.75); font-family:Oswald,sans-serif; }
         .ybt-box-k { font-size:10px; font-weight:700; letter-spacing:.16em; line-height:1; color:rgba(255,255,255,.7); }
         .ybt-box-v { font-size:36px; font-weight:700; line-height:.9; color:#ffb238; text-shadow:0 0 3px rgba(255,170,40,.8), 0 0 12px rgba(255,120,0,.45); }
