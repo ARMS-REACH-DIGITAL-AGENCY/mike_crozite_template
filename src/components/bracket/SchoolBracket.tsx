@@ -971,12 +971,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-lb-rules { min-height:32px; font-size:11px; }
 
         }
-        /* Stat Ledger drawers are exactly as wide as their tables (410px:
-           the 390px batting table plus its scrollbar) and dock beside the
-           game from 820px: no dimming, clicks pass through to the game. */
+        /* Stat Ledger drawers are as wide as their tables plus a 12px lane
+           for the drawer's own scrollbar (a Mac's overlay scrollbar would
+           otherwise sit on the OPS column), and dock beside the game from
+           820px: no dimming, clicks pass through to the game. */
         @media (min-width:820px) {
-          body { --yfp-dw:410px; }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); }
+          body { --yfp-dw:422px; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); scrollbar-width:thin; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-stat-block { padding-right:12px; }
           .yfp-drawer-wrap.row5 { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { pointer-events:auto; }
           /* Docked drawers start where the game card starts, so the three
