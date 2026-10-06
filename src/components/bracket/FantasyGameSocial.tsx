@@ -135,13 +135,10 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
 
   const actions=(modalMode=false)=>(
     <>
-      {(likeCount>0||commentCount>0)&&<div className="ysv-counts">
-        <span>{likeCount>0?<><i className="ri-thumb-up-fill ysv-like-dot"/> {likeCount}</>:null}</span>
-        <span>{commentCount>0?`${commentCount} comment${commentCount===1?'':'s'}`:''}</span>
-      </div>}
+      {/* One row: each count rides in its own button (no separate counts line). */}
       <div className="ysv-actions">
-        <button type="button" className={liked?'ysv-liked':''} onClick={toggleLike}><i className={liked?'ri-thumb-up-fill':'ri-thumb-up-line'}/> Like</button>
-        <button type="button" onClick={modalMode?()=>me?textareaRef.current?.focus():openSignIn:openComment}><i className="ri-chat-3-line"/> Comment</button>
+        <button type="button" className={liked?'ysv-liked':''} onClick={toggleLike} aria-label={`Like${likeCount?` (${likeCount})`:''}`}><i className={liked?'ri-thumb-up-fill':'ri-thumb-up-line'}/> Like{likeCount>0?<span className="fgs-n">{likeCount}</span>:null}</button>
+        <button type="button" onClick={modalMode?()=>me?textareaRef.current?.focus():openSignIn():openComment} aria-label={`Comment${commentCount?` (${commentCount})`:''}`}><i className="ri-chat-3-line"/> Comment{commentCount>0?<span className="fgs-n">{commentCount}</span>:null}</button>
         <button type="button" onClick={share}><i className="ri-share-forward-line"/> Share</button>
       </div>
     </>
@@ -206,7 +203,7 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
     <StoryStyles/>
     <style jsx global>{`
       .fgs-inline.ysv-post{border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
-      .fgs-inline .ysv-counts{padding:5px 2px 4px;font-size:10px}
+      .ysv-actions .fgs-n{margin-left:5px;font-weight:400;opacity:.8}
       .fgs-inline .ysv-actions button{min-height:36px;font-size:14px}
       .fgs-inline .ysv-actions button i{font-size:15px}
       .fgs-inline .ysv-comments{padding:6px 0 2px;gap:7px}
@@ -236,7 +233,6 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
       .fgs-modal-card>.ysv-composer{flex:none}
       @media(max-width:899px){
         .fgs-desktop-only{display:none!important}
-        .fgs-inline .ysv-counts{display:none}
         .fgs-modal{padding:0;align-items:stretch}
         .fgs-modal .fgs-modal-card{width:100%;height:100dvh;max-height:none;border-radius:0;border:0}
         .fgs-modal-preview{padding:14px 12px 0}
