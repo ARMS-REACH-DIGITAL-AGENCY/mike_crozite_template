@@ -22,6 +22,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { inActionToday } from './inAction';
 import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { ScoringRulesPanel } from './BracketRules';
 
@@ -1215,6 +1216,26 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
+// The strip under a drawer's scoreboards, like a Wrigley side panel: the
+// school's alumni in action today and when their games start.
+function InActionStrip({ hsid }: { hsid: number }) {
+  const x = inActionToday(hsid);
+  const at = (ms?: number) => (ms ? new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '');
+  let parts: ReactNode[];
+  if (!x || !x.players) parts = ['No alumni in action today'];
+  else {
+    const who = <><b>{x.players}</b> {x.players === 1 ? 'alumnus' : 'alumni'} {x.done === x.games ? 'played today' : 'in action'}</>;
+    if (x.games && x.done === x.games) parts = [who, 'All games final'];
+    else if (x.next) parts = [who, <>{x.started ? 'Next first pitch' : 'First pitch'} <b>{at(x.next)}</b></>, <>Last game <b>{at(x.last)}</b></>];
+    else parts = [who, 'All games under way'];
+  }
+  return (
+    <div className="bl-inaction" aria-label="In action today">
+      {parts.map((p, i) => <span key={i}>{i ? <i aria-hidden="true">·</i> : null}{p}</span>)}
+    </div>
+  );
+}
+
 export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide, openDay = 'week' }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
@@ -1425,6 +1446,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}
       style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px`, '--bl-tabs-h': `${tabsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
+        <>
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {teamBoard(me)}
             {teamBoard(me === 0 ? 1 : 0)}
@@ -1448,6 +1470,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               </div>
             ) : null}
           </div>
+          {/* Not pinned: it scrolls away with the players under it. */}
+          <InActionStrip hsid={side === 'h' ? home : away} />
+        </>
       ) : (
         <>
           <div className="bl-top">
@@ -1851,10 +1876,10 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box { width:100%; table-layout:fixed; }
       /* Every counting stat (AB ... SF, IP ... K) is one width, every rate
          (.000) another; OPS+/FIP- and W-L a little wider; the name the rest. */
-      .bl.bl-embed.yfp-drawer .bl-box col { width:20px !important; }
-      .bl.bl-embed.yfp-drawer .bl-box col.rate { width:27px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col { width:17px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.rate { width:28px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col.plus,
-      .bl.bl-embed.yfp-drawer .bl-box col.wl { width:27px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.wl { width:25px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:auto !important; }
       .bl.bl-embed.yfp-drawer .bl-box th,
       .bl.bl-embed.yfp-drawer .bl-box td,
@@ -1862,7 +1887,16 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box td:last-child,
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:0; padding-right:0; text-align:center; }
-      .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:6px; padding-right:4px; text-align:left; }
+      .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:2px; padding-right:3px; text-align:left; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th .bl-sort { font-size:10px; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th.nm .bl-sort { padding-left:4px; font-size:11px; }
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { margin-right:3px; }
+      .bl.bl-embed.yfp-drawer img.bl-tlogo { background:transparent; }
+      /* In action today (InActionStrip): a dark-green panel under the boards. */
+      .bl.bl-embed.yfp-drawer .bl-inaction { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 6px; margin:6px 8px 0; padding:6px 10px 5px; border-radius:5px;
+        background:#174c35; color:#fff; font:700 11px/1.15 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-inaction b { color:#ffd34f; font-weight:700; }
+      .bl.bl-embed.yfp-drawer .bl-inaction i { margin-right:6px; font-style:normal; opacity:.5; }
       /* A player's name is never cut off and never wraps: one too long for
          its column is drawn a little tighter (fitNames in SortTable). */
       .bl.bl-embed.yfp-drawer .bl-box tbody td.nm { text-overflow:clip; }
