@@ -357,6 +357,18 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
         END AS display_level,
         normalized_status AS display_status
       FROM chosen_truth
+    ),
+    -- A team's organization (MiLB affiliate -> its MLB club, college ->
+    -- its conference), from the hand-maintained teamid_universe_mapping,
+    -- by exact team name. A name that maps to more than one org is left
+    -- out rather than guessed.
+    team_org AS (
+      SELECT LOWER(TRIM(current_team_name)) AS team_key,
+             MIN(current_org_or_conference_name) AS org_name
+        FROM public.teamid_universe_mapping
+       WHERE COALESCE(TRIM(current_org_or_conference_name), '') <> ''
+       GROUP BY 1
+      HAVING COUNT(DISTINCT current_org_or_conference_name) = 1
     )
     UPDATE public.flip_card_front_stage stage
        -- Being matched on a live roster this run is normally proof he's
@@ -412,10 +424,18 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
              THEN display_truth.verified_at
              ELSE stage.current_team_last_verified
            END,
+           -- A minor leaguer's org: MLB's on the 40-man, otherwise the
+           -- team mapping's (this used to keep whatever was there, so a
+           -- minor leaguer off the 40-man - Jake Bold at Lake Elsinore -
+           -- showed his team with no organization). A team the mapping
+           -- doesn't know keeps the old org only if he hasn't moved.
+           -- Major leaguers are unchanged (their card shows the club).
            current_org_or_conference_name = CASE
              WHEN stage.last_transaction_applied_at IS NOT NULL THEN stage.current_org_or_conference_name
-             WHEN display_truth.is_on_40man IS TRUE AND display_truth.normalized_level <> 'MLB'
-               THEN display_truth.forty_man_org_name
+             WHEN display_truth.normalized_level = 'MLB' THEN stage.current_org_or_conference_name
+             WHEN display_truth.is_on_40man IS TRUE THEN display_truth.forty_man_org_name
+             WHEN team_org.org_name IS NOT NULL THEN team_org.org_name
+             WHEN stage.current_team_name IS DISTINCT FROM display_truth.source_team_name THEN NULL
              ELSE stage.current_org_or_conference_name
            END,
            level_label = CASE
@@ -464,6 +484,7 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
            current_team_absent_since = NULL,
            stage_updated_at = NOW()
       FROM display_truth
+      LEFT JOIN team_org ON team_org.team_key = LOWER(TRIM(display_truth.source_team_name))
      WHERE stage.playerid::text = display_truth.playerid::text
   `, [JSON.stringify(mlbCurrent)]);
 
