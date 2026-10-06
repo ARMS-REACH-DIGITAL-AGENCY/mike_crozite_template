@@ -2,13 +2,15 @@
 
 // src/components/bracket/BracketTicker.tsx
 // Row 6 (the footer) on the Fantasy Bracket Tourney tab: a scoreboard ticker
-// (dot-matrix light bulbs) crawling every game of the current round, one
-// region at a time - each game stacked like a scoreboard (visitor over home,
-// running score at the right): the day innings through yesterday's stats, or
-// FINAL once the week is over. The games come out from under a REGION box
-// pinned to the right and slide under a sponsor spot pinned to the left -
-// "ROUND 1 brought to you by ..." - and both change with each region. Same
-// date as the tab (today, or ?asof=YYYY-MM-DD).
+// (dot-matrix light bulbs) for every game of the current round - each game
+// stacked like a scoreboard (visitor over home, running score at the right):
+// the day innings through yesterday's stats, or FINAL once the week is over.
+// One ticker per region, each crawling its own games in a loop; every 10
+// seconds the ticker dissolves into the next region's, which picks up where
+// it left off. The games come out from under a REGION box pinned to the
+// right (a tap moves on to the next region) and slide under a sponsor spot
+// pinned to the left - "ROUND 1 brought to you by ..." - and both change
+// with the region. Same date as the tab (today, or ?asof=YYYY-MM-DD).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Doto } from 'next/font/google';
@@ -18,6 +20,8 @@ import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
 // The crawl, in pixels per second.
 const CRAWL_PX_PER_SEC = 38;
+// How long each region's ticker shows before dissolving into the next.
+const REGION_DWELL_MS = 10_000;
 
 type Item = { key: string; tag: string; home: string; away: string; h: number; a: number; status: string; lead: 0 | 1 | 2 };
 // One region's games (region 0: a postseason stage): the sponsor spot's
@@ -72,10 +76,14 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
   const [index, setIndex] = useState<Index | null>(null);
   const [asof, setAsof] = useState('');
   const [turn, setTurn] = useState(0);
-  const trackRef = useRef<HTMLDivElement | null>(null);
+  // Copies of each region's games laid end to end, enough to fill the lane
+  // with no gap as the loop comes round.
+  const [reps, setReps] = useState(2);
+  const [hover, setHover] = useState(false);
+  const laneRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     // Each visit starts on a random region, so every region (and its
-    // sponsor) leads the crawl equally often - not always Region 1.
+    // sponsor) leads equally often - not always Region 1.
     loadIndex().then((i) => {
       const a = previewDate();
       const n = tickerGroups(i, a).length;
@@ -83,35 +91,58 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
     }).catch(() => {});
   }, []);
   const groups = useMemo(() => (index && asof ? tickerGroups(index, asof) : []), [index, asof]);
-  const group = groups.length ? groups[turn % groups.length] : null;
+  const active = groups.length ? turn % groups.length : 0;
+  const group = groups.length ? groups[active] : null;
   const sponsor = useMemo(() => (group ? selectRegionSponsor(hsid, group.region) : null), [hsid, group]);
 
-  // A steady crawl whatever the region's length: the duration comes from
-  // the track's width (the lane's width of lead-in plus its games).
+  // Every 10 seconds, the next region (held while the pointer is on the
+  // ticker, so a score can be read; a tap on the box restarts the count).
+  useEffect(() => {
+    if (groups.length < 2 || hover) return;
+    const t = window.setTimeout(() => setTurn((x) => x + 1), REGION_DWELL_MS);
+    return () => window.clearTimeout(t);
+  }, [turn, groups.length, hover]);
+
+  // A steady crawl whatever the region's length: each loop moves one copy
+  // of the region's games, at the same speed for every region.
   useLayoutEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    el.style.animationDuration = `${Math.max(8, el.offsetWidth / CRAWL_PX_PER_SEC)}s`;
-    el.style.animationName = 'ybt-crawl';
-  }, [turn, group]);
+    const lane = laneRef.current;
+    if (!lane) return;
+    const fit = () => {
+      let need = 2;
+      lane.querySelectorAll<HTMLElement>('.ybt-track').forEach((track) => {
+        const copy = track.querySelector<HTMLElement>('.ybt-copy');
+        const w = copy?.offsetWidth || 0;
+        if (!w) return;
+        track.style.setProperty('--ybt-copy', `${w}px`);
+        track.style.animationDuration = `${Math.max(8, w / CRAWL_PX_PER_SEC)}s`;
+        need = Math.max(need, Math.ceil(lane.offsetWidth / w) + 1);
+      });
+      setReps((r) => (r === need ? r : need));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(lane);
+    return () => ro.disconnect();
+  }, [groups, reps]);
 
   const spot = group && (
     sponsor ? (
-      <a className="ybt-spot" href={sponsor.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
+      <a key={`s${group.region}:${group.label}`} className="ybt-spot" href={sponsor.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
         aria-label={`${group.label} brought to you by ${sponsor.sponsorName}`}
         data-sponsor-id={sponsor.id} data-sponsor-name={sponsor.sponsorName}>
         <span className="ybt-spot-line"><b className="ybt-spot-k">{group.label}</b> <span className="ybt-spot-by">brought to you by</span></span>
         {' '}<b className="ybt-spot-name">{sponsor.sponsorName}</b>
       </a>
     ) : (
-      <div className="ybt-spot">
+      <div key={`s${group.region}:${group.label}`} className="ybt-spot">
         <span className="ybt-spot-line"><b className="ybt-spot-k">{group.label}</b></span>
       </div>
     )
   );
   // A tap on the region box moves straight on to the next region.
   const box = group && (
-    <button type="button" className="ybt-box" onClick={() => setTurn((t) => t + 1)}
+    <button key={`b${group.region}:${group.label}`} type="button" className="ybt-box" onClick={() => setTurn((t) => t + 1)}
       aria-label={`${group.boxK} ${group.boxV}: show the next region`} title="Next region">
       <span className="ybt-box-k">{group.boxK}</span>
       <b className="ybt-box-v">{group.boxV}</b>
@@ -119,29 +150,34 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
   );
 
   return (
-    <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores">
+    <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
+      onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       {spot}
-      <div className="ybt-lane">
+      <div className="ybt-lane" ref={laneRef}>
         {!index && <span className="ybt-msg">LOADING SCORES...</span>}
         {index && !groups.length && <span className="ybt-msg">THE 2026 BRACKET STARTS {index.weeks[0][0]}</span>}
-        {group && (
-          <div key={`${turn}`} ref={trackRef} className="ybt-track" onAnimationEnd={() => setTurn((t) => t + 1)}>
-            {group.items.map((it) => (
-              <span key={it.key} className="ybt-item">
-                <span className="ybt-meta">
-                  {it.tag && <span className="ybt-tag">{it.tag}</span>}
-                  <span className="ybt-status">{it.status}</span>
-                </span>
-                <span className="ybt-board">
-                  <span className={`ybt-team${it.lead === 2 ? ' ybt-lead' : ''}`}>{it.away}</span>
-                  <span className={`ybt-run${it.lead === 2 ? ' ybt-lead' : ''}`}>{it.a}</span>
-                  <span className={`ybt-team${it.lead === 1 ? ' ybt-lead' : ''}`}>{it.home}</span>
-                  <span className={`ybt-run${it.lead === 1 ? ' ybt-lead' : ''}`}>{it.h}</span>
-                </span>
+        {groups.map((g, gi) => (
+          <div key={`${g.region}:${g.label}`} className={`ybt-track${gi === active ? ' on' : ''}`} aria-hidden={gi !== active}>
+            {Array.from({ length: reps }, (_, c) => (
+              <span key={c} className="ybt-copy">
+                {g.items.map((it) => (
+                  <span key={it.key} className="ybt-item">
+                    <span className="ybt-meta">
+                      {it.tag && <span className="ybt-tag">{it.tag}</span>}
+                      <span className="ybt-status">{it.status}</span>
+                    </span>
+                    <span className="ybt-board">
+                      <span className={`ybt-team${it.lead === 2 ? ' ybt-lead' : ''}`}>{it.away}</span>
+                      <span className={`ybt-run${it.lead === 2 ? ' ybt-lead' : ''}`}>{it.a}</span>
+                      <span className={`ybt-team${it.lead === 1 ? ' ybt-lead' : ''}`}>{it.home}</span>
+                      <span className={`ybt-run${it.lead === 1 ? ' ybt-lead' : ''}`}>{it.h}</span>
+                    </span>
+                  </span>
+                ))}
               </span>
             ))}
           </div>
-        )}
+        ))}
       </div>
       {box}
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
@@ -152,15 +188,22 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
           background-size:4px 4px;
           border-top:1px solid #1d1408; }
         .ybt-lane { position:relative; flex:1 1 auto; min-width:0; overflow:hidden; display:flex; align-items:center; }
-        /* Starts just off the right edge (padding = the lane's width) and
-           crawls left until its last game has gone under the sponsor spot. */
-        .ybt-track { position:absolute; top:0; bottom:0; left:0; padding-left:100%; display:flex; align-items:center; white-space:nowrap;
-          animation-timing-function:linear; animation-iteration-count:1; animation-fill-mode:both; will-change:transform; }
-        .ybt:hover .ybt-track { animation-play-state:paused; }
-        @keyframes ybt-crawl { from { transform:translateX(0); } to { transform:translateX(-100%); } }
+        /* One ticker per region, stacked: copies of the region's games end
+           to end, crawling left one copy per loop (a seamless wrap). Only
+           the region on show runs; the others hold their place, invisible,
+           and the change is a dissolve. */
+        .ybt-track { position:absolute; top:0; bottom:0; left:0; display:flex; align-items:center; white-space:nowrap;
+          opacity:0; visibility:hidden; transition:opacity .9s ease, visibility 0s linear .9s;
+          animation-name:ybt-crawl; animation-timing-function:linear; animation-iteration-count:infinite; animation-play-state:paused; will-change:transform; }
+        .ybt-track.on { opacity:1; visibility:visible; transition:opacity .9s ease, visibility 0s; animation-play-state:running; }
+        .ybt:hover .ybt-track.on { animation-play-state:paused; }
+        .ybt-copy { display:flex; align-items:center; flex:none; }
+        @keyframes ybt-crawl { from { transform:translateX(0); } to { transform:translateX(calc(-1 * var(--ybt-copy, 0px))); } }
+        @keyframes ybt-in { from { opacity:0; } to { opacity:1; } }
+        .ybt-spot, .ybt-box { animation:ybt-in .9s ease both; }
         .ybt-item { display:inline-flex; align-items:center; gap:10px; padding:0 22px; color:#ffb238;
           text-shadow:0 0 3px rgba(255,170,40,.9), 0 0 10px rgba(255,120,0,.55); }
-        .ybt-item + .ybt-item { border-left:2px dotted rgba(255,160,40,.35); }
+        .ybt-item { border-right:2px dotted rgba(255,160,40,.35); }
         .ybt-meta { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
         .ybt-tag, .ybt-status { font-size:11px; font-weight:700; line-height:1; color:#ff7a1a; text-shadow:0 0 3px rgba(255,110,20,.9); }
         .ybt-board { display:grid; grid-template-columns:auto auto; column-gap:12px; row-gap:2px; align-items:baseline; }
@@ -201,8 +244,8 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
           .ybt-msg { font-size:15px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .ybt-lane { overflow-x:auto; }
-          .ybt-track { position:relative; padding-left:0; animation:none !important; }
+          .ybt-track { animation:none !important; transition:none !important; }
+          .ybt-spot, .ybt-box { animation:none; }
         }
       `}</style>
     </div>
