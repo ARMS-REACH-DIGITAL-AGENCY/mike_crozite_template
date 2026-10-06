@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getActiveRosterByHsid, getFlipCardFrontStageByHsid } from '@/lib/db';
+import { getActiveRosterByHsid, getFlipCardFrontStageByHsid, query } from '@/lib/db';
 import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 
 type Row = Record<string, unknown>;
@@ -54,6 +54,27 @@ export async function GET(
     const statsRows = (Array.isArray(statsRowsRaw) ? statsRowsRaw : []) as Row[];
     const statsById = new Map(statsRows.map((row) => [text(row.playerid), row]));
 
+    // Team logos are keyed by our (Baseball Cube) team id. A pro whose current
+    // team came from the MLB feed carries MLB's team id instead, so translate
+    // it through team_id_map; college and other ids pass through as they are.
+    const mlbIds = [...new Set(stageRows
+      .filter((r) => text(r.current_team_source) === 'mlb_api' && /^\d+$/.test(text(r.current_teamid)))
+      .map((r) => text(r.current_teamid)))];
+    const tbcOfMlb = new Map<string, string>();
+    if (mlbIds.length) {
+      try {
+        const { rows } = await query<{ mlb: string; tbc: string }>(
+          'SELECT mlb_stats_api_id::text AS mlb, tbc_teamid::text AS tbc FROM team_id_map WHERE mlb_stats_api_id::text = ANY($1)',
+          [mlbIds],
+        );
+        for (const r of rows) tbcOfMlb.set(r.mlb, r.tbc);
+      } catch { /* no logos is fine */ }
+    }
+    const logoTeamId = (r: Row) => {
+      const id = text(r.current_teamid);
+      return text(r.current_team_source) === 'mlb_api' ? tbcOfMlb.get(id) ?? null : id || null;
+    };
+
     const roster = stageRows
       .filter((stage) => isActiveGalleryStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage))
       .map((stage) => {
@@ -88,6 +109,8 @@ export async function GET(
           is_pitcher: isPitcher,
           status_label: stage.status_label ?? stage.status ?? null,
           current_team_name: stage.current_team_name ?? null,
+          // Our (Baseball Cube) team id: the team logo in the stat drawer.
+          current_teamid: logoTeamId(stage),
           current_org_or_conference_name: stage.current_org_or_conference_name ?? null,
           has_2026_stats: Boolean(stats),
         };
