@@ -879,9 +879,10 @@ export function shortNames(players: PlayerRow[]) {
 type SortCol = { key: string; label: string; cls?: string; val: (p: PlayerRow) => number | null; show: (p: PlayerRow) => ReactNode };
 // A box-score table whose headers sort it: a tap sorts high to low, a
 // second tap low to high (the name sorts A-Z). The Team row stays last.
-function SortTable({ title, rows, cols, player, labels, total, empty, favs }: {
+function SortTable({ title, rows, cols, player, labels, total, empty, favs, grand }: {
   title: string; rows: PlayerRow[]; cols: SortCol[]; player: (p: PlayerRow) => ReactNode; labels: Map<string, string>; total: ReactNode[]; empty: string;
   favs?: Set<string>; // the fan's favorite players: their whole line in bold
+  grand?: ReactNode[]; // a Team total row under the subtotal (the last table)
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const sorted = useMemo(() => {
@@ -927,8 +928,14 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs }: {
           ))}
           {rows.length > 0 && (
             <tr className="tot">
-              <td className="nm">Team</td>
+              <td className="nm">{title}</td>
               {total.map((v, i) => <td key={i} className={cols[i]?.cls}>{v}</td>)}
+            </tr>
+          )}
+          {grand && (
+            <tr className="tot grand">
+              <td className="nm">Team total</td>
+              {grand.map((v, i) => <td key={i} className={cols[i]?.cls}>{v}</td>)}
             </tr>
           )}
         </tbody>
@@ -1263,7 +1270,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'kbb', label: 'K/BB', val: kbb, show: (p) => kbb(p).toFixed(2) },
     { key: 'fip', label: 'FIP', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
-  const teamWl = `${wl[0]}-${wl[1]}`;
+  const wlText = (x: [number, number]) => `${x[0]}-${x[1]}`;
+  const teamWl = wlText(wl);
   const teamWhip = teamPit[0] ? ((teamPit[5] || 0) + (teamPit[2] || 0)) / (teamPit[0] / 3) : 0;
   const teamKbb = teamPit[2] ? (teamPit[4] || 0) / teamPit[2] : (teamPit[4] || 0);
   const teamFipWeight = pitchers.reduce((s, p) => s + (pit(p)[0] || 0), 0);
@@ -1444,15 +1452,17 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               ))}
             </div>
           ) : null}
-          {/* W-L is the one stat batters and pitchers share: the school's
-              W-L is totaled once, on the bottom (Pitchers) Team row - not
-              also after the batters, where it read like a subtotal. */}
+          {/* W-L is the one stat batters and pitchers share: each table's
+              total row is its own subtotal (the batters' clubs, the
+              pitchers' clubs), and the school's W-L - every alumnus once -
+              is the Team total at the bottom. */}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={[teamDayMetric(me), '', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), statDay === 'week' ? wlText(sumRosterWl(batters)) : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
+            grand={pitCols.map((c) => (c.key === 'wl' ? (statDay === 'week' ? teamWl : '—') : ''))}
             total={[
               teamDayMetric(2 + me),
-              statDay === 'week' ? teamWl : '—',
+              statDay === 'week' ? wlText(sumRosterWl(pitchers)) : '—',
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
@@ -1710,6 +1720,9 @@ export function Styles() {
       .bl-sort:hover { color:var(--gold); }
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
+      /* The school's W-L, every alumnus once, under the two subtotals. */
+      .bl-box tr.tot.grand td { border-top:2px solid var(--line); text-transform:uppercase; }
+      .bl-box tr.tot.grand td.wl { color:var(--gold); }
 
       /* Drawer tables are dense enough to fit in normal use, but retain
          horizontal scrolling as a safety valve on very narrow screens. */
