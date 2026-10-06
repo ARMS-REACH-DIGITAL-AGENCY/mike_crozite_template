@@ -16,6 +16,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Doto } from 'next/font/google';
 import { selectRegionSponsor } from '@/lib/sponsorCampaigns';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
+import { liveBoard } from './schoolSeason';
 
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
 // The crawl, in pixels per second.
@@ -40,8 +41,11 @@ function tickerGroups(index: Index, asof: string): Group[] {
   }).filter((d) => d < asof).length;
   const groups = new Map<string, Group>();
   const add = (g: GameRow, region: number, label: string, box: [string, string], tag: string) => {
+    // A live game reads exactly as its scoreboard does ("TOP 2", its runs).
+    const lv = liveBoard(g);
     let h = 0, a = 0;
-    g[5].forEach((v, i) => {
+    if (lv) [h, a] = lv.runs;
+    else g[5].forEach((v, i) => {
       const inning = Math.floor(i / 2);
       if (done === 7 || inning < done) { if (i % 2 === 0) h += v; else a += v; }
     });
@@ -53,14 +57,15 @@ function tickerGroups(index: Index, asof: string): Group[] {
       home: shortName(index.schools[g[2]]?.[0] || '').toUpperCase(),
       away: shortName(index.schools[g[3]]?.[0] || '').toUpperCase(),
       h, a,
-      status: done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE',
+      status: lv ? lv.status : done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE',
       lead: h > a ? 1 : a > h ? 2 : 0,
     });
   };
   for (const r of index.rounds) {
     for (const s of r.series) {
-      s[7].forEach((g, i) => {
-        if (g[1] === w) add(g, s[0], `ROUND ${r.r}`, s[0] ? ['REGION', String(s[0])] : ['ROUND', String(r.r)], `G${i + 1}`);
+      s[7].forEach((g) => {
+        // Every game in the crawl is this week's, so no G1/G2/G3 tag.
+        if (g[1] === w) add(g, s[0], `ROUND ${r.r}`, s[0] ? ['REGION', String(s[0])] : ['ROUND', String(r.r)], '');
       });
     }
   }

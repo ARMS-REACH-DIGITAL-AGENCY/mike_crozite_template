@@ -26,7 +26,7 @@ import {
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
-import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, shownDays, starLine } from './schoolSeason';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
@@ -96,7 +96,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   }, [g, card.file]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
-  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
+  // A live game's inning ("TOP 2") and its yellow, not-yet-final cells.
+  const lv = card.state === 'live' && g ? liveBoard(g) : null;
+  const pill = card.state === 'final' ? 'FINAL' : lv ? lv.status : card.state === 'live' ? 'LIVE' : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
@@ -186,7 +188,11 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {Array.from({ length: inningCount }, (_, i) => i).map((i) => {
-          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(shownDays(g, card.days), 9));
+          if (lv) {
+            const c = lv.cells[side === 'a' ? 0 : 1][i];
+            return <span key={i} className={`yfp-green-slot${c.v ? ' scored' : ''}${c.now ? ' now' : ''}`}>{c.v}</span>;
+          }
+          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(card.days, 9));
           const value = shownInnings[i * 2 + off] || 0;
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
@@ -834,6 +840,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-row.me .yfp-green-team { color:#ffd34f; }
         .yfp-green-slot { height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 11px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
         .yfp-green-slot.scored { color:#fff; }
+        /* The inning being played, and runs not yet final: yellow, like a
+           ballpark board until the half-inning is over. */
+        .yfp-green-slot.now { color:#ffd34f; }
         .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }
         .yfp-green-row.won .yfp-green-run { background:#f3c735; color:#15251d; }
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
