@@ -19,7 +19,7 @@
 // per round + region (d-lb-<week>-<region> for leaderboard games), fetched
 // when its cards come on screen.
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
@@ -887,6 +887,32 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs, gran
   grand?: ReactNode[]; // a Team total row under the subtotal (the last table)
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
+  // In a stat drawer every name stays whole on one line: one wider than its
+  // column is drawn tighter - letter spacing first, then a smaller font.
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  useLayoutEffect(() => {
+    const table = tableRef.current;
+    if (!table?.closest('.yfp-drawer')) return;
+    const fitNames = () => {
+      for (const a of table.querySelectorAll<HTMLElement>('tbody td.nm .bl-plink')) {
+        a.style.letterSpacing = ''; a.style.fontSize = '';
+        const td = a.parentElement!;
+        const cs = getComputedStyle(td);
+        const logo = td.querySelector<HTMLElement>('.bl-tlogo');
+        const room = td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+          - (logo ? logo.offsetWidth + parseFloat(getComputedStyle(logo).marginRight) : 0) - 1;
+        if (a.scrollWidth <= room) continue;
+        a.style.letterSpacing = '-0.03em';
+        if (a.scrollWidth <= room) continue;
+        const size = parseFloat(getComputedStyle(a).fontSize);
+        a.style.fontSize = `${Math.max(6, Math.floor(size * room / a.scrollWidth * 10) / 10)}px`;
+      }
+    };
+    fitNames();
+    const ro = new ResizeObserver(fitNames);
+    ro.observe(table);
+    return () => ro.disconnect();
+  }, [rows, sort, labels]);
   const sorted = useMemo(() => {
     if (!sort) return rows;
     const col = cols.find((c) => c.key === sort.key);
@@ -909,7 +935,7 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs, gran
   return (
     <div className={`bl-stat-block ${blockClass}`}>
       <div className="bl-scroll">
-      <table className="bl-box">
+      <table className="bl-box" ref={tableRef}>
         <colgroup>
           <col style={{ width: 136 }} />
           {cols.map((c) => <col key={c.key} className={c.cls} style={{ width: c.cls === 'plus' ? 58 : c.cls === 'wl' ? 56 : 44 }} />)}
@@ -1766,9 +1792,9 @@ export function Styles() {
       /* Every counting stat (AB ... SF, IP ... K) is one width, every rate
          (.000) another; OPS+/FIP- and W-L a little wider; the name the rest. */
       .bl.bl-embed.yfp-drawer .bl-box col { width:20px !important; }
-      .bl.bl-embed.yfp-drawer .bl-box col.rate { width:30px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.rate { width:27px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col.plus,
-      .bl.bl-embed.yfp-drawer .bl-box col.wl { width:28px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.wl { width:27px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:auto !important; }
       .bl.bl-embed.yfp-drawer .bl-box th,
       .bl.bl-embed.yfp-drawer .bl-box td,
@@ -1777,6 +1803,11 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:0; padding-right:0; text-align:center; }
       .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:6px; padding-right:4px; text-align:left; }
+      /* A player's name is never cut off and never wraps: one too long for
+         its column is drawn a little tighter (fitNames in SortTable). */
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm { text-overflow:clip; }
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-plink { display:inline-block; white-space:nowrap; vertical-align:middle; }
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { vertical-align:middle; }
       .bl.bl-embed.yfp-drawer .bl-box thead th { position:relative; font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl.bl-embed.yfp-drawer .bl-box .bl-sort { width:100%; text-align:inherit; }
       .bl.bl-embed.yfp-drawer .bl-box .bl-arrow { position:absolute; top:1px; right:0; font-size:6px; }
