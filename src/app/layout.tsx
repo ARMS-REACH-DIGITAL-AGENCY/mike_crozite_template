@@ -23,8 +23,8 @@ const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', '
 const SECTION_BOOTSTRAP =
   "try{var m=(location.hash||'').match(/^#sec-([a-z]+)/);" +
   "if(m&&" + JSON.stringify(BOOTSTRAP_SECTIONS) + ".indexOf(m[1])!==-1){" +
-  "var d=document.documentElement;d.setAttribute('data-yat-sec',m[1]);" +
-  "setTimeout(function(){d.removeAttribute('data-yat-sec');},3000);}}catch(e){}";
+  "var d=document.documentElement,x=function(){d.removeAttribute('data-yat-sec');};d.setAttribute('data-yat-sec',m[1]);" +
+  "addEventListener('load',function(){setTimeout(x,4000);});setTimeout(x,20000);}}catch(e){}";
 
 const SECTION_BOOTSTRAP_CSS =
   "html[data-yat-sec] .yat-section{display:none!important}" +
@@ -55,8 +55,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             first - the server always renders it - and only switched once
             the shell's JS ran: a flash of the home page between pages.
             Mark the requested section before the first paint and show only
-            it; SharedShell clears the mark once it has switched (3s
-            fallback). Rows 3-4 wait too, since they render for the gallery
+            it; SharedShell clears the mark once it has switched. The
+            fallback (in case the shell never runs) counts from the page's
+            load, not its first byte: a fixed 3s from the first byte ran out
+            before a slow school page hydrated and flashed the gallery
+            anyway. Rows 3-4 wait too, since they render for the gallery
             until the shell knows the section. */}
         <script dangerouslySetInnerHTML={{ __html: SECTION_BOOTSTRAP }} />
         <style dangerouslySetInnerHTML={{ __html: SECTION_BOOTSTRAP_CSS }} />

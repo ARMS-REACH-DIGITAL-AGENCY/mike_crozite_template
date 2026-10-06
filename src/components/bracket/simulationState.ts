@@ -1,13 +1,11 @@
-// Progressive 2026 bracket simulation preview.
-// 0 = opening morning before any games have been played.
-// Then bump 1 through 34; each step reveals exactly one additional completed
-// week while keeping the deterministic season stable.
-export const SIMULATION_WEEK = 0;
-
-const DAY = 86400000;
-const START_UTC = Date.UTC(2026, 1, 1); // Sun Feb 1, 2026
+// The bracket's "today": the real date in Arizona (UTC-7 all year, no DST).
+// The 2027 season starts Monday Feb 1, 2027 - until then every school's
+// bracket is a blank scorecard. ?asof=YYYY-MM-DD still overrides it for
+// debugging (see previewDate in gallery.tsx).
+export function arizonaToday(now = Date.now()) {
+  return new Date(now - 7 * 3600000).toISOString().slice(0, 10);
+}
 
 export function simulationAsOf() {
-  const week = Math.max(0, Math.min(34, SIMULATION_WEEK));
-  return new Date(START_UTC + week * 7 * DAY).toISOString().slice(0, 10);
+  return arizonaToday();
 }

@@ -22,6 +22,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { ScoringRulesPanel } from './BracketRules';
 
 export type SchoolRow = [name: string, region: number, seed: number];
@@ -88,8 +89,11 @@ export function tieNote(decidedBy: string) {
 }
 
 // Box scores are shared by every card of a round + region: one fetch each.
+// Only the bracket lab reads the 2026 simulation's box scores; a
+// school's bracket is the 2027 season, with nothing played yet.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
+  if (!simulatedSeason) return Promise.resolve({} as Record<string, GameBox>);
   if (!boxCache.has(file)) {
     boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
   }
@@ -460,19 +464,50 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 
 // index.json and lb.json, fetched once and shared (row 3 and row 5 of a
 // school's page both use them).
+//
+// A school's bracket is the upcoming 2027 season: the 2027 calendar (Week 1
+// = Mon Feb 1, 2027) and a blank scorecard - the field and Round 1's
+// matchups, and nothing played: no innings, scores, winners, later-round
+// matchups, leaderboard games, tournaments or champions. The 2026 simulation
+// (simulated stats and results) is only for the bracket lab, which asks
+// for it with loadIndex({ simulation: true }).
+let simulatedSeason = false;
 let indexPromise: Promise<Index> | null = null;
-export function loadIndex() {
+export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
+  if (simulation) simulatedSeason = true;
   if (!indexPromise) {
     indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
-      // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
-      if (idx && Array.isArray(idx.weeks)) {
+      if (!idx || !Array.isArray(idx.weeks)) return idx;
+      if (simulatedSeason) {
+        // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
         idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
+        return idx;
       }
-      return idx;
+      return blankSeason(idx);
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
+}
+// The 2027 season before a pitch is thrown (see loadIndex).
+function blankSeason(idx: any): Index {
+  idx.season = TOURNAMENT_2027.season;
+  idx.weeks = tournamentWeeks(TOURNAMENT_2027.start, idx.weeks.length);
+  idx.rounds = idx.rounds.map((round: Round) => {
+    const [a, b] = [idx.weeks[(round.r - 1) * 3]?.[0] || '', idx.weeks[round.r * 3 - 1]?.[1] || ''];
+    const series = round.r === 1
+      ? round.series.map((s) => {
+        const games = s[7].map((g): GameRow => [g[0], g[1], g[2], g[3], '', [], null]);
+        return [s[0], s[1], s[2], s[3], s[4], 0, [0, 0], games] as SeriesRow;
+      })
+      : [];
+    return { ...round, start: a, end: b, series };
+  });
+  idx.lbt = [];
+  idx.gf = [];
+  idx.lbLeaders = [];
+  idx.champion = 0; idx.lbChampion = 0; idx.grandChampion = 0;
+  return idx as Index;
 }
 // Shift an ISO date string by N days.
 function shiftDate(iso: string, days: number): string {
@@ -482,6 +517,8 @@ function shiftDate(iso: string, days: number): string {
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
+  // Leaderboard games are played by schools out of the bracket - none yet.
+  if (!simulatedSeason) return Promise.resolve([] as LbGame[]);
   if (!lbPromise) {
     lbPromise = fetch(`${BASE}/lb.json`).then((r) => (r.ok ? r.json() : { games: [] })).then((d: { games: LbGame[] }) => d.games).catch(() => []);
   }
@@ -880,9 +917,10 @@ export function shortNames(players: PlayerRow[]) {
 type SortCol = { key: string; label: string; cls?: string; val: (p: PlayerRow) => number | null; show: (p: PlayerRow) => ReactNode };
 // A box-score table whose headers sort it: a tap sorts high to low, a
 // second tap low to high (the name sorts A-Z). The Team row stays last.
-function SortTable({ title, rows, cols, player, labels, total, empty, favs }: {
+function SortTable({ title, rows, cols, player, labels, total, empty, favs, grand }: {
   title: string; rows: PlayerRow[]; cols: SortCol[]; player: (p: PlayerRow) => ReactNode; labels: Map<string, string>; total: ReactNode[]; empty: string;
   favs?: Set<string>; // the fan's favorite players: their whole line in bold
+  grand?: ReactNode[]; // a Team total row under the subtotal (the last table)
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const sorted = useMemo(() => {
@@ -928,8 +966,14 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs }: {
           ))}
           {rows.length > 0 && (
             <tr className="tot">
-              <td className="nm">Team</td>
+              <td className="nm">{title}</td>
               {total.map((v, i) => <td key={i} className={cols[i]?.cls}>{v}</td>)}
+            </tr>
+          )}
+          {grand && (
+            <tr className="tot grand">
+              <td className="nm">Team total</td>
+              {grand.map((v, i) => <td key={i} className={cols[i]?.cls}>{v}</td>)}
             </tr>
           )}
         </tbody>
@@ -1264,7 +1308,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'kbb', label: 'K/BB', val: kbb, show: (p) => kbb(p).toFixed(2) },
     { key: 'fip', label: 'FIP', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
-  const teamWl = `${wl[0]}-${wl[1]}`;
+  const wlText = (x: [number, number]) => `${x[0]}-${x[1]}`;
+  const teamWl = wlText(wl);
   const teamWhip = teamPit[0] ? ((teamPit[5] || 0) + (teamPit[2] || 0)) / (teamPit[0] / 3) : 0;
   const teamKbb = teamPit[2] ? (teamPit[4] || 0) / teamPit[2] : (teamPit[4] || 0);
   const teamFipWeight = pitchers.reduce((s, p) => s + (pit(p)[0] || 0), 0);
@@ -1294,55 +1339,44 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   ];
   const inningCount = Math.max(9, Math.floor(correctedInnings.length / 2));
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
-  const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
-    (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
-      + (ninthRun ? 1 : 0);
-  const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
-    const rows = [
-      { key: 'away', name: names[1], location: locations[1], idx: awayIdx, opp: homeIdx, wp: awayWp, oppWp: homeWp, isHome: false },
-      { key: 'home', name: names[0], location: locations[0], idx: homeIdx, opp: awayIdx, wp: homeWp, oppWp: awayWp, isHome: true },
-    ];
+  // The stat drawer's scoreboards: one board per school (its own school
+  // first) - a tick sheet of each day's numbers, not a tally (the main
+  // scoreboard keeps the runs). The school's code and City, ST span both
+  // rows; row 1 is OPS+ and row 2 FIP- (days 1-7, the week in 8). Inning 9
+  // is one number, not two: the "W%" label on top, the clubs' winning
+  // percentage in the box below. A cell that beat the other school's is
+  // yellow - two yellows in an inning: both runs.
+  const wpText = (wp: number | null) => (wp == null ? '–' : wp.toFixed(3).replace(/^0/, ''));
+  const teamBoard = (side: 0 | 1) => {
+    const name = names[side], location = locations[side];
+    const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
+    const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
+      const d = boxForView?.d?.[i];
+      return <span key={i} className={`bl-tb-cell ${wonCell(d?.[idx], d?.[opp], higher)}`}>{fmtStat(d?.[idx])}</span>;
+    });
+    const nameCell = (
+      <>
+        <b>{abbr(name)}</b>
+        {location ? <small>{location}</small> : null}
+      </>
+    );
     return (
-      <div className="bl-metric-board" aria-label={`${labelText} by inning`}>
-        <div className="bl-metric-line head">
-          <span className="metric-name-spacer" aria-hidden="true" />
-          {[1,2,3,4,5,6,7,8,9].map((n) => <span key={n}>{n}</span>)}
-          <span className="metric-name" aria-label={`${labelText} run tally`}>{labelText}</span>
-        </div>
-        {rows.map((row) => {
-          // Inning 9 is the single W-L% run. It belongs only once across the
-          // two split scoreboards: home on OPS+, visitor on FIP-.
-          const ninthRun = labelText === 'OPS+'
-            ? row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0)
-            : !row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0);
-          return (
-            <div className="bl-metric-line metric" key={row.key}>
-              {onSwitchSide && row.isHome !== (me === 0) ? (
-                <button type="button" className="metric-team metric-switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
-                  title={`Show ${row.name}'s stats`} aria-label={`Show ${row.name}'s stats`}>
-                  <b>{abbr(row.name)}</b>
-                </button>
-              ) : (
-                <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
-                  <b>{abbr(row.name)}</b>
-                </span>
-              )}
-              {Array.from({ length: 7 }, (_, i) => {
-                const d = boxForView?.d?.[i];
-                return <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
-              })}
-              <span className={wonCell(boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
-              {labelText === 'OPS+'
-                ? <span className={row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, '')) : 'W%'}
-                  </span>
-                : <span className={!row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? 'W%' : (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, ''))}
-                  </span>}
-              <span className="final">{metricRunCount(row.idx, row.opp, higher, ninthRun)}</span>
-            </div>
-          );
-        })}
+      <div className="bl-metric-board bl-team-board" key={side} aria-label={`${name}: OPS+ and FIP- by inning`}>
+        <span className="bl-tb-head" aria-hidden="true" />
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <span key={n} className="bl-tb-head">{n}</span>)}
+        <span className="bl-tb-head" aria-hidden="true" />
+        {onSwitchSide && side !== me ? (
+          <button type="button" className="bl-tb-name switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
+            title={`Show ${name}'s stats`} aria-label={`Show ${name}'s stats`}>{nameCell}</button>
+        ) : (
+          <span className="bl-tb-name" title={location ? `${name} (${location})` : name}>{nameCell}</span>
+        )}
+        {metricRow(side === 0 ? 0 : 1, side === 0 ? 1 : 0, true)}
+        <span className="bl-tb-wlabel">W%</span>
+        <span className="bl-tb-label">OPS+</span>
+        {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
+        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? ' won' : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
+        <span className="bl-tb-label">FIP-</span>
       </div>
     );
   };
@@ -1356,8 +1390,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
-            {metricBoard('OPS+', 0, 1, true)}
-            {metricBoard('FIP-', 2, 3, false)}
+            {teamBoard(me)}
+            {teamBoard(me === 0 ? 1 : 0)}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
                 <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
@@ -1445,12 +1479,17 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               ))}
             </div>
           ) : null}
+          {/* W-L is the one stat batters and pitchers share: each table's
+              total row is its own subtotal (the batters' clubs, the
+              pitchers' clubs), and the school's W-L - every alumnus once -
+              is the Team total at the bottom. */}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={[teamDayMetric(me), statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), statDay === 'week' ? wlText(sumRosterWl(batters)) : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
+            grand={pitCols.map((c) => (c.key === 'wl' ? (statDay === 'week' ? teamWl : '—') : ''))}
             total={[
               teamDayMetric(2 + me),
-              statDay === 'week' ? teamWl : '—',
+              statDay === 'week' ? wlText(sumRosterWl(pitchers)) : '—',
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
@@ -1497,8 +1536,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   );
 }
 
+// OPS+ / FIP- are whole numbers (100 = average); the week's values arrive
+// unrounded (139.977).
 export function fmtStat(v: number | null | undefined) {
-  return v === null || v === undefined ? '–' : String(v);
+  return v === null || v === undefined ? '–' : String(Math.round(v));
 }
 
 // A day cell is gold when this school won that run: the better value
@@ -1527,6 +1568,19 @@ export function abbr(name: string) {
     return (a[0] + next + b[0]).toUpperCase();
   }
   return words.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
+}
+
+// The main scoreboard's daily-stats button: a small round stat icon to the
+// right of each school's R column - the visible way into that school's stat
+// drawer (the school name opens it too, but doesn't look like a link).
+export function StatsDot({ name, onOpen }: { name: string; onOpen?: () => void }) {
+  if (!onOpen) return <span className="yfp-green-stats-cell" aria-hidden="true" />;
+  return (
+    <button type="button" className="yfp-green-stats" onClick={onOpen}
+      aria-label={`${name}: daily stats`} title={`${name}: daily stats`}>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="8" width="2.6" height="5.5" rx=".6" /><rect x="6.7" y="3" width="2.6" height="10.5" rx=".6" /><rect x="10.9" y="5.8" width="2.6" height="7.7" rx=".6" /></svg>
+    </button>
+  );
 }
 
 export function Styles() {
@@ -1706,6 +1760,9 @@ export function Styles() {
       .bl-sort:hover { color:var(--gold); }
       .bl-plink:hover, .bl-plink:focus-visible { color:var(--gold); text-decoration:underline; }
       .bl-box tr.tot td { font-weight:700; border-bottom:0; }
+      /* The school's W-L, every alumnus once, under the two subtotals. */
+      .bl-box tr.tot.grand td { border-top:2px solid var(--line); text-transform:uppercase; }
+      .bl-box tr.tot.grand td.wl { color:var(--gold); }
 
       /* Drawer tables are dense enough to fit in normal use, but retain
          horizontal scrolling as a safety valve on very narrow screens. */
@@ -1732,25 +1789,22 @@ export function Styles() {
 
       .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
       .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:center; }
-      .bl-metric-line.head { margin-bottom:2px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
-      .bl-metric-line.head span { display:grid; place-items:center; min-height:12px; }
-      .bl-metric-line.head .metric-name { color:#ffd34f; font-size:10px; letter-spacing:0; white-space:nowrap; }
-      .bl-metric-line.metric .metric-switch { display:grid; min-width:0; min-height:20px; padding:2px 4px; border-radius:3px; background:#0d2d20; color:#eef7ef; border:0; text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(255,211,79,.6); text-underline-offset:2px; font:inherit; }
-      .bl-metric-line.metric .metric-switch:hover b { color:#ffd34f; }
-      .bl-metric-line.metric { margin-top:2px; }
-      .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
-      .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
-      .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
-      /* The school's 3-letter code, centered (full name and city on hover). */
-      .bl-metric-line.metric .metric-team { justify-items:center; text-align:center; }
-      .bl-metric-line.metric .metric-team b, .bl-metric-line.metric .metric-team.metric-switch b { font:800 13px/1 Oswald,sans-serif !important; letter-spacing:.06em !important; }
-      .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
-      .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
+      /* One board per school: a single grid - the name cell spans the OPS+
+         and FIP- rows; columns match the day tabs below (name, 1-9, label). */
+      .bl-team-board { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:stretch; }
+      .bl-tb-head { display:grid; place-items:center; min-height:12px; margin-bottom:0; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; letter-spacing:.02em; }
+      .bl-tb-name { grid-column:1; grid-row:2 / span 2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; padding:2px 4px; border:0; border-radius:3px; background:#0d2d20; color:#eef7ef; font:inherit; text-align:center; overflow:hidden; }
+      .bl-tb-name b { display:block; color:#ffd34f; font:800 22px/1 Oswald,sans-serif; letter-spacing:.04em; }
+      .bl-tb-name small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#eef7ef; font:500 9px/1.1 "Roboto Condensed","Arial Narrow",Arial,sans-serif; }
+      .bl-tb-name.switch { cursor:pointer; }
+      .bl-tb-name.switch:hover { box-shadow:inset 0 0 0 1px rgba(255,211,79,.6); }
+      .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-tb-cell.won { background:#f3c735; color:#15251d; }
+      .bl-tb-cell.na { color:#718379; }
+      .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
+      .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
       body.light-theme table.bl-box tr.fav td { color:#000; }
-      .bl-metric-line.metric>span.na { color:#718379; }
-      .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
       @media (max-width:600px) {
         .bl.bl-embed.yfp-drawer .bl-box { font-size:10.5px; }
         .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9px; }
@@ -1758,12 +1812,13 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 3px; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
-        .bl-metric-line.head { font-size:6.8px; }
-        .bl-metric-line.head .metric-name { font-size:8px; }
-        .bl-metric-line.metric>span { font-size:9px; min-height:19px; }
-        .bl-metric-line.metric .metric-team { padding:2px 3px; }
-        .bl-metric-line.metric .metric-team b { font-size:7.2px; letter-spacing:-.035em; }
-        .bl-metric-line.metric>span.final { font-size:10px; }
+        .bl-tb-head { font-size:6.8px; }
+        .bl-tb-cell { font-size:9px; min-height:19px; }
+        .bl-tb-wlabel { font-size:9.5px; }
+        .bl-tb-label { font-size:8px; }
+        .bl-tb-name { padding:2px 3px; }
+        .bl-tb-name b { font-size:18px; }
+        .bl-tb-name small { font-size:7.5px; }
       }
       .bl-drawer-explain { margin:14px 12px 2px; padding-top:9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.42; }
       .bl-drawer-explain p { margin:0 0 7px; }
@@ -1845,7 +1900,6 @@ export function Styles() {
       @media (max-width:520px) {
         .bl-board .st { display:none; }
         .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:4px; }
-        .bl-metric-line.metric .metric-team b { font-size:7.5px; letter-spacing:-.025em; }
         .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
       }
       .bl-more { display:block; width:100%; padding:9px; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; }

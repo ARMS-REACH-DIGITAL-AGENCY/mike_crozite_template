@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
+  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -100,7 +100,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
   const shownInnings = corrected?.innings || g?.[5] || [];
-  const inningCount = Math.max(9, Math.floor(shownInnings.length / 2));
+  // Extra innings (a tiebreak) only once the game is final: a week still
+  // being played is 9 innings, whatever the practice files carry.
+  const inningCount = card.state === 'final' ? Math.max(9, Math.floor(shownInnings.length / 2)) : 9;
   const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
   const [hr, ar] = corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr];
   const correctedWinner = g && corrected && card.state === 'final'
@@ -126,6 +128,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           </button>
           {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
           <span className="yfp-green-run" />
+          <StatsDot name={name} onOpen={() => onOpen({ card, side })} />
         </div>
       );
     };
@@ -137,6 +140,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
+            <span className="stats">STATS</span>
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
@@ -186,6 +190,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
         <span className="yfp-green-run">{played ? runs : ''}{won ? <i aria-label="winner">◀</i> : null}</span>
+        <StatsDot name={name} onOpen={() => onOpen({ card, side })} />
       </div>
     );
   };
@@ -198,6 +203,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
           <span className="run">R</span>
+          <span className="stats">STATS</span>
         </div>
         {row('a')}
         {row('h')}
@@ -722,7 +728,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                   {shownCard && <WeekCardView key={shownCard.week} index={index} card={shownCard} me={me} star={stars?.[shownCard.week]} starIdentity={stars?.[shownCard.week]?identities[stars[shownCard.week][5]]:undefined} rec={rec} focused={focused===shownCard.week} onOpen={openStats}
                     games={curList.length > 1 ? { weeks: curList.map((c) => c.week), onPick: setGameWeek } : undefined}/>}
                   {cur&&curList.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
-                  {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
+                  {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the {index.season} bracket.</p>}
                 </div>
               )}
             </div>
@@ -792,6 +798,21 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }
         .yfp-green-row.won .yfp-green-run { background:#f3c735; color:#15251d; }
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
+        /* Main scoreboard, every width: school names flush right against the
+           innings - SCHOOL in caps, City, ST as written. */
+        .yfp-game-scorepane .yfp-green-team { text-align:right; }
+        .yfp-game-scorepane .yfp-green-full { text-transform:uppercase; }
+        .yfp-game-scorepane .yfp-green-place { text-transform:none; letter-spacing:.02em; }
+        /* The daily-stats button: its own column right of R (an implicit
+           grid column, so every board's template gets it). */
+        .yfp-green-row { grid-auto-columns:24px; }
+        .yfp-green-row>.yfp-green-stats, .yfp-green-row>.yfp-green-stats-cell, .yfp-green-row.head>.stats { grid-column:-1 / span 1; grid-row:1; }
+        .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; }
+        .yfp-green-stats { justify-self:end; width:15px; height:15px; display:grid; place-items:center; padding:0; border:1px solid rgba(255,211,79,.8); border-radius:50%;
+          background:#0d2d20; color:#ffd34f; font-size:9px; line-height:1; cursor:pointer; transition:background .15s, color .15s, transform .15s; }
+        .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
+        .yfp-green-stats:hover, .yfp-green-stats:focus-visible { background:#ffd34f; color:#15251d; transform:scale(1.08); }
+        .yfp-green-stats:focus-visible { outline:2px solid #fff; outline-offset:1px; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
         .yfp-scorecard .yfp-social { margin-left:8px; margin-right:8px; }
 
@@ -943,7 +964,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              sits right beside inning 1 - and the board is centered. */
           .yfp-game-scorepane .yfp-green-board {
             display:grid;
-            grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(34px,52px);
+            grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(34px,52px) 44px;
             column-gap:3px;
             justify-content:center;
           }
@@ -965,13 +986,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run { height:36px; font-size:18px; border-radius:4px; }
           .yfp-game-scorepane .yfp-green-run { font-size:21px; }
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
+          .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
+          .yfp-game-scorepane .yfp-green-stats { width:26px; height:26px; font-size:15px; border-width:1.5px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
-          /* Main scoreboard: school names flush right against the innings -
-             SCHOOL in caps, City, ST as written. */
-          .yfp-game-scorepane .yfp-green-team { text-align:right; }
-          .yfp-game-scorepane .yfp-green-full { text-transform:uppercase; }
-          .yfp-game-scorepane .yfp-green-place { text-transform:none; letter-spacing:.02em; }
 
           /* The standings column. scrollbar-gutter keeps the scrollbar in its
              own lane so it never covers the run totals. */
