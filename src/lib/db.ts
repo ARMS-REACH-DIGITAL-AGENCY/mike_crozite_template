@@ -870,6 +870,23 @@ export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(
   return rows;
 });
 
+// Each player's latest season usage, for telling pitchers from batters by
+// what they actually did rather than the listed position alone (a "UT" who
+// only pitched this season is a pitcher): his latest batting at-bats and
+// pitching appearances, from the same season computation as the roster.
+export const getSeasonUsageByPlayerIds = cache(async function getSeasonUsageByPlayerIds(playerIds: string[]): Promise<Record<string, { ab: number; pg: number }>> {
+  if (!playerIds.length) return {};
+  const sql = buildActiveRosterSql('ph.playerid::text = ANY($1)', 'playerid::text = ANY($1)');
+  const { rows } = await query(sql, [playerIds]);
+  const out: Record<string, { ab: number; pg: number }> = {};
+  for (const r of rows as Record<string, unknown>[]) {
+    const ab = Number(r.ab) || 0, pg = Number(r.pg) || 0;
+    if (r.stat_year == null && r.pitch_year == null) continue;
+    out[String(r.playerid)] = { ab, pg };
+  }
+  return out;
+});
+
 // Same 2026-season stat computation as getActiveRosterByHsid, but for one
 // arbitrary player regardless of which school's page is currently being
 // viewed - used to build a real flip card for a cross-school favorite
