@@ -480,11 +480,18 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const longest = Math.max(...[...probe.querySelectorAll<HTMLElement>('a')].map(textW));
       probe.remove();
       const cs = getComputedStyle(li);
-      const cols = cs.gridTemplateColumns.split(' ');
-      // Room as laid out in a region list (24px rank column), so A-Z, whose
-      // wider label column takes its 20px back from the names, lines up too.
-      const room = li.clientWidth - 24 - parseFloat(cols[2]) - 2 * parseFloat(cs.columnGap || '0');
-      list.style.setProperty('--lb-name-w', `${Math.ceil(Math.min(longest + 2, room))}px`);
+      const gap = parseFloat(cs.columnGap || '0');
+      const lcs = getComputedStyle(list);
+      // Room in one full-width column, as laid out in a region list (24px
+      // rank column; A-Z's wider label column takes its 20px back from the
+      // names, so it lines up too). The name column is the longest name in
+      // every region, so the runs sit in the same place in each.
+      const room = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight) - 24 - 22 - 2 * gap;
+      const nameW = Math.ceil(Math.min(longest + 2, room));
+      list.style.setProperty('--lb-name-w', `${nameW}px`);
+      // A school and its runs are one group: each column is just that wide,
+      // and the list takes as many columns as fit (one when two won't).
+      list.style.setProperty('--lb-col-w', `${nameW + 24 + 22 + 2 * gap}px`);
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -758,12 +765,37 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bothDrawers, shownWeek, !!open]);
 
+  // Desktop: the bracket fills the screen from where it starts down to the
+  // ticker - measured, since the rows above it (the hero is 200px on a
+  // desktop, not the --row3-h guess) vary with the page.
+  const yfzRef = useRef<HTMLDivElement | null>(null);
+  const hasYfz = Boolean(index && lb && cal);
+  useLayoutEffect(() => {
+    const el = yfzRef.current;
+    if (!el) return;
+    const fit = () => {
+      if (!window.matchMedia('(min-width: 600px)').matches) { el.style.removeProperty('height'); return; }
+      const foot = document.querySelector('.yat-footer');
+      const bottom = foot ? foot.getBoundingClientRect().top + window.scrollY : window.innerHeight + window.scrollY;
+      el.style.height = `${Math.max(318, Math.floor(bottom - (el.getBoundingClientRect().top + window.scrollY)))}px`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    for (const q of ['.yat-row1-shell', '.yat-row2-shell', '.yat-row3-shell', '.yat-footer']) {
+      const x = document.querySelector(q);
+      if (x) ro.observe(x);
+    }
+    window.addEventListener('resize', fit);
+    const later = [300, 1500].map((ms) => window.setTimeout(fit, ms));
+    return () => { ro.disconnect(); window.removeEventListener('resize', fit); later.forEach((t) => window.clearTimeout(t)); };
+  }, [hasYfz]);
+
   return (
     <div className={`yfp ${scoreboardFont.variable}`}>
       <div ref={sentinel} className="yfp-top" />
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {index && lb && cal && (
-        <div className="yfz">
+        <div className="yfz" ref={yfzRef}>
           <div className="yfz-panel">
             <div className="yfz-round">
               {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
@@ -1003,7 +1035,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @media (min-width:600px) {
           .yfz-cards { gap:12px; align-items:center; }
           .yfp-game-split { display:block; min-height:0; }
-          .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:1px solid var(--yfp-card-border); }
+          .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:0; }
           .yfp-game-socialpane { padding:4px 12px 8px; overflow:visible; }
           .yfp-game-socialpane .fgs-inline.ysv-post { height:auto; }
           .yfp-game-socialpane .fgs-inline .ysv-comments { max-height:180px; }
@@ -1073,9 +1105,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              gold headers sit on one line. */
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs { margin-top:calc(4px + var(--yfp-tabs-drop, 0px)); }
-          /* The day tabs open a section with a top border, like the
-             leaderboard's box beside them. */
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs { border-top:1px solid var(--yfp-card-border, rgba(255,255,255,.12)); padding-top:8px; }
         }
         /* Wide screens: a docked Search (left) or Favorites (right) drawer
            sits at the edge and the Stat Ledger on that side moves in beside it. */
@@ -1123,8 +1152,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.yfp-dock-l .yfz-panel > .yfp-lb,
         body.yfp-dock-r .yfz-panel > .yfp-lb {
           grid-row:2; display:flex; flex-direction:column; min-height:0; height:auto; max-height:none; position:static; overflow:hidden;
-          padding:8px 10px; border:1px solid var(--yfp-card-border); border-radius:8px;
-          background:var(--yfp-card-bg); font:400 13px/1.4 system-ui,sans-serif;
+          padding:8px 10px; border:0; border-radius:0;
+          background:transparent; font:400 13px/1.4 system-ui,sans-serif;
         }
         .yfz-panel .yfp-lb-title { align-self:auto; margin-right:4px; padding-bottom:0; font-size:11px; line-height:1; white-space:nowrap; }
         .yfz-panel .yfp-lb-title i { margin:0 4px; font-style:normal; color:var(--yfp-faint,rgba(255,255,255,.3)); font-weight:400; }
@@ -1145,15 +1174,17 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
         body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
+        /* The leaderboard has no box now: the open tab joins the page itself. */
+        .yfz-panel .yfp-lb-regions button.on,
+        body.light-theme .yfz-panel .yfp-lb-regions button.on { background:var(--bg,#0c0c0c); border-bottom-color:var(--bg,#0c0c0c); }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:10px; }
-        /* As many columns as fit, up to 3, each wide enough for a school and its
-           city: one beside both stat drawers at 1440, three on a wide screen
-           (a region will have 128 schools). The runs sit at each column's edge. */
-        .yfz-panel .yfp-lb-list ol { columns:290px 3; column-gap:22px; }
-        .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
+        /* As many columns as fit, up to 3 (a region will have 128 schools), each
+           as wide as the longest school + city and its runs (--lb-col-w). */
+        .yfz-panel .yfp-lb-list ol { columns:var(--lb-col-w, 290px) 3; column-gap:22px; }
+        .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
         /* A-Z's label column (R3-S15) is 20px wider than the rank column,
            so its name column gives those 20px back: the runs stay put. */
-        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px minmax(0,1fr) 22px; }
+        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px calc(var(--lb-name-w, 220px) - 20px) 22px; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
