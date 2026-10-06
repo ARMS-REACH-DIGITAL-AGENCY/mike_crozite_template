@@ -4,6 +4,14 @@
 
 import { TOURNAMENT_2027, bracketRoundWeeks } from '@/lib/bracket/tournamentCalendar';
 import { LEVEL_AVERAGES, LEVEL_AVERAGES_SEASON } from '@/lib/bracket/levelAverages';
+import { useParams } from 'next/navigation';
+
+// The school's Connect & Contribute page (/<hsid>/connect-contribute).
+function ContributeLink() {
+  const params = useParams<{ hsid?: string }>();
+  const hsid = params?.hsid;
+  return <a href={hsid ? `/${hsid}/connect-contribute` : '/connect-contribute'}>Connect &amp; Contribute</a>;
+}
 
 export default function BracketRules() {
   return (
@@ -156,9 +164,11 @@ export function ScoringRules() {
         <ul>
           <li>A school&apos;s team is its active alumni: everyone on its Active Baseball Alumni gallery, including players on the injured list. Current high school players don&apos;t play.</li>
           <li>A player counts as a pitcher or a hitter by what he does: a listed pitcher, or anyone who pitches much more than he bats. Any line he puts up still counts for the side it belongs to.</li>
-          <li>Days run on Arizona time, Monday through Sunday.</li>
-          <li>A day&apos;s hitting run and pitching run each go on the board once every alumnus on both teams is done for the day (his team&apos;s game is over), or at 4 a.m. Arizona time the next morning at the latest. Until then the leading cell is outlined, not filled, and counts no run.</li>
-          <li>Inning 8 (the week) and inning 9 (W-L%) are decided after Sunday&apos;s games.</li>
+          <li>Days run on Arizona time, Monday through Sunday. Each day ends at 4 a.m. Arizona time the next morning, for every game at once.</li>
+          <li>The scoreboard works like a ballpark&apos;s: at 4 a.m. the day&apos;s inning starts in the <b>TOP</b>, with a yellow 0 for the visitors. Once the last real game of the day for the two schools&apos; alumni has started (the whole bracket&apos;s last game, if neither school has anyone playing), it&apos;s the <b>BOTTOM</b>: a yellow 0 for both. A yellow number isn&apos;t final, so no run is announced early.</li>
+          <li>When those games are over, the day&apos;s runs go up in yellow. At 4 a.m. the next morning they turn white (final) and the next inning starts. Until a day&apos;s runs are up, the stat drawers outline the school that would get each run if the day ended now.</li>
+          <li>Inning 8 (the week) and inning 9 (W-L%) go up in yellow with Sunday&apos;s runs, and the game is final at 4 a.m. Monday.</li>
+          <li>Some alumni&apos;s stats may not make it to YAT?STATS: a league we don&apos;t track yet, or a box score that&apos;s late or missing. Know of a game or a stat we&apos;re missing? Tell us on the <ContributeLink /> page.</li>
         </ul>
       </section>
 
