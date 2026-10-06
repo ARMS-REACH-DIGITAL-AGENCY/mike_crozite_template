@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import FantasyGameSocial from './FantasyGameSocial';
 import { createPortal } from 'react-dom';
 import { StatsDot, abbr, fmtRange, loadBoxes, place, shortName, type GameBox, type GameRow, type Index, type PlayerRow } from './gallery';
-import { runsThrough, shownDays, type WeekCard } from './schoolSeason';
+import { liveBoard, runsThrough, type WeekCard } from './schoolSeason';
 import type { FantasyStageKey } from './bracketNav';
 
 type Open = { card: WeekCard; side: 'h' | 'a' };
@@ -201,7 +201,8 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
     const gameNo = g[1] === 31 ? games(31).findIndex((x)=>x[0]===g[0]) + 1
       : g[1] === 32 ? games(32).findIndex((x)=>x[0]===g[0]) + 1 : 1;
     const played = card.state === 'final' || card.state === 'live';
-    const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : 'UPCOMING';
+    const lv = card.state === 'live' ? liveBoard(g) : null;
+    const pill = card.state === 'final' ? 'FINAL' : lv ? lv.status : card.state === 'live' ? 'LIVE' : 'UPCOMING';
     const stageHead = g[1] === 31 ? 'Championship Round 1'
       : g[1] === 32 ? 'Championship Round 2'
       : g[1] === 33 ? 'Championship Game'
@@ -224,7 +225,11 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {Array.from({ length: inningCount }, (_, i) => i).map((i)=>{
-          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(shownDays(g, card.days), 9));
+          if (lv) {
+            const c = lv.cells[side === 'a' ? 0 : 1][i];
+            return <span key={i} className={`yfp-green-slot${c.v ? ' scored' : ''}${c.now ? ' now' : ''}`}>{c.v}</span>;
+          }
+          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(card.days, 9));
           const value = g[5][i*2+off] || 0;
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
