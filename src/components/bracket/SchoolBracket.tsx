@@ -1146,19 +1146,18 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
         body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:10px; }
-        .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:22px; }
-        .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
+        /* As many columns as fit, up to 3, each wide enough for a school and its
+           city: one beside both stat drawers at 1440, three on a wide screen
+           (a region will have 128 schools). The runs sit at each column's edge. */
+        .yfz-panel .yfp-lb-list ol { columns:290px 3; column-gap:22px; }
+        .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
         /* A-Z's label column (R3-S15) is 20px wider than the rank column,
            so its name column gives those 20px back: the runs stay put. */
-        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px calc(var(--lb-name-w, 220px) - 20px) 22px; }
+        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px minmax(0,1fr) 22px; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
         .yfz-panel .yfp-lb li a small { font-size:.85em; }
-        /* Both stat drawers open: one column, so each school keeps its city. */
-        body.yfp-dock-l.yfp-dock-r .yfz-panel .yfp-lb-list ol { column-count:1; }
-        body.yfp-dock-l.yfp-dock-r .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 22px; }
-        body.yfp-dock-l.yfp-dock-r .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px minmax(0,1fr) 22px; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
         .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
