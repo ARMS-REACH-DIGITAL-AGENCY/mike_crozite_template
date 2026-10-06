@@ -15,7 +15,9 @@ import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 //
 // Response:
 //   roster: { [hsid]: [playerid, name, level, isPitcher (0|1), club][] }
-//   lines:  [hsid, playerid, day, 'b'|'p', stats[], gameId, club, final (0|1)][]
+//   lines:  [hsid, playerid, day, 'b'|'p', stats[], gameId, club, final (0|1), level][]
+//           level: the game's level per MLB's feed (MLB, AAA, AA, A+, A,
+//           ROK, IND, WIN), '' when the line's source doesn't say
 //           day: 0 = start; batting stats [PA AB H 2B 3B HR BB HBP SF],
 //           pitching [outs HR BB HBP K H R ER]
 //   clubs:  { [club]: [day, gameId, won (0|1)][] } - finished games only
@@ -30,7 +32,7 @@ type StageRow = {
   status_label: string | null; level_label: string | null; display_level_label: string | null;
   position: string | null; current_team_name: string | null;
 };
-type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null };
+type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null; level: string | null };
 type SchedRow = { game: string; day: number; status: string | null; home: string; away: string; home_runs: number | null; away_runs: number | null };
 type ClubRow = { team: string; game: string; day: number; is_win: boolean };
 
@@ -93,7 +95,8 @@ export async function GET(req: NextRequest) {
         // One row per player, game and stat type: the newest copy.
         `SELECT DISTINCT ON (playerid, source_game_id, stat_type)
                 playerid::text AS playerid, (game_date::date - $2::date) AS day, stat_type, stats,
-                source_game_id::text AS game, team_name AS team, game_status AS status
+                source_game_id::text AS game, team_name AS team, game_status AS status,
+                raw_payload->'sport'->>'abbreviation' AS level
            FROM player_game_logs
           WHERE playerid::text = ANY($1) AND game_date >= $2::date AND game_date < $2::date + $3::int
             AND stat_type IN ('batting', 'pitching')
@@ -103,7 +106,7 @@ export async function GET(req: NextRequest) {
       : { rows: [] as LineRow[] };
     const lines = logRows.map((r) => [
       schoolOf.get(r.playerid)!, r.playerid, Number(r.day), r.stat_type === 'batting' ? 'b' : 'p',
-      r.stat_type === 'batting' ? batOf(r.stats || {}) : pitOf(r.stats || {}), r.game, text(r.team), isDone(r.status) ? 1 : 0,
+      r.stat_type === 'batting' ? batOf(r.stats || {}) : pitOf(r.stats || {}), r.game, text(r.team), isDone(r.status) ? 1 : 0, text(r.level),
     ]);
 
     // Club results: every finished game of every club these alumni play
