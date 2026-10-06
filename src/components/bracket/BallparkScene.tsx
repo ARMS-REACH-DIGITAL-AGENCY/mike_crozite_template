@@ -1,141 +1,101 @@
-// The hero's backdrop: an old-school ballpark drawn in code (no photos to
-// license or load). Dark theme: a night game - dusk sky, light towers
-// blazing over the grandstand roof. Light theme: a day game - blue sky,
-// fluffy clouds, packed bleachers over the ivy. Both are always in the page;
-// the theme picks which one shows (see .ybp-* in FantasyTimeline).
+// The hero's backdrop, drawn in code (no photos to license or load), above
+// the scoreboards rather than a whole ballpark. Dark theme: a night sky with
+// the light towers blazing. Light theme: a day sky with soft, wispy clouds.
+// Both are always in the page; the theme picks which one shows (see .ybp-*
+// in FantasyTimeline).
 
 const W = 1600;
 const H = 200;
 
-// A light tower: a truss on the roof line holding a bank of lamps.
+// A light standard seen from the field: a lattice mast from the bottom edge
+// up to a bank of lamps, with the glow it throws into the night.
 function Tower({ x, top, w }: { x: number; top: number; w: number }) {
-  const rows = 3;
-  const cols = Math.round(w / 9);
-  const bankH = rows * 7 + 4;
-  const roof = 100;
+  const rows = 4;
+  const cols = Math.round(w / 8);
+  const bankH = rows * 6 + 4;
+  const mid = x + w / 2;
   return (
     <g>
-      {/* the glow it throws */}
-      <ellipse cx={x + w / 2} cy={top + bankH / 2} rx={w * 2.2} ry={w * 1.1} fill="url(#ybp-glow)" />
-      {/* light pouring down onto the park */}
-      <path d={`M${x} ${top + bankH} L${x - w * 0.6} ${H} H${x + w * 1.6} L${x + w} ${top + bankH} Z`} fill="url(#ybp-beam)" />
-      {/* the truss */}
-      <g stroke="#2a2f3d" strokeWidth="1.4" fill="none">
-        <path d={`M${x + 4} ${top + bankH} L${x + 2} ${roof} M${x + w - 4} ${top + bankH} L${x + w - 2} ${roof}`} />
-        <path d={`M${x + 4} ${top + bankH} L${x + w - 2} ${roof - 10} M${x + w - 4} ${top + bankH} L${x + 2} ${roof - 10}`} opacity=".7" />
-        <path d={`M${x} ${top + bankH} H${x + w}`} />
+      <ellipse cx={mid} cy={top + bankH / 2} rx={w * 2.4} ry={w * 1.3} fill="url(#ybp-glow)" />
+      <g stroke="#1b1f2b" strokeWidth="1.3" fill="none" opacity=".9">
+        <path d={`M${mid - 9} ${top + bankH} L${mid - 14} ${H} M${mid + 9} ${top + bankH} L${mid + 14} ${H}`} />
+        {Array.from({ length: 8 }, (_, i) => {
+          const y1 = top + bankH + (i * (H - top - bankH)) / 8;
+          const y2 = top + bankH + ((i + 1) * (H - top - bankH)) / 8;
+          const s1 = 9 + (5 * (y1 - top - bankH)) / (H - top - bankH);
+          const s2 = 9 + (5 * (y2 - top - bankH)) / (H - top - bankH);
+          return <path key={i} d={`M${mid - s1} ${y1} L${mid + s2} ${y2} M${mid + s1} ${y1} L${mid - s2} ${y2}`} opacity=".6" />;
+        })}
       </g>
-      {/* the lamp bank */}
-      <rect x={x - 2} y={top - 2} width={w + 4} height={bankH} rx="2" fill="#151925" />
+      <rect x={x - 3} y={top - 3} width={w + 6} height={bankH + 2} rx="2" fill="#0e1119" />
       <g filter="url(#ybp-bloom)">
         {Array.from({ length: rows * cols }, (_, i) => (
-          <circle key={i} cx={x + 4 + (i % cols) * ((w - 8) / Math.max(1, cols - 1))} cy={top + 3 + Math.floor(i / cols) * 7} r="2.4" fill="#fffdf2" />
+          <circle key={i} cx={x + 3 + (i % cols) * ((w - 6) / Math.max(1, cols - 1))} cy={top + 2 + Math.floor(i / cols) * 6} r="2.1" fill="#fffdf4" />
         ))}
       </g>
     </g>
   );
 }
 
-// A cloud: overlapping puffs with a soft shaded base.
-function Cloud({ x, y, s }: { x: number; y: number; s: number }) {
-  const puffs: [number, number, number][] = [[0, 10, 22], [24, 0, 30], [56, 6, 26], [80, 14, 18], [40, 18, 24], [-18, 18, 16]];
+// A wisp of cloud: long, soft, blurred streaks.
+function Wisp({ x, y, w, o = 0.8 }: { x: number; y: number; w: number; o?: number }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${s})`}>
-      {puffs.map(([cx, cy, r], i) => <circle key={`s${i}`} cx={cx} cy={cy + 6} r={r} fill="#c9dcef" />)}
-      {puffs.map(([cx, cy, r], i) => <circle key={i} cx={cx} cy={cy} r={r} fill="#fff" />)}
+    <g filter="url(#ybp-wisp)" opacity={o}>
+      <ellipse cx={x} cy={y} rx={w} ry={w * 0.09} fill="#fff" />
+      <ellipse cx={x + w * 0.25} cy={y - w * 0.06} rx={w * 0.55} ry={w * 0.07} fill="#fff" />
+      <ellipse cx={x - w * 0.3} cy={y + w * 0.05} rx={w * 0.5} ry={w * 0.06} fill="#f4f9ff" />
     </g>
   );
 }
 
 export default function BallparkScene() {
-  const towers = [{ x: 130, top: 40, w: 130 }, { x: 610, top: 30, w: 170 }, { x: 1110, top: 34, w: 160 }, { x: 1460, top: 46, w: 110 }];
-  const flags = [90, 330, 560, 860, 1010, 1300, 1420];
-  const flagColors = ['#c8102e', '#f5f5f5', '#0e3386', '#c8102e', '#f5f5f5', '#0e3386', '#c8102e'];
+  const towers = [{ x: 90, top: 46, w: 120 }, { x: 470, top: 30, w: 150 }, { x: 1030, top: 34, w: 150 }, { x: 1420, top: 50, w: 120 }];
   return (
     <div className="ybp" aria-hidden="true">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
         <defs>
           <linearGradient id="ybp-night-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#05060f" />
-            <stop offset=".35" stopColor="#140f33" />
-            <stop offset=".62" stopColor="#3b1844" />
-            <stop offset=".8" stopColor="#8a3a32" />
-            <stop offset="1" stopColor="#c8642e" />
+            <stop offset="0" stopColor="#020308" />
+            <stop offset=".6" stopColor="#070a18" />
+            <stop offset="1" stopColor="#111633" />
           </linearGradient>
           <linearGradient id="ybp-day-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#1f6fd1" />
-            <stop offset=".6" stopColor="#5aa9ec" />
-            <stop offset="1" stopColor="#bfe2fb" />
-          </linearGradient>
-          <linearGradient id="ybp-beam" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#fff6d8" stopOpacity=".16" />
-            <stop offset="1" stopColor="#fff6d8" stopOpacity="0" />
+            <stop offset="0" stopColor="#1d64c4" />
+            <stop offset=".55" stopColor="#4c9ae6" />
+            <stop offset="1" stopColor="#a9d4f6" />
           </linearGradient>
           <radialGradient id="ybp-glow">
-            <stop offset="0" stopColor="#fffbe8" stopOpacity=".8" />
-            <stop offset=".35" stopColor="#ffe9a8" stopOpacity=".28" />
-            <stop offset="1" stopColor="#ffe9a8" stopOpacity="0" />
+            <stop offset="0" stopColor="#fffbe8" stopOpacity=".75" />
+            <stop offset=".3" stopColor="#fff1c4" stopOpacity=".25" />
+            <stop offset="1" stopColor="#fff1c4" stopOpacity="0" />
           </radialGradient>
-          <filter id="ybp-bloom" x="-20%" y="-50%" width="140%" height="200%">
+          <filter id="ybp-bloom" x="-20%" y="-60%" width="140%" height="220%">
             <feGaussianBlur stdDeviation="1.6" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
-          <filter id="ybp-soft"><feGaussianBlur stdDeviation="1.2" /></filter>
-          {/* fans in the seats: specks of colour */}
-          <pattern id="ybp-crowd-night" width="14" height="9" patternUnits="userSpaceOnUse">
-            <rect width="14" height="9" fill="#0b0d14" />
-            <circle cx="3" cy="3" r="1.6" fill="#2c3550" /><circle cx="10" cy="5" r="1.6" fill="#3a2e3e" /><circle cx="6" cy="8" r="1.4" fill="#26324a" />
-          </pattern>
-          <pattern id="ybp-crowd-day" width="16" height="10" patternUnits="userSpaceOnUse">
-            <rect width="16" height="10" fill="#7b8794" />
-            <circle cx="3" cy="3" r="1.5" fill="#3a63a8" /><circle cx="9" cy="2.5" r="1.5" fill="#e4e8ee" /><circle cx="14" cy="4" r="1.5" fill="#b8455a" />
-            <circle cx="6" cy="8" r="1.5" fill="#4f78c0" /><circle cx="12" cy="8.5" r="1.5" fill="#d9d3c6" />
-          </pattern>
-          <linearGradient id="ybp-haze" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#bfe2fb" stopOpacity=".55" />
-            <stop offset="1" stopColor="#bfe2fb" stopOpacity="0" />
-          </linearGradient>
-          <pattern id="ybp-ivy" width="12" height="10" patternUnits="userSpaceOnUse">
-            <rect width="12" height="10" fill="#2f6a2a" />
-            <circle cx="3" cy="3" r="3" fill="#3f8436" /><circle cx="9" cy="6" r="3.2" fill="#25561f" /><circle cx="4" cy="9" r="2.6" fill="#4a9440" />
-          </pattern>
+          <filter id="ybp-wisp" x="-30%" y="-200%" width="160%" height="500%">
+            <feGaussianBlur stdDeviation="6 3" />
+          </filter>
         </defs>
 
-        {/* NIGHT GAME */}
+        {/* NIGHT: a dark sky and the light towers */}
         <g className="ybp-night">
           <rect width={W} height={H} fill="url(#ybp-night-sky)" />
           {towers.map((t, i) => <Tower key={i} {...t} />)}
-          {/* the grandstand roof and the upper deck under it */}
-          <path d={`M0 112 L0 100 H${W} V112 Z`} fill="#06070c" />
-          {flags.map((x, i) => (
-            <g key={i}><path d={`M${x} 100 V80`} stroke="#3a3f4f" strokeWidth="1.2" /><path d={`M${x} 80 l14 4 l-14 4 Z`} fill={flagColors[i]} opacity=".75" /></g>
-          ))}
-          <rect y="112" width={W} height="32" fill="url(#ybp-crowd-night)" />
-          {/* concourse lights under the upper deck */}
-          <rect y="143" width={W} height="6" fill="#120c08" />
-          {Array.from({ length: 40 }, (_, i) => <circle key={i} cx={20 + i * 40} cy="146" r="1.5" fill="#ffb347" opacity=".85" />)}
-          <rect y="149" width={W} height={H - 149} fill="url(#ybp-crowd-night)" />
-          {/* a field-level wash of light */}
-          <rect y="160" width={W} height="40" fill="#ffe9a8" opacity=".05" />
         </g>
 
-        {/* DAY GAME */}
+        {/* DAY: the sky and wispy clouds */}
         <g className="ybp-day">
           <rect width={W} height={H} fill="url(#ybp-day-sky)" />
           <g className="ybp-clouds">
-            <Cloud x={70} y={34} s={1.1} /><Cloud x={420} y={18} s={0.8} /><Cloud x={780} y={42} s={1.25} />
-            <Cloud x={1180} y={20} s={0.95} /><Cloud x={1480} y={46} s={0.85} />
+            <Wisp x={180} y={58} w={170} />
+            <Wisp x={560} y={34} w={120} o={0.65} />
+            <Wisp x={880} y={74} w={210} o={0.75} />
+            <Wisp x={1240} y={44} w={150} />
+            <Wisp x={1520} y={86} w={130} o={0.7} />
+            <Wisp x={380} y={120} w={140} o={0.55} />
+            <Wisp x={1090} y={138} w={180} o={0.5} />
           </g>
-          {/* the bleachers climbing to the back row */}
-          <path d={`M0 118 L0 104 H${W} V118 Z`} fill="#3d4652" />
-          {flags.map((x, i) => (
-            <g key={i}><path d={`M${x} 104 V84`} stroke="#5a6170" strokeWidth="1.2" /><path d={`M${x} 84 l14 4 l-14 4 Z`} fill={flagColors[i]} /></g>
-          ))}
-          <rect y="118" width={W} height="52" fill="url(#ybp-crowd-day)" />
-          <rect y="118" width={W} height="30" fill="url(#ybp-haze)" />
-          {/* the ivy wall */}
-          <rect y="170" width={W} height={H - 170} fill="url(#ybp-ivy)" />
-          <rect y="170" width={W} height="2" fill="#1d3f1a" opacity=".6" />
         </g>
       </svg>
     </div>
