@@ -21,9 +21,9 @@ import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 //           day: 0 = start; batting stats [PA AB H 2B 3B HR BB HBP SF],
 //           pitching [outs HR BB HBP K H R ER]
 //   clubs:  { [club]: [day, gameId, won (0|1)][] } - finished games only
-//   games:  { [club]: [day, gameId, done (0|1)][] } - every scheduled pro game
-//           (team_schedules, refreshed every 10 minutes): done = final,
-//           postponed or cancelled. A day's run waits on the games not done.
+//   games:  { [club]: [day, gameId, done (0|1), started (0|1)][] } - every
+//           scheduled pro game (team_schedules, refreshed every 10 minutes):
+//           done = final, postponed or cancelled; started = under way or done.
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +52,8 @@ const text = (v: unknown) => String(v ?? '').trim();
 const isHighSchool = (r: StageRow) => [r.level_label, r.display_level_label].some((v) => /^(HIGH SCHOOL|HS)$/i.test(text(v)));
 // A game that is over (or will not be played).
 const isDone = (status: unknown) => /^(final|game over|completed|postponed|cancelled|canceled|suspended)/i.test(text(status));
+// Under way or over: anything but a game still waiting for its first pitch.
+const isStarted = (status: unknown) => isDone(status) || (text(status) !== '' && !/^(scheduled|pre-game|pregame|warmup|delayed start)/i.test(text(status)));
 const isFinal = (status: unknown) => /^(final|game over|completed)/i.test(text(status));
 const isPitcher = (position: unknown) => /(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)/.test(text(position).toUpperCase());
 
@@ -148,11 +150,11 @@ export async function GET(req: NextRequest) {
       )
       : { rows: [] as SchedRow[] };
     const want = new Set(clubNames);
-    const games: Record<string, [number, string, 0 | 1][]> = {};
+    const games: Record<string, [number, string, 0 | 1, 0 | 1][]> = {};
     for (const r of sched) {
       for (const [club, mine, theirs] of [[r.home, r.home_runs, r.away_runs], [r.away, r.away_runs, r.home_runs]] as const) {
         if (!want.has(club)) continue;
-        (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0]);
+        (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0, isStarted(r.status) ? 1 : 0]);
         if (isFinal(r.status) && mine !== null && theirs !== null && mine !== theirs) result(club, Number(r.day), r.game, mine > theirs);
       }
     }
