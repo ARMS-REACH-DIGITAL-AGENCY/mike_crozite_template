@@ -199,7 +199,11 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
           border-top:1px solid #1d1408; }
-        .ybt-lane { position:relative; flex:1 1 auto; min-width:0; overflow:hidden; display:flex; align-items:center; }
+        /* No hard edges: the crawl fades out as it reaches the sponsor spot
+           and fades in from the region box. */
+        .ybt-lane { position:relative; flex:1 1 auto; min-width:0; overflow:hidden; display:flex; align-items:center;
+          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 72px, #000 calc(100% - 40px), transparent 100%);
+          mask-image:linear-gradient(to right, transparent 0, #000 72px, #000 calc(100% - 40px), transparent 100%); }
         /* One ticker per region, stacked: copies of the region's games end
            to end, crawling left one copy per loop (a seamless wrap). Only
            the region on show runs; the others hold their place, invisible,
@@ -227,7 +231,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         /* The sponsor spot: pinned left, above the crawl, wider on wider
            screens - one line when it fits, two when it doesn't. */
         .ybt-spot { position:relative; z-index:2; flex:none; width:clamp(240px, 27vw, 560px); display:flex; flex-wrap:wrap; align-content:center; align-items:baseline; column-gap:8px; row-gap:1px;
-          padding:0 16px; background:#0b0805; border-right:2px solid rgba(255,160,40,.45); box-shadow:8px 0 14px rgba(0,0,0,.75);
+          padding:0 16px; background:#0b0805;
           color:#ffb238; text-decoration:none; font-family:Oswald,sans-serif; }
         .ybt-spot-line { display:inline-flex; align-items:baseline; gap:7px; white-space:nowrap; }
         .ybt-spot-k { font-size:16px; font-weight:700; letter-spacing:.06em; line-height:1.1; color:#ffb238; text-transform:uppercase; }
@@ -238,7 +242,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         /* The region box: pinned right, a fixed size; the games come out
            from under it. */
         .ybt-box { position:relative; z-index:2; flex:none; width:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:0; border:0; cursor:pointer; color:inherit;
-          background:#0b0805; border-left:2px solid rgba(255,160,40,.45); box-shadow:-8px 0 14px rgba(0,0,0,.75); font-family:Oswald,sans-serif; }
+          background:#0b0805; font-family:Oswald,sans-serif; }
         .ybt-box-k { font-size:10px; font-weight:700; letter-spacing:.16em; line-height:1; color:rgba(255,255,255,.7); }
         .ybt-box-v { font-size:36px; font-weight:700; line-height:.9; color:#ffb238; text-shadow:0 0 3px rgba(255,170,40,.8), 0 0 12px rgba(255,120,0,.45); }
         @media (max-width:640px) {
