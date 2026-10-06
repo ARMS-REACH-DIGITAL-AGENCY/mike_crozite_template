@@ -24,7 +24,17 @@ type FavoritePlayer = {
   roster_years?: string[] | null;
   /** school_success.microsite_url for the favorite's school, e.g. "https://hamilton.az.yatstats.com" - absent for a school with no live microsite. */
   microsite_url?: string | null;
+  /** school_success: the high school's short name ("Hamilton") and "City,ST". */
+  hsname?: string | null;
+  hslocation?: string | null;
 };
+
+// "Hamilton · Chandler, AZ" - and the school logo's hover text.
+function schoolLine(player: FavoritePlayer) {
+  const name = String(player.hsname || '').trim();
+  const loc = String(player.hslocation || '').replace(/,\s*/g, ', ').trim();
+  return { line: [name, loc].filter(Boolean).join(' · '), hover: name ? `${name}${loc ? ` (${loc})` : ''} · Flip card gallery` : 'Flip card gallery' };
+}
 
 const FAVORITES_S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -557,6 +567,7 @@ function FavoriteLinks({
         const slug = playerSlug(name);
         const profileHref = `/${schoolId}/player/${playerId}/${slug}`;
         const subtitle = String(player.current_team_name || '').trim();
+        const school = schoolLine(player);
 
         return (
           <div key={`${playerId}-${schoolId}`} className="yat-favorite-row">
@@ -580,8 +591,9 @@ function FavoriteLinks({
             <a href={profileHref} className="yat-favorite-text-link" title={`Open ${name} profile`}>
               <strong>{name}</strong>
               {subtitle && <small>{subtitle}</small>}
+              {school.line && <small className="yat-favorite-hs-line">{school.line}</small>}
             </a>
-            <a href={playerFlipCardUrl(playerId, schoolId, player.microsite_url)} className="yat-favorite-flip-link" title="Open flip card">
+            <a href={playerFlipCardUrl(playerId, schoolId, player.microsite_url)} className="yat-favorite-flip-link" title={school.hover} aria-label={school.hover}>
               <img
                 src={schoolCrestUrl(schoolId)}
                 alt=""
@@ -1022,7 +1034,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
         #drawerFavorites .yat-favorite-row {
           display: grid;
-          grid-template-columns: 34px 46px minmax(0, 1fr) 40px;
+          grid-template-columns: 26px 46px minmax(0, 1fr) 40px;
           align-items: center;
           column-gap: 10px;
           min-height: 56px;
@@ -1093,16 +1105,21 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 34px;
+          width: 26px;
           height: 34px;
           padding: 0;
           border: none;
           background: transparent;
           color: var(--accent, #c8a96e);
-          font-size: 19px;
+          font-size: 16px;
           line-height: 1;
           cursor: pointer;
           flex: 0 0 auto;
+        }
+
+        #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {
+          color: var(--accent, #c8a96e);
+          opacity: .85;
         }
 
         #drawerFavorites .yat-favorite-star-btn:hover {
