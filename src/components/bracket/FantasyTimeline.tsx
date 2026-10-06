@@ -12,6 +12,7 @@ import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
+import BallparkScene from './BallparkScene';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const SILHOUETTE = '/img/player-silhouette.png';
@@ -351,10 +352,11 @@ export default function FantasyTimeline() {
     if(key&&key!==nav.stageKey)selectStage(key);
   };
 
-  if (!data || !rounds.length) return <section className="yft-hero" aria-label="The season, round by round" />;
+  if (!data || !rounds.length) return <section className="yft-hero" aria-label="The season, round by round"><BallparkScene /></section>;
 
   return (
     <section className="yft-hero" aria-label="The season, round by round">
+      <BallparkScene />
       <RafflePolaroidCTA />
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
@@ -396,7 +398,22 @@ export default function FantasyTimeline() {
         .yft-track::-webkit-scrollbar { display:none; }
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
-        .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.2) 26%,rgba(5,5,5,.82) 42%,#050505 72%); }
+        /* The ballpark behind the slides (BallparkScene): a night game in the
+           dark theme, a day game in the light one. A scrim darkens just the
+           band the words sit on, so the scene shows at both ends and the
+           words still pop. */
+        .ybp { position:absolute; inset:0; z-index:0; pointer-events:none; }
+        .ybp svg { display:block; }
+        .ybp-day { display:none; }
+        body.light-theme .ybp-day { display:inline; }
+        body.light-theme .ybp-night { display:none; }
+        .ybp-clouds { animation:ybp-drift 80s linear infinite alternate; }
+        @keyframes ybp-drift { from { transform:translateX(-30px); } to { transform:translateX(40px); } }
+        @media (prefers-reduced-motion: reduce) { .ybp-clouds { animation:none; } }
+        .yft-track { position:relative; z-index:1; }
+        .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.25) 22%,rgba(4,5,12,.72) 38%,rgba(4,5,12,.72) 60%,rgba(0,0,0,.45) 78%,rgba(0,0,0,.4) 100%); }
+        body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,0) 0%,rgba(6,28,58,.25) 22%,rgba(6,28,58,.72) 38%,rgba(6,28,58,.72) 60%,rgba(6,28,58,.5) 78%,rgba(6,28,58,.45) 100%); }
+        .yft-title, .yft-status, .yft-story p, .yft-series { text-shadow:0 1px 3px rgba(0,0,0,.65); }
         .yft-person { position:absolute; z-index:1; left:64%; bottom:30px; width:18%; height:calc(100% - 38px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
