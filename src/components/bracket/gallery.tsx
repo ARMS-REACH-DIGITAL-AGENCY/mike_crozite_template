@@ -1180,6 +1180,17 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const weekVals = boxForView?.d?.[7];
   const myName = names[me];
   const [statDay, setStatDay] = useState<'week' | number>(openDay);
+  // Drawer: the scoreboards stay pinned under the header and the day tabs
+  // pin right under them, so they never scroll away from the players.
+  const boardsRef = useRef<HTMLDivElement | null>(null);
+  const [boardsH, setBoardsH] = useState(0);
+  useEffect(() => {
+    const el = boardsRef.current;
+    if (!drawerMode || !el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setBoardsH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [drawerMode]);
   const [favs, setFavs] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     if (!drawerMode) return;
@@ -1351,9 +1362,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     // (No onFlip: a drawer showing one school's week.)
     <div className={`bl-f${onFlip ? '' : ' still'}`} role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined}
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
-      onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
+      onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}
+      style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
-          <div className="bl-metric-scoreboards" aria-label="OPS+ and FIP- inning scoreboards">
+          <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {metricBoard('OPS+', 0, 1, true)}
             {metricBoard('FIP-', 2, 3, false)}
             {extraInnings.length ? (
@@ -1584,7 +1596,8 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-history-tabs{position:sticky;top:var(--yfp-head-h,23px);display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button{flex:1 1 0;position:relative;margin-bottom:-1px;padding:5px 2px 4px;border:1px solid rgba(255,255,255,.2);border-bottom-color:transparent;border-radius:7px 7px 0 0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font:700 12px/1 Oswald,sans-serif}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button:hover{color:#fff}
-      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs{display:grid;grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr));gap:2px;padding:0 12px;margin-top:4px}
+      .bl.bl-embed.yfp-drawer .bl-metric-scoreboards{position:sticky;top:var(--yfp-head-h,23px);z-index:5;margin:0;padding:6px 8px 0;background:var(--bg,#0c0c0c)}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs{top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px));display:grid;grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr));gap:2px;padding:0 12px;margin-top:4px}
       .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs button{padding-left:0;padding-right:0;font-size:11px}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button.on{padding-top:7px;background:var(--bg,#0c0c0c);border-color:rgba(255,255,255,.2);border-bottom-color:var(--bg,#0c0c0c);color:var(--gold,#d2b45c)}
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs{border-bottom-color:rgba(0,0,0,.2)}
