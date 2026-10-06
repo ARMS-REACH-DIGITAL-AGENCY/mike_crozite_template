@@ -547,6 +547,17 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
 // From this width both Stat Ledger drawers open together (about a third of
 // the screen each), leaving ~600px of game cards between them.
 const DUAL_DRAWER_MIN_WIDTH = 1240;
+// From this width the site's docked drawers (Search on the left, Favorites
+// on the right) open beside the Stat Ledgers instead of closing them: each
+// ledger moves in by the site drawer's width and the game narrows to fit.
+const SIDE_BY_SIDE_MIN_WIDTH = 1860;
+const DOCKED_SITE_DRAWERS = ['drawer-left-open', 'drawer-favorites-open'];
+const OTHER_SITE_DRAWERS = ['drawer-right-open', 'drawer-account-open', 'drawer-sort-open'];
+const sideBySide = () => typeof window !== 'undefined' && window.matchMedia(`(min-width: ${SIDE_BY_SIDE_MIN_WIDTH}px)`).matches;
+// A site drawer that should close the Stat Ledgers (any of them on a
+// narrower screen; only the undocked ones - account, sort - on a wide one).
+const blockingSiteDrawerOpen = () => [...OTHER_SITE_DRAWERS, ...(sideBySide() ? [] : DOCKED_SITE_DRAWERS)]
+  .some((c) => document.body.classList.contains(c));
 
 export default function SchoolBracket({ hsid }: { hsid: string }) {
   const me = Number(hsid);
@@ -569,17 +580,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const openStats = (o: Open | null) => {
     autoOpened.current = false;
     if (o) {
-      document.body.classList.remove('drawer-open', 'drawer-left-open', 'drawer-right-open', 'drawer-account-open',
-        'drawer-favorites-open', 'drawer-sort-open', 'yat-left-search-mode', 'yat-desktop-docked-drawers');
+      // Wide screens keep a docked Search or Favorites drawer open beside them.
+      const keepDocked = sideBySide() && DOCKED_SITE_DRAWERS.some((c) => document.body.classList.contains(c));
+      document.body.classList.remove(...OTHER_SITE_DRAWERS, ...(keepDocked ? [] : ['drawer-open', ...DOCKED_SITE_DRAWERS, 'yat-left-search-mode', 'yat-desktop-docked-drawers']));
       ['drawerAccount', 'drawerMask'].forEach((id) => document.getElementById(id)?.classList.remove('open', 'is-open', 'active'));
     }
     setOpen(o);
   };
   useEffect(() => {
     if (!open) return;
-    const siteDrawer = () => ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
-      .some((c) => document.body.classList.contains(c));
-    const mo = new MutationObserver(() => { if (siteDrawer()) { keepClosed.current = true; autoOpened.current = false; setOpen(null); } });
+    const mo = new MutationObserver(() => { if (blockingSiteDrawerOpen()) { keepClosed.current = true; autoOpened.current = false; setOpen(null); } });
     mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
   }, [open]);
@@ -682,8 +692,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const shownWeek = shownCard?.week ?? 0;
   useEffect(() => {
     const t = window.setTimeout(() => {
-      const siteDrawerOpen = ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
-        .some((c) => document.body.classList.contains(c));
+      const siteDrawerOpen = blockingSiteDrawerOpen();
       if (bothDrawers && shownCard && !keepClosed.current && !siteDrawerOpen) {
         if (!open || (autoOpened.current && open.card.week !== shownCard.week)) {
           autoOpened.current = true;
@@ -984,6 +993,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* Docked drawers start where the game card starts, so the three
              gold headers sit on one line. */
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
+        }
+        /* Wide screens: a docked Search (left) or Favorites (right) drawer
+           sits at the edge and the Stat Ledger on that side moves in beside it. */
+        @media (min-width:1860px) {
+          body.drawer-open.drawer-left-open .yfp-drawer-wrap.row5 { left:var(--yat-left-drawer-w, 290px); }
+          body.drawer-open.drawer-favorites-open .yfp-drawer-wrap.row5 { right:var(--yat-right-drawer-w, 360px); }
         }
         /* The Rules pill: the flip cards' pill size. */
         .yfz-panel .yfp-lb-rules {
