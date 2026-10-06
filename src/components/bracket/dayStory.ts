@@ -1,6 +1,7 @@
 // The hero's daily news story: once a day's runs are settled (offense and
 // pitching both), the round slide leads with that day - a headline, a short
-// recap (the runs, both teams' OPS+ and FIP-, where the week stands) and a
+// recap (the runs, each school's best bat and arm - good day or bad - and
+// where the week stands) and a
 // shout-out to the school's top OPS+ and top FIP- of the day.
 import { type GameBox, type GameRow, type Index, type PlayerRow, shortName } from './gallery';
 
@@ -8,7 +9,8 @@ export type DayShout = { id: string; name: string; kind: 'bat' | 'pit'; value: n
 export type DayStory = { day: string; title: string; summary: string; shouts: DayShout[]; hero?: DayShout };
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const surname = (name: string) => (name.trim().split(/\s+/).pop() || name).toUpperCase();
+const lastName = (name: string) => name.trim().split(/\s+/).pop() || name;
+const surname = (name: string) => lastName(name).toUpperCase();
 
 // "2-for-4, HR, 2 BB" from [PA AB H 2B 3B HR BB HBP SF].
 function batLine(s: number[]) {
@@ -54,10 +56,18 @@ function headline(school: string, opp: string, day: string, mine: number, theirs
   return mine ? `${S}, ${O} SPLIT ${D}` : `NO RUNS ON ${D}`;
 }
 
-// One side of the day: "134 OPS+ to 98" (null: no one in action).
-function versus(mine: number | null | undefined, theirs: number | null | undefined, unit: string) {
-  if (mine == null && theirs == null) return '';
-  return `${mine ?? '-'} ${unit} to ${theirs ?? '-'}`;
+// A school's day in a sentence - its best bat and best arm, good day or bad:
+// "Hamilton: Bellinger 1-for-4 (42 OPS+)", or "Cardinal Newman had no one in action".
+function sideDay(school: string, rows: PlayerRow[]) {
+  const bat = rows.filter((p) => Array.isArray(p[4]) && p[4][0] > 0 && p[6] !== null)
+    .sort((a, b) => Number(b[6]) - Number(a[6]) || (b[4] as number[])[0] - (a[4] as number[])[0])[0];
+  const arm = rows.filter((p) => Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0) && p[7] !== null)
+    .sort((a, b) => Number(a[7]) - Number(b[7]) || (b[5] as number[])[0] - (a[5] as number[])[0])[0];
+  const parts = [
+    bat && `${lastName(bat[1])} ${batLine(bat[4] as number[])} (${bat[6]} OPS+)`,
+    arm && `${lastName(arm[1])} ${pitLine(arm[5] as number[])} (${arm[7]} FIP-)`,
+  ].filter(Boolean);
+  return parts.length ? `${school}: ${parts.join(', ')}` : `${school} had no one in action`;
 }
 
 // The story for game g's latest settled day, or null before any day settles.
@@ -75,19 +85,16 @@ export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me:
   // Runs through the settled days of the week.
   let wm = 0, wt = 0;
   for (let k = 0; k <= d; k++) { wm += Number(runs[k * 2 + (home ? 0 : 1)] || 0); wt += Number(runs[k * 2 + (home ? 1 : 0)] || 0); }
-  const [ho, ao, hf, af] = box.d[d] || [];
   const shouts = shoutsOf((home ? box.h : box.a).days?.[d] || []);
 
   const verb = mine > theirs ? (mine === 2 ? 'swept' : 'took') : theirs > mine ? 'dropped' : 'split';
-  const plate = versus(home ? ho : ao, home ? ao : ho, 'OPS+');
-  const mound = versus(home ? hf : af, home ? af : hf, 'FIP-');
-  const detail = [plate && `${plate} at the plate`, mound && `${mound} on the mound`].filter(Boolean).join(', ');
+  const sides = `${sideDay(school, (home ? box.h : box.a).days?.[d] || [])}. ${sideDay(opp, (home ? box.a : box.h).days?.[d] || [])}.`;
   const week = `Week ${g[1]}`;
   const stands = box.f[7]?.[0] && box.f[7]?.[1] && g[6]
     ? `${g[6] === me ? school : opp} wins ${week}.`
     : wm === wt ? `${week} is tied ${wm}-${wt}.` : `${wm > wt ? school : opp} leads ${week}, ${Math.max(wm, wt)}-${Math.min(wm, wt)}.`;
   const lead = mine || theirs ? `${school} ${verb} ${day} ${mine}-${theirs} against ${opp}` : `No runs ${day} for ${school} or ${opp}`;
-  const summary = `${lead}${detail ? `: ${detail}` : ''}. ${stands}`;
+  const summary = `${lead}. ${sides} ${stands}`;
   // The hero picture: the bigger of the two days (OPS+ above 100, FIP- below).
   const hero = [...shouts].sort((a, b) => (b.kind === 'bat' ? b.value - 100 : 100 - b.value) - (a.kind === 'bat' ? a.value - 100 : 100 - a.value))[0];
   return { day, title: headline(school, opp, day, mine, theirs, shouts), summary, shouts, hero };
