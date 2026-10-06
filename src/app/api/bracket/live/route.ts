@@ -145,8 +145,21 @@ export async function GET(req: NextRequest) {
         if (isFinal(r.status) && mine !== null && theirs !== null && mine !== theirs) result(club, Number(r.day), r.game, mine > theirs);
       }
     }
-    // Clubs off the pro schedule (Fall League ...): the result on the lines.
-    for (const r of clubRows) result(r.team, Number(r.day), r.game, r.is_win);
+    // The schedule decides whether a pro game is over: the 4-hourly game-log
+    // sync stamps every line it saves "Final" with MLB's in-game isWin
+    // (false until the game ends), so a line alone can call a game still
+    // being played over, and lost.
+    const schedState = new Map(sched.map((r) => [r.game, { done: isDone(r.status), final: isFinal(r.status) }]));
+    for (const l of lines) {
+      const st = schedState.get(String(l[5]));
+      if (st) l[7] = st.done ? 1 : 0;
+    }
+    // Clubs off the pro schedule (Fall League ...): the result on the lines -
+    // never for a scheduled game that isn't final yet.
+    for (const r of clubRows) {
+      const st = schedState.get(r.game);
+      if (!st || st.final) result(r.team, Number(r.day), r.game, r.is_win);
+    }
 
     return NextResponse.json(
       { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games },
