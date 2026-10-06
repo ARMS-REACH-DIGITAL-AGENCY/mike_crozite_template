@@ -34,6 +34,12 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// A read that failed only because the database couldn't start a parallel
+// worker for it (a momentary resource limit on the compute) - safe to run
+// again once.
+const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
+const isRead = (text: string) => /^\s*(select|with)\b/i.test(text);
+
 // Generic query helper
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
@@ -42,6 +48,15 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   try {
     return await pool.query<T>(text, params);
   } catch (error) {
+    if (isRead(text) && PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''))) {
+      console.warn('Database query retried after a parallel-worker error');
+      try {
+        return await pool.query<T>(text, params);
+      } catch (retryError) {
+        console.error('Database query error:', retryError);
+        throw retryError;
+      }
+    }
     console.error('Database query error:', error);
     throw error;
   }

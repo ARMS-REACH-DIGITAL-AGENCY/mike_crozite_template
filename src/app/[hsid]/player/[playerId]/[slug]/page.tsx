@@ -168,15 +168,18 @@ export default async function ProfilePage({ params }: Props) {
   let _diagFallbackResult: string | null = null;
   let _diagError: string | null = null;
   try {
-    // Primary: slug + hsid lookup (fast, school-scoped)
-    const matches = await findPlayersBySlug(slug, hsid);
-    _diagSlugRows = matches?.length ?? 0;
-    player = matches?.find((p: any) => String(p.playerid) === String(playerId)) ?? null;
-    // Fallback: direct playerid lookup (handles slug mismatches or missing player_hsids rows)
+    // Primary: the playerid in the URL - one index lookup. (The slug lookup
+    // scans every player's name, which the database runs as a parallel scan;
+    // when it can't start a parallel worker the whole profile failed with
+    // "parallel worker failed to initialize".)
+    const byId = await getPlayerById(String(playerId));
+    _diagFallbackResult = byId ? `GOT: ${byId.firstname} ${byId.lastname}` : "NULL";
+    player = byId;
+    // Fallback: the slug, scoped to the school (an id with no player row).
     if (!player) {
-      const fallback = await getPlayerById(String(playerId));
-      _diagFallbackResult = fallback ? `GOT: ${fallback.firstname} ${fallback.lastname}` : "NULL";
-      player = fallback;
+      const matches = await findPlayersBySlug(slug, hsid);
+      _diagSlugRows = matches?.length ?? 0;
+      player = matches?.find((p: any) => String(p.playerid) === String(playerId)) ?? null;
     }
   } catch (e: any) {
     _diagError = String(e?.message ?? e);
