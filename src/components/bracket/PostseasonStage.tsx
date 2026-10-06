@@ -207,7 +207,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       : g[1] === 33 ? 'Championship Game'
       : 'YAT?STATS World Series';
 
-    const inningCount = Math.max(9, Math.floor(g[5].length / 2));
+    const inningCount = card.state === 'final' ? Math.max(9, Math.floor(g[5].length / 2)) : 9;
     const row = (side:'a'|'h') => {
       const h = side === 'h' ? g[2] : g[3];
       const off = side === 'h' ? 0 : 1;
