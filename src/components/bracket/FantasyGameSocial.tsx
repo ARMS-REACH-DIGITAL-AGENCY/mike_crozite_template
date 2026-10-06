@@ -204,6 +204,7 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
     <style jsx global>{`
       .fgs-inline.ysv-post{border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
       .ysv-actions .fgs-n{margin-left:5px;font-weight:400;opacity:.8}
+      .fgs-inline .ysv-actions{border-top:0;border-bottom:0}
       .fgs-inline .ysv-actions button{min-height:36px;font-size:14px}
       .fgs-inline .ysv-actions button i{font-size:15px}
       .fgs-inline .ysv-comments{padding:6px 0 2px;gap:7px}
