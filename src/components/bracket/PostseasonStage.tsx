@@ -167,7 +167,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
             <span className="run">R</span>
-            <span className="stats">STATS</span>
+            <span className="stats">DAILY<br />STATS</span>
           </div>
           {blankRow('away')}
           {blankRow('home')}
@@ -243,7 +243,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
           <span className="run">R</span>
-          <span className="stats">STATS</span>
+          <span className="stats">DAILY<br />STATS</span>
         </div>
         {row('a')}{row('h')}
       </div>
