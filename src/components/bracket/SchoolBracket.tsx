@@ -1166,7 +1166,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
-        .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: rgba(0,0,0,.3); }
+        .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: transparent; } /* docked beside the game: never dim it */
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }
