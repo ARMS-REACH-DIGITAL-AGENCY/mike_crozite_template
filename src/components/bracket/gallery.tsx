@@ -22,6 +22,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { ScoringRulesPanel } from './BracketRules';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -1464,12 +1465,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             ]} />
 
           {drawerMode ? (
+            // The same scoring rules as the Rules drawer, word for word.
             <div className="bl-drawer-explain">
               <div className="bl-scoring-title">SCORING</div>
-              <p>For innings (days) 1–7, the run totals are based on a daily head-to-head team comparison between one alumni&apos;s team higher OPS+ (Offensive Stat) and lower FIP- (Defensive Stat). Each winning comparison is worth 1 run.</p>
-              <p>The 8th inning is computed the same way, but uses the two teams&apos; weekly OPS+ and FIP- comparisons.</p>
-              <p>The 9th inning does not use the OPS+/FIP- results. Instead the final frame is decided by the better weekly W-L% across all active alumni&apos;s real-world teams, whether each alumnus played or not.</p>
-              <p><b>TIEBREAKERS:</b> If the score is tied after 9, inning 10 compares each school&apos;s #1 hitter (OPS+) and #1 pitcher (FIP-), worth one run each. If that inning is also tied, inning 11 uses the #2 hitter and #2 pitcher, inning 12 uses the #3 pair, and so on until one school leads. Only after both schools exhaust the next required hitter/pitcher pair while still tied does the commissioner&apos;s coin flip apply; the winner of the flip receives one final run, so a completed game never displays a tied final score.</p>
+              <ScoringRulesPanel />
             </div>
           ) : (
             <div className="bl-how">
