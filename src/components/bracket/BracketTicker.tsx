@@ -29,10 +29,12 @@ type Item = { key: string; tag: string; home: string; away: string; h: number; a
 type Group = { region: number; label: string; boxK: string; boxV: string; items: Item[] };
 
 function tickerGroups(index: Index, asof: string): Group[] {
-  const week = weekOfDate(index, asof);
-  if (week === 0) return [];
+  // Before the season the crawl is Round 1's games (Week 1), 0-0 until the
+  // opening day - always scrolling, with each region's sponsor.
+  const week = Math.max(1, weekOfDate(index, asof));
   const last = index.weeks.length;
   const w = Math.min(week, last); // after the season: the Fantasy World Series
+  const opening = asof < index.weeks[0][0] ? startsOn(index.weeks[0][0]) : '';
   // Days of the week with stats in: those before today (all 7 once it's over).
   const done = week > last ? 7 : Array.from({ length: 7 }, (_, d) => {
     const t = Date.parse(`${index.weeks[w - 1][0]}T00:00:00Z`) + d * 86400000;
@@ -53,14 +55,15 @@ function tickerGroups(index: Index, asof: string): Group[] {
       home: shortName(index.schools[g[2]]?.[0] || '').toUpperCase(),
       away: shortName(index.schools[g[3]]?.[0] || '').toUpperCase(),
       h, a,
-      status: done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE',
+      status: opening || (done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE'),
       lead: h > a ? 1 : a > h ? 2 : 0,
     });
   };
   for (const r of index.rounds) {
     for (const s of r.series) {
-      s[7].forEach((g, i) => {
-        if (g[1] === w) add(g, s[0], `ROUND ${r.r}`, s[0] ? ['REGION', String(s[0])] : ['ROUND', String(r.r)], `G${i + 1}`);
+      s[7].forEach((g) => {
+        // Every game in the crawl is this week's, so no G1/G2/G3 tag.
+        if (g[1] === w) add(g, s[0], `ROUND ${r.r}`, s[0] ? ['REGION', String(s[0])] : ['ROUND', String(r.r)], '');
       });
     }
   }
