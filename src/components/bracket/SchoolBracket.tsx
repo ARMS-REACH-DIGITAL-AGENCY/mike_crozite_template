@@ -969,6 +969,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
+          /* Main scoreboard: school names flush right against the innings -
+             SCHOOL in caps, City, ST as written. */
+          .yfp-game-scorepane .yfp-green-team { text-align:right; }
+          .yfp-game-scorepane .yfp-green-full { text-transform:uppercase; }
+          .yfp-game-scorepane .yfp-green-place { text-transform:none; letter-spacing:.02em; }
 
           /* The standings column. scrollbar-gutter keeps the scrollbar in its
              own lane so it never covers the run totals. */
