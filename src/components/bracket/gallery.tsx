@@ -1218,7 +1218,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const player = (p: PlayerRow) => (
     <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );
-  const wlCell = (p: PlayerRow) => statDay === 'week' ? (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0') : '—';
+  // A day's W-L shows when the box has one (live: the club's result that day).
+  const wlCell = (p: PlayerRow) => p[8] ? `${p[8][0]}-${p[8][1]}` : statDay === 'week' ? '0-0' : '—';
+  const dayWl = statDay !== 'week' && viewPlayers.some((p) => p[8]) ? sumRosterWl(viewPlayers) : null;
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
   const batCols: SortCol[] = [
@@ -1255,6 +1257,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'fip', label: 'FIP', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
   const teamWl = `${wl[0]}-${wl[1]}`;
+  const shownTeamWl = statDay === 'week' ? teamWl : dayWl ? `${dayWl[0]}-${dayWl[1]}` : '—';
   const teamWhip = teamPit[0] ? ((teamPit[5] || 0) + (teamPit[2] || 0)) / (teamPit[0] / 3) : 0;
   const teamKbb = teamPit[2] ? (teamPit[4] || 0) / teamPit[2] : (teamPit[4] || 0);
   const teamFipWeight = pitchers.reduce((s, p) => s + (pit(p)[0] || 0), 0);
@@ -1441,11 +1444,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             </div>
           ) : null}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={[teamDayMetric(me), statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), shownTeamWl, ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
             total={[
               teamDayMetric(2 + me),
-              statDay === 'week' ? teamWl : '—',
+              shownTeamWl,
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
