@@ -1805,8 +1805,9 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9.5px; letter-spacing:0; }
       .bl.bl-embed.yfp-drawer .bl-box .nm { width:auto; min-width:74px; max-width:118px; padding-left:6px; padding-right:8px; overflow:hidden; text-overflow:ellipsis;
         position:sticky; left:0; z-index:1; background:var(--bg,#0c0c0c); }
-      .bl.bl-embed.yfp-drawer .bl-stat-block.offense .bl-box thead th.nm { background:#6c5317; }
-      .bl.bl-embed.yfp-drawer .bl-stat-block.defense .bl-box thead th.nm { background:#174c35; }
+      /* The drawers' stat header rows: the gold of the gold row above the boards. */
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th,
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th.nm { background:#9c7f22; color:#fff5cf; border-bottom-color:#9c7f22; }
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:4px; padding-right:4px; }
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
