@@ -1307,10 +1307,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // The stat drawer's scoreboards: one board per school (its own school
   // first) - a tick sheet of each day's numbers, not a tally (the main
   // scoreboard keeps the runs). The school's code and City, ST span both
-  // rows; row 1 is OPS+ (days 1-7, the week in 8, the clubs' W% in 9), row
-  // 2 FIP- (days 1-7, the week in 8). A cell that beat the other school's is
+  // rows; row 1 is OPS+ and row 2 FIP- (days 1-7, the week in 8). Inning 9
+  // is one number, not two: the "W%" label on top, the clubs' winning
+  // percentage in the box below. A cell that beat the other school's is
   // yellow - two yellows in an inning: both runs.
-  const wpText = (wp: number | null) => (wp == null ? 'W%' : wp.toFixed(3).replace(/^0/, ''));
+  const wpText = (wp: number | null) => (wp == null ? '–' : wp.toFixed(3).replace(/^0/, ''));
   const teamBoard = (side: 0 | 1) => {
     const name = names[side], location = locations[side];
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
@@ -1336,10 +1337,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           <span className="bl-tb-name" title={location ? `${name} (${location})` : name}>{nameCell}</span>
         )}
         {metricRow(side === 0 ? 0 : 1, side === 0 ? 1 : 0, true)}
-        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' W-L %">{wpText(wp)}</span>
+        <span className="bl-tb-wlabel">W%</span>
         <span className="bl-tb-label">OPS+</span>
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
-        <span className="bl-tb-blank" aria-hidden="true" />
+        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
         <span className="bl-tb-label">FIP-</span>
       </div>
     );
@@ -1760,7 +1761,7 @@ export function Styles() {
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
       .bl-tb-cell.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
       .bl-tb-cell.na { color:#718379; }
-      .bl-tb-blank { min-height:20px; }
+      .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
       .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
       body.light-theme table.bl-box tr.fav td { color:#000; }
@@ -1773,7 +1774,7 @@ export function Styles() {
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-tb-head { font-size:6.8px; }
         .bl-tb-cell { font-size:9px; min-height:19px; }
-        .bl-tb-blank { min-height:19px; }
+        .bl-tb-wlabel { font-size:9.5px; }
         .bl-tb-label { font-size:8px; }
         .bl-tb-name { padding:2px 3px; }
         .bl-tb-name b { font-size:18px; }
