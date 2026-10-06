@@ -58,6 +58,7 @@ export type ActiveRosterPlayer = {
   lastname?: string | null;
   level?: string | null;
   is_pitcher?: boolean | null;
+  current_teamid?: string | number | null; // the team logo (teams-web/<id>.webp)
 };
 
 export const BASE = '/bracket-lab/2026';
@@ -129,6 +130,18 @@ export function loadActiveRoster(hsid: number) {
     activeRosterCache.set(hsid, p);
   }
   return activeRosterCache.get(hsid)!;
+}
+
+// A player's current team logo, by our (Baseball Cube) team id - college and
+// pro alike: teams-web/<id>.webp, then teams/<id>.png. No logo: an empty slot
+// of the same size, so the names stay lined up.
+const TEAM_LOGO_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+function TeamLogo({ id }: { id?: string }) {
+  const [step, setStep] = useState(0);
+  const srcs = id && /^\d+$/.test(id) ? [`${TEAM_LOGO_BASE}/teams-web/${id}.webp`, `${TEAM_LOGO_BASE}/teams/${id}.png`] : [];
+  if (step >= srcs.length) return <span className="bl-tlogo" aria-hidden="true" />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="bl-tlogo" src={srcs[step]} alt="" loading="lazy" onError={() => setStep((n) => n + 1)} />;
 }
 
 export const shortName = (name: string) => name
@@ -1198,8 +1211,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
+  const teamOf = useMemo(() => new Map([...(homeRoster || []), ...(awayRoster || [])]
+    .map((r) => [String(r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
   const player = (p: PlayerRow) => (
-    <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a>
+    <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );
   const wlCell = (p: PlayerRow) => statDay === 'week' ? (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0') : '—';
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
@@ -1659,6 +1674,8 @@ export function Styles() {
       .bl-box .plus { color:var(--gold); font-weight:700; padding-left:6px; padding-right:8px; text-align:center; }
       .bl-box th:last-child, .bl-box td:last-child { padding-right:14px; }
       .bl-plink { color:inherit; text-decoration:none; }
+      .bl-tlogo { display:inline-block; box-sizing:border-box; width:17px; height:17px; margin-right:5px; padding:1px; border-radius:3px; object-fit:contain; vertical-align:-4px; }
+      img.bl-tlogo { background:rgba(255,255,255,.9); }
       .bl-box .wl { color:var(--text); padding-left:4px; padding-right:6px; }
       .bl-sort { padding:0; border:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; cursor:pointer; white-space:nowrap; }
       .bl-sort:hover { color:var(--gold); }
