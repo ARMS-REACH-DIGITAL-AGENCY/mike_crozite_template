@@ -113,6 +113,13 @@ function isConnectContributePath(pathname: string) {
   return /\/connect-contribute\/?$/.test(pathname);
 }
 
+// The high school season the current team plays: from August on, next
+// spring's (Oct 2026 shows the 2027 team), in Arizona time.
+function teamSeason(now = new Date()) {
+  const az = new Date(now.getTime() - 7 * 3600000);
+  return az.getUTCMonth() >= 7 ? az.getUTCFullYear() + 1 : az.getUTCFullYear();
+}
+
 export default function GlobalTopbar({ hsid }: { hsid: string }) {
   useEffect(() => {
     updateDesktopDocking();
@@ -198,7 +205,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <a className="yat-topnav-item" href={`/${hsid}`}><span>WHERE THEY</span><strong>YAT?</strong></a>
           <a className="yat-topnav-item" data-tab="news" href={schoolSectionHref(hsid, 'news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
           <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
-          <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>2026</span><strong>TEAM</strong></a>
+          <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>{teamSeason()}</span><strong>TEAM</strong></a>
           <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
           <a className="yat-topnav-item" data-cc-link href={connectContributeHref(hsid)}><strong>CONNECT</strong><span>&amp;</span><strong>CONTRIBUTE</strong><span>PORTAL</span></a>
           <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
