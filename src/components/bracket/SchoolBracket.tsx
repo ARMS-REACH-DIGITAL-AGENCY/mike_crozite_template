@@ -101,7 +101,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
   const shownInnings = corrected?.innings || g?.[5] || [];
-  const inningCount = Math.max(9, Math.floor(shownInnings.length / 2));
+  // Extra innings (a tiebreak) only once the game is final: a week still
+  // being played is 9 innings, whatever the practice files carry.
+  const inningCount = card.state === 'final' ? Math.max(9, Math.floor(shownInnings.length / 2)) : 9;
   const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
   const [hr, ar] = corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr];
   const correctedWinner = g && corrected && card.state === 'final'
@@ -798,6 +800,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }
         .yfp-green-row.won .yfp-green-run { background:#f3c735; color:#15251d; }
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
+        /* Main scoreboard, every width: school names flush right against the
+           innings - SCHOOL in caps, City, ST as written. */
+        .yfp-game-scorepane .yfp-green-team { text-align:right; }
+        .yfp-game-scorepane .yfp-green-full { text-transform:uppercase; }
+        .yfp-game-scorepane .yfp-green-place { text-transform:none; letter-spacing:.02em; }
         /* The daily-stats button: its own column right of R (an implicit
            grid column, so every board's template gets it). */
         .yfp-green-row { grid-auto-columns:24px; }
@@ -986,11 +993,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
-          /* Main scoreboard: school names flush right against the innings -
-             SCHOOL in caps, City, ST as written. */
-          .yfp-game-scorepane .yfp-green-team { text-align:right; }
-          .yfp-game-scorepane .yfp-green-full { text-transform:uppercase; }
-          .yfp-game-scorepane .yfp-green-place { text-transform:none; letter-spacing:.02em; }
 
           /* The standings column. scrollbar-gutter keeps the scrollbar in its
              own lane so it never covers the run totals. */
