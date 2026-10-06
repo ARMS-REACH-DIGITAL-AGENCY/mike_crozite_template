@@ -1225,6 +1225,16 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     ro.observe(el);
     return () => ro.disconnect();
   }, [drawerMode]);
+  // ... and the stat header rows (then SCORING) pin right under the day tabs.
+  // (The tabs mount after the rosters load, so this follows the element.)
+  const [tabsEl, setTabsEl] = useState<HTMLDivElement | null>(null);
+  const [tabsH, setTabsH] = useState(0);
+  useEffect(() => {
+    if (!drawerMode || !tabsEl || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setTabsH(tabsEl.offsetHeight));
+    ro.observe(tabsEl);
+    return () => ro.disconnect();
+  }, [drawerMode, tabsEl]);
   const [favs, setFavs] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     if (!drawerMode) return;
@@ -1387,7 +1397,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     <div className={`bl-f${onFlip ? '' : ' still'}`} role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined}
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}
-      style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px` } as React.CSSProperties) : undefined}>
+      style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px`, '--bl-tabs-h': `${tabsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {teamBoard(me)}
@@ -1466,7 +1476,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           {drawerMode ? (
             // Each day's tab sits under its inning on the scoreboards above
             // (Monday = inning 1 ... Sunday = 7); Weekly Totals spans 8, 9 and the total.
-            <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history">
+            <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history" ref={setTabsEl}>
               {[
                 [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Weekly Totals']
               ].map(([key,label]) => (
@@ -1779,9 +1789,21 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9.5px; letter-spacing:0; }
       .bl.bl-embed.yfp-drawer .bl-box .nm { width:auto; min-width:74px; max-width:118px; padding-left:6px; padding-right:8px; overflow:hidden; text-overflow:ellipsis;
         position:sticky; left:0; z-index:1; background:var(--bg,#0c0c0c); }
-      /* The drawers' stat header rows: the gold of the gold row above the boards. */
+      /* The drawers' stat header rows: the Wrigley board's light green with
+         yellow labels, rounded like every header row, pinned under the day
+         tabs as the drawer scrolls - Batting until the Pitching row meets
+         it, Pitching until SCORING does (each sticks within its own table). */
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th,
-      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th.nm { background:#9c7f22; color:#fff5cf; border-bottom-color:#9c7f22; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th.nm { background:#2e8b5f; color:#ffd34f; border-bottom-color:#2e8b5f;
+        position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:first-child { border-radius:5px 0 0 5px; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:last-child { border-radius:0 5px 5px 0; }
+      .bl.bl-embed.yfp-drawer .bl-scroll { overflow:visible; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block { padding-left:8px; }
+      .bl.bl-embed.yfp-drawer .bl-scoring-title { position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3;
+        margin:0 0 7px; padding:5px 8px 4px; border-radius:5px; background:#2e8b5f; color:#ffd34f; }
+      .bl.bl-embed.yfp-drawer .bl-history-tabs button.on { color:#ffd34f; }
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button.on { color:#1f6b45; }
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:4px; padding-right:4px; }
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
@@ -1809,7 +1831,7 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box tbody td.nm { text-overflow:clip; }
       .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-plink { display:inline-block; white-space:nowrap; vertical-align:middle; }
       .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { vertical-align:middle; }
-      .bl.bl-embed.yfp-drawer .bl-box thead th { position:relative; font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th { font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl.bl-embed.yfp-drawer .bl-box .bl-sort { width:100%; text-align:inherit; }
       .bl.bl-embed.yfp-drawer .bl-box .bl-arrow { position:absolute; top:1px; right:0; font-size:6px; }
       .bl.bl-embed.yfp-drawer .bl-sort { width:auto; overflow:visible; }
