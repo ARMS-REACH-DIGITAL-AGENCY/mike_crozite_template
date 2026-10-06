@@ -490,17 +490,21 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const lcs = getComputedStyle(list);
       // The rank (A-Z: region-seed) column fits its header label too.
       const rkHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rk');
-      const rankW = Math.ceil(Math.max(view === 'az' ? 44 : 24, rkHead ? textW(rkHead) + 4 : 0));
+      const rankW = Math.ceil(Math.max(view === 'az' ? 44 : 24, rkHead ? textW(rkHead) + 8 : 0));
       list.style.setProperty('--lb-rank-w', `${rankW}px`);
+      // ... and the runs column fits TOTAL RUNS.
+      const rfHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rf');
+      const runsW = Math.ceil(Math.max(22, rfHead ? textW(rfHead) + 8 : 0));
+      list.style.setProperty('--lb-runs-w', `${runsW}px`);
       // The name column is the longest name in every region, so the runs sit
       // in the same place in each.
       const avail = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight);
-      const nameW = Math.ceil(Math.min(longest + 2, avail - rankW - 22 - 2 * gap));
+      const nameW = Math.ceil(Math.min(longest + 2, avail - rankW - runsW - 2 * gap));
       list.style.setProperty('--lb-name-w', `${nameW}px`);
       // A school and its runs are one group: the list takes as many columns
       // of those groups as fit (one when two won't), up to 3, each with its
       // own header.
-      const colW = rankW + nameW + 22 + 2 * gap;
+      const colW = rankW + nameW + runsW + 2 * gap;
       const cols = window.matchMedia('(max-width: 599px)').matches ? 1 : Math.max(1, Math.min(3, Math.floor((avail + 22) / (colW + 22))));
       list.style.setProperty('--lb-cols', String(cols));
       list.dataset.cols = String(cols);
@@ -877,7 +881,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* A week as the green manual ballpark scoreboard from the approved mockup.
            School logos are intentionally omitted until all 1,024 schools have real crests. */
         .yfp-card.yfp-scorecard { padding:0; overflow:hidden; border-radius:7px; background:rgba(255,255,255,.035); }
-        .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; background:#9c7f22; color:#fff5cf; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+        .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; border-radius:5px; background:#2e8b5f; color:#fff; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-green-board { margin:0; padding:5px 6px 5px; background:linear-gradient(180deg,#1f6546,#174c35); border-top:1px solid rgba(255,255,255,.14); border-bottom:1px solid #0d3022; box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 5px rgba(0,0,0,.24); }
         .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1.1fr) repeat(var(--inning-count,9),minmax(18px,1fr)) minmax(24px,0.7fr); gap:2px; align-items:center; margin-top:2px; }
         .yfp-green-row.head { margin-top:0; color:#eef7ef; font:700 8px/1 Oswald,sans-serif; text-align:center; }
@@ -1069,6 +1073,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* Inset under the gold row with rounded corners, and as tall as a
              drawer's two boards (6px below the gold row to 138px below it),
              so all three boards start and end on the same lines. */
+          /* Every header row is an inset, rounded bar over its board. */
+          .yfz-cards .yfp-scorecard .yfp-score-head { margin:0 8px; }
           /* School crests either side of the board, screened back, once the
              card is wide enough to hold them beside it (hidden otherwise). */
           .yfp-game-scorepane { container-type:inline-size; }
@@ -1161,7 +1167,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-score-games button { padding:2px 6px 1px; border:0; border-radius:3px; background:transparent; color:inherit; opacity:.65;
           font:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; }
         .yfp-score-games button:hover:not(:disabled) { opacity:1; }
-        .yfp-score-games button.on { opacity:1; background:#fff5cf; color:#3a2d06; }
+        .yfp-score-games button.on { opacity:1; background:#ffd34f; color:#123d29; }
         .yfp-score-games button:disabled { cursor:default; }
         .yfp-score-dates { margin-left:auto; white-space:nowrap; }
         .yfp-score-dates i { margin:0 4px; }
@@ -1209,6 +1215,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The leaderboard has no box now: the open tab joins the page itself. */
         .yfz-panel .yfp-lb-regions button.on,
         body.light-theme .yfz-panel .yfp-lb-regions button.on { background:var(--bg,#0c0c0c); border-bottom-color:var(--bg,#0c0c0c); }
+        .yfz-panel .yfp-lb-regions button.on { color:#ffd34f; }
+        body.light-theme .yfz-panel .yfp-lb-regions button.on { color:#1f6b45; }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:10px; }
         /* As many columns as fit, up to 3 (a region will have 128 schools): the
            count (--lb-cols) is set where the names are measured. */
@@ -1216,15 +1224,18 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The gold header row (the drawers' stat header gold and type), one
            per column, pinned to the top of the list as it scrolls. */
         .yfz-panel .yfp-lb-head { position:sticky; top:0; z-index:2; display:grid; grid-template-columns:repeat(var(--lb-cols, 1), minmax(0,1fr)); column-gap:22px; margin-bottom:3px; background:var(--bg,#0c0c0c); }
-        .yfz-panel .yfp-lb-hcol { display:grid; grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; align-items:center; height:20px; background:#9c7f22; color:#fff5cf;
+        .yfz-panel .yfp-lb-hcol { display:grid; grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; align-items:center; height:20px; border-radius:5px; background:#2e8b5f; color:#ffd34f;
           font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; white-space:nowrap; }
-        .yfz-panel .yfp-lb-hcol .rk { padding-left:4px; }
-        .yfz-panel .yfp-lb-hcol .rf { justify-self:end; padding-right:2px; }
+        /* RANK and TOTAL RUNS centered over their columns; SCHOOL left. The
+           numbers under them sit in a centered 3-digit box, right-aligned, so
+           ones, tens and hundreds line up. */
+        .yfz-panel .yfp-lb-hcol .rk, .yfz-panel .yfp-lb-hcol .rf { justify-self:center; }
         .yfz-panel .yfp-lb-list[data-cols="1"] .yfp-lb-hcol:nth-child(n+2),
         .yfz-panel .yfp-lb-list[data-cols="2"] .yfp-lb-hcol:nth-child(n+3) { display:none; }
-        .yfz-panel .yfp-lb li { grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
-        /* A-Z: the region-seed (R3-S15) sits under its header label. */
-        .yfz-panel .yfp-lb-list.az li .rk { text-align:left; padding-left:4px; }
+        .yfz-panel .yfp-lb li { grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb li .rk, .yfz-panel .yfp-lb li .rf { justify-self:center; width:3ch; text-align:right; font-variant-numeric:tabular-nums; }
+        /* A-Z: the region-seed (R3-S15) centered under its header label. */
+        .yfz-panel .yfp-lb-list.az li .rk { width:auto; text-align:center; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
@@ -1355,13 +1366,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head button { flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
         /* Stat Ledger header: one gold line like the game's header -
            "School | City, ST" left, "ROUND n - GAME n" right. */
-        .yfp-drawer-head.yfp-drawer-head-line { gap:8px; padding:0 4px 0 12px; height:var(--yfp-head-h,23px); background:#9c7f22; border-bottom:0; color:#fff5cf;
+        .yfp-drawer-head.yfp-drawer-head-line { gap:8px; margin:0 8px; padding:0 4px 0 10px; height:var(--yfp-head-h,23px); border-radius:5px; background:#2e8b5f; border-bottom:0; color:#fff;
           font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-drawer-head-line .yfp-drawer-who { flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; overflow:hidden; white-space:nowrap; }
         .yfp-drawer-head-line .yfp-drawer-who i { font-style:normal; opacity:.45; }
-        .yfp-drawer-head-line .yfp-drawer-school { color:#fff; font:inherit; font-size:12px; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; }
-        .yfp-drawer-head-line .yfp-drawer-location { color:#fff5cf; font:inherit; overflow:hidden; text-overflow:ellipsis; }
-        .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff5cf; font:inherit; }
+        .yfp-drawer-head-line .yfp-drawer-school { color:#ffd34f; font:inherit; font-size:12px; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-drawer-head-line .yfp-drawer-location { color:#fff; font:inherit; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff; font:inherit; }
         .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
         .yfp-drawer .ybr-rules { padding: 14px; }
 
