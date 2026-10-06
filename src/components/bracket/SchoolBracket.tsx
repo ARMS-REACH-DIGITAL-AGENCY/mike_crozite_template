@@ -321,9 +321,6 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           <span className="yfp-drawer-game">{drawerGameLabel}</span>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        {h ? null : (
-          <p className="yfp-drawer-wait">This school is decided by the earlier rounds. Its players show here once it is set.</p>
-        )}
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[nameOf(homeId), nameOf(awayId)]}
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
@@ -1190,7 +1187,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff5cf; font:inherit; }
         .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
         .yfp-drawer .ybr-rules { padding: 14px; }
-        .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
         @media (max-width: 819px) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width: min(410px, 100vw); }
