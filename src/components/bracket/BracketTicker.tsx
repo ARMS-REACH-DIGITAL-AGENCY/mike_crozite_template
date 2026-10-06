@@ -68,6 +68,11 @@ function tickerGroups(index: Index, asof: string): Group[] {
   return [...groups.values()].sort((x, y) => (x.region || 99) - (y.region || 99));
 }
 
+// "MON FEB 1" from 2027-02-01.
+function startsOn(iso: string) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', '').toUpperCase();
+}
+
 export default function BracketTicker({ hsid }: { hsid: string }) {
   const [index, setIndex] = useState<Index | null>(null);
   const [asof, setAsof] = useState('');
@@ -123,7 +128,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
       {spot}
       <div className="ybt-lane">
         {!index && <span className="ybt-msg">LOADING SCORES...</span>}
-        {index && !groups.length && <span className="ybt-msg">THE 2026 BRACKET STARTS {index.weeks[0][0]}</span>}
+        {index && !groups.length && <span className="ybt-msg">THE {index.season} BRACKET STARTS {startsOn(index.weeks[0][0])}</span>}
         {group && (
           <div key={`${turn}`} ref={trackRef} className="ybt-track" onAnimationEnd={() => setTurn((t) => t + 1)}>
             {group.items.map((it) => (

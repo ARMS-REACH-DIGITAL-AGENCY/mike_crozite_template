@@ -115,7 +115,6 @@ export default function BracketRules() {
         <ul>
           <li>Stats are included to the best of our ability, from official box scores and league sources. MLB spring training counts.</li>
           <li>A week&apos;s results are final after the deadline. Stats verified later add runs to a school&apos;s season total (the leaderboards) but never change a game&apos;s winner, and the other school never loses runs.</li>
-          <li>This season is a simulation on real 2026 stats: pro lines are real box scores; college lines (marked *) are simulated from each player&apos;s 2026 season totals, and college teams&apos; records aren&apos;t loaded yet (they count as .500).</li>
         </ul>
       </section>
 

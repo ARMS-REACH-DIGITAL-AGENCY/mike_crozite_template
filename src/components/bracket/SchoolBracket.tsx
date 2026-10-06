@@ -722,7 +722,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                   {shownCard && <WeekCardView key={shownCard.week} index={index} card={shownCard} me={me} star={stars?.[shownCard.week]} starIdentity={stars?.[shownCard.week]?identities[stars[shownCard.week][5]]:undefined} rec={rec} focused={focused===shownCard.week} onOpen={openStats}
                     games={curList.length > 1 ? { weeks: curList.map((c) => c.week), onPick: setGameWeek } : undefined}/>}
                   {cur&&curList.length===0?<p className="yfp-empty">No game for this school in this stage.</p>:null}
-                  {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the 2026 bracket.</p>}
+                  {!school&&<p className="yfp-empty">This school isn&apos;t one of the 1,024 in the {index.season} bracket.</p>}
                 </div>
               )}
             </div>

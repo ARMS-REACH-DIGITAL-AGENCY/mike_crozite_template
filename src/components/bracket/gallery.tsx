@@ -22,6 +22,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -87,8 +88,11 @@ export function tieNote(decidedBy: string) {
 }
 
 // Box scores are shared by every card of a round + region: one fetch each.
+// Only the bracket lab reads the 2026 practice season's box scores; a
+// school's bracket is the 2027 season, with nothing played yet.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
+  if (!practiceSeason) return Promise.resolve({} as Record<string, GameBox>);
   if (!boxCache.has(file)) {
     boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
   }
@@ -459,19 +463,50 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 
 // index.json and lb.json, fetched once and shared (row 3 and row 5 of a
 // school's page both use them).
+//
+// A school's bracket is the upcoming 2027 season: the 2027 calendar (Week 1
+// = Mon Feb 1, 2027) and a blank scorecard - the field and Round 1's
+// matchups, and nothing played: no innings, scores, winners, later-round
+// matchups, leaderboard games, tournaments or champions. The 2026 practice
+// season (its results included) is only for the bracket lab, which asks
+// for it with loadIndex({ practice: true }).
+let practiceSeason = false;
 let indexPromise: Promise<Index> | null = null;
-export function loadIndex() {
+export function loadIndex({ practice = false }: { practice?: boolean } = {}) {
+  if (practice) practiceSeason = true;
   if (!indexPromise) {
     indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
-      // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
-      if (idx && Array.isArray(idx.weeks)) {
+      if (!idx || !Array.isArray(idx.weeks)) return idx;
+      if (practiceSeason) {
+        // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
         idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
+        return idx;
       }
-      return idx;
+      return blankSeason(idx);
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
+}
+// The 2027 season before a pitch is thrown (see loadIndex).
+function blankSeason(idx: any): Index {
+  idx.season = TOURNAMENT_2027.season;
+  idx.weeks = tournamentWeeks(TOURNAMENT_2027.start, idx.weeks.length);
+  idx.rounds = idx.rounds.map((round: Round) => {
+    const [a, b] = [idx.weeks[(round.r - 1) * 3]?.[0] || '', idx.weeks[round.r * 3 - 1]?.[1] || ''];
+    const series = round.r === 1
+      ? round.series.map((s) => {
+        const games = s[7].map((g): GameRow => [g[0], g[1], g[2], g[3], '', [], null]);
+        return [s[0], s[1], s[2], s[3], s[4], 0, [0, 0], games] as SeriesRow;
+      })
+      : [];
+    return { ...round, start: a, end: b, series };
+  });
+  idx.lbt = [];
+  idx.gf = [];
+  idx.lbLeaders = [];
+  idx.champion = 0; idx.lbChampion = 0; idx.grandChampion = 0;
+  return idx as Index;
 }
 // Shift an ISO date string by N days.
 function shiftDate(iso: string, days: number): string {
@@ -481,6 +516,8 @@ function shiftDate(iso: string, days: number): string {
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
+  // Leaderboard games are played by schools out of the bracket - none yet.
+  if (!practiceSeason) return Promise.resolve([] as LbGame[]);
   if (!lbPromise) {
     lbPromise = fetch(`${BASE}/lb.json`).then((r) => (r.ok ? r.json() : { games: [] })).then((d: { games: LbGame[] }) => d.games).catch(() => []);
   }
