@@ -58,6 +58,7 @@ export type ActiveRosterPlayer = {
   lastname?: string | null;
   level?: string | null;
   is_pitcher?: boolean | null;
+  current_teamid?: string | number | null; // the team logo (teams-web/<id>.webp)
 };
 
 export const BASE = '/bracket-lab/2026';
@@ -94,6 +95,23 @@ export function loadBoxes(file: string) {
   return boxCache.get(file)!;
 }
 
+// The signed-in fan's favorite players (Super Fan favorites), once per visit:
+// their lines are bold in the stat drawers. Signed out: none.
+let favoritePlayers: Promise<Set<string>> | null = null;
+export function loadFavoritePlayers() {
+  if (!favoritePlayers) {
+    let uid = '';
+    try { uid = String(JSON.parse(localStorage.getItem('yat-user') || 'null')?.uid || ''); } catch { uid = ''; }
+    favoritePlayers = uid
+      ? fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => new Set<string>(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []))
+        .catch(() => new Set<string>())
+      : Promise.resolve(new Set<string>());
+  }
+  return favoritePlayers;
+}
+
 const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
 // A school's active alumni for the Stat Ledgers. A failed load (the
 // database busy, a dropped connection) is retried, and only a real answer
@@ -112,6 +130,18 @@ export function loadActiveRoster(hsid: number) {
     activeRosterCache.set(hsid, p);
   }
   return activeRosterCache.get(hsid)!;
+}
+
+// A player's current team logo, by our (Baseball Cube) team id - college and
+// pro alike: teams-web/<id>.webp, then teams/<id>.png. No logo: an empty slot
+// of the same size, so the names stay lined up.
+const TEAM_LOGO_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+function TeamLogo({ id }: { id?: string }) {
+  const [step, setStep] = useState(0);
+  const srcs = id && /^\d+$/.test(id) ? [`${TEAM_LOGO_BASE}/teams-web/${id}.webp`, `${TEAM_LOGO_BASE}/teams/${id}.png`] : [];
+  if (step >= srcs.length) return <span className="bl-tlogo" aria-hidden="true" />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="bl-tlogo" src={srcs[step]} alt="" loading="lazy" onError={() => setStep((n) => n + 1)} />;
 }
 
 export const shortName = (name: string) => name
@@ -849,8 +879,9 @@ export function shortNames(players: PlayerRow[]) {
 type SortCol = { key: string; label: string; cls?: string; val: (p: PlayerRow) => number | null; show: (p: PlayerRow) => ReactNode };
 // A box-score table whose headers sort it: a tap sorts high to low, a
 // second tap low to high (the name sorts A-Z). The Team row stays last.
-function SortTable({ title, rows, cols, player, labels, total, empty }: {
+function SortTable({ title, rows, cols, player, labels, total, empty, favs }: {
   title: string; rows: PlayerRow[]; cols: SortCol[]; player: (p: PlayerRow) => ReactNode; labels: Map<string, string>; total: ReactNode[]; empty: string;
+  favs?: Set<string>; // the fan's favorite players: their whole line in bold
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const sorted = useMemo(() => {
@@ -889,7 +920,7 @@ function SortTable({ title, rows, cols, player, labels, total, empty }: {
         <tbody>
           {rows.length === 0 && empty && <tr><td className="nm none" colSpan={cols.length + 1}>{empty}</td></tr>}
           {sorted.map((p) => (
-            <tr key={p[0]}>
+            <tr key={p[0]} className={favs?.has(String(p[0])) ? 'fav' : undefined}>
               <td className="nm">{player(p)}</td>
               {cols.map((c) => <td key={c.key} className={c.cls}>{c.show(p)}</td>)}
             </tr>
@@ -1113,7 +1144,7 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
-export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide }: {
+export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide, openDay = 'week' }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
   flipTo?: string; // the back isn't the other school's box score
@@ -1122,6 +1153,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   drawerMode?: boolean;
   played?: boolean; // false when this week's games haven't been played yet (staged simulation)
   onSwitchSide?: () => void; // one drawer at a time: the opponent's name opens his drawer instead
+  openDay?: 'week' | number; // the drawer's first tab: today (0 = Monday) during the week, else the week
 }) {
   const me = side === 'h' ? 0 : 1;
   const them = 1 - me;
@@ -1146,7 +1178,25 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
   const weekVals = boxForView?.d?.[7];
   const myName = names[me];
-  const [statDay, setStatDay] = useState<'week' | number>('week');
+  const [statDay, setStatDay] = useState<'week' | number>(openDay);
+  // Drawer: the scoreboards stay pinned under the header and the day tabs
+  // pin right under them, so they never scroll away from the players.
+  const boardsRef = useRef<HTMLDivElement | null>(null);
+  const [boardsH, setBoardsH] = useState(0);
+  useEffect(() => {
+    const el = boardsRef.current;
+    if (!drawerMode || !el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setBoardsH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [drawerMode]);
+  const [favs, setFavs] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!drawerMode) return;
+    let live = true;
+    loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
+    return () => { live = false; };
+  }, [drawerMode]);
   const viewPlayers = statDay === 'week' ? (mine?.p || []) : dailyRosterRows(mine?.p || [], week, statDay);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
@@ -1172,8 +1222,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
+  const teamOf = useMemo(() => new Map([...(homeRoster || []), ...(awayRoster || [])]
+    .map((r) => [String(r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
   const player = (p: PlayerRow) => (
-    <a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a>
+    <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );
   const wlCell = (p: PlayerRow) => statDay === 'week' ? (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0') : '—';
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
@@ -1239,11 +1291,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
     correctedInnings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
   ];
-  const correctedWinner = correctedScore[0] === correctedScore[1] ? winner
-    : correctedScore[0] > correctedScore[1] ? home : away;
   const inningCount = Math.max(9, Math.floor(correctedInnings.length / 2));
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
-  const wonBy = correctedWinner === null ? 'tie' : correctedWinner === (me === 0 ? home : away) ? 'me' : 'them';
   const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
     (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
       + (ninthRun ? 1 : 0);
@@ -1270,11 +1319,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               {onSwitchSide && row.isHome !== (me === 0) ? (
                 <button type="button" className="metric-team metric-switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
                   title={`Show ${row.name}'s stats`} aria-label={`Show ${row.name}'s stats`}>
-                  <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+                  <b>{abbr(row.name)}</b>
                 </button>
               ) : (
                 <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
-                  <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+                  <b>{abbr(row.name)}</b>
                 </span>
               )}
               {Array.from({ length: 7 }, (_, i) => {
@@ -1302,9 +1351,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     // (No onFlip: a drawer showing one school's week.)
     <div className={`bl-f${onFlip ? '' : ' still'}`} role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined}
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
-      onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}>
+      onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}
+      style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
-          <div className="bl-metric-scoreboards" aria-label="OPS+ and FIP- inning scoreboards">
+          <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {metricBoard('OPS+', 0, 1, true)}
             {metricBoard('FIP-', 2, 3, false)}
             {extraInnings.length ? (
@@ -1366,11 +1416,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {tieNote(decidedBy) && <div className="bl-note">{tieNote(decidedBy)}</div>}
       {decidedBy === 'tie' && <div className="bl-note">Tie · half a win each</div>}
 
-      {(!drawerMode || played) && (
+      {/* No W / L / T badge: the scoreboard says who won. */}
+      {!drawerMode && (
       <div className="bl-tabs">
-        {!drawerMode && <span className="on">{myName}</span>}
+        <span className="on">{myName}</span>
         {onFlip && <span className="flip">{flipTo || names[them]} ⟳</span>}
-        <em className={wonBy}>{wonBy === 'me' ? 'W' : wonBy === 'them' ? 'L' : 'T'}</em>
       </div>
       )}
 
@@ -1379,11 +1429,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {mine && (
         <>
           {drawerMode ? (
-            <div className="bl-history-tabs" role="tablist" aria-label="Player stat history">
+            // Each day's tab sits under its inning on the scoreboards above
+            // (Monday = inning 1 ... Sunday = 7); the week spans 8, 9 and the total.
+            <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history">
               {[
-                ['week','Week'],[0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su']
+                [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Week']
               ].map(([key,label]) => (
-                <button key={String(key)} type="button" role="tab"
+                <button key={String(key)} type="button" role="tab" style={{ gridColumn: key === 'week' ? '9 / 12' : Number(key) + 2 }}
                   className={statDay===key ? 'on' : ''}
                   aria-selected={statDay===key}
                   onClick={(e)=>{e.stopPropagation();setStatDay(key as 'week'|number);}}>
@@ -1392,9 +1444,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               ))}
             </div>
           ) : null}
-          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} empty="No batters on roster"
+          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
             total={[teamDayMetric(me), statDay === 'week' ? teamWl : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
-          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} empty="No pitchers on roster"
+          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
             total={[
               teamDayMetric(2 + me),
               statDay === 'week' ? teamWl : '—',
@@ -1459,9 +1511,22 @@ export function wonCell(mine: number | null | undefined, theirs: number | null |
   return (higher ? mine > other : mine < other) ? 'won' : '';
 }
 
+// A school's 3-letter code, airport style: one word - its first three
+// letters (Hamilton HAM); two - first letter, its next consonant, then the
+// second word's initial (Mater Dei MTD, JSerra Catholic JSC); three or more
+// - initials (Henry B. Plant HBP). Words like High, School, Prep are skipped.
+const CODE_SKIP = /^(high|school|hs|academy|prep|preparatory|the|of|and|at)$/i;
 export function abbr(name: string) {
-  const words = name.replace(/[^A-Za-z .'-]/g, '').split(/\s+/).filter(Boolean);
-  if (words.length === 1) return words[0].slice(0, 4).toUpperCase();
+  let words = name.split(' (')[0].replace(/[^A-Za-z .'-]/g, '').split(/[\s.-]+/).map((w) => w.replace(/'/g, '')).filter(Boolean);
+  const kept = words.filter((w) => !CODE_SKIP.test(w));
+  if (kept.length) words = kept;
+  if (!words.length) return '';
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  if (words.length === 2) {
+    const [a, b] = words;
+    const next = a.slice(1).replace(/[aeiou]/gi, '')[0] || a[1] || '';
+    return (a[0] + next + b[0]).toUpperCase();
+  }
   return words.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
 }
 
@@ -1533,6 +1598,9 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-history-tabs{position:sticky;top:var(--yfp-head-h,23px);display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button{flex:1 1 0;position:relative;margin-bottom:-1px;padding:5px 2px 4px;border:1px solid rgba(255,255,255,.2);border-bottom-color:transparent;border-radius:7px 7px 0 0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font:700 12px/1 Oswald,sans-serif}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button:hover{color:#fff}
+      .bl.bl-embed.yfp-drawer .bl-metric-scoreboards{position:sticky;top:var(--yfp-head-h,23px);z-index:5;margin:0;padding:6px 8px 0;background:var(--bg,#0c0c0c)}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs{top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px));display:grid;grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr));gap:2px;padding:0 12px;margin-top:4px}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs button{padding-left:0;padding-right:0;font-size:11px}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button.on{padding-top:7px;background:var(--bg,#0c0c0c);border-color:rgba(255,255,255,.2);border-bottom-color:var(--bg,#0c0c0c);color:var(--gold,#d2b45c)}
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs{border-bottom-color:rgba(0,0,0,.2)}
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button{border-color:rgba(0,0,0,.2);border-bottom-color:transparent;background:rgba(0,0,0,.04);color:rgba(0,0,0,.55)}
@@ -1632,6 +1700,8 @@ export function Styles() {
       .bl-box .plus { color:var(--gold); font-weight:700; padding-left:6px; padding-right:8px; text-align:center; }
       .bl-box th:last-child, .bl-box td:last-child { padding-right:14px; }
       .bl-plink { color:inherit; text-decoration:none; }
+      .bl-tlogo { display:inline-block; box-sizing:border-box; width:17px; height:17px; margin-right:5px; padding:1px; border-radius:3px; object-fit:contain; vertical-align:-4px; }
+      img.bl-tlogo { background:rgba(255,255,255,.9); }
       .bl-box .wl { color:var(--text); padding-left:4px; padding-right:6px; }
       .bl-sort { padding:0; border:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; cursor:pointer; white-space:nowrap; }
       .bl-sort:hover { color:var(--gold); }
@@ -1673,8 +1743,13 @@ export function Styles() {
       .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
+      /* The school's 3-letter code, centered (full name and city on hover). */
+      .bl-metric-line.metric .metric-team { justify-items:center; text-align:center; }
+      .bl-metric-line.metric .metric-team b, .bl-metric-line.metric .metric-team.metric-switch b { font:800 13px/1 Oswald,sans-serif !important; letter-spacing:.06em !important; }
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
+      table.bl-box tr.fav td { font-weight:800; color:#fff; }
+      body.light-theme table.bl-box tr.fav td { color:#000; }
       .bl-metric-line.metric>span.na { color:#718379; }
       .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
       @media (max-width:600px) {

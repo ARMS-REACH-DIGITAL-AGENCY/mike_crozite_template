@@ -26,7 +26,7 @@ import {
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
-import { DAY_NAMES, type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
@@ -95,7 +95,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   }, [g, card.file]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
-  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? (card.days ? `THRU ${DAY_NAMES[card.days - 1].toUpperCase()}` : 'LIVE') : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
+  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
@@ -232,7 +232,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 // ticker stay in view above it, the footer ad below); on a phone the whole
 // screen.
 function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () => void; children: React.ReactNode; dual?: boolean; sides: ('l' | 'r')[] }) {
-  const [box, setBox] = useState<{ top: number } | null>(null);
+  const [box, setBox] = useState<{ top: number; mobile?: boolean } | null>(null);
   // Desktop: the drawers dock beside the game cards (body classes pad the
   // panel on those sides) rather than covering them, so the other school's
   // name stays visible and clickable.
@@ -243,13 +243,17 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     return () => document.body.classList.remove(...cls);
   }, [sideKey]);
   useEffect(() => {
+    // Never over row 1: the drawers start below the site's top bar.
     const place = () => {
       const row5 = document.querySelector('.yfz') || document.querySelector('.yat-row5-shell');
-      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(0, row5.getBoundingClientRect().top) } : null);
+      const bar = document.querySelector('.yat-topbar');
+      const below = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(below, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
     };
     place();
     window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
+    window.addEventListener('scroll', place, { passive: true });
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place); };
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -257,7 +261,7 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return createPortal(
-    <div className={`yfp-drawer-wrap${box ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box ? undefined : onClose}>
+    <div className={`yfp-drawer-wrap${box && !box.mobile ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box && !box.mobile ? undefined : onClose}>
       {children}
     </div>,
     document.body,
@@ -302,6 +306,10 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
   const played = card.state === 'final';
   const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
+  // The drawer opens on today's tab during the week (Monday = 0), else on the week.
+  const weekStart = index.weeks[card.week - 1]?.[0];
+  const todayIdx = weekStart ? Math.round((Date.parse(`${previewDate()}T00:00:00Z`) - Date.parse(`${weekStart}T00:00:00Z`)) / 86400000) : -1;
+  const openDay: 'week' | number = todayIdx >= 0 && todayIdx <= 6 ? todayIdx : 'week';
   return (
       <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
@@ -313,15 +321,12 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           <span className="yfp-drawer-game">{drawerGameLabel}</span>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        {h ? null : (
-          <p className="yfp-drawer-wait">This school is decided by the earlier rounds. Its players show here once it is set.</p>
-        )}
         <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[nameOf(homeId), nameOf(awayId)]}
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
           decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
-          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} />
+          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} openDay={openDay} />
       </aside>
   );
 }
@@ -542,6 +547,17 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
 // From this width both Stat Ledger drawers open together (about a third of
 // the screen each), leaving ~600px of game cards between them.
 const DUAL_DRAWER_MIN_WIDTH = 1240;
+// From this width the site's docked drawers (Search on the left, Favorites
+// on the right) open beside the Stat Ledgers instead of closing them: each
+// ledger moves in by the site drawer's width and the game narrows to fit.
+const SIDE_BY_SIDE_MIN_WIDTH = 1860;
+const DOCKED_SITE_DRAWERS = ['drawer-left-open', 'drawer-favorites-open'];
+const OTHER_SITE_DRAWERS = ['drawer-right-open', 'drawer-account-open', 'drawer-sort-open'];
+const sideBySide = () => typeof window !== 'undefined' && window.matchMedia(`(min-width: ${SIDE_BY_SIDE_MIN_WIDTH}px)`).matches;
+// A site drawer that should close the Stat Ledgers (any of them on a
+// narrower screen; only the undocked ones - account, sort - on a wide one).
+const blockingSiteDrawerOpen = () => [...OTHER_SITE_DRAWERS, ...(sideBySide() ? [] : DOCKED_SITE_DRAWERS)]
+  .some((c) => document.body.classList.contains(c));
 
 export default function SchoolBracket({ hsid }: { hsid: string }) {
   const me = Number(hsid);
@@ -564,17 +580,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const openStats = (o: Open | null) => {
     autoOpened.current = false;
     if (o) {
-      document.body.classList.remove('drawer-open', 'drawer-left-open', 'drawer-right-open', 'drawer-account-open',
-        'drawer-favorites-open', 'drawer-sort-open', 'yat-left-search-mode', 'yat-desktop-docked-drawers');
+      // Wide screens keep a docked Search or Favorites drawer open beside them.
+      const keepDocked = sideBySide() && DOCKED_SITE_DRAWERS.some((c) => document.body.classList.contains(c));
+      document.body.classList.remove(...OTHER_SITE_DRAWERS, ...(keepDocked ? [] : ['drawer-open', ...DOCKED_SITE_DRAWERS, 'yat-left-search-mode', 'yat-desktop-docked-drawers']));
       ['drawerAccount', 'drawerMask'].forEach((id) => document.getElementById(id)?.classList.remove('open', 'is-open', 'active'));
     }
     setOpen(o);
   };
   useEffect(() => {
     if (!open) return;
-    const siteDrawer = () => ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
-      .some((c) => document.body.classList.contains(c));
-    const mo = new MutationObserver(() => { if (siteDrawer()) { keepClosed.current = true; autoOpened.current = false; setOpen(null); } });
+    const mo = new MutationObserver(() => { if (blockingSiteDrawerOpen()) { keepClosed.current = true; autoOpened.current = false; setOpen(null); } });
     mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
   }, [open]);
@@ -677,8 +692,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const shownWeek = shownCard?.week ?? 0;
   useEffect(() => {
     const t = window.setTimeout(() => {
-      const siteDrawerOpen = ['drawer-left-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-sort-open']
-        .some((c) => document.body.classList.contains(c));
+      const siteDrawerOpen = blockingSiteDrawerOpen();
       if (bothDrawers && shownCard && !keepClosed.current && !siteDrawerOpen) {
         if (!open || (autoOpened.current && open.card.week !== shownCard.week)) {
           autoOpened.current = true;
@@ -953,6 +967,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
+          /* Main scoreboard: school names flush right against the innings -
+             SCHOOL in caps, City, ST as written. */
+          .yfp-game-scorepane .yfp-green-team { text-align:right; }
+          .yfp-game-scorepane .yfp-green-full { text-transform:uppercase; }
+          .yfp-game-scorepane .yfp-green-place { text-transform:none; letter-spacing:.02em; }
 
           /* The standings column. scrollbar-gutter keeps the scrollbar in its
              own lane so it never covers the run totals. */
@@ -966,17 +985,25 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-lb-rules { min-height:32px; font-size:11px; }
 
         }
-        /* Stat Ledger drawers are exactly as wide as their tables (410px:
-           the 390px batting table plus its scrollbar) and dock beside the
-           game from 820px: no dimming, clicks pass through to the game. */
+        /* Stat Ledger drawers are as wide as their tables plus a 12px lane
+           for the drawer's own scrollbar (a Mac's overlay scrollbar would
+           otherwise sit on the OPS column), and dock beside the game from
+           820px: no dimming, clicks pass through to the game. */
         @media (min-width:820px) {
-          body { --yfp-dw:410px; }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); }
+          body { --yfp-dw:422px; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:var(--yfp-dw); scrollbar-width:thin; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-stat-block { padding-right:12px; }
           .yfp-drawer-wrap.row5 { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { pointer-events:auto; }
           /* Docked drawers start where the game card starts, so the three
              gold headers sit on one line. */
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
+        }
+        /* Wide screens: a docked Search (left) or Favorites (right) drawer
+           sits at the edge and the Stat Ledger on that side moves in beside it. */
+        @media (min-width:1860px) {
+          body.drawer-open.drawer-left-open .yfp-drawer-wrap.row5 { left:var(--yat-left-drawer-w, 290px); }
+          body.drawer-open.drawer-favorites-open .yfp-drawer-wrap.row5 { right:var(--yat-right-drawer-w, 360px); }
         }
         /* The Rules pill: the flip cards' pill size. */
         .yfz-panel .yfp-lb-rules {
@@ -1158,7 +1185,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
-        .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: rgba(0,0,0,.3); }
+        .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: transparent; } /* docked beside the game: never dim it */
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }
@@ -1182,7 +1209,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff5cf; font:inherit; }
         .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
         .yfp-drawer .ybr-rules { padding: 14px; }
-        .yfp-drawer-wait { padding: 20px 14px; color: var(--muted); }
 
         @media (max-width: 819px) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width: min(410px, 100vw); }
