@@ -540,6 +540,11 @@ export default function YatStyles() {
       .yat-card.is-flipped .yat-front{pointer-events:none}
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
+      .yat-card-fav-slot{position:absolute;top:8px;right:8px;z-index:4}
+      .yat-card-fav{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.35);border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:17px;line-height:1;cursor:pointer;backdrop-filter:blur(2px)}
+      .yat-card-fav:hover{border-color:var(--accent,#c8a96e);color:var(--accent,#c8a96e)}
+      .yat-card-fav.on{border-color:var(--accent,#c8a96e);color:var(--accent,#c8a96e);background:rgba(0,0,0,.6)}
+      .yat-card-fav:disabled{opacity:.6;cursor:wait}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}

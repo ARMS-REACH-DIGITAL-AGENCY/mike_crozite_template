@@ -121,8 +121,14 @@ export async function GET(req: NextRequest) {
         union all
         select * from stage_matches
       )
-      select c.*
+      select c.*, t.current_team_name
       from combined c
+      -- His current team (the row's second line in the search drawer).
+      left join lateral (
+        select f.current_team_name from flip_card_front_stage f
+         where f.playerid::text = c.playerid and f.hsid::text = c.hsid
+         limit 1
+      ) t on true
       order by c.lastname nulls last, c.firstname nulls last, c.playerid
       limit $2
     `;
@@ -150,6 +156,7 @@ export async function GET(req: NextRequest) {
         crestUrl: getSchoolCrestUrl(r.hsid),
         headshotUrl: "",
         micrositeUrl,
+        currentTeamName: r.current_team_name ?? "",
       };
     });
 
