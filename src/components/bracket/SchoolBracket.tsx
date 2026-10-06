@@ -1012,7 +1012,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* One grid for the whole board (rows are subgrids), so the name
              column is exactly as wide as the longest school name - each name
              sits right beside inning 1 - and the board is centered. */
+          /* Inset under the gold row with rounded corners, and as tall as a
+             drawer's two boards (6px below the gold row to 138px below it),
+             so all three boards start and end on the same lines. */
           .yfp-game-scorepane .yfp-green-board {
+            box-sizing:border-box; height:132px; margin:6px 8px 0; padding-top:0; padding-bottom:0; align-content:center;
+            border:1px solid rgba(255,255,255,.12); border-radius:7px; box-shadow:inset 0 1px 8px rgba(0,0,0,.28);
             display:grid;
             grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(34px,52px) 44px;
             column-gap:3px;
@@ -1068,6 +1073,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              gold headers sit on one line. */
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs { margin-top:calc(4px + var(--yfp-tabs-drop, 0px)); }
+          /* The day tabs open a section with a top border, like the
+             leaderboard's box beside them. */
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs { border-top:1px solid var(--yfp-card-border, rgba(255,255,255,.12)); padding-top:8px; }
         }
         /* Wide screens: a docked Search (left) or Favorites (right) drawer
            sits at the edge and the Stat Ledger on that side moves in beside it. */
@@ -1137,7 +1145,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
         body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
-        .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+        .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:10px; }
         .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:22px; }
         .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
         /* A-Z's label column (R3-S15) is 20px wider than the rank column,
