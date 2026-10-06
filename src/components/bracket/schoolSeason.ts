@@ -89,9 +89,22 @@ export function schoolSeason(index: Index, lb: LbGame[], h: number, asof: string
   return out.sort((a, b) => a.week - b.week);
 }
 
+// Live scoring's settled days per game id: the days (from Monday) whose
+// runs are final. A day that has begun but isn't over isn't shown yet.
+const settled = new Map<number, number>();
+export function setSettledDays(gameId: number, days: number) {
+  settled.set(gameId, days);
+}
+// The days of game g to show, of the calendar's days in.
+export function shownDays(g: GameRow, days: number) {
+  const s = settled.get(g[0]);
+  return s === undefined ? days : Math.min(days, s);
+}
+
 // A game's runs through the days in (innings 1-7 are the days; 8 and 9 the
 // week and W-L%, in once it's final). Home first.
 export function runsThrough(g: GameRow, days: number): [number, number] {
+  days = shownDays(g, days);
   let hr = 0, ar = 0;
   g[5].forEach((v, i) => {
     if (days < 7 && Math.floor(i / 2) >= days) return;
