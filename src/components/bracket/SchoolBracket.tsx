@@ -140,7 +140,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
-            <span className="stats">STATS</span>
+            <span className="stats">DAILY<br />STATS</span>
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
@@ -203,7 +203,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
           <span className="run">R</span>
-          <span className="stats">STATS</span>
+          <span className="stats">DAILY<br />STATS</span>
         </div>
         {row('a')}
         {row('h')}
@@ -261,13 +261,50 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     window.addEventListener('scroll', place, { passive: true });
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place); };
   }, []);
+  // Docked: drop each drawer's day tabs (M ... Weekly Totals) onto the line
+  // of the Season Runs Leaderboard's region tabs (1-8, A-Z) beside them. The drawer
+  // starts where the game card starts, so the drop is the leaderboard tabs'
+  // depth below the card less the day tabs' own depth in the drawer.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const docked = Boolean(box && !box.mobile);
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!docked || !wrap) return;
+    let raf = 0;
+    const align = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const card = document.querySelector('.yfz-cards .yfp-card');
+        const lb = document.querySelector('.yfz-panel .yfp-lb-regions button');
+        const cards = document.querySelector('.yfz-cards');
+        let drop = 0;
+        for (const drawer of wrap.querySelectorAll<HTMLElement>('.yfp-drawer')) {
+          const tabs = drawer.querySelector<HTMLElement>('.bl-inning-tabs button');
+          // Measure only at rest (nothing scrolled), where the line is defined.
+          if (!card || !lb || !tabs || drawer.scrollTop || cards?.scrollTop) return;
+          const cur = parseFloat(getComputedStyle(wrap).getPropertyValue('--yfp-tabs-drop')) || 0;
+          // Tab centers on one line (the two rows of tabs differ by a pixel or two).
+          const mid = (r: DOMRect) => r.top + r.height / 2;
+          const want = (mid(lb.getBoundingClientRect()) - card.getBoundingClientRect().top)
+            - (mid(tabs.getBoundingClientRect()) - drawer.getBoundingClientRect().top - cur);
+          drop = Math.max(drop, Math.round(want));
+        }
+        wrap.style.setProperty('--yfp-tabs-drop', `${Math.max(0, drop)}px`);
+      });
+    };
+    align();
+    const mo = new MutationObserver(align);
+    mo.observe(wrap, { childList: true, subtree: true });
+    window.addEventListener('resize', align);
+    return () => { cancelAnimationFrame(raf); mo.disconnect(); window.removeEventListener('resize', align); };
+  }, [docked]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return createPortal(
-    <div className={`yfp-drawer-wrap${box && !box.mobile ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box && !box.mobile ? undefined : onClose}>
+    <div ref={wrapRef} className={`yfp-drawer-wrap${box && !box.mobile ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box && !box.mobile ? undefined : onClose}>
       {children}
     </div>,
     document.body,
@@ -807,7 +844,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            grid column, so every board's template gets it). */
         .yfp-green-row { grid-auto-columns:24px; }
         .yfp-green-row>.yfp-green-stats, .yfp-green-row>.yfp-green-stats-cell, .yfp-green-row.head>.stats { grid-column:-1 / span 1; grid-row:1; }
-        .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; }
+        /* "DAILY / STATS", stacked and centered over the stats button (which
+           sits at the right of its column, clear of the winner arrow). */
+        .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; line-height:1.1; justify-self:end; width:15px; }
         .yfp-green-stats { justify-self:end; width:15px; height:15px; display:grid; place-items:center; padding:0; border:1px solid rgba(255,211,79,.8); border-radius:50%;
           background:#0d2d20; color:#ffd34f; font-size:9px; line-height:1; cursor:pointer; transition:background .15s, color .15s, transform .15s; }
         .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
@@ -988,7 +1027,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
           .yfp-game-scorepane .yfp-green-stats { width:26px; height:26px; font-size:15px; border-width:1.5px; }
-          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; width:26px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
@@ -1017,6 +1056,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* Docked drawers start where the game card starts, so the three
              gold headers sit on one line. */
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
+          .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs { margin-top:calc(4px + var(--yfp-tabs-drop, 0px)); }
         }
         /* Wide screens: a docked Search (left) or Favorites (right) drawer
            sits at the edge and the Stat Ledger on that side moves in beside it. */

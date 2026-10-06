@@ -1465,10 +1465,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <>
           {drawerMode ? (
             // Each day's tab sits under its inning on the scoreboards above
-            // (Monday = inning 1 ... Sunday = 7); the week spans 8, 9 and the total.
+            // (Monday = inning 1 ... Sunday = 7); Weekly Totals spans 8, 9 and the total.
             <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history">
               {[
-                [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Week']
+                [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Weekly Totals']
               ].map(([key,label]) => (
                 <button key={String(key)} type="button" role="tab" style={{ gridColumn: key === 'week' ? '9 / 12' : Number(key) + 2 }}
                   className={statDay===key ? 'on' : ''}
