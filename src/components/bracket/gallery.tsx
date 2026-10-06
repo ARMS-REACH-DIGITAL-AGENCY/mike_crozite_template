@@ -1293,55 +1293,43 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   ];
   const inningCount = Math.max(9, Math.floor(correctedInnings.length / 2));
   const extraInnings = Array.from({ length: Math.max(0, inningCount - 9) }, (_, i) => i + 9);
-  const metricRunCount = (idx: number, opp: number, higher: boolean, ninthRun = false) =>
-    (boxForView?.d || []).slice(0, 8).reduce((runs, d) => runs + (wonCell(d?.[idx], d?.[opp], higher) ? 1 : 0), 0)
-      + (ninthRun ? 1 : 0);
-  const metricBoard = (labelText: 'OPS+' | 'FIP-', homeIdx: number, awayIdx: number, higher: boolean) => {
-    const rows = [
-      { key: 'away', name: names[1], location: locations[1], idx: awayIdx, opp: homeIdx, wp: awayWp, oppWp: homeWp, isHome: false },
-      { key: 'home', name: names[0], location: locations[0], idx: homeIdx, opp: awayIdx, wp: homeWp, oppWp: awayWp, isHome: true },
-    ];
+  // The stat drawer's scoreboards: one board per school (its own school
+  // first) - a tick sheet of each day's numbers, not a tally (the main
+  // scoreboard keeps the runs). The school's code and City, ST span both
+  // rows; row 1 is OPS+ (days 1-7, the week in 8, the clubs' W% in 9), row
+  // 2 FIP- (days 1-7, the week in 8). A cell that beat the other school's is
+  // yellow - two yellows in an inning: both runs.
+  const wpText = (wp: number | null) => (wp == null ? 'W%' : wp.toFixed(3).replace(/^0/, ''));
+  const teamBoard = (side: 0 | 1) => {
+    const name = names[side], location = locations[side];
+    const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
+    const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
+      const d = boxForView?.d?.[i];
+      return <span key={i} className={`bl-tb-cell ${wonCell(d?.[idx], d?.[opp], higher)}`}>{fmtStat(d?.[idx])}</span>;
+    });
+    const nameCell = (
+      <>
+        <b>{abbr(name)}</b>
+        {location ? <small>{location}</small> : null}
+      </>
+    );
     return (
-      <div className="bl-metric-board" aria-label={`${labelText} by inning`}>
-        <div className="bl-metric-line head">
-          <span className="metric-name-spacer" aria-hidden="true" />
-          {[1,2,3,4,5,6,7,8,9].map((n) => <span key={n}>{n}</span>)}
-          <span className="metric-name" aria-label={`${labelText} run tally`}>{labelText}</span>
-        </div>
-        {rows.map((row) => {
-          // Inning 9 is the single W-L% run. It belongs only once across the
-          // two split scoreboards: home on OPS+, visitor on FIP-.
-          const ninthRun = labelText === 'OPS+'
-            ? row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0)
-            : !row.isHome && (row.wp ?? 0) > (row.oppWp ?? 0);
-          return (
-            <div className="bl-metric-line metric" key={row.key}>
-              {onSwitchSide && row.isHome !== (me === 0) ? (
-                <button type="button" className="metric-team metric-switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
-                  title={`Show ${row.name}'s stats`} aria-label={`Show ${row.name}'s stats`}>
-                  <b>{abbr(row.name)}</b>
-                </button>
-              ) : (
-                <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
-                  <b>{abbr(row.name)}</b>
-                </span>
-              )}
-              {Array.from({ length: 7 }, (_, i) => {
-                const d = boxForView?.d?.[i];
-                return <span key={i} className={wonCell(d?.[row.idx], d?.[row.opp], higher)}>{fmtStat(d?.[row.idx])}</span>;
-              })}
-              <span className={wonCell(boxForView?.d?.[7]?.[row.idx], boxForView?.d?.[7]?.[row.opp], higher)}>{fmtStat(boxForView?.d?.[7]?.[row.idx])}</span>
-              {labelText === 'OPS+'
-                ? <span className={row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, '')) : 'W%'}
-                  </span>
-                : <span className={!row.isHome && row.wp != null && row.wp > (row.oppWp ?? -1) ? 'won wl-pct' : 'wl-pct'}>
-                    {row.isHome ? 'W%' : (row.wp == null ? '—' : row.wp.toFixed(3).replace(/^0/, ''))}
-                  </span>}
-              <span className="final">{metricRunCount(row.idx, row.opp, higher, ninthRun)}</span>
-            </div>
-          );
-        })}
+      <div className="bl-metric-board bl-team-board" key={side} aria-label={`${name}: OPS+ and FIP- by inning`}>
+        <span className="bl-tb-head" aria-hidden="true" />
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <span key={n} className="bl-tb-head">{n}</span>)}
+        <span className="bl-tb-head" aria-hidden="true" />
+        {onSwitchSide && side !== me ? (
+          <button type="button" className="bl-tb-name switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
+            title={`Show ${name}'s stats`} aria-label={`Show ${name}'s stats`}>{nameCell}</button>
+        ) : (
+          <span className="bl-tb-name" title={location ? `${name} (${location})` : name}>{nameCell}</span>
+        )}
+        {metricRow(side === 0 ? 0 : 1, side === 0 ? 1 : 0, true)}
+        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? ' won' : ''}`} title="Clubs' W-L %">{wpText(wp)}</span>
+        <span className="bl-tb-label">OPS+</span>
+        {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
+        <span className="bl-tb-blank" aria-hidden="true" />
+        <span className="bl-tb-label">FIP-</span>
       </div>
     );
   };
@@ -1355,8 +1343,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
-            {metricBoard('OPS+', 0, 1, true)}
-            {metricBoard('FIP-', 2, 3, false)}
+            {teamBoard(me)}
+            {teamBoard(me === 0 ? 1 : 0)}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
                 <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
@@ -1498,8 +1486,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   );
 }
 
+// OPS+ / FIP- are whole numbers (100 = average); the week's values arrive
+// unrounded (139.977).
 export function fmtStat(v: number | null | undefined) {
-  return v === null || v === undefined ? '–' : String(v);
+  return v === null || v === undefined ? '–' : String(Math.round(v));
 }
 
 // A day cell is gold when this school won that run: the better value
@@ -1733,25 +1723,22 @@ export function Styles() {
 
       .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
       .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
-      .bl-metric-line { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:center; }
-      .bl-metric-line.head { margin-bottom:2px; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; text-align:center; letter-spacing:.02em; }
-      .bl-metric-line.head span { display:grid; place-items:center; min-height:12px; }
-      .bl-metric-line.head .metric-name { color:#ffd34f; font-size:10px; letter-spacing:0; white-space:nowrap; }
-      .bl-metric-line.metric .metric-switch { display:grid; min-width:0; min-height:20px; padding:2px 4px; border-radius:3px; background:#0d2d20; color:#eef7ef; border:0; text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(255,211,79,.6); text-underline-offset:2px; font:inherit; }
-      .bl-metric-line.metric .metric-switch:hover b { color:#ffd34f; }
-      .bl-metric-line.metric { margin-top:2px; }
-      .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
-      .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
-      .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
-      /* The school's 3-letter code, centered (full name and city on hover). */
-      .bl-metric-line.metric .metric-team { justify-items:center; text-align:center; }
-      .bl-metric-line.metric .metric-team b, .bl-metric-line.metric .metric-team.metric-switch b { font:800 13px/1 Oswald,sans-serif !important; letter-spacing:.06em !important; }
-      .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
-      .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
+      /* One board per school: a single grid - the name cell spans the OPS+
+         and FIP- rows; columns match the day tabs below (name, 1-9, label). */
+      .bl-team-board { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:stretch; }
+      .bl-tb-head { display:grid; place-items:center; min-height:12px; margin-bottom:0; color:#e9f3ec; font:700 8px/1 Oswald,sans-serif; letter-spacing:.02em; }
+      .bl-tb-name { grid-column:1; grid-row:2 / span 2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; padding:2px 4px; border:0; border-radius:3px; background:#0d2d20; color:#eef7ef; font:inherit; text-align:center; overflow:hidden; }
+      .bl-tb-name b { display:block; color:#ffd34f; font:800 22px/1 Oswald,sans-serif; letter-spacing:.04em; }
+      .bl-tb-name small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#eef7ef; font:500 9px/1.1 "Roboto Condensed","Arial Narrow",Arial,sans-serif; }
+      .bl-tb-name.switch { cursor:pointer; }
+      .bl-tb-name.switch:hover { box-shadow:inset 0 0 0 1px rgba(255,211,79,.6); }
+      .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-tb-cell.won { background:#f3c735; color:#15251d; }
+      .bl-tb-cell.na { color:#718379; }
+      .bl-tb-blank { min-height:20px; }
+      .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
       body.light-theme table.bl-box tr.fav td { color:#000; }
-      .bl-metric-line.metric>span.na { color:#718379; }
-      .bl-metric-line.metric>span.final { color:#ffd34f; font-size:11px; }
       @media (max-width:600px) {
         .bl.bl-embed.yfp-drawer .bl-box { font-size:10.5px; }
         .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9px; }
@@ -1759,12 +1746,13 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 3px; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
-        .bl-metric-line.head { font-size:6.8px; }
-        .bl-metric-line.head .metric-name { font-size:8px; }
-        .bl-metric-line.metric>span { font-size:9px; min-height:19px; }
-        .bl-metric-line.metric .metric-team { padding:2px 3px; }
-        .bl-metric-line.metric .metric-team b { font-size:7.2px; letter-spacing:-.035em; }
-        .bl-metric-line.metric>span.final { font-size:10px; }
+        .bl-tb-head { font-size:6.8px; }
+        .bl-tb-cell { font-size:9px; min-height:19px; }
+        .bl-tb-blank { min-height:19px; }
+        .bl-tb-label { font-size:8px; }
+        .bl-tb-name { padding:2px 3px; }
+        .bl-tb-name b { font-size:18px; }
+        .bl-tb-name small { font-size:7.5px; }
       }
       .bl-drawer-explain { margin:14px 12px 2px; padding-top:9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.42; }
       .bl-drawer-explain p { margin:0 0 7px; }
@@ -1846,7 +1834,6 @@ export function Styles() {
       @media (max-width:520px) {
         .bl-board .st { display:none; }
         .bl-metric-scoreboards { margin-left:8px; margin-right:8px; gap:4px; }
-        .bl-metric-line.metric .metric-team b { font-size:7.5px; letter-spacing:-.025em; }
         .bl-drawer-explain { margin-left:8px; margin-right:8px; font-size:9px; }
       }
       .bl-more { display:block; width:100%; padding:9px; border:0; background:none; color:var(--gold); font:500 13px/1 Oswald, sans-serif; letter-spacing:.05em; cursor:pointer; }
