@@ -909,6 +909,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The inning being played, and runs not yet final: yellow, like a
            ballpark board until the half-inning is over. */
         .yfp-green-slot.now { color:#ffd34f; }
+        /* Board crests show only on a wide card (see the container query). */
+        .yfp-board-crest { display:none; }
         .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }
         .yfp-green-row.won .yfp-green-run { background:#f3c735; color:#15251d; }
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
@@ -1090,7 +1092,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              card is wide enough to hold them beside it (hidden otherwise). */
           .yfp-game-scorepane { container-type:inline-size; }
           .yfp-game-scorepane .yfp-green-board { position:relative; }
-          .yfp-board-crest { display:none; }
           @container (min-width: 900px) {
             .yfp-game-scorepane .yfp-board-crest { display:block; position:absolute; top:50%; transform:translateY(-50%); height:84%; max-width:15%; object-fit:contain; opacity:.16; pointer-events:none; }
             .yfp-game-scorepane .yfp-board-crest.l { left:16px; }
