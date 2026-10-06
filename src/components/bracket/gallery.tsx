@@ -1503,6 +1503,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             // Each day's tab sits under its inning on the scoreboards above
             // (Monday = inning 1 ... Sunday = 7); Weekly Totals spans 8, 9 and the total.
             <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history" ref={setTabsEl}>
+              {/* Under the school-name column: yellow while a day is open,
+                  white on Weekly Totals. */}
+              <span className={`bl-tabs-label${statDay === 'week' ? '' : ' on'}`} style={{ gridColumn: 1 }}>Daily Stats</span>
               {[
                 [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Weekly Totals']
               ].map(([key,label]) => (
@@ -1829,6 +1832,14 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-scoring-title { position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3;
         margin:0 0 7px; padding:5px 8px 4px; border-radius:5px; background:#2e8b5f; color:#ffd34f; }
       .bl.bl-embed.yfp-drawer .bl-history-tabs button.on { color:#ffd34f; }
+      .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label { align-self:end; padding:0 0 5px 2px; color:#fff; white-space:nowrap;
+        font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label.on { color:#ffd34f; }
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label { color:#121212; }
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label.on { color:#1f6b45; }
+      /* BATTERS / PITCHERS in caps, in the header rows and their totals. */
+      .bl.bl-embed.yfp-drawer .bl-box thead th .bl-sort,
+      .bl.bl-embed.yfp-drawer .bl-box tr.tot td.nm { text-transform:uppercase; }
       body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button.on { color:#1f6b45; }
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:4px; padding-right:4px; }
