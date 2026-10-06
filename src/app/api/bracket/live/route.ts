@@ -23,7 +23,8 @@ import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 //   clubs:  { [club]: [day, gameId, won (0|1)][] } - finished games only
 //   games:  { [club]: [day, gameId, done (0|1), started (0|1)][] } - every
 //           scheduled pro game (team_schedules, refreshed every 10 minutes):
-//           done = final, postponed or cancelled; started = under way or done.
+//           done = final, postponed or cancelled; started = under way or done;
+//           start = scheduled first pitch (ms, 0 if unknown).
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ type StageRow = {
   position: string | null; current_team_name: string | null;
 };
 type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null; level: string | null };
-type SchedRow = { game: string; day: number; status: string | null; home: string; away: string; home_runs: number | null; away_runs: number | null };
+type SchedRow = { game: string; day: number; status: string | null; home: string; away: string; home_runs: number | null; away_runs: number | null; start: string | null };
 type ClubRow = { team: string; game: string; day: number; is_win: boolean };
 
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
@@ -141,7 +142,7 @@ export async function GET(req: NextRequest) {
     // is that club's result (the W-L inning) as soon as the game ends.
     const { rows: sched } = clubNames.length
       ? await query<SchedRow>(
-        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status,
+        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status, game_time_utc AS start,
                 home_team_name AS home, away_team_name AS away, home_score AS home_runs, away_score AS away_runs
            FROM team_schedules
           WHERE (home_team_name = ANY($1) OR away_team_name = ANY($1))
@@ -150,11 +151,11 @@ export async function GET(req: NextRequest) {
       )
       : { rows: [] as SchedRow[] };
     const want = new Set(clubNames);
-    const games: Record<string, [number, string, 0 | 1, 0 | 1][]> = {};
+    const games: Record<string, [number, string, 0 | 1, 0 | 1, number][]> = {};
     for (const r of sched) {
       for (const [club, mine, theirs] of [[r.home, r.home_runs, r.away_runs], [r.away, r.away_runs, r.home_runs]] as const) {
         if (!want.has(club)) continue;
-        (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0, isStarted(r.status) ? 1 : 0]);
+        (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0, isStarted(r.status) ? 1 : 0, r.start ? Date.parse(String(r.start)) || 0 : 0]);
         if (isFinal(r.status) && mine !== null && theirs !== null && mine !== theirs) result(club, Number(r.day), r.game, mine > theirs);
       }
     }

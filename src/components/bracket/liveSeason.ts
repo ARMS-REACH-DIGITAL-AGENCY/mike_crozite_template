@@ -24,12 +24,13 @@ import {
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
+import { setInAction } from './inAction';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
 type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
-  clubs: Record<string, [number, string, 0 | 1][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?][]>;
+  clubs: Record<string, [number, string, 0 | 1][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
 };
 
 const RULES = { mode: 'adjusted' as const, absent: 'hold' as const };
@@ -154,13 +155,13 @@ function score(idx: Index, live: Live, asof: string) {
   // asof is the bracket's day, which turns over at 4 a.m. Arizona time.
   const today = dayOf(asof, start);
   // The real games of each day: by club, and the whole bracket's.
-  type Real = { done: boolean; started: boolean };
+  type Real = { done: boolean; started: boolean; start: number };
   const clubDay = new Map<string, Map<string, Real>>(); // `${club}:${day}` -> game -> state
   const allDay = new Map<number, Map<string, Real>>();
   for (const [club, list] of Object.entries(live.games || {})) {
-    for (const [d, game, done, started] of list) {
+    for (const [d, game, done, started, start] of list) {
       // Before the route sent "started": a game is under way once it's over.
-      const st = { done: Boolean(done), started: Boolean(done || started) };
+      const st = { done: Boolean(done), started: Boolean(done || started), start: Number(start) || 0 };
       const k = `${club}:${d}`;
       (clubDay.get(k) || clubDay.set(k, new Map()).get(k)!).set(game, st);
       (allDay.get(d) || allDay.set(d, new Map()).get(d)!).set(game, st);
@@ -197,6 +198,29 @@ function score(idx: Index, live: Live, asof: string) {
     const w = games.filter((g) => g[2]).length;
     return [w, games.length - w];
   };
+
+  // In action today, for each school's drawer strip: its alumni with a game
+  // today (the bracket's day) and those games' first pitches.
+  for (const [h, players] of roster) {
+    const mine = lines.get(h);
+    const real = new Map<string, Real>();
+    let n = 0;
+    for (const p of players) {
+      const x = mine?.get(p[0])?.get(today);
+      const day = clubDay.get(`${x?.club || p[4]}:${today}`);
+      if (day?.size || x?.b || x?.p) n++;
+      for (const [id, st] of day || []) real.set(id, st);
+    }
+    const list = [...real.values()];
+    const starts = list.map((x) => x.start).filter(Boolean);
+    const upcoming = list.filter((x) => !x.started && x.start).map((x) => x.start);
+    setInAction(Number(h), {
+      players: n, games: list.length, started: list.filter((x) => x.started).length, done: list.filter((x) => x.done).length,
+      first: starts.length ? Math.min(...starts) : undefined,
+      next: upcoming.length ? Math.min(...upcoming) : undefined,
+      last: starts.length ? Math.max(...starts) : undefined,
+    });
+  }
 
   const boxes: Record<string, GameBox> = {};
   const scoreGame = (g: GameRow) => {
