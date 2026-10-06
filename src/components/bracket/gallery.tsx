@@ -1319,11 +1319,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               {onSwitchSide && row.isHome !== (me === 0) ? (
                 <button type="button" className="metric-team metric-switch" onClick={(e) => { e.stopPropagation(); onSwitchSide(); }}
                   title={`Show ${row.name}'s stats`} aria-label={`Show ${row.name}'s stats`}>
-                  <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+                  <b>{abbr(row.name)}</b>
                 </button>
               ) : (
                 <span className="metric-team" title={row.location ? `${row.name} (${row.location})` : row.name}>
-                  <b>{row.name}</b>{row.location ? <small>{row.location}</small> : null}
+                  <b>{abbr(row.name)}</b>
                 </span>
               )}
               {Array.from({ length: 7 }, (_, i) => {
@@ -1511,9 +1511,22 @@ export function wonCell(mine: number | null | undefined, theirs: number | null |
   return (higher ? mine > other : mine < other) ? 'won' : '';
 }
 
+// A school's 3-letter code, airport style: one word - its first three
+// letters (Hamilton HAM); two - first letter, its next consonant, then the
+// second word's initial (Mater Dei MTD, JSerra Catholic JSC); three or more
+// - initials (Henry B. Plant HBP). Words like High, School, Prep are skipped.
+const CODE_SKIP = /^(high|school|hs|academy|prep|preparatory|the|of|and|at)$/i;
 export function abbr(name: string) {
-  const words = name.replace(/[^A-Za-z .'-]/g, '').split(/\s+/).filter(Boolean);
-  if (words.length === 1) return words[0].slice(0, 4).toUpperCase();
+  let words = name.split(' (')[0].replace(/[^A-Za-z .'-]/g, '').split(/[\s.-]+/).map((w) => w.replace(/'/g, '')).filter(Boolean);
+  const kept = words.filter((w) => !CODE_SKIP.test(w));
+  if (kept.length) words = kept;
+  if (!words.length) return '';
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  if (words.length === 2) {
+    const [a, b] = words;
+    const next = a.slice(1).replace(/[aeiou]/gi, '')[0] || a[1] || '';
+    return (a[0] + next + b[0]).toUpperCase();
+  }
   return words.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
 }
 
@@ -1730,6 +1743,9 @@ export function Styles() {
       .bl-metric-line.metric>span { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-metric-line.metric .metric-team { justify-items:start; align-content:center; padding:2px 4px; color:#eef7ef; overflow:hidden; min-height:20px; }
       .bl-metric-line.metric .metric-team b { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 8.5px/1 "Roboto Condensed",Arial Narrow,Oswald,sans-serif; letter-spacing:-.025em; }
+      /* The school's 3-letter code, centered (full name and city on hover). */
+      .bl-metric-line.metric .metric-team { justify-items:center; text-align:center; }
+      .bl-metric-line.metric .metric-team b, .bl-metric-line.metric .metric-team.metric-switch b { font:800 13px/1 Oswald,sans-serif !important; letter-spacing:.06em !important; }
       .bl-metric-line.metric .metric-team small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 5.7px/1.05 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
       .bl-metric-line.metric>span.won { background:#f3c735; color:#15251d; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
