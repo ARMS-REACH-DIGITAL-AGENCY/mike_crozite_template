@@ -135,6 +135,8 @@ function renderPlayerRows(players: any[], emptyText: string) {
         const school = String(p.schoolName || p.hsname || '').trim();
         const location = cleanLocation(p.city, p.state);
         const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+        const team = String(p.currentTeamName || p.current_team_name || '').trim();
+        const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
         const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
         return `
           <div class="yat-search-card yat-search-player-card yat-search-player-result">
@@ -144,9 +146,10 @@ function renderPlayerRows(players: any[], emptyText: string) {
             </a>
             <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
               <strong>${esc(name)}</strong>
-              ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
+              ${team ? `<small>${esc(team)}</small>` : ''}
+              ${secondLine ? `<small class="yat-search-hs-line">${esc(secondLine)}</small>` : ''}
             </a>
-            <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
+            <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="${esc(schoolHover)}" aria-label="${esc(schoolHover)}">
               <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
             </a>
           </div>
@@ -252,6 +255,8 @@ function renderTeamRows(players: any[], emptyText: string) {
             const school = String(p.schoolName || p.hsname || '').trim();
             const location = cleanLocation(p.city, p.state);
             const secondLine = [school, location ? `(${location})` : ''].filter(Boolean).join(' ');
+        const team = String(p.currentTeamName || p.current_team_name || '').trim();
+        const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
             const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
             return `
               <div class="yat-search-card yat-search-team-player-card yat-search-player-result">
@@ -261,9 +266,10 @@ function renderTeamRows(players: any[], emptyText: string) {
                 </a>
                 <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
                   <strong>${esc(name)}</strong>
-                  ${secondLine ? `<small>${esc(secondLine)}</small>` : ''}
+                  ${team ? `<small>${esc(team)}</small>` : ''}
+              ${secondLine ? `<small class="yat-search-hs-line">${esc(secondLine)}</small>` : ''}
                 </a>
-                <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="Open ${esc(school || name)} flip card">
+                <a class="yat-search-player-flip-link" href="${esc(playerFlipCardUrl(p))}" title="${esc(schoolHover)}" aria-label="${esc(schoolHover)}">
                   <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
                 </a>
               </div>
@@ -606,6 +612,7 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-row-text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
       #drawerLeft .yat-search-row-text strong { font: 700 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
       #drawerLeft .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
+      #drawerLeft .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
       #drawerLeft .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
       #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; }
       #drawerLeft .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
