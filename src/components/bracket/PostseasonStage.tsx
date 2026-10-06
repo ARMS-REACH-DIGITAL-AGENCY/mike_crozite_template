@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import FantasyGameSocial from './FantasyGameSocial';
 import { createPortal } from 'react-dom';
-import { abbr, fmtRange, loadBoxes, place, shortName, type GameBox, type GameRow, type Index, type PlayerRow } from './gallery';
+import { StatsDot, abbr, fmtRange, loadBoxes, place, shortName, type GameBox, type GameRow, type Index, type PlayerRow } from './gallery';
 import { runsThrough, type WeekCard } from './schoolSeason';
 import type { FantasyStageKey } from './bracketNav';
 
@@ -153,6 +153,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         <span className="yfp-green-team yfp-green-team-empty" aria-hidden="true" />
         {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
         <span className="yfp-green-run" />
+        <StatsDot name="TBD" />
       </div>
     );
     const scoreboard = (
@@ -166,6 +167,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
             <span className="run">R</span>
+            <span className="stats">STATS</span>
           </div>
           {blankRow('away')}
           {blankRow('home')}
@@ -205,7 +207,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       : g[1] === 33 ? 'Championship Game'
       : 'YAT?STATS World Series';
 
-    const inningCount = Math.max(9, Math.floor(g[5].length / 2));
+    const inningCount = card.state === 'final' ? Math.max(9, Math.floor(g[5].length / 2)) : 9;
     const row = (side:'a'|'h') => {
       const h = side === 'h' ? g[2] : g[3];
       const off = side === 'h' ? 0 : 1;
@@ -227,6 +229,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
         <span className="yfp-green-run">{played ? runs : ''}{won ? <i aria-label="winner">◀</i> : null}</span>
+        <StatsDot name={name} onOpen={played ? ()=>onOpen({card,side}) : undefined} />
       </div>;
     };
 
@@ -240,6 +243,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n)=><span key={n}>{n}</span>)}
           <span className="run">R</span>
+          <span className="stats">STATS</span>
         </div>
         {row('a')}{row('h')}
       </div>
