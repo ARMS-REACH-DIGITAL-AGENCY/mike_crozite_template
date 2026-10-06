@@ -17,14 +17,14 @@
 // "League averages by level", lib/bracket/levelAverages.ts) - OPS+ and FIP-,
 // 100 = his level's average.
 import {
-  addToBuckets, emptyBat, emptyPit, fipCore, offenseScore, pitchingScore, playGame,
+  addToBuckets, emptyBat, emptyPit, fipCore, mergeBuckets, offenseScore, pitchingScore, playGame,
   type Baselines, type BatTotals, type GameResult, type LevelBuckets, type PitTotals, type PlayerLines, type SideWeek,
 } from '@/lib/bracket/engine';
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
-type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1];
+type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
 type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1][]>; games?: Record<string, [number, string, 0 | 1][]>;
@@ -53,6 +53,8 @@ function levelKey(label: string) {
   if (l === 'NCAA-D1' || l === 'D1' || l === 'NCAA') return 'NCAA D1';
   if (l === 'NAIA') return 'NAIA';
   if (/^(NJCAA|CCCAA|NWAC|JUCO|JRCOLLEGE)/.test(l)) return 'JUCO';
+  // The Arizona Fall League (MLB's "WIN"): top prospects, Double-A-ish.
+  if (l === 'WIN' || l === 'AFL') return 'Double-A';
   return 'MLB';
 }
 const round = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v));
@@ -86,14 +88,27 @@ function flip(gameId: number): 'home' | 'away' {
   return x % 2 ? 'home' : 'away';
 }
 
-// One player's line for a set of days, as the drawer's PlayerRow.
-function playerRow(p: RosterEntry, b: number[] | 0, q: number[] | 0, wl: [number, number] | null): PlayerRow {
+// A pitcher's FIP on his levels' scales: each level's core plus its FIP
+// constant, weighted by outs.
+function fipOf(lines: LevelBuckets) {
+  let sum = 0, outs = 0;
+  for (const [level, { pit: x }] of lines) {
+    if (!x.outs) continue;
+    sum += (fipCore(x) + (BASELINES.get(level)?.cfip ?? 0)) * x.outs;
+    outs += x.outs;
+  }
+  return outs ? sum / outs : 0;
+}
+
+// One player's line for a set of days, as the drawer's PlayerRow. lv: his
+// lines by the level of each game (a call-up's week is measured against
+// each level's average for the games he played there); without it, his
+// listed level.
+function playerRow(p: RosterEntry, b: number[] | 0, q: number[] | 0, wl: [number, number] | null, lv?: LevelBuckets): PlayerRow {
   const batted = b && b[0] > 0;
   const pitched = q && (q[0] > 0 || q[1] > 0 || q[2] > 0 || q[3] > 0 || q[4] > 0);
-  const level = levelKey(p[2]);
-  const lines = buckets(level, batted ? b : 0, pitched ? q : 0);
-  // His FIP on his level's scale: the core plus the level's FIP constant.
-  const fip = pitched ? fipCore(pit(q as number[])) + (BASELINES.get(level)?.cfip ?? 0) : 0;
+  const lines = lv && lv.size ? lv : buckets(levelKey(p[2]), batted ? b : 0, pitched ? q : 0);
+  const fip = pitched ? fipOf(lines) : 0;
   // Everyone stays in his usual group with a zero line on a day off.
   const batLine = b || (!q && !p[3] ? [0, 0, 0, 0, 0, 0, 0, 0, 0] : 0);
   const pitLine = q ? [...q, +fip.toFixed(2)] : (!b && p[3] ? [0, 0, 0, 0, 0, 0, 0, 0, 0] : 0);
@@ -149,15 +164,22 @@ function score(idx: Index, live: Live, asof: string) {
     if (fin === 0) (openLines.get(`${d}:${kind}`) || openLines.set(`${d}:${kind}`, new Set()).get(`${d}:${kind}`)!).add(pid);
   }
   const roster = new Map(Object.entries(live.roster));
-  // Lines by school -> player -> day.
-  const lines = new Map<string, Map<string, Map<number, { b: number[] | 0; p: number[] | 0; club: string }>>>();
-  for (const [h, pid, day, kind, stats, , club] of live.lines) {
+  // Each player's listed level: a line whose source doesn't give the
+  // game's level counts at it.
+  const listedLevel = new Map<string, string>();
+  for (const list of roster.values()) for (const p of list) listedLevel.set(p[0], levelKey(p[2]));
+  // Lines by school -> player -> day: the day's totals (the drawer's line)
+  // and the same stats by the level of each game (the scoring).
+  const lines = new Map<string, Map<string, Map<number, { b: number[] | 0; p: number[] | 0; club: string; lv: LevelBuckets }>>>();
+  for (const [h, pid, day, kind, stats, , club, , level] of live.lines) {
     const school = lines.get(h) || new Map();
     lines.set(h, school);
     const days = school.get(pid) || new Map();
     school.set(pid, days);
-    const cur = days.get(day) || { b: 0, p: 0, club: '' };
-    if (kind === 'b') cur.b = add(cur.b, stats); else cur.p = add(cur.p, stats);
+    const cur = days.get(day) || { b: 0, p: 0, club: '', lv: new Map() };
+    const lvl = level ? levelKey(level) : listedLevel.get(pid) || 'MLB';
+    if (kind === 'b') { cur.b = add(cur.b, stats); addToBuckets(cur.lv, lvl, bat(stats), emptyPit()); }
+    else { cur.p = add(cur.p, stats); addToBuckets(cur.lv, lvl, emptyBat(), pit(stats)); }
     cur.club = club || cur.club;
     days.set(day, cur);
   }
@@ -209,20 +231,22 @@ function score(idx: Index, live: Live, asof: string) {
       for (const p of players) {
         const byDay = mine.get(p[0]);
         let wb: number[] | 0 = 0, wp: number[] | 0 = 0, club = p[4];
+        const weekLv: LevelBuckets[] = [];
         for (let d = 0; d < 7; d++) {
           const x = byDay?.get(from + d);
           if (x?.club) club = x.club;
           if (x && (x.b || x.p)) {
-            days[d].set(p[0], buckets(levelKey(p[2]), x.b, x.p));
+            days[d].set(p[0], x.lv);
+            weekLv.push(x.lv);
             if (x.b) wb = add(wb, x.b);
             if (x.p) wp = add(wp, x.p);
           }
           // That day's club result: 1-0 for a win, 0-1 for a loss, 0-0 off.
-          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, clubWl(club, from + d, from + d)));
+          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, clubWl(club, from + d, from + d), x?.lv));
         }
         const wl = clubWl(club, from, Math.min(from + 6, today));
         wins += wl[0]; losses += wl[1];
-        weekRows.push(playerRow(p, wb, wp, wl));
+        weekRows.push(playerRow(p, wb, wp, wl, mergeBuckets(weekLv)));
       }
       return { week: { days, wins, losses } as SideWeek, weekRows, dayRows };
     };
