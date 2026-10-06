@@ -142,7 +142,9 @@ async function getFavoriteDetails(firebaseUid: string, playerIds: string[]) {
     )
     select
       r.*,
-      ss.microsite_url
+      ss.microsite_url,
+      ss.hsname,
+      ss.hslocation
     from resolved r
     left join public.school_success ss on ss.hsid::text = r.hsid
     order by coalesce(r.display_name, r.playerid)

@@ -18,6 +18,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 
@@ -59,11 +60,29 @@ function openAccountDrawer() {
   document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
 }
 
+// One favorites lookup per page, shared by every button (a school's flip
+// card gallery shows dozens), refreshed whenever a favorite changes.
+let favoriteIds: { uid: string; ids: Promise<Set<string>> } | null = null;
+function loadFavoriteIds(uid: string): Promise<Set<string>> {
+  if (!favoriteIds || favoriteIds.uid !== uid) {
+    favoriteIds = {
+      uid,
+      ids: fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((data) => new Set<string>(Array.isArray(data?.playerIds) ? data.playerIds.map(String) : []))
+        .catch(() => new Set<string>()),
+    };
+  }
+  return favoriteIds.ids;
+}
+if (typeof window !== 'undefined') window.addEventListener('yat-favorites-changed', () => { favoriteIds = null; });
+
 export default function FavoriteButton({
   playerId,
   playerName,
   playerHsid,
-}: FavoriteButtonProps) {
+  variant = 'pill',
+}: FavoriteButtonProps & { variant?: 'pill' | 'star' }) {
   const schoolData = useContext(SchoolContext);
   const displayName = playerName || playerId;
 
@@ -87,14 +106,15 @@ export default function FavoriteButton({
     }
 
     setIsLoading(true);
-    fetch(`/api/favorites?uid=${encodeURIComponent(user.uid)}&scope=button`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((data) => {
-        const ids = Array.isArray(data?.playerIds) ? data.playerIds.map(String) : [];
-        setIsFavorited(ids.includes(String(playerId)));
-      })
-      .catch(() => setIsFavorited(false))
-      .finally(() => setIsLoading(false));
+    let live = true;
+    const sync = () => loadFavoriteIds(user.uid)
+      .then((ids) => { if (live) setIsFavorited(ids.has(String(playerId))); })
+      .finally(() => { if (live) setIsLoading(false); });
+    sync();
+    // Another button (or the drawer) changed a favorite: re-read.
+    const onChange = () => { window.setTimeout(sync, 0); };
+    window.addEventListener('yat-favorites-changed', onChange);
+    return () => { live = false; window.removeEventListener('yat-favorites-changed', onChange); };
   }, [playerId]);
 
   useEffect(() => {
@@ -168,7 +188,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(false);
-          track('favorite_remove', { favorite_playerid: playerId, favorite_from: 'profile' });
+          track('favorite_remove', { favorite_playerid: playerId, favorite_from: variant === 'star' ? 'flip_card' : 'profile' });
           showToast(`${displayName} removed from favorites`, 'info');
           window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {
@@ -191,7 +211,7 @@ export default function FavoriteButton({
         const data = await res.json();
         if (data?.success) {
           setIsFavorited(true);
-          track('favorite_add', { favorite_playerid: playerId, favorite_from: 'profile', favorite_type: type });
+          track('favorite_add', { favorite_playerid: playerId, favorite_from: variant === 'star' ? 'flip_card' : 'profile', favorite_type: type });
           showToast(`${displayName} added to your favorites`);
           window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
         } else {
@@ -203,7 +223,7 @@ export default function FavoriteButton({
     } finally {
       setIsLoading(false);
     }
-  }, [isFavorited, playerId, displayName, playerHsid, schoolData, showToast]);
+  }, [isFavorited, playerId, displayName, playerHsid, schoolData, showToast, variant]);
 
   const toastColors: Record<typeof toastType, string> = {
     success: '#16a34a',
@@ -213,6 +233,20 @@ export default function FavoriteButton({
 
   return (
     <>
+      {variant === 'star' ? (
+        // The flip card's corner star (a button, so a tap doesn't flip the card).
+        <button
+          type="button"
+          className={`yat-card-fav${isFavorited ? ' on' : ''}`}
+          onClick={(e) => { e.stopPropagation(); handleClick(); }}
+          disabled={isLoading}
+          aria-label={isFavorited ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
+          aria-pressed={isFavorited}
+          title={isFavorited ? 'Favorited' : 'Favorite'}
+        >
+          <i className={isFavorited ? 'ri-star-fill' : 'ri-star-line'} aria-hidden="true" />
+        </button>
+      ) : (
       <button
         id="btnFanFav"
         onClick={handleClick}
@@ -244,8 +278,11 @@ export default function FavoriteButton({
         />
         {isFavorited ? 'FAVORITED' : 'FAVORITE'}
       </button>
+      )}
 
-      {toast && (
+      {/* On the page, not inside the button's parent: a flip card's 3D
+          transform would otherwise trap the "fixed" toast inside the card. */}
+      {toast && typeof document !== 'undefined' && createPortal(
         <div
           role="status"
           aria-live="polite"
@@ -268,7 +305,8 @@ export default function FavoriteButton({
           }}
         >
           {toast}
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

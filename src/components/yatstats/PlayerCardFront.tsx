@@ -1,6 +1,7 @@
 import { CSSProperties } from "react";
 import { getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 import CardPhoto from "./CardPhoto";
+import FavoriteButton from "./FavoriteButton";
 
 interface PlayerCardFrontProps {
   player: Record<string, unknown>;
@@ -8,6 +9,8 @@ interface PlayerCardFrontProps {
   isAllTime?: boolean;
   /** When true, the grad class year is estimated (derived from TBC playyears), not verified by school. */
   gradClassEstimated?: boolean;
+  /** The player's high school: the corner favorite star saves it with him. */
+  hsid?: string;
 }
 
 function asText(value: unknown): string {
@@ -334,6 +337,7 @@ export default function PlayerCardFront({
   player: p,
   frontImageUrl = null,
   gradClassEstimated = false,
+  hsid = "",
 }: PlayerCardFrontProps) {
   const imageId = String(p.playerid || "");
   const isPitcher = p.is_pitcher === true;
@@ -492,6 +496,12 @@ export default function PlayerCardFront({
         <CardPhoto srcs={photoSrcs} />
       </div>
       <div className="yat-shade" />
+      {/* Favorite him right from the card (top-right corner). */}
+      {imageId && (
+        <div className="yat-card-fav-slot">
+          <FavoriteButton variant="star" playerId={imageId} playerName={[first, last].filter(Boolean).join(" ") || imageId} playerHsid={hsid || asText(p.hsid)} />
+        </div>
+      )}
 
       <div className="yat-front-content">
         <div className="yat-front-bottom-row">
