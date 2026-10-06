@@ -12,14 +12,15 @@
 // Until then the box shows who leads (the drawer outlines the cell) but
 // counts no run. The week (8) and W-L (9) innings settle with Sunday.
 //
-// Scoring mode is 'raw' (OPS vs .720, FIP vs 4.20) until the level baselines
-// are loaded. The scoreboard shows those on the plus scale (100 = .720 OPS /
-// 4.20 FIP), so 100 still reads as league average and higher OPS+ / lower
-// FIP- still wins.
+// Scoring is 'adjusted', exactly as the 2027 season will be: every line is
+// measured against the league average for the player's level (the Rules'
+// "League averages by level", lib/bracket/levelAverages.ts) - OPS+ and FIP-,
+// 100 = his level's average.
 import {
-  RAW_AVERAGE_FIP, RAW_AVERAGE_OPS, RAW_FIP_CONSTANT, addToBuckets, emptyBat, emptyPit, fipCore, ops, playGame,
-  type BatTotals, type GameResult, type PitTotals, type PlayerLines, type SideWeek,
+  addToBuckets, emptyBat, emptyPit, fipCore, offenseScore, pitchingScore, playGame,
+  type Baselines, type BatTotals, type GameResult, type LevelBuckets, type PitTotals, type PlayerLines, type SideWeek,
 } from '@/lib/bracket/engine';
+import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
@@ -29,12 +30,39 @@ type Live = {
   clubs: Record<string, [number, string, 0 | 1][]>; games?: Record<string, [number, string, 0 | 1][]>;
 };
 
-const RULES = { mode: 'raw' as const, absent: 'hold' as const };
-const LEVEL = 'PRO';
+const RULES = { mode: 'adjusted' as const, absent: 'hold' as const };
 const DAY = 86400000;
+// OPS+ and FIP- are on the plus scale already: 100 is league average.
+const AVERAGE = 100;
 
-const opsPlus = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round((100 * v) / RAW_AVERAGE_OPS));
-const fipMinus = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round((100 * v) / RAW_AVERAGE_FIP));
+const BASELINES: Baselines = new Map(LEVEL_AVERAGES.map((a) => [a.level, { obp: a.obp, slg: a.slg, fip: a.fip, cfip: a.cfip }]));
+// A roster level ("TRIPLE-A", "NCAA-D1", "NJCAA" ...) -> its row in the
+// level averages. A level we can't place (blank, "PRO", "INT'L") is measured
+// against MLB's.
+function levelKey(label: string) {
+  const l = label.toUpperCase().replace(/\s+/g, '').replace(/\(.*\)/, '');
+  if (l === 'MLB') return 'MLB';
+  if (l === 'TRIPLE-A' || l === 'AAA') return 'Triple-A';
+  if (l === 'DOUBLE-A' || l === 'AA') return 'Double-A';
+  if (l === 'HIGH-A' || l === 'A+') return 'High-A';
+  if (l === 'LOW-A' || l === 'SINGLE-A' || l === 'A') return 'Low-A';
+  if (/^(ROOKIE|ROK|DSL|ACL|FCL|CPX)/.test(l)) return 'Rookie';
+  if (/^(INDY|INDEPENDENT|IND)/.test(l)) return 'Independent';
+  if (l === 'NCAA-D2' || l === 'D2') return 'NCAA D2';
+  if (l === 'NCAA-D3' || l === 'D3') return 'NCAA D3';
+  if (l === 'NCAA-D1' || l === 'D1' || l === 'NCAA') return 'NCAA D1';
+  if (l === 'NAIA') return 'NAIA';
+  if (/^(NJCAA|CCCAA|NWAC|JUCO|JRCOLLEGE)/.test(l)) return 'JUCO';
+  return 'MLB';
+}
+const round = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v));
+// One player's line as level buckets (for the engine's scores).
+function buckets(level: string, b: number[] | 0, q: number[] | 0): LevelBuckets {
+  const out: LevelBuckets = new Map();
+  if (b) addToBuckets(out, level, bat(b), emptyPit());
+  if (q) addToBuckets(out, level, emptyBat(), pit(q));
+  return out;
+}
 const bat = (s: number[]): BatTotals => ({ pa: s[0], ab: s[1], h: s[2], d2: s[3], d3: s[4], hr: s[5], bb: s[6], hbp: s[7], sf: s[8] });
 const pit = (s: number[]): PitTotals => ({ outs: s[0], hr: s[1], bb: s[2], hbp: s[3], so: s[4] });
 const add = (a: number[] | 0, b: number[]) => (a ? a.map((v, i) => v + (b[i] || 0)) : [...b]);
@@ -62,14 +90,17 @@ function flip(gameId: number): 'home' | 'away' {
 function playerRow(p: RosterEntry, b: number[] | 0, q: number[] | 0, wl: [number, number] | null): PlayerRow {
   const batted = b && b[0] > 0;
   const pitched = q && (q[0] > 0 || q[1] > 0 || q[2] > 0 || q[3] > 0 || q[4] > 0);
-  const fip = pitched ? fipCore(pit(q as number[])) + RAW_FIP_CONSTANT : 0;
+  const level = levelKey(p[2]);
+  const lines = buckets(level, batted ? b : 0, pitched ? q : 0);
+  // His FIP on his level's scale: the core plus the level's FIP constant.
+  const fip = pitched ? fipCore(pit(q as number[])) + (BASELINES.get(level)?.cfip ?? 0) : 0;
   // Everyone stays in his usual group with a zero line on a day off.
   const batLine = b || (!q && !p[3] ? [0, 0, 0, 0, 0, 0, 0, 0, 0] : 0);
   const pitLine = q ? [...q, +fip.toFixed(2)] : (!b && p[3] ? [0, 0, 0, 0, 0, 0, 0, 0, 0] : 0);
   return [
     p[0], p[1], p[2], 0, batLine, pitLine,
-    batted ? opsPlus(ops(bat(b as number[]))) : batLine ? 0 : null,
-    pitched ? fipMinus(fip) : pitLine ? 0 : null,
+    batted ? round(offenseScore(lines, BASELINES, 'adjusted')) : batLine ? 0 : null,
+    pitched ? round(pitchingScore(lines, BASELINES, 'adjusted')) : pitLine ? 0 : null,
     wl, 0,
   ];
 }
@@ -182,10 +213,7 @@ function score(idx: Index, live: Live, asof: string) {
           const x = byDay?.get(from + d);
           if (x?.club) club = x.club;
           if (x && (x.b || x.p)) {
-            const buckets = new Map();
-            if (x.b) addToBuckets(buckets, LEVEL, bat(x.b), emptyPit());
-            if (x.p) addToBuckets(buckets, LEVEL, emptyBat(), pit(x.p));
-            days[d].set(p[0], buckets);
+            days[d].set(p[0], buckets(levelKey(p[2]), x.b, x.p));
             if (x.b) wb = add(wb, x.b);
             if (x.p) wp = add(wp, x.p);
           }
@@ -199,21 +227,21 @@ function score(idx: Index, live: Live, asof: string) {
       return { week: { days, wins, losses } as SideWeek, weekRows, dayRows };
     };
     const home = side(g[2]), away = side(g[3]);
-    const result: GameResult = playGame(home.week, away.week, new Map(), RULES, !final, final ? () => flip(g[0]) : undefined);
+    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => flip(g[0]) : undefined);
     // A week in progress counts only the settled runs; the week (8) and
     // W-L (9) innings and any tiebreak wait for the week to end.
     g[5] = final
       ? result.innings.flatMap((i) => [i.home, i.away])
       : result.innings.slice(0, 9).flatMap((i, k) => {
         if (k >= 7) return [0, 0];
-        const off = f[k][0] ? holdRuns(i.homeOffense, i.awayOffense, RAW_AVERAGE_OPS, true) : [0, 0];
-        const pitc = f[k][1] ? holdRuns(i.homePitching, i.awayPitching, RAW_AVERAGE_FIP, false) : [0, 0];
+        const off = f[k][0] ? holdRuns(i.homeOffense, i.awayOffense, AVERAGE, true) : [0, 0];
+        const pitc = f[k][1] ? holdRuns(i.homePitching, i.awayPitching, AVERAGE, false) : [0, 0];
         return [off[0] + pitc[0], off[1] + pitc[1]];
       });
     g[6] = final && result.winner ? (result.winner === 'home' ? g[2] : g[3]) : null;
     g[4] = !final ? '' : result.decidedBy === 'players' ? `players-${result.tieRank}` : result.decidedBy;
     boxes[String(g[0])] = {
-      d: result.innings.slice(0, 8).map((i) => [opsPlus(i.homeOffense), opsPlus(i.awayOffense), fipMinus(i.homePitching), fipMinus(i.awayPitching)]),
+      d: result.innings.slice(0, 8).map((i) => [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
       // Settled [offense, pitching] per inning 1-8, then the W-L inning.
       f: [...f, weekDone, [final, final]],
       h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], days: home.dayRows },
