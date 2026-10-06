@@ -3,6 +3,7 @@
 // tournament runs and how every run is figured - the fine print, on demand.
 
 import { TOURNAMENT_2027, bracketRoundWeeks } from '@/lib/bracket/tournamentCalendar';
+import { LEVEL_AVERAGES, LEVEL_AVERAGES_SEASON } from '@/lib/bracket/levelAverages';
 
 export default function BracketRules() {
   return (
@@ -46,51 +47,7 @@ export default function BracketRules() {
         <p>Bracket Champ vs. Season Champ<br />Week #34</p>
       </section>
 
-      <section>
-        <h4>A game: one week, nine innings</h4>
-        <ul>
-          <li><b>Innings 1–7</b> are the days of the week. Each day has two runs on the table: one for the better OPS+ (hitting) and one for the better FIP- (pitching, lower is better).</li>
-          <li><b>Inning 8</b> is the whole week: the same two runs on the week&apos;s OPS+ and FIP-.</li>
-          <li><b>Inning 9</b> is one run for the better W-L% of the alumni&apos;s real teams that week.</li>
-          <li>Most runs after nine innings wins the game.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h4>OPS+ and FIP-</h4>
-        <ul>
-          <li>Every player is measured against the average for the level he plays at (MLB, Triple-A … college D1, JUCO), so a juco hitter and a big leaguer are compared fairly. 100 is league average.</li>
-          <li><b>OPS+</b> = 100 × (his OBP ÷ league OBP + his SLG ÷ league SLG − 1). 150 is 50% better than average; 50 is half as good.</li>
-          <li><b>FIP-</b> = 100 × his FIP ÷ league FIP, from strikeouts, walks, hit batters and home runs. Lower is better: 80 is 20% better than average.</li>
-          <li>A school&apos;s OPS+ for a day or week is its hitters&apos; OPS+ averaged, weighted by plate appearances; its FIP- is its pitchers&apos; FIP- averaged, weighted by innings pitched. Every comparison is an average, so having more alumni never helps by itself.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h4>W-L% (inning 9)</h4>
-        <ul>
-          <li>Every alumnus on a team&apos;s roster that week counts his team&apos;s record, whether he played or not. Ten players whose teams each went 3–4 make the school 30–40.</li>
-          <li>The school with the higher winning percentage gets the run. A school with no alumni on a team counts as .500.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h4>When a school has nobody playing</h4>
-        <ul>
-          <li>A school with nobody playing can&apos;t score. The school that did play scores only by beating league average (100).</li>
-          <li>If a school doesn&apos;t have enough active alumni, that&apos;s on the school: it can&apos;t win a comparison it didn&apos;t play in.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h4>Tiebreakers · extra innings</h4>
-        <ol>
-          <li>If the score is tied after inning 9, <b>inning 10</b> is Tiebreaker #1: each school&apos;s #1 hitter (OPS+) and #1 pitcher (FIP-) are compared head-to-head, one run for each winning comparison.</li>
-          <li>If inning 10 is tied, <b>inning 11</b> is Tiebreaker #2 using the #2 hitter and #2 pitcher. Inning 12 uses the #3 pair, and so on. Every tiebreak is shown on the scoreboard as its own inning.</li>
-          <li>The ladder continues only while both schools can supply the next required hitter and pitcher. There is no league-average substitute in extra innings.</li>
-          <li>Only if the teams are still tied when the next complete player pair is unavailable does the commissioner&apos;s deterministic coin flip apply. The flip winner receives <b>one additional run</b>, so a completed game never displays a tied final score.</li>
-        </ol>
-      </section>
+      <ScoringRules />
 
       <section>
         <h4>Most Runs Scored Leaderboard</h4>
@@ -115,10 +72,125 @@ export default function BracketRules() {
         <ul>
           <li>Stats are included to the best of our ability, from official box scores and league sources. MLB spring training counts.</li>
           <li>A week&apos;s results are final after the deadline. Stats verified later add runs to a school&apos;s season total (the leaderboards) but never change a game&apos;s winner, and the other school never loses runs.</li>
-          <li>This season is a simulation on real 2026 stats: pro lines are real box scores; college lines (marked *) are simulated from each player&apos;s 2026 season totals, and college teams&apos; records aren&apos;t loaded yet (they count as .500).</li>
         </ul>
       </section>
 
+      <RulesStyles />
+    </div>
+  );
+}
+
+// How a game is scored - innings, OPS+ and FIP- with every level's league
+// average, W-L%, absences, whose stats count and when, tiebreakers. One
+// text in both places it appears: the full rules and the bottom of every
+// stat drawer.
+export function ScoringRules() {
+  return (
+    <>
+      <section>
+        <h4>A game: one week, nine innings</h4>
+        <ul>
+          <li><b>Innings 1–7</b> are the days of the week. Each day has two runs on the table: one for the better OPS+ (hitting) and one for the better FIP- (pitching, lower is better).</li>
+          <li><b>Inning 8</b> is the whole week: the same two runs on the week&apos;s OPS+ and FIP-.</li>
+          <li><b>Inning 9</b> is one run for the better W-L% of the alumni&apos;s real teams that week.</li>
+          <li>Most runs after nine innings wins the game.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>OPS+ and FIP-</h4>
+        <ul>
+          <li>Every player is measured against the average for the level he plays at (MLB, Triple-A … college D1, JUCO), so a juco hitter and a big leaguer are compared fairly. 100 is league average.</li>
+          <li><b>OPS+</b> = 100 × (his OBP ÷ league OBP + his SLG ÷ league SLG − 1). 150 is 50% better than average; 50 is half as good.</li>
+          <li><b>FIP-</b> = 100 × his FIP ÷ league FIP. FIP = (13 × HR + 3 × (BB + HBP) − 2 × K) ÷ IP + the level&apos;s FIP constant. Lower is better: 80 is 20% better than average.</li>
+          <li>A school&apos;s OPS+ for a day or week is its hitters&apos; OPS+ averaged, weighted by plate appearances; its FIP- is its pitchers&apos; FIP- averaged, weighted by innings pitched. Every comparison is an average, so having more alumni never helps by itself.</li>
+          <li>There&apos;s no minimum: one plate appearance or one out counts.</li>
+          <li>A player who plays at two levels in a week (a call-up, a rehab stint) is measured against each level&apos;s average for the games he played there.</li>
+          <li>Comparisons use the exact values. The scoreboard rounds to whole numbers, so two cells can show the same number and one still wins.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>League averages by level ({LEVEL_AVERAGES_SEASON} season)</h4>
+        <p className="ybr-note">What 100 means at each level: the {LEVEL_AVERAGES_SEASON} totals of every alumnus in our database at that level (NJCAA, CCCAA and NWAC together as JUCO). They&apos;re locked for the season, so a number never moves mid-season. A level&apos;s league FIP equals its ERA; the FIP constant is what makes that true.</p>
+        <div className="ybr-scroll">
+          <table className="ybr-avg">
+            <thead>
+              <tr><th>Level</th><th>OBP</th><th>SLG</th><th>OPS</th><th>FIP</th><th>FIP const.</th></tr>
+            </thead>
+            <tbody>
+              {LEVEL_AVERAGES.map((a) => (
+                <tr key={a.level}>
+                  <td>{a.level}</td>
+                  <td>{rate(a.obp)}</td><td>{rate(a.slg)}</td><td>{rate(a.ops)}</td>
+                  <td>{a.fip.toFixed(2)}</td><td>{a.cfip.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <ul>
+          <li>Example: a Double-A hitter with a .344 OBP and .417 SLG is exactly average: OPS+ 100. With a .400 OBP and .500 SLG: 100 × (.400 ÷ .344 + .500 ÷ .417 − 1) = 136.</li>
+          <li>Example: an MLB pitcher with a 3.34 FIP has an FIP- of 100 × 3.34 ÷ 4.17 = 80.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>W-L% (inning 9)</h4>
+        <ul>
+          <li>Every alumnus on a team&apos;s roster that week counts his team&apos;s record, whether he played or not. Ten players whose teams each went 3–4 make the school 30–40.</li>
+          <li>The school with the higher winning percentage gets the run. A school with no alumni on a team counts as .500.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>When a school has nobody playing</h4>
+        <ul>
+          <li>A school with nobody playing can&apos;t score. The school that did play scores only by beating league average: an OPS+ above 100, or an FIP- below 100. Exactly 100 doesn&apos;t score.</li>
+          <li>If a school doesn&apos;t have enough active alumni, that&apos;s on the school: it can&apos;t win a comparison it didn&apos;t play in.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Whose stats count, and when</h4>
+        <ul>
+          <li>A school&apos;s team is its active alumni: everyone on its Active Baseball Alumni gallery, including players on the injured list. Current high school players don&apos;t play.</li>
+          <li>A player counts as a pitcher or a hitter by what he does: a listed pitcher, or anyone who pitches much more than he bats. Any line he puts up still counts for the side it belongs to.</li>
+          <li>Days run on Arizona time, Monday through Sunday.</li>
+          <li>A day&apos;s hitting run and pitching run each go on the board once every alumnus on both teams is done for the day (his team&apos;s game is over), or at 4 a.m. Arizona time the next morning at the latest. Until then the leading cell is outlined, not filled, and counts no run.</li>
+          <li>Inning 8 (the week) and inning 9 (W-L%) are decided after Sunday&apos;s games.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Tiebreakers · extra innings</h4>
+        <ol>
+          <li>If the score is tied after inning 9, <b>inning 10</b> is Tiebreaker #1: each school&apos;s #1 hitter (OPS+) and #1 pitcher (FIP-) are compared head-to-head, one run for each winning comparison.</li>
+          <li>If inning 10 is tied, <b>inning 11</b> is Tiebreaker #2 using the #2 hitter and #2 pitcher. Inning 12 uses the #3 pair, and so on. Every tiebreak is shown on the scoreboard as its own inning.</li>
+          <li>The ladder continues only while both schools can supply the next required hitter and pitcher. There is no league-average substitute in extra innings.</li>
+          <li>Only if the teams are still tied when the next complete player pair is unavailable does the commissioner&apos;s deterministic coin flip apply. The flip winner receives <b>one additional run</b>, so a completed game never displays a tied final score.</li>
+        </ol>
+      </section>
+    </>
+  );
+}
+
+// .400 / 0.715 -> ".400" / ".715"
+const rate = (v: number) => v.toFixed(3).replace(/^0/, '');
+
+// The scoring rules on their own (the bottom of a stat drawer).
+export function ScoringRulesPanel() {
+  return (
+    <div className="ybr-rules ybr-panel">
+      <ScoringRules />
+      <RulesStyles />
+    </div>
+  );
+}
+
+function RulesStyles() {
+  return (
+    <>
       <style>{`
         .ybr-rules { max-width:900px; margin:0 auto; display:grid; gap:14px; }
         .ybr-rules section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 16px 6px; }
@@ -132,7 +204,20 @@ export default function BracketRules() {
         .ybr-sched td { padding:4px 8px; border-top:1px solid var(--line); }
         .ybr-sched td:first-child { color:var(--gold); font:500 13.5px/1.3 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; }
         .ybr-sched td:last-child { color:var(--muted); white-space:nowrap; text-align:right; }
+        .ybr-note { margin:0 0 8px; color:var(--muted); font-size:13px; line-height:1.45; }
+        .ybr-scroll { overflow-x:auto; margin:0 0 8px; }
+        .ybr-avg { width:100%; border-collapse:collapse; font-size:13px; color:var(--text); font-variant-numeric:tabular-nums; }
+        .ybr-avg th { padding:4px 6px; color:var(--gold); font:500 12px/1.2 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line); }
+        .ybr-avg td { padding:4px 6px; text-align:right; border-top:1px solid var(--line); white-space:nowrap; }
+        .ybr-avg th:first-child, .ybr-avg td:first-child { text-align:left; }
+        .ybr-avg td:first-child { font-weight:600; }
+        /* In a stat drawer: the same rules, sized for the narrower column. */
+        .ybr-panel { gap:10px; margin-top:8px; }
+        .ybr-panel section { padding:10px 12px 4px; }
+        .ybr-panel h4 { font-size:13px; }
+        .ybr-panel ul, .ybr-panel ol, .ybr-panel .ybr-sched { font-size:12.5px; }
+        .ybr-panel .ybr-note, .ybr-panel .ybr-avg { font-size:12px; }
       `}</style>
-    </div>
+    </>
   );
 }
