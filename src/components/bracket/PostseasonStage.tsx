@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import FantasyGameSocial from './FantasyGameSocial';
 import { createPortal } from 'react-dom';
 import { StatsDot, abbr, fmtRange, loadBoxes, place, shortName, type GameBox, type GameRow, type Index, type PlayerRow } from './gallery';
-import { runsThrough, type WeekCard } from './schoolSeason';
+import { runsThrough, shownDays, type WeekCard } from './schoolSeason';
 import type { FantasyStageKey } from './bracketNav';
 
 type Open = { card: WeekCard; side: 'h' | 'a' };
@@ -224,7 +224,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {Array.from({ length: inningCount }, (_, i) => i).map((i)=>{
-          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(card.days, 9));
+          const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(shownDays(g, card.days), 9));
           const value = g[5][i*2+off] || 0;
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
         })}
