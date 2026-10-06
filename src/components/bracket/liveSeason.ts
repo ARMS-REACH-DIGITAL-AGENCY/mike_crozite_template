@@ -189,7 +189,8 @@ function score(idx: Index, live: Live, asof: string) {
             if (x.b) wb = add(wb, x.b);
             if (x.p) wp = add(wp, x.p);
           }
-          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, null));
+          // That day's club result: 1-0 for a win, 0-1 for a loss, 0-0 off.
+          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, clubWl(club, from + d, from + d)));
         }
         const wl = clubWl(club, from, Math.min(from + 6, today));
         wins += wl[0]; losses += wl[1];
