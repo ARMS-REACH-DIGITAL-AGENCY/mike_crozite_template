@@ -88,11 +88,11 @@ export function tieNote(decidedBy: string) {
 }
 
 // Box scores are shared by every card of a round + region: one fetch each.
-// Only the bracket lab reads the 2026 practice season's box scores; a
+// Only the bracket lab reads the 2026 simulation's box scores; a
 // school's bracket is the 2027 season, with nothing played yet.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
-  if (!practiceSeason) return Promise.resolve({} as Record<string, GameBox>);
+  if (!simulatedSeason) return Promise.resolve({} as Record<string, GameBox>);
   if (!boxCache.has(file)) {
     boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
   }
@@ -467,17 +467,17 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 // A school's bracket is the upcoming 2027 season: the 2027 calendar (Week 1
 // = Mon Feb 1, 2027) and a blank scorecard - the field and Round 1's
 // matchups, and nothing played: no innings, scores, winners, later-round
-// matchups, leaderboard games, tournaments or champions. The 2026 practice
-// season (its results included) is only for the bracket lab, which asks
-// for it with loadIndex({ practice: true }).
-let practiceSeason = false;
+// matchups, leaderboard games, tournaments or champions. The 2026 simulation
+// (simulated stats and results) is only for the bracket lab, which asks
+// for it with loadIndex({ simulation: true }).
+let simulatedSeason = false;
 let indexPromise: Promise<Index> | null = null;
-export function loadIndex({ practice = false }: { practice?: boolean } = {}) {
-  if (practice) practiceSeason = true;
+export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
+  if (simulation) simulatedSeason = true;
   if (!indexPromise) {
     indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
       if (!idx || !Array.isArray(idx.weeks)) return idx;
-      if (practiceSeason) {
+      if (simulatedSeason) {
         // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
         idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
         return idx;
@@ -517,7 +517,7 @@ function shiftDate(iso: string, days: number): string {
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
   // Leaderboard games are played by schools out of the bracket - none yet.
-  if (!practiceSeason) return Promise.resolve([] as LbGame[]);
+  if (!simulatedSeason) return Promise.resolve([] as LbGame[]);
   if (!lbPromise) {
     lbPromise = fetch(`${BASE}/lb.json`).then((r) => (r.ok ? r.json() : { games: [] })).then((d: { games: LbGame[] }) => d.games).catch(() => []);
   }

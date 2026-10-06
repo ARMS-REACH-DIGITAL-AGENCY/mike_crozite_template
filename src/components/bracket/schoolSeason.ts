@@ -112,7 +112,7 @@ export type CurrentPlayerIdentity = {
 };
 // A region's Alumni of the Week, by school and week. They come from games
 // played - none yet in the 2027 season (the stars-<region> files on disk
-// are the 2026 practice season's).
+// are the 2026 simulation's).
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function loadStars(region: number): Promise<Record<number, Record<number, Star>>> {
   return Promise.resolve({});

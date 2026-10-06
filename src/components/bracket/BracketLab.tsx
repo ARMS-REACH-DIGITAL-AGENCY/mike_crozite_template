@@ -29,7 +29,7 @@ export default function BracketLab() {
   const { favs, toggle } = useFavorites();
 
   useEffect(() => {
-    loadIndex({ practice: true }).then(setIndex).catch((e) => setError(String(e)));
+    loadIndex({ simulation: true }).then(setIndex).catch((e) => setError(String(e)));
   }, []);
 
   // The leaderboard games load the first time the leaderboards or a school's
