@@ -11,6 +11,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
+import { type DayStory, dayStory } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -75,6 +76,7 @@ type RoundSlide = {
   firstWeek: number;
   lastWeek: number;
   complete: boolean;
+  day?: DayStory & { label: string }; // the latest settled day's story, once there is one
 };
 
 function scoreFor(card: WeekCard, me: number): [number, number] | null {
@@ -137,7 +139,8 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
   const wonRound = slide.complete && slide.wins >= 2;
   const seriesLabel = slide.done.length ? `${schoolName} ${wonRound ? 'Wins' : slide.complete ? 'Finishes' : 'Leads'} (${slide.wins}-${slide.losses})` : 'Series not started';
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
-  const status = seriesStatus(slide, schoolName, oppLabel);
+  const series = seriesStatus(slide, schoolName, oppLabel);
+  const status = slide.day ? `${series} · ${slide.day.label}` : series;
 
   return (
     <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
@@ -145,15 +148,26 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
       aria-label={`Round ${slide.round}. ${seriesLabel}`}>
       {slide.opponent ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : null}
       <span className="yft-grad" aria-hidden="true" />
-      {slide.heroStar
+      {slide.day?.hero
+        ? <Fallback key={slide.day.hero.id} className="yft-person" srcs={currentPlayerImages(slide.day.hero.id)} alt={slide.day.hero.name} />
+        : slide.heroStar
         ? <Fallback className="yft-person" srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
         : <Fallback className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
 
       <div className="yft-story">
         <span className="yft-status">{status}</span>
-        <strong className="yft-title">{slide.title}</strong>
+        <strong className={`yft-title${slide.title.length > 20 ? ' long' : ''}`}>{slide.title}</strong>
         <p>{slide.summary}</p>
-        {slide.heroStar ? (
+        {slide.day?.shouts.length ? (
+          <span className="yft-shouts">
+            {slide.day.shouts.map((x) => (
+              <a key={x.kind} className="yft-star" href={`/${me}/player/${encodeURIComponent(x.id)}`} onClick={(e) => e.stopPropagation()}
+                title={`${x.name}: ${x.line}`}>
+                ★ {x.kind === 'bat' ? 'Top OPS+' : 'Top FIP-'} {x.name} {x.value} <span>({x.line})</span>
+              </a>
+            ))}
+          </span>
+        ) : slide.heroStar ? (
           <a className="yft-star" href={`/${me}/player/${encodeURIComponent(slide.heroStar[5])}`} onClick={(e) => e.stopPropagation()}>
             ★ {starLine(slide.heroStar, slide.heroIdentity)}
           </a>
@@ -263,6 +277,7 @@ export default function FantasyTimeline() {
   const [data, setData] = useState<{ index: Index; lb: LbGame[]; asof: string } | null>(null);
   const [stars, setStars] = useState<Record<number, Star>>({});
   const [identities, setIdentities] = useState<Record<string, CurrentPlayerIdentity>>({});
+  const [boxes, setBoxes] = useState<Record<string, Record<string, GameBox>>>({});
   const [active, setActive] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -282,6 +297,17 @@ export default function FantasyTimeline() {
     loadStars(region).then((all) => { if (!cancelled) setStars(all[me] || {}); });
     return () => { cancelled = true; };
   }, [region, me]);
+
+  // The box scores of the weeks under way or played (the daily stories).
+  const boxFiles = useMemo(() => [...new Set(cards.filter((c) => c.game && c.file && c.days > 0).map((c) => c.file!))].join(','), [cards]);
+  useEffect(() => {
+    if (!boxFiles) return;
+    let cancelled = false;
+    const files = boxFiles.split(',');
+    Promise.all(files.map((f) => loadBoxes(f).catch(() => ({} as Record<string, GameBox>))))
+      .then((all) => { if (!cancelled) setBoxes(Object.fromEntries(files.map((f, i) => [f, all[i]]))); });
+    return () => { cancelled = true; };
+  }, [boxFiles]);
 
   useEffect(() => {
     const ids = Object.values(stars).map((s) => s[5]);
@@ -305,14 +331,19 @@ export default function FantasyTimeline() {
       const heroWeek = [...done].reverse().find((c) => stars[c.week])?.week;
       const heroStar = heroWeek ? stars[heroWeek] : undefined;
       const base = { round, cards: list, done, wins, losses, opponent, heroStar, firstWeek, lastWeek, complete: done.length === 3 };
+      // The latest week under way: its latest settled day leads the slide.
+      const latest = [...list].reverse().find((c) => c.game && c.file && c.days > 0);
+      const story = latest?.game && latest.file ? dayStory(data.index, latest.game, boxes[latest.file]?.[String(latest.game[0])], me) : null;
+      const day = story && latest ? { ...story, label: `Game ${list.indexOf(latest) + 1} · ${story.day}` } : undefined;
       return {
         ...base,
-        title: starHeadline(heroStar, round, done.length, wins, losses),
-        summary: buildSummary(data.index, base, me, stars),
+        day,
+        title: day?.title || starHeadline(heroStar, round, done.length, wins, losses),
+        summary: day?.summary || buildSummary(data.index, base, me, stars),
         heroIdentity: heroStar ? identities[heroStar[5]] : undefined,
       };
     });
-  }, [cards, data, identities, me, stars]);
+  }, [boxes, cards, data, identities, me, stars]);
 
   const go = useCallback((i: number, smooth = true) => {
     const el = trackRef.current;
@@ -408,6 +439,10 @@ export default function FantasyTimeline() {
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
         .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-title.long { font-size:clamp(22px,2.6vw,34px); }
+        .yft-shouts { display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; margin-top:6px; }
+        .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
+        .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
         .yft-series { position:absolute; z-index:2; right:1.2%; top:8px; bottom:40px; width:16%; min-width:150px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
@@ -455,6 +490,10 @@ export default function FantasyTimeline() {
           .yft-story { left:27%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
+          .yft-title.long { font-size:13px; }
+          .yft-shouts { margin-top:2px; column-gap:6px; row-gap:1px; }
+          .yft-shouts .yft-star span { display:none; }
+          .yft-story:has(.yft-shouts) p { -webkit-line-clamp:4; }
           .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-series { right:1%; top:4px; bottom:27px; width:21%; min-width:0; justify-content:center; }
