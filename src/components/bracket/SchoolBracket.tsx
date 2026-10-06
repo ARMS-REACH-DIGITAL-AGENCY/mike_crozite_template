@@ -474,16 +474,22 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const cs = getComputedStyle(li);
       const gap = parseFloat(cs.columnGap || '0');
       const lcs = getComputedStyle(list);
-      // Room in one full-width column, as laid out in a region list (24px
-      // rank column; A-Z's wider label column takes its 20px back from the
-      // names, so it lines up too). The name column is the longest name in
-      // every region, so the runs sit in the same place in each.
-      const room = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight) - 24 - 22 - 2 * gap;
-      const nameW = Math.ceil(Math.min(longest + 2, room));
+      // The rank (A-Z: region-seed) column fits its header label too.
+      const rkHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rk');
+      const rankW = Math.ceil(Math.max(view === 'az' ? 44 : 24, rkHead ? textW(rkHead) + 4 : 0));
+      list.style.setProperty('--lb-rank-w', `${rankW}px`);
+      // The name column is the longest name in every region, so the runs sit
+      // in the same place in each.
+      const avail = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight);
+      const nameW = Math.ceil(Math.min(longest + 2, avail - rankW - 22 - 2 * gap));
       list.style.setProperty('--lb-name-w', `${nameW}px`);
-      // A school and its runs are one group: each column is just that wide,
-      // and the list takes as many columns as fit (one when two won't).
-      list.style.setProperty('--lb-col-w', `${nameW + 24 + 22 + 2 * gap}px`);
+      // A school and its runs are one group: the list takes as many columns
+      // of those groups as fit (one when two won't), up to 3, each with its
+      // own header.
+      const colW = rankW + nameW + 22 + 2 * gap;
+      const cols = window.matchMedia('(max-width: 599px)').matches ? 1 : Math.max(1, Math.min(3, Math.floor((avail + 22) / (colW + 22))));
+      list.style.setProperty('--lb-cols', String(cols));
+      list.dataset.cols = String(cols);
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -509,6 +515,16 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
           title="The whole field, A-Z" onClick={() => setView('az')}><span>A–Z</span></button>
       </div>
       <div className={`yfp-lb-list${view === 'az' ? ' az' : ''}`} ref={listRef}>
+        {/* The gold header row, one over each column the list shows. */}
+        <div className="yfp-lb-head" aria-hidden="true">
+          {[0, 1, 2].map((c) => (
+            <div key={c} className="yfp-lb-hcol">
+              <span className="rk">{view === 'az' ? 'Region # - Seed #' : 'Rank'}</span>
+              <span className="nm">School</span>
+              <span className="rf">Total Runs</span>
+            </div>
+          ))}
+        </div>
         <ol>{rows.map(({ s, place: rank, region }) => (
           <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
             <span className="rk">{view === 'az' ? `R${region}-S${index.schools[s.h]?.[2] ?? '—'}` : rank}</span>
@@ -1167,13 +1183,21 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel .yfp-lb-regions button.on,
         body.light-theme .yfz-panel .yfp-lb-regions button.on { background:var(--bg,#0c0c0c); border-bottom-color:var(--bg,#0c0c0c); }
         .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:10px; }
-        /* As many columns as fit, up to 3 (a region will have 128 schools), each
-           as wide as the longest school + city and its runs (--lb-col-w). */
-        .yfz-panel .yfp-lb-list ol { columns:var(--lb-col-w, 290px) 3; column-gap:22px; }
-        .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
-        /* A-Z's label column (R3-S15) is 20px wider than the rank column,
-           so its name column gives those 20px back: the runs stay put. */
-        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px calc(var(--lb-name-w, 220px) - 20px) 22px; }
+        /* As many columns as fit, up to 3 (a region will have 128 schools): the
+           count (--lb-cols) is set where the names are measured. */
+        .yfz-panel .yfp-lb-list ol { column-count:var(--lb-cols, 1); column-gap:22px; }
+        /* The gold header row (the drawers' stat header gold and type), one
+           per column, pinned to the top of the list as it scrolls. */
+        .yfz-panel .yfp-lb-head { position:sticky; top:0; z-index:2; display:grid; grid-template-columns:repeat(var(--lb-cols, 1), minmax(0,1fr)); column-gap:22px; margin-bottom:3px; background:var(--bg,#0c0c0c); }
+        .yfz-panel .yfp-lb-hcol { display:grid; grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; align-items:center; height:20px; background:#9c7f22; color:#fff5cf;
+          font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; white-space:nowrap; }
+        .yfz-panel .yfp-lb-hcol .rk { padding-left:4px; }
+        .yfz-panel .yfp-lb-hcol .rf { justify-self:end; padding-right:2px; }
+        .yfz-panel .yfp-lb-list[data-cols="1"] .yfp-lb-hcol:nth-child(n+2),
+        .yfz-panel .yfp-lb-list[data-cols="2"] .yfp-lb-hcol:nth-child(n+3) { display:none; }
+        .yfz-panel .yfp-lb li { grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
+        /* A-Z: the region-seed (R3-S15) sits under its header label. */
+        .yfz-panel .yfp-lb-list.az li .rk { text-align:left; padding-left:4px; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
