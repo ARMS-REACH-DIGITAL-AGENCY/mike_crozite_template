@@ -1152,6 +1152,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            so its name column gives those 20px back: the runs stay put. */
         .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px calc(var(--lb-name-w, 220px) - 20px) 22px; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
+        /* School names in the drawers' player-name type (system-ui 11px). */
+        .yfz-panel .yfp-lb li { font-size:11px; }
+        .yfz-panel .yfp-lb li a small { font-size:.85em; }
+        /* Both stat drawers open: one column, so each school keeps its city. */
+        body.yfp-dock-l.yfp-dock-r .yfz-panel .yfp-lb-list ol { column-count:1; }
+        body.yfp-dock-l.yfp-dock-r .yfz-panel .yfp-lb li { grid-template-columns:24px minmax(0,1fr) 22px; }
+        body.yfp-dock-l.yfp-dock-r .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px minmax(0,1fr) 22px; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
         .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
