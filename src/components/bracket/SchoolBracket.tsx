@@ -48,28 +48,12 @@ function buildFantasyShareUrl(input:{
   awayRuns:number; homeRuns:number; awayCells:string; homeCells:string; headline:string; summary:string; heroId:string;
 }){
   if(typeof window==='undefined')return '';
-  const q=new URLSearchParams();
-  q.set('fantasyGame',String(input.gameId));
-  q.set('week',String(input.week));
-  q.set('fantasyRound',String(input.round));
-  q.set('fantasyGameNo',String(input.gameNo));
-  q.set('fantasyStatus',input.status);
-  q.set('fantasyDates',input.dates);
-  q.set('fantasyAwayId',String(input.awayId));
-  q.set('fantasyHomeId',String(input.homeId));
-  q.set('fantasyAwayName',input.awayName);
-  q.set('fantasyHomeName',input.homeName);
-  q.set('fantasyAwayPlace',input.awayPlace);
-  q.set('fantasyHomePlace',input.homePlace);
-  q.set('fantasyAwayRuns',String(input.awayRuns));
-  q.set('fantasyHomeRuns',String(input.homeRuns));
-  q.set('fantasyAwayCells',input.awayCells);
-  q.set('fantasyHomeCells',input.homeCells);
-  if(input.headline)q.set('fantasyHeadline',input.headline);
-  if(input.summary)q.set('fantasySummary',input.summary);
-  if(input.heroId)q.set('fantasyHeroId',input.heroId);
-  q.set('shareV','3');
-  return `${window.location.origin}${window.location.pathname}?${q.toString()}#sec-fantasy`;
+  const snapshot={v:4,r:input.round,g:input.gameNo,s:input.status,d:input.dates,
+    a:input.awayRuns,h:input.homeRuns,ac:input.awayCells,hc:input.homeCells,
+    t:input.headline,p:input.heroId};
+  const packed=btoa(unescape(encodeURIComponent(JSON.stringify(snapshot))))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return `${window.location.origin}${window.location.pathname}?fantasyGame=${input.gameId}&week=${input.week}&s=${packed}#sec-fantasy`;
 }
 const drawerSchoolParts=(raw:string)=>{
   const normalized=shareSchoolLabel(raw);
