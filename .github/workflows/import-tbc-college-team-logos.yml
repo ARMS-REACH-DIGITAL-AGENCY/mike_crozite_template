@@ -1,0 +1,149 @@
+name: Import TBC College Team Logos
+
+# Builds the current college team-logo target list from the YAT?STATS TBC
+# batting/pitching feeds, downloads direct TBC college logos, uploads them to
+# s3://yatstats-assets/teams/{teamid}.png, then builds the display WebP copies
+# at teams-web/{teamid}.webp. Manual only; dry-run is the default.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Download/check only; do not upload to S3"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      limit:
+        description: "Optional max number of college teamids to process. Blank = all."
+        required: false
+        default: ""
+      only_teamids:
+        description: "Optional comma-separated teamids, e.g. 20966,22207"
+        required: false
+        default: ""
+      overwrite:
+        description: "Replace existing teams/{teamid}.png files"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: import-tbc-college-team-logos
+  cancel-in-progress: false
+
+jobs:
+  import-college-team-logos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      LIMIT: ${{ github.event.inputs.limit || '' }}
+      ONLY_TEAMIDS: ${{ github.event.inputs.only_teamids || '' }}
+      OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 requests beautifulsoup4 pillow
+
+      - name: Build college logo target CSV from TBC feeds
+        run: |
+          python - <<'PY'
+          import csv
+          import io
+          import os
+          import urllib.request
+
+          urls = [
+              "https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw=yattbc",
+              "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw=yattbc",
+          ]
+          only = {x.strip() for x in os.environ.get("ONLY_TEAMIDS", "").split(",") if x.strip()}
+          limit_raw = os.environ.get("LIMIT", "").strip()
+          limit = int(limit_raw) if limit_raw.isdigit() else None
+          teamids = set()
+          for url in urls:
+              req = urllib.request.Request(url, headers={"User-Agent": "YatStatsCollegeLogoImport/1.0"})
+              with urllib.request.urlopen(req, timeout=90) as response:
+                  text = response.read().decode("utf-8", errors="replace").replace("<br>", "\n")
+              for row in csv.DictReader(io.StringIO(text)):
+                  teamid = str(row.get("teamid") or "").strip()
+                  if not teamid.isdigit() or int(teamid) < 20000:
+                      continue
+                  if only and teamid not in only:
+                      continue
+                  teamids.add(teamid)
+          ordered = sorted(teamids, key=lambda x: int(x))
+          if limit is not None:
+              ordered = ordered[:limit]
+          with open("team_logo_targets.csv", "w", newline="", encoding="utf-8") as fh:
+              writer = csv.DictWriter(fh, fieldnames=["teamid", "page_url"])
+              writer.writeheader()
+              for teamid in ordered:
+                  writer.writerow({
+                      "teamid": teamid,
+                      "page_url": f"https://www.thebaseballcube.com/content/college_history/{teamid}/",
+                  })
+          with open("team_logo_ids.txt", "w", encoding="utf-8") as fh:
+              fh.write(",".join(ordered))
+          print(f"college team logo targets: {len(ordered)}")
+          print(",".join(ordered[:25]))
+          PY
+
+      - name: Fetch TBC college logos
+        run: |
+          args=(
+            --input team_logo_targets.csv
+            --bucket "$YATSTATS_S3_BUCKET"
+            --prefix teams/
+            --delay 0.75
+            --max-candidates 1
+            --logo-url-template 'https://www.thebaseballcube.com/images/colleges/{teamid}.png'
+          )
+          if [ "$DRY_RUN" != "true" ]; then args+=(--upload); fi
+          if [ "$OVERWRITE" = "true" ]; then args+=(--overwrite); fi
+          python scripts/scrape_tbc_team_logos_to_s3.py "${args[@]}" | tee tbc-college-logo-import.log
+
+      - name: Build teams-web logo derivatives
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          export KINDS=team-logo
+          export DRY_RUN=false
+          export OVERWRITE=false
+          # Build missing/stale derivatives across teams/. Newly uploaded or replaced
+          # college logos are newer than teams-web/, so they are picked up without
+          # passing a very long ONLY_IDS environment variable.
+          python scripts/build-web-cutouts-s3.py | tee tbc-college-logo-web-build.log
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tbc-college-team-logo-report
+          path: |
+            team_logo_targets.csv
+            team_logo_ids.txt
+            tbc-college-logo-import.log
+            tbc-college-logo-web-build.log
+          if-no-files-found: ignore
