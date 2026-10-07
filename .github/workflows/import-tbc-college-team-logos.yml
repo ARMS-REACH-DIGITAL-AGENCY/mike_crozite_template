@@ -1,7 +1,7 @@
 name: Import TBC College Team Logos
 
-# Builds the current college team-logo target list from the YAT?STATS TBC
-# batting/pitching feeds, downloads direct TBC college logos, uploads them to
+# Builds a full college-logo target list from The Baseball Cube's direct
+# college logo id range, uploads missing raw logos to
 # s3://yatstats-assets/teams/{teamid}.png, then builds the display WebP copies
 # at teams-web/{teamid}.webp. Manual only; dry-run is the default.
 
@@ -16,6 +16,14 @@ on:
         options:
           - "true"
           - "false"
+      range_start:
+        description: "First TBC college teamid to scan when only_teamids is blank."
+        required: false
+        default: "20001"
+      range_end:
+        description: "Last TBC college teamid to scan when only_teamids is blank."
+        required: false
+        default: "22578"
       limit:
         description: "Optional max number of college teamids to process. Blank = all."
         required: false
@@ -24,6 +32,10 @@ on:
         description: "Optional comma-separated teamids, e.g. 20966,22207"
         required: false
         default: ""
+      extra_teamids:
+        description: "Optional comma-separated IDs to add to the scanned range."
+        required: false
+        default: "20947"
       overwrite:
         description: "Replace existing teams/{teamid}.png files"
         required: false
@@ -49,8 +61,11 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       YATSTATS_S3_BUCKET: yatstats-assets
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      RANGE_START: ${{ github.event.inputs.range_start || '20001' }}
+      RANGE_END: ${{ github.event.inputs.range_end || '22578' }}
       LIMIT: ${{ github.event.inputs.limit || '' }}
       ONLY_TEAMIDS: ${{ github.event.inputs.only_teamids || '' }}
+      EXTRA_TEAMIDS: ${{ github.event.inputs.extra_teamids || '20947' }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
 
     steps:
@@ -67,36 +82,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install boto3 requests beautifulsoup4 pillow
 
-      - name: Build college logo target CSV from TBC feeds
+      - name: Build full college logo target CSV from TBC id range
         run: |
           python - <<'PY'
           import csv
-          import io
           import os
-          import urllib.request
 
-          urls = [
-              "https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw=yattbc",
-              "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw=yattbc",
-          ]
-          only = {x.strip() for x in os.environ.get("ONLY_TEAMIDS", "").split(",") if x.strip()}
+          def csv_ids(value: str) -> set[str]:
+              return {x.strip() for x in value.split(",") if x.strip()}
+
+          only = csv_ids(os.environ.get("ONLY_TEAMIDS", ""))
+          extra = csv_ids(os.environ.get("EXTRA_TEAMIDS", ""))
           limit_raw = os.environ.get("LIMIT", "").strip()
           limit = int(limit_raw) if limit_raw.isdigit() else None
-          teamids = set()
-          for url in urls:
-              req = urllib.request.Request(url, headers={"User-Agent": "YatStatsCollegeLogoImport/1.0"})
-              with urllib.request.urlopen(req, timeout=90) as response:
-                  text = response.read().decode("utf-8", errors="replace").replace("<br>", "\n")
-              for row in csv.DictReader(io.StringIO(text)):
-                  teamid = str(row.get("teamid") or "").strip()
-                  if not teamid.isdigit() or int(teamid) < 20000:
-                      continue
-                  if only and teamid not in only:
-                      continue
-                  teamids.add(teamid)
-          ordered = sorted(teamids, key=lambda x: int(x))
+
+          if only:
+              teamids = set(only)
+          else:
+              start = int(os.environ.get("RANGE_START", "20001"))
+              end = int(os.environ.get("RANGE_END", "22578"))
+              if end < start:
+                  raise SystemExit(f"range_end {end} is before range_start {start}")
+              teamids = {str(i) for i in range(start, end + 1)} | extra
+
+          ordered = sorted((x for x in teamids if x.isdigit()), key=lambda x: int(x))
           if limit is not None:
               ordered = ordered[:limit]
+
           with open("team_logo_targets.csv", "w", newline="", encoding="utf-8") as fh:
               writer = csv.DictWriter(fh, fieldnames=["teamid", "page_url"])
               writer.writeheader()
