@@ -32,6 +32,10 @@ on:
         description: "Optional hsid=MaxPreps page URL pairs, comma-separated, for schools the matcher missed"
         required: false
         default: ""
+      fix_ids_since:
+        description: "Repair run instead of fetching: move logos written since this UTC time (e.g. 2026-10-07T01:30:00Z) to the school's real hsid. dry_run prints the plan."
+        required: false
+        default: ""
       csv_path:
         description: "Path to schools CSV inside this repo"
         required: true
@@ -61,7 +65,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install boto3 requests pillow numpy scipy
 
+      - name: Repair logo hsids
+        if: ${{ github.event.inputs.fix_ids_since != '' }}
+        run: |
+          python scripts/fix_hs_logo_ids.py --since "${{ github.event.inputs.fix_ids_since }}" \
+            ${{ github.event.inputs.mode == 'dry_run' && ' ' || '--apply' }}
+
       - name: Find and save logos
+        if: ${{ github.event.inputs.fix_ids_since == '' }}
         run: |
           python scripts/fetch_hs_logos.py \
             --csv "${{ github.event.inputs.csv_path }}" \
