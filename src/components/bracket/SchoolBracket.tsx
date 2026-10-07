@@ -31,6 +31,7 @@ import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } fro
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
+import { dayStory } from './dayStory';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { Roboto_Condensed } from 'next/font/google';
 import { TEST_BRACKET } from '@/lib/bracket/testSeason';
@@ -40,6 +41,36 @@ const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-s
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
 const shareSchoolLabel=(raw:string)=>raw.replace(/,\s*/g,', ').trim();
+const encodeShareCells=(cells:{v:number|'';now:boolean}[])=>cells.map((x)=>x.v===''?'_':`${x.v}${x.now?'y':'w'}`).join('.');
+function buildFantasyShareUrl(input:{
+  gameId:number; week:number; round:number; gameNo:number; status:string; dates:string;
+  awayId:number; homeId:number; awayName:string; homeName:string; awayPlace:string; homePlace:string;
+  awayRuns:number; homeRuns:number; awayCells:string; homeCells:string; headline:string; summary:string; heroId:string;
+}){
+  if(typeof window==='undefined')return '';
+  const q=new URLSearchParams();
+  q.set('fantasyGame',String(input.gameId));
+  q.set('week',String(input.week));
+  q.set('fantasyRound',String(input.round));
+  q.set('fantasyGameNo',String(input.gameNo));
+  q.set('fantasyStatus',input.status);
+  q.set('fantasyDates',input.dates);
+  q.set('fantasyAwayId',String(input.awayId));
+  q.set('fantasyHomeId',String(input.homeId));
+  q.set('fantasyAwayName',input.awayName);
+  q.set('fantasyHomeName',input.homeName);
+  q.set('fantasyAwayPlace',input.awayPlace);
+  q.set('fantasyHomePlace',input.homePlace);
+  q.set('fantasyAwayRuns',String(input.awayRuns));
+  q.set('fantasyHomeRuns',String(input.homeRuns));
+  q.set('fantasyAwayCells',input.awayCells);
+  q.set('fantasyHomeCells',input.homeCells);
+  if(input.headline)q.set('fantasyHeadline',input.headline);
+  if(input.summary)q.set('fantasySummary',input.summary);
+  if(input.heroId)q.set('fantasyHeroId',input.heroId);
+  q.set('shareV','3');
+  return `${window.location.origin}${window.location.pathname}?${q.toString()}#sec-fantasy`;
+}
 const drawerSchoolParts=(raw:string)=>{
   const normalized=shareSchoolLabel(raw);
   const m=normalized.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
@@ -222,16 +253,38 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     </>
   );
 
-  const social = g ? (
+  const awayRaw=S[g[3]]?.[0]||'';
+  const homeRaw=S[g[2]]?.[0]||'';
+  const awayName=shortName(awayRaw),homeName=shortName(homeRaw);
+  const story=previewData?.box?dayStory(index,g,previewData.box,me):null;
+  const fallbackCells=(side:'a'|'h')=>Array.from({length:9},(_,i)=>{
+    const off=side==='h'?0:1;
+    const shown=card.state==='final'||(card.state==='live'&&i<Math.min(card.days,9));
+    return {v:shown?(shownInnings[i*2+off]||0):'' as number|'',now:false};
+  });
+  const awayCells=lv?lv.cells[0]:fallbackCells('a');
+  const homeCells=lv?lv.cells[1]:fallbackCells('h');
+  const shareUrl=buildFantasyShareUrl({
+    gameId:g[0],week:card.week,round,gameNo,status:pill,dates:dates(index,card.week),
+    awayId:g[3],homeId:g[2],awayName,homeName,awayPlace:place(awayRaw),homePlace:place(homeRaw),
+    awayRuns:ar,homeRuns:hr,awayCells:encodeShareCells(awayCells),homeCells:encodeShareCells(homeCells),
+    headline:story?.title||`${awayName.toUpperCase()} vs ${homeName.toUpperCase()}`,
+    summary:story?.summary||`${awayName} ${ar}, ${homeName} ${hr} · ${pill}`,
+    heroId:story?.hero?.id||''
+  });
+  const shareText=story?.title
+    ? `${story.title} — ${pill}: ${awayName} ${ar}, ${homeName} ${hr}.`
+    : `${pill}: ${awayName} ${ar}, ${homeName} ${hr}.`;
+  const social = (
     <FantasyGameSocial
       gameKey={`sim-2026:${g[0]}`}
       title={`Round ${round} · Game ${gameNo}`}
-      subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
-      shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}#sec-fantasy`}
+      subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
+      shareText={shareText}
+      shareUrl={shareUrl}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
-  ) : null;
+  );
 
   return (
     <article className={`yfp-card yfp-scorecard ${card.state}${focused ? ' focus' : ''}`} id={domId || `fweek-${card.week}`}>
